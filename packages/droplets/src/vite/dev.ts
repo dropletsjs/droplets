@@ -1,0 +1,293 @@
+import { relative, sep } from "node:path";
+import { isRunnableDevEnvironment } from "vite";
+import type { DevEnvironment, EnvironmentModuleNode, ViteDevServer } from "vite";
+import { discoverDroplets, dropletId } from "../core/discover.ts";
+import { logger } from "../core/logger.ts";
+import { entryServerPath, toViteFsPath } from "../core/paths.ts";
+import { CORE_SUFFIXES } from "../renderer.ts";
+import {
+  createApp,
+  type GetDropletMeta,
+  type LoadClientModule,
+  type LoadDropletData,
+  type RenderDroplet,
+} from "../runtime/app.ts";
+import type { SsrModule } from "../server/app.ts";
+import { withViteIdAliases } from "./externalize.ts";
+import { checkImportMap } from "./importmap-check.ts";
+import { readIndexHtml } from "./index-page.ts";
+import { externalsList, fallbackPrerenderHost, type PluginState } from "./state.ts";
+import { syncTypes } from "./types.ts";
+import { clientEntryId, RESOLVED_VIRTUAL_DROPLETS } from "./virtual.ts";
+
+function normalizePath(value: string): string {
+  return value.replace(/\\/g, "/");
+}
+
+/**
+ * `/src/droplets/HelloWorld/+droplet.svelte` -> `hello-world`. With
+ * `extensions`, only component suffixes a renderer handles match; without,
+ * any suffix that is not a load file's (`+droplet.ts`, `+droplet.server.ts`).
+ */
+export function extractDropletIdFromModuleId(id: string, extensions?: string[]): string | null {
+  const match = normalizePath(id.split("?")[0] ?? "").match(
+    /\/([^/]+)\/\+[Dd]roplet(\.[^/]+)$/,
+  );
+  if (!match?.[1] || !match[2]) return null;
+  const suffix = match[2];
+  if (CORE_SUFFIXES.has(suffix)) return null;
+  if (extensions && !extensions.includes(suffix)) return null;
+  return dropletId(match[1]);
+}
+
+/** The droplet folder a file belongs to, if it is inside the droplets root. */
+export function dropletForFile(
+  dropletsRoot: string,
+  file: string,
+): string | null {
+  const rel = relative(dropletsRoot, file);
+  if (!rel || rel.startsWith("..") || rel.includes(`..${sep}`)) return null;
+  const folder = rel.split(sep)[0];
+  return folder ? dropletId(folder) : null;
+}
+
+/**
+ * Maps changed modules to the droplets affected by them. A file inside a
+ * droplet folder is unambiguous; anything else (a shared component, a util)
+ * is traced upwards through the module graph until droplet entries are
+ * found, so editing a shared file refreshes every droplet using it.
+ */
+export function affectedDroplets(
+  dropletsRoot: string,
+  file: string,
+  modules: Iterable<EnvironmentModuleNode>,
+  extensions?: string[],
+): Set<string> {
+  const found = new Set<string>();
+
+  const direct = dropletForFile(dropletsRoot, file);
+  if (direct) {
+    found.add(direct);
+    return found;
+  }
+
+  const queue: EnvironmentModuleNode[] = [...modules];
+  const visited = new Set<EnvironmentModuleNode>();
+  while (queue.length) {
+    const mod = queue.pop();
+    if (!mod || visited.has(mod)) continue;
+    visited.add(mod);
+
+    if (mod.id) {
+      const droplet = extractDropletIdFromModuleId(mod.id, extensions);
+      if (droplet) found.add(droplet);
+    }
+    for (const importer of mod.importers) {
+      if (!visited.has(importer)) queue.push(importer);
+    }
+  }
+
+  return found;
+}
+
+/**
+ * Forces the generated registry to be rebuilt in every environment. Needed
+ * when a droplet folder appears or disappears, since the registry is derived
+ * from the filesystem rather than from any import.
+ */
+export function invalidateRegistry(server: ViteDevServer): void {
+  for (const env of Object.values(server.environments)) {
+    const mod = env.moduleGraph.getModuleById(RESOLVED_VIRTUAL_DROPLETS);
+    if (mod) env.moduleGraph.invalidateModule(mod);
+  }
+}
+
+export type DevRuntime = {
+  loadSsrModule: () => Promise<SsrModule>;
+  refreshDropletMap: () => Promise<void>;
+  /** Folder name per droplet id; folders may be cased differently. */
+  folderById: () => Map<string, string>;
+};
+
+export function createDevRuntime(
+  server: ViteDevServer,
+  state: PluginState,
+): DevRuntime {
+  let folderById = new Map<string, string>();
+
+  const ssrEnvironment = (): DevEnvironment | undefined =>
+    server.environments["ssr"];
+
+  const loadSsrModule = async (): Promise<SsrModule> => {
+    const env = ssrEnvironment();
+    if (env && isRunnableDevEnvironment(env)) {
+      return (await env.runner.import(entryServerPath)) as SsrModule;
+    }
+    return (await server.ssrLoadModule(toViteFsPath(entryServerPath))) as SsrModule;
+  };
+
+  const refreshDropletMap = async () => {
+    let entries;
+    try {
+      entries = await discoverDroplets(state.dropletsRoot, state.renderers, { dev: true });
+    } catch (error) {
+      // A folder in a bad state (two components, an unknown extension):
+      // keep serving what was there and say what is wrong.
+      logger.error("framework", error instanceof Error ? error.message : String(error));
+      return;
+    }
+    state.entries = entries;
+    await syncTypes(state);
+    folderById = new Map(entries.map((e) => [e.id, e.name]));
+    logger.debug("framework", "droplet map", [...folderById.keys()]);
+  };
+
+  return {
+    loadSsrModule,
+    refreshDropletMap,
+    folderById: () => folderById,
+  };
+}
+
+/**
+ * The Hono app for `vite dev`: Vite transforms modules on demand, the SSR
+ * module is re-evaluated per request so edits show up without a restart.
+ */
+export function createDevApp(
+  server: ViteDevServer,
+  state: PluginState,
+  runtime: DevRuntime,
+) {
+  const { config } = state;
+
+  const renderDroplet: RenderDroplet = async (name, event, options) => {
+    const mod = await runtime.loadSsrModule();
+    const render = mod.renderDroplet ?? mod.default;
+    return render ? render(name, event, options) : null;
+  };
+
+  const getDropletMeta: GetDropletMeta = async (name) => {
+    const mod = await runtime.loadSsrModule();
+    return (await mod.getDropletMeta?.(name)) ?? { exists: true, ssr: true };
+  };
+
+  const loadDropletData: LoadDropletData = async (name, event) => {
+    const mod = await runtime.loadSsrModule();
+    return mod.loadDropletData ? mod.loadDropletData(name, event) : { data: undefined };
+  };
+
+  const clientEnvironment = () => {
+    const env = server.environments["client"];
+    if (!env) throw new Error("droplets: Vite has no client environment");
+    return env;
+  };
+
+  const loadClientModule: LoadClientModule = async (name) => {
+    if (!runtime.folderById().has(name)) await runtime.refreshDropletMap();
+    const folder = runtime.folderById().get(name) ?? name;
+    const result = await clientEnvironment().transformRequest(clientEntryId(folder));
+    return result?.code ?? null;
+  };
+
+  const loadEntryClient = async () => {
+    const result = await clientEnvironment().transformRequest(
+      toViteFsPath(state.entryClientPath),
+    );
+    return result?.code ?? null;
+  };
+
+  // Hand the browser an @import so Vite serves and watches the real file.
+  const loadGlobalStyle = () => {
+    const path = state.css.path;
+    if (!path) return "";
+    const href = path.startsWith("/") ? path : `/${path.replace(/^\.\//, "")}`;
+    return `@import ${JSON.stringify(href)};\n`;
+  };
+
+  /**
+   * Styles reach the browser through JavaScript in dev: Vite injects the
+   * shared stylesheet with the entry and component styles with the droplet's
+   * client module. So a droplet has no stylesheets of its own here:
+   * `style.css` is empty, and fragments neither link nor preload one. A
+   * droplet with `hydrate = false` therefore renders without its component
+   * styles in dev, styled in a production build.
+   */
+  const dropletStyles = (): string[] => [];
+
+  /** Warnings already printed, so an unchanged map does not repeat them. */
+  const warned = new Set<string>();
+
+  return createApp({
+    element: config.element,
+    health: config.health,
+    importMap: config.importMap,
+    getImportMap: async () => (await runtime.loadSsrModule()).getImportMap?.(),
+    externals: () => externalsList(state),
+    // Vite serves bare imports as `/@id/<name>` in dev; map both spellings.
+    transformImportMap: (map, externals) => {
+      if (config.warnImportMap) {
+        for (const warning of checkImportMap(map, externals, state.root)) {
+          if (warned.has(warning)) continue;
+          warned.add(warning);
+          logger.warn("framework", `importmap: ${warning} (warnImportMap: false hides this)`);
+        }
+      }
+      return { ...map, imports: withViteIdAliases(map.imports) ?? {} };
+    },
+    // Re-read per request, so editing hooks.server.ts or a +server.ts shows
+    // up on the next request.
+    getHandle: async () => (await runtime.loadSsrModule()).getHandle?.(),
+    matchApi: async (pathname) => (await runtime.loadSsrModule()).matchApi?.(pathname) ?? null,
+    renderError: async (name, error) =>
+      (await runtime.loadSsrModule()).renderError?.(name, error) ?? null,
+    getHandleError: async () => (await runtime.loadSsrModule()).getHandleError?.(),
+    validateProps: async (name, props) => {
+      const mod = await runtime.loadSsrModule();
+      return mod.validateDropletProps ? mod.validateDropletProps(name, props) : props;
+    },
+    transformDroplet: async (name, event) => {
+      const mod = await runtime.loadSsrModule();
+      return mod.transformDroplet ? mod.transformDroplet(name, event) : event.html;
+    },
+    findAction: async (name, action) => {
+      const mod = await runtime.loadSsrModule();
+      return mod.findAction ? mod.findAction(name, action) : "none";
+    },
+    dev: true,
+    // Nothing is prerendered in dev: props `entries` lists render live, the
+    // others behave as in a build (404 when the droplet has `ssr = false`).
+    loadPrerendered: async (name, key, event) => {
+      const mod = await runtime.loadSsrModule();
+      const keys = (await mod.prerenderKeys?.(name, fallbackPrerenderHost(state))) ?? [];
+      if (!keys.includes(key)) return null;
+      const result = await (mod.renderDroplet ?? mod.default)?.(name, event);
+      if (!result) return null;
+      if (!result.failed) return { html: result.html ?? result.body ?? "", data: result.serverData };
+      const page = await mod.renderError?.(name, result.error);
+      return {
+        html: page ? `${page.head ?? ""}${page.html ?? page.body ?? ""}` : "",
+        failed: true,
+        error: result.error,
+      };
+    },
+    // The devtools answer `/` before this app when they are installed.
+    loadIndex: () => readIndexHtml(state.root, config.index),
+    renderDroplet,
+    loadDropletData,
+    getDropletMeta,
+    loadClientModule,
+    loadEntryClient,
+    publicEnv: async () => (await runtime.loadSsrModule()).publicEnv?.() ?? {},
+    loadGlobalStyle,
+    dropletStyles,
+    // `/index.js` is the entry itself, and modules come one by one: nothing
+    // worth announcing ahead.
+    linkHeader: false,
+    buildHash: state.buildHash,
+    cors: config.cors,
+    trustedOrigins: config.trustedOrigins,
+    fragmentCacheControl: config.fragmentCacheControl,
+    csrf: config.csrf,
+    limits: config.limits,
+  });
+}

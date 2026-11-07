@@ -1,0 +1,116 @@
+{
+  "name": "@dropletsjs/droplets",
+  "version": "0.1.0",
+  "description": "Micro-frontends on Hono, as a Vite plugin: per-droplet SSR, selective hydration, independent bundles, embeddable from any stack, with pluggable renderers (Svelte, Vue, React, Preact, Solid, Hono JSX, Handlebars, Lit).",
+  "keywords": [
+    "hono",
+    "vite-plugin",
+    "micro-frontends",
+    "ssr",
+    "islands",
+    "web-components",
+    "svelte",
+    "vue",
+    "solid",
+    "react"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dropletsjs/droplets.git",
+    "directory": "packages/droplets"
+  },
+  "homepage": "https://dropletsjs.dev",
+  "bugs": {
+    "url": "https://github.com/dropletsjs/droplets/issues"
+  },
+  "type": "module",
+  "bin": {
+    "djs": "./bin/djs.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "default": "./dist/vite.js"
+    },
+    "./server": {
+      "types": "./dist/runtime/server.d.ts",
+      "default": "./dist/runtime/server.js"
+    },
+    "./env": {
+      "types": "./dist/env.d.ts",
+      "default": "./dist/env.js"
+    },
+    "./postcss": {
+      "types": "./dist/postcss.d.ts",
+      "default": "./dist/postcss.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    },
+    "./enhance": {
+      "types": "./dist/runtime/enhance.d.ts",
+      "default": "./dist/runtime/enhance.js"
+    },
+    "./ambient": {
+      "types": "./ambient.d.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "ambient.d.ts",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.8.1",
+    "@hono/node-server": "^2.1.6",
+    "case-anything": "^3.1.7",
+    "hono": "^4.13.16",
+    "postcss": "^8.5.0",
+    "postcss-selector-parser": "^7.1.0"
+  },
+  "peerDependencies": {
+    "@tailwindcss/vite": "^4.3.4",
+    "tailwindcss": "^4.3.4",
+    "vite": "^8.0.0",
+    "vitest": "^5.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.4",
+    "@types/node": "^24.9.0",
+    "happy-dom": "^21.0.4",
+    "tailwindcss": "^4.3.4",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@tailwindcss/vite": {
+      "optional": true
+    },
+    "tailwindcss": {
+      "optional": true
+    },
+    "vitest": {
+      "optional": true
+    }
+  }
+}

@@ -1,0 +1,360 @@
+import { describe, expect, it, vi } from "vitest";
+import { createApp, type AppOptions } from "../../src/runtime/app.ts";
+import { encodeBase64 } from "../../src/runtime/base64.ts";
+import type { ApiModule } from "../../src/runtime/routes.ts";
+import { matchRoute } from "../../src/runtime/routes.ts";
+import { json, type LoadEvent } from "../../src/runtime/server.ts";
+import { setRuntimeEnv } from "../../src/runtime/env-store.ts";
+import { isCrossSiteCapable } from "../../src/runtime/security.ts";
+
+const echo: ApiModule = {
+  POST: async ({ request }) => json({ body: await request.text() }),
+  PUT: () => json({ ok: true }),
+  DELETE: () => json({ ok: true }),
+};
+
+function fakeApp(overrides: Partial<AppOptions> = {}) {
+  const renderDroplet = vi.fn(async (name: string, event: LoadEvent) => ({
+    html: `<p>${name}:${JSON.stringify(event.props)}</p>`,
+    serverData: { props: event.props },
+  }));
+  const handled = vi.fn();
+  const options: AppOptions = {
+    renderDroplet,
+    loadDropletData: async (_name, event) => ({ data: { props: event.props } }),
+    getDropletMeta: (name) => ({ exists: name !== "missing", ssr: true, hydrate: true }),
+    getHandle: () => ({ event, resolve }) => {
+      handled();
+      return resolve(event);
+    },
+    matchApi: (pathname) =>
+      matchRoute([{ id: "echo", segments: [{ type: "static", value: "api" }, { type: "static", value: "echo" }], module: echo }], pathname),
+    ...overrides,
+  };
+  return { app: createApp(options), renderDroplet, handled };
+}
+
+const form = (origin?: string, type = "application/x-www-form-urlencoded", method = "POST") => ({
+  method,
+  headers: { "content-type": type, ...(origin ? { origin } : {}) },
+  body: "sku=mug",
+});
+
+describe("CSRF: the Origin check", () => {
+  it("knows which requests a page on another site can send without a preflight", () => {
+    const request = (method: string, type?: string) =>
+      new Request("http://x/", { method, ...(type ? { headers: { "content-type": type } } : {}), body: "x" });
+    expect(isCrossSiteCapable(request("POST", "application/x-www-form-urlencoded"))).toBe(true);
+    expect(isCrossSiteCapable(request("PUT", "multipart/form-data; boundary=x"))).toBe(true);
+    expect(isCrossSiteCapable(request("PATCH", "Text/Plain;charset=UTF-8"))).toBe(true);
+    expect(isCrossSiteCapable(request("DELETE", "text/plain"))).toBe(true);
+    expect(isCrossSiteCapable(request("POST", "application/json"))).toBe(false);
+    expect(isCrossSiteCapable(new Request("http://x/", { method: "GET" }))).toBe(false);
+  });
+
+  it("refuses a cross-site form post to droplets and /api, before handle", async () => {
+    const { app, handled, renderDroplet } = fakeApp();
+    for (const path of ["/droplets/hello", "/droplets/hello/_data", "/api/echo"]) {
+      const res = await app.request(`http://drops.example${path}`, form("https://evil.example"));
+      expect(res.status, path).toBe(403);
+    }
+    const fragment = await app.request("http://drops.example/droplets/hello", form("https://evil.example"));
+    expect(await fragment.text()).toBe("Cross-site POST form submissions are forbidden");
+    const api = await app.request("http://drops.example/api/echo", form("https://evil.example", "text/plain"));
+    expect(await api.json()).toEqual({ message: "Cross-site POST form submissions are forbidden" });
+    expect(handled).not.toHaveBeenCalled();
+    expect(renderDroplet).not.toHaveBeenCalled();
+  });
+
+  it("refuses PUT, PATCH and DELETE forms too, and a form without an Origin", async () => {
+    const { app } = fakeApp();
+    for (const method of ["PUT", "DELETE"]) {
+      expect((await app.request("http://drops.example/api/echo", form("https://evil.example", "multipart/form-data; boundary=x", method))).status).toBe(403);
+    }
+    expect((await app.request("http://drops.example/api/echo", form())).status).toBe(403);
+  });
+
+  it("lets the same origin, a trusted x-host's origin and trusted origins through", async () => {
+    const { app } = fakeApp({ trustedOrigins: ["https://shop.example", "https://public.example"] });
+    const same = await app.request("http://drops.example/api/echo", form("http://drops.example"));
+    expect(await same.json()).toEqual({ body: "sku=mug" });
+    const trusted = await app.request("http://drops.example/api/echo", form("https://shop.example"));
+    expect(trusted.status).toBe(200);
+    const proxied = await app.request("http://internal:8000/api/echo", {
+      ...form("https://public.example"),
+      headers: { ...form("https://public.example").headers, "x-host": "https://public.example/" },
+    });
+    expect(proxied.status).toBe(200);
+    expect((await app.request("http://drops.example/api/echo", form("https://other.example"))).status).toBe(403);
+  });
+
+  it("does not let an untrusted x-host vouch for its own origin", async () => {
+    const { app, handled } = fakeApp({ trustedOrigins: ["https://shop.example"] });
+    const spoofed = await app.request("http://drops.example/api/echo", {
+      ...form("https://evil.example"),
+      headers: { ...form("https://evil.example").headers, "x-host": "https://evil.example/" },
+    });
+    expect(spoofed.status).toBe(403);
+    const unlisted = fakeApp();
+    expect((await unlisted.app.request("http://drops.example/api/echo", {
+      ...form("https://evil.example"),
+      headers: { ...form("https://evil.example").headers, "x-host": "https://evil.example/" },
+    })).status).toBe(403);
+    expect(handled).not.toHaveBeenCalled();
+  });
+
+  it("trusts every origin with \"*\", or none of this with checkOrigin off", async () => {
+    expect((await fakeApp({ trustedOrigins: ["*"] }).app.request("http://drops.example/api/echo", form("https://evil.example"))).status).toBe(200);
+    expect((await fakeApp({ csrf: { checkOrigin: false } }).app.request("http://drops.example/api/echo", form())).status).toBe(200);
+  });
+
+  it("leaves JSON posts and GETs alone: CORS answers those", async () => {
+    const { app } = fakeApp();
+    const res = await app.request("http://drops.example/droplets/hello", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "https://evil.example" },
+      body: JSON.stringify({ props: { a: 1 } }),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('<p>hello:{"a":1}</p>');
+    expect((await app.request("http://drops.example/droplets/hello?a=1", { headers: { origin: "https://evil.example" } })).status).toBe(200);
+  });
+
+  it("refuses an untyped unsafe request from an untrusted Origin, and lets one without an Origin through", async () => {
+    const { app, handled } = fakeApp();
+    // No body, or bytes: no content type at all, which a page may send cross-site.
+    const untyped = (method: string, origin?: string): RequestInit => ({
+      method,
+      ...(origin ? { headers: { origin } } : {}),
+      body: method === "DELETE" ? null : new Uint8Array([1, 2, 3]),
+    });
+    for (const method of ["POST", "PUT", "DELETE"]) {
+      expect((await app.request("http://drops.example/api/echo", untyped(method, "https://evil.example"))).status, method).toBe(403);
+      expect((await app.request("http://drops.example/droplets/hello", untyped(method, "https://evil.example"))).status, method).toBe(403);
+    }
+    expect(handled).not.toHaveBeenCalled();
+    // Server to server: no Origin, no browser behind it.
+    expect((await app.request("http://drops.example/api/echo", untyped("POST"))).status).toBe(200);
+    expect((await app.request("http://drops.example/api/echo", untyped("POST", "http://drops.example"))).status).toBe(200);
+  });
+
+  it("trusts DROPLETS_TRUSTED_ORIGINS at runtime, with the configured list, and skips bad entries", async () => {
+    const { app } = fakeApp({ trustedOrigins: ["https://config.example"] });
+    try {
+      setRuntimeEnv({ DROPLETS_TRUSTED_ORIGINS: " https://env.example/ , not a url, javascript:alert(1),https://two.example" });
+      expect((await app.request("http://drops.example/api/echo", form("https://env.example"))).status).toBe(200);
+      expect((await app.request("http://drops.example/api/echo", form("https://two.example"))).status).toBe(200);
+      expect((await app.request("http://drops.example/api/echo", form("https://config.example"))).status).toBe(200);
+      expect((await app.request("http://drops.example/api/echo", form("https://evil.example"))).status).toBe(403);
+      // Read per request: a new value counts without a new app.
+      setRuntimeEnv({ DROPLETS_TRUSTED_ORIGINS: "https://later.example" });
+      expect((await app.request("http://drops.example/api/echo", form("https://env.example"))).status).toBe(403);
+      expect((await app.request("http://drops.example/api/echo", form("https://later.example"))).status).toBe(200);
+    } finally {
+      setRuntimeEnv(undefined);
+    }
+  });
+
+  it("does not guard other paths", async () => {
+    const { app } = fakeApp({ loadIndex: () => "<p>home</p>" });
+    expect((await app.request("http://drops.example/health", form("https://evil.example"))).status).not.toBe(403);
+  });
+});
+
+describe("body limits", () => {
+  const limits = { json: 64, form: 32, multipart: 128, props: 40 };
+
+  it("answers 413 for a body over its type's limit, by content-length", async () => {
+    const { app, handled } = fakeApp({ limits });
+    const big = await app.request("http://drops.example/droplets/hello", {
+      method: "POST",
+      headers: { "content-type": "application/json", "content-length": "65" },
+      body: JSON.stringify({ props: { a: "x".repeat(50) } }),
+    });
+    expect(big.status).toBe(413);
+    expect(await big.text()).toBe("Payload Too Large");
+    expect(handled).not.toHaveBeenCalled();
+
+    const api = await app.request("http://drops.example/api/echo", {
+      ...form("http://drops.example"),
+      body: `sku=${"x".repeat(40)}`,
+    });
+    expect(api.status).toBe(413);
+    expect(await api.json()).toEqual({ message: "Payload Too Large" });
+  });
+
+  it("counts a streamed body without a content-length", async () => {
+    const { app } = fakeApp({ limits });
+    const stream = (size: number) =>
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode("x".repeat(size)));
+          controller.close();
+        },
+      });
+    const over = await app.request("http://drops.example/api/echo", {
+      method: "POST",
+      headers: { "content-type": "application/octet-stream", origin: "http://drops.example" },
+      body: stream(200),
+      duplex: "half",
+    } as RequestInit);
+    expect(over.status).toBe(413);
+    const under = await app.request("http://drops.example/api/echo", {
+      method: "POST",
+      headers: { "content-type": "application/octet-stream", origin: "http://drops.example" },
+      body: stream(100),
+      duplex: "half",
+    } as RequestInit);
+    expect(await under.json()).toEqual({ body: "x".repeat(100) });
+  });
+
+  it("answers 413 for a streamed JSON body over the limit on a render route", async () => {
+    const { app, renderDroplet, handled } = fakeApp({ limits });
+    const res = await app.request("http://drops.example/droplets/hello", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(JSON.stringify({ props: { a: "x".repeat(200) } })));
+          controller.close();
+        },
+      }),
+      duplex: "half",
+    } as RequestInit);
+    expect(res.status).toBe(413);
+    expect(handled).not.toHaveBeenCalled();
+    expect(renderDroplet).not.toHaveBeenCalled();
+  });
+
+  it("takes bodies within the limits", async () => {
+    const { app } = fakeApp({ limits });
+    const res = await app.request("http://drops.example/droplets/hello", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ props: { a: 1 } }),
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it("answers 431 for an x-droplet-props header over its limit", async () => {
+    const { app } = fakeApp({ limits });
+    const header = (props: unknown) => ({ headers: { "x-droplet-props": encodeBase64(JSON.stringify(props)) } });
+    expect((await app.request("http://drops.example/droplets/hello", header({ a: "x".repeat(40) }))).status).toBe(431);
+    expect((await app.request("http://drops.example/droplets/hello", header({ a: 1 }))).status).toBe(200);
+  });
+
+  it("has defaults large enough for ordinary bodies", async () => {
+    const { app } = fakeApp();
+    const res = await app.request("http://drops.example/droplets/hello", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ props: { text: "x".repeat(100_000) } }),
+    });
+    expect(res.status).toBe(200);
+  });
+});
+
+describe("client input stays data", () => {
+  it("leaves Object.prototype alone for __proto__ in the body, the query and x-droplet-props", async () => {
+    const { app, renderDroplet } = fakeApp();
+    const polluting = { props: JSON.parse('{"__proto__":{"polluted":1},"constructor":{"prototype":{"polluted":2}}}') };
+    await app.request("http://drops.example/droplets/hello", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(polluting).replace('"props":{', '"props":{"__proto__":{"polluted":1},'),
+    });
+    await app.request("http://drops.example/droplets/hello?__proto__[polluted]=1&__proto__=x&constructor=y");
+    await app.request("http://drops.example/droplets/hello", {
+      headers: { "x-droplet-props": encodeBase64('{"__proto__":{"polluted":1}}') },
+    });
+    await app.request("http://drops.example/droplets/hello", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: '{"context":{"host":"https://shop.example/","props":{"__proto__":{"polluted":1}}}}',
+    });
+    expect(({} as Record<string, unknown>)["polluted"]).toBeUndefined();
+    expect(Object.prototype).not.toHaveProperty("polluted");
+    expect(renderDroplet).toHaveBeenCalledTimes(4);
+  });
+
+  it("answers 404 for droplet ids that name prototype members", async () => {
+    const { app } = fakeApp({
+      getDropletMeta: (name) => ({ exists: Object.hasOwn({ hello: 1 }, name), ssr: true, hydrate: true }),
+    });
+    for (const id of ["__proto__", "constructor", "toString", "hasOwnProperty"]) {
+      expect((await app.request(`http://drops.example/droplets/${id}`)).status, id).toBe(404);
+    }
+  });
+
+  it("finds the droplet before it reads a body: an unknown one never has its JSON parsed", async () => {
+    const { app } = fakeApp({
+      getDropletMeta: (name) => ({ exists: Object.hasOwn({ hello: 1 }, name), ssr: true, hydrate: true }),
+    });
+    const json = vi.spyOn(Request.prototype, "json");
+    try {
+      for (const path of ["/droplets/__proto__", "/droplets/constructor/_data", "/droplets/missing"]) {
+        const res = await app.request(`http://drops.example${path}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: '{"props":{"__proto__":{"polluted":1}}}',
+        });
+        expect(res.status, path).toBe(404);
+      }
+      expect(json).not.toHaveBeenCalled();
+      // A known one does.
+      await app.request("http://drops.example/droplets/hello", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: '{"props":{"a":1}}',
+      });
+      expect(json).toHaveBeenCalled();
+    } finally {
+      json.mockRestore();
+    }
+  });
+
+  it("never lets a host that is not a web URL through, from the body or forwarded headers", async () => {
+    const hostOf = async (init: RequestInit) => {
+      const { app, renderDroplet } = fakeApp();
+      const res = await app.request("http://drops.example/droplets/hello", init);
+      expect(res.status).toBe(200);
+      return renderDroplet.mock.calls[0]?.[1].host.href;
+    };
+    const body = (host: unknown) => ({
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ host, props: {} }),
+    });
+    for (const host of ["javascript:alert(1)", "data:text/html,<script>alert(1)</script>", "file:///etc/passwd", 42, { href: "x" }]) {
+      expect(await hostOf(body(host)), String(host)).toBe("http://drops.example/");
+    }
+    expect(await hostOf(body("https://user:pw@shop.example/p?q=1#frag"))).toBe("https://shop.example/p?q=1");
+    // A bad forwarded value falls through to the next source.
+    expect(await hostOf({ headers: { forwarded: 'proto=javascript;host="shop.example"' } })).toBe("http://drops.example/");
+    expect(await hostOf({ headers: { forwarded: 'proto=javascript;host="shop.example"', origin: "https://page.example" } })).toBe("https://page.example/");
+    expect(await hostOf({ headers: { "x-forwarded-host": "shop.example", "x-forwarded-proto": "javascript" } })).toBe("http://drops.example/");
+    expect(await hostOf({ headers: { "x-forwarded-host": "shop.example/<x>", "x-forwarded-proto": "https" } })).not.toContain("<");
+    expect(await hostOf({ headers: { origin: "javascript:alert(1)" } })).toBe("http://drops.example/");
+  });
+
+  it("keeps host within trustedOrigins and our own origin, when the list is set", async () => {
+    const hostOf = async (host: string, trustedOrigins?: string[]) => {
+      const { app, renderDroplet } = fakeApp(trustedOrigins ? { trustedOrigins } : {});
+      await app.request("http://drops.example/droplets/hello", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-host": "https://public.example/mfe" },
+        body: JSON.stringify({ host, props: {} }),
+      });
+      return renderDroplet.mock.calls[0]?.[1].host.href;
+    };
+    expect(await hostOf("https://shop.example/cart", ["https://shop.example"])).toBe("https://shop.example/cart");
+    // An x-host that is not trusted is not this server's origin either.
+    expect(await hostOf("https://evil.example/cart", ["https://shop.example"])).toBe("http://drops.example/");
+    expect(await hostOf("https://public.example/x", ["https://shop.example"])).toBe("http://drops.example/");
+    expect(await hostOf("https://evil.example/cart", ["https://shop.example", "https://public.example"])).toBe("https://public.example/");
+    expect(await hostOf("http://drops.example/x", ["https://shop.example"])).toBe("http://drops.example/x");
+    // No list, or "*": any web URL.
+    expect(await hostOf("https://evil.example/cart")).toBe("https://evil.example/cart");
+    expect(await hostOf("https://evil.example/cart", ["*"])).toBe("https://evil.example/cart");
+  });
+});
