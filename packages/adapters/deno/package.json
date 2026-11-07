@@ -1,0 +1,60 @@
+{
+  "name": "@dropletsjs/adapter-deno",
+  "version": "0.1.0",
+  "description": "Deno adapter for Droplets: vite build emits dist/server.js, served by deno serve.",
+  "keywords": [
+    "droplets",
+    "svelte",
+    "hono",
+    "deno",
+    "adapter"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dropletsjs/droplets.git",
+    "directory": "packages/adapters/deno"
+  },
+  "homepage": "https://dropletsjs.dev",
+  "bugs": {
+    "url": "https://github.com/dropletsjs/droplets/issues"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "deno": ">=2.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput"
+  },
+  "dependencies": {
+    "@dropletsjs/adapter-node": "workspace:^"
+  },
+  "peerDependencies": {
+    "@dropletsjs/droplets": "workspace:^",
+    "hono": "^4.13.16"
+  },
+  "devDependencies": {
+    "@dropletsjs/droplets": "workspace:*",
+    "@types/node": "^24.9.0",
+    "hono": "^4.13.16",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0",
+    "@dropletsjs/adapter-node": "workspace:*"
+  }
+}
