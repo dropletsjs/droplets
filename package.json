@@ -1,0 +1,48 @@
+{
+  "name": "droplets-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "Droplets: server-rendered components you can embed from any stack, as a Vite plugin on Hono",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm -r --filter './packages/**' build",
+    "dev:lib": "pnpm -r --parallel --filter './packages/**' dev",
+    "dev": "pnpm --filter @dropletsjs/example-svelte dev",
+    "dev:shop": "pnpm --filter @dropletsjs/example-shop dev",
+    "dev:demo": "pnpm --filter @dropletsjs/demo dev",
+    "test": "pnpm -r --filter './packages/**' --filter './tests/**' test",
+    "test:e2e": "pnpm build:examples && pnpm --filter @dropletsjs/tests-examples e2e",
+    "docs:dev": "pnpm --filter @dropletsjs/docs dev",
+    "docs:build": "pnpm --filter @dropletsjs/docs build",
+    "docs:preview": "pnpm --filter @dropletsjs/docs preview",
+    "docs:check-csp": "node apps/docs/scripts/csp-hashes.mjs",
+    "typecheck": "pnpm -r --filter '!@dropletsjs/docs' typecheck",
+    "check": "pnpm build && pnpm typecheck && pnpm test && pnpm build:examples && pnpm build:examples:cloudflare && pnpm build:example:shop && pnpm test:example:shop && pnpm test:example:wp-shop && pnpm build:demo && pnpm test:demo",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "pnpm build && changeset publish",
+    "clean": "pnpm -r clean && rm -rf node_modules",
+    "build:examples": "pnpm -r --filter './examples/frameworks/*' build",
+    "build:examples:cloudflare": "pnpm -r --filter './examples/frameworks/*' build:cloudflare",
+    "build:example:shop": "pnpm --filter @dropletsjs/example-shop build",
+    "test:example:shop": "pnpm --filter @dropletsjs/example-shop test",
+    "test:example:wp-shop": "pnpm --filter @dropletsjs/example-wp-shop test",
+    "build:demo": "pnpm --filter @dropletsjs/demo build",
+    "test:demo": "pnpm --filter @dropletsjs/demo test",
+    "test:hosts": "pnpm --filter @dropletsjs/tests-hosts e2e"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^3.0.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
+  },
+  "packageManager": "pnpm@10.20.0"
+}

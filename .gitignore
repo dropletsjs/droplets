@@ -1,0 +1,50 @@
+node_modules/
+dist/
+dist-*/
+.vite/
+.astro/
+*.tsbuildinfo
+.wrangler/
+.DS_Store
+*.log
+
+# Written by droplets (vite, `djs sync`): each droplet's ./$types.
+.droplets/
+# Projects the ./$types test writes and removes.
+packages/droplets/test/fixtures/.types-*/
+packages/droplets/test/fixtures/.load-css-*/
+packages/droplets/test/fixtures/.server-only-*/
+packages/droplets/test/fixtures/.script-*/
+packages/droplets/test/fixtures/.prerender-host-*/
+
+# Playwright's output.
+test-results/
+playwright-report/
+
+# Vite's convention: .env is committed, .env.local holds secrets.
+.env.local
+.env.*.local
+
+# The host examples (standalone, not part of the pnpm workspace)
+examples/hosts/**/.next/
+examples/hosts/**/.astro/
+examples/hosts/**/.svelte-kit/
+examples/hosts/sveltekit/build/
+examples/hosts/**/.venv/
+examples/hosts/**/__pycache__/
+examples/hosts/**/next-env.d.ts
+examples/hosts/**/Gemfile.lock
+
+# The project djs add's end-to-end test writes.
+tests/djs-add/.tmp/
+# The mixed project the dev-mode test edits.
+tests/dev-mixed/.tmp/
+
+# A copy of the fixture the sync conformance run writes.
+packages/renderers/svelte/test/fixtures/.app-sync/
+
+# The projects create-droplets' end-to-end test writes.
+tests/create-droplets/.tmp/
+
+# The hosts' end-to-end videos and screenshots (tests/hosts): local only.
+tests/hosts/recordings/

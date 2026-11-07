@@ -1,0 +1,31 @@
+packages:
+  - "packages/*"
+  - "packages/adapters/*"
+  - "packages/renderers/*"
+  # The examples one level down; examples/hosts/* stay out on purpose: each
+  # host is a standalone project with its own package manager.
+  - "examples/*"
+  - "examples/frameworks/*"
+  - "tests/*"
+  - "apps/*"
+
+# The tool ranges every example and test asks for (`"vite": "catalog:"`).
+# create-droplets reads the same ranges (packages/create-droplets/versions.ts)
+# for the projects it writes.
+catalog:
+  "@playwright/test": 1.61.1
+  "@tailwindcss/vite": ^4.3.4
+  "@types/node": ^24.9.0
+  "@types/react": ^19.3.0
+  "@types/react-dom": ^19.3.0
+  tailwindcss: ^4.3.4
+  typescript: ^5.9.3
+  vite: ^8.3.6
+  vitest: ^5.1.0
+  wrangler: ^4.158.0
+
+# pnpm's settings (pnpm 10 reads them here, npm never sees them).
+# Hoist nothing by default; keep resolution explicit.
+shamefullyHoist: false
+# The framework resolves its own source files, so link workspace deps.
+linkWorkspacePackages: true
