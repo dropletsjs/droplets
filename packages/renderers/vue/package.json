@@ -1,0 +1,78 @@
+{
+  "name": "@dropletsjs/renderer-vue",
+  "version": "0.1.0",
+  "description": "Vue 3 renderer for Droplets: +droplet.vue and +error.vue single-file components, rendered on the server and hydrated in the browser.",
+  "keywords": [
+    "droplets",
+    "vue",
+    "renderer",
+    "micro-frontends",
+    "vite-plugin"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dropletsjs/droplets.git",
+    "directory": "packages/renderers/vue"
+  },
+  "homepage": "https://dropletsjs.dev",
+  "bugs": {
+    "url": "https://github.com/dropletsjs/droplets/issues"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./children": {
+      "types": "./dist/children.d.ts",
+      "default": "./dist/children.js"
+    },
+    "./form": {
+      "types": "./dist/form.d.ts",
+      "default": "./dist/form.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@vitejs/plugin-vue": "^6.0.0"
+  },
+  "peerDependencies": {
+    "@dropletsjs/droplets": "workspace:^",
+    "vue": "^3.5.0",
+    "vite": "^8.0.0"
+  },
+  "devDependencies": {
+    "@dropletsjs/droplets": "workspace:*",
+    "@types/node": "^24.9.0",
+    "happy-dom": "^21.0.4",
+    "vue": "^3.5.45",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
+  }
+}
