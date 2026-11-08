@@ -1,0 +1,38 @@
+{
+  "name": "@dropletsjs/tests-djs-add",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "djs add, end to end: a droplet in every framework and target, added to a project, typed, built and served.",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@dropletsjs/adapter-node": "workspace:*",
+    "@dropletsjs/droplets": "workspace:*",
+    "@dropletsjs/renderer-handlebars": "workspace:*",
+    "@dropletsjs/renderer-hono-jsx": "workspace:*",
+    "@dropletsjs/renderer-lit": "workspace:*",
+    "@dropletsjs/renderer-preact": "workspace:*",
+    "@dropletsjs/renderer-react": "workspace:*",
+    "@dropletsjs/renderer-solid": "workspace:*",
+    "@dropletsjs/renderer-svelte": "workspace:*",
+    "@dropletsjs/renderer-vue": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "hono": "^4.13.16",
+    "lit": "^3.3.3",
+    "preact": "^11.2.0",
+    "preact-render-to-string": "^6.8.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "solid-js": "^1.9.18",
+    "svelte": "^5.57.3",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "vue": "^3.5.45"
+  }
+}

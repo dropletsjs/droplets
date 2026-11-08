@@ -1,0 +1,8 @@
+{
+  // No JSX yet: the first .tsx framework djs add brings turns it on.
+  "extends": ["../../../../tsconfig.base.json", "./.droplets/tsconfig.json"],
+  "compilerOptions": {
+    "types": ["node", "vite/client", "@dropletsjs/droplets/ambient"],
+  },
+  "include": ["src/**/*.ts", "src/**/*.svelte", "droplets.config.ts", "vite.config.ts"],
+}
