@@ -1,0 +1,240 @@
+/**
+ * The files of a new project, by path: package.json, the Vite and droplets
+ * configs, tsconfig, the shared stylesheet, one starter droplet per
+ * framework (the files `djs add` writes for `--target full --with server`),
+ * AGENTS.md and the rest.
+ */
+import { agentsMd } from "./agents.ts";
+import { ADAPTERS, commands, defaultAdapter, starterName, type Adapter, type Choices } from "./choices.ts";
+import { dropletFiles, flagsFor, packageName, versionOf } from "./shared.ts";
+
+const START: Record<Adapter, string> = {
+  node: "node dist/server.js",
+  cloudflare: "wrangler dev",
+  bun: "bun dist/server.js",
+  deno: "deno serve -A dist/server.js",
+};
+
+/** The scripts: `build` and `start` for the default adapter, `build:<a>` and `start:<a>` for the others. */
+export function scripts(choices: Choices): Record<string, string> {
+  const main = defaultAdapter(choices.adapters);
+  const scripts: Record<string, string> = {
+    dev: "vite",
+    build: "vite build",
+    preview: "vite preview",
+    start: START[main],
+  };
+  if (main === "cloudflare") scripts["deploy"] = "wrangler deploy";
+  for (const adapter of choices.adapters.filter((a) => a !== main)) {
+    scripts[`build:${adapter}`] = `DROPLETS_ADAPTER=${adapter} vite build`;
+    scripts[`start:${adapter}`] = START[adapter];
+    if (adapter === "cloudflare") scripts["deploy:cloudflare"] = "wrangler deploy";
+  }
+  return {
+    ...scripts,
+    sync: "djs sync",
+    typecheck: "djs sync && tsc -p tsconfig.json",
+    // Writes .droplets/ after every install, so a fresh checkout type-checks.
+    prepare: "djs sync",
+  };
+}
+
+const sorted = (entries: [string, string][]) => Object.fromEntries(entries.sort(([a], [b]) => a.localeCompare(b)));
+const spec = (name: string): [string, string] => [name, versionOf(name)];
+/** `react@^19.0.0` → `["react", "^19.0.0"]`. */
+const fromCatalog = (entry: string): [string, string] => [packageName(entry), entry.slice(packageName(entry).length + 1)];
+
+export function packageJson(choices: Choices): string {
+  const dependencies = sorted([
+    spec("@dropletsjs/droplets"),
+    ...choices.frameworks.flatMap((f) => f.dependencies.map(fromCatalog)),
+  ]);
+  const devDependencies = sorted([
+    spec("@dropletsjs/devtools"),
+    ...choices.adapters.map((a) => spec(ADAPTERS.find((adapter) => adapter.value === a)!.package)),
+    ...choices.frameworks.map((f) => spec(f.package)),
+    // The catalog's types (`@types/react`) at the version the example is tested with.
+    ...choices.frameworks.flatMap((f) => f.devDependencies.map((entry) => spec(packageName(entry)))),
+    spec("vite"),
+    spec("typescript"),
+    spec("@types/node"),
+    ...(choices.tailwind ? [spec("tailwindcss"), spec("@tailwindcss/vite")] : []),
+    ...(choices.adapters.includes("cloudflare") ? [spec("wrangler")] : []),
+  ]);
+  const pkg = { name: choices.name, private: true, type: "module", scripts: scripts(choices), dependencies, devDependencies };
+  return `${JSON.stringify(pkg, null, 2)}\n`;
+}
+
+export function viteConfig(choices: Choices): string {
+  const adapters = ADAPTERS.filter((a) => choices.adapters.includes(a.value));
+  const main = defaultAdapter(choices.adapters);
+  const imports = [
+    'import { defineConfig } from "vite";',
+    'import { droplets } from "@dropletsjs/droplets/vite";',
+    'import { dropletsDevtools } from "@dropletsjs/devtools";',
+    ...adapters.map((a) => `import { ${a.factory} } from "${a.package}";`),
+    ...choices.frameworks.map((f) => `import { ${f.factory} } from "${f.package}";`),
+  ];
+  const select =
+    adapters.length === 1
+      ? []
+      : [
+          "",
+          `// \`vite build\` builds for ${main}; \`DROPLETS_ADAPTER=<name> vite build\` for another.`,
+          `const adapters = { ${adapters.map((a) => a.factory).join(", ")} };`,
+          `const adapter = (adapters[process.env["DROPLETS_ADAPTER"] as keyof typeof adapters] ?? ${main})();`,
+        ];
+  const options = [
+    adapters.length === 1 ? `      adapter: ${adapters[0]!.factory}(),` : "      adapter,",
+    `      renderers: [${choices.frameworks.map((f) => `${f.factory}()`).join(", ")}],`,
+    ...(choices.tailwind ? ["      // src/app.css is the shared stylesheet; Tailwind compiles it.", "      css: { tailwind: true },"] : []),
+  ];
+  return [
+    ...imports,
+    ...select,
+    "",
+    "export default defineConfig({",
+    "  // The devtools serve `/` in `vite dev` only; builds never see them.",
+    "  plugins: [",
+    "    droplets({",
+    ...options,
+    "    }),",
+    "    dropletsDevtools(),",
+    "  ],",
+    "});",
+    "",
+  ].join("\n");
+}
+
+export function dropletsConfig(choices: Choices): string {
+  return [
+    'import { config } from "@dropletsjs/droplets";',
+    "",
+    "export default config({",
+    "  // The custom element every droplet renders in. Named after the project,",
+    "  // so it never collides with droplets from other servers on one page.",
+    `  element: ${JSON.stringify(choices.element)},`,
+    "  // Pages on other origins may load these droplets and their bundles.",
+    "  cors: true,",
+    ...(choices.injectTool
+      ? ["  // Under `vite dev`, the dev tool on every page that loads index.js, not only on `/`.", "  dev: { injectTool: true },"]
+      : []),
+    "});",
+    "",
+  ].join("\n");
+}
+
+export function tsconfig(choices: Choices): string {
+  const jsx = choices.frameworks.find((f) => f.jsxImportSource);
+  const options: Record<string, unknown> = {
+    target: "ES2023",
+    lib: ["ES2023", "DOM", "DOM.Iterable"],
+    module: "ESNext",
+    moduleResolution: "bundler",
+    moduleDetection: "force",
+    allowImportingTsExtensions: true,
+    verbatimModuleSyntax: true,
+    isolatedModules: true,
+    noEmit: true,
+    strict: true,
+    noUncheckedIndexedAccess: true,
+    skipLibCheck: true,
+    resolveJsonModule: true,
+    forceConsistentCasingInFileNames: true,
+    types: ["node", "vite/client", "@dropletsjs/droplets/ambient"],
+    ...(jsx ? { jsx: "react-jsx", jsxImportSource: jsx.jsxImportSource } : {}),
+  };
+  const include = ["src/**/*.ts", ...(jsx ? ["src/**/*.tsx"] : []), "droplets.config.ts", "vite.config.ts"];
+  const body = JSON.stringify({ extends: "./.droplets/tsconfig.json", compilerOptions: options, include }, null, 2);
+  // A comment where the generated part comes in.
+  return body.replace('  "extends"', '  // .droplets/ is written by `vite` and `djs sync`: it maps each droplet\'s ./$types.\n  "extends"') + "\n";
+}
+
+export function appCss(choices: Choices): string {
+  const head = [
+    "/*",
+    " * The stylesheet every droplet shares (`css.path`), linked before each",
+    " * droplet's own. Every selector is confined to the droplet element, and",
+    " * `:root`, `html` and `body` become the element itself.",
+    " */",
+  ];
+  return [
+    ...head,
+    ...(choices.tailwind ? ['@import "tailwindcss";', ""] : []),
+    ":root {",
+    "  display: block;",
+    "  font-family: system-ui, sans-serif;",
+    "}",
+    "",
+  ].join("\n");
+}
+
+const GITIGNORE = ["node_modules/", "dist/", "# Written by vite and `djs sync`: each droplet's ./$types.", ".droplets/", ".wrangler/", ".env.local", ".env.*.local", ""].join("\n");
+
+function wrangler(choices: Choices): string {
+  return `${JSON.stringify(
+    {
+      $schema: "node_modules/wrangler/config-schema.json",
+      name: choices.name,
+      main: "dist/worker.js",
+      compatibility_date: "2025-10-01",
+      compatibility_flags: ["nodejs_compat"],
+      assets: { directory: "dist/client", binding: "ASSETS", run_worker_first: true },
+    },
+    null,
+    2,
+  )}\n`;
+}
+
+const SVELTE_CONFIG = [
+  "/**",
+  " * Read by editor tooling. The framework passes the same options to the",
+  " * compiler at build time.",
+  " */",
+  "export default {",
+  "  compilerOptions: { runes: true },",
+  "};",
+  "",
+].join("\n");
+
+function readme(choices: Choices): string {
+  const { run, djs } = commands(choices.pm);
+  return [
+    `# ${choices.name}`,
+    "",
+    "Droplets: server-rendered components any page can embed. Each one lives in",
+    "`src/droplets/<name>/` and is served at `/droplets/<name>`.",
+    "",
+    "```bash",
+    `${run} dev        # http://localhost:5173: the devtools page`,
+    `${run} build      # dist/, for ${defaultAdapter(choices.adapters)}`,
+    `${run} typecheck  # djs sync, then tsc`,
+    `${djs} add <name>   # a new droplet`,
+    "```",
+    "",
+    "AGENTS.md has the conventions; the guide is at https://dropletsjs.dev.",
+    "",
+  ].join("\n");
+}
+
+export function projectFiles(choices: Choices): Record<string, string> {
+  const files: Record<string, string> = {
+    "package.json": packageJson(choices),
+    "vite.config.ts": viteConfig(choices),
+    "droplets.config.ts": dropletsConfig(choices),
+    "tsconfig.json": tsconfig(choices),
+    "src/app.css": appCss(choices),
+    ".gitignore": GITIGNORE,
+    "AGENTS.md": agentsMd(choices),
+    "README.md": readme(choices),
+  };
+  if (choices.claude) files["CLAUDE.md"] = "@AGENTS.md\n";
+  if (choices.adapters.includes("cloudflare")) files["wrangler.jsonc"] = wrangler(choices);
+  if (choices.frameworks.some((f) => f.name === "svelte")) files["svelte.config.js"] = SVELTE_CONFIG;
+  for (const framework of choices.frameworks) {
+    const name = starterName(framework);
+    const droplet = dropletFiles({ name, framework, flags: flagsFor("full", "always").flags, files: new Set(["server"]) });
+    for (const [file, content] of Object.entries(droplet)) files[`src/droplets/${name}/${file}`] = content;
+  }
+  return files;
+}
