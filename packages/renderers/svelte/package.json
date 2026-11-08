@@ -1,0 +1,75 @@
+{
+  "name": "@dropletsjs/renderer-svelte",
+  "version": "0.1.0",
+  "description": "Svelte 5 renderer for Droplets: +droplet.svelte and +error.svelte components, rendered on the server and hydrated in the browser.",
+  "keywords": [
+    "droplets",
+    "svelte",
+    "renderer",
+    "micro-frontends",
+    "vite-plugin"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dropletsjs/droplets.git",
+    "directory": "packages/renderers/svelte"
+  },
+  "homepage": "https://dropletsjs.dev",
+  "bugs": {
+    "url": "https://github.com/dropletsjs/droplets/issues"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./form": {
+      "types": "./dist/form.svelte.d.ts",
+      "svelte": "./dist/form.svelte.js",
+      "default": "./dist/form.svelte.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && cp src/children.svelte src/children.svelte.d.ts src/boundary.svelte src/boundary.svelte.d.ts src/form.svelte.js src/form.svelte.d.ts dist/",
+    "dev": "cp src/children.svelte src/children.svelte.d.ts src/boundary.svelte src/boundary.svelte.d.ts src/form.svelte.js src/form.svelte.d.ts dist/ 2>/dev/null; tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.1"
+  },
+  "peerDependencies": {
+    "@dropletsjs/droplets": "workspace:^",
+    "svelte": "^5.5.0",
+    "vite": "^8.0.0"
+  },
+  "devDependencies": {
+    "@dropletsjs/droplets": "workspace:*",
+    "@types/node": "^24.9.0",
+    "happy-dom": "^21.0.4",
+    "svelte": "^5.57.3",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
+  }
+}
