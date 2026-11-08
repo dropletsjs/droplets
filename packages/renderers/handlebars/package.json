@@ -1,0 +1,68 @@
+{
+  "name": "@dropletsjs/renderer-handlebars",
+  "version": "0.1.0",
+  "description": "Handlebars renderer for Droplets: +droplet.hbs templates precompiled at build, rendered on the server and shown as-is in the browser.",
+  "keywords": [
+    "droplets",
+    "handlebars",
+    "renderer",
+    "micro-frontends",
+    "vite-plugin"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dropletsjs/droplets.git",
+    "directory": "packages/renderers/handlebars"
+  },
+  "homepage": "https://dropletsjs.dev",
+  "bugs": {
+    "url": "https://github.com/dropletsjs/droplets/issues"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "handlebars": "^4.7.10"
+  },
+  "peerDependencies": {
+    "@dropletsjs/droplets": "workspace:^",
+    "vite": "^8.0.0"
+  },
+  "devDependencies": {
+    "@dropletsjs/droplets": "workspace:*",
+    "@types/node": "^24.9.0",
+    "happy-dom": "^21.0.4",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
+  }
+}

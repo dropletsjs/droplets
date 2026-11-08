@@ -1,0 +1,8 @@
+{{!--
+export prerender = true
+export hydrate = false
+--}}
+{{!-- What the last action returned, or its fail() data, as form. No bundle: data-droplets-enhance has /index.js post sign and leave and swap in the fragment rendered again; plain posts as any form does. --}}
+<form method="post" action="{{action}}" data-testid="sign" data-droplets-enhance><input name="name"><p data-testid="form">{{#if form}}{{form.message}}{{else}}none{{/if}}</p></form>
+<form method="post" action="{{action "leave"}}" data-testid="leave" data-droplets-enhance></form>
+<form method="post" action="{{action "echo"}}" data-testid="plain"></form>
