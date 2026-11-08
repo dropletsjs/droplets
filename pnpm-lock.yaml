@@ -108,6 +108,28 @@ importers:
         specifier: ^5.1.0
         version: 5.1.0(@types/node@24.19.2)(happy-dom@21.0.4)(vite@8.3.6(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
+  packages/devtools:
+    dependencies:
+      hono:
+        specifier: ^4.13.16
+        version: 4.13.16
+    devDependencies:
+      '@dropletsjs/droplets':
+        specifier: workspace:*
+        version: link:../droplets
+      '@types/node':
+        specifier: ^24.9.0
+        version: 24.19.2
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^8.3.6
+        version: 8.3.6(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@types/node@24.19.2)(happy-dom@21.0.4)(vite@8.3.6(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+
   packages/droplets:
     dependencies:
       '@clack/prompts':

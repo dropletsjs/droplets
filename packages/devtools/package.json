@@ -1,0 +1,56 @@
+{
+  "name": "@dropletsjs/devtools",
+  "version": "0.1.0",
+  "description": "Development page for Droplets: pick a droplet, edit its props, see how it renders. Runs in vite dev only.",
+  "keywords": [
+    "droplets",
+    "vite-plugin",
+    "devtools"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dropletsjs/droplets.git",
+    "directory": "packages/devtools"
+  },
+  "homepage": "https://dropletsjs.dev",
+  "bugs": {
+    "url": "https://github.com/dropletsjs/droplets/issues"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@dropletsjs/droplets": "workspace:^",
+    "vite": "^8.0.0"
+  },
+  "devDependencies": {
+    "@dropletsjs/droplets": "workspace:*",
+    "@types/node": "^24.9.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
+  },
+  "dependencies": {
+    "hono": "^4.13.16"
+  }
+}
