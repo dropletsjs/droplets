@@ -1,0 +1,5 @@
+# The cart's SQLite file (created on first use), and the tests' scratch space.
+wp-shop.db
+wp-shop.db-*
+test/.tmp/
+.env

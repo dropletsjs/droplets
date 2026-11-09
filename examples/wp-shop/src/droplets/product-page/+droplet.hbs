@@ -1,0 +1,55 @@
+{{!--
+export ssr = true
+export hydrate = false
+export prerender = true
+--}}
+{{!--
+  No JavaScript, ever: the page is HTML and CSS. It is prerendered per
+  product, so it never writes stock or prices itself: `{{live "…"}}` leaves a
+  placeholder that `transform` in +droplet.server.ts fills on every request.
+  `{{action "add"}}` posts to this droplet's `?/add`. With /index.js on the
+  page, `data-droplets-enhance` has it post the form by fetch and swap in the
+  fragment rendered again with `form` (and tell the cart, `droplets:action`;
+  the toast center turns that into a toast, since this page has no script
+  to send one); without JavaScript the post answers a 303 back to the host
+  page with the signed result in its URL, and the page renders here again
+  with `form`. Either way the button says "✓ Added": the result has no
+  message of its own under the form.
+--}}
+<style src="./product-page.css"></style>
+<section class="product state-{{live "stock-state"}}" id="product-page">
+  <div class="media">
+    <span class="badge sale" {{live "sale-hidden"}}>Sale −{{live "sale-pct"}}%</span>
+    <span class="ribbon" aria-hidden="true">Out of stock</span>
+    <img src="{{imageUrl data.product.image}}" alt="{{data.product.name}}" width="800" height="800">
+  </div>
+
+  <div class="info">
+    <p class="category"><a href="/gallery?category={{data.product.category.slug}}">{{data.product.category.name}}</a></p>
+    <h1>{{data.product.name}}</h1>
+    <p class="price"><s>{{live "was-price"}}</s> <b>{{live "price"}}</b></p>
+    <p class="stock stock-{{live "stock-state"}}">{{live "stock-label"}}</p>
+
+    <form method="post" action="{{action "add"}}" class="buy" data-droplets-enhance>
+      <input type="hidden" name="productId" value="{{data.product.id}}">
+      <label>Qty <input class="field" name="qty" type="number" min="1" max="{{live "max-qty"}}" value="1" {{live "disabled"}}></label>
+      <button class="button primary" {{live "disabled"}}>{{#if form.added}}✓ Added{{else}}{{live "button-label"}}{{/if}}</button>
+    </form>
+
+    {{#each (paragraphs data.product.description)}}<p class="description">{{this}}</p>{{/each}}
+    <ul class="details">
+      {{#each data.product.details}}<li>{{this}}</li>{{/each}}
+    </ul>
+  </div>
+</section>
+
+{{#if data.related.length}}
+  <section class="related" aria-label="Related products">
+    <h2>Related</h2>
+    <ul>
+      {{#each data.related}}
+        <li><a href="{{productHref slug}}"><img src="{{imageUrl image}}" alt="" loading="lazy" width="200" height="200"><span>{{name}}</span></a></li>
+      {{/each}}
+    </ul>
+  </section>
+{{/if}}
