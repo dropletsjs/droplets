@@ -1,0 +1,14 @@
+{
+  "name": "droplets-example-express",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "start:embedded": "node src/embedded.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.6",
+    "express": "^5.1.0"
+  }
+}

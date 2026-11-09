@@ -1,0 +1,12 @@
+# The shop on https, under a public-looking name that resolves to this
+# machine (sslip.io answers 127-0-0-1.sslip.io with 127.0.0.1). Caddy signs
+# it with its own internal CA: no ACME, nothing leaves the machine, and the
+# browser has to be told to accept that CA (or to ignore the error).
+{
+	auto_https disable_redirects
+}
+
+127-0-0-1.sslip.io:8443 {
+	tls internal
+	reverse_proxy web:8003
+}

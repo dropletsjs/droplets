@@ -1,0 +1,25 @@
+---
+import { DROPLETS_PUBLIC_URL, fragment } from "../lib/droplets.ts";
+
+const who = Astro.url.searchParams.get("who") ?? "Astro";
+// The Svelte example's droplets (examples/frameworks/svelte), one per mode.
+const ids = ["client", "ssr-hydrate", "ssr-nohydrate"];
+const fragments = await Promise.all(ids.map((id) => fragment(id, { who })));
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Droplets in Astro</title>
+    <script type="module" src={`${DROPLETS_PUBLIC_URL}/index.js`} is:inline></script>
+  </head>
+  <body style="font-family: system-ui, sans-serif; background: #f8fafc; margin: 0; padding: 2rem;">
+    <main style="max-width: 48rem; margin: 0 auto;">
+      <h1>Astro page, three Svelte droplets</h1>
+      <p>Fragments fetched in the page's frontmatter and rendered on the server. Try <a href="/?who=Astro">?who=Astro</a>, or the <a href="/gallery">shop demo</a>.</p>
+      {fragments.map((html) => <Fragment set:html={html} />)}
+    </main>
+  </body>
+</html>

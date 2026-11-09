@@ -1,0 +1,10 @@
+<!-- First in the body on every page: the toasts (/index.js installs their queue). -->
+<!--# include virtual="/_fragment/droplets/toast-center" -->
+<header class="shop-header"><div class="shop-wrap">
+<a class="shop-logo" href="/gallery"><span aria-hidden="true">◆</span> Droplets Shop</a>
+<nav class="shop-nav" aria-label="Shop">
+<!--# if expr="$current = gallery" --><a href="/gallery" aria-current="page">Gallery</a><!--# else --><a href="/gallery">Gallery</a><!--# endif -->
+<!--# if expr="$current = admin" --><a href="/admin" aria-current="page">Admin</a><!--# else --><a href="/admin">Admin</a><!--# endif -->
+</nav>
+<div class="shop-cart"><!--# include virtual="/_fragment/droplets/shopping-cart?variant=badge" --></div>
+</div></header>

@@ -1,0 +1,25 @@
+---
+import Shop from "../layouts/Shop.astro";
+import { finish, shopPage, STACK } from "../lib/shop-page.ts";
+
+// The whole query to both: the shop drops what a droplet does not take.
+const query = new URLSearchParams(Astro.url.search);
+const page = await shopPage(Astro.request, [
+  ["product-filter", query],
+  ["product-library", query],
+]);
+const answered = finish(Astro, page);
+if (answered) return answered;
+const [filter, library] = page.fragments;
+---
+
+<Shop title="Gallery" current="/gallery" toasts={page.toasts} cart={page.cart} head={page.head}>
+  <section class="shop-hero">
+    <h1>Everything a demo shop needs.</h1>
+    <p>Rendered by six frameworks, embedded by {STACK}.</p>
+  </section>
+  <div class="shop-gallery">
+    <aside><Fragment set:html={filter} /></aside>
+    <div><Fragment set:html={library} /></div>
+  </div>
+</Shop>

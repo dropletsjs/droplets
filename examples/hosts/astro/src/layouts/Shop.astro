@@ -1,0 +1,60 @@
+---
+// The shop's one layout: the toasts droplet first, the header (logo, nav,
+// the cart badge droplet), the page, and the footer naming this host's stack.
+import { STACK } from "../lib/shop-page.ts";
+
+interface Props {
+  title: string;
+  current?: string | null;
+  /** The toast-center fragment: first in the body. */
+  toasts: string;
+  /** The shopping-cart fragment. */
+  cart: string;
+  /** The fragments' preloads, as <link> tags. */
+  head: string;
+}
+
+const { title, current = null, toasts, cart, head } = Astro.props;
+const nav = [
+  ["/gallery", "Gallery"],
+  ["/admin", "Admin"],
+];
+const speculation = JSON.stringify({
+  prefetch: [{ where: { href_matches: "/product/*" }, eagerness: "moderate" }],
+});
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} · Droplets Shop on {STACK}</title>
+    <link rel="stylesheet" href="/shop.css" />
+    <Fragment set:html={head} />
+    <script type="speculationrules" is:inline set:html={speculation} />
+    <script type="module" src="/index.js" is:inline></script>
+  </head>
+  <body class="shop">
+    <Fragment set:html={toasts} />
+    <header class="shop-header">
+      <div class="shop-wrap">
+        <a class="shop-logo" href="/gallery"><span aria-hidden="true">◆</span> Droplets Shop</a>
+        <nav class="shop-nav" aria-label="Shop">
+          {nav.map(([href, label]) => <a href={href} aria-current={href === current ? "page" : undefined}>{label}</a>)}
+        </nav>
+        <div class="shop-cart"><Fragment set:html={cart} /></div>
+      </div>
+    </header>
+    <main class="shop-main shop-wrap">
+      <slot />
+    </main>
+    <footer class="shop-footer">
+      <div class="shop-wrap">
+        <p class="shop-stack">{STACK}</p>
+        <p>Droplets demo shop · host: {STACK} · droplets: &lt;djs-shop&gt;</p>
+        <p><a href="/gallery">Gallery</a> · <a href="/admin">Admin</a> · <a href="/">The Svelte example</a></p>
+      </div>
+    </footer>
+  </body>
+</html>

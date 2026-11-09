@@ -1,0 +1,50 @@
+---
+import Shop from "../../layouts/Shop.astro";
+import { pick } from "../../lib/shop.ts";
+import { finish, shop, shopPage } from "../../lib/shop-page.ts";
+
+const found = await shop.product(Astro.params.slug ?? "");
+const comments = pick(new URLSearchParams(Astro.url.search), ["order", "page", "showing"]);
+if (found) comments.set("productId", found.id);
+// `v`, when the link had one: the shop serves its build's page for the
+// current version and redirects an old one to this URL without it.
+const pageProps = pick(new URLSearchParams(Astro.url.search), ["v"]);
+if (found) pageProps.set("slug", found.slug);
+const page = await shopPage(
+  Astro.request,
+  found
+    ? [
+        ["product-page", pageProps],
+        ["product-comments", comments],
+      ]
+    : [],
+);
+const answered = finish(Astro, page);
+if (answered) return answered;
+if (!found) Astro.response.status = 404;
+const [productPage, list] = page.fragments;
+const categoryHref = found ? `/gallery?${new URLSearchParams({ category: found.category.slug })}` : "";
+---
+
+<Shop title={found ? found.name : "Not found"} toasts={page.toasts} cart={page.cart} head={page.head}>
+  {
+    found ? (
+      <>
+        <nav class="shop-crumbs" aria-label="Breadcrumb">
+          <a href="/gallery">Gallery</a> › <a href={categoryHref}>{found.category.name}</a> ›{" "}
+          <span aria-current="page">{found.name}</span>
+        </nav>
+        <Fragment set:html={productPage} />
+        <section class="shop-comments">
+          <Fragment set:html={list} />
+        </section>
+      </>
+    ) : (
+      <div class="shop-narrow shop-notice">
+        <h1>Not found</h1>
+        <p>This product does not exist.</p>
+        <p><a href="/gallery">Back to the gallery</a></p>
+      </div>
+    )
+  }
+</Shop>

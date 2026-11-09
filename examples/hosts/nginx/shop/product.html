@@ -1,0 +1,37 @@
+<!--# set var="current" value="product" --><!--# include virtual="/_fragment/droplets/product-page/_data?slug=$slug" set="product" -->
+<!--# if expr='$product = /"product":\{"id":"(?<pid>p_[a-z0-9]{4,32})","slug":"[a-z0-9-]+","name":"(?<pname>[^"]*)","category":\{"slug":"(?<cslug>[a-z0-9-]+)","name":"(?<cname>[^"]*)"/' --><!doctype html>
+<html lang="en">
+<head>
+<title><!--# echo var="pname" encoding="entity" --> · Droplets Shop on nginx 1.27</title>
+<!--# include virtual="/_layout/head.html" -->
+</head>
+<body class="shop">
+<!--# include virtual="/_layout/header.html" -->
+<main class="shop-main shop-wrap">
+<nav class="shop-crumbs" aria-label="Breadcrumb">
+<a href="/gallery">Gallery</a> ›
+<a href="/gallery?category=<!--# echo var="cslug" encoding="url" -->"><!--# echo var="cname" encoding="entity" --></a> ›
+<span aria-current="page"><!--# echo var="pname" encoding="entity" --></span>
+</nav>
+<!--# include virtual="/_fragment/droplets/product-page?slug=$slug$page_v" -->
+<!-- The comments get the page's query (order, page, showing). -->
+<section class="shop-comments"><!--# include virtual="/_fragment/droplets/product-comments?productId=$pid&$args" --></section>
+</main>
+<!--# include virtual="/_layout/footer.html" -->
+</body>
+</html>
+<!--# else --><!doctype html>
+<html lang="en">
+<head>
+<title>Not found · Droplets Shop on nginx 1.27</title>
+<!--# include virtual="/_layout/head.html" -->
+</head>
+<body class="shop">
+<!--# include virtual="/_layout/header.html" -->
+<main class="shop-main shop-wrap">
+<div class="shop-narrow shop-notice"><h1>Not found</h1><p>This product does not exist.</p><p><a href="/gallery">Back to the gallery</a></p></div>
+</main>
+<!--# include virtual="/_layout/footer.html" -->
+</body>
+</html>
+<!--# endif -->

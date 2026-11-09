@@ -1,0 +1,15 @@
+---
+import Shop from "../layouts/Shop.astro";
+import { pick } from "../lib/shop.ts";
+import { finish, shopPage } from "../lib/shop-page.ts";
+
+const page = await shopPage(Astro.request, [
+  ["product-admin", pick(new URLSearchParams(Astro.url.search), ["view", "id"])],
+]);
+const answered = finish(Astro, page);
+if (answered) return answered;
+---
+
+<Shop title="Admin" current="/admin" toasts={page.toasts} cart={page.cart} head={page.head}>
+  <Fragment set:html={page.fragments[0]} />
+</Shop>

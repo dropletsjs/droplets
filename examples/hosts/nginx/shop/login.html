@@ -1,0 +1,15 @@
+<!--# set var="current" value="login" --><!doctype html>
+<html lang="en">
+<head>
+<title>Log in · Droplets Shop on nginx 1.27</title>
+<!--# include virtual="/_layout/head.html" -->
+</head>
+<body class="shop">
+<!--# include virtual="/_layout/header.html" -->
+<main class="shop-main shop-wrap">
+<!-- `next` and anything else in the query: the droplet keeps `next` only. -->
+<div class="shop-narrow"><!--# include virtual="/_fragment/droplets/login?$args" --></div>
+</main>
+<!--# include virtual="/_layout/footer.html" -->
+</body>
+</html>

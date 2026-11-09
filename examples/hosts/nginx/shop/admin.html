@@ -1,0 +1,15 @@
+<!--# set var="current" value="admin" --><!doctype html>
+<html lang="en">
+<head>
+<title>Admin · Droplets Shop on nginx 1.27</title>
+<!--# include virtual="/_layout/head.html" -->
+</head>
+<body class="shop">
+<!--# include virtual="/_layout/header.html" -->
+<main class="shop-main shop-wrap">
+<!-- `view` and `id` from the query; the session cookie rides along with the subrequest. -->
+<!--# include virtual="/_fragment/droplets/product-admin?$args" -->
+</main>
+<!--# include virtual="/_layout/footer.html" -->
+</body>
+</html>

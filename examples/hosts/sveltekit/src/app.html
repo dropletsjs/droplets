@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    %sveltekit.head%
+  </head>
+  <!-- The body's attributes come from hooks.server.ts: the basic page's style or the shop's class. -->
+  <body%host.body%>
+    <div style="display: contents">%sveltekit.body%</div>
+  </body>
+</html>

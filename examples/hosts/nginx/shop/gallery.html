@@ -1,0 +1,22 @@
+<!--# set var="current" value="gallery" --><!doctype html>
+<html lang="en">
+<head>
+<title>Gallery · Droplets Shop on nginx 1.27</title>
+<!--# include virtual="/_layout/head.html" -->
+</head>
+<body class="shop">
+<!--# include virtual="/_layout/header.html" -->
+<main class="shop-main shop-wrap">
+<section class="shop-hero">
+<h1>Everything a demo shop needs.</h1>
+<p>Rendered by six frameworks, embedded by nginx 1.27.</p>
+</section>
+<div class="shop-gallery">
+<!-- The page's whole query goes to both: the shop drops what a droplet does not take. -->
+<aside><!--# include virtual="/_fragment/droplets/product-filter?$args" --></aside>
+<div><!--# include virtual="/_fragment/droplets/product-library?$args" --></div>
+</div>
+</main>
+<!--# include virtual="/_layout/footer.html" -->
+</body>
+</html>

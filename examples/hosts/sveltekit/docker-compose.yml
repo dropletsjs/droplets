@@ -1,0 +1,51 @@
+# The published ports and the public URLs come from the environment, with
+# these defaults: WEB_PORT and WEB_URL (this host), DROPLETS_PORT and
+# DROPLETS_URL (the droplets server). tests/hosts/run.mjs sets them for
+# HOSTS_PORT_BASE. The ports are published on 127.0.0.1 only.
+services:
+  droplets:
+    build:
+      context: ../../..
+      dockerfile: examples/frameworks/Dockerfile
+    ports:
+      - "127.0.0.1:${DROPLETS_PORT:-8000}:8000"
+    environment:
+      # The URL the host sends as x-host, and the host's own pages.
+      DROPLETS_TRUSTED_ORIGINS: ${DROPLETS_URL:-http://localhost:8000},${WEB_URL:-http://localhost:8006}
+
+  # The shop demo (/gallery). Only the host reaches it: the browser goes
+  # through the host's proxy, so the shop's cookies are the host's own.
+  shop:
+    build:
+      context: ../../..
+      dockerfile: examples/shop/Dockerfile
+    expose:
+      - "8300"
+    environment:
+      # Demo values from examples/shop/.env.example. Never use them elsewhere.
+      ADMIN_USER: admin
+      ADMIN_PASSWORD: droplets
+      SHOP_SECRET: demo-only-secret-change-me-0123456789abcdef
+      # Signs a form result on the redirect back to the page (posts without JavaScript).
+      DROPLETS_SECRET: demo-only-droplets-secret-change-me-0123456789
+      # The host's public origin: the x-host it sends, its pages' form posts.
+      DROPLETS_TRUSTED_ORIGINS: ${WEB_URL:-http://localhost:8006}
+
+  web:
+    build: .
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8006}:8006"
+    environment:
+      DROPLETS_INTERNAL_URL: http://droplets:8000
+      DROPLETS_PUBLIC_URL: ${DROPLETS_URL:-http://localhost:8000}
+      SHOP_INTERNAL_URL: http://shop:8300
+      SHOP_PUBLIC_URL: ${WEB_URL:-http://localhost:8006}
+      # adapter-node's own origin: SvelteKit checks form posts against it
+      # (the shop's login and cart forms post through this host).
+      ORIGIN: ${WEB_URL:-http://localhost:8006}
+      # Above adapter-node's 512 KB default: the shop's admin image uploads
+      # (up to 2 MB, in a 3 MB form) go through this host's proxy.
+      BODY_SIZE_LIMIT: 4M
+    depends_on:
+      - droplets
+      - shop

@@ -1,0 +1,27 @@
+# The shop demo over https on a name that is not localhost, where the
+# shop's cookies are `Secure` (only plain HTTP to localhost gets them
+# without). Caddy terminates TLS with its internal CA and proxies to Express;
+# Express's public origin, and the shop's trusted one, become the https URL.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.https.yml up --build
+#   open https://127-0-0-1.sslip.io:8443/gallery   # accept the certificate warning
+services:
+  shop:
+    environment:
+      DROPLETS_TRUSTED_ORIGINS: https://127-0-0-1.sslip.io:8443
+
+  web:
+    environment:
+      SHOP_PUBLIC_URL: https://127-0-0-1.sslip.io:8443
+
+  # Caddy with this folder's Caddyfile baked in.
+  caddy:
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM caddy:2-alpine
+        COPY Caddyfile /etc/caddy/Caddyfile
+    ports:
+      - "127.0.0.1:8443:8443"
+    depends_on:
+      - web
