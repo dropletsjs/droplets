@@ -1,0 +1,17 @@
+/*
+ * The stylesheet every droplet of this server shares (`css.path`). The
+ * framework confines it to the droplet element (`css.scoped`, on by
+ * default): `:root`, `html` and `body` become <djs-lit> itself.
+ *
+ * A Lit component renders into its shadow root, where no page stylesheet
+ * reaches: the cards are styled by `static styles` in lib/Card.lit.ts.
+ * What does cross the boundary is what CSS inherits, so the font and the
+ * colour set here, and custom properties such as --card-accent, style the
+ * cards too.
+ */
+:root {
+  display: block;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #0f172a;
+  --card-accent: #324fff;
+}

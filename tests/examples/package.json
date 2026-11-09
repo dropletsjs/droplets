@@ -1,0 +1,17 @@
+{
+  "name": "@dropletsjs/tests-examples",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "The eight examples in examples/frameworks, end to end: each production build embedded from another origin and checked in a browser.",
+  "scripts": {
+    "e2e": "playwright test",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@playwright/test": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

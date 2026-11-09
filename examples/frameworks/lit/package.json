@@ -1,0 +1,41 @@
+{
+  "name": "@dropletsjs/example-lit",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "The Droplets Lit example: one droplet per mode, with loads, endpoints, an error page, env and a form action, in declarative shadow DOM.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:cloudflare": "DROPLETS_ADAPTER=cloudflare vite build",
+    "build:bun": "DROPLETS_ADAPTER=bun vite build",
+    "build:deno": "DROPLETS_ADAPTER=deno vite build",
+    "preview": "vite preview",
+    "preview:cloudflare": "wrangler dev",
+    "deploy:cloudflare": "wrangler deploy",
+    "start": "node dist/server.js",
+    "start:bun": "bun dist/server.js",
+    "start:deno": "deno serve -A dist/server.js",
+    "sync": "djs sync",
+    "clean": "rm -rf dist .wrangler",
+    "typecheck": "djs sync && tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@dropletsjs/droplets": "workspace:*",
+    "@dropletsjs/renderer-lit": "workspace:*",
+    "lit": "^3.3.3",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@dropletsjs/adapter-bun": "workspace:*",
+    "@dropletsjs/adapter-cloudflare": "workspace:*",
+    "@dropletsjs/adapter-deno": "workspace:*",
+    "@dropletsjs/adapter-node": "workspace:*",
+    "@dropletsjs/devtools": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "wrangler": "catalog:"
+  }
+}

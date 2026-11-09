@@ -1,0 +1,6 @@
+{
+  "name": "dev-mixed-fixture",
+  "private": true,
+  "license": "MIT",
+  "type": "module"
+}

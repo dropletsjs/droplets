@@ -1,0 +1,8 @@
+{
+  // .droplets/ is written by `vite` and `djs sync`: it maps each droplet's ./$types.
+  "extends": ["../../../tsconfig.base.json", "./.droplets/tsconfig.json"],
+  "compilerOptions": {
+    "types": ["node", "vite/client", "@dropletsjs/droplets/ambient"]
+  },
+  "include": ["src/**/*.ts", "droplets.config.ts", "vite.config.ts"]
+}

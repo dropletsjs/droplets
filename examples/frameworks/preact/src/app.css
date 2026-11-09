@@ -1,0 +1,67 @@
+/*
+ * The stylesheet every droplet of this server shares (`css.path`). It comes
+ * first in each droplet's style.css, but the framework confines it to the
+ * droplet element (`css.scoped`, on by default): every selector below ends
+ * up nested under <djs-preact>, and `:root`, `html` and `body`
+ * become the element itself. Tailwind's preflight therefore resets the
+ * droplets, not the host page.
+ */
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    display: block;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--color-slate-900);
+  }
+}
+
+/* The card, the same markup in every example under examples/frameworks/. */
+@layer components {
+  .card {
+    @apply mx-auto my-6 max-w-xl rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200;
+  }
+  .card-head {
+    @apply flex items-center gap-3;
+  }
+  .card-framework {
+    @apply rounded-full bg-slate-900 px-2.5 py-0.5 text-xs font-medium text-white;
+  }
+  .card-title {
+    @apply text-lg font-semibold;
+  }
+  .card-summary {
+    @apply mt-2 text-sm text-slate-500;
+  }
+  /* The error pages' heading (+error.*). */
+  .card-error {
+    @apply font-mono text-4xl font-semibold text-rose-700;
+  }
+  .card-greeting {
+    @apply mt-3 text-xl font-semibold;
+  }
+  .card-facts {
+    @apply mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm;
+  }
+  .card-facts dt {
+    @apply font-medium text-slate-500;
+  }
+  .card-facts dt small {
+    @apply ml-1 font-normal text-slate-400;
+  }
+  .card-facts dd {
+    @apply font-mono text-slate-800;
+  }
+  .card-counter {
+    @apply mt-5 flex items-center gap-3 border-t border-slate-100 pt-4;
+  }
+  .card-count {
+    @apply text-3xl font-semibold tabular-nums;
+  }
+  .card-counter button {
+    @apply rounded-lg bg-slate-900 px-3 py-1.5 text-sm text-white hover:bg-slate-700 active:scale-95;
+  }
+  .card-counter small {
+    @apply text-xs text-slate-400;
+  }
+}

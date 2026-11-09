@@ -1,0 +1,28 @@
+{
+  "name": "@dropletsjs/tests-dev-mixed",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "A React, Preact, Vue and Solid project under vite dev: every droplet renders and hydrates, and an edit to each reaches the page without a reload.",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@dropletsjs/droplets": "workspace:*",
+    "@dropletsjs/renderer-preact": "workspace:*",
+    "@dropletsjs/renderer-react": "workspace:*",
+    "@dropletsjs/renderer-solid": "workspace:*",
+    "@dropletsjs/renderer-vue": "workspace:*",
+    "@playwright/test": "catalog:",
+    "@types/node": "catalog:",
+    "preact": "^11.2.0",
+    "preact-render-to-string": "^6.8.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "solid-js": "^1.9.18",
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "vue": "^3.5.45"
+  }
+}

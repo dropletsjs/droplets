@@ -1,0 +1,27 @@
+{{!-- The card. Templates have no client behaviour: the counter shows what the load saw. --}}
+<article class="card" data-testid="card" data-framework="handlebars" data-mode="{{data.mode}}">
+  <header class="card-head">
+    <span class="card-framework">Handlebars</span>
+    <h2 class="card-title">{{data.title}}</h2>
+  </header>
+  <p class="card-summary">{{data.summary}}</p>
+  <p class="card-greeting">Hello {{data.who}}!</p>
+
+  <dl class="card-facts">
+    <dt>Site<small>public, static</small></dt>
+    <dd data-testid="site">{{data.site}}</dd>
+    <dt>Banner<small>public, runtime</small></dt>
+    <dd data-testid="banner">{{data.banner}}</dd>
+    <dt>API token<small>private</small></dt>
+    <dd data-testid="private">{{data.private}}</dd>
+    <dt>Rendered</dt>
+    <dd data-testid="rendered">{{data.rendered}}</dd>
+    <dt>Hydrated</dt>
+    <dd data-testid="hydrated">no client behaviour</dd>
+  </dl>
+
+  <div class="card-counter">
+    <span class="card-count" data-testid="count">{{data.count}}</span>
+    <small>one counter for every droplet: /api/counter (read by the load)</small>
+  </div>
+</article>

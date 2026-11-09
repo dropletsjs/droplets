@@ -1,0 +1,47 @@
+{
+  "name": "@dropletsjs/example-react",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "The Droplets React example: one droplet per mode, with loads, endpoints, an error page and env.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:cloudflare": "DROPLETS_ADAPTER=cloudflare vite build",
+    "build:bun": "DROPLETS_ADAPTER=bun vite build",
+    "build:deno": "DROPLETS_ADAPTER=deno vite build",
+    "preview": "vite preview",
+    "preview:cloudflare": "wrangler dev",
+    "deploy:cloudflare": "wrangler deploy",
+    "start": "node dist/server.js",
+    "start:bun": "bun dist/server.js",
+    "start:deno": "deno serve -A dist/server.js",
+    "sync": "djs sync",
+    "clean": "rm -rf dist .wrangler",
+    "typecheck": "djs sync && tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@dropletsjs/droplets": "workspace:*",
+    "@dropletsjs/renderer-react": "workspace:*",
+    "hono": "^4.13.16",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@dropletsjs/adapter-bun": "workspace:*",
+    "@dropletsjs/adapter-cloudflare": "workspace:*",
+    "@dropletsjs/adapter-deno": "workspace:*",
+    "@dropletsjs/adapter-node": "workspace:*",
+    "@dropletsjs/devtools": "workspace:*",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "wrangler": "catalog:"
+  }
+}
