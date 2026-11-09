@@ -1,0 +1,202 @@
+{
+  "categories": [
+    {
+      "slug": "mugs",
+      "name": "Mugs & cups"
+    },
+    {
+      "slug": "desk",
+      "name": "Desk"
+    },
+    {
+      "slug": "bags",
+      "name": "Bags"
+    },
+    {
+      "slug": "home",
+      "name": "Home"
+    }
+  ],
+  "products": [
+    {
+      "category": "mugs",
+      "slug": "clay-cylinder-mug",
+      "name": "Clay Cylinder Mug",
+      "description": "This sturdy ceramic mug features a matte finish that feels smooth against your fingers. Its cylindrical shape holds ten ounces of your favorite warm drink comfortably.\n\nThe wide handle is designed for a secure grip during your daily routine. You can enjoy your morning coffee or afternoon tea without worrying about comfort.\n\nMade from durable stoneware, this mug is built to last through regular use. It is safe for the dishwasher, making cleanup quick and easy.",
+      "details": "300 ml (10 oz) · Stoneware ceramic · Matte finish · Dishwasher safe",
+      "priceCents": 2400,
+      "imagePrompt": "A beige ceramic mug with a wide handle on a white background."
+    },
+    {
+      "category": "mugs",
+      "slug": "speckled-temple-cup",
+      "name": "Speckled Temple Cup",
+      "description": "The speckled glaze in soft earth tones gives this cup a unique, organic look. It is lightweight and easy to hold for extended periods.\n\nThe smooth rim provides a pleasant drinking experience for coffee or water. Its simple design fits well in any kitchen or office setting.\n\nThis porcelain cup is crafted for everyday elegance. We recommend hand washing to preserve the delicate glaze and color.",
+      "details": "240 ml (8 oz) · Porcelain · Speckle glaze · Hand wash only",
+      "priceCents": 2800,
+      "imagePrompt": "A white cup with grey speckles and a curved handle on a plain surface."
+    },
+    {
+      "category": "mugs",
+      "slug": "double-wall-tumbler",
+      "name": "Double Wall Tumbler",
+      "description": "Made from clear borosilicate glass, this tumbler showcases your drinks beautifully. The double wall design keeps your beverage at the right temperature.\n\nThe exterior stays dry and cool to the touch, preventing condensation. It is designed to fit standard car cup holders for easy travel.\n\nThis heat-resistant glass is safe for the microwave. It is a practical choice for both hot and cold drinks on the go.",
+      "details": "470 ml (16 oz) · Borosilicate glass · Double walled · Microwave safe",
+      "priceCents": 3500,
+      "imagePrompt": "A clear glass tumbler with double walls on a neutral grey background."
+    },
+    {
+      "category": "mugs",
+      "slug": "matte-black-travel-cup",
+      "name": "Matte Black Travel Cup",
+      "description": "This sleek travel cup has a soft matte texture that resists fingerprints. It comes with a secure lid to prevent spills during your commute.\n\nThe included straw allows for easy sipping while you are on the move. Its stainless steel interior keeps drinks insulated for hours.\n\nDesigned for durability, this cup is built to withstand daily use. The leak-proof lid ensures your bag stays dry and clean.",
+      "details": "350 ml (12 oz) · Stainless steel · Matte black finish · Leak proof lid",
+      "priceCents": 4200,
+      "imagePrompt": "A black travel mug with a grey lid on a white background."
+    },
+    {
+      "category": "mugs",
+      "slug": "ocean-wave-mug",
+      "name": "Ocean Wave Mug",
+      "description": "This mug features a wave design in shades of blue and white. The ergonomic shape sits comfortably in your hands for a pleasant hold.\n\nIt is perfect for your morning coffee ritual. The ceramic body retains heat well, keeping your drink warm longer.\n\nThe blue glaze adds a touch of calm to your desk. This dishwasher-safe mug is easy to maintain and enjoy every day.",
+      "details": "350 ml (12 oz) · Ceramic · Blue wave glaze · Dishwasher safe",
+      "priceCents": 2900,
+      "imagePrompt": "A blue and white wave patterned ceramic mug on a light blue background."
+    },
+    {
+      "category": "desk",
+      "slug": "linen-notebook",
+      "name": "Linen Notebook",
+      "description": "A hardcover notebook wrapped in textured grey linen feels substantial in your hands. The cream-colored pages are lined for neat writing.\n\nUse it for daily notes or creative brainstorming. The elastic closure band keeps everything secure in your bag.\n\nA ribbon marker helps you find your place quickly. This A5 size notebook is a practical tool for work or study.",
+      "details": "A5 size · 120 pages · Linen cover · Elastic closure",
+      "priceCents": 1800,
+      "imagePrompt": "A grey linen covered notebook on a wooden desk surface."
+    },
+    {
+      "category": "desk",
+      "slug": "brass-pen-holder",
+      "name": "Brass Pen Holder",
+      "description": "A simple cylindrical holder made from solid brass adds warmth to your desk. It develops a natural patina over time with regular use.\n\nThe weighted base keeps it stable while you reach for pens. It is a functional piece that improves with age.\n\nWipe it clean with a soft cloth to maintain its shine. This durable holder is a thoughtful gift for any office worker.",
+      "details": "3 inch height · Solid brass · Weighted base · Wipe clean only",
+      "priceCents": 3200,
+      "imagePrompt": "A shiny brass cylinder holding pens on a white background."
+    },
+    {
+      "category": "desk",
+      "slug": "minimalist-desk-lamp",
+      "name": "Minimalist Desk Lamp",
+      "description": "An adjustable desk lamp with a thin metal arm provides focused light. The warm LED bulb is gentle on the eyes for reading or working.\n\nThe touch switch on the weighted base allows for easy control. A rubber grip keeps the lamp steady on any surface.\n\nThis sleek design fits well in modern workspaces. The included LED bulb saves energy and lasts a long time.",
+      "details": "LED bulb included · Adjustable arm · Touch switch · Warm white light",
+      "priceCents": 5500,
+      "imagePrompt": "A thin black metal desk lamp on a white surface."
+    },
+    {
+      "category": "desk",
+      "slug": "bamboo-organizer",
+      "name": "Bamboo Organizer",
+      "description": "This organizer divides your desk space with natural bamboo. It has compartments for small tools and stationery items to keep things tidy.\n\nThe smooth, water-resistant finish makes it easy to maintain. It brings a touch of nature to your workspace.\n\nThe oil finish enhances the natural grain of the bamboo. This sturdy organizer helps you stay focused and organized.",
+      "details": "25 x 13 cm base · Natural bamboo · Oil finished · Water resistant",
+      "priceCents": 2600,
+      "imagePrompt": "A light brown bamboo desk organizer on a grey background."
+    },
+    {
+      "category": "desk",
+      "slug": "concrete-tray",
+      "name": "Concrete Tray",
+      "description": "A heavy concrete tray for holding keys or coins. The surface is sealed to protect against moisture and stains.\n\nIts geometric shape adds a modern touch to any workspace. It serves as a practical catch-all for small daily items.\n\nWipe it dry to keep the surface looking clean. This durable tray is a simple addition to your home decor.",
+      "details": "20 cm diameter · Sealed concrete · Heavy weight · Wipe dry",
+      "priceCents": 3800,
+      "imagePrompt": "A grey concrete circular tray on a white background."
+    },
+    {
+      "category": "bags",
+      "slug": "canvas-urban-tote",
+      "name": "Canvas Urban Tote",
+      "description": "This sturdy canvas tote features reinforced handles for daily commutes. The natural, undyed canvas gives it a relaxed look for errands or library visits.\n\nUse it to carry books, groceries, or gym gear without strain. The spacious interior holds your essentials securely.\n\nMade from pure cotton canvas, this bag is designed for longevity. Spot clean only to maintain its natural appearance.",
+      "details": "100% Cotton Canvas · 15 x 14 inches (38 x 36 cm) · Spot clean only · Reinforced handles · Natural, undyed colour",
+      "priceCents": 1200,
+      "imagePrompt": "A plain beige canvas tote bag standing upright on a white surface with soft studio lighting."
+    },
+    {
+      "category": "bags",
+      "slug": "navy-nylon-backpack",
+      "name": "Navy Nylon Backpack",
+      "description": "This navy nylon backpack keeps your gear dry in unexpected rain. Multiple pockets help organize small items with ease during travel.\n\nCarry laptops, notebooks, and travel documents in separate compartments. The water-resistant material ensures your things stay safe.\n\nCrafted from durable water-resistant nylon for reliable daily use. Wipe clean with a damp cloth to keep it looking fresh.",
+      "details": "Water Resistant Nylon · 18 x 12 x 5 inches · 46 x 30 x 13 cm · Wipe clean with damp cloth · Multiple pockets",
+      "priceCents": 4500,
+      "imagePrompt": "A dark blue nylon backpack with black zippers sitting on a light grey concrete floor."
+    },
+    {
+      "category": "bags",
+      "slug": "olive-leather-pouch",
+      "name": "Leather Tech Pouch",
+      "description": "Organize cables and chargers in this compact olive green pouch. The durable leather develops a nice patina as you use it more.\n\nKeep your tech accessories neat in your bag or on your desk. The zippered closure prevents items from falling out.\n\nMade from full grain leather that ages gracefully over time. Condition with leather balm to maintain its soft texture.",
+      "details": "Full Grain Leather · 10 x 7 x 3 inches · 25 x 18 x 8 cm · Condition with leather balm · Zippered closure",
+      "priceCents": 2800,
+      "imagePrompt": "An olive green leather zippered pouch lying flat on a white marble slab."
+    },
+    {
+      "category": "bags",
+      "slug": "denim-bifold-wallet",
+      "name": "Denim Bifold Wallet",
+      "description": "Crafted from recycled denim, this wallet adds texture to your pocket. It holds several cards and cash in a slim profile.\n\nKeep your payment methods organized without bulk. The bifold design fits comfortably in front or back pockets.\n\nSewn from recycled denim for a sustainable choice. Wipe with a dry cloth to remove dust and keep it clean.",
+      "details": "Recycled Denim · 4.5 x 3.5 inches · 11 x 9 cm · Wipe with dry cloth · Slim bifold design",
+      "priceCents": 1500,
+      "imagePrompt": "A blue denim bifold wallet closed and placed on a wooden table surface."
+    },
+    {
+      "category": "bags",
+      "slug": "linen-market-bag",
+      "name": "Linen Market Bag",
+      "description": "Breathable linen makes this bag perfect for farmers market trips. The open top design allows for quick access to fresh produce.\n\nCarry groceries, flowers, or picnic supplies with ease. The lightweight fabric folds away when not in use.\n\nMade from organic linen that is both durable and eco-friendly. Machine wash cold to keep it fresh and clean.",
+      "details": "Organic Linen · 16 x 18 inches · 41 x 46 cm · Machine wash cold · Open top design",
+      "priceCents": 900,
+      "imagePrompt": "A light beige linen shopping bag filled with green vegetables on a white background."
+    },
+    {
+      "category": "home",
+      "slug": "soy-vanilla-candle",
+      "name": "Vanilla Soy Candle",
+      "description": "Scented with pure vanilla extract for a warm home atmosphere. The soy wax burns evenly and cleanly for hours of enjoyment.\n\nPlace it on your nightstand or dining table for a gentle glow. The natural scent creates a relaxing environment.\n\nHand-poured soy wax blend for a clean and long-lasting burn. Trim wick before each use to ensure safety and performance.",
+      "details": "Soy Wax Blend · 8 oz (227 g) · Trim wick before use · Pure vanilla extract · Hand-poured",
+      "priceCents": 1800,
+      "imagePrompt": "A clear glass jar candle with a cream colored wax and a single wick on a white shelf."
+    },
+    {
+      "category": "home",
+      "slug": "ceramic-blue-vase",
+      "name": "Blue Ceramic Vase",
+      "description": "Hand thrown clay gives each vase unique variations in shape. The matte blue glaze adds a calming touch to any room decor.\n\nArrange fresh flowers or dried stems to brighten your space. Its sturdy base ensures stability on shelves or tables.\n\nEach piece is unique due to the hand-throwing process. Hand wash only to preserve the delicate glaze finish.",
+      "details": "Stoneware Ceramic · 6 inches tall (15 cm) · Hand wash only · Matte blue glaze · Hand thrown",
+      "priceCents": 3200,
+      "imagePrompt": "A tall matte blue ceramic vase with an irregular neck standing on a white surface."
+    },
+    {
+      "category": "home",
+      "slug": "linen-square-cushion",
+      "name": "Linen Square Cushion",
+      "description": "Soft linen fabric feels gentle against the skin. This square cushion adds comfort and texture to your living room sofa.\n\nNestle it on your chair or bed for extra support and style. The durable fabric withstands regular use and washing.\n\nMade from pure linen for breathability and natural comfort. Machine wash gentle cycle to keep it fresh and clean.",
+      "details": "100% Linen · 18 x 18 inches · 46 x 46 cm · Machine wash gentle cycle · Soft linen fabric",
+      "priceCents": 2400,
+      "imagePrompt": "A light grey linen throw pillow resting on a white sofa cushion."
+    },
+    {
+      "category": "home",
+      "slug": "terracotta-plant-pot",
+      "name": "Terracotta Plant Pot",
+      "description": "Natural terracotta allows roots to breathe and grow healthily. The unglazed finish provides a rustic aesthetic for indoor plants.\n\nPerfect for succulents, herbs, or small flowering plants. The porous material helps prevent overwatering issues.\n\nMade from traditional terracotta clay for a classic look. Empty when watering to avoid waterlogging the soil.",
+      "details": "Unglazed Terracotta · 6 inches diameter · 15 cm diameter · Empty when watering · Porous clay",
+      "priceCents": 1100,
+      "imagePrompt": "A small red terracotta flower pot sitting on a wooden stool."
+    },
+    {
+      "category": "home",
+      "slug": "wax-dipped-tealight",
+      "name": "Wax Dipped Tealight",
+      "description": "Simple tealights dipped in beeswax burn slowly and steadily. They provide a soft glow for dinners or quiet evenings at home.\n\nPlace them in holders for a warm, natural light source. The beeswax offers a cleaner burn than paraffin.\n\nMade from pure beeswax for a natural and long-lasting flame. Use in a holder to ensure safety and stability.",
+      "details": "100% Beeswax · 1.5 inches tall · 4 cm tall · Use in a holder · Slow burning",
+      "priceCents": 600,
+      "imagePrompt": "A small beeswax tealight candle inside a clear glass holder on a white surface."
+    }
+  ]
+}

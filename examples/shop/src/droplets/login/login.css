@@ -1,0 +1,41 @@
+.login {
+  max-width: 400px;
+  margin: 2rem auto;
+  padding: 2rem;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) + 4px);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+
+.login form {
+  display: grid;
+  gap: 1rem;
+}
+
+.login h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.6rem;
+}
+
+.login label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.login .hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.login .actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.login .actions form {
+  display: contents;
+}

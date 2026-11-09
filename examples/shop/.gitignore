@@ -1,0 +1,6 @@
+# `pnpm seed` writes the database; the admin's uploads land in .uploads/.
+shop.db
+shop.db-*
+.uploads/
+test/.tmp/
+.env

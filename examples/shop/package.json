@@ -1,0 +1,50 @@
+{
+  "name": "@dropletsjs/example-shop",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/seed.ts --if-missing && vite",
+    "seed": "node scripts/seed.ts",
+    "build": "node scripts/seed.ts --if-missing && vite build",
+    "preview": "vite preview",
+    "start": "node --env-file-if-exists=.env dist/server.js",
+    "sync": "djs sync",
+    "clean": "rm -rf dist .uploads shop.db",
+    "typecheck": "djs sync && tsc -p tsconfig.json",
+    "test": "vitest run",
+    "generate:data": "node scripts/generate-data.mjs",
+    "generate:images": "node scripts/generate-images.mjs"
+  },
+  "dependencies": {
+    "@dropletsjs/droplets": "workspace:*",
+    "@dropletsjs/renderer-hono-jsx": "workspace:*",
+    "@dropletsjs/renderer-react": "workspace:*",
+    "@dropletsjs/renderer-solid": "workspace:*",
+    "better-sqlite3": "^13.0.3",
+    "handlebars": "^4.7.10",
+    "hono": "^4.13.16",
+    "kysely": "^0.29.8",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "solid-js": "^1.9.18",
+    "svelte": "^5.57.3",
+    "vue": "^3.5.45",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@dropletsjs/adapter-node": "workspace:*",
+    "@dropletsjs/devtools": "workspace:*",
+    "@dropletsjs/renderer-handlebars": "workspace:*",
+    "@dropletsjs/renderer-svelte": "workspace:*",
+    "@dropletsjs/renderer-vue": "workspace:*",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

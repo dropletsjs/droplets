@@ -1,0 +1,206 @@
+.product {
+  display: grid;
+  grid-template-columns: 7fr 5fr;
+  gap: 48px;
+  align-items: start;
+}
+
+@media (max-width: 800px) {
+  .product {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+
+.media {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  background: var(--grey-soft);
+}
+
+.media img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.media .badge {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  font-size: 0.9rem;
+}
+
+.ribbon {
+  position: absolute;
+  top: 28px;
+  left: -52px;
+  display: none;
+  width: 220px;
+  padding: 6px 0;
+  background: var(--muted);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-align: center;
+  transform: rotate(-45deg);
+}
+
+.product.state-out .ribbon {
+  display: block;
+}
+
+.product.state-out .media img {
+  filter: grayscale(1) opacity(0.6);
+}
+
+.product.state-out .media .badge,
+.media .badge[hidden] {
+  display: none;
+}
+
+.info {
+  display: grid;
+  gap: 14px;
+}
+
+.category {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.category a {
+  color: var(--brand);
+  text-decoration: none;
+}
+
+.info h1 {
+  margin: 0;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  line-height: 1.1;
+}
+
+.price {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  margin: 0;
+  font-size: 2rem;
+}
+
+/* A grid item stretches across the column: the "Out of stock" pill fits its text. */
+.info .stock {
+  justify-self: start;
+}
+
+.price s {
+  color: var(--grey);
+  font-size: 1.2rem;
+}
+
+.price s:empty {
+  display: none;
+}
+
+.price s:not(:empty) + b {
+  color: var(--coral);
+}
+
+.buy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+}
+
+.buy label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.buy input {
+  width: 88px;
+}
+
+.buy .button {
+  flex: 1;
+  min-width: 200px;
+  min-height: 52px;
+  font-size: 1.05rem;
+}
+
+@media (max-width: 800px) {
+  .buy {
+    position: sticky;
+    bottom: 0;
+    padding: 12px 0;
+    background: var(--paper);
+  }
+}
+
+.description {
+  margin: 8px 0 0;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.details li {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--grey-soft);
+  font-size: 0.85rem;
+}
+
+.related {
+  margin-top: 48px;
+}
+
+.related h2 {
+  font-size: 1.2rem;
+}
+
+.related ul {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  list-style: none;
+}
+
+.related a {
+  display: grid;
+  gap: 8px;
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.related img {
+  border-radius: 16px;
+  background: var(--grey-soft);
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.gone {
+  padding: 2rem;
+  text-align: center;
+}
