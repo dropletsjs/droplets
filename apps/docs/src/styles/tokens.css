@@ -1,0 +1,81 @@
+/*
+ * Droplets theme: design tokens.
+ *
+ * One set for dark and one for light. They follow Starlight's own theme
+ * switch: dark on `:root`, light on `:root[data-theme="light"]`, so the theme
+ * picker keeps working.
+ *
+ * The `*-low` status tints are derived: they are the status color mixed into
+ * surface-100 (8% light, 14% dark), the same recipe as accent-soft.
+ */
+
+:root,
+::backdrop {
+  --djs-surface-100: #111417;
+  --djs-surface-200: #181c20;
+  --djs-surface-300: #20252a;
+  --djs-surface-overlay: #232a30;
+  --djs-scrim: rgba(0, 0, 0, 0.6);
+  --djs-line: #2a3036;
+  --djs-line-strong: #69737d;
+  --djs-ink: #e8ecef;
+  --djs-ink-soft: #c1c8ce; /* halfway between ink and ink-muted */
+  --djs-ink-muted: #9aa4ae;
+  --djs-accent: #ff5f24;
+  --djs-accent-text: #ff5f24;
+  --djs-on-accent: #1a0800;
+  --djs-accent-soft: #3a1a0c;
+  --djs-accent-2: #a9bbe3;
+  --djs-accent-2-low: #262b34;
+  --djs-focus: #ff5f24;
+  --djs-success: #6fcf8a;
+  --djs-success-low: #1e2e27;
+  --djs-warning: #e3b341;
+  --djs-warning-low: #2e2a1d;
+  --djs-danger: #ff7fa0;
+  --djs-danger-low: #32232a;
+
+  --djs-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --djs-shadow-sm: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 1px 3px rgba(0, 0, 0, 0.5);
+  --djs-shadow-md: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 8px 20px rgba(0, 0, 0, 0.55);
+  --djs-shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 24px 48px rgba(0, 0, 0, 0.65);
+
+  --djs-radius-sm: 4px;
+  --djs-radius-md: 8px;
+
+  --djs-font-sans: "Instrument Sans Variable", "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --djs-font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+}
+
+:root[data-theme="light"],
+[data-theme="light"] ::backdrop {
+  --djs-surface-100: #f7f8f9;
+  --djs-surface-200: #ffffff;
+  --djs-surface-300: #eef0f2;
+  --djs-surface-overlay: #ffffff;
+  --djs-scrim: rgba(22, 25, 29, 0.4);
+  --djs-line: #dde1e5;
+  --djs-line-strong: #848d97;
+  --djs-ink: #16191d;
+  --djs-ink-soft: #383d44;
+  --djs-ink-muted: #59616b;
+  --djs-accent: #cc3a00;
+  --djs-accent-text: #cc3a00;
+  --djs-on-accent: #ffffff;
+  --djs-accent-soft: #fff4ee;
+  --djs-accent-2: #23365e;
+  --djs-accent-2-low: #e6e8ed;
+  --djs-focus: #cc3a00;
+  --djs-success: #1d7a3a;
+  --djs-success-low: #e6eeea;
+  --djs-warning: #8a5a00;
+  --djs-warning-low: #eeebe5;
+  --djs-danger: #b3123e;
+  --djs-danger-low: #f2e6ea;
+
+  --djs-shadow-xs: 0 1px 2px rgba(22, 25, 29, 0.06);
+  --djs-shadow-sm: 0 1px 2px rgba(22, 25, 29, 0.06), 0 1px 3px rgba(22, 25, 29, 0.08);
+  --djs-shadow-md: 0 2px 4px rgba(22, 25, 29, 0.06), 0 8px 16px rgba(22, 25, 29, 0.1);
+  --djs-shadow-lg: 0 4px 8px rgba(22, 25, 29, 0.06), 0 20px 40px rgba(22, 25, 29, 0.16);
+}

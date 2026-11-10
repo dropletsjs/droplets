@@ -1,0 +1,296 @@
+---
+/**
+ * The shop demo as every host in examples/hosts/ builds it: what the host
+ * renders and which droplet fills each slot (first figure), and who talks
+ * to whom (second). Inline SVG, so it takes the docs' theme colors.
+ */
+---
+
+<figure class="shop-diagram">
+  <svg viewBox="0 0 640 850" role="img" aria-labelledby="shop-page-title shop-page-desc">
+    <title id="shop-page-title">The host's page and the shop's droplets</title>
+    <desc id="shop-page-desc">
+      The gallery page as a host renders it: header, hero and footer are the host's; the toasts (first in
+      the body, fixed to a corner), the cart badge, the filter and the product library are droplets from the
+      shop. Below, the other pages and their droplets.
+    </desc>
+
+    <!-- The browser window, /gallery -->
+    <rect class="frame" x="10" y="10" width="620" height="462" rx="8" />
+    <circle class="dot" cx="28" cy="25" r="4" /><circle class="dot" cx="42" cy="25" r="4" /><circle class="dot" cx="56" cy="25" r="4" />
+    <rect class="url" x="74" y="16" width="300" height="18" rx="9" />
+    <text class="small mono" x="86" y="29">http://localhost:8003/gallery</text>
+
+    <!-- Header: host, with the cart droplet -->
+    <rect class="host" x="22" y="46" width="596" height="52" rx="6" />
+    <text class="title host-ink" x="34" y="68">◆ Droplets Shop</text>
+    <text class="small" x="34" y="86">host: logo, nav, routes</text>
+    <text class="label host-ink" x="190" y="76">Gallery    Admin</text>
+    <rect class="shop" x="406" y="52" width="204" height="40" rx="6" />
+    <text class="title shop-ink" x="416" y="69">shopping-cart · React</text>
+    <text class="small" x="416" y="85">client-only · badge, cart drawer</text>
+
+    <!-- Hero: host -->
+    <rect class="host" x="22" y="108" width="596" height="48" rx="6" />
+    <text class="title host-ink" x="34" y="128">Hero</text>
+    <text class="small" x="34" y="145">host markup: the page's own heading and copy</text>
+
+    <!-- Filter -->
+    <rect class="shop" x="22" y="166" width="180" height="234" rx="6" />
+    <text class="title shop-ink" x="32" y="186">product-filter</text>
+    <text class="label" x="32" y="202">Hono JSX</text>
+    <text class="small" x="32" y="222">Search, category, sort,</text>
+    <text class="small" x="32" y="237">on sale. SSR; hydrates</text>
+    <text class="small" x="32" y="252">on the first interaction.</text>
+    <text class="small" x="32" y="267">Without JS: a GET form.</text>
+    <rect class="ghost" x="32" y="282" width="160" height="18" rx="4" />
+    <circle class="ghost" cx="40" cy="316" r="4" /><rect class="ghost" x="50" y="312" width="80" height="8" rx="2" />
+    <circle class="ghost" cx="40" cy="334" r="4" /><rect class="ghost" x="50" y="330" width="64" height="8" rx="2" />
+    <circle class="ghost" cx="40" cy="352" r="4" /><rect class="ghost" x="50" y="348" width="72" height="8" rx="2" />
+    <rect class="ghost" x="32" y="368" width="160" height="18" rx="4" />
+
+    <!-- Library -->
+    <rect class="shop" x="212" y="166" width="406" height="234" rx="6" />
+    <text class="title shop-ink" x="222" y="186">product-library</text>
+    <text class="label" x="222" y="202">Svelte · SSR + hydrate</text>
+    <text class="small" x="222" y="222">Cards, sort, pager; Add to cart is a form action</text>
+    <text class="small" x="222" y="237">(enhanced once live). Follows shop:filter via /api.</text>
+    <g class="cards">
+      <rect class="ghost" x="222" y="250" width="90" height="140" rx="5" /><rect class="img" x="229" y="257" width="76" height="64" rx="3" />
+      <rect class="ghost" x="229" y="330" width="60" height="7" rx="2" /><rect class="ghost" x="229" y="343" width="36" height="7" rx="2" /><rect class="btn" x="229" y="360" width="76" height="20" rx="4" />
+      <rect class="ghost" x="320" y="250" width="90" height="140" rx="5" /><rect class="img" x="327" y="257" width="76" height="64" rx="3" />
+      <rect class="ghost" x="327" y="330" width="60" height="7" rx="2" /><rect class="ghost" x="327" y="343" width="36" height="7" rx="2" /><rect class="btn" x="327" y="360" width="76" height="20" rx="4" />
+      <rect class="ghost" x="418" y="250" width="90" height="140" rx="5" /><rect class="img" x="425" y="257" width="76" height="64" rx="3" />
+      <rect class="ghost" x="425" y="330" width="60" height="7" rx="2" /><rect class="ghost" x="425" y="343" width="36" height="7" rx="2" /><rect class="btn" x="425" y="360" width="76" height="20" rx="4" />
+      <rect class="ghost" x="516" y="250" width="90" height="140" rx="5" /><rect class="img" x="523" y="257" width="76" height="64" rx="3" />
+      <rect class="ghost" x="523" y="330" width="60" height="7" rx="2" /><rect class="ghost" x="523" y="343" width="36" height="7" rx="2" /><rect class="btn off" x="523" y="360" width="76" height="20" rx="4" />
+    </g>
+
+    <!-- Footer: host -->
+    <rect class="host" x="22" y="410" width="596" height="50" rx="6" />
+    <text class="title host-ink" x="34" y="431">Footer</text>
+    <text class="small" x="34" y="448">host: names its stack (Express 5, nginx, …)</text>
+
+    <!-- Toasts: first in the body, fixed to the corner, over the page -->
+    <rect class="shop toast" x="392" y="414" width="220" height="42" rx="6" />
+    <text class="title shop-ink" x="402" y="431">toast-center · Solid</text>
+    <text class="small" x="402" y="447">client-only · first in &lt;body&gt;</text>
+
+    <!-- The other pages -->
+    <text class="heading" x="10" y="502">The other pages, in the same layout</text>
+
+    <text class="label mono" x="22" y="530">/product/:slug</text>
+    <rect class="host" x="22" y="538" width="596" height="24" rx="5" />
+    <text class="small" x="32" y="554">host: breadcrumb (name, category from product-page's _data)</text>
+    <rect class="shop" x="22" y="568" width="296" height="54" rx="6" />
+    <text class="title shop-ink" x="32" y="587">product-page · Handlebars</text>
+    <text class="small" x="32" y="605">SSG per product; stock and price filled in</text>
+    <text class="small" x="32" y="618">live on every request; no JavaScript</text>
+    <rect class="shop" x="326" y="568" width="292" height="54" rx="6" />
+    <text class="title shop-ink" x="336" y="587">product-comments · Solid</text>
+    <text class="small" x="336" y="605">SSR, hydrates when visible; full</text>
+    <text class="small" x="336" y="618">oldest-first pages SSG, the rest live</text>
+
+    <text class="label mono" x="22" y="650">/login</text>
+    <rect class="shop" x="22" y="658" width="296" height="54" rx="6" />
+    <text class="title shop-ink" x="32" y="677">login · Hono JSX</text>
+    <text class="small" x="32" y="695">SSR, no JavaScript; a post sets the</text>
+    <text class="small" x="32" y="708">session cookie, 303 to next (/admin)</text>
+    <text class="label mono" x="326" y="650">/admin</text>
+    <rect class="shop" x="326" y="658" width="292" height="54" rx="6" />
+    <text class="title shop-ink" x="336" y="677">product-admin · Vue</text>
+    <text class="small" x="336" y="695">SSR + hydrate; a login gate without</text>
+    <text class="small" x="336" y="708">a session; stock, products, campaign</text>
+
+    <text class="label mono" x="22" y="740">any page</text>
+    <rect class="shop" x="22" y="748" width="596" height="36" rx="6" />
+    <text class="title shop-ink" x="32" y="764">product-card · Svelte</text>
+    <text class="small" x="32" y="778">one product card, SSR, hydrates when visible: for a host's own pages (the library uses the same card)</text>
+
+    <!-- Legend -->
+    <rect class="host" x="22" y="796" width="16" height="16" rx="3" />
+    <text class="small" x="44" y="809">the host renders it</text>
+    <rect class="shop" x="180" y="796" width="16" height="16" rx="3" />
+    <text class="small" x="202" y="809">a shop droplet, pasted in as &lt;djs-shop&gt;</text>
+    <text class="small" x="22" y="830">SSR: rendered per request · SSG: rendered at build · client-only: rendered in the browser</text>
+    <text class="small" x="22" y="845">hydrate: when its JavaScript takes over (at once, when visible, on first interaction, never)</text>
+  </svg>
+
+  <svg viewBox="0 0 640 660" role="img" aria-labelledby="shop-flow-title shop-flow-desc">
+    <title id="shop-flow-title">Who talks to whom</title>
+    <desc id="shop-flow-desc">
+      The browser asks the host for pages. The host fetches fragments from the shop on its server, with
+      x-host, the browser's cookies and the page URL. The browser reaches the shop through the host's proxy for
+      scripts, data and form posts. The shop reads and writes SQLite.
+    </desc>
+    <defs>
+      <marker id="shop-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path class="head" d="M0 0 L10 5 L0 10 z" />
+      </marker>
+    </defs>
+
+    <rect class="node" x="220" y="20" width="200" height="50" rx="8" />
+    <text class="title center" x="320" y="42">Browser</text>
+    <text class="small center" x="320" y="60">one origin: the host's</text>
+
+    <rect class="host" x="220" y="200" width="200" height="50" rx="8" />
+    <text class="title host-ink center" x="320" y="222">Host server</text>
+    <text class="small center" x="320" y="240">Express, nginx, PHP, …</text>
+
+    <rect class="shop" x="220" y="390" width="200" height="50" rx="8" />
+    <text class="title shop-ink center" x="320" y="412">Shop (droplets server)</text>
+    <text class="small center" x="320" y="430">port 8300, reached only by the host</text>
+
+    <path class="db" d="M240 516 v36 a80 12 0 0 0 160 0 v-36" />
+    <ellipse class="db" cx="320" cy="516" rx="80" ry="12" />
+    <text class="title center" x="320" y="538">SQLite</text>
+    <text class="small center" x="320" y="554">shop.db</text>
+
+    <!-- 1: browser to host -->
+    <line class="arrow" x1="300" y1="72" x2="300" y2="196" marker-end="url(#shop-arrow)" />
+    <text class="small end" x="290" y="112">① GET /gallery, /product/…</text>
+    <text class="small end" x="290" y="128">← the page, fragments pasted in;</text>
+    <text class="small end" x="290" y="144">the shop's Set-Cookie passed on</text>
+
+    <!-- 2: host to shop -->
+    <line class="arrow" x1="300" y1="252" x2="300" y2="386" marker-end="url(#shop-arrow)" />
+    <text class="small end" x="290" y="278">② GET /droplets/&lt;id&gt;?props, _data</text>
+    <text class="small end" x="290" y="294">x-host: the host's public origin</text>
+    <text class="small end" x="290" y="310">Cookie: the browser's, forwarded</text>
+    <text class="small end" x="290" y="326">Referer: the page URL, query included</text>
+    <text class="small end" x="290" y="346">← fragment, Set-Cookie, Link preloads</text>
+
+    <!-- 3: browser to shop, through the host's proxy -->
+    <polyline class="arrow proxy" points="422,45 600,45 600,415 426,415" marker-end="url(#shop-arrow)" />
+    <text class="small" x="432" y="84">③ through the host's proxy,</text>
+    <text class="small" x="432" y="100">same origin, no CORS:</text>
+    <text class="small" x="432" y="122">/index.js, bundles, _data:</text>
+    <text class="small" x="432" y="138">each droplet hydrates itself</text>
+    <text class="small" x="432" y="160">POST ?/action (form actions):</text>
+    <text class="small" x="432" y="176">by fetch once live; without JS</text>
+    <text class="small" x="432" y="192">303 back to the host page,</text>
+    <text class="small" x="432" y="208">the result signed in its query</text>
+    <text class="small" x="432" y="230">/api/* (cart, auth, comments)</text>
+
+    <!-- 4: shop to SQLite -->
+    <line class="arrow" x1="320" y1="442" x2="320" y2="500" marker-end="url(#shop-arrow)" />
+    <text class="small" x="332" y="476">④ products, stock, carts, comments</text>
+
+    <!-- Cookies -->
+    <rect class="note" x="10" y="590" width="620" height="62" rx="6" />
+    <text class="label" x="22" y="610">Cookies are the shop's: cart_id and shop_admin.</text>
+    <text class="small" x="22" y="627">Form actions and /api set them; every host passes Set-Cookie on, so they are first-party</text>
+    <text class="small" x="22" y="643">on the host's origin. HttpOnly, SameSite=Lax, Secure except over plain http://localhost.</text>
+  </svg>
+</figure>
+
+<style>
+  .shop-diagram {
+    display: grid;
+    gap: 1.5rem;
+    margin: 1.5rem 0;
+  }
+  .shop-diagram svg {
+    width: 100%;
+    height: auto;
+    font-family: var(--djs-font-sans, system-ui, sans-serif);
+  }
+  .frame {
+    fill: var(--djs-surface-200);
+    stroke: var(--djs-line-strong);
+  }
+  .dot {
+    fill: var(--djs-line-strong);
+  }
+  .url {
+    fill: var(--djs-surface-300);
+    stroke: var(--djs-line);
+  }
+  .host {
+    fill: var(--djs-accent-2-low);
+    stroke: var(--djs-accent-2);
+    stroke-width: 1.5;
+  }
+  .shop {
+    fill: var(--djs-accent-soft);
+    stroke: var(--djs-accent);
+    stroke-width: 1.5;
+    stroke-dasharray: 5 3;
+  }
+  .shop.toast {
+    fill: var(--djs-surface-300);
+    stroke-dasharray: none;
+  }
+  .node,
+  .note {
+    fill: var(--djs-surface-300);
+    stroke: var(--djs-line-strong);
+  }
+  .db {
+    fill: var(--djs-surface-300);
+    stroke: var(--djs-line-strong);
+    stroke-width: 1.5;
+  }
+  .ghost {
+    fill: none;
+    stroke: var(--djs-line-strong);
+    opacity: 0.6;
+  }
+  .img {
+    fill: var(--djs-line);
+  }
+  .btn {
+    fill: var(--djs-accent);
+    opacity: 0.8;
+  }
+  .btn.off {
+    fill: var(--djs-line-strong);
+  }
+  .arrow {
+    fill: none;
+    stroke: var(--djs-ink-muted);
+    stroke-width: 1.5;
+  }
+  .arrow.proxy {
+    stroke-dasharray: 6 4;
+  }
+  .head {
+    fill: var(--djs-ink-muted);
+  }
+  text {
+    fill: var(--djs-ink-soft);
+  }
+  .title {
+    font-size: 13px;
+    font-weight: 650;
+    fill: var(--djs-ink);
+  }
+  .heading {
+    font-size: 14px;
+    font-weight: 650;
+    fill: var(--djs-ink);
+  }
+  .label {
+    font-size: 12px;
+    font-weight: 550;
+    fill: var(--djs-ink);
+  }
+  .small {
+    font-size: 11px;
+  }
+  .mono {
+    font-family: var(--djs-font-mono, ui-monospace, monospace);
+  }
+  .host-ink {
+    fill: var(--djs-accent-2);
+  }
+  .shop-ink {
+    fill: var(--djs-accent-text);
+  }
+  .center {
+    text-anchor: middle;
+  }
+  .end {
+    text-anchor: end;
+  }
+</style>

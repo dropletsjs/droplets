@@ -1,0 +1,135 @@
+---
+title: Errors
+description: "error() and redirect(), handleError, the +error page as the droplet's boundary, and what happens in the browser."
+---
+
+import LiveDroplet from "../../../components/LiveDroplet.astro";
+
+A droplet can fail in three places: in a load on the server, in a load in the
+browser, and while its component renders. Droplets handles each one the same
+way: the droplet's `+error.*` page renders in its place. Two kinds of failure
+are not errors in that sense: answers you choose (`error()`, `redirect()`) and
+props the schema refuses.
+
+## Answers: `error()` and `redirect()`
+
+```ts
+// +droplet.server.ts
+import { error, redirect, type LoadEvent } from "$droplets/server";
+
+export const load = async ({ props, locals }: LoadEvent) => {
+  if (!locals.user) redirect(303, "/login");
+  const post = await db.post(props.id);
+  if (!post) error(404, "No such post");
+  return { post };
+};
+```
+
+They stop the load and answer as an endpoint does: the fragment and `_data`
+respond with that status and message, or with the redirect. No component
+renders and no `handleError` runs. The host decides what to show; a host that
+fetches fragments on the server sees the status code.
+
+Props refused by the [schema](/guides/writing-droplets/#a-props-schema) answer
+`400` the same way, before any load runs.
+
+## Errors: `handleError` and `+error.*`
+
+Anything else a load (or the render) throws is an error. It goes through
+`handleError`:
+
+1. `handleError` in `+droplet.server.ts` runs first, **on the server only**.
+   It is the place to log the error and keep internals off the page.
+2. Then `handleError` in `+droplet.ts`, which also runs in the browser.
+
+Each receives `{ error }` and returns `{ error }`. A missing one passes the
+error through, with one exception: without a `handleError` in
+`+droplet.server.ts`, a production server sends only
+`{ name: "DropletRenderError", message: "Internal Error" }`, so what a
+driver or a query said stays in the log. `vite dev` keeps the message. What
+comes out is the `error` prop of the droplet's error page.
+
+```ts
+// +droplet.server.ts
+import type { HandleDropletError } from "$droplets/server";
+
+export const handleError: HandleDropletError = ({ error }) => {
+  console.error(error);
+  return { error: { message: "Something went wrong saying hello." } };
+};
+```
+
+```svelte
+<!-- +error.svelte -->
+<script lang="ts">
+  let { error }: { error: { message: string } } = $props();
+</script>
+
+<p>{error.message}</p>
+```
+
+The error page lives next to the droplet, in the same framework; there is no
+shared one. It is the droplet's boundary and follows the droplet's flags:
+rendered on the server when the droplet is, hydrated when the droplet is,
+shipped in the droplet's bundle. It receives the host's children like the
+droplet does.
+
+On the server, the fragment is answered with a `500`, carries
+`data-droplet-error`, and its inline data holds `{ "error": … }` as it left
+the server. The browser runs `handleError` of `+droplet.ts` over it and
+hydrates the error page. `_data` answers the same `{ "error": … }` with a
+`500`.
+
+Nothing renders when the droplet has no error page, or a `handleError` throws.
+On the server that is an unexpected error, answered through
+[`handleError` in `hooks.server.ts`](/guides/server/#handleerror); in the
+browser it is logged and the element shows the host's children, if any.
+
+The demo's `crash` droplet (Solid) throws from its load when `fail` is
+set. The docs fetched both renders when this page was built: the button
+shows the second, the `500` fragment with `data-droplet-error`, whose
+`+error.tsx` hydrated in the same `<djs-demo>` element.
+
+<LiveDroplet
+  id="crash"
+  toggle={{ props: { fail: true }, show: "Make the load throw", hide: "Render it without fail" }}
+  caption="This is a live droplet served by apps/demo: the error page is the droplet's own."
+/>
+
+A throw with nothing to say (`throw undefined`, no `handleError`) reaches the
+error page as a `DropletRenderError`.
+
+## In the browser
+
+When a droplet loads in the browser (client-only, or a load in `+droplet.ts`
+that throws while hydrating), a failure goes through `handleError` of
+`+droplet.ts` and the error page renders in place.
+
+`data` may be a [promise](/guides/writing-droplets/#data-may-be-a-promise)
+when a droplet mounts from scratch. A rejected `data`, or anything else the
+component throws while rendering, is caught by the renderer's own error
+boundary, which renders `+error.*` in the droplet's place with `handleError`'s
+answer. Each framework reports it its own way: `await` in Svelte's async mode,
+`use()` in React, `await` in Vue's `<script setup>`, a resource in Solid. See
+[Renderers](/renderers/).
+
+An error the component never reaches while rendering is the component's own:
+a promise it does not read, a rejection inside a `setTimeout`, an event
+handler that throws. Catch those where they happen.
+
+## Deploys while a page is open
+
+Fragments carry the build that rendered them (`data-build`), and `_data`
+answers carry `x-droplets-build`. When a page loaded `index.js` from one
+build and meets a droplet from another, the element does not hydrate:
+the server HTML stays, and it dispatches `droplets:stale`, which bubbles to
+`window`:
+
+```js
+addEventListener("droplets:stale", (event) => {
+  // event.detail: { element, droplet, loaded, served }
+  location.reload();
+});
+```
+
+The host decides what to do; nothing happens by default.

@@ -1,0 +1,154 @@
+---
+title: Overview
+description: "The one pattern every host uses, and the three variations of it."
+---
+
+import HostGrid from "../../../../components/HostGrid.astro";
+import HostsHub from "../../../../components/HostsHub.astro";
+
+Droplets does not care what renders the page around it. Every host in this
+section does the same two things, in its own language:
+
+1. **Fetch the fragment on the server** (`GET /droplets/<id>?prop=value`, with
+   `x-host` set to the origin browsers will use) and paste it into the page.
+   The page arrives fully rendered; no JavaScript is needed for the first paint.
+2. **Load `/index.js` once.** Each droplet element on the page then
+   hydrates itself, fetching only its own bundle.
+
+That is the whole integration:
+
+```html
+<script type="module" src="https://drops.example.com/index.js"></script>
+
+<!-- the body of GET https://drops.example.com/droplets/counter, pasted in -->
+<djs-droplet data-droplet="counter">…</djs-droplet>
+```
+
+One server can feed every host at once. They differ only in who fetches the
+fragment, the host's server or the browser:
+
+<HostsHub />
+
+Every example also proxies `/index.js`, `/droplets/`, `/assets/` and `/api/`
+under its own origin, so the browser talks to one origin. Without a proxy,
+the page loads `/index.js` from the droplets server, which then needs
+[`cors`](#two-origins).
+
+Nine stacks embed the same [shop demo](/integrate/hosts/shop-demo/). Each page
+has its recording and how that host is set up:
+
+<HostGrid />
+
+## Three variations
+
+**Server include.** The host's server fetches the fragment and renders it into
+its template. Express, Astro, SvelteKit, Next.js, FastAPI, Sinatra, plain
+PHP and the WordPress plugin all do this. It is the default choice: server-rendered,
+cacheable, works without JavaScript for non-hydrating droplets.
+
+**Reverse proxy.** The host proxies the droplets routes under its own origin
+and, if it can, includes fragments itself. nginx does both with Server Side
+Includes and `proxy_pass`, with zero application code. No CORS is involved
+because the browser only ever talks to one origin.
+
+**Client-only.** A single-page app has no server to paste fragments into. It
+writes the droplet element (`<djs-droplet>` by default, named per server by
+`element`) with `data-droplet` and `data-params` directly, or fetches the
+fragment from the browser, and lets the element do the rest. The React
+example shows both. [htmx](/integrate/hosts/htmx/) does the second with no code
+at all: `hx-get` asks for the fragment and swaps it into a static page.
+
+## Passing content in
+
+A host can put its own content inside a droplet, other droplets included, in
+one `<div data-app-slot>` before the element's closing tag. The component
+decides where it shows. See [Host children](/guides/in-the-browser/#host-children).
+
+## Choosing when it hydrates
+
+`data-hydrate="visible"` or `"interactive"` on the element defers a droplet's
+JavaScript until it scrolls into view or someone interacts with it, whatever
+the component declares. See [Lazy hydration](/guides/in-the-browser/#lazy-hydration).
+
+## While developing
+
+Point the host at `vite dev` instead of a build
+(`http://localhost:5173/index.js`, fragments from `localhost:5173`) and the
+droplets update in place while you edit them. `index.js?injectTool=true` adds
+the dev tool to the host page. See [Development](/guides/development/#hot-updates).
+
+## Two origins
+
+Inside Docker, or any real deployment, the host reaches the droplets server
+over an internal address (`http://droplets:8000`) while browsers reach it over
+a public one (`https://drops.example.com`). The examples read both from the
+environment:
+
+| Variable | Used for |
+| --- | --- |
+| `DROPLETS_INTERNAL_URL` | Server-to-server fetches |
+| `DROPLETS_PUBLIC_URL` | Sent as `x-host`, and as the `<script src>` origin |
+
+The elements load from wherever the page loaded `/index.js` from, so the
+`<script src>` decides where the browser goes; `x-host` makes the URLs in the
+fragments agree with it. The droplets server honours `x-host` only from an
+origin it trusts, so it gets the public URL (and the host's own origin) in
+`DROPLETS_TRUSTED_ORIGINS`, as each example's compose file does:
+
+| Variable, on the droplets server | Used for |
+| --- | --- |
+| `DROPLETS_TRUSTED_ORIGINS` | `http://localhost:8000,http://localhost:8003`: the `x-host` it honours, and the hosts it trusts |
+| `DROPLETS_SECRET` | 32+ random bytes: signs a form's result on the redirect back to the host page when JavaScript is off ([Post/Redirect/Get](/guides/writing-droplets/#without-javascript-postredirectget)) |
+
+For forms without JavaScript, a host that fetches fragments on its server
+passes its page's URL, query included, as the render's `host` (a `POST`
+render's `"host"`, or `Referer` for a `handle` that reads it): after a post
+the page's URL carries the result the droplet shows.
+
+Cross-origin loading needs `cors: true` on the
+droplets server. The nginx
+example avoids it by keeping everything on one origin.
+
+## What a droplet sees
+
+A droplet knows where it renders: `host` in its loads is the page's URL,
+path and query. Embedding one is the same trust as adding a third-party
+script: a droplets server run by someone else sees the URLs of the pages
+it is embedded in. Do not embed droplets you do not trust on pages whose URLs
+carry anything sensitive. See [Who sees what](/guides/security/#who-sees-what),
+and [For hosts](/guides/security/#for-hosts) for what a host's server should
+and should not pass on.
+
+## The examples
+
+| Page | Stack | Pattern |
+| --- | --- | --- |
+| [nginx (and IIS)](/integrate/hosts/nginx/) | nginx, zero application code | Server Side Includes + reverse proxy, same origin |
+| [Node (Express)](/integrate/hosts/express/) | Express 5 | Server include, or the droplets server mounted in-process |
+| [React (Vite SPA)](/integrate/hosts/react/) | React 19, Vite | Client-only `<Droplet>` component |
+| [Astro](/integrate/hosts/astro/) | Astro, Node adapter | Server include in frontmatter, `set:html` |
+| [SvelteKit](/integrate/hosts/sveltekit/) | SvelteKit, adapter-node | Server include in `+page.server.ts`, `{@html}` |
+| [Next.js](/integrate/hosts/nextjs/) | Next.js App Router | Server include in a server component |
+| [Python (FastAPI)](/integrate/hosts/python/) | FastAPI, httpx, Jinja2 | Server include |
+| [Ruby (Sinatra)](/integrate/hosts/ruby/) | Sinatra, Net::HTTP, ERB | Server include |
+| [PHP](/integrate/hosts/php/) | PHP 8.3 on Apache, curl, no framework | Server include |
+| [WordPress](/integrate/wordpress/) | WordPress 6, a plugin; WordPress owns the data | Server include via shortcodes ([a tutorial](/integrate/wordpress/)) |
+| [htmx](/integrate/hosts/htmx/) | htmx 2 on static pages, nginx | Client-only: `hx-get` swaps the fragment in, cross-origin or proxied |
+
+## Running the examples
+
+Each example folder in the repository is standalone, with its own dependencies
+and a `docker-compose.yml` that starts it next to a droplets server built from
+the Svelte example, `examples/frameworks/svelte`:
+
+```bash
+cd examples/hosts/<example>
+docker compose up --build
+```
+
+All of them render the same three droplets, one per mode: `client`
+(rendered in the browser), `ssr-hydrate` (server-rendered, then hydrated) and
+`ssr-nohydrate` (server-rendered, no JavaScript). The interactive ones call the droplets server's `/api` endpoints
+through [`$droplets/drop`](/reference/api/#dropletsdrop), on the origin the
+page loaded `/index.js` from, so a host that proxies the droplets server
+under its own origin proxies `/api/*` too.

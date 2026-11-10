@@ -1,0 +1,199 @@
+---
+title: nginx (and IIS)
+description: "Server Side Includes plus a reverse proxy, with zero application code."
+---
+
+import HostDemo from "../../../../components/HostDemo.astro";
+
+The [shop demo](/integrate/hosts/shop-demo/) on nginx, with no application code,
+recorded by the end-to-end test. [How the pieces fit](/integrate/hosts/shop-demo/#how-it-fits-together)
+has the diagram.
+
+<HostDemo id="nginx" stack="nginx 1.27" />
+
+## How this host is set up
+
+The code is `examples/hosts/nginx/nginx.conf` (the second `server` block) and the
+SSI pages in `examples/hosts/nginx/shop/`.
+
+### Pieces and ports
+
+`docker-compose.yml` starts three services:
+
+| Service | Port | What it is |
+| --- | --- | --- |
+| `web` | 8081 (the shop) and 8080 (the basic page), public | `nginx:1.27-alpine` with `nginx.conf`, `shop/` and `html/` copied in (its `Dockerfile`) |
+| `shop` | 8300, internal only | the shop's droplets server (`examples/shop`) |
+| `droplets` | 8000, internal only | the Svelte example's droplets server, behind port 8080 |
+
+There are no environment variables on `web`: the internal addresses are
+`upstream` blocks (`server shop:8300;`) and the public one is written out in
+each `proxy_set_header x-host http://localhost:8081;`. The shop has its own
+port because its `/index.js` and `/droplets/*` would collide with the basic
+server's on 8080.
+
+### How a page gets a droplet
+
+Server Side Includes. Each page is an `.html` file of SSI directives; every
+include goes through one internal location that sets the headers:
+
+```nginx
+# shop/gallery.html
+<aside><!--# include virtual="/_fragment/droplets/product-filter?$args" --></aside>
+
+# nginx.conf
+location ^~ /_fragment/ {
+  internal;
+  rewrite ^/_fragment(/.*)$ $1 break;
+  proxy_pass http://shop;
+  proxy_set_header x-host http://localhost:8081;
+  proxy_set_header Referer http://localhost:8081$request_uri;  # the page, query included
+  proxy_set_header Accept text/html;
+  proxy_intercept_errors on;   # an error answer becomes a fixed note, never pasted
+}
+```
+
+A subrequest carries the browser's `Cookie`, so the cart badge and the admin
+render for the visitor. `Referer` is the page's URL: the droplet's
+[`host`](/integrate/http-contract/#host-where-the-droplet-renders). The shared
+`<head>` (`shop/_layout/head.html`) loads `<script type="module" src="/index.js">`
+once, through the proxy, and each droplet hydrates itself. The shared header
+(`shop/_layout/header.html`, included right after `<body>` on every page)
+starts with the toasts; `/index.js` installs `window.shopMessageQueue` before
+any droplet starts (the shop's `src/hooks.client.ts`):
+
+```html
+<!--# include virtual="/_fragment/droplets/toast-center" -->
+<header class="shop-header">…<!--# include virtual="/_fragment/droplets/shopping-cart?variant=badge" -->…</header>
+```
+
+### What it proxies
+
+`location ~ ^/(index\.js|droplets/|assets/|api/)` passes `/index.js`,
+`/droplets/*` (fragments, `_data`, form actions), `/assets/*` and `/api/*`
+to the shop with `x-host` written out and `Forwarded`/`X-Forwarded-*`
+cleared. Bodies, `Set-Cookie` and `303`s pass through as they are, so the
+cart and the login cookies are first-party, and nothing is cross-origin.
+`client_max_body_size 4m` lets the admin's image uploads through.
+
+### The shop's environment
+
+- `DROPLETS_TRUSTED_ORIGINS: http://localhost:8081`: the only origin whose
+  [`x-host`](/integrate/http-contract/#x-host-the-public-location) and
+  [form posts](/integrate/http-contract/#form-posts-the-origin-check) the shop accepts.
+- `DROPLETS_SECRET`: signs a form's result on the redirect back to the page
+  when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)).
+- `ADMIN_USER`, `ADMIN_PASSWORD`, `SHOP_SECRET`: the demo login
+  (admin / droplets) and the key its cookie is signed with. Demo values only.
+
+### Gotchas
+
+- **SSI drops a fragment's headers.** An `include virtual` is a subrequest:
+  nginx copies its body into the page and discards its `Set-Cookie`, its
+  `Link` preloads and its redirect. The shop is fine with that, since it sets
+  cookies only from form actions and `/api`, which go through the proxy. A
+  droplet that sets a cookie or redirects on a plain `GET` cannot be
+  composed with SSI: render that page in code (njs, OpenResty, or another
+  host on this list).
+- **The product page asks first.** An `auth_request` to the product
+  fragment turns an unknown slug into a 404 and an old `v` into a 302 from
+  nginx, since SSI could not pass the fragment's redirect on. The product's
+  name and id come from its `_data` read into an SSI variable
+  (`subrequest_output_buffer_size 64k`).
+
+### Run it
+
+```bash
+cd examples/hosts/nginx
+docker compose up --build
+open http://localhost:8081/gallery   # log in as admin / droplets
+```
+
+## The Svelte example
+
+Port 8080 serves the Svelte example: its three droplets, one per mode, from `examples/frameworks/svelte` (the `droplets` service), with the same two tools.
+
+The host is a static `index.html`. nginx does two things:
+
+- **Server Side Includes.** `<!--# include virtual="/droplets/ssr-hydrate?who=nginx" -->`
+  makes nginx fetch the fragment while serving the page, so the browser
+  receives server-rendered markup.
+- **Reverse proxy.** The droplets routes are proxied under nginx's own origin.
+  The browser only ever talks to nginx, so the droplets server needs no CORS,
+  and `x-host` tells it to write the fragments' URLs on nginx's origin. Droplets build
+  their API calls from that origin ([`$droplets/drop`](/reference/api/#dropletsdrop)),
+  so `/api/*` goes through the proxy too.
+
+### The page
+
+```html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Droplets in nginx</title>
+  <script type="module" src="/index.js"></script>
+</head>
+<body>
+  <!--# include virtual="/droplets/client?who=nginx" -->
+  <!--# include virtual="/droplets/ssr-hydrate?who=nginx" -->
+  <!--# include virtual="/droplets/ssr-nohydrate?who=nginx" -->
+</body>
+</html>
+```
+
+### The configuration
+
+```nginx
+upstream droplets {
+  server droplets:8000;
+}
+
+server {
+  listen 80;
+  root /usr/share/nginx/html;
+
+  # Static pages with <!--# include virtual="/droplets/<id>" --> directives.
+  location / {
+    ssi on;
+    try_files $uri $uri/ =404;
+  }
+
+  # Everything the droplets server owns: the entry client, the droplet routes
+  # (fragments, bundles, styles, _data), the shared assets and its /api
+  # endpoints.
+  location ~ ^/(index\.js|droplets/|assets/|api/) {
+    proxy_pass http://droplets;
+    # This site's public URL, written out.
+    proxy_set_header x-host http://localhost:8080;
+  }
+}
+```
+
+`x-host` is the site's public URL as you write it in the configuration, not
+`$scheme://$http_host`: the `Host` header comes from the client, and the
+droplets server would write its URLs on whatever it says. `proxy_set_header`
+replaces any `x-host` the client sent. Behind a path (`location /mfe/`),
+include it: `x-host https://shop.example/mfe`.
+
+The droplets server honours `x-host` only from origins it trusts: give it
+`DROPLETS_TRUSTED_ORIGINS=http://localhost:8080` (the example's compose file
+does), or `trustedOrigins` in `droplets.config.ts`.
+
+Run it from the repository: `cd examples/hosts/nginx && docker compose up --build`,
+then open `http://localhost:8080`.
+
+## IIS
+
+`examples/hosts/nginx/iis/web.config` is the equivalent URL Rewrite + Application
+Request Routing (ARR) reverse-proxy configuration. It has **not** been run on
+a Windows host; treat it as a starting point. Two notes:
+
+- Enable "proxy" in ARR's server settings, and allow the `HTTP_X_HOST` server
+  variable in `applicationHost.config` so the rewrite rule can set it. Set it
+  to the site's public URL, written out, never to a value built from the
+  request's `Host`.
+- IIS cannot include arbitrary URLs server-side. Pair it with a page that
+  fetches fragments itself (an ASP.NET page following the
+  [Express](/integrate/hosts/express/) pattern) or with the client-only pattern from
+  the [React example](/integrate/hosts/react/).

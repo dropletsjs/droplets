@@ -1,0 +1,92 @@
+---
+/**
+ * One host's run of the shop flow (tests/hosts): its video, with the
+ * gallery as the poster, and the four screenshots. The files are in
+ * public/hosts/, written by `pnpm test:hosts --docs`. Until a host has
+ * been recorded (`<id>.mp4` and `<id>/*.webp` missing), it shows a note
+ * saying which command writes them, and whatever files there are. A host
+ * with a flow of its own (`flow`, `shots`) shows that one instead. The
+ * screenshots are a gallery with a lightbox (HostShots.astro).
+ */
+import { hasHostFile } from "./host-media.ts";
+import HostShots from "./HostShots.astro";
+
+interface Props {
+  /** The host's name in tests/hosts/run.mjs, and its files' names. */
+  id: string;
+  /** The stack, as its footer names it. */
+  stack: string;
+  /** The flow recorded, when it is not the shop's: "The htmx flow". */
+  flow?: string;
+  /** Its screenshots, `[file, caption]`, the first one the poster; the shop flow's by default. */
+  shots?: readonly (readonly [string, string])[];
+}
+
+const { id, stack, flow = "The shop flow" } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
+const file = (name: string) => `${base}hosts/${name}`;
+const shots = Astro.props.shots ?? [
+  ["1-gallery", "The gallery"],
+  ["2-cart", "A product in the cart"],
+  ["3-admin", "The admin: stock set to 0"],
+  ["4-out-of-stock", "The product page: out of stock"],
+];
+const first = shots[0]?.[0];
+const video = hasHostFile(`${id}.mp4`);
+const poster = first && hasHostFile(`${id}/${first}.webp`) ? file(`${id}/${first}.webp`) : undefined;
+const recorded = shots.filter(([name]) => hasHostFile(`${id}/${name}.webp`));
+---
+
+<figure class="host-demo">
+  {
+    video && (
+      <video controls muted playsinline preload="none" poster={poster} width="1034" height="720">
+        <source src={file(`${id}.mp4`)} type="video/mp4" />
+      </video>
+    )
+  }
+  {
+    video ? (
+      <figcaption>{flow} on {stack}, recorded by the end-to-end test.</figcaption>
+    ) : (
+      <figcaption class="host-pending">
+        Not recorded yet: <code>pnpm test:hosts {id} --docs</code> writes the video and screenshots
+        (<code>apps/docs/public/hosts/{id}.mp4</code> and <code>apps/docs/public/hosts/{id}/</code>).
+      </figcaption>
+    )
+  }
+  {
+    recorded.length > 0 && (
+      <HostShots
+        title={`${flow} on ${stack}`}
+        stack={stack}
+        shots={recorded.map(([name, caption]) => [file(`${id}/${name}.webp`), caption] as const)}
+      />
+    )
+  }
+</figure>
+
+<style>
+  .host-demo {
+    margin: 1rem 0 2rem;
+  }
+  .host-demo video {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--djs-line);
+    border-radius: var(--djs-radius-md, 8px);
+    background: var(--djs-surface-300);
+  }
+  .host-demo figcaption {
+    margin-top: 0.4rem;
+    font-size: var(--sl-text-sm);
+    color: var(--djs-ink-muted);
+  }
+  .host-demo .host-pending {
+    margin-top: 0;
+    padding: 0.75rem 1rem;
+    border: 1px dashed var(--djs-line);
+    border-radius: var(--djs-radius-md, 8px);
+  }
+</style>

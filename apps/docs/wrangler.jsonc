@@ -1,0 +1,24 @@
+// The docs site at https://dropletsjs.dev: an assets-only Worker (no script).
+// Deploy from this directory after `pnpm docs:build` (apps/docs/README.md).
+{
+  "name": "dropletsjs-docs",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    // Astro's output (apps/docs/dist). public/_headers is copied into it.
+    "directory": "./dist",
+    // Astro builds every page as <page>/index.html with trailingSlash
+    // "always": /guides/server serves guides/server/index.html after a 307
+    // to /guides/server/, which is the canonical URL the pages declare.
+    "html_handling": "auto-trailing-slash",
+    // Unknown paths get Starlight's dist/404.html with status 404.
+    "not_found_handling": "404-page"
+  },
+  // Served only on the custom domain; no *.workers.dev or preview copies.
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    // Creates the DNS record and certificate for the apex in the
+    // dropletsjs.dev zone. www is a zone Redirect Rule, not a route.
+    { "pattern": "dropletsjs.dev", "custom_domain": true }
+  ]
+}

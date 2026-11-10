@@ -1,0 +1,141 @@
+---
+title: Solid
+description: "Solid droplets: djs add, +droplet.tsx, which .tsx files are Solid's, resources of data, hydration keyed per render, error pages, with a live droplet."
+tableOfContents: false
+---
+
+import AddRenderer from "../../../components/AddRenderer.astro";
+import RendererDemo from "../../../components/RendererDemo.astro";
+
+Solid components, rendered on the server and hydrated with Solid's own
+hydration, keyed by each render. The droplet below is a Solid component
+served by the demo server: its load sets the start, Solid renders it to HTML,
+and the button works once the bundle hydrates it.
+
+<RendererDemo id="counter-solid" />
+
+## Add it to a project
+
+<AddRenderer framework="solid" />
+
+## The files
+
+| File | What it is |
+| --- | --- |
+| `+droplet.tsx`, `+droplet.jsx` | The component, the file's default export. Its flags are named exports. |
+| `+error.tsx`, `+error.jsx` | The error page, optional. |
+| `+droplet.ts`, `+droplet.server.ts` | The loads, as for every framework: [Writing droplets](/guides/writing-droplets/#the-load-chain). |
+
+### Which `.tsx` files are Solid's
+
+Solid shares `.tsx` and `.jsx` with React, Preact and Hono JSX. With Solid
+the only one of them in `renderers`, every `.tsx` droplet is Solid's. With
+two or more, each droplet file says which it is:
+
+1. **An import** of `solid-js` or `@dropletsjs/renderer-solid`, a subpath
+   included (`solid-js/store`): the file is Solid's.
+2. **Otherwise a comment**, `/** @jsxImportSource solid-js */`, decides. `djs add`
+   writes it at the top of every Solid component, and it is also what types
+   the file's JSX for Solid when `tsconfig.json` names another
+   `jsxImportSource`.
+
+```tsx
+// src/droplets/hello/+droplet.tsx
+import { createResource, createSignal } from "solid-js";
+import type { DropletProps } from "./$types";
+
+export const hydrate = true;
+
+export default function Hello(props: DropletProps) {
+  const [clicks, setClicks] = createSignal(0);
+  // A value when hydrating, a promise when mounted from scratch.
+  const data = props.data;
+  const value = data instanceof Promise ? createResource(() => data)[0] : () => data;
+  return (
+    <>
+      <h1>{value()?.greeting}</h1>
+      <button onClick={() => setClicks(clicks() + 1)}>{clicks()}</button>
+      {props.children}
+    </>
+  );
+}
+```
+
+```tsx
+// src/droplets/hello/+error.tsx
+/** @jsxImportSource solid-js */
+import type { DropletErrorProps } from "./$types";
+
+export default function HelloError(props: DropletErrorProps) {
+  return (
+    <>
+      <p class="oops">{props.error.message}</p>
+      {props.children}
+    </>
+  );
+}
+```
+
+## What it supports
+
+| | |
+| --- | --- |
+| Server rendering | yes: `ssr = true`, the default; `ssr = false` mounts it in the browser only |
+| `hydrate` | `true` (the default), `"visible"`, `"interactive"`, `false` |
+| Prerendering | yes: `prerender = true` with `entries` |
+| Forms | the directive `use:enhanceDropletForm` of `@dropletsjs/renderer-solid/form` |
+
+What it does not do fails the build and says why:
+
+- a `.tsx` droplet that names no framework, or two, when several share the
+  extension:
+
+  ```
+  droplets: counter/+droplet.tsx: react, solid, preact and hono-jsx all handle this file and it imports none of them; import from react, solid-js, preact or hono/jsx, or add a /** @jsxImportSource <package> */ comment
+  ```
+
+- importing another framework, even through a neutral file:
+
+  ```
+  droplets: a solid droplet imports preact code: src/droplets/counter/+droplet.tsx -> src/droplets/counter/lib.ts -> preact/hooks/dist/hooks.mjs. A droplet uses its own framework's modules and neutral code only.
+  ```
+
+A flag that is not a literal (`export const hydrate = isMobile`) is ignored,
+with a warning.
+
+## Specifics
+
+- **Data as a promise:** a resource of it suspends; one that rejects reaches
+  the renderer's error boundary, which shows `+error.tsx`. The crash droplet
+  on [Errors](/guides/errors/) is a Solid droplet with an error page.
+- **Hydration** is keyed by the droplet's render id, so several Solid
+  droplets on one page hydrate independently. The renderer sets up Solid's
+  hydration state itself; hosts need no hydration script.
+- **Children:** `props.children` renders the host's content.
+- **Styles:** imported CSS goes to the droplet's stylesheet. Attributes are
+  HTML's: `class`, `for`.
+- **Forms:** `const add = actionUrl("add")` with `actionUrl` of
+  `$droplets/form`, then `<form method="post" action={add}>`; the directive
+  needs `enhanceDropletForm` in scope (`void enhanceDropletForm;`).
+- **Options:** `solid({ vitePlugin })` passes options to `vite-plugin-solid`;
+  `ssr` is always on, and `solid.hydratable` must stay at its default. With
+  `solid({ plugin: false })` you register `vite-plugin-solid` yourself, with
+  `ssr: true`.
+- **Hot updates.** Under `vite dev`, an edit to a component goes through
+  Solid's own refresh; see [Hot updates](/guides/development/#hot-updates).
+
+## The example
+
+[`examples/frameworks/solid`](https://github.com/dropletsjs/droplets/tree/main/examples/frameworks/solid)
+has one droplet per mode (`client`, `ssr-hydrate` with an error page,
+`ssr-nohydrate`), with loads, a props schema, `/api` endpoints, env variables
+and a `handle` hook. From a clone of the repository:
+
+```bash
+pnpm install && pnpm build
+pnpm --filter @dropletsjs/example-solid dev   # http://localhost:5173: the devtools page
+```
+
+`pnpm --filter @dropletsjs/example-solid build` then `start` serves it on
+http://localhost:8000; `/droplets/ssr-hydrate?who=Ana` is the fragment a
+host pastes into its page.

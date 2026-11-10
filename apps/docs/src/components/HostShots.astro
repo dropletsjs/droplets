@@ -1,0 +1,333 @@
+---
+/**
+ * A host's screenshots as a gallery: a grid of thumbnails (2 across on a
+ * phone, 4 on a wider page) that open a lightbox with the full-size image,
+ * its caption and "n / total", prev/next buttons, ← → and Esc, and a swipe
+ * on touch. The lightbox is a native modal <dialog>, one per gallery; the
+ * script below is bundled once per page and serves every gallery on it.
+ *
+ * Without JavaScript each thumbnail is a link to its image that opens in a
+ * new tab, so the docs page is never replaced. With it, a plain click opens
+ * the lightbox in place; ctrl/cmd-, shift- and middle-clicks keep the
+ * browser's default.
+ */
+interface Props {
+  /** "The shop flow on Express 5": names the lightbox. */
+  title: string;
+  /** The stack, for the images' alt text. */
+  stack: string;
+  /** The recorded screenshots, `[url, caption]`. */
+  shots: readonly (readonly [string, string])[];
+}
+
+const { title, stack, shots } = Astro.props;
+---
+
+<div class="host-shots" data-host-shots>
+  <ul>
+    {
+      shots.map(([src, caption], index) => (
+        <li>
+          <a href={src} target="_blank" rel="noopener" data-shot={index} data-caption={caption}>
+            <img src={src} alt={`${caption}, on ${stack}`} width="1280" height="800" loading="lazy" decoding="async" />
+          </a>
+          <span>{caption}</span>
+        </li>
+      ))
+    }
+  </ul>
+  <dialog class="host-lightbox not-content" aria-label={`Screenshots: ${title}`} data-lightbox>
+    <div class="hl-bar">
+      <p class="hl-title">{title}</p>
+      <button type="button" class="hl-btn" aria-label="Close" data-close>
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 3.5l9 9m0-9l-9 9" /></svg>
+      </button>
+    </div>
+    <div class="hl-stage" data-stage>
+      <img alt="" width="1280" height="800" decoding="async" data-full />
+    </div>
+    <div class="hl-foot">
+      <button type="button" class="hl-btn" aria-label="Previous screenshot" data-prev>
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M10 3L5 8l5 5" /></svg>
+      </button>
+      <p class="hl-caption" aria-live="polite" aria-atomic="true">
+        <span class="hl-count" data-count></span>
+        <span data-caption></span>
+      </p>
+      <button type="button" class="hl-btn" aria-label="Next screenshot" data-next>
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M6 3l5 5-5 5" /></svg>
+      </button>
+    </div>
+  </dialog>
+</div>
+
+<style>
+  .host-shots {
+    margin: 0.75rem 0 0;
+    container-type: inline-size;
+  }
+  .host-shots ul {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  @container (min-width: 34rem) {
+    .host-shots ul {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+  .host-shots li {
+    margin: 0;
+  }
+  .host-shots a {
+    display: block;
+    border-radius: var(--djs-radius-sm);
+    cursor: zoom-in;
+  }
+  .host-shots img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1280 / 800;
+    border: 1px solid var(--djs-line);
+    border-radius: var(--djs-radius-sm);
+    background: var(--djs-surface-300);
+  }
+  .host-shots a:hover img {
+    border-color: var(--djs-accent);
+  }
+  .host-shots a:focus-visible {
+    outline: 2px solid var(--djs-focus);
+    outline-offset: 2px;
+  }
+  .host-shots li > span {
+    display: block;
+    margin-top: 0.3rem;
+    font-size: var(--sl-text-xs);
+    line-height: 1.4;
+    color: var(--djs-ink-muted);
+  }
+
+  /* The lightbox: as wide as the screenshot fits, below 1280px, with room for its bars. */
+  .host-lightbox {
+    box-sizing: border-box;
+    width: min(1282px, calc(100vw - 2rem), max(18rem, calc((100dvh - 9rem) * 1.6)));
+    max-width: none;
+    max-height: calc(100dvh - 1rem);
+    margin: auto;
+    padding: 0;
+    overflow: auto;
+    border: 1px solid var(--djs-line);
+    border-radius: var(--djs-radius-md);
+    background: var(--djs-surface-overlay);
+    color: var(--djs-ink);
+    box-shadow: var(--djs-shadow-lg);
+  }
+  .host-lightbox::backdrop {
+    background: var(--djs-scrim);
+  }
+  :global(html:has(.host-lightbox[open])) {
+    overflow: hidden;
+  }
+  .hl-bar,
+  .hl-foot {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.5rem 0.5rem 1rem;
+  }
+  .hl-foot {
+    padding: 0.5rem;
+  }
+  .hl-title {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-size: var(--sl-text-sm);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .hl-stage {
+    border-block: 1px solid var(--djs-line);
+    background: var(--djs-surface-300);
+    touch-action: pan-y pinch-zoom;
+  }
+  .hl-stage img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1280 / 800;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+  .hl-caption {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    text-align: center;
+    font-size: var(--sl-text-sm);
+    line-height: 1.4;
+    color: var(--djs-ink);
+  }
+  .hl-count {
+    display: block;
+    font-family: var(--djs-font-mono);
+    font-size: var(--sl-text-xs);
+    font-variant-numeric: tabular-nums;
+    color: var(--djs-ink-muted);
+  }
+  .hl-btn {
+    display: inline-grid;
+    flex: none;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    border: 1px solid var(--djs-line-strong);
+    border-radius: var(--djs-radius-sm);
+    background: var(--djs-surface-200);
+    color: var(--djs-ink);
+    cursor: pointer;
+  }
+  .hl-btn:hover {
+    border-color: var(--djs-accent);
+    color: var(--djs-accent-text);
+  }
+  .hl-btn:focus-visible {
+    outline: 2px solid var(--djs-focus);
+    outline-offset: 2px;
+  }
+  .hl-btn svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .host-lightbox[open] {
+      animation: host-lightbox-in 160ms ease-out;
+    }
+    .host-lightbox[open]::backdrop {
+      animation: host-lightbox-fade 160ms ease-out;
+    }
+  }
+  @keyframes host-lightbox-in {
+    from {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+  }
+  @keyframes host-lightbox-fade {
+    from {
+      opacity: 0;
+    }
+  }
+</style>
+
+<script>
+  /** One gallery: its thumbnail links and its lightbox. */
+  function setup(root: HTMLElement): void {
+    const links = [...root.querySelectorAll<HTMLAnchorElement>("a[data-shot]")];
+    const dialog = root.querySelector<HTMLDialogElement>("dialog[data-lightbox]");
+    const full = dialog?.querySelector<HTMLImageElement>("img[data-full]");
+    const stage = dialog?.querySelector<HTMLElement>("[data-stage]");
+    const count = dialog?.querySelector<HTMLElement>("[data-count]");
+    const caption = dialog?.querySelector<HTMLElement>("[data-caption]");
+    const close = dialog?.querySelector<HTMLButtonElement>("[data-close]");
+    const prev = dialog?.querySelector<HTMLButtonElement>("[data-prev]");
+    const next = dialog?.querySelector<HTMLButtonElement>("[data-next]");
+    if (!dialog || !full || !stage || !count || !caption || !close || !prev || !next) return;
+    if (links.length === 0 || typeof dialog.showModal !== "function") return;
+    const buttons = [close, prev, next];
+
+    let current = 0;
+    /** Shows shot `index` (wrapping); the full image is fetched only now. */
+    const show = (index: number) => {
+      current = (index + links.length) % links.length;
+      const link = links[current]!;
+      full.src = link.href;
+      full.alt = link.querySelector("img")?.alt ?? "";
+      count.textContent = `${current + 1} / ${links.length}`;
+      caption.textContent = link.dataset["caption"] ?? "";
+    };
+
+    links.forEach((link, index) => {
+      link.setAttribute("aria-haspopup", "dialog");
+      link.addEventListener("click", (event) => {
+        // Modified and non-primary clicks keep the browser's own behavior.
+        if (event.defaultPrevented || event.button !== 0) return;
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        show(index);
+        if (!dialog.open) dialog.showModal();
+        close.focus();
+      });
+    });
+
+    prev.addEventListener("click", () => show(current - 1));
+    next.addEventListener("click", () => show(current + 1));
+    /** Closes it and puts focus back on the thumbnail of the shot that was showing. */
+    const finish = () => {
+      dialog.close();
+      links[current]?.focus();
+    };
+    close.addEventListener("click", finish);
+
+    dialog.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        finish();
+      } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        event.preventDefault();
+        show(current + (event.key === "ArrowLeft" ? -1 : 1));
+      } else if (event.key === "Tab") {
+        // Keep focus on the three buttons, never out to the browser's chrome.
+        const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        const to = (at + (event.shiftKey ? -1 : 1) + buttons.length) % buttons.length;
+        event.preventDefault();
+        buttons[at === -1 ? 0 : to]!.focus();
+      }
+    });
+
+    // A click on the backdrop lands on the <dialog> itself: its content fills it.
+    let pressedOutside = false;
+    dialog.addEventListener("pointerdown", (event) => {
+      pressedOutside = event.target === dialog;
+    });
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog && pressedOutside) finish();
+      pressedOutside = false;
+    });
+
+    // Any other way it closes (the browser's own Esc handling, say) ends the same way.
+    dialog.addEventListener("close", () => {
+      if (!links.includes(document.activeElement as HTMLAnchorElement)) links[current]?.focus();
+    });
+
+    // A horizontal swipe on the image moves to the next or previous shot.
+    let startX = 0;
+    let startY = 0;
+    let swiping = false;
+    stage.addEventListener("pointerdown", (event) => {
+      swiping = event.pointerType === "touch";
+      startX = event.clientX;
+      startY = event.clientY;
+    });
+    stage.addEventListener("pointercancel", () => (swiping = false));
+    stage.addEventListener("pointerup", (event) => {
+      if (!swiping) return;
+      swiping = false;
+      const dx = event.clientX - startX;
+      const dy = event.clientY - startY;
+      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) show(current + (dx < 0 ? 1 : -1));
+    });
+  }
+
+  document.querySelectorAll<HTMLElement>("[data-host-shots]").forEach(setup);
+</script>

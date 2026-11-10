@@ -1,0 +1,255 @@
+---
+title: In the browser
+description: "What the droplet element does on a page: styles, hydration, lazy hydration, held clicks, enhanced forms, host children, client-only elements."
+---
+
+import ElementLifecycle from "../../../components/ElementLifecycle.astro";
+import LiveDroplet from "../../../components/LiveDroplet.astro";
+
+`/index.js` defines one custom element, `<djs-droplet>` by default (the
+`element` option renames it). Everything below is that element's work; setup
+of your own that must come first goes in
+[`src/hooks.client.ts`](#srchooksclientts). `/index.js` itself is a one-line
+stub, never cached, that imports the element under a name unique to the
+build, which is cached for good.
+
+## `src/hooks.client.ts`
+
+An optional file (`.ts`, `.mts`, `.js` or `.mjs`) for setup that runs before
+everything else on the page: a gtag setup, or a global such as the shop's
+`window.shopMessageQueue`. A page built from islands has no `index.html` of
+its own, so this is where the script SvelteKit would put in `app.html` goes.
+
+```ts
+// src/hooks.client.ts
+import type { ClientInit } from "@dropletsjs/droplets";
+import { MessageQueue } from "./lib/message-queue.ts";
+
+export const init: ClientInit = () => {
+  window.shopMessageQueue ??= new MessageQueue();
+};
+```
+
+- `/index.js` calls `init()` synchronously, first thing, before it defines
+  the droplet element: before any droplet hydrates or mounts.
+- It may be async, but Droplets never waits for it. Its type is
+  `() => void | Promise<void>`: `/index.js` calls it and carries on at once,
+  and when it returns a promise, a rejection is only logged.
+- When it throws, the error is logged (`console.error`) and the droplets
+  start all the same.
+- It runs in the browser only, with the DOM and nothing from the server: no
+  request, no props, no load data. Server state exists only within a
+  request, through a droplet's context or its load data, never here.
+- It runs once per `/index.js`: the browser runs a module URL once per page.
+  The same app served from two locations is two resources, and each runs
+  its own `init`.
+- It is browser code: importing a server file (`*.server.*`, a file under a
+  `server/` folder, `$droplets/env/private`) fails the build and the dev
+  server, as from any droplet. See
+  [Server-only code](/guides/security/#server-only-code).
+- Under `vite dev`, editing the file reloads the page.
+
+Without the file, `/index.js` is exactly what it would be otherwise: no
+code is added.
+
+## What happens on connect
+
+From the script tag to a live droplet:
+
+<ElementLifecycle />
+
+When a droplet element connects to the page, it:
+
+1. takes where to load from: the URL `/index.js` was loaded from, path
+   prefix included (the page's own origin if `/index.js` was not loaded
+   from the droplets server). The markup has no say in it;
+2. links the droplet's stylesheet inside the element when the markup did
+   not bring it (see [Styles](#styles));
+3. moves the host's children into place (see [Host children](#host-children));
+4. if the droplet hydrates, imports `/droplets/<id>/client.js`, runs
+   `+droplet.ts`, and hydrates the server markup, or mounts fresh when there
+   is none.
+
+Data comes from the inline payload when the server rendered the droplet. The
+element only requests `/droplets/<id>/_data` for droplets with
+`+droplet.server.ts` when nothing came inline.
+
+A React counter, server-rendered with `start: 3`: until the bundle has
+hydrated it, the buttons are server HTML (and a click is
+[held](#clicks-before-hydration)); after, the count lives in this tab.
+
+<LiveDroplet id="counter" props={{ start: 3 }} caption="This is a live droplet served by apps/demo: React, hydrated from its own bundle." />
+
+A droplet the build does not know is left untouched. Removing an element
+unmounts its droplet; an element removed and re-inserted in the same task (a
+framework re-ordering its parent) keeps its instance.
+
+## Styles
+
+Nothing goes into the host's `<head>`. A fragment carries
+`<link rel="stylesheet" data-app-style>` to `/droplets/<id>/style.css` inside
+the element, ahead of its markup: the browser applies it before it paints that
+markup, and it stays with the element wherever the host moves it. It imports
+the shared stylesheet first, then the droplet's own; components shared by
+several droplets have their styles in stylesheets of their own, so every
+droplet that uses them gets them, and the browser downloads each file once.
+
+An element without that link (one the host wrote itself) adds it from the
+build's registry, with the stylesheets `style.css` imports preloaded beside
+it so they download at once rather than after it, all alongside the bundle
+and the data. The droplet mounts once the stylesheet has loaded, or failed:
+it never shows unstyled. Server markup hydrates without waiting; it is
+already on screen.
+
+In `vite dev`, styles come with the JavaScript instead, as Vite injects
+them: the shared stylesheet with `/index.js`, component styles with the
+droplet's bundle. Fragments link no stylesheet then, and Vite's `<style>`
+tags are the one thing in `<head>`, in dev only.
+
+## Lazy hydration
+
+`export const hydrate = "visible"` or `"interactive"` defers the bundle:
+
+| Mode | Loads when |
+| --- | --- |
+| `true` | at once |
+| `"visible"` | the element is about to scroll into view: 200px ahead, or 1000px ahead when there is no server markup to show meanwhile |
+| `"interactive"` | the first `pointerdown`, `focusin`, `keydown` or `click` on the droplet's own markup (not the host's children, not a nested droplet). Without server markup there is nothing to interact with, so it mounts at once. |
+| `false` | never: no bundle exists |
+
+A host overrides the mode per element:
+
+```html
+<djs-droplet data-droplet="comments" data-hydrate="visible">…</djs-droplet>
+```
+
+`data-hydrate` takes `true`, `false`, `visible` or `interactive`; an unknown
+value warns in dev. It cannot turn hydration on for a droplet that ships no
+bundle (`hydrate = false` in the component).
+
+## Clicks before hydration
+
+Between the server markup appearing and the bundle hydrating it, a click would
+hit dead HTML. The element holds them instead:
+
+- every `click` on its own server markup is captured while a hydrating droplet
+  (or its error page) loads; the default action is prevented, the event still
+  bubbles to the host;
+- once hydrated, the clicks are dispatched again, in order, on the same nodes,
+  at the same position relative to each node's box;
+- a click is kept for 1500 ms, counted from the later of the click and the
+  start of hydration (bundle and data in), so a slow download does not eat it.
+  A click older than 10 s, or on a node that is gone, is dropped;
+- repeated single clicks on one node more than 400 ms apart (someone clicking
+  again because nothing happened) replay as one.
+
+Clicks on the host's children and inside nested droplets are left alone, as
+are client-only droplets and droplets that never hydrate. With
+`hydrate = "interactive"`, the click that triggers hydration is held and
+replayed the same way.
+
+## Forms
+
+A droplet's forms post to its [actions](/guides/writing-droplets/#actions)
+as any form does: the browser navigates to the action's URL. The element
+intercepts nothing on its own. A form that opts in
+([enhancing a form](/guides/writing-droplets/#enhancing-a-form): a
+renderer's `/form` wrapper, `enhanceDropletForm` of `$droplets/form`, or
+`data-droplets-enhance` on the form, which `/index.js` binds for any
+droplet) posts by `fetch` instead, and only to its own droplet's action.
+The element then:
+
+- renders the droplet again with the result as `form`, its loads run again
+  as a `_data` refresh; a droplet that does not hydrate gets its fragment,
+  rendered with `form` by the server (a JSON render that carries `form`),
+  swapped in. Either way focus goes back to the control in the same place;
+- follows a redirect with `location.assign`, `http:` and `https:` only;
+- dispatches `droplets:action` on `window` once the result is in:
+
+```js
+addEventListener("droplets:action", (event) => {
+  const { droplet, action, type, status, data } = event.detail;
+  if (droplet === "product-card" && action === "add" && type === "success") refreshCart();
+});
+```
+
+`data` is a copy of what the action returned or `fail()`ed with, as plain
+JSON; `undefined` for a redirect. A second submit of the same form while
+one is in flight is ignored. A form among the host's children, or in a
+nested droplet, belongs to them.
+
+## Host children
+
+A host can put content inside a droplet, and the component decides where it
+shows (`children` in each [renderer](/renderers/)). The host writes its
+content in **one** `<div data-app-slot>`, a direct child of the element:
+
+```html
+<djs-droplet data-droplet="card">
+  <!-- … the fragment's own scripts and markup … -->
+  <div data-app-slot>
+    <p>Anything the host renders, other droplets included.</p>
+  </div>
+</djs-droplet>
+```
+
+A host that fetches fragments on the server appends the container before the
+closing tag:
+
+```js
+const html = await (await fetch(`${DROPLETS}/droplets/card`)).text();
+const withChildren = html.replace(/<\/([a-z][\w-]*)>$/, `<div data-app-slot>${children}</div></$1>`);
+```
+
+- The server renders a marker where the component puts `children`. At connect,
+  **before** the bundle loads, the element moves the container into it, so the
+  children show at once.
+- When there is no marker (the component hides its children behind a false
+  `if`, or is client-only), the container waits under the element, hidden,
+  until the component renders one.
+- The container is moved, never re-created and never taken out of the
+  document: nested droplets, iframes and form state among the children survive
+  hydration, re-renders, the switch to the error page and dev remounts (with
+  `moveBefore` where the browser has it).
+- The element's direct children are exactly the payload scripts, the
+  droplet's stylesheet link (and the preloads the element adds with it), the
+  content root (`data-app-entry`) and that container. Anything else directly
+  under the element is removed at connect, with a warning in dev.
+
+## Elements a host writes itself
+
+A page with no server of its own (a single-page app, a static page) can write
+the element directly. Without server markup, the droplet mounts in the browser:
+
+```html
+<script type="module" src="https://drops.example.com/index.js"></script>
+
+<djs-droplet data-droplet="hello" data-params='{"who":"Ana"}'></djs-droplet>
+```
+
+| Attribute | Meaning |
+| --- | --- |
+| `data-droplet` | The droplet id. |
+| `data-params` | Plain JSON props. `host` in server loads is then the page's own. |
+| `data-context` | Base64 JSON `{ host, props }`, as a fragment carries it when it has no inline context. |
+| `data-hydrate` | Overrides the droplet's `hydrate` mode. |
+
+The element loads from where the `<script src>` points: load `/index.js` from
+the droplets server itself, under its prefix if it has one
+(`https://shop.example/mfe/index.js`), or from a CDN that pulls it from the
+server at the same URL. There is no setting that bakes a location into the
+build.
+
+The element runs the props schema and `+droplet.ts` in the browser, requests
+`_data` when the droplet has a server load, links the droplet's stylesheet
+inside itself ([Styles](#styles)), and mounts with `data` as a
+[promise](/guides/writing-droplets/#data-may-be-a-promise) once the
+stylesheet is in.
+
+## Several servers on one page
+
+Each droplets server defines its own element, named by its `element` option,
+and its elements load from where its own `/index.js` came from. A page can embed droplets from
+as many servers as it likes, as long as each has a distinct `element`: with
+the default name, the second server's `index.js` finds `<djs-droplet>`
+already defined and its droplets stay inert.

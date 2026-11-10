@@ -1,0 +1,65 @@
+---
+/**
+ * What runs where, as a flow: sources on the left, the two places they
+ * run on the right, and the line between them. The build enforces it
+ * (vite/server-only.ts): no server file reaches the browser; only what a
+ * load returns crosses, as JSON in the fragment.
+ */
+import Diagram from "./Diagram.astro";
+import { Draw, type Scene } from "./diagram-kit.ts";
+
+/** The two crossings: code never (crossed out), data only. */
+function crossings(d: Draw, top: number, bottom: number, xNo: number, xData: number, wallY: number): void {
+  d.line(xNo, top, xNo, bottom, "arrow dashed");
+  d.path(`M${xNo - 7} ${wallY - 7} L${xNo + 7} ${wallY + 7} M${xNo + 7} ${wallY - 7} L${xNo - 7} ${wallY + 7}`, "wall", false);
+  d.text(xNo + 12, wallY - 12, "no code", "small", "danger");
+  d.line(xData, top, xData, bottom, "arrow accent");
+  d.text(xData + 10, wallY - 12, "data only", "small", "acc");
+}
+
+function wide(): Scene {
+  const d = new Draw(640);
+  const server = { x: 400, y: 20, w: 220, h: 64 };
+  const browser = { x: 400, y: 176, w: 220, h: 64 };
+  const wallY = 130;
+  d.line(250, wallY, 630, wallY, "wall", false);
+  // Each source and the heights where its arrows land on the right.
+  const src = [
+    { label: "*.server.*", kind: "code" as const, y: 14, to: [server.y + 16] },
+    { label: "private env", kind: "label" as const, y: 58, to: [server.y + 34] },
+    { label: "component", kind: "label" as const, y: 114, to: [server.y + 52, browser.y + 14] },
+    { label: "hooks.client.ts", kind: "code" as const, y: 192, to: [browser.y + 44] },
+  ];
+  for (const s of src) {
+    for (const ty of s.to) d.line(192, s.y + 16, server.x - 2, ty);
+    d.box(20, s.y, 170, 32, s.label === "component" ? "drop" : s.y > 150 ? "host" : "zone", s.label, s.kind);
+  }
+  d.box(server.x, server.y, server.w, server.h, "drop-solid", "Server", "title", "acc", 8);
+  d.box(browser.x, browser.y, browser.w, browser.h, "host", "Browser", "title", "acc2", 8);
+  crossings(d, server.y + server.h + 2, browser.y - 2, 450, 570, wallY);
+  return d.scene(248);
+}
+
+function narrow(): Scene {
+  const d = new Draw(360, 1.1);
+  const wallY = 130;
+  d.rect(10, 10, 340, 80, "drop-solid", 8);
+  d.text(26, 40, "Server", "title", "acc");
+  d.box(26, 52, 150, 28, "zone", "*.server.*", "code");
+  d.line(10, wallY, 350, wallY, "wall", false);
+  d.rect(10, 170, 340, 80, "host", 8);
+  d.text(26, 200, "Browser", "title", "acc2");
+  d.box(26, 212, 150, 28, "drop", "component");
+  crossings(d, 92, 168, 170, 260, wallY);
+  return d.scene(256);
+}
+---
+
+<Diagram
+  id="runs-where"
+  title="What runs where"
+  desc="Server only: +droplet.server.ts, +server.ts endpoints, hooks.server.ts and any *.server.* file or server/ folder, and the private env; they run on the droplets server. The component and +droplet.ts render on the server and run again in the browser. hooks.client.ts and the public env reach the browser. Between the server and the browser is a hard line: server-only code never reaches the client bundle, and importing it from browser code fails the build. Only data crosses: the load's result and the props, as JSON in the fragment."
+  caption="Server code never crosses the line; only what a load returns does, as JSON in the fragment."
+  wide={wide()}
+  narrow={narrow()}
+/>

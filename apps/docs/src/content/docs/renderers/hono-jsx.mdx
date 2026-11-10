@@ -1,0 +1,152 @@
+---
+title: Hono JSX
+description: "Hono JSX droplets: djs add, +droplet.tsx, which .tsx files are Hono's, hono/jsx on both sides, hydration that renders again, with a live droplet."
+tableOfContents: false
+---
+
+import AddRenderer from "../../../components/AddRenderer.astro";
+import RendererDemo from "../../../components/RendererDemo.astro";
+
+Components written with `hono/jsx`, the JSX Hono ships: the server the
+droplets run on already has it. Rendered on the server with `hono/jsx`, then
+rendered again in the browser with `hono/jsx/dom`. The droplet below is a
+Hono JSX component served by the demo server: its load sets the start, Hono
+renders it to HTML, and the button works once the bundle takes over.
+
+<RendererDemo id="counter-hono-jsx" />
+
+## Add it to a project
+
+<AddRenderer framework="hono-jsx" />
+
+`--framework hono` works too.
+
+## The files
+
+| File | What it is |
+| --- | --- |
+| `+droplet.tsx`, `+droplet.jsx` | The component, the file's default export. Its flags are named exports. |
+| `+error.tsx`, `+error.jsx` | The error page, optional. |
+| `+droplet.ts`, `+droplet.server.ts` | The loads, as for every framework: [Writing droplets](/guides/writing-droplets/#the-load-chain). |
+
+### Which `.tsx` files are Hono's
+
+Hono JSX shares `.tsx` and `.jsx` with React, Preact and Solid. With Hono JSX
+the only one of them in `renderers`, every `.tsx` droplet is Hono's. With two
+or more, each droplet file says which it is:
+
+1. **An import** of `hono/jsx` or `@dropletsjs/renderer-hono-jsx`, a subpath
+   included (`hono/jsx/dom`): the file is Hono's. Only `hono/jsx` counts:
+   a droplet that imports `hono/client` or `hono/cookie` says nothing.
+2. **Otherwise a comment**, `/** @jsxImportSource hono/jsx */`, decides. `djs add`
+   writes it at the top of every Hono JSX component, and it is also what
+   types the file's JSX for Hono when `tsconfig.json` names another
+   `jsxImportSource`.
+
+```tsx
+// src/droplets/hello/+droplet.tsx
+import { use, useState } from "hono/jsx";
+import type { DropletProps } from "./$types";
+
+export const hydrate = true;
+
+export default function Hello({ data, children }: DropletProps) {
+  const [clicks, setClicks] = useState(0);
+  // A value when hydrating, a promise when mounted from scratch.
+  const { greeting } = data instanceof Promise ? use(data) : data;
+  return (
+    <>
+      <h1>{greeting}</h1>
+      <button onClick={() => setClicks((n) => n + 1)}>{clicks}</button>
+      {children}
+    </>
+  );
+}
+```
+
+```tsx
+// src/droplets/hello/+error.tsx
+/** @jsxImportSource hono/jsx */
+import type { DropletErrorProps } from "./$types";
+import "./error.css";
+
+export default function HelloError({ error, children }: DropletErrorProps) {
+  return (
+    <>
+      <p class="oops">{error.message}</p>
+      {children}
+    </>
+  );
+}
+```
+
+## What it supports
+
+| | |
+| --- | --- |
+| Server rendering | yes: `ssr = true`, the default; `ssr = false` renders it in the browser only |
+| `hydrate` | `true` (the default), `"visible"`, `"interactive"`, `false`; each renders again, see below |
+| Prerendering | yes: `prerender = true` with `entries` |
+| Forms | `useEnhanceDropletForm(formRef, options?)` of `@dropletsjs/renderer-hono-jsx/form` |
+
+What it does not do fails the build and says why:
+
+- a `.tsx` droplet that names no framework, or two, when several share the
+  extension:
+
+  ```
+  droplets: counter/+droplet.tsx: react, solid, preact and hono-jsx all handle this file and it imports none of them; import from react, solid-js, preact or hono/jsx, or add a /** @jsxImportSource <package> */ comment
+  ```
+
+- importing another framework, even through a neutral file:
+
+  ```
+  droplets: a hono-jsx droplet imports react code: src/droplets/counter/+droplet.tsx -> src/droplets/counter/lib.ts -> react/index.js. A droplet uses its own framework's modules and neutral code only.
+  ```
+
+A flag that is not a literal (`export const hydrate = isMobile`) is ignored,
+with a warning.
+
+## Specifics
+
+- **Hydration renders again.** `hono/jsx/dom` cannot adopt server markup, so
+  `hydrate` replaces the server's HTML with a fresh render, in the same task.
+  The page never shows a gap, and the host's children are carried over, but
+  what the visitor did before the bundle loaded (a typed value, focus) is
+  lost. In the demo, the count the server rendered is the one the browser
+  renders again, so nothing visible changes.
+- **One import path.** Hooks, `use`, `Suspense` and `ErrorBoundary` are
+  imported from `hono/jsx` on both sides. The renderer compiles each module
+  twice, with the automatic runtime of `hono/jsx` for the server and of
+  `hono/jsx/dom` for the browser, and resolves `hono/jsx` to `hono/jsx/dom`
+  in the browser itself. Attributes are HTML's: `class`, `for`.
+- **Data as a promise:** `use(data)` suspends; a rejection reaches the
+  renderer's error boundary, which shows `+error.tsx`. Async components work
+  on the server only: in the browser, read `data` with `use`.
+- **Children:** `children` renders the host's content.
+- **Styles:** imported CSS goes to the droplet's stylesheet.
+- **Forms:** keep the action's URL from the first render,
+  `const [add] = useState(() => actionUrl("add"))` with `actionUrl` of
+  `$droplets/form`, then `<form method="post" action={add}>`.
+- **Hot updates:** no component-level HMR. Under `vite dev` an edit remounts
+  the droplet, as [`dev.strategy`](/guides/development/#hot-updates) says;
+  its state starts over.
+- **Options:** `honoJsx({ plugin: false })` leaves compiling to you: the
+  server build then needs `jsxImportSource: "hono/jsx"`, the browser build
+  `hono/jsx/dom`, with `hono/jsx` resolving to `hono/jsx/dom` there.
+
+## The example
+
+[`examples/frameworks/hono-jsx`](https://github.com/dropletsjs/droplets/tree/main/examples/frameworks/hono-jsx)
+has one droplet per mode (`client`, `ssr-hydrate` with an error page,
+`ssr-nohydrate`), with loads, a props schema, `/api` endpoints, env variables
+and a `handle` hook. From a clone of the repository:
+
+```bash
+pnpm install && pnpm build
+pnpm --filter @dropletsjs/example-hono-jsx dev   # http://localhost:5173: the devtools page
+```
+
+`pnpm --filter @dropletsjs/example-hono-jsx build` then `start` serves it on
+http://localhost:8000; `/droplets/ssr-hydrate?who=Ana` is the fragment a
+host pastes into its page.

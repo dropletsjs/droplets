@@ -1,0 +1,868 @@
+---
+/**
+ * A droplet's anatomy, to explore: the fragment `GET /droplets/hello`
+ * answers in the middle, the folder's files on the left, what a part does
+ * on the right. Hovering, focusing or tapping a part highlights the files
+ * that make it, and a file the parts it makes. "load fails" shows what the
+ * code does then: +error.svelte renders inside the same <djs-droplet>, in
+ * the droplet's place (data-droplet-error, a 500, `{ error }` inline).
+ *
+ * Without JavaScript the panel shows the element's explanation and a
+ * <noscript> list, folded, holds the other parts'. The script is a processed one, bundled
+ * to a file: the site's CSP allows no inline code.
+ */
+const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
+const guide = (path: string) => `${base}${path}`;
+
+type State = "ok" | "error";
+
+/** The files of hello/, with the words of their role that parts point at. */
+const files = [
+  { id: "folder", name: "hello/", roles: [] as string[] },
+  { id: "svelte", name: "+droplet.svelte", roles: ["component"] },
+  { id: "server", name: "+droplet.server.ts", roles: ["load", "actions"] },
+  { id: "error", name: "+error.svelte", roles: ["error page"] },
+] as const;
+
+type FileId = (typeof files)[number]["id"];
+
+/** Each part, and per state what makes it: a file, or one role of it. */
+const parts: { id: string; from: Record<State, string[]> }[] = [
+  { id: "element", from: { ok: ["folder"], error: ["folder"] } },
+  { id: "inline", from: { ok: ["server:load"], error: ["server:load"] } },
+  { id: "markup", from: { ok: ["svelte:component"], error: [] } },
+  { id: "data", from: { ok: ["server:load"], error: [] } },
+  { id: "form", from: { ok: ["svelte:component", "server:actions"], error: [] } },
+  { id: "failed", from: { ok: [], error: ["error:error-page"] } },
+];
+
+/** The other way round: what each file makes, per state. */
+const makes = (file: FileId, state: State) =>
+  parts.filter((p) => p.from[state].some((f) => f.split(":")[0] === file)).map((p) => p.id).join(" ");
+
+const fileTargets = (from: string[]) => from.join(" ");
+
+type Note = { key: string; title: string; text: string; link: [string, string] };
+
+/**
+ * What the panel says. `part.<id>` or `file.<id>`, with `.error` for what
+ * changes when the load fails. The only sentences in the explorer.
+ */
+const notes: Note[] = [
+  {
+    key: "part.element",
+    title: "<djs-droplet>",
+    text: "The fragment is one custom element, defined by `/index.js` on the host page. `data-droplet` names the droplet after its folder; `data-build` and `data-render-id` name the build and this render.",
+    link: ["The fragment", "integrate/http-contract/#the-fragment"],
+  },
+  {
+    key: "part.element.error",
+    title: "<djs-droplet data-droplet-error>",
+    text: "The same element, now marked `data-droplet-error`: what it holds is the error page. The fragment answers `500`.",
+    link: ["The fragment", "integrate/http-contract/#the-fragment"],
+  },
+  {
+    key: "part.inline",
+    title: "Inline payloads",
+    text: "`data-app-context` carries the props and the host, `data-app-data` the load's result, both base64 JSON. Hydration reads them, so the browser asks for nothing more.",
+    link: ["On connect", "guides/in-the-browser/#what-happens-on-connect"],
+  },
+  {
+    key: "part.inline.error",
+    title: "Inline payloads",
+    text: "`data-app-data` now holds `{ error }`, as `handleError` left it. The browser hydrates the error page from it.",
+    link: ["Errors", "guides/errors/#errors-handleerror-and-error"],
+  },
+  {
+    key: "part.markup",
+    title: "Server markup",
+    text: "`+droplet.svelte`, rendered on the server into `data-app-entry`. In the browser it hydrates in place: at once, when visible, on first interaction, or never with `hydrate = false`.",
+    link: ["Flags", "guides/writing-droplets/#flags"],
+  },
+  {
+    key: "part.data",
+    title: "Load data",
+    text: "“Ana” is what `load` in `+droplet.server.ts` returned for the props `who=Ana`. It runs on the server per request, or once at build when prerendered, and becomes the component's `data`.",
+    link: ["The load chain", "guides/writing-droplets/#the-load-chain"],
+  },
+  {
+    key: "part.form",
+    title: "The form",
+    text: "It posts to `?/greet` on the droplets server, where `actions.greet` runs. Posted without JavaScript, it is answered `303` back to the page, and the droplet renders again with the result as `form`.",
+    link: ["Actions", "guides/writing-droplets/#actions"],
+  },
+  {
+    key: "part.failed",
+    title: "+error.svelte",
+    text: "The load threw, so the error page renders inside the same element, in the droplet's place. It follows the droplet's flags: rendered on the server, hydrated in the browser. `error()` and `redirect()` skip it: they answer the request.",
+    link: ["Errors", "guides/errors/#errors-handleerror-and-error"],
+  },
+  {
+    key: "file.folder",
+    title: "hello/",
+    text: "One folder is one droplet. Its name is the id: `data-droplet=\"hello\"`, served at `/droplets/hello`.",
+    link: ["Structure", "guides/writing-droplets/#structure"],
+  },
+  {
+    key: "file.svelte",
+    title: "+droplet.svelte",
+    text: "The component, in any of eight frameworks. It draws the greeting and the form.",
+    link: ["Structure", "guides/writing-droplets/#structure"],
+  },
+  {
+    key: "file.svelte.error",
+    title: "+droplet.svelte",
+    text: "Nothing of it renders now: the error page has taken its place.",
+    link: ["Errors", "guides/errors/#errors-handleerror-and-error"],
+  },
+  {
+    key: "file.server",
+    title: "+droplet.server.ts",
+    text: "Server only, never in a browser bundle. `load` feeds the component its data; `actions` take its form posts.",
+    link: ["The load chain", "guides/writing-droplets/#the-load-chain"],
+  },
+  {
+    key: "file.server.error",
+    title: "+droplet.server.ts",
+    text: "Its `load` threw. Its `handleError` decides what the error page is told; without one, production says only “Internal Error”.",
+    link: ["Errors", "guides/errors/#errors-handleerror-and-error"],
+  },
+  {
+    key: "file.error",
+    title: "+error.svelte",
+    text: "The droplet's error boundary, in the same framework. It renders only when a load fails: switch on “load fails”.",
+    link: ["Errors", "guides/errors/#errors-handleerror-and-error"],
+  },
+];
+
+const first = notes[0]!;
+
+/** A note's text in pieces: the odd ones were in backticks, and are code. */
+const pieces = (text: string) => text.split("`").map((s, i) => ({ s, code: i % 2 === 1 }));
+---
+
+<figure class="ax not-content" data-anatomy data-state="ok">
+  <div class="ax-grid">
+    <div class="ax-mock" role="group" aria-label="The fragment GET /droplets/hello answers">
+      <div class="ax-bar">
+        <code class="ax-req">GET /droplets/hello?who=Ana</code>
+        <span class="ax-status" data-show="ok">200</span>
+        <span class="ax-status ax-status-err" data-show="error" hidden>500</span>
+        <button type="button" class="ax-toggle" aria-pressed="false" data-toggle hidden>
+          <span class="ax-switch" aria-hidden="true"></span>load fails
+        </button>
+      </div>
+
+      <div class="ax-el" data-part="element">
+        <button type="button" class="ax-part ax-tag" data-part="element" data-files={fileTargets(parts[0]!.from.ok)} aria-pressed="true" aria-label="djs-droplet: the element">
+          <span class="ax-t">&lt;djs-droplet</span>{" "}
+          <span class="ax-a">data-droplet="hello"</span>{" "}
+          <span class="ax-a">data-build="36a187"</span>{" "}
+          <span class="ax-a">data-render-id="dfks2s"</span><span data-show="error" hidden>{" "}<span class="ax-a ax-a-err">data-droplet-error</span></span><span class="ax-t">&gt;</span>
+        </button>
+
+        <button type="button" class="ax-part ax-inline" data-part="inline" data-files={fileTargets(parts[1]!.from.ok)} aria-pressed="false" aria-label="Inline payloads: data-app-context and data-app-data">
+          <span class="ax-line"><span class="ax-t">&lt;script data-app-context&gt;</span><span class="ax-c">{"{ host, props }"}</span></span>
+          <span class="ax-line"><span class="ax-t">&lt;script data-app-data&gt;</span><span class="ax-c" data-show="ok">{"{ data }"}</span><span class="ax-c ax-c-err" data-show="error" hidden>{"{ error }"}</span></span>
+        </button>
+
+        <div class="ax-entry" data-part="markup" data-show="ok">
+          <button type="button" class="ax-part ax-entry-tag" data-part="markup" data-files={fileTargets(parts[2]!.from.ok)} aria-pressed="false" aria-label="data-app-entry: the server markup">
+            &lt;div data-app-entry&gt;
+          </button>
+          <div class="ax-ui">
+            <p class="ax-hello">
+              Hello, <button type="button" class="ax-part ax-name" data-part="data" data-files={fileTargets(parts[3]!.from.ok)} aria-pressed="false" aria-label="Ana: the load's data">Ana</button>!
+            </p>
+            <button type="button" class="ax-part ax-form" data-part="form" data-files={fileTargets(parts[4]!.from.ok)} aria-pressed="false" aria-label="The form: posts to ?/greet">
+              <span class="ax-input">Your name</span>
+              <span class="ax-submit">Greet</span>
+              <code class="ax-action">?/greet</code>
+            </button>
+          </div>
+        </div>
+
+        <div class="ax-entry ax-entry-err" data-show="error" hidden>
+          <button type="button" class="ax-part ax-failed" data-part="failed" data-files={fileTargets(parts[5]!.from.error)} aria-pressed="false" aria-label="The error page, from +error.svelte">
+            <span class="ax-entry-label">&lt;div data-app-entry&gt;</span>
+            <span class="ax-err">
+              <svg class="ax-warn" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5 18.5 17h-17z" /><path d="M10 8v4.2M10 14.2v.3" /></svg>
+              <span>Something went wrong saying hello.</span>
+            </span>
+          </button>
+        </div>
+
+        <span class="ax-t ax-close" data-part="element" aria-hidden="true">&lt;/djs-droplet&gt;</span>
+      </div>
+    </div>
+
+    <ul class="ax-files" aria-label="The droplet folder">
+      {
+        files.map((f) => (
+          <li class={f.id === "folder" ? "ax-folder" : "ax-file-item"}>
+            <button
+              type="button"
+              class="ax-file"
+              data-file={f.id}
+              data-parts-ok={makes(f.id, "ok")}
+              data-parts-error={makes(f.id, "error")}
+              aria-pressed="false"
+            >
+              {f.id === "folder" && (
+                <svg class="ax-dir" viewBox="0 0 20 16" aria-hidden="true">
+                  <path d="M1.5 2.5h6l2 2h9v10h-17z" />
+                </svg>
+              )}
+              <span class="ax-fname">{f.name}</span>
+              {f.roles.length > 0 && (
+                <span class="ax-roles">
+                  {f.roles.map((r, i) => (
+                    <>
+                      {i > 0 && <span aria-hidden="true"> · </span>}
+                      <span class="ax-role" data-role={`${f.id}:${r.replace(/ /g, "-")}`}>{r}</span>
+                    </>
+                  ))}
+                </span>
+              )}
+            </button>
+          </li>
+        ))
+      }
+    </ul>
+
+    <div class="ax-panel" aria-live="polite" data-panel>
+      <p class="ax-title"><code>{first.title}</code></p>
+      <p class="ax-text">{pieces(first.text).map((p) => (p.code ? <code>{p.s}</code> : p.s))}</p>
+      <a class="ax-link" href={guide(first.link[1])}>{first.link[0]} →</a>
+    </div>
+  </div>
+
+  {
+    notes.map((n) => (
+      <template data-note={n.key}>
+        <p class="ax-title">
+          <code>{n.title}</code>
+        </p>
+        <p class="ax-text">{pieces(n.text).map((p) => (p.code ? <code>{p.s}</code> : p.s))}</p>
+        <a class="ax-link" href={guide(n.link[1])}>
+          {n.link[0]} →
+        </a>
+      </template>
+    ))
+  }
+
+  <noscript>
+    <details class="ax-all">
+      <summary>Every part</summary>
+      <dl>
+      {
+        notes.filter((n) => n.key.startsWith("part.") && n !== first).map((n) => (
+          <>
+            <dt>
+              <code>{n.title}</code>
+              {n.key.endsWith(".error") && <span> (load fails)</span>}
+            </dt>
+            <dd>
+              {pieces(n.text).map((p) => (p.code ? <code>{p.s}</code> : p.s))} <a href={guide(n.link[1])}>{n.link[0]} →</a>
+            </dd>
+          </>
+        ))
+      }
+      </dl>
+    </details>
+  </noscript>
+
+  <figcaption>Hover, focus or tap a part of the fragment, or a file.</figcaption>
+</figure>
+
+<script>
+  /**
+   * One explorer: which part or file is active, and what lights up with it.
+   * Hover previews; focus and clicks pin, and leaving the explorer goes
+   * back to what was pinned.
+   */
+  type Target = { kind: "part" | "file"; id: string };
+
+  function setup(root: HTMLElement): void {
+    const panel = root.querySelector<HTMLElement>("[data-panel]");
+    const toggle = root.querySelector<HTMLButtonElement>("[data-toggle]");
+    if (!panel || !toggle) return;
+    const notes = new Map<string, HTMLTemplateElement>();
+    root.querySelectorAll<HTMLTemplateElement>("template[data-note]").forEach((t) => {
+      notes.set(t.dataset["note"] ?? "", t);
+    });
+    const partButtons = [...root.querySelectorAll<HTMLButtonElement>("button[data-part]")];
+    const fileButtons = [...root.querySelectorAll<HTMLButtonElement>("button[data-file]")];
+    const roles = [...root.querySelectorAll<HTMLElement>("[data-role]")];
+    const regions = [...root.querySelectorAll<HTMLElement>("[data-part]")];
+
+    let pinned: Target = { kind: "part", id: "element" };
+    let shown = "";
+    const state = () => (root.dataset["state"] === "error" ? "error" : "ok");
+
+    const show = (target: Target) => {
+      const s = state();
+      const lit = new Set<string>();
+      const litRoles = new Set<string>();
+      if (target.kind === "part") {
+        lit.add(target.id);
+        const button = partButtons.find((b) => b.dataset["part"] === target.id);
+        for (const from of (button?.dataset["files"] ?? "").split(" ").filter(Boolean)) {
+          litRoles.add(from);
+        }
+      } else {
+        const button = fileButtons.find((b) => b.dataset["file"] === target.id);
+        for (const id of (button?.dataset[s === "error" ? "partsError" : "partsOk"] ?? "").split(" ").filter(Boolean)) {
+          lit.add(id);
+        }
+      }
+      const litFiles = new Set([...litRoles].map((r) => r.split(":")[0]));
+
+      for (const b of partButtons) {
+        b.setAttribute("aria-pressed", String(target.kind === "part" && b.dataset["part"] === target.id));
+      }
+      for (const el of regions) el.classList.toggle("is-lit", lit.has(el.dataset["part"] ?? ""));
+      for (const b of fileButtons) {
+        const id = b.dataset["file"] ?? "";
+        b.setAttribute("aria-pressed", String(target.kind === "file" && id === target.id));
+        b.classList.toggle("is-lit", litFiles.has(id));
+      }
+      for (const r of roles) r.classList.toggle("is-lit", litRoles.has(r.dataset["role"] ?? ""));
+
+      const key = `${target.kind}.${target.id}`;
+      const note = notes.get(`${key}.${s}`) ?? notes.get(key);
+      const noteKey = note?.dataset["note"] ?? "";
+      if (note && noteKey !== shown) {
+        shown = noteKey;
+        panel.replaceChildren(note.content.cloneNode(true));
+      }
+    };
+
+    const targetOf = (el: EventTarget | null): Target | null => {
+      if (!(el instanceof Element)) return null;
+      const hit = el.closest<HTMLElement>("[data-part],[data-file]");
+      if (!hit || !root.contains(hit)) return null;
+      if (hit.dataset["file"]) return { kind: "file", id: hit.dataset["file"] };
+      if (hit.dataset["part"]) return { kind: "part", id: hit.dataset["part"] };
+      return null;
+    };
+
+    root.addEventListener("pointerover", (event) => {
+      const target = targetOf(event.target);
+      if (target) show(target);
+    });
+    root.addEventListener("pointerleave", () => show(pinned));
+    root.addEventListener("focusin", (event) => {
+      const target = targetOf(event.target);
+      if (!target) return;
+      pinned = target;
+      show(target);
+    });
+    root.addEventListener("click", (event) => {
+      const target = targetOf(event.target);
+      if (!target) return;
+      pinned = target;
+      show(target);
+    });
+
+    toggle.hidden = false;
+    toggle.addEventListener("click", () => {
+      const failing = state() === "ok";
+      root.dataset["state"] = failing ? "error" : "ok";
+      toggle.setAttribute("aria-pressed", String(failing));
+      root.querySelectorAll<HTMLElement>("[data-show]").forEach((el) => {
+        el.hidden = el.dataset["show"] !== root.dataset["state"];
+      });
+      pinned = { kind: "part", id: failing ? "failed" : "element" };
+      show(pinned);
+    });
+    root.dataset["ready"] = "";
+    show(pinned);
+  }
+
+  document.querySelectorAll<HTMLElement>("[data-anatomy]").forEach(setup);
+</script>
+
+<style>
+  .ax {
+    container-type: inline-size;
+    margin: 1.5rem 0;
+    font-family: var(--djs-font-sans, system-ui, sans-serif);
+    color: var(--djs-ink);
+  }
+  .ax-grid {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "mock" "files" "panel";
+    align-items: start;
+  }
+  @container (min-width: 30rem) {
+    .ax-grid {
+      grid-template-columns: minmax(9rem, 0.8fr) minmax(0, 1.6fr);
+      grid-template-areas: "files mock" "panel panel";
+    }
+  }
+  @container (min-width: 37rem) {
+    .ax-grid {
+      grid-template-columns: 10.75rem minmax(0, 1.5fr) minmax(10.5rem, 1fr);
+      grid-template-areas: "files mock panel";
+    }
+    .ax-panel .ax-text {
+      font-size: 0.8rem;
+    }
+    .ax-files .ax-file-item {
+      margin-left: 0.5rem;
+    }
+    .ax-file .ax-fname {
+      font-size: 0.7rem;
+    }
+  }
+  .ax-mock {
+    grid-area: mock;
+    min-width: 0;
+  }
+  .ax-files {
+    grid-area: files;
+  }
+  .ax-panel {
+    grid-area: panel;
+  }
+
+  /* Shared button reset */
+  .ax button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    text-align: inherit;
+    cursor: pointer;
+  }
+  .ax button:focus-visible {
+    outline: 2px solid var(--djs-focus);
+    outline-offset: 2px;
+  }
+
+  /* The request line and the toggle */
+  .ax-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem 0.5rem;
+    margin-bottom: 0.5rem;
+    min-height: 1.75rem;
+  }
+  .ax-req {
+    font-family: var(--djs-font-mono, ui-monospace, monospace);
+    font-size: 0.72rem;
+    color: var(--djs-ink-muted);
+  }
+  .ax-status {
+    font-family: var(--djs-font-mono, ui-monospace, monospace);
+    font-size: 0.68rem;
+    padding: 0 0.35rem;
+    border-radius: var(--djs-radius-sm);
+    border: 1px solid var(--djs-success);
+    color: var(--djs-success);
+    background: var(--djs-success-low);
+  }
+  .ax-status-err {
+    border-color: var(--djs-danger);
+    color: var(--djs-danger);
+    background: var(--djs-danger-low);
+  }
+  .ax .ax-toggle {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    font-weight: 550;
+    padding: 0.2rem 0.5rem 0.2rem 0.3rem;
+    border: 1px solid var(--djs-line-strong);
+    border-radius: 999px;
+    background: var(--djs-surface-200);
+  }
+  .ax .ax-toggle[hidden] {
+    display: none;
+  }
+  .ax-switch {
+    position: relative;
+    width: 1.6rem;
+    height: 0.95rem;
+    border-radius: 999px;
+    background: var(--djs-surface-300);
+    border: 1px solid var(--djs-line-strong);
+  }
+  .ax-switch::after {
+    content: "";
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 50%;
+    background: var(--djs-ink-muted);
+    transition: transform 0.15s ease;
+  }
+  .ax-toggle[aria-pressed="true"] {
+    border-color: var(--djs-danger);
+    color: var(--djs-danger);
+  }
+  .ax-toggle[aria-pressed="true"] .ax-switch {
+    background: var(--djs-danger-low);
+    border-color: var(--djs-danger);
+  }
+  .ax-toggle[aria-pressed="true"] .ax-switch::after {
+    transform: translateX(0.65rem);
+    background: var(--djs-danger);
+  }
+
+  /* The element */
+  .ax-el {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.5rem 0.6rem 0.45rem;
+    border: 1.5px dashed var(--djs-accent);
+    border-radius: var(--djs-radius-md);
+    background: var(--djs-surface-200);
+    font-family: var(--djs-font-mono, ui-monospace, monospace);
+    font-size: 0.72rem;
+    line-height: 1.45;
+  }
+  .ax-t {
+    color: var(--djs-accent-text);
+  }
+  .ax-a {
+    color: var(--djs-ink-soft);
+  }
+  .ax-a-err {
+    color: var(--djs-danger);
+  }
+  .ax-c {
+    color: var(--djs-ink-muted);
+  }
+  .ax-c-err {
+    color: var(--djs-danger);
+  }
+  .ax .ax-part {
+    border-radius: var(--djs-radius-sm);
+    border: 1px solid transparent;
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+  .ax .ax-tag {
+    display: block;
+    padding: 0.15rem 0.3rem;
+    margin: -0.15rem -0.3rem 0;
+  }
+  .ax-tag .ax-a {
+    display: inline-block;
+    white-space: nowrap;
+  }
+  .ax .ax-inline {
+    display: flex;
+    flex-direction: column;
+    padding: 0.25rem 0.4rem;
+    margin-left: 0.6rem;
+    border: 1px dashed var(--djs-line-strong);
+    background: var(--djs-surface-100);
+  }
+  .ax-line {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 0.6em;
+  }
+  .ax-close {
+    padding: 0 0.3rem;
+    margin: 0 -0.3rem;
+    align-self: flex-start;
+    cursor: pointer;
+  }
+
+  /* The droplet inside it */
+  .ax-entry {
+    margin-left: 0.6rem;
+    padding: 0.35rem 0.5rem 0.6rem;
+    border: 1px solid var(--djs-line);
+    border-radius: var(--djs-radius-sm);
+    background: var(--djs-surface-100);
+    cursor: pointer;
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease;
+  }
+  .ax-entry[hidden] {
+    display: none;
+  }
+  .ax .ax-entry-tag,
+  .ax-entry-label {
+    display: inline-block;
+    color: var(--djs-ink-muted);
+    padding: 0 0.25rem;
+    margin: 0 -0.25rem;
+  }
+  .ax-ui {
+    font-family: var(--djs-font-sans, system-ui, sans-serif);
+    padding: 0.35rem 0.15rem 0;
+  }
+  .ax-hello {
+    margin: 0 0 0.6rem;
+    font-size: 1.15rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+  .ax .ax-name {
+    font-weight: 650;
+    padding: 0 0.1rem;
+    margin: 0 -0.1rem;
+    border-bottom: 2px solid var(--djs-accent);
+    border-radius: var(--djs-radius-sm) var(--djs-radius-sm) 0 0;
+  }
+  .ax .ax-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem;
+    margin: -0.3rem;
+    font-size: 0.82rem;
+  }
+  .ax-input {
+    flex: 1 1 6rem;
+    min-width: 0;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--djs-line-strong);
+    border-radius: var(--djs-radius-sm);
+    background: var(--djs-surface-200);
+    color: var(--djs-ink-muted);
+  }
+  .ax-submit {
+    padding: 0.25rem 0.7rem;
+    border-radius: var(--djs-radius-sm);
+    background: var(--djs-accent);
+    color: var(--djs-on-accent);
+    font-weight: 600;
+  }
+  .ax-action {
+    font-family: var(--djs-font-mono, ui-monospace, monospace);
+    font-size: 0.7rem;
+    color: var(--djs-ink-muted);
+  }
+  .ax-entry-err {
+    padding: 0;
+    border-color: var(--djs-danger);
+    background: var(--djs-danger-low);
+  }
+  .ax .ax-failed {
+    display: block;
+    width: 100%;
+    padding: 0.35rem 0.5rem 0.7rem;
+  }
+  .ax-err {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+    font-family: var(--djs-font-sans, system-ui, sans-serif);
+    font-size: 0.9rem;
+    font-weight: 550;
+  }
+  .ax-warn {
+    flex: none;
+    width: 1.2rem;
+    height: 1.2rem;
+    fill: none;
+    stroke: var(--djs-danger);
+    stroke-width: 1.8;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+
+  /* Lit parts */
+  .ax .ax-part.is-lit,
+  .ax .ax-part[aria-pressed="true"] {
+    background: var(--djs-accent-soft);
+    border-color: var(--djs-accent);
+  }
+  .ax .ax-part[aria-pressed="true"] {
+    box-shadow: 0 0 0 1px var(--djs-accent);
+  }
+  .ax-el.is-lit {
+    border-style: solid;
+    box-shadow: 0 0 0 1px var(--djs-accent);
+  }
+  .ax-el.is-lit .ax-close {
+    background: var(--djs-accent-soft);
+    border-radius: var(--djs-radius-sm);
+  }
+  .ax-entry.is-lit {
+    border-color: var(--djs-accent);
+    background: var(--djs-accent-soft);
+  }
+  .ax .ax-entry-err .ax-failed.is-lit,
+  .ax .ax-entry-err .ax-failed[aria-pressed="true"] {
+    background: var(--djs-danger-low);
+    border-color: var(--djs-danger);
+    box-shadow: 0 0 0 1px var(--djs-danger);
+  }
+
+  /* The folder */
+  .ax-files {
+    list-style: none;
+    margin: 0;
+    padding: 0.4rem;
+    border: 1px solid var(--djs-line);
+    border-radius: var(--djs-radius-md);
+    background: var(--djs-surface-200);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .ax-file-item {
+    margin-left: 0.9rem;
+  }
+  .ax .ax-file {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid transparent;
+    border-radius: var(--djs-radius-sm);
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease;
+  }
+  .ax-folder .ax-file {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .ax-file-item .ax-file {
+    background: var(--djs-surface-300);
+    border-color: var(--djs-line);
+  }
+  .ax-dir {
+    width: 1rem;
+    height: 0.8rem;
+    fill: none;
+    stroke: var(--djs-ink-muted);
+    stroke-width: 1.4;
+    stroke-linejoin: round;
+  }
+  .ax-fname {
+    font-family: var(--djs-font-mono, ui-monospace, monospace);
+    font-size: 0.75rem;
+    color: var(--djs-ink);
+    overflow-wrap: anywhere;
+  }
+  .ax-folder .ax-fname {
+    color: var(--djs-ink-muted);
+  }
+  .ax-roles {
+    font-size: 0.72rem;
+    color: var(--djs-ink-muted);
+  }
+  .ax-role {
+    border-radius: 3px;
+    padding: 0 0.15rem;
+    margin: 0 -0.15rem;
+  }
+  .ax-role.is-lit {
+    color: var(--djs-accent-text);
+    background: var(--djs-accent-soft);
+    font-weight: 600;
+  }
+  .ax .ax-file.is-lit,
+  .ax .ax-file[aria-pressed="true"] {
+    background: var(--djs-accent-soft);
+    border-color: var(--djs-accent);
+  }
+  .ax .ax-file[aria-pressed="true"] {
+    box-shadow: 0 0 0 1px var(--djs-accent);
+  }
+
+  /* The panel */
+  .ax-panel {
+    min-height: 100%;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid var(--djs-line);
+    border-left: 3px solid var(--djs-accent);
+    border-radius: var(--djs-radius-md);
+    background: var(--djs-surface-200);
+  }
+  .ax-panel .ax-title {
+    margin: 0 0 0.35rem;
+  }
+  .ax-title code {
+    font-family: var(--djs-font-mono, ui-monospace, monospace);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--djs-accent-text);
+    overflow-wrap: anywhere;
+  }
+  .ax-text {
+    margin: 0 0 0.5rem;
+    font-size: var(--sl-text-sm, 0.875rem);
+    line-height: 1.5;
+    color: var(--djs-ink-soft);
+  }
+  .ax-text code,
+  .ax-all code {
+    font-family: var(--djs-font-mono, ui-monospace, monospace);
+    font-size: 0.9em;
+    padding: 0 0.2em;
+    border-radius: 3px;
+    background: var(--djs-surface-300);
+    color: var(--djs-ink);
+    overflow-wrap: anywhere;
+  }
+  .ax-link {
+    font-size: var(--sl-text-sm, 0.875rem);
+    font-weight: 600;
+    color: var(--djs-accent-text);
+    text-decoration: none;
+  }
+  .ax-link:hover,
+  .ax-link:focus-visible {
+    text-decoration: underline;
+  }
+
+  .ax-all {
+    margin: 0.75rem 0 0;
+    font-size: var(--sl-text-sm, 0.875rem);
+    color: var(--djs-ink-soft);
+  }
+  .ax-all summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--djs-ink);
+  }
+  .ax-all dl {
+    margin: 0;
+  }
+  .ax-all dt {
+    margin-top: 0.5rem;
+    font-weight: 600;
+  }
+  .ax-all dd {
+    margin: 0.15rem 0 0;
+  }
+  .ax figcaption {
+    margin-top: 0.5rem;
+    font-size: var(--sl-text-sm, 0.875rem);
+    color: var(--djs-ink-muted);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ax *,
+    .ax *::after {
+      transition: none !important;
+    }
+  }
+</style>

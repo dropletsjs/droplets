@@ -1,0 +1,64 @@
+---
+/**
+ * The droplet element's life on a page, as a flow, in the order of
+ * runtime/entry-client.ts: /index.js runs hooks.client init(), defines
+ * the element; each element picks its hydrate mode, waits for a lazy one,
+ * loads its bundle and hydrates the server markup or mounts fresh. The
+ * element never fetches its own fragment. The early stops (unknown id,
+ * another build) are in the prose.
+ */
+import Diagram from "./Diagram.astro";
+import { Draw, type Scene } from "./diagram-kit.ts";
+
+function wide(): Scene {
+  const d = new Draw(640);
+  // ① → ② → ③ along the top
+  d.box(10, 20, 110, 36, "node", "/index.js", "code");
+  d.line(122, 38, 146, 38);
+  d.box(150, 20, 100, 36, "node", "init()", "code");
+  d.line(252, 38, 276, 38);
+  d.box(280, 20, 130, 36, "drop", "<djs-droplet>", "code", "acc");
+  d.line(412, 38, 456, 38);
+  // The mode
+  d.diamond(500, 38, 84, 50, "node", "mode?");
+  d.line(542, 38, 558, 38);
+  d.text(560, 20, "false", "small", "muted");
+  d.box(560, 26, 70, 24, "none", "stays HTML", "small", "muted", 4);
+  d.line(500, 63, 500, 110);
+  d.text(508, 92, "now", "small", "muted");
+  d.path("M479 51 L380 92 L380 110", "arrow dashed");
+  d.text(434, 68, "lazy", "small", "muted", "end");
+  d.box(330, 112, 100, 32, "zone", "wait", "label");
+  d.line(432, 128, 446, 128);
+  d.box(450, 112, 100, 32, "node", "load bundle", "label");
+  d.line(500, 146, 500, 176);
+  d.box(420, 178, 160, 36, "drop-solid", "hydrate or mount", "label", "acc");
+  return d.scene(222);
+}
+
+function narrow(): Scene {
+  const d = new Draw(360, 1.1);
+  d.box(90, 10, 180, 34, "node", "/index.js", "code");
+  d.line(180, 46, 180, 66);
+  d.box(90, 68, 180, 34, "drop", "<djs-droplet>", "code", "acc");
+  d.line(180, 104, 180, 120);
+  d.diamond(180, 148, 100, 52, "node", "mode?");
+  d.line(232, 148, 266, 148);
+  d.box(268, 134, 82, 28, "none", "stays HTML", "small", "muted", 4);
+  d.text(236, 140, "false", "small", "muted");
+  d.line(180, 176, 180, 200);
+  d.box(90, 202, 180, 34, "node", "load bundle", "label");
+  d.line(180, 238, 180, 258);
+  d.box(80, 260, 200, 36, "drop-solid", "hydrate or mount", "label", "acc");
+  return d.scene(302);
+}
+---
+
+<Diagram
+  id="lifecycle"
+  title="A droplet element's life on the page"
+  desc="/index.js runs once per page: it calls init() of src/hooks.client.ts, then defines the djs-droplet element. Each element that connects reads its hydrate mode, data-hydrate or the droplet's flag. False: it stays as the server rendered it. Lazy, visible or interactive: it waits until it is about to scroll into view, or the first interaction. Otherwise at once: it loads its bundle and its data, then hydrates the server markup in place, or mounts fresh when there is none."
+  caption="From the script tag to a live droplet; a lazy mode waits for visibility or the first interaction."
+  wide={wide()}
+  narrow={narrow()}
+/>

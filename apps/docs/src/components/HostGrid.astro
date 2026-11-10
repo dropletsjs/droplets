@@ -1,0 +1,93 @@
+---
+/**
+ * The nine hosts in examples/hosts/, each the shop demo's gallery as the
+ * end-to-end test recorded it (public/hosts/<id>/1-gallery.webp, written by
+ * `pnpm test:hosts --docs`), linking to that host's page. A host not
+ * recorded yet gets a plain tile with its name.
+ */
+import { hasHostFile } from "./host-media.ts";
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
+const hosts = [
+  ["nginx", "nginx", "nginx"],
+  ["express", "Express", "express"],
+  ["react", "React + Vite", "react"],
+  ["astro", "Astro", "astro"],
+  ["sveltekit", "SvelteKit", "sveltekit"],
+  ["nextjs", "Next.js", "nextjs"],
+  ["fastapi", "FastAPI", "python"],
+  ["sinatra", "Sinatra", "ruby"],
+  ["php", "PHP", "php"],
+] as const;
+---
+
+<ul class="host-grid">
+  {
+    hosts.map(([id, name, page]) => (
+      <li>
+        <a href={`${base}integrate/hosts/${page}/`}>
+          {hasHostFile(`${id}/1-gallery.webp`) ? (
+            <img
+              src={`${base}hosts/${id}/1-gallery.webp`}
+              alt={`The shop demo's gallery on ${name}`}
+              width="1280"
+              height="800"
+              loading="lazy"
+              decoding="async"
+            />
+          ) : (
+            <span class="host-grid-pending">Not recorded yet</span>
+          )}
+          <span>{name}</span>
+        </a>
+      </li>
+    ))
+  }
+</ul>
+
+<style>
+  .host-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+    gap: 0.75rem;
+    margin: 1rem 0 1.5rem;
+    padding: 0;
+    list-style: none;
+  }
+  .host-grid li {
+    margin: 0;
+  }
+  .host-grid a {
+    display: block;
+    text-decoration: none;
+    color: var(--djs-ink);
+  }
+  .host-grid img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--djs-line);
+    border-radius: var(--djs-radius-sm, 4px);
+  }
+  .host-grid .host-grid-pending {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1280 / 800;
+    margin: 0;
+    border: 1px dashed var(--djs-line);
+    border-radius: var(--djs-radius-sm, 4px);
+    font-size: var(--sl-text-xs);
+    color: var(--djs-ink-muted);
+  }
+  .host-grid a:hover img,
+  .host-grid a:focus-visible img,
+  .host-grid a:hover .host-grid-pending,
+  .host-grid a:focus-visible .host-grid-pending {
+    border-color: var(--djs-accent);
+  }
+  .host-grid span {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: var(--sl-text-sm);
+  }
+</style>

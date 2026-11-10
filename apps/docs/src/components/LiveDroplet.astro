@@ -1,0 +1,121 @@
+---
+/**
+ * A real droplet from apps/demo, embedded as any host embeds one: its
+ * server-rendered fragment fetched when the page is built and inlined
+ * (live-droplet.ts), then hydrated in the browser by the demo's own
+ * /index.js, from the demo's origin. No mock: the markup, the data, the
+ * bundle and the form actions are the demo server's.
+ *
+ * `toggle` fetches a second render with other props and adds a button that
+ * shows one or the other (the crash droplet: the same element, its load
+ * throwing). The page is static, so both are fetched at build.
+ */
+import { demoPublicUrl, fetchFragment } from "./live-droplet.ts";
+
+interface Props {
+  /** The droplet's id in apps/demo/src/droplets. */
+  id: string;
+  /** Its props, as a host passes them in a render request. */
+  props?: Record<string, unknown>;
+  /** The line under it. */
+  caption?: string;
+  /** A second render, shown by a button instead of the first. */
+  toggle?: { props: Record<string, unknown>; show: string; hide: string };
+}
+
+const { id, props = {}, caption = "This is a live droplet served by apps/demo.", toggle } = Astro.props;
+const demo = demoPublicUrl();
+// The page this fragment becomes part of, as its `host`: `site` plus the
+// path in a build, the request's URL under `astro dev`. The browser renders
+// action URLs from its own location, so the two must agree.
+const page = new URL(Astro.url.pathname, Astro.url.origin).href;
+const first = await fetchFragment(id, props, page);
+const second = toggle ? await fetchFragment(id, toggle.props, page) : null;
+---
+
+<figure class="live-droplet not-content" data-live-droplet={id}>
+  <script is:inline type="module" src={`${demo}/index.js`}></script>
+  <div class="live-droplet-frame" data-live-render="0" set:html={first.html} />
+  {second && <div class="live-droplet-frame" data-live-render="1" hidden set:html={second.html} />}
+  <figcaption>
+    {
+      toggle && (
+        <button type="button" class="live-droplet-toggle" aria-pressed="false" data-show={toggle.show} data-hide={toggle.hide}>
+          {toggle.show}
+        </button>
+      )
+    }
+    <span>{caption}</span>
+  </figcaption>
+</figure>
+
+<script>
+  // The crash droplet's button: show the other render, in place.
+  for (const button of document.querySelectorAll<HTMLButtonElement>(".live-droplet-toggle")) {
+    button.addEventListener("click", () => {
+      const figure = button.closest(".live-droplet");
+      const pressed = button.getAttribute("aria-pressed") !== "true";
+      for (const frame of figure?.querySelectorAll<HTMLElement>("[data-live-render]") ?? []) {
+        frame.hidden = (frame.dataset["liveRender"] === "1") !== pressed;
+      }
+      button.setAttribute("aria-pressed", String(pressed));
+      button.textContent = (pressed ? button.dataset["hide"] : button.dataset["show"]) ?? "";
+    });
+  }
+
+  // These pages were built against one build of the demo; once it is
+  // deployed again, the inlined fragments are another build's and do not
+  // hydrate (Errors: deploys while a page is open). Swap each for an element
+  // the page writes itself, with the same context: it renders in the
+  // browser from the build that is live now.
+  addEventListener("droplets:stale", (event) => {
+    // The event comes from the element; `detail.element` is its tag name.
+    const element = event.target;
+    const { droplet } = (event as CustomEvent<{ droplet: string }>).detail;
+    if (!(element instanceof Element) || !element.closest(".live-droplet")) return;
+    const fresh = document.createElement(element.localName);
+    fresh.setAttribute("data-droplet", droplet);
+    const context = element.querySelector(":scope > script[data-app-context]")?.textContent;
+    if (context) fresh.setAttribute("data-context", context.trim());
+    element.replaceWith(fresh);
+  });
+</script>
+
+<style>
+  .live-droplet {
+    margin: 1.5rem 0 2rem;
+  }
+  .live-droplet-frame {
+    padding: 1rem;
+    border: 1px dashed var(--djs-line-strong);
+    border-radius: var(--djs-radius-md, 8px);
+    background: var(--djs-surface-100);
+  }
+  .live-droplet-frame[hidden] {
+    display: none;
+  }
+  .live-droplet figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    margin-top: 0.5rem;
+    font-size: var(--sl-text-sm);
+    color: var(--djs-ink-muted);
+  }
+  .live-droplet-toggle {
+    min-height: 2.25rem;
+    padding: 0.25rem 0.75rem;
+    border: 1px solid var(--djs-line-strong);
+    border-radius: var(--djs-radius-sm, 4px);
+    background: var(--djs-surface-200);
+    color: var(--djs-ink);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .live-droplet-toggle:focus-visible {
+    outline: 2px solid var(--djs-focus);
+    outline-offset: 2px;
+  }
+</style>

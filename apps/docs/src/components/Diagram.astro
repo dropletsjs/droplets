@@ -1,0 +1,260 @@
+---
+/**
+ * One explanatory diagram: the same content laid out twice by
+ * diagram-kit.ts, a wide scene for the content column and a narrow one
+ * that stays legible on a phone. The figure is a size container, so the
+ * scene follows the column's width, not the window's. Colors come from the
+ * --djs-* tokens only, so the diagram follows the theme.
+ */
+import type { Scene } from "./diagram-kit.ts";
+
+interface Props {
+  /** Unique on the page: the ids of the titles and the arrowheads derive from it. */
+  id: string;
+  title: string;
+  desc: string;
+  caption: string;
+  wide: Scene;
+  narrow: Scene;
+}
+
+const { id, title, desc, caption, wide, narrow } = Astro.props;
+const scenes = [
+  { scene: wide, key: `${id}-wide`, cls: "dg-wide" },
+  { scene: narrow, key: `${id}-narrow`, cls: "dg-narrow" },
+];
+---
+
+<figure class="dg">
+  {
+    scenes.map(({ scene, key, cls }) => (
+      <svg
+        class={cls}
+        viewBox={`0 0 ${scene.w} ${scene.h}`}
+        role="img"
+        aria-labelledby={`${key}-title ${key}-desc`}
+      >
+        <title id={`${key}-title`}>{title}</title>
+        <desc id={`${key}-desc`}>{desc}</desc>
+        <defs>
+          <marker
+            id={`${key}-head`}
+            viewBox="0 0 10 10"
+            refX="9"
+            refY="5"
+            markerWidth="7"
+            markerHeight="7"
+            orient="auto-start-reverse"
+          >
+            <path class="dg-head" d="M0 0 L10 5 L0 10 z" />
+          </marker>
+        </defs>
+        {scene.items.map((item) =>
+          item.t === "rect" ? (
+            <rect class={item.c} x={item.x} y={item.y} width={item.w} height={item.h} rx={item.rx} />
+          ) : item.t === "circle" ? (
+            <circle class={item.c} cx={item.x} cy={item.y} r={item.r} />
+          ) : item.t === "path" ? (
+            <path
+              class={item.c}
+              d={item.d}
+              marker-end={item.end ? `url(#${key}-head)` : undefined}
+              marker-start={item.start ? `url(#${key}-head)` : undefined}
+            />
+          ) : (
+            <text class={item.c} x={item.x} y={item.y} text-anchor={item.a === "start" ? undefined : item.a}>
+              {item.s}
+            </text>
+          ),
+        )}
+      </svg>
+    ))
+  }
+  <figcaption>{caption}</figcaption>
+</figure>
+
+<style is:global>
+  .dg {
+    container-type: inline-size;
+    margin: 1.5rem 0;
+  }
+  .dg svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    font-family: var(--djs-font-sans, system-ui, sans-serif);
+  }
+  .dg .dg-narrow {
+    display: none;
+  }
+  @container (max-width: 34rem) {
+    .dg .dg-wide {
+      display: none;
+    }
+    .dg .dg-narrow {
+      display: block;
+    }
+  }
+  .dg figcaption {
+    margin-top: 0.5rem;
+    font-size: var(--sl-text-sm);
+    color: var(--djs-ink-muted);
+  }
+
+  /* Shapes */
+  .dg .node {
+    fill: var(--djs-surface-300);
+    stroke: var(--djs-line-strong);
+  }
+  .dg .zone {
+    fill: var(--djs-surface-200);
+    stroke: var(--djs-line);
+  }
+  .dg .frame {
+    fill: var(--djs-surface-200);
+    stroke: var(--djs-line-strong);
+  }
+  .dg .url {
+    fill: var(--djs-surface-300);
+    stroke: var(--djs-line);
+  }
+  .dg .dot {
+    fill: var(--djs-line-strong);
+  }
+  .dg .host {
+    fill: var(--djs-accent-2-low);
+    stroke: var(--djs-accent-2);
+    stroke-width: 1.5;
+  }
+  .dg .drop {
+    fill: var(--djs-accent-soft);
+    stroke: var(--djs-accent);
+    stroke-width: 1.5;
+    stroke-dasharray: 5 3;
+  }
+  .dg .drop-solid {
+    fill: var(--djs-accent-soft);
+    stroke: var(--djs-accent);
+    stroke-width: 1.5;
+  }
+  .dg .ghost {
+    fill: none;
+    stroke: var(--djs-line-strong);
+    opacity: 0.6;
+  }
+  .dg .bar {
+    fill: var(--djs-line);
+  }
+  .dg .bar-accent {
+    fill: var(--djs-accent);
+    opacity: 0.75;
+  }
+  .dg .bar-host {
+    fill: var(--djs-accent-2);
+    opacity: 0.55;
+  }
+  .dg .none {
+    fill: none;
+    stroke: var(--djs-line-strong);
+    stroke-dasharray: 3 3;
+  }
+  .dg .wall {
+    fill: none;
+    stroke: var(--djs-danger);
+    stroke-width: 3;
+  }
+  .dg .wall-fill {
+    fill: var(--djs-danger-low);
+    stroke: var(--djs-danger);
+  }
+  .dg .db {
+    fill: var(--djs-surface-300);
+    stroke: var(--djs-line-strong);
+    stroke-width: 1.5;
+  }
+  .dg .mask {
+    fill: var(--djs-surface-100);
+  }
+  .dg .life {
+    fill: none;
+    stroke: var(--djs-line-strong);
+    stroke-dasharray: 4 4;
+  }
+  .dg .arrow {
+    fill: none;
+    stroke: var(--djs-ink-muted);
+    stroke-width: 1.5;
+  }
+  .dg .arrow.dashed {
+    stroke-dasharray: 6 4;
+  }
+  .dg .arrow.accent {
+    stroke: var(--djs-accent);
+  }
+  .dg .dg-head {
+    fill: var(--djs-ink-muted);
+  }
+
+  /* Text */
+  .dg text {
+    fill: var(--djs-ink-soft);
+  }
+  .dg .k-title {
+    font-size: 13px;
+    font-weight: 650;
+    fill: var(--djs-ink);
+  }
+  .dg .k-label {
+    font-size: 12px;
+    font-weight: 550;
+    fill: var(--djs-ink);
+  }
+  .dg .k-body {
+    font-size: 11.5px;
+  }
+  .dg .k-small {
+    font-size: 10.5px;
+  }
+  .dg .k-code,
+  .dg .k-codesm {
+    font-family: var(--djs-font-mono, ui-monospace, monospace);
+    font-size: 11px;
+    fill: var(--djs-ink);
+  }
+  .dg .k-codesm {
+    font-size: 10px;
+  }
+  .dg-narrow .k-title {
+    font-size: 14px;
+  }
+  .dg-narrow .k-label {
+    font-size: 13px;
+  }
+  .dg-narrow .k-body {
+    font-size: 12.5px;
+  }
+  .dg-narrow .k-small {
+    font-size: 11.5px;
+  }
+  .dg-narrow .k-code {
+    font-size: 12px;
+  }
+  .dg-narrow .k-codesm {
+    font-size: 11px;
+  }
+  .dg text.muted {
+    fill: var(--djs-ink-muted);
+  }
+  .dg text.ink {
+    fill: var(--djs-ink);
+  }
+  .dg text.acc {
+    fill: var(--djs-accent-text);
+  }
+  .dg text.acc2 {
+    fill: var(--djs-accent-2);
+  }
+  .dg text.danger {
+    fill: var(--djs-danger);
+  }
+</style>

@@ -1,0 +1,83 @@
+---
+/**
+ * One droplets server, the ten hosts of examples/hosts/ around it. Nine
+ * fetch the fragment on their server (solid arrows); the React SPA lets
+ * the browser fetch it (dashed). The proxy every example runs is in the
+ * prose under the diagram.
+ */
+import Diagram from "./Diagram.astro";
+import { Draw, type Scene } from "./diagram-kit.ts";
+
+type Host = { name: string; browser?: boolean };
+const hosts: Host[] = [
+  { name: "Express" },
+  { name: "Next.js" },
+  { name: "SvelteKit" },
+  { name: "Astro" },
+  { name: "FastAPI" },
+  { name: "React SPA", browser: true },
+  { name: "Sinatra" },
+  { name: "PHP" },
+  { name: "WordPress" },
+  { name: "nginx SSI" },
+];
+
+type Box = { x: number; y: number; w: number; h: number };
+
+/** Where the segment from the box's center towards (tx, ty) leaves the box. */
+function edge(b: Box, tx: number, ty: number): [number, number] {
+  const cx = b.x + b.w / 2;
+  const cy = b.y + b.h / 2;
+  const dx = tx - cx;
+  const dy = ty - cy;
+  const s = Math.min(Math.abs(b.w / 2 / (dx || 1e-9)), Math.abs(b.h / 2 / (dy || 1e-9)));
+  return [Math.round((cx + dx * s) * 10) / 10, Math.round((cy + dy * s) * 10) / 10];
+}
+
+function wide(): Scene {
+  const d = new Draw(640);
+  const server: Box = { x: 230, y: 160, w: 180, h: 56 };
+  const cx = 320;
+  const cy = 188;
+  const cw = 112;
+  const ch = 32;
+  hosts.forEach((h, i) => {
+    const a = ((-90 + i * 36) * Math.PI) / 180;
+    const x = cx + 255 * Math.cos(a);
+    const y = cy + 160 * Math.sin(a);
+    const b = { x: Math.round(x - cw / 2), y: Math.round(y - ch / 2), w: cw, h: ch };
+    const [x1, y1] = edge(b, cx, cy);
+    const [x2, y2] = edge(server, x, y);
+    d.line(x1, y1, x2, y2, h.browser ? "arrow dashed" : "arrow");
+    d.box(b.x, b.y, b.w, b.h, h.browser ? "node" : "host", h.name, "label", h.browser ? "" : "acc2");
+  });
+  d.box(server.x, server.y, server.w, server.h, "drop-solid", "Droplets server", "title", "acc", 8);
+  return d.scene(cy + 160 + ch / 2 + 6);
+}
+
+function narrow(): Scene {
+  const d = new Draw(360, 1.1);
+  d.box(80, 10, 200, 50, "drop-solid", "Droplets server", "title", "acc", 8);
+  // The nine that fetch on their server, as one group of tiles.
+  d.rect(10, 110, 210, 120, "host", 8);
+  d.text(115, 132, "Server include", "label", "acc2", "middle");
+  for (let i = 0; i < 9; i++) {
+    const col = i % 3;
+    const row = Math.floor(i / 3);
+    d.rect(26 + col * 62, 146 + row * 26, 54, 18, "ghost", 3);
+  }
+  d.box(240, 150, 110, 40, "node", "React SPA");
+  d.line(115, 108, 140, 62);
+  d.line(295, 148, 250, 62, "arrow dashed");
+  return d.scene(236);
+}
+---
+
+<Diagram
+  id="hosts"
+  title="One droplets server, many hosts"
+  desc="A droplets server in the middle, ten hosts around it. Express, Next.js, SvelteKit, Astro, FastAPI, Sinatra, PHP, WordPress and nginx (with Server Side Includes) fetch GET /droplets/:id on their server and paste the fragment into their page: solid arrows. The React single-page app lets the browser fetch it, or writes the element itself: a dashed arrow. In every example the browser reaches /index.js, /droplets/*, /assets/* and /api/* through a proxy on the host's own origin."
+  caption="Solid: the host's server fetches the fragment. Dashed: the browser does."
+  wide={wide()}
+  narrow={narrow()}
+/>

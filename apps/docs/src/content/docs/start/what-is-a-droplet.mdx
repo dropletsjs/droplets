@@ -1,0 +1,92 @@
+---
+title: What is a droplet?
+description: "The idea behind Droplets, and when it is (not) the right tool."
+---
+
+import DropletAnatomy from "../../../components/DropletAnatomy.astro";
+import LiveDroplet from "../../../components/LiveDroplet.astro";
+
+**If micro-frontends were a framework.** Droplets grew out of SvelteKit
+and keeps the patterns that work there: `+` files, `load` on the server and
+on both sides, form actions with `fail()` and `redirect()`,
+`hooks.server.ts` and `hooks.client.ts`, `$droplets/env/*`, prerendering
+with `entries`. They are reshaped for islands of server-rendered HTML that
+live inside someone else's page, served by any stack and written in any of
+eight frameworks. Droplets is an independent project, not affiliated with
+Svelte or SvelteKit.
+
+A **droplet** is a single component with its own URL. A droplets server hosts
+a folder of them and answers, for each one:
+
+| Request | You get |
+| --- | --- |
+| `GET /droplets/hello?who=Ana` | The droplet as an HTML fragment, ready to paste into another page |
+| `POST /droplets/hello` | The same fragment, with the props in a JSON body |
+| `GET /droplets/hello/_data?who=Ana` | Just the server load's result, as JSON |
+
+A droplet is one folder:
+
+<DropletAnatomy />
+
+Here is `hello` itself, a Svelte droplet: its server load greets `who`,
+the docs fetched the fragment when this page was built, and the demo's
+`/index.js` hydrated it in your browser.
+
+<LiveDroplet id="hello" props={{ who: "docs reader" }} caption="This is a live droplet served by apps/demo: rendered on its server, hydrated here." />
+
+`vite build` turns the folders into one droplets server. An optional
+`+droplet.ts` holds a props schema and a load that runs on both sides.
+
+Every droplet is server-rendered (unless it opts out), carries its own data
+inline, and is bundled on its own: the browser fetches
+`/droplets/hello/client.js` for `hello` and nothing else. A page that embeds
+five droplets loads five small bundles, not one big one, and a droplet that
+does not hydrate loads none.
+
+Components can be written in [Svelte](/renderers/svelte/), [Vue](/renderers/vue/),
+[Solid](/renderers/solid/), [React](/renderers/react/), [Preact](/renderers/preact/),
+[Hono JSX](/renderers/hono-jsx/), [Handlebars](/renderers/handlebars/) or
+[Lit](/renderers/lit/), through [renderers](/renderers/), or as a
+[plain script](/renderers/script/). One project can mix them.
+
+## The unit of delivery is the component
+
+Most frameworks deliver pages. A page owns its routing, its data loading and
+its JavaScript, and everything inside it has to be written in that framework.
+
+Droplets inverts that. The **component** owns its route, its data loading, its
+error page and its JavaScript. The page is whoever asked for it: a static HTML
+file behind nginx, a WordPress post, a Next.js server component, a Python
+template. The host fetches the fragment and pastes it in; the fragment brings
+everything it needs to come alive.
+
+## Where it fits
+
+Droplets is a good fit when:
+
+- Several applications, possibly in several languages, need the **same
+  interactive widgets**: a login box, a product card, a chart, a comment thread.
+- You want to **add interactive components to an existing site** piece by
+  piece, without rewriting the pages around it.
+- Teams ship UI **independently**: a droplets server deploys on its own
+  schedule, and host pages pick up the new version on the next request.
+
+It is not the right tool when you are building one application in one
+framework. Use that framework's own meta-framework (SvelteKit, Nuxt, Next.js,
+SolidStart) for that; it does pages, forms and routing far better than a
+fragment server ever will.
+
+## How it is built
+
+Droplets is a [Vite](https://vite.dev) plugin. One `vite build` emits:
+
+- a **client bundle per droplet** that hydrates, plus a small entry script
+  that defines the droplet custom element;
+- an **SSR renderer** with the registry of components and their loads;
+- a [Hono](https://hono.dev) server with your config baked in: `dist/server.js`
+  for Node, or a Worker for Cloudflare, depending on the adapter.
+
+The dev server is Vite's own, with droplet-level hot updates layered on top,
+on any page that embeds a droplet.
+
+Next: [Getting started](/start/getting-started/).

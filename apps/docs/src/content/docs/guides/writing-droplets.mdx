@@ -1,0 +1,1035 @@
+---
+title: Writing droplets
+description: "Folder structure, the flags, the load chain, props, data as a promise, prerendering, styles and script droplets."
+---
+
+import FormFlow from "../../../components/FormFlow.astro";
+import LiveDroplet from "../../../components/LiveDroplet.astro";
+import RenderModes from "../../../components/RenderModes.astro";
+import RunsWhere from "../../../components/RunsWhere.astro";
+
+## Structure
+
+One folder per droplet, under `dropletsFolder` (`src/droplets` by default):
+
+```
+src/droplets/<name>/
+  +droplet.<ext>       # required: the component (.svelte, .vue, .tsx, .hbs…)
+  +droplet.ts          # optional: load, props schema, handleError; server and browser
+  +droplet.server.ts   # optional: load, handleError, entries, transform; server only
+  +error.<ext>         # optional: the error page, in the same framework
+```
+
+Instead of a component, a droplet can be plain browser code: a
+`+droplet.script.ts` (or `.js`), with the same loads. See
+[Plain script](/renderers/script/).
+
+`djs add <name>` writes one, asking for the framework, the target and the
+optional files (see [`djs add`](/reference/api/#djs-add)).
+
+The folder name becomes the route id, kebab-cased: `HelloWorld` is served
+as `hello-world`. `+Droplet.vue` with a capital D also works. No id is
+reserved; every droplet route lives under `/droplets/<id>`.
+
+The component's extension picks the [renderer](/renderers/) that
+builds it. One component per folder: a `+droplet.svelte` next to a
+`+droplet.vue` is an error that says which one to keep.
+
+Anything else in the folder, or anywhere in the project, is imported as
+usual. A component shared by several droplets lives wherever you like; the
+dev server tracks which droplets depend on it.
+
+## Flags
+
+Three flags decide how a droplet is delivered. Each renderer reads them from
+where its components can export a constant: `<script module>` in Svelte, a
+plain `<script>` in Vue, named exports in React, Preact, Solid, Hono JSX and Lit,
+the opening comment (or `+droplet.ts`) in Handlebars. Each
+[renderer's page](/renderers/) shows where.
+
+```svelte
+<script module lang="ts">
+  export const ssr = true;        // false: nothing rendered on the server
+  export const hydrate = true;    // false: no JavaScript; "visible" | "interactive": later
+  export const prerender = false; // true: rendered at build for `entries`
+</script>
+```
+
+| `ssr` | `hydrate` | Result |
+| --- | --- | --- |
+| `true` | `true` | Server-rendered, then hydrated. The default. |
+| `true` | `false` | Server-rendered only. No bundle is built or served for it. |
+| `false` | `true` | Client-only. The server load still runs and its data comes inline. |
+| `true` | `"visible"` | Server-rendered; hydrates when it is about to scroll into view. |
+| `true` | `"interactive"` | Server-rendered; hydrates on the first interaction with it. |
+
+`"visible"` and `"interactive"` are [lazy hydration](/guides/in-the-browser/#lazy-hydration);
+a host can also override `hydrate` per element with `data-hydrate`.
+
+Side by side, with [prerendering](#prerendering): what the host page
+receives in each mode, and when the droplet's JavaScript loads.
+
+<RenderModes />
+
+The flags must be literals. They are read with a text scan before anything
+is compiled, because they decide *how* the droplet is built. A value that is
+not a literal (`export const ssr = !dev`) logs a warning and is ignored.
+
+**One set of flags per droplet.** `+error.*` is the droplet's error boundary
+and follows the droplet's flags: it renders on the server when the droplet
+does, hydrates when the droplet does and ships in the droplet's bundle. Flags
+declared in the error page are ignored, with a warning in dev.
+
+A droplet with `hydrate = false` is the cheapest thing you can ship: HTML and
+CSS, nothing else. Its `<style>` is still extracted and served.
+
+## The load chain
+
+```
++droplet.ts          props   (a Standard Schema)    server, and browser when no server rendered
+        ↓  validated props
++droplet.server.ts   load({ request, host, locals, platform, cookies, setHeaders, droplet, props })   server only
+        ↓  the result is inlined into the fragment
++droplet.ts          load({ host, props, data })     server and browser
+        ↓  the result is the component's `data`
++droplet.<ext>       data
+```
+
+The **server load** in `+droplet.server.ts` runs once per request, on the
+server. Its result is inlined into the fragment, so hydration needs no second
+round trip. Read secrets, databases, `locals` and
+[`cookies`](/guides/server/#cookies) here; cookies are read only in a load.
+
+```ts
+// src/droplets/hello/+droplet.server.ts
+import { error, type LoadEvent } from "$droplets/server";
+
+export const load = async ({ props, locals }: LoadEvent) => {
+  const who = typeof props.who === "string" ? props.who : "world";
+  if (who.length > 40) error(404, "Nobody with a name that long lives here.");
+  return { who, requestId: locals.requestId };
+};
+```
+
+The **universal load** in `+droplet.ts` runs after it: on the server while
+rendering, and again in the browser before hydrating or mounting. It receives
+`{ host, props, data }`, where `data` is what the server load returned
+(`undefined` without one), and shapes it into the component's `data`.
+
+```ts
+// src/droplets/hello/+droplet.ts
+import type { load as serverLoad } from "./+droplet.server.ts";
+
+type ServerData = Awaited<ReturnType<typeof serverLoad>>;
+
+export const load = ({ data }: { data: ServerData }) => ({
+  ...data,
+  greeting: `Hello ${data.who}!`,
+});
+```
+
+Keep it pure: it has to produce the same result on both sides, or the
+hydrated markup will not match what the server rendered.
+
+Both files are optional. With neither, `data` is `undefined` and the component
+simply renders. Both return a plain object, or nothing. A `Response` (from
+`json()`, say) is refused: responses belong in [`+server.ts`](/guides/server/#api-routes).
+
+`error(status, message)` and `redirect(status, location)` from
+`$droplets/server` stop a server load and answer as an endpoint would: the
+fragment responds with that status, no component renders. Anything else a
+load throws goes to the [error page](/guides/errors/).
+
+### `host`
+
+`host` in load events is where the droplet renders: the host page, as a
+`URL`. Where the droplet itself lives is its location (`x-host` on the
+server, the URL `/index.js` came from in the browser, `droplet.url()` from
+`$droplets/drop`); the fragment's own URL is `request.url`.
+
+On the server it is taken the classic way, first match wins:
+
+1. `host` in a render request's JSON body: `{ "host": "https://shop.example/product/mug", "props": { … } }`;
+2. `Forwarded` (RFC 7239), its `host` and `proto`;
+3. `X-Forwarded-Host`, with `X-Forwarded-Proto`;
+4. `Origin`;
+5. the request's own origin.
+
+Only `http:` and `https:` URLs count; a value that is not one is skipped for
+the next source. With `trustedOrigins` set, a host outside it (and not this
+server) becomes this server's origin. Headers carry an origin only, so the
+path is `/` unless the body gave one.
+`handle` in `src/hooks.server.ts` sees it first and may replace it; loads,
+`transform` and the context sent to the browser get what `handle` left. A
+host that sends its page as `Referer` (or `X-Forwarded-Uri`) gets the path too:
+
+```ts
+// src/hooks.server.ts
+import { hostFrom, type Handle } from "$droplets/server";
+
+export const handle: Handle = ({ event, resolve }) => {
+  event.host = hostFrom(event.request.headers.get("referer")) ?? event.host;
+  return resolve(event);
+};
+```
+
+`hostFrom` checks a candidate the way the default is checked: an `http:` or
+`https:` URL without credentials or hash, and, with `trustedOrigins` set, one
+of them or this server. Anything else, a missing or malformed header
+included, gives `null`. `handle` may still set any `URL` it likes; `hostFrom`
+is the safe way to take one from a request.
+
+`host` comes from the request: any client can send any value. Render with
+it; never decide from it who may see what. Embedding a droplet also tells
+its server the page's URL; see [Who sees what](/guides/security/#who-sees-what).
+
+In the browser, the universal load's `host` is the page itself
+(`window.location`, without its `#hash`), read when the droplet mounts. It does not follow a
+single-page app's navigation afterwards. A universal load that renders from
+`host.pathname` hydrates cleanly only when the server got the same path.
+
+While prerendering, see [`host` at build](#host-at-build).
+
+### `setHeaders`
+
+`setHeaders` in a server load sets headers on the droplet's answers: the
+fragment and `_data`. Fragments are sent `cache-control: private, no-store`
+unless the load says otherwise, so a droplet that is the same for everyone
+opens itself to caches here:
+
+```ts
+// src/droplets/products/+droplet.server.ts
+import type { LoadEvent } from "$droplets/server";
+
+export const load = async ({ props, setHeaders }: LoadEvent) => {
+  setHeaders({ "cache-control": "public, max-age=60" });
+  return { products: await db.products(props.category) };
+};
+```
+
+As in SvelteKit, each header can be set once (`setHeaders` throws on the
+second), names and values are plain strings without line breaks, and
+`set-cookie` is refused: cookies are set in `handle`, `+server.ts` or an
+[action](#actions). The
+headers go out when the droplet renders or loads; an error answer, or a load
+that failed and shows its error page, carries none of them. A prerendered
+render keeps the headers its load set at build and is served with them.
+`handle` sees the response after and may change any of them. A `vary` the
+load sets is kept, and the [host headers](/integrate/http-contract/#caching) are
+added to it. `transform` and the universal load have no `setHeaders`.
+
+## Actions
+
+A droplet takes form posts with `actions` in `+droplet.server.ts`: a plain
+object of functions, `default` for a form with no name, the others named by
+a query key that starts with `/`.
+
+```ts
+// src/droplets/guestbook/+droplet.server.ts
+import { fail, redirect } from "$droplets/server";
+import type { Actions, LoadEvent } from "./$types";
+
+export const load = async ({ props }: LoadEvent) => ({ entries: await db.entries(props.book) });
+
+export const actions = {
+  // POST /droplets/guestbook?book=1
+  default: async ({ request, props, cookies }) => {
+    const name = (await request.formData()).get("name");
+    if (typeof name !== "string" || name === "") return fail(422, { missing: "name" });
+    await db.sign(props.book, name);
+    cookies.set("signed", "1", { path: "/" });
+    return { signed: name };
+  },
+  // POST /droplets/guestbook?/leave&book=1
+  leave: () => redirect(303, "/bye"),
+} satisfies Actions;
+```
+
+```svelte
+<!-- src/droplets/guestbook/+droplet.svelte -->
+<script lang="ts">
+  import { actionUrl } from "$droplets/form";
+  import type { DropletActions, DropletProps } from "./$types";
+
+  let { data, form }: DropletProps = $props();
+  const sign = actionUrl<DropletActions>();
+  const leave = actionUrl<DropletActions>("leave");
+</script>
+
+<form method="post" action={sign}>
+  <input name="name" />
+  {#if form?.missing}<p>A name, please</p>{/if}
+  {#if form?.signed}<p>Thanks, {form.signed}</p>{/if}
+</form>
+<form method="post" action={leave}><button>Leave</button></form>
+```
+
+The action's event is a load's, with full `cookies` (an action may set them),
+and its `request` with the body unread: the action reads it, as
+`formData()` or otherwise. `props` come from the query string (or
+`x-droplet-props`) through the schema, never from the form; nothing of the
+body is merged into anything. What it returns:
+
+- **a plain JSON object, or nothing**: success, status `200`;
+- **`fail(status, data?)`**: a failure with a `400`–`599` status (any other
+  throws), and data for the form to show;
+- **`redirect()`**, thrown or returned: a `303` to where it points;
+- **`error()`**: answered as a load's `error()`.
+
+Then the droplet renders again: its load runs, and the component gets the
+result as `form`, `undefined` on any other render (`{{form.…}}` in
+Handlebars). That render is always live, also for a prerendered droplet.
+How it gets there depends on the request, not the URL: one that accepts
+JSON (`accept: application/json`, as an [enhanced form](#enhancing-a-form)
+sends) gets the result, `{ type, status, data? }` or
+`{ type: "redirect", status, location }`, and the page renders it in place;
+a form posted without JavaScript is sent back to its page with the result
+([Post/Redirect/Get](#without-javascript-postredirectget)). The
+returned data must be plain JSON (object literals, arrays, strings, finite
+numbers, booleans, `null`): a `Date`, a class instance or a function answers
+`500`.
+
+`setHeaders` is shared with the load that follows: a header both set
+throws, as two loads would. The [HTTP contract](/integrate/http-contract/#form-actions)
+has the statuses. In `./$types`, `Actions` types the object,
+`DropletActions` maps each exported action to what `form` gets after it
+(its result or its `fail()` data), and `ActionData` is what `form` can be:
+any of them, or `undefined`.
+
+### Where a form posts
+
+A droplet renders inside someone else's page, so `<form method="post">`
+without an `action` would post to the host page. `actionUrl(name?)` from
+`$droplets/form` gives the URL of the droplet's action `name` (`default`
+without one) on the droplets server: `${location}/droplets/<id>?/<name>`,
+with the props that are strings, numbers or booleans in the query, so the
+action and the render after it get them (other props do not travel in the
+URL), and last the page the form is on, its origin and path, as
+`__droplet_return`: where a form posted without JavaScript is
+[sent back to](#without-javascript-postredirectget). The server, the
+browser and a prerender give the same string, so hydration finds the same
+markup. In Handlebars it is `action="{{action "add"}}"`,
+`action="{{action}}"` for `default`.
+
+```ts
+import { actionUrl } from "$droplets/form";
+import type { DropletActions } from "./$types";
+
+actionUrl<DropletActions>("add");
+// https://drops.example/droplets/cart?/add&productId=p1&__droplet_return=https%3A%2F%2Fshop.example%2Fproduct%2Fmug
+actionUrl("add", { droplet: "cart", props: { productId: "p1" } }); // the same, from anywhere
+```
+
+With `DropletActions` it takes only the names `actions` exports (and no
+name only when there is a `default`). It knows the droplet that renders
+now, and throws outside a render unless given `{ droplet }` (and
+`{ props }`). In the browser it knows the render only while the component
+renders synchronously, so call it as the component sets up: in a Svelte or
+Vue script, a Solid body, `useState(() => actionUrl("add"))` in React,
+Preact and Hono JSX (a React re-render, or a mount after an `await`, is no longer
+inside the render), or pass `{ droplet, props }`.
+
+The location is where the droplets server is reached, as for
+[`$droplets/drop`](#calling-your-api): the request's public location on the
+server (a [trusted `x-host`](/integrate/http-contract/#x-host-the-public-location), else
+the request's origin; an untrusted `x-host` never reaches an action URL),
+and the URL the page loaded `/index.js` from in the browser. A prerendered
+droplet holds a token there (`__$DROPLET_LOCATION_<nonce>$__`), replaced per
+request with the location it is served from, before `transform`.
+
+The page is `event.host` on the server (its `origin` and `pathname`; at
+prerender the host tokens, filled per request like the location) and
+`window.location` in the browser: the same page whenever `host` is the
+page's URL, as it is for a fragment the element fetches and for a host that
+passes `"host"` (see [`host`](#host)). Its query and hash never go in, and
+`__droplet_return` is a reserved key: a prop of that name never travels and
+never replaces it, and the key is never in `host` or the props.
+
+Without anything else, a form posts as any form does: the browser
+navigates to the action on the droplets server. That works before the
+page's JavaScript runs, or without it, and the answer takes the browser
+back to the host page.
+
+#### Without JavaScript: Post/Redirect/Get
+
+A native post (one that does not accept JSON) is answered with a `303`,
+never with the droplet's fragment as a page of its own:
+
+- **success or `fail()`**: back to the page the form was on, with the
+  result signed in the query:
+  `https://shop.example/product/mug?ref=1&__droplet_form_cart_36a187=eyJzd…Q.hT0…`.
+  The page loads again, the host renders the droplet as always, and the
+  droplet renders with `form`;
+- **`redirect()`**: to where it points.
+
+The round trip, for a host that fetches fragments on its server, with
+`DROPLETS_SECRET` set (below):
+
+<FormFlow />
+
+Which page: the action URL names it in `__droplet_return` (origin and
+path). When the `Referer` is that same page, the `Referer` is used, so the
+page's own query (`?ref=1`) comes back too; otherwise `__droplet_return`;
+without one, a `Referer` that passes on its own. Browsers send a page on
+another origin only as its origin in `Referer` (the default
+`strict-origin-when-cross-origin`): `__droplet_return` is what lands the
+user back on `/product/mug` rather than the host's `/`. The page's query
+loses any `?/name` key (the `GET` that follows never lands on an action
+URL), `__droplet_return`, older `__droplet_form_*` keys and its hash.
+
+Every target must be on the droplets server's own origin (a trusted
+`x-host`'s included) or an origin in [`trustedOrigins`](/guides/configuration/)
+(or `DROPLETS_TRUSTED_ORIGINS`), compared by exact origin, `http:` or
+`https:` only. `"*"` never counts here: it trusts every origin to post,
+never as a place to send the browser (an open redirect). A page to go back
+to is never one of the droplets server's own, under
+`<location>/droplets/` (a fragment or an action URL). A post with no page
+that passes answers `400` and its action does not run; a `redirect()`
+elsewhere answers `400` too (with a warning in the log).
+
+A host page with `Referrer-Policy: no-referrer` cannot post to the droplets
+server at all: under that policy the browser sends `Origin: null` with a
+form post, which the [`Origin` check](/integrate/http-contract/#form-posts-the-origin-check)
+answers `403`. Give the page `<meta name="referrer"
+content="strict-origin-when-cross-origin">` (or that `Referrer-Policy`
+header), the browsers' default: the origin alone goes to another origin,
+and `__droplet_return` does the rest. Proxying the droplets routes under
+the host's own origin keeps the full `Referer` under the default policy,
+but not under `no-referrer`, which sends `Origin: null` to its own origin
+too.
+
+The result travels as `__droplet_form_<droplet>_<build>`, one key per
+droplet and build, so forms of several droplets on one page each get their
+own; a new result replaces any `__droplet_form_*` the page's URL had. Its
+value is base64url JSON `{ status, data, exp, action }`, a `.`, and an
+HMAC-SHA256 of the droplet, the build, the page it goes back to (origin and
+path) and that JSON, keyed with `DROPLETS_SECRET`: a result minted for one
+page shows on that page only, never on another page of a trusted origin. A
+droplet rendering (a fragment, or `_data` for one the browser renders)
+reads its own key from `host`, verifies the MAC against `host`'s origin and
+path before it parses anything, checks that it has not expired (five
+minutes) and that the droplet still exports the action, and renders with
+its `data` as `form`,
+live, never from a [prerendered](#prerendering) render, with
+`cache-control: private, no-store`. Anything else (another droplet's or
+build's key, a changed byte, an expired value) is ignored: the droplet
+renders as if there were none. `host`, as `handle`, loads and actions see
+it, never has these keys; the browser's universal load does not either.
+
+For the droplet to see the result, `host` must be the page's URL with its
+query: the browser sends it with `_data`, and a host fetching fragments on
+its server passes it in a render request's body (`{ "host": … }`) or as
+`Referer`, read by a `handle` with [`hostFrom`](#host).
+
+What to know:
+
+- **`DROPLETS_SECRET`** (32 or more random bytes, read at runtime, e.g.
+  `openssl rand -base64 32`) is required. Without it, or shorter, a native
+  post gets the droplet's fragment rendered with `form` as its answer, and
+  the log says so once. Every instance serving the same build needs the
+  same value.
+- **2 KB at most.** A value over 2 KB keeps `status` and `action` and drops
+  `data`, with a warning in the log: `form` is then `undefined`. Return
+  field names and short messages, not documents.
+- **Readable by anyone who holds the URL.** The secret signs the result; it
+  does not hide it. The JSON is base64url, readable without the secret, and
+  it rides in the URL: in history, logs and `Referer`s. Return field names
+  and message codes, never the submitted values, secrets or anything used
+  for authorization:
+
+  ```ts
+  // Bad: the address, the reason and a session id, readable by anyone with the URL.
+  return fail(422, { email, error: `No account for ${email}`, session: locals.sessionId });
+  // Good: which field, and a code the component turns into a message.
+  return fail(422, { field: "email", code: "unknown_account" });
+  ```
+
+- **Display only.** Anyone who posts the form can make a URL that shows its
+  result to someone else for five minutes. Never use `form` to decide what
+  someone may do.
+- **It shows again on reload.** For five minutes a no-JavaScript user who
+  reloads the page (or goes back to it) sees the result again: it is in the
+  URL. Do not hang one-shot effects on `form` (a toast that counts, an
+  analytics event, "clear the cart now"): what must happen once happens in
+  the action.
+- Repeated instances of one droplet on a page all show the result.
+
+[Security model](/guides/security/#form-actions-without-javascript) has the
+token's properties in one list.
+
+### Enhancing a form
+
+The demo's `poll`, a Vue droplet, has an enhanced form. Its `?/vote` action
+checks the answer against a `Map`, `fail()`s with a code (vote without
+picking one) or echoes the vote, and the droplet renders again in place.
+It stores nothing.
+
+<LiveDroplet id="poll" caption="This is a live droplet served by apps/demo: the vote posts to its server, from this page's origin." />
+
+The post goes from this page to the demo's origin: the demo lists the
+docs' origin in `cors` (for the `fetch` and the `_data` refresh) and in
+`trustedOrigins` (for the [`Origin` check](/integrate/http-contract/#form-posts-the-origin-check)),
+and this page's Content-Security-Policy allows that origin in
+`connect-src` and `form-action`. Without JavaScript the vote still posts
+and comes back ([Post/Redirect/Get](#without-javascript-postredirectget)),
+but this page is static, built once: it cannot render the result its URL
+carries, as a host that renders on each request would.
+
+Opt in per form, and its submit goes by `fetch` and the result shows in
+place. Each renderer's `/form` subpath wraps the same
+`enhanceDropletForm(form, options?)` of `$droplets/form`:
+
+```svelte
+<!-- Svelte: an action -->
+<script lang="ts">
+  import { actionUrl } from "$droplets/form";
+  import { enhanceDropletForm } from "@dropletsjs/renderer-svelte/form";
+  import type { DropletActions } from "./$types";
+
+  const add = actionUrl<DropletActions>("add");
+</script>
+
+<form method="post" action={add} use:enhanceDropletForm={{ action: "add" }}>…</form>
+```
+
+```tsx
+// React (and Preact or Hono JSX, from @dropletsjs/renderer-preact/form or
+// @dropletsjs/renderer-hono-jsx/form, with their own hooks)
+import { useRef, useState } from "react";
+import { actionUrl } from "$droplets/form";
+import { useEnhanceDropletForm } from "@dropletsjs/renderer-react/form";
+import type { DropletActions } from "./$types";
+
+export default function Cart() {
+  const [add] = useState(() => actionUrl<DropletActions>("add"));
+  const ref = useRef<HTMLFormElement>(null);
+  useEnhanceDropletForm<DropletActions>(ref, { action: "add" });
+  return <form method="post" action={add} ref={ref}>…</form>;
+}
+```
+
+```vue
+<!-- Vue: a composable -->
+<script setup lang="ts">
+import { ref } from "vue";
+import { actionUrl } from "$droplets/form";
+import { useEnhanceDropletForm } from "@dropletsjs/renderer-vue/form";
+import type { DropletActions } from "./$types";
+
+const add = actionUrl<DropletActions>("add");
+const form = ref<HTMLFormElement | null>(null);
+useEnhanceDropletForm<DropletActions>(form, { action: "add" });
+</script>
+
+<template><form ref="form" method="post" :action="add">…</form></template>
+```
+
+```tsx
+// Solid: a directive
+import { actionUrl } from "$droplets/form";
+import { enhanceDropletForm } from "@dropletsjs/renderer-solid/form";
+import type { DropletActions } from "./$types";
+
+void enhanceDropletForm; // `use:` needs it in scope
+
+export default function Cart() {
+  const add = actionUrl<DropletActions>("add");
+  return <form method="post" action={add} use:enhanceDropletForm={{ action: "add" }}>…</form>;
+}
+```
+
+```handlebars
+{{!-- Handlebars: an attribute, bound by /index.js --}}
+<form method="post" action="{{action "add"}}" data-droplets-enhance>…</form>
+```
+
+An enhanced form intercepts only a `POST` to its own droplet's action:
+exactly `<location>/droplets/<id>` by origin and path, the hosting
+element's. A submit elsewhere (another droplet, the host page, another
+origin, a `javascript:` `formaction`), a `GET`, a `text/plain` form or one
+with a `target` other than `_self` is the browser's. With `action`, only
+that action is intercepted. The submit sends `new FormData(form, submitter)` (the
+submitter's `formaction` and `formenctype` count) with
+`accept: application/json`, and then:
+
+- **success or failure**: the droplet renders again with `form` and fresh
+  data, its loads run as a `_data` refresh. A `hydrate = false` droplet
+  (Handlebars, or any that does not render in the browser) gets its
+  fragment, rendered with `form` by the server, swapped in;
+- **redirect**: the page goes there (`location.assign`, `http:` and
+  `https:` only);
+- **`droplets:action`** is dispatched on `window`, with
+  `{ droplet, action, type, status, data }`, for the rest of the page;
+- an answer that is no result (an `error()`, a network failure) is logged
+  and applies nothing.
+
+A second submit while one is in flight is ignored. The options:
+
+```ts
+useEnhanceDropletForm<DropletActions>(ref, {
+  action: "add",
+  // Before anything is sent: change formData, or cancel().
+  onSubmit: ({ form, formData, cancel }) => {},
+  // In place of the default: data is typed by the action.
+  onResult: async ({ type, status, data, update }) => {
+    if (type === "success") showCart(data);
+    else await update();
+  },
+});
+```
+
+The default update renders the component again, so state the component
+keeps for itself starts over; `onResult` can apply the result without it.
+`enhanceDropletForm(form, options)` itself returns the function that
+removes it, for a form outside these wrappers.
+
+## Props
+
+Props are how a caller parameterises a droplet. They arrive, in precedence
+order, from:
+
+1. **A POST body**: `{ "props": { … } }` as JSON, or `{ "host": "…", "props": { … } }`
+   to also say where the droplet renders.
+2. **The query string**: `/droplets/hello?who=Ana` gives `props.who === "Ana"`.
+   Every value is a string.
+3. **The `x-droplet-props` header**: base64-encoded JSON, for props too large
+   or too structured for a URL.
+
+Props are client input, as `host` is: anyone can send any props. Check them
+(a [schema](#a-props-schema)) and never trust them for access; see
+[Security model](/guides/security/#request-input).
+
+`c`, `t`, `__cb`, `noSSR`, `clientOnly` and `__droplet_return` are reserved
+query keys, as are a key that starts with `/` (an action's name, `?/add`) and
+any `__droplet_form_*` key: they never become props. The component itself
+never receives props: they reach it through a load.
+
+### A props schema
+
+`export const props` in `+droplet.ts` validates them with any
+[Standard Schema](https://standardschema.dev) library (zod, valibot, arktype…).
+It runs before every load: on the server before `+droplet.server.ts`, in the
+browser when no server rendered the droplet. Its output replaces the props, so
+`?page=2` from a URL and `{ page: 2 }` from a POST body meet as the same
+value. Props it refuses answer `400` before any load runs.
+
+```ts
+// src/droplets/article/+droplet.ts
+import * as z from "zod/mini";
+
+export const props = z.object({
+  page: z._default(z.coerce.number().check(z.int(), z.positive()), 1),
+});
+```
+
+The schema may be async: it can ask a server whether page 2 exists before
+anything renders.
+
+The library is yours: droplets calls the schema's `~standard.validate` and
+nothing else, and ships none of its own. A droplet that loads in the browser
+carries its schema there, so its size counts. The same `page` in two other
+libraries, each giving `{ page: number }` to the load and to `./$types`:
+
+```ts
+// valibot
+import * as v from "valibot";
+
+export const props = v.object({
+  page: v.optional(v.pipe(v.unknown(), v.transform(Number), v.integer(), v.minValue(1)), 1),
+});
+```
+
+```ts
+// arktype
+import { type } from "arktype";
+
+export const props = type({
+  page: type("string.integer.parse | number.integer").pipe(type("number >= 1")).default(1),
+});
+```
+
+#### JSON Schema
+
+A JSON Schema describes props without checking them; a validator does that.
+Wrapped once as a Standard Schema, it works like the others:
+
+```ts
+// src/lib/json-schema.ts
+import { Validator } from "@cfworker/json-schema";
+import type { FromSchema, JSONSchema } from "json-schema-to-ts";
+
+// The validator applies no `default`, so a defaulted property stays optional.
+type Output<S extends JSONSchema> = FromSchema<S, { keepDefaultedPropertiesOptional: true }>;
+
+/** Errors that only point at a nested one. */
+const SUMMARIES = new Set(["properties", "false"]);
+
+/** A JSON Schema as a Standard Schema, the shape `props` in +droplet.ts takes. */
+export function jsonSchema<const S extends JSONSchema>(schema: S) {
+  const validator = new Validator(schema as object, "2020-12");
+  return {
+    "~standard": {
+      version: 1 as const,
+      vendor: "json-schema",
+      validate(value: unknown) {
+        const { valid, errors } = validator.validate(value);
+        if (valid) return { value: value as Output<S> };
+        return {
+          issues: errors.filter((e) => !SUMMARIES.has(e.keyword)).map((e) => ({
+            message: e.error,
+            path: e.instanceLocation.split("/").slice(1),
+          })),
+        };
+      },
+      types: undefined as unknown as { input: unknown; output: Output<S> },
+    },
+  };
+}
+```
+
+```ts
+// src/droplets/article/+droplet.ts
+import { jsonSchema } from "../../lib/json-schema.ts";
+
+export const props = jsonSchema({
+  type: "object",
+  properties: { page: { type: "integer", minimum: 1 } },
+  additionalProperties: false,
+});
+```
+
+`json-schema-to-ts` gives `./$types` the props' type (`{ page?: number }`
+here). `@cfworker/json-schema` runs without `eval`, so it works on Workers and
+under a strict Content Security Policy; `ajv` compiles schemas with
+`new Function` and does not.
+
+A JSON Schema checks values; it does not convert them. `?page=2` arrives as
+the string `"2"` and fails `type: "integer"`, and no `default` is filled in.
+It fits props that callers send as JSON: a POST body or `x-droplet-props`.
+
+## Types: `./$types`
+
+Every droplet gets a generated `./$types`, typed from its own files. Its
+component never repeats what the server load returns:
+
+```ts
+// src/droplets/article/+droplet.server.ts
+import type { LoadEvent } from "./$types";
+
+// `props.page` is a number: the schema in +droplet.ts says so.
+export const load = async ({ props }: LoadEvent) => ({ page: props.page, items: await list(props.page) });
+```
+
+```svelte
+<!-- src/droplets/article/+droplet.svelte -->
+<script lang="ts">
+  import type { DropletProps } from "./$types";
+
+  let { data }: DropletProps = $props(); // { page: number; items: … }
+</script>
+```
+
+| Type | What it is |
+| --- | --- |
+| `Props` | The caller's props after the `props` schema; `Record<string, unknown>` without one. |
+| `LoadEvent`, `ServerLoad` | `load` in `+droplet.server.ts`, with `Props`. |
+| `ServerData` | What that load returns; `undefined` without one. |
+| `DropletLoadEvent`, `Load` | `load` in `+droplet.ts`: `Props` and `ServerData`. |
+| `Data` | What the component gets: the `+droplet.ts` load's result, else `ServerData`. |
+| `DropletProps` | The component's props, with the framework's `children` and `form`. |
+| `ActionEvent`, `Actions` | `actions` in `+droplet.server.ts`, with `Props` (`satisfies Actions`). |
+| `DropletActions` | Each action by name, with what `form` gets after it (its result or `fail()` data); `{}` without actions. For `actionUrl<DropletActions>()` and the enhance options. |
+| `ActionData` | What `form` can be: each action's result or `fail()` data, or `undefined`; just `undefined` without actions. |
+| `ErrorData`, `DropletErrorProps` | The error page's: what `handleError` returns. |
+| `DropletScript` | A [script droplet](/renderers/script/)'s default export: `(data: Data, el: HTMLElement) => void \| (() => void)`. Only in script droplets' `./$types`. |
+
+Annotate a load's parameter (`({ props }: LoadEvent) => …`) or use
+`satisfies ServerLoad`, never `const load: ServerLoad`: an annotation would
+replace the return type the component's `Data` is read from. The same goes
+for `handleError` (`satisfies HandleDropletError`).
+
+The files live in `.droplets/types/`, mirroring the droplet folders, and
+`.droplets/tsconfig.json` maps them next to the droplets with `rootDirs`:
+extend it from your `tsconfig.json`. `vite dev` rewrites them as droplets
+come and go, `vite build` writes them too, and `djs sync` writes them without
+either, for a type check on a fresh checkout (`"prepare": "djs sync"`).
+
+## Data may be a promise
+
+A load may return a promise, or an object whose fields are promises:
+
+```ts
+export const load = ({ props }: LoadEvent) => ({
+  user: db.user(props.id),          // a promise
+  posts: db.posts(props.id),        // another one
+});
+```
+
+On the server, and when the browser hydrates, those fields are settled before
+rendering: the component gets plain values, and the inline payload and `_data`
+carry them settled. A field that rejects fails the load with that error, so
+`error()` and `redirect()` inside a field still count.
+
+A droplet mounted in the browser **from scratch** (client-only, no server
+markup, a dev remount) mounts at once with `data` as a promise of what `_data`
+and `+droplet.ts` answer. Read it the framework's way; the
+[renderer pages](/renderers/) have the pattern for each one. Svelte
+without `experimental.async` and Handlebars wait for the data instead, so
+`data.x` works everywhere.
+
+## Prerendering
+
+`export const prerender = true` renders the droplet at build time, once for
+each event `entries` in `+droplet.server.ts` returns (`[{}]` without it). An
+event is what the loads run with: `props`, and optionally `host`.
+
+```ts
+// src/droplets/docs/+droplet.server.ts
+import type { Entries } from "$droplets/server";
+
+export const entries = (() => [
+  { props: { page: 1 } },
+  { props: { page: 2 } },
+  { props: { page: 3 }, host: "https://shop.example/docs" },
+]) satisfies Entries;
+```
+
+- Renders go through `handle`, with `building` from `$droplets/env` set to
+  `true`.
+- They are stored with the server, never as public files, and read per
+  request: from `dist/server/_prerendered/` on Node, Bun and Deno; on
+  Workers through the assets binding, from a directory of `dist/client`
+  named anew every build that only the Worker knows. Nothing is bundled.
+- Listed props are served from the store (and `_data` answers from it).
+  Other props render live, or answer `404` when `ssr = false`. A render made
+  for a host serves that host only (origin and path, never the query); see
+  below.
+- A prop set whose load fails is stored as its error page, served with a
+  `500`. One that answers `error()` or `redirect()` warns at build and renders
+  live.
+- In `vite dev`, everything renders live.
+
+### `host` at build
+
+Each entry renders for the first host it can have:
+
+1. the entry's `host`;
+2. `prerender.host` in `droplets()` (`droplets({ prerender: { host: "https://shop.example" } })`);
+3. `PUBLIC_URL` from the mode's environment;
+4. none: the render is **host-agnostic**.
+
+A render with a host is a real `URL` to its loads, and is stored under its
+props and that host's origin and path. A request gets it only when its own
+`host` matches; any other host gets the host-agnostic render of the same
+props when there is one, else a live render.
+
+A host-agnostic render gets a stand-in for `host`: `host.origin`,
+`host.pathname` and `host.href` (and `String(host)`, `JSON.stringify`) give
+the tokens `__$DROPLET_HOST$__` and `__$DROPLET_PATH$__`. Every render made
+at build, with a host or without, has the droplets server's location as a
+token too, `__$DROPLET_LOCATION$__` (`droplet.origin`, action URLs), replaced
+with the location of each request that serves it. Each token carries the
+build's nonce (`__$DROPLET_HOST_<nonce>$__`).
+`<a href="{host.origin}/sale">` is stored as `<a href="__$DROPLET_HOST$__/sale">`,
+and every request that serves it gets the tokens replaced with its own
+`host`, after `handle` and before `transform`: in the HTML (escaped for
+attributes), in the inline data, and in their `encodeURIComponent` forms.
+Use them in text and attribute positions: inside an inline `<script>` or
+`<style>` they get HTML escaping, not JavaScript or CSS escaping.
+Logic on the value cannot be computed at build, so any other field
+(`host.searchParams`, `host.hostname`, …) throws
+`HostUrlPropsErrorInPrerender` and **stops the build**, even when the
+droplet's code catches it. Give that entry a `host`, set `prerender.host`, or
+render it live. [`cookies`](/guides/server/#cookies) stop the build the same
+way: there is no request at build.
+
+### `transform`
+
+`transform` in `+droplet.server.ts` rewrites the droplet's HTML on every
+request, prerendered or live, with the request's event. What a build-time
+render cannot know goes here:
+
+```ts
+import type { TransformEvent } from "$droplets/server";
+
+const escapeHtml = (text: string) =>
+  text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+export const transform = ({ html, host }: TransformEvent) =>
+  html.replaceAll("@HOST@", () => escapeHtml(host.host));
+```
+
+`transform` writes into HTML, and `host` comes from the request: escape what
+you splice in, and pass the replacement as a function, so `$&` or `$'` in
+it is not read as a pattern. A list of functions runs in order.
+
+`error()` and `redirect()` stop it as they stop a load: the fragment answers
+with that status, or the redirect. `transform` runs on fragments only;
+`_data` answers what the load returned. The
+[shop demo](/integrate/hosts/shop-demo/#stale-free-ssg-with-a-version-prop)
+redirects an old link from its `transform`.
+
+## Children
+
+A droplet can render content the host puts inside it. Each renderer hands the
+component a `children` value; where it renders, the host's content appears:
+
+```svelte
+<script lang="ts">
+  import type { DropletProps } from "@dropletsjs/renderer-svelte";
+  let { data, children }: DropletProps<{ title: string }> = $props();
+</script>
+
+<section>
+  <h2>{data.title}</h2>
+  {@render children?.()}
+</section>
+```
+
+The host writes its content in one `<div data-app-slot>` inside the element;
+see [Host children](/guides/in-the-browser/#host-children) for the browser
+side and the rules.
+
+## Styles
+
+A droplet's stylesheets come in two kinds:
+
+- **the shared stylesheet**, `css.path` in the plugin options (default
+  `./src/app.css`), the same for every droplet: Tailwind, fonts, base styles;
+- **its own**: `<style>` blocks, CSS a component imports, CSS modules. A
+  component several droplets share gets a stylesheet of its own, which they
+  all list.
+
+**Styles belong to the component**: `+droplet.<ext>`, `+error.<ext>`, the
+modules they import, or a `<style>` block. CSS reached from `+droplet.ts` or
+`+droplet.server.ts`, directly or through what they import, fails
+`vite build` and shows as an error in `vite dev`, with the import chain.
+CSS imported as a string (`?url`, `?raw`, `?inline`) is not a stylesheet and
+is fine anywhere.
+
+`/droplets/<id>/style.css` imports both, the shared one first, and is linked
+inside the element, never in the host's `<head>` (see
+[the fragment](/integrate/http-contract/#the-fragment)). The browser downloads
+each file once, whatever the number of droplets that list it.
+
+**Every stylesheet lands in pages you do not control.** To keep them from
+restyling the host, the framework confines them to the droplet element
+(`css.scoped`, on by default): a PostCSS plugin rewrites every selector so it
+only matches inside the element. That covers the shared stylesheet, CSS a
+component imports, CSS modules, and Svelte and Vue component styles.
+
+| You write | The host page gets |
+| --- | --- |
+| `.p-4 { … }` | `acme-widgets .p-4 { … }` |
+| `*, ::before, ::after { … }` | `acme-widgets *, acme-widgets ::before, … { … }` |
+| `:root { … }`, `html { … }`, `body { … }`, `:host { … }` | `acme-widgets { … }` |
+| `@keyframes`, `@font-face`, `@property` | unchanged (nothing to scope) |
+
+Svelte sees its `<style>` blocks before it compiles them, and drops a
+selector naming an element its template lacks; there the prefix is written
+`:global(acme-widgets)`, which Svelte leaves alone. A Svelte
+`:global(body) .x` becomes `acme-widgets .x` like any `body .x`.
+
+### Tailwind
+
+Turn it on with `css: { tailwind: true }` and install `tailwindcss` and
+`@tailwindcss/vite`. With scoping, `@import "tailwindcss"` is the right thing
+to write: its preflight reset becomes the droplets' own reset, its theme
+variables sit on the element and inherit into the droplet, and its utilities
+only apply inside. `:root` is a handy way to style the element itself:
+
+```css
+/* src/app.css */
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    display: block;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+}
+```
+
+When the host pages load Tailwind's preflight themselves, leave the
+droplets' out of the build with `twPreflight`; see
+[Preflight in dev only](/guides/configuration/#preflight-in-dev-only).
+
+Tailwind generates one stylesheet per droplets server, from the classes all
+its droplets use. Two droplets servers on one page each bring their own:
+their utilities are scoped to their own element, so they do not collide, but
+nothing is shared between them.
+
+### Notes
+
+Scoping does not rename `@keyframes` or `@font-face` names, which stay
+global.
+
+The plugin is added to Vite's `css.postcss` automatically. If your
+`vite.config.ts` points `css.postcss` at a config file, add it there yourself:
+
+```js
+// postcss.config.js
+import { scopeStylesPlugin } from "@dropletsjs/droplets/postcss";
+export default { plugins: [scopeStylesPlugin({ element: "acme-widgets" })] };
+```
+
+With `css.scoped: false` nothing is rewritten; keep every stylesheet free of
+resets and element selectors then, since they apply to the whole host page.
+
+## Script droplets
+
+Some droplets are no component at all: an analytics tracker, a third-party
+widget, a vanilla UI. A **script droplet** is a `+droplet.script.ts` (or
+`.js`) whose default export runs in the browser with the droplet's data and
+its element, `(data, el) => void | cleanup`, with the same loads as any
+droplet. The server renders nothing for it, `hydrate` is `true` or
+`"visible"`, and no renderer is needed: it is built in.
+[Plain script](/renderers/script/) has the details, a live one and an
+example.
+
+## Calling your API
+
+A droplet runs inside someone else's page, so a relative `fetch("/api/…")`
+reaches the host, not your droplets server. `$droplets/drop` knows the
+droplets server's public origin, in the browser and during server rendering:
+
+```ts
+// src/lib/api.ts: neutral, any droplet in any framework can import it
+import droplet from "$droplets/drop";
+
+export async function bumpCounter(by = 1): Promise<number> {
+  const response = await fetch(droplet.url("/api/counter"), {
+    method: "POST",
+    body: JSON.stringify({ by }),
+  });
+  return (await response.json()).count;
+}
+```
+
+Cross-origin calls need `cors` on the droplets server, as the bundles do. A
+host that proxies the droplets server under its own origin proxies `/api/*`
+too. See [`$droplets/drop`](/reference/api/#dropletsdrop).
+
+## Where code runs
+
+Every file sits on one side of a line the build enforces. Server code stays
+on the droplets server; the browser gets the component and what a load
+returned, never the code that produced it:
+
+<RunsWhere />
+
+`$droplets/env` exports three booleans, usable anywhere:
+
+| Export | `true` when |
+| --- | --- |
+| `browser` | running in the browser |
+| `dev` | running under `vite dev` |
+| `building` | `vite build` is prerendering |
+
+Server-only modules (`$droplets/server`, `$droplets/env/private`) can only be
+imported by server files: names with `.server.` in them, any extension
+(`+droplet.server.ts`, `hooks.server.ts`, `db.server.tsx`…), `+server.*`
+routes, or files under a folder named `server/`. Any other file that imports them fails the
+build, and server files themselves never reach a browser bundle. See
+[Environment variables](/guides/server/#environment-variables) and
+[Server-only code](/guides/security/#server-only-code).

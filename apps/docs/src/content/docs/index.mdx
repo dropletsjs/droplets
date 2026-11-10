@@ -1,0 +1,67 @@
+---
+title: Droplets
+description: "Server-rendered components you can embed from any stack, as a Vite plugin on Hono. Svelte, Vue, Solid, React, Preact, Hono JSX, Handlebars or Lit."
+template: splash
+hero:
+  tagline: "Components you can embed from any stack. One component, one server-rendered fragment, one script. Write it in Svelte, Vue, Solid, React, Preact, Hono JSX, Handlebars or Lit."
+  actions:
+    - text: Get started
+      link: start/getting-started/
+      icon: right-arrow
+    - text: See it embedded in nine stacks
+      link: integrate/hosts/overview/
+      variant: minimal
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+import DropletTour from "../../components/DropletTour.astro";
+
+<DropletTour />
+
+**If micro-frontends were a framework.** Droplets grew out of SvelteKit
+and keeps the patterns that work there: `+` files, `load` on the server and
+on both sides, form actions with `fail()` and `redirect()`,
+`hooks.server.ts` and `hooks.client.ts`, `$droplets/env/*`, prerendering
+with `entries`. They are reshaped for islands of server-rendered HTML that
+live inside someone else's page, served by any stack and written in any of
+eight frameworks. Droplets is an independent project, not affiliated with
+Svelte or SvelteKit.
+
+```html
+<!-- Any page, any server: paste the fragment, load one script. -->
+<script type="module" src="https://drops.example.com/index.js"></script>
+
+<acme-widgets data-droplet="hello">
+  <!-- GET https://drops.example.com/droplets/hello?who=Ana -->
+  <h1>Hello Ana!</h1>
+</acme-widgets>
+```
+
+<CardGrid stagger>
+  <Card title="The component is the unit" icon="puzzle">
+    A droplet is one component with its own URL, served by a small Hono server. Ask for it
+    as an HTML fragment; it brings its own data, styles and JavaScript.
+  </Card>
+  <Card title="Server-rendered, hydrated when it matters" icon="rocket">
+    Each droplet decides whether it renders on the server, whether and when it hydrates
+    (at once, when visible, on first interaction) and whether it is prerendered.
+  </Card>
+  <Card title="Any framework, side by side" icon="seti:html">
+    Renderers for [Svelte](/renderers/svelte/), [Vue](/renderers/vue/), [React](/renderers/react/),
+    [Preact](/renderers/preact/), [Solid](/renderers/solid/), [Hono JSX](/renderers/hono-jsx/),
+    [Handlebars](/renderers/handlebars/) and [Lit](/renderers/lit/), or a [plain script](/renderers/script/).
+    Droplets in different frameworks share a project and a page.
+  </Card>
+  <Card title="Host it from anything" icon="external">
+    nginx, Express, React, Astro, SvelteKit, Next.js, FastAPI, Sinatra, PHP, WordPress: fetch the
+    fragment, paste it in, load one script.
+  </Card>
+  <Card title="Plain Vite" icon="setting">
+    `vite dev` with hot updates on any host page, `vite build` for the browser and the server,
+    `node dist/server.js`, Bun, Deno or a Cloudflare Worker to run.
+  </Card>
+  <Card title="Errors have a place" icon="warning">
+    Every droplet can have its own error page, rendered on the server or in the browser
+    when a load or the component fails.
+  </Card>
+</CardGrid>

@@ -1,0 +1,106 @@
+---
+/**
+ * A renderer page's live demo: the counter-<renderer> droplet of apps/demo,
+ * running (LiveDroplet), next to its source. The code is the demo's own
+ * files, read at build with `?raw` (import.meta.glob), so what the page
+ * shows is what the droplet runs: the component first, then its loads.
+ *
+ * Side by side, the code on the left, when the column is at least 50rem
+ * wide; stacked below that, the droplet first. The pages that use it turn
+ * the table of contents off; styles/custom.css widens their column.
+ */
+import { Code, TabItem, Tabs } from "@astrojs/starlight/components";
+import LiveDroplet from "./LiveDroplet.astro";
+
+interface Props {
+  /** The droplet's id in apps/demo/src/droplets: `counter-svelte`. */
+  id: string;
+  /** The line under the droplet. */
+  caption?: string;
+}
+
+const { id, caption = "Live: rendered by the demo server, hydrated in this page." } = Astro.props;
+
+// Every file of every counter droplet, as text, keyed by its path.
+const sources = import.meta.glob<string>("../../../demo/src/droplets/counter-*/*", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+});
+
+const LANGS: [RegExp, string][] = [
+  [/\.svelte$/, "svelte"],
+  [/\.vue$/, "vue"],
+  [/\.[jt]sx$/, "tsx"],
+  [/\.hbs$/, "handlebars"],
+  [/\.[jt]s$/, "ts"],
+];
+/** The component (+droplet.<ext>), then +droplet.ts, then +droplet.server.ts, then anything else. */
+const rank = (name: string) =>
+  name === "+droplet.server.ts" ? 2 : name === "+droplet.ts" ? 1 : name.startsWith("+droplet.") ? 0 : 3;
+
+const prefix = `../../../demo/src/droplets/${id}/`;
+const files = Object.entries(sources)
+  .filter(([path]) => path.startsWith(prefix))
+  .map(([path, code]) => {
+    const name = path.slice(prefix.length);
+    return { name, code: code.trimEnd(), lang: LANGS.find(([test]) => test.test(name))?.[1] ?? "txt" };
+  })
+  .sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name));
+if (files.length === 0) throw new Error(`RendererDemo: no files under apps/demo/src/droplets/${id}/`);
+---
+
+<div class="renderer-demo not-content" data-renderer-demo={id}>
+  <div class="renderer-demo-grid">
+    <div class="renderer-demo-live">
+      <LiveDroplet id={id} caption={caption} />
+    </div>
+    <div class="renderer-demo-code">
+      <Tabs>
+        {
+          files.map((file) => (
+            <TabItem label={file.name}>
+              <Code code={file.code} lang={file.lang} title={`src/droplets/${id}/${file.name}`} wrap />
+            </TabItem>
+          ))
+        }
+      </Tabs>
+    </div>
+  </div>
+</div>
+
+<style>
+  .renderer-demo {
+    container-type: inline-size;
+    margin-bottom: 2.5rem;
+  }
+  /* Stacked: the droplet, then its code. */
+  .renderer-demo-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+  .renderer-demo-grid > * {
+    min-width: 0;
+  }
+  .renderer-demo-live :global(.live-droplet) {
+    margin: 0;
+  }
+  /* From 50rem: the code on the left, the droplet on the right, kept in view while the code scrolls. */
+  @container (min-width: 50rem) {
+    .renderer-demo-grid {
+      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+      align-items: start;
+    }
+    .renderer-demo-code {
+      grid-column: 1;
+      grid-row: 1;
+    }
+    .renderer-demo-live {
+      grid-column: 2;
+      grid-row: 1;
+      position: sticky;
+      top: calc(var(--sl-nav-height) + 1.5rem);
+    }
+  }
+</style>

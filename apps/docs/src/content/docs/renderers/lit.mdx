@@ -1,0 +1,210 @@
+---
+title: Lit
+description: "Lit droplets: djs add, +droplet.lit.ts, declarative shadow DOM, hydrateShadowRoots, styles in the shadow root, Lit Labs SSR, Workers, with a live droplet."
+tableOfContents: false
+---
+
+import AddRenderer from "../../../components/AddRenderer.astro";
+import RendererDemo from "../../../components/RendererDemo.astro";
+
+Lit elements, rendered on the server into a declarative shadow root with
+`@lit-labs/ssr` and adopted in place in the browser with
+`@lit-labs/ssr-client`. The droplet below is a Lit element served by the demo
+server: its load sets the start, Lit renders it to HTML with its styles in
+the shadow root, and the button works once the bundle hydrates it.
+
+<RendererDemo id="counter-lit" />
+
+:::caution[Lit SSR is a Labs package]
+Server rendering and hydration come from `@lit-labs/ssr` and
+`@lit-labs/ssr-client`, which Lit publishes as
+[Lit Labs](https://lit.dev/docs/libraries/labs/): experimental, with
+breaking changes possible in minor versions. The renderer depends on the
+ranges it is tested with (`@lit-labs/ssr` ^4.1, `@lit-labs/ssr-client` ^1.1,
+with Lit 3.3), so you install neither. Lit SSR renders shadow DOM components
+only, and synchronously: on the server, `until` and the other async
+directives render their first value.
+:::
+
+## Add it to a project
+
+<AddRenderer framework="lit" />
+
+## The files
+
+| File | What it is |
+| --- | --- |
+| `+droplet.lit.ts`, `+droplet.lit.js` | The component: the file default-exports a `LitElement` class. Its flags are named exports. |
+| `+error.lit.ts`, `+error.lit.js` | The error page, optional, a `LitElement` class too. |
+| `+droplet.ts`, `+droplet.server.ts` | The loads, as for every framework: [Writing droplets](/guides/writing-droplets/#the-load-chain). |
+
+`.lit.ts` is Lit's alone: any `+droplet.lit.ts` is a Lit droplet, and a plain
+`+droplet.ts` next to it stays the universal load. The other modules a
+droplet imports that import `lit`, `lit-html`, `lit-element` or
+`@lit/reactive-element` are Lit's own, so only Lit droplets may import them.
+
+```ts
+// src/droplets/hello/+droplet.lit.ts
+import { css, html } from "lit";
+import { DropletElement } from "@dropletsjs/renderer-lit/element";
+import type { DropletProps } from "./$types";
+
+export const hydrate = true;
+
+export default class Hello extends DropletElement<DropletProps> {
+  // Added to the ones DropletElement declares: Lit merges them.
+  static override properties = { clicks: { state: true } };
+  static override styles = css`h1 { font-family: system-ui, sans-serif; }`;
+  declare clicks: number;
+
+  constructor() {
+    super();
+    this.clicks = 0;
+  }
+
+  override render() {
+    return html`
+      <h1>${this.data.greeting}</h1>
+      <button @click=${() => (this.clicks += 1)}>${this.clicks}</button>
+      <slot></slot>
+    `;
+  }
+}
+```
+
+```ts
+// src/droplets/hello/+error.lit.ts
+import { css, html } from "lit";
+import { DropletErrorElement } from "@dropletsjs/renderer-lit/element";
+import type { DropletErrorProps } from "./$types";
+
+export default class HelloError extends DropletErrorElement<DropletErrorProps> {
+  static override styles = css`.oops { color: crimson; }`;
+  override render() {
+    return html`<p class="oops">${this.error.message}</p><slot></slot>`;
+  }
+}
+```
+
+## What it supports
+
+| | |
+| --- | --- |
+| Server rendering | yes, with `@lit-labs/ssr`: `ssr = true`, the default; `ssr = false` renders it in the browser only |
+| `hydrate` | `true` (the default), `"visible"`, `"interactive"`, `false` |
+| Prerendering | yes: `prerender = true` with `entries` |
+| Forms | `enhance()` of `@dropletsjs/renderer-lit/form`, a Lit directive |
+| Runtimes | Node, Bun, Deno and Cloudflare Workers render alike |
+
+What it does not do fails the build and says why, importing another
+framework above all, even through a neutral file:
+
+```
+droplets: a lit droplet imports vue code: src/droplets/counter/+droplet.lit.ts -> vue/dist/vue.runtime.esm-bundler.js. A droplet uses its own framework's modules and neutral code only.
+```
+
+One mistake is caught when the droplet renders, not at build: a default
+export that is no `LitElement` class answers `500`, with
+`counter: the droplet component must default-export a LitElement class (…); the renderer defines it`
+in the server's log.
+
+## Specifics
+
+- **The element and its name.** The renderer defines the class itself, as
+  `<element>-<droplet id>` (`<element>-<droplet id>--error` for the error
+  page), `<element>` being the droplets server's
+  [element name](/guides/configuration/#the-element-name). The demo's is
+  `<djs-demo-counter-lit>`, inside `<djs-demo>`. Don't call
+  `customElements.define` (or use `@customElement`) in a droplet file;
+  `lit({ prefix })` changes the prefix.
+- **Properties.** The element gets `data` and `form` (or `error`) as
+  properties, never attributes, and `actionUrl(name?)`, the URL of a form
+  action, the same string on the server and in the browser. `DropletElement`
+  and `DropletErrorElement` of `@dropletsjs/renderer-lit/element` declare
+  them; a plain `LitElement` declares them itself with `attribute: false`.
+  Declare fields, never initialise them as class fields (`data = …`): a class
+  field hides the property Lit defines. Give state its initial value in the
+  constructor, as the demo does.
+- **Data is always a value.** Lit has no suspense: when a droplet mounts in
+  the browser, the renderer waits for `data` before it renders, and a
+  rejection renders the error page instead.
+- **Declarative shadow DOM.** `@lit-labs/ssr` prints the element with a
+  declarative shadow root (`<template shadowrootmode="open">`), its
+  `static styles` inside, and the `defer-hydration` attribute. In the
+  browser, the renderer's client setup loads `lit-element-hydrate-support`
+  once per page, before any droplet defines its class; `hydrate` then adopts
+  the server's nodes in place, without rendering them again. `firstUpdated`
+  runs then, which is where the demo sets `hydrated`.
+- **Markup inserted with `innerHTML`: `hydrateShadowRoots`.** The HTML parser
+  attaches a declarative shadow root only while it parses a page: a fragment
+  a host inserts with `innerHTML`, like the ones the droplet element fetches
+  itself after a form action or an edit in dev, keeps it as an inert
+  `<template>`. `hydrate` attaches those first, with `hydrateShadowRoots` of
+  `@webcomponents/template-shadowroot` and a fallback of its own for any it
+  leaves, so such a fragment hydrates like one in the page. Until its script
+  runs, it shows nothing of its shadow content.
+- **Styles live in the shadow root.** Write them as `static styles`. The
+  droplet's `style.css`, a CSS file a component imports, the shared
+  `css.path` stylesheet (Tailwind included) and the host's styles reach the
+  light DOM only: the element itself and the host's children. They never
+  reach inside the shadow root, so the droplet's scoped prefix has nothing to
+  scope there. Inherited properties (`font`, `color`) and CSS custom
+  properties flow in: theme a Lit droplet with custom properties set in
+  `src/app.css` or by the host. The demo's counter draws its card with the
+  `--demo-*` properties apps/demo's `src/app.css` sets on `<djs-demo>`.
+- **Children:** the host's children are the element's light-DOM child; a
+  `<slot>` in the template shows them.
+- **One registry per page.** `customElements` holds one class per name,
+  forever. Two droplets servers on one page keep apart by their element
+  names, which are distinct already. An edited module under `vite dev`
+  defines its new class under `<tag>--v2`, `--v3`, …; when the markup's tag
+  is held by another class, the droplet mounts afresh, with a warning in the
+  console, rather than adopting nodes it did not render.
+- **Forms** in the shadow root post natively, to `this.actionUrl("name")`. To
+  post them by fetch and update in place, `enhance()` is `enhanceDropletForm`
+  as a Lit directive, released when the form leaves the page:
+
+  ```ts
+  import { enhance } from "@dropletsjs/renderer-lit/form";
+  import type { DropletActions } from "./$types";
+
+  html`<form method="post" action=${this.actionUrl()} ${enhance<DropletActions>()}>…</form>`;
+  ```
+- **`hydrate = "interactive"`** works through the shadow root: the events that
+  start it (`pointerdown`, `focusin`, `keydown`, `click`) are composed, so they
+  reach the droplet element from inside, and a click replayed after hydration
+  reaches the element that was clicked, not the shadow host.
+- **Cloudflare Workers.** Lit's default builds expect a DOM and fail on Workers
+  as they load. The renderer bundles Lit into the server build and swaps in
+  Lit's own server build (`lit-html/node/…`, `@lit/reactive-element/node/…`),
+  which runs on Lit's DOM shim with no Node API. apps/demo, which serves the
+  droplet on this page, builds for Workers too, and its tests render this
+  counter under `wrangler dev`.
+- **Hot updates:** no component-level HMR; an edit remounts the droplet under
+  a new tag.
+
+### Tests
+
+The renderer does not run `rendererConformance()`. Its HTML checks read
+through Lit's `<!--lit-part-->` comments and its DOM queries stop at shadow
+roots, and happy-dom shares one `customElements` between the server render
+and the browser bundles in one test, so the same tag is defined twice. Its
+own vitest suite covers the server side, a Workers build included, and
+Playwright covers the browser in real Chromium.
+
+## The example
+
+[`examples/frameworks/lit`](https://github.com/dropletsjs/droplets/tree/main/examples/frameworks/lit)
+has one droplet per mode (`client`, `ssr-hydrate` with an error page,
+`ssr-nohydrate`) and a fourth, `guestbook`, with a form action posted from
+inside a shadow root, natively and through `enhance()`. From a clone of the
+repository:
+
+```bash
+pnpm install && pnpm build
+pnpm --filter @dropletsjs/example-lit dev   # http://localhost:5173: the devtools page
+```
+
+`pnpm --filter @dropletsjs/example-lit build` then `start` serves it on
+http://localhost:8000; `/droplets/ssr-hydrate?who=Ana` is the fragment a
+host pastes into its page.

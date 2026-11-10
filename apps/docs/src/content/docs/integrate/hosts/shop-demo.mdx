@@ -1,0 +1,196 @@
+---
+title: Shop demo on 9 hosts
+description: "One demo shop, nine droplets in six frameworks, embedded by nine stacks: how it fits together, and each host recorded end to end."
+---
+
+import ShopDiagram from "../../../../components/ShopDiagram.astro";
+import HostDemo from "../../../../components/HostDemo.astro";
+
+The shop example (`examples/shop` in the repository) is one droplets server with nine droplets: a gallery with a filter, product
+pages with comments, a cart, toasts, a login and an admin. Every host in
+`examples/hosts/` builds the same pages around them in its own stack (`/gallery`,
+`/product/:slug`, `/login`, `/admin`), and the same end-to-end test runs on
+each one. The [tour on the home page](/) walks through the WordPress host's
+pages droplet by droplet.
+
+## How it fits together
+
+Three parties: the browser, the host and the shop (a droplets server the
+host reaches on an internal address, never exposed). The host owns the
+page: its routes, the layout, the header and footer. For each page it
+fetches the droplets that fill its slots from the shop, server to server,
+passing its public origin as `x-host`, the browser's `Cookie` and the page's
+own URL as `Referer`, and pastes the HTML in. The page loads `/index.js`
+once and each droplet hydrates itself. Everything else the browser asks
+the shop for (bundles, `_data`, form posts, `/api`) goes through a proxy on
+the host's origin, so the browser sees one origin, the cart and the admin
+session are first-party cookies, and nothing is cross-origin. Each host's
+page in this section shows its own version of this, with the code.
+
+<ShopDiagram />
+
+The single-page app (React + Vite) has no step ②: its pages render in the
+browser, which fetches each fragment through the same proxy (③).
+
+`examples/shop/CONTRACT.md` is the full contract: every droplet's props,
+the events they send each other on `window`, the JSON API and the headers a
+host must pass.
+
+## Toasts: one queue on the page
+
+"Added to cart" is a toast, not a line under the button. The
+`toast-center` droplet (Solid, client-only, hydrated on load) listens on
+`window.shopMessageQueue`, a small EventEmitter whose event names are the
+message kinds. `init` in the shop's
+[`src/hooks.client.ts`](/guides/in-the-browser/#srchooksclientts) installs
+the queue: `/index.js` calls it before any droplet starts, so the queue is
+there before anything else on the page is live. Every host places the toasts
+once, first in the body by convention. Any droplet, or the host page itself,
+emits into it:
+
+```js
+window.shopMessageQueue?.emit("toast", { type: "success", label: "Added to cart" });
+```
+
+The product card sends its add's result itself; the product page ships no
+JavaScript, so `init` relays its enhanced add from `droplets:action`. A
+toast is checked before it shows (`success`, `error` or `info`, a label of
+at most 140 characters); the stack keeps three, goes
+after 3.5 seconds unless hovered, and folds the same toast twice in a row
+into one with a counter. Without JavaScript there is no toast: the page
+comes back with the button saying "✓ Added".
+
+## How each host embeds the droplets
+
+| Host | Pages | Fragments | Proxy to the shop |
+| --- | --- | --- | --- |
+| [nginx](/integrate/hosts/nginx/) | static `.html` files | Server Side Includes (`include virtual`); the product's id from its `_data` into an SSI variable | `proxy_pass` |
+| [Express 5](/integrate/hosts/express/) | route handlers, template strings | `fetch` on the server, in parallel | a router that streams through |
+| [FastAPI](/integrate/hosts/python/) | Jinja2 templates | `httpx`, `asyncio.gather` | a catch-all route |
+| [Sinatra](/integrate/hosts/ruby/) | ERB views | `Net::HTTP`, a thread per fragment | a catch-all route |
+| [PHP](/integrate/hosts/php/) | PHP templates, no framework | `curl_multi`, all at once | a front controller (`index.php`) |
+| [React + Vite](/integrate/hosts/react/) | a single-page app | client-only: fetched by the browser, the cart as `data-droplet` | nginx in the image |
+| [Astro 5](/integrate/hosts/astro/) | `.astro` pages, `set:html` | `fetch` in the frontmatter; cookies through `Astro.response` | endpoints (`ALL`) |
+| [SvelteKit](/integrate/hosts/sveltekit/) | `+page.svelte`, `{@html}` | `fetch` in `+page.server.ts`; cookies from `handle` | `hooks.server.ts` |
+| [Next.js 16](/integrate/hosts/nextjs/) | server components | `fetch` in the component, `dangerouslySetInnerHTML` | route handlers |
+
+nginx and Next.js cannot pass on a `Set-Cookie` that a fragment sends on a
+plain `GET`: an SSI include is a subrequest whose headers nginx discards,
+and a server component may not set cookies. The shop sets cookies only from
+form actions and `/api`, which go through the proxy on every host, so it
+works on both. Their pages say what a droplet that sets cookies on a `GET`
+would need.
+
+Without JavaScript, every form still works: a native post answers `303`
+back to the host page with the result signed in its query
+([Post/Redirect/Get](/guides/writing-droplets/#without-javascript-postredirectget)),
+and the host renders that page again, passing its URL on. The SPA is the
+exception: it renders its pages in the browser, so it needs JavaScript.
+
+## Stale-free SSG with a version prop
+
+The product page is prerendered once per product, yet it is never stale.
+Its props are `slug` and an optional `v`: a short hash of everything the
+page renders at build (the load's data: name, text, image, category, the
+related products). Stock and prices are not in it: `transform` fills them
+in on every request.
+
+- `entries()` lists `{ slug, v }` with each product's `v` at build. Only
+  those props are prerendered.
+- Every link the shop builds carries the current `v`: the gallery's cards,
+  the cart, the page's related products. An unedited product's link hits
+  the stored page; an edited one has a new `v`, which was never
+  prerendered, so it renders live.
+- `/product/:slug` without `v` always renders live: the canonical,
+  shareable URL.
+- An old `v` (a bookmark, a cached link) is redirected to the same page
+  without it.
+
+```ts
+// product-page/+droplet.server.ts
+export const entries = (async () =>
+  [...(await pageVersions())].map(([slug, v]) => ({ props: { slug, v } }))) satisfies Entries;
+
+export const transform = async ({ html, props, host }: TransformEvent) => {
+  const slug = String(props["slug"]);
+  const [live, versions] = await Promise.all([liveValues(slug), pageVersions()]);
+  if (!live) return `<p class="gone">This product is no longer available.</p>`;
+
+  // An old link: the host's page without `v` (`host` is that page, from its Referer).
+  if (props["v"] !== undefined && props["v"] !== versions.get(slug)) {
+    const canonical = new URL(host);
+    canonical.searchParams.delete("v");
+    redirect(302, canonical.href);
+  }
+
+  // %live:stock-label% → Out of stock; /product/linen-notebook%v:linen-notebook% → …?v=3f9a01c2d4
+  return fillVersions(fillLive(html, live), versions);
+};
+```
+
+`transform` runs over the stored page and the live one alike, so the
+redirect and the replacements need no special case. A host forwards `v`
+from its page's query to the product page and answers the fragment's
+redirect as it is, as it does for any droplet. Two hosts cannot pass a
+fragment's redirect on: nginx asks the fragment first (`auth_request`) and
+redirects itself, and the single-page app replaces its URL without `v`
+when the fragment answers a redirect.
+
+## Each host, recorded
+
+The test (`tests/hosts` in the repository) starts each host's
+`docker compose` stack and, in Chromium: opens the gallery, adds a product
+to the cart and checks the badge counts it, logs in to the admin and sets
+that product's stock to 0, goes back to the gallery, and opens the
+product's page, which says "Out of stock". A second run with JavaScript
+off adds a product from its page and lands back on the host's page with
+the result. Another renames a product in the admin and checks that the
+gallery links its new version, that its page shows the new name, and that
+the old link redirects to the page without `v`.
+
+```bash
+pnpm test:hosts                    # all nine, one at a time
+pnpm test:hosts express sveltekit  # some
+pnpm test:hosts express --https    # Express behind Caddy, on https://127-0-0-1.sslip.io:8443
+pnpm test:hosts --docs             # refresh the videos and screenshots in these docs
+pnpm test:hosts wordpress          # the WordPress showcase, by name only
+```
+
+WordPress has [a tutorial of its own](/integrate/wordpress/): the shop in a
+real WordPress site, with WordPress holding the data.
+
+### nginx
+
+<HostDemo id="nginx" stack="nginx 1.27" />
+
+### Express
+
+<HostDemo id="express" stack="Express 5" />
+
+### FastAPI
+
+<HostDemo id="fastapi" stack="FastAPI" />
+
+### Sinatra
+
+<HostDemo id="sinatra" stack="Sinatra 4" />
+
+### PHP
+
+<HostDemo id="php" stack="PHP 8.3" />
+
+### React + Vite
+
+<HostDemo id="react" stack="React 19 + Vite" />
+
+### Astro
+
+<HostDemo id="astro" stack="Astro 5" />
+
+### SvelteKit
+
+<HostDemo id="sveltekit" stack="SvelteKit 2" />
+
+### Next.js
+
+<HostDemo id="nextjs" stack="Next.js 16" />

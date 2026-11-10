@@ -1,0 +1,42 @@
+# Response headers for https://dropletsjs.dev (Workers static assets).
+# Astro copies this file from apps/docs/public/ into apps/docs/dist/; it is not served.
+#
+# script-src lists the sha256 of each inline <script> Starlight writes into
+# every page (theme picker, sidebar state, search shortcut, TOC) and the
+# Tabs component's (the renderer pages' code tabs). They change
+# when Starlight or Astro does: after an upgrade, run
+#   pnpm docs:build && pnpm docs:check-csp
+# which prints the current set and fails if this file is out of date.
+# https://demo.dropletsjs.dev serves the live droplets (apps/demo,
+# src/components/LiveDroplet.astro): their /index.js and bundles
+# (script-src), their stylesheets (style-src), _data and the poll's enhanced
+# post (connect-src) and its post without JavaScript (form-action). Only
+# that origin, and only in those four; docs:check-csp checks both.
+# 'wasm-unsafe-eval' is for Pagefind's WebAssembly search index;
+# worker-src for its /pagefind/pagefind-worker.js. style-src needs
+# 'unsafe-inline': Expressive Code colors tokens with style="" attributes.
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://demo.dropletsjs.dev 'wasm-unsafe-eval' 'sha256-GkZBRnvSuhtx/cvzvukVkX2JJZW+DdPlVr7BX8Tefqo=' 'sha256-VWo5Wp4aqSj6nSgMpeAp9cKieaoIfwFUAunAVugI5gA=' 'sha256-f/zAUE74ucc3JYp4r4QQvkJofoQdkOIhHYK+jeZ6eko=' 'sha256-nVO98WGdJA5yup1/MAdukGqUlS6Psuf7JJFF5ikWqbQ=' 'sha256-hP48sUywTAXyg22qvpdOC/cYIA8MfPdKEbPC/mvGk4M=' 'sha256-VgrgcKBvIM3XpiLJ6fEv1Vy6YHBwlKLkYtFdfBMouTo=' 'sha256-ucPfdYc9FPIvbmnn9ECv3eLKYLt8/heMPFQ+hNTn6jY=' 'sha256-wX2yOADeV+NMngflD5uYi3vl50SHC4sfM1EmylVjlX4=' 'sha256-7eCV4jtsr4t4knb3c4FCRPeu7GGZeOUGE3XvWix0XOQ=' 'sha256-xP4TLKzB6hcrCLQfQrTEg8qxfZ1b3HlE1OWO+7uZf1o='; style-src 'self' https://demo.dropletsjs.dev 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self'; connect-src 'self' https://demo.dropletsjs.dev; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://demo.dropletsjs.dev; frame-ancestors 'none'; upgrade-insecure-requests
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  X-Frame-Options: DENY
+  Cross-Origin-Opener-Policy: same-origin
+  Strict-Transport-Security: max-age=31536000
+
+# Content-hashed by Vite: safe to cache for a year.
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Pagefind's index chunks carry a hash in their names; pagefind.js and
+# pagefind-entry.json do not and keep the default (revalidate).
+/pagefind/fragment/*
+  Cache-Control: public, max-age=31536000, immutable
+/pagefind/index/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Demo videos and screenshots: not hashed, and re-recorded under the same
+# names, so always revalidated.
+/hosts/*
+  Cache-Control: public, max-age=0, must-revalidate

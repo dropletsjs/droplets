@@ -1,0 +1,179 @@
+---
+title: Renderers
+description: "Svelte, Vue, React, Preact, Solid, Hono JSX, Handlebars, Lit and plain scripts side by side: file names, server rendering, hydration and client size, with a page and a live droplet for each."
+tableOfContents: false
+---
+
+The core of Droplets knows nothing about UI frameworks. A **renderer** turns
+a component file into server HTML and a browser bundle, and claims the file
+names it handles. You list the ones you use in `vite.config.ts`:
+
+```ts
+// vite.config.ts
+import { defineConfig } from "vite";
+import { droplets } from "@dropletsjs/droplets/vite";
+import { node } from "@dropletsjs/adapter-node";
+import { svelte } from "@dropletsjs/renderer-svelte";
+import { vue } from "@dropletsjs/renderer-vue";
+
+export default defineConfig({
+  plugins: [droplets({ adapter: node(), renderers: [svelte(), vue()] })],
+});
+```
+
+A `+droplet.svelte` then goes to Svelte and a `+droplet.vue` to Vue, in the
+same project and on the same page. `djs add <name> --framework <name>`
+installs a renderer and adds it there for you; each page below says exactly
+what it changes.
+
+Each page has the same droplet, live: the demo server's load returns a start
+count and the framework's name, the server renders it, the browser hydrates
+it, and a button adds one. Only the framework differs, so the code compares
+like for like.
+
+## The renderers side by side
+
+<div class="renderer-table">
+
+| Renderer | Droplet file | Server-rendered | `hydrate` | Client JS | Notes |
+| --- | --- | --- | --- | --- | --- |
+| [Svelte](/renderers/svelte/) | `+droplet.svelte` | yes | all four | 16.0 kB | Svelte 5 in runes mode; flags in `<script module>` |
+| [Vue](/renderers/vue/) | `+droplet.vue` | yes | all four | 30.1 kB | wrapped in `<Suspense>`: `await props.data` works |
+| [React](/renderers/react/) | `+droplet.tsx`, `.jsx` | yes | all four | 68.5 kB | React 19; Fast Refresh on any host page |
+| [Preact](/renderers/preact/) | `+droplet.tsx`, `.jsx` | yes | all four | 7.6 kB | `data` is always the value; no React alias |
+| [Solid](/renderers/solid/) | `+droplet.tsx`, `.jsx` | yes | all four | 8.5 kB | hydration keyed per render |
+| [Hono JSX](/renderers/hono-jsx/) | `+droplet.tsx`, `.jsx` | yes | all four | 8.4 kB | `hono/jsx`; hydration renders again |
+| [Handlebars](/renderers/handlebars/) | `+droplet.hbs` | yes | all four | 0 with `hydrate = false`, 6.9 kB with `true` | no behaviour in the browser; flags in a comment |
+| [Lit](/renderers/lit/) | `+droplet.lit.ts`, `.lit.js` | yes (Lit Labs) | all four | 10.9 kB | declarative shadow DOM; styles live in the shadow root |
+| [Plain script](/renderers/script/) | `+droplet.script.ts`, `.script.js` | no: an empty element | `true`, `"visible"` | 1.6 kB | built in, no package; `(data, el)` |
+
+</div>
+
+- **`hydrate`**: "all four" is `true` (the default), `"visible"`,
+  `"interactive"` and `false`; see [Flags](/guides/writing-droplets/#flags).
+  `ssr = false` (rendered in the browser only) and `prerender = true` work
+  with every renderer but the plain script, which renders nothing on the
+  server anyway.
+- **Client JS** is measured, not estimated: the JavaScript a page loads for
+  that renderer's counter in apps/demo's build (`pnpm --filter
+  @dropletsjs/demo build`), gzipped: the droplet's bundle and every chunk it
+  imports, the framework included. On top of it, every page loads the
+  droplets runtime once, from `/index.js` (9.6 kB in that build), whatever
+  the frameworks. Svelte 5.57, Vue 3.5, React 19.3, Preact 11.2, Solid 1.9,
+  Hono 4.13, Handlebars 4.7 and Lit 3.3; a second droplet in the same
+  framework shares the framework's chunk.
+- **`.tsx` and `.jsx`** belong to four renderers: a droplet file goes to the
+  one whose package it imports, or the one its `@jsxImportSource` comment
+  names. See [Several frameworks in one project](#several-frameworks-in-one-project).
+
+A droplet folder whose component no listed renderer claims fails the build
+and names the package to install:
+
+```
+droplets: counter/+droplet.vue: no renderer for .vue; install @dropletsjs/renderer-vue and add vue() to renderers
+```
+
+## Renderer options
+
+Every renderer compiles its components for you, with its framework's Vite
+plugin where there is one. Two options change that:
+
+- `vitePlugin: { … }` forwards options to that plugin: `svelte()` to
+  `@sveltejs/vite-plugin-svelte`, `vue()` to `@vitejs/plugin-vue`, `react()`
+  to `@vitejs/plugin-react`, `solid()` to `vite-plugin-solid`;
+- `plugin: false` leaves the compiling to you, on those four and on
+  `preact()` and `honoJsx()`, which compile their JSX themselves. Each page
+  says what your own setup then needs.
+
+Handlebars takes `handlebars({ partials, helpers, compile })` and Lit
+`lit({ prefix })`; see their pages. The plain script needs no renderer.
+
+## Several frameworks in one project
+
+Every renderer you list works side by side. Each droplet is in one framework,
+and so is everything it imports, apart from neutral code:
+
+```
+src/
+  droplets/
+    svelte-card/+droplet.svelte   → Svelte
+    react-card/+droplet.tsx       → React: imports from "react"
+    preact-card/+droplet.tsx      → Preact: imports from "preact/hooks"
+    solid-card/+droplet.tsx       → Solid: imports from "solid-js"
+    hono-card/+droplet.tsx        → Hono JSX: imports from "hono/jsx"
+    lit-card/+droplet.lit.ts      → Lit
+    tracker/+droplet.script.ts    → built in: plain browser code
+  lib/
+    api.ts                        neutral: any droplet can import it
+    svelte/Card.svelte            Svelte's own
+    react/Card.tsx                React's own
+    preact/Card.tsx               Preact's own: /** @jsxImportSource preact */
+    solid/Card.tsx                Solid's own: /** @jsxImportSource solid-js */
+    hono/Card.tsx                 Hono's own: /** @jsxImportSource hono/jsx */
+```
+
+- **Shared extensions.** React, Preact, Solid and Hono JSX all claim `.tsx`
+  and `.jsx`. A droplet file in a shared extension belongs to the renderer
+  whose package it imports (`react`, `preact`, `solid-js`, `hono/jsx`, or the
+  renderer's own `@dropletsjs/renderer-*`); when it imports none of them, a
+  `/** @jsxImportSource <package> */` comment decides. With only one of the
+  four in `renderers`, every `.tsx` file is its own and needs neither. A file
+  that says nothing, or imports two of them, fails the build:
+
+  ```
+  droplets: counter/+droplet.tsx: react, solid, preact and hono-jsx all handle this file and it imports none of them; import from react, solid-js, preact or hono/jsx, or add a /** @jsxImportSource <package> */ comment
+  ```
+
+  A package entry may be a subpath: Hono JSX owns `hono/jsx`, not `hono`, so
+  a droplet that imports `hono/client` or `hono/cookie` stays neutral.
+- **Compiled once per framework.** Every module a droplet reaches is compiled
+  for that droplet's framework (the plugin tags it
+  `?droplets-renderer=<name>`), so a neutral `lib/format.tsx` imported by a
+  React droplet and a Solid droplet is compiled twice, once by each, and
+  bundled with each. Each compiles for its own JSX runtime whatever
+  `jsxImportSource` tsconfig.json names; that setting only types the files,
+  and a `@jsxImportSource` comment types one file for its framework.
+- **No crossing.** A droplet that reaches another framework's modules fails:
+  its files (`.svelte`, `.svelte.ts`, `.vue`, …) or its packages (`svelte`,
+  `vue`, `react`, `preact`, `solid-js`, `hono/jsx`, `lit`, …). `vite build`
+  walks every droplet's module graph; `vite dev` checks each import as it
+  resolves. The same check keeps CSS out of `+droplet.ts` and
+  `+droplet.server.ts`: styles belong to the component. The error names the
+  chain:
+
+  ```
+  droplets: a react droplet imports solid code: src/droplets/counter/+droplet.tsx -> src/droplets/counter/lib.ts -> solid-js/dist/solid.js. A droplet uses its own framework's modules and neutral code only.
+  ```
+
+  A script droplet is the exception: it may import any package.
+- **One framework per droplet**, its error page included: an `+error.*` in
+  another framework is ignored, with a warning in dev, and two components in
+  one folder fail the build (`counter/ has 2 droplet components
+  (+droplet.svelte, +droplet.vue); keep one`).
+
+`examples/shop` puts six frameworks in one project: nine droplets, each in
+the framework that suits it. `examples/frameworks/<name>` has one example per
+framework instead, one droplet per mode, and apps/demo, which serves the live
+droplets of these pages, all nine.
+
+## Writing a renderer
+
+The contract lives in `@dropletsjs/droplets` (`DropletRenderer`,
+`RendererServerModule`, `RendererClientModule`): Vite plugins, a server module
+that renders `{ data, form? }` or `{ error }` (`form` is an
+[action's](/guides/writing-droplets/#actions) result, passed only when there
+is one), a client module with `mount`,
+`hydrate` and `unmount`, optional flag reading and a once-per-page client
+setup.
+
+For mixed projects, a renderer declares `packages` (its framework's packages
+and its own, which mark modules as its own; a subpath such as `hono/jsx`
+claims that part of a package only) and `suffixes` (file endings
+beyond its extensions, such as Svelte's `.svelte.ts`). A renderer that may
+share an extension passes `plugins` as a function of a `RendererScope`:
+`scope.include` is a RegExp matching the modules tagged for it, to hand to
+its framework's Vite plugin (`include`) so that plugin leaves the others'
+files alone. `@dropletsjs/droplets/testing` ships `rendererConformance()`, the
+vitest suite every renderer passes but Lit (see [its page](/renderers/lit/#tests)),
+and `fakeRenderer()`, a complete reference renderer. See the
+[API reference](/reference/api/#renderers).

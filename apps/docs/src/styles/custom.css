@@ -1,0 +1,310 @@
+/*
+ * Starlight with the Droplets theme.
+ * The design tokens live in tokens.css; this file maps them onto Starlight's
+ * variables and applies the theme's recipe (4px radius, hairlines, dense
+ * type, one accent used sparingly, 2px focus ring).
+ *
+ * This file is unlayered, so it wins over Starlight's `@layer starlight.*`
+ * rules. Both theme blocks are therefore declared here, dark on `:root` and
+ * light on `:root[data-theme="light"]`, mirroring Starlight's props.css.
+ */
+/* Pins Starlight's layer order: the focus rule's `@layer starlight.core` below would otherwise register core first. */
+@layer starlight.base, starlight.reset, starlight.core, starlight.content, starlight.components, starlight.utils;
+@import "./tokens.css";
+
+/* ---------- Colors ---------- */
+
+:root,
+::backdrop,
+:root[data-theme="light"],
+[data-theme="light"] ::backdrop {
+  /* Starlight's gray ramp runs from strongest text (white) to page (black). */
+  --sl-color-white: var(--djs-ink);
+  --sl-color-gray-1: var(--djs-ink);
+  --sl-color-gray-2: var(--djs-ink-soft);
+  --sl-color-gray-3: var(--djs-ink-muted);
+  --sl-color-gray-4: var(--djs-line-strong);
+  --sl-color-gray-5: var(--djs-line);
+  --sl-color-gray-6: var(--djs-surface-200);
+  --sl-color-gray-7: var(--djs-surface-200);
+  --sl-color-black: var(--djs-surface-100);
+
+  --sl-color-accent-low: var(--djs-accent-soft);
+  --sl-color-accent: var(--djs-accent);
+  --sl-color-accent-high: var(--djs-accent-text);
+
+  /* Asides and badges: note = accent-2, tip = success, caution = warning,
+     danger = danger. Purple is Starlight's tip color, green its success. */
+  --sl-color-blue-low: var(--djs-accent-2-low);
+  --sl-color-blue: var(--djs-accent-2);
+  --sl-color-blue-high: var(--djs-accent-2);
+  --sl-color-purple-low: var(--djs-success-low);
+  --sl-color-purple: var(--djs-success);
+  --sl-color-purple-high: var(--djs-success);
+  --sl-color-green-low: var(--djs-success-low);
+  --sl-color-green: var(--djs-success);
+  --sl-color-green-high: var(--djs-success);
+  --sl-color-orange-low: var(--djs-warning-low);
+  --sl-color-orange: var(--djs-warning);
+  --sl-color-orange-high: var(--djs-warning);
+  --sl-color-red-low: var(--djs-danger-low);
+  --sl-color-red: var(--djs-danger);
+  --sl-color-red-high: var(--djs-danger);
+
+  --sl-color-text: var(--djs-ink);
+  --sl-color-text-accent: var(--djs-accent-text);
+  --sl-color-text-invert: var(--djs-on-accent);
+  --sl-color-bg: var(--djs-surface-100);
+  --sl-color-bg-nav: var(--djs-surface-200);
+  --sl-color-bg-sidebar: var(--djs-surface-200);
+  --sl-color-bg-inline-code: var(--djs-surface-300);
+  --sl-color-bg-accent: var(--djs-accent);
+  --sl-color-hairline-light: var(--djs-line);
+  --sl-color-hairline: var(--djs-line);
+  --sl-color-hairline-shade: var(--djs-line);
+  --sl-color-backdrop-overlay: var(--djs-scrim);
+
+  --sl-shadow-sm: var(--djs-shadow-sm);
+  --sl-shadow-md: var(--djs-shadow-md);
+  --sl-shadow-lg: var(--djs-shadow-lg);
+}
+
+/* ---------- Type ---------- */
+
+:root {
+  /* Inter rather than the theme's Instrument Sans: Instrument's narrow,
+     round letters tire over long prose. */
+  --sl-font: "Inter Variable", "Inter", var(--djs-font-sans);
+  --sl-font-mono: var(--djs-font-mono);
+
+  /* A reading scale on the theme's faces: the theme's own (body 15, small
+     and code 13) is set for dense interfaces, too small for long prose.
+     Body 17/29, small 15, code 14/22, h1 40/48, h2 28/36, h3 21/30. Code
+     stays at 14 so an 85-column line fits the content column. */
+  --sl-text-body: 1.0625rem;
+  --sl-text-body-sm: 0.9375rem;
+  --sl-text-code: 0.875rem;
+  --sl-text-code-sm: 0.875rem;
+  --sl-text-xs: 0.875rem;
+  --sl-text-sm: 0.9375rem;
+  --sl-text-h1: 2.5rem;
+  --sl-text-h2: 1.75rem;
+  --sl-text-h3: 1.3125rem;
+  --sl-text-h4: 1.125rem;
+  --sl-text-h5: 1.0625rem;
+  --sl-text-h6: 0.9375rem;
+  --sl-line-height: 1.7;
+  --sl-line-height-headings: 1.3;
+}
+
+/* Starlight leaves prose at the browser's 16px; the scale above sets it. */
+.sl-markdown-content {
+  font-size: var(--sl-text-body);
+}
+
+h1#_top,
+.sl-markdown-content h1:not(:where(.not-content *)) {
+  line-height: 1.2; /* 48px */
+  letter-spacing: -0.015em;
+}
+.sl-markdown-content h2:not(:where(.not-content *)) {
+  line-height: 1.2857; /* 36px */
+  letter-spacing: -0.01em;
+}
+.sl-markdown-content h3:not(:where(.not-content *)) {
+  line-height: 1.4286; /* 30px */
+}
+
+/* JetBrains Mono's ligatures turn `<!--`, `-->` and `//` into glyphs; code
+   shows the characters as typed. */
+code,
+kbd,
+samp,
+pre,
+.expressive-code .ec-line {
+  font-variant-ligatures: none;
+}
+
+/* Table headers use the theme's overline: mono 12/16, 500, uppercase. */
+.sl-markdown-content th:not(:where(.not-content *)) {
+  font-family: var(--__sl-font-mono);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--djs-ink-muted);
+}
+
+/* Inline code: 4px corners. A linked code span gets the soft accent tint so
+   accent-text keeps 4.5:1 (it falls just short on surface-300 in light). */
+.sl-markdown-content code:not(:where(.not-content *)) {
+  border-radius: var(--djs-radius-sm);
+}
+.sl-markdown-content a code:not(:where(.not-content *)) {
+  background-color: var(--djs-accent-soft);
+}
+
+/* ---------- Focus ---------- */
+
+/* 2px solid focus ring, 2px offset. Kept in Starlight's core layer so the
+   components that move the ring inside (tabs, table of contents) keep their
+   own offsets. */
+@layer starlight.core {
+  :focus-visible {
+    outline: 2px solid var(--djs-focus);
+    outline-offset: 2px;
+  }
+}
+
+/* ---------- Chrome ---------- */
+
+/* No logo yet: the name is set like h2, in ink. */
+.site-title {
+  color: var(--djs-ink);
+  font-size: var(--sl-text-h2);
+  letter-spacing: -0.01em;
+}
+
+/* Current page: soft tint with accent text instead of a solid accent fill. */
+.sidebar-content a[aria-current="page"],
+.sidebar-content a[aria-current="page"]:hover,
+.sidebar-content a[aria-current="page"]:focus {
+  color: var(--djs-accent-text);
+  background-color: var(--djs-accent-soft);
+}
+/* Links in ink rather than ink-soft: at 15px the softer grey reads faint. */
+.sidebar-content a {
+  border-radius: var(--djs-radius-sm);
+  color: var(--djs-ink);
+}
+
+/* "On this page" at the small size in ink-soft, not 13px in ink-muted; the
+   current heading keeps the accent. */
+.right-sidebar-panel a:not([aria-current="true"]) {
+  font-size: var(--sl-text-sm);
+  color: var(--djs-ink-soft);
+}
+.right-sidebar-panel a[aria-current="true"] {
+  font-size: var(--sl-text-sm);
+}
+
+/* Search is a control: line-strong outline, input surface, 4px corners. */
+@media (min-width: 50rem) {
+  site-search button[data-open-modal] {
+    border-color: var(--djs-line-strong);
+    border-radius: var(--djs-radius-sm);
+    background-color: var(--djs-surface-200);
+  }
+  site-search button[data-open-modal]:hover {
+    border-color: var(--djs-ink-muted);
+  }
+}
+site-search button > kbd {
+  background-color: var(--djs-surface-300);
+}
+site-search dialog {
+  background-color: var(--djs-surface-overlay);
+  border-color: var(--djs-line);
+}
+#starlight__search {
+  --pagefind-ui-border-radius: var(--djs-radius-sm);
+}
+/* Pagefind's reset reverts outlines to the browser default; restore ours. */
+#starlight__search :focus-visible {
+  outline: 2px solid var(--djs-focus);
+  outline-offset: 2px;
+}
+
+mobile-starlight-toc .toggle {
+  border-radius: var(--djs-radius-sm);
+}
+
+/* ---------- Content components ---------- */
+
+/* Asides: 4px corners, tint plus a status rule on the start edge. */
+.starlight-aside {
+  border-radius: var(--djs-radius-sm);
+  border-inline-start-width: 3px;
+  padding: 0.75rem 1rem;
+}
+
+/* Cards: surface-200 with a line border, no shadow. Icons in ink. */
+.card {
+  --sl-card-border: var(--djs-line);
+  --sl-card-bg: var(--djs-surface-300);
+  border-color: var(--djs-line);
+  border-radius: var(--djs-radius-sm);
+  background-color: var(--djs-surface-200);
+  padding: 1rem;
+}
+.card .title {
+  font-size: var(--sl-text-h3);
+}
+
+.sl-link-card {
+  border-color: var(--djs-line);
+  border-radius: var(--djs-radius-sm);
+  background-color: var(--djs-surface-200);
+  box-shadow: none;
+}
+.sl-link-card:hover {
+  border-color: var(--djs-line-strong);
+}
+
+.pagination-links a {
+  border-radius: var(--djs-radius-sm);
+  background-color: var(--djs-surface-200);
+  box-shadow: none;
+}
+.pagination-links a:hover {
+  border-color: var(--djs-line-strong);
+}
+.pagination-links .link-title {
+  font-size: var(--sl-text-h3);
+  font-weight: 600;
+}
+
+/* Buttons: 4px corners, label weight; the primary takes on-accent. */
+.sl-link-button {
+  border-radius: var(--djs-radius-sm);
+  font-weight: 600;
+}
+@media (min-width: 50rem) {
+  .sl-link-button {
+    font-size: var(--sl-text-body);
+    padding: 0.625rem 1rem;
+  }
+}
+.sl-link-button.primary,
+.sl-link-button.primary:hover {
+  color: var(--djs-on-accent);
+}
+
+/* Splash hero: a confident h1, not a display face. */
+.hero h1 {
+  font-size: clamp(2.25rem, calc(1rem + 3vw), 3rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+.hero .tagline {
+  color: var(--djs-ink-muted);
+}
+
+/* File trees and steps keep Starlight's shape, on token surfaces. */
+starlight-file-tree {
+  border-radius: var(--djs-radius-sm);
+  background-color: var(--djs-surface-300);
+}
+
+/* ---------- Renderer pages ---------- */
+
+/* The pages with a live demo (RendererDemo.astro) or the renderers table
+   turn the table of contents off: a wider column for those, the rest of
+   the page at a reading measure. */
+html:not([data-has-toc]):has(.renderer-demo, .renderer-table) {
+  --sl-content-width: 64rem;
+}
+.sl-markdown-content:has(> .renderer-demo, > .renderer-table) > :not(.renderer-demo, .renderer-table) {
+  max-width: 48rem;
+}

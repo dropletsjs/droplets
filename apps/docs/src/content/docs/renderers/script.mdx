@@ -1,0 +1,198 @@
+---
+title: Plain script
+description: "Script droplets: +droplet.script.ts, export default (data, el), no framework and no package, rendered in the browser only, hydrate true or visible, with a live droplet."
+tableOfContents: false
+---
+
+import RendererDemo from "../../../components/RendererDemo.astro";
+
+Some droplets are no component at all: an analytics tracker, a third-party
+widget, a chat bubble, a vanilla UI. A **script droplet** is a
+`+droplet.script.ts` (or `.js`) whose default export runs in the browser
+with the droplet's data and its element. No framework is involved and no
+renderer is installed: core builds it.
+
+The droplet below is the same counter as on the other pages. The demo
+server's load returns the start and the name; the server sends that data and
+an empty element; the script builds the card in the browser.
+
+<RendererDemo
+  id="counter-script"
+  caption="Live: the data came from the demo server, the markup from the script, in this page."
+/>
+
+## Add it to a project
+
+```bash
+npx djs add counter --framework script
+```
+
+It installs nothing and edits nothing: script droplets are built into
+`@dropletsjs/droplets`, next to whatever renderers `vite.config.ts` lists. It
+writes `src/droplets/counter/+droplet.script.ts` and the optional files you
+pick, then its `./$types`. To answer up front:
+
+```bash
+npx djs add counter --framework script --hydrate visible --with server,css --yes
+```
+
+- `--target` does not apply: it renders nothing on the server and always
+  runs in the browser;
+- `--hydrate` is `always` (the default) or `visible`;
+- `--with` takes `server`, `universal` and `css` (a `style.css` the script
+  imports), never `error`: a script droplet has no error page.
+
+## The files
+
+| File | What it is |
+| --- | --- |
+| `+droplet.script.ts`, `+droplet.script.js` | The script: its default export runs in the browser. Its flag is a named export. |
+| `+droplet.server.ts` | Optional: the server load, as for any droplet; its result comes inline in the fragment. |
+| `+droplet.ts` | Optional: the props schema, and a load that runs on the server and in the browser. |
+
+`.script.ts` and `.script.js` belong to core, and no renderer can claim
+them; the name also keeps `+droplet.ts` the load file. The default export:
+
+```ts
+export default function (data: Data, el: HTMLElement): void | (() => void);
+```
+
+- `data` is what the loads returned, as for any droplet: the server load's
+  result, inline in the fragment (no second request), then the `+droplet.ts`
+  load's in the browser. In the demo, `{ framework: "plain script", start: 3 }`.
+- `el` is the droplet's content root inside the element, the
+  `<div data-app-entry>` every droplet has: add anything under it. It is a
+  `display: contents` box, so append your own element when the script needs
+  something with a size, as the demo appends its `<section>`.
+- The returned function, if any, is the cleanup: it runs when the element
+  leaves the page (and before a remount under `vite dev`), and `el` is
+  emptied after it.
+
+`./$types` of a script droplet exports `DropletScript`, the default export
+typed with the droplet's own `Data`; `@dropletsjs/droplets` exports a
+framework-neutral `DropletScript<Data>` too:
+
+```ts
+// src/droplets/page-views/+droplet.script.ts
+import type { DropletScript } from "./$types";
+
+const track: DropletScript = (data, el) => { /* data: what the load returned */ };
+export default track;
+```
+
+## What it supports
+
+| | |
+| --- | --- |
+| Server rendering | no: the fragment is the element, its data and an empty `el` |
+| `hydrate` | `true` (the default): as soon as the element connects; `"visible"`: when it is about to scroll into view |
+| Prerendering | yes: `prerender = true` stores the load's data at build |
+| Imports | any package, whatever the project's other droplets are written in |
+
+Everything else fails the build, naming the fix:
+
+```
+droplets: counter/+droplet.script.ts: hydrate = false would never run it; a script droplet only runs in the browser. Remove the line (it runs at once) or use "visible"
+```
+
+```
+droplets: counter/+droplet.script.ts: "interactive" waits for a first interaction with the server markup, and a script droplet has none; use true (the default) or "visible"
+```
+
+```
+droplets: counter/+droplet.script.ts: a script droplet renders nothing on the server, so it has no ssr flag; remove export const ssr
+```
+
+A host's `data-hydrate="false"` on one element still keeps that element from
+running.
+
+## Specifics
+
+- **What the server sends.** The server never imports the file, so it may
+  touch `window` or `document` at the top level. The fragment has no script
+  that runs: it stays [CSP-clean](/guides/security/), like every fragment.
+
+  ```html
+  <djs-demo data-droplet="counter-script" data-build="…">
+    <script type="application/text" data-app-context>…</script>
+    <script type="application/text" data-app-data>…</script>
+    <link rel="stylesheet" href="…/droplets/counter-script/style.css?c=…" data-app-style>
+    <div style="display: contents" data-app-entry></div>
+  </djs-demo>
+  ```
+
+- **In the browser it always runs:** the element imports its bundle and
+  calls the default export once per element, each with its own `el`. A
+  script that throws is logged (`[droplets] <id> failed`), whatever it added
+  to `el` goes, and the other droplets on the page are not affected.
+- **Styles.** `el` is inside the element, in the light DOM: the shared
+  stylesheet (`src/app.css`, scoped to the element) and a CSS file the script
+  imports apply to what it adds. The demo's card uses apps/demo's
+  `.demo-card` classes.
+- **Server files stay out.** As for any droplet, `+droplet.server.ts` and
+  every other server file stay out of the browser bundle: a script that
+  imports one fails the build. Unlike a component, it may import any
+  framework's packages: the cross-framework check leaves it alone.
+- **Size.** The demo's script is 1.6 kB (gzip) on top of the droplets
+  runtime: no framework comes with it.
+
+### Example: an analytics tracker
+
+A page-view counter that posts each view to the droplets server's own
+endpoint. The server load hands it the count so far; the script shows it,
+counts the view, shows the new count, and aborts a post still in flight when
+the element goes.
+
+```ts
+// src/droplets/page-views/+droplet.server.ts
+import { viewsOf } from "../../lib/server/page-views.ts";
+import type { LoadEvent } from "./$types";
+
+export const load = ({ props }: LoadEvent) => ({ page: props.page, views: viewsOf(props.page) });
+```
+
+```ts
+// src/droplets/page-views/+droplet.script.ts
+import droplet from "$droplets/drop";
+import type { DropletScript } from "./$types";
+
+const track: DropletScript = (data, el) => {
+  const line = document.createElement("p");
+  line.textContent = `${data.page}: ${data.views} views so far`;
+  el.append(line);
+
+  const controller = new AbortController();
+  fetch(droplet.url("/api/page-views"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ page: data.page }),
+    signal: controller.signal,
+  })
+    .then((response) => response.json())
+    .then(({ views }) => (line.textContent = `${data.page}: ${views} views`))
+    .catch(() => {});
+
+  return () => controller.abort();
+};
+
+export default track;
+```
+
+`droplet.url()` points at the droplets server, not at the host page's
+origin. The endpoint (`src/api/page-views/+server.ts`) reads the body as
+plain data: JSON, one object, one own `page` field checked against a slug
+pattern; see [Security](/guides/security/).
+
+## The example
+
+The Svelte example has this tracker as
+[`page-views`](https://github.com/dropletsjs/droplets/tree/main/examples/frameworks/svelte/src/droplets/page-views),
+next to its Svelte droplets, with its endpoint in `src/api/page-views`. From a
+clone of the repository:
+
+```bash
+pnpm install && pnpm build
+pnpm --filter @dropletsjs/example-svelte dev   # http://localhost:5173: the devtools page
+```
+
+The devtools page lists `page-views` with the other droplets.
