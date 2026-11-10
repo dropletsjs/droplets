@@ -46,7 +46,7 @@ export const publicEnvNames: string[] = [];
 export const buildHash = "";
 export const elementName = "djs-droplet";
 /** Client build: `dev.strategy` of the config; read only under `vite dev`. */
-export const devStrategy = "remount" as "remount" | "reload" | "manual";
+export const devStrategy = "hmr" as "hmr" | "remount" | "reload" | "manual";
 /** Client build: `dev.injectTool` of the config; read only under `vite dev`. */
 export const devInjectTool = false as boolean;
 /** Client build: the dev tool's module under `vite dev` when `dropletsDevtools()` is installed, else `null`. */

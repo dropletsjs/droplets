@@ -28,6 +28,8 @@ export type DevtoolsPageInput = {
   clientUrl: string;
   /** Present in server mode: the droplet, already rendered. */
   server?: ServerRender | undefined;
+  /** `dev.strategy` of the config: under `hmr` the page leaves edits to the element. */
+  strategy?: string;
 };
 
 /** JSON that cannot close the `<script>` it sits in. */
@@ -110,6 +112,7 @@ export function renderDevtoolsPage(input: DevtoolsPageInput): string {
     element: input.element,
     droplets: input.droplets,
     mode: input.server ? "server" : "client",
+    strategy: input.strategy ?? "hmr",
     ...(input.server
       ? {
         server: {

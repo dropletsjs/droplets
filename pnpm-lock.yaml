@@ -1008,6 +1008,13 @@ importers:
         version: 5.1.0(@types/node@24.19.2)(happy-dom@21.0.4)(vite@8.3.6(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/renderers/preact:
+    dependencies:
+      '@prefresh/core':
+        specifier: ^1.5.11
+        version: 1.5.11(preact@11.2.0)
+      '@prefresh/utils':
+        specifier: ^1.2.1
+        version: 1.2.1
     devDependencies:
       '@dropletsjs/adapter-node':
         specifier: workspace:*
@@ -1277,9 +1284,21 @@ importers:
 
   tests/dev-mixed:
     devDependencies:
+      '@dropletsjs/devtools':
+        specifier: workspace:*
+        version: link:../../packages/devtools
       '@dropletsjs/droplets':
         specifier: workspace:*
         version: link:../../packages/droplets
+      '@dropletsjs/renderer-handlebars':
+        specifier: workspace:*
+        version: link:../../packages/renderers/handlebars
+      '@dropletsjs/renderer-hono-jsx':
+        specifier: workspace:*
+        version: link:../../packages/renderers/hono-jsx
+      '@dropletsjs/renderer-lit':
+        specifier: workspace:*
+        version: link:../../packages/renderers/lit
       '@dropletsjs/renderer-preact':
         specifier: workspace:*
         version: link:../../packages/renderers/preact
@@ -1289,6 +1308,9 @@ importers:
       '@dropletsjs/renderer-solid':
         specifier: workspace:*
         version: link:../../packages/renderers/solid
+      '@dropletsjs/renderer-svelte':
+        specifier: workspace:*
+        version: link:../../packages/renderers/svelte
       '@dropletsjs/renderer-vue':
         specifier: workspace:*
         version: link:../../packages/renderers/vue
@@ -1298,6 +1320,12 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2
+      hono:
+        specifier: ^4.13.16
+        version: 4.13.16
+      lit:
+        specifier: ^3.3.3
+        version: 3.3.3
       preact:
         specifier: ^11.2.0
         version: 11.2.0(preact-render-to-string@6.8.2)
@@ -1313,6 +1341,9 @@ importers:
       solid-js:
         specifier: ^1.9.18
         version: 1.9.18
+      svelte:
+        specifier: ^5.57.3
+        version: 5.57.3
       vite:
         specifier: 'catalog:'
         version: 8.3.6(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
@@ -2353,6 +2384,14 @@ packages:
 
   '@poppinss/exception@1.2.3':
     resolution: {integrity: sha512-dCED+QRChTVatE9ibtoaxc+WkdzOSjYTKi/+uacHWIsfodVfpsueo3+DKpgU5Px8qXjgmXkSvhXvSCz3fnP9lw==}
+
+  '@prefresh/core@1.5.11':
+    resolution: {integrity: sha512-Ml00PP8jeHaADxfQqxUs4+M5JS+T5J26UnvPVfsrmlpGw2I3e9XtM0DMeuzkmvg+Tn7VdHSMpLBrDPG0iHoDqQ==}
+    peerDependencies:
+      preact: ^10.0.0 || ^11.0.0-0
+
+  '@prefresh/utils@1.2.1':
+    resolution: {integrity: sha512-vq/sIuN5nYfYzvyayXI4C2QkprfNaHUQ9ZX+3xLD8nL3rWyzpxOm1+K7RtMbhd+66QcaISViK7amjnheQ/4WZw==}
 
   '@rolldown/binding-android-arm-eabi@1.2.16':
     resolution: {integrity: sha512-ia3DwAs0OsMGS7+IConptSiyk9pEXkOx/AbJ2n/lAGxH3QkWQus1t8d7gnAT38FCU2sQu8lUbeR6AiZFv4JxaA==}
@@ -5329,6 +5368,12 @@ snapshots:
       supports-color: 10.2.2
 
   '@poppinss/exception@1.2.3': {}
+
+  '@prefresh/core@1.5.11(preact@11.2.0)':
+    dependencies:
+      preact: 11.2.0(preact-render-to-string@6.8.2)
+
+  '@prefresh/utils@1.2.1': {}
 
   '@rolldown/binding-android-arm-eabi@1.2.16':
     optional: true

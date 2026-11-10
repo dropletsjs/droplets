@@ -88,7 +88,12 @@ export type DropletsConfig = {
     server?: { port?: number };
     /**
      * What a droplet on a page does when its files change under `vite dev`.
-     * `"remount"` (default): it loads again by its current flags, as a host
+     * `"hmr"` (default): the framework's own HMR updates the component in
+     * place (React Fast Refresh, Prefresh, Vue, Svelte, Solid refresh), an
+     * engine without one remounts the droplet in place, a load edit brings
+     * new data to the live component, and a change of `ssr`, `hydrate` or
+     * `prerender` leaves the droplet as it is and says so; the page never
+     * reloads. `"remount"`: it loads again by its current flags, as a host
      * would insert it; `"reload"`: the page reloads, so a host that renders
      * on the server renders again; `"manual"`: nothing, a word in the
      * console. A page overrides it with `index.js?strategy=…`. No effect
@@ -123,9 +128,9 @@ export type BodyLimits = {
 };
 
 /** See `DropletsConfig["dev"]["strategy"]`. */
-export type DevStrategy = "remount" | "reload" | "manual";
+export type DevStrategy = "hmr" | "remount" | "reload" | "manual";
 
-export const DEV_STRATEGIES: readonly DevStrategy[] = ["remount", "reload", "manual"];
+export const DEV_STRATEGIES: readonly DevStrategy[] = ["hmr", "remount", "reload", "manual"];
 
 export type ResolvedDropletsConfig = {
   dropletsFolder: string;
@@ -297,7 +302,7 @@ export function resolveConfig(
     path: validateOwnPath("importMap", user.importMap ?? DEFAULTS.importMap, "/importmap"),
     auto: user.importMap === undefined,
   };
-  const strategy = user.dev?.strategy ?? "remount";
+  const strategy = user.dev?.strategy ?? "hmr";
   if (!DEV_STRATEGIES.includes(strategy)) {
     throw new Error(
       `droplets: dev.strategy is "${String(strategy)}"; use ${DEV_STRATEGIES.map((s) => `"${s}"`).join(", ")}`,

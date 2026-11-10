@@ -34,8 +34,8 @@ import { childrenElement, ChildrenHostContext } from "./children.ts";
 
 type AnyComponent = ComponentType<Record<string, unknown>>;
 
-/** What `mount` and `hydrate` return, for `unmount`. */
-export type PreactInstance = { target: HTMLElement };
+/** What `mount` and `hydrate` return, for `unmount`, and for `update` what they rendered. */
+export type PreactInstance = { target: HTMLElement; component?: AnyComponent; context?: ClientRenderContext };
 
 function componentOf(module: ComponentModule, context: ClientRenderContext): AnyComponent {
   const component = module.default;
@@ -121,7 +121,7 @@ export function mount(
   const component = componentOf(module, context);
   if (!("data" in props) || !isThenable(props.data)) {
     preactRender(tree(component, props, context), target);
-    return { target };
+    return { target, component, context };
   }
   return settled(component, props as RenderProps & { data: PromiseLike<unknown> }, context).then((shown) => {
     if (shown) {
@@ -129,6 +129,8 @@ export function mount(
       // After the `await`: `actionUrl()` of `$droplets/form` must still know the droplet.
       if (context.rendering) context.rendering(run);
       else run();
+      // The error page shows: it takes no new data.
+      if (shown.component === component) return { target, component, context };
     }
     return { target };
   });
@@ -145,7 +147,20 @@ export function hydrate(
   // marker before this call, and the container returns through `fill` once
   // the adopted marker is committed.
   preactHydrate(tree(component, props, context), target);
-  return { target };
+  return { target, component, context };
+}
+
+/**
+ * The same tree with new props, rendered into the same target: Preact
+ * diffs it against what is there, and the component keeps its state.
+ * `data` is always the value, as on mount.
+ */
+export async function update(instance: unknown, props: RenderProps): Promise<boolean> {
+  const { target, component, context } = instance as PreactInstance;
+  if (!component || !context) return false;
+  const next = "data" in props && isThenable(props.data) ? { ...props, data: await props.data } : props;
+  preactRender(tree(component, next, context), target);
+  return true;
 }
 
 export function unmount(instance: unknown): void {

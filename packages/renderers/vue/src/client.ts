@@ -21,11 +21,15 @@ import {
   createSSRApp,
   defineComponent,
   h,
+  nextTick,
   onErrorCaptured,
   shallowRef,
   Suspense,
   type App,
   type Component,
+  type ComponentInternalInstance,
+  type ShallowRef,
+  type VNode,
 } from "vue";
 import { CHILDREN_KEY } from "./children.ts";
 
@@ -70,11 +74,19 @@ function injectComponentStyles(component: Component, context: ClientRenderContex
   if (Array.isArray(styles)) for (const css of styles) injectStyle(css);
 }
 
-/** The component under `<Suspense>`, as the root of the app. */
-function suspended(component: Component, props: RenderProps): Component {
+/** Each app's root props, which `update` changes, and the component's instance once mounted. */
+type Live = { props: ShallowRef<RenderProps>; instance?: ComponentInternalInstance | null };
+const live = new WeakMap<App, Live>();
+
+/** The component under `<Suspense>`, as the root of the app, with props that `update` can change. */
+function suspended(component: Component, state: Live): Component {
+  const mounted = (vnode: VNode) => (state.instance = vnode.component);
   return defineComponent({
     name: "DropletRoot",
-    setup: () => () => h(Suspense, null, { default: () => h(component, props as Record<string, unknown>) }),
+    setup: () => () =>
+      h(Suspense, null, {
+        default: () => h(component, { ...(state.props.value as Record<string, unknown>), onVnodeMounted: mounted }),
+      }),
   });
 }
 
@@ -111,7 +123,8 @@ export function mount(
 ): App {
   const component = componentOf(module, context);
   injectComponentStyles(component, context);
-  let root = suspended(component, props);
+  const current: Live = { props: shallowRef(props) };
+  let root = suspended(component, current);
   if (context.error) {
     const errorContext = { ...context, kind: "error" as const };
     const page = componentOf(context.error.module, errorContext);
@@ -121,6 +134,7 @@ export function mount(
   const app = createApp(root);
   app.provide(CHILDREN_KEY, context.children);
   app.mount(target);
+  live.set(app, current);
   return app;
 }
 
@@ -136,10 +150,25 @@ export function hydrate(
   // returns through `fill` once `DropletChildren` is mounted.
   adoptHead(target);
   injectComponentStyles(component, context);
-  const app = createSSRApp(suspended(component, props));
+  const current: Live = { props: shallowRef(props) };
+  const app = createSSRApp(suspended(component, current));
   app.provide(CHILDREN_KEY, context.children);
   app.mount(target);
+  live.set(app, current);
   return app;
+}
+
+/** New props for the root's component: Vue patches it, and its state stays. */
+export async function update(instance: unknown, props: RenderProps): Promise<boolean> {
+  const state = live.get(instance as App);
+  if (!state) return false;
+  // An async `setup` (`await props.data`) ran once, with the old data, and
+  // never runs again for the same instance: the droplet remounts instead.
+  // (`asyncDep` is Vue's own field for it, internal to its types.)
+  if ((state.instance as { asyncDep?: unknown } | null | undefined)?.asyncDep) return false;
+  state.props.value = props;
+  await nextTick();
+  return true;
 }
 
 export function unmount(instance: unknown): void {

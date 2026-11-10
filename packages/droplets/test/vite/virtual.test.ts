@@ -154,7 +154,7 @@ describe("buildClientCode", () => {
     expect(buildClientCode([], "x", "acme-widget")).toContain(
       'export const elementName = "acme-widget";',
     );
-    expect(code).toContain('export const devStrategy = "remount";');
+    expect(code).toContain('export const devStrategy = "hmr";');
     const dev = buildClientCode([], "x", "acme-widget", { strategy: "reload", injectTool: true, toolUrl: "/@fs/tool.js" });
     expect(dev).toContain('export const devStrategy = "reload";');
     expect(dev).toContain("export const devInjectTool = true;");
@@ -178,7 +178,7 @@ describe("buildClientCode", () => {
       "export default droplets;",
       'export const buildHash = "h";',
       'export const elementName = "djs-droplet";',
-      'export const devStrategy = "remount";',
+      'export const devStrategy = "hmr";',
       "export const devInjectTool = false;",
       "export const devToolUrl = null;",
       "export const dropletsById = {",

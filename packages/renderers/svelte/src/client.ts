@@ -19,10 +19,43 @@ import {
   unmount as svelteUnmount,
   type Component,
 } from "svelte";
+import { SvelteMap } from "svelte/reactivity";
 import { asyncMode } from "virtual:droplets-renderer-svelte/options";
 import Boundary from "./boundary.svelte";
 import { marker } from "./children.svelte";
 import { CHILDREN_KEY } from "./children.ts";
+
+/** Each instance's props setter, for `update`. */
+const setters = new WeakMap<object, (props: RenderProps) => void>();
+
+/**
+ * A droplet's props as getters over a reactive map: the component reads
+ * `data` and `form` through them, so `update` changes them in place, with
+ * no new instance. `extra` (the `children` snippet) stays as it is.
+ */
+function liveProps(props: RenderProps, extra: Record<string, unknown>): { props: Record<string, unknown>; set: (props: RenderProps) => void } {
+  const values = new SvelteMap<string, unknown>(Object.entries(props));
+  const live: Record<string, unknown> = { ...extra };
+  for (const key of ["data", "form"]) {
+    Object.defineProperty(live, key, { enumerable: true, get: () => values.get(key) });
+  }
+  return {
+    props: live,
+    set(next) {
+      const record = next as Record<string, unknown>;
+      for (const key of ["data", "form"]) {
+        if (Object.hasOwn(record, key)) values.set(key, record[key]);
+        else values.delete(key);
+      }
+    },
+  };
+}
+
+/** `instance`, its props setter kept for `update`. */
+function keep<T>(instance: T, set: (props: RenderProps) => void): T {
+  if (instance && typeof instance === "object") setters.set(instance, set);
+  return instance;
+}
 
 /** The root context: where `use:fill` in the marker finds the element's host. */
 function contextOf(context: ClientRenderContext): Map<symbol, unknown> {
@@ -45,19 +78,23 @@ export function mount(
 ): unknown {
   const component = componentOf(module, context);
   if (!asyncMode && "data" in props) return mountSettled(component, target, props, context);
+  if (!("data" in props)) {
+    return svelteMount(component, { target, props: { ...props, children: marker }, context: contextOf(context) });
+  }
+  const live = liveProps(props, { children: marker });
   if (context.error) {
     const page = componentOf(context.error.module, { ...context, kind: "error" });
-    return svelteMount(Boundary, {
+    return keep(svelteMount(Boundary, {
       target,
-      props: { component, props: { ...props, children: marker }, page, handle: context.error.handle, children: marker },
+      props: { component, props: live.props, page, handle: context.error.handle, children: marker },
       context: contextOf(context),
-    });
+    }), live.set);
   }
-  return svelteMount(component, {
+  return keep(svelteMount(component, {
     target,
-    props: { ...props, children: marker },
+    props: live.props,
     context: contextOf(context),
-  });
+  }), live.set);
 }
 
 /**
@@ -87,9 +124,10 @@ async function mountSettled(
       svelteMount(page, { target, props: { error: shown, children: marker }, context: contextOf(context) })
     );
   }
-  return rendering(context, () =>
-    svelteMount(component, { target, props: { ...props, data, children: marker }, context: contextOf(context) })
-  );
+  const live = liveProps({ ...props, data } as RenderProps, { children: marker });
+  return keep(rendering(context, () =>
+    svelteMount(component, { target, props: live.props, context: contextOf(context) })
+  ), live.set);
 }
 
 /** After the await, as the render again: `actionUrl()` of `$droplets/form` in the component knows it. */
@@ -105,11 +143,28 @@ export function hydrate(
 ): unknown {
   // The server rendered the marker and the element emptied it before this
   // call: the snippet adopts it, and `use:fill` puts the container back.
-  return svelteHydrate(componentOf(module, context), {
+  if (!("data" in props)) {
+    return svelteHydrate(componentOf(module, context), { target, props: { ...props, children: marker }, context: contextOf(context) });
+  }
+  const live = liveProps(props, { children: marker });
+  return keep(svelteHydrate(componentOf(module, context), {
     target,
-    props: { ...props, children: marker },
+    props: live.props,
     context: contextOf(context),
-  });
+  }), live.set);
+}
+
+/**
+ * New `data` (and `form`) for a live droplet: its props change in place,
+ * and the component keeps its state. Without async mode the component
+ * never waits for `data`: it gets the value, as when it mounted.
+ */
+export async function update(instance: unknown, props: RenderProps): Promise<boolean> {
+  const set = instance && typeof instance === "object" ? setters.get(instance) : undefined;
+  if (!set) return false;
+  const value = !asyncMode && "data" in props ? { ...props, data: await props.data } : props;
+  set(value as RenderProps);
+  return true;
 }
 
 export async function unmount(instance: unknown): Promise<void> {

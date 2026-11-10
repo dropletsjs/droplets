@@ -59,7 +59,7 @@ describe("resolveConfig", () => {
       fragmentCacheControl: "private, no-store",
       csrf: { checkOrigin: true },
       limits: DEFAULTS.limits,
-      dev: { server: { port: DEFAULTS.devPort }, strategy: "remount", injectTool: false },
+      dev: { server: { port: DEFAULTS.devPort }, strategy: "hmr", injectTool: false },
       server: { port: DEFAULTS.serverPort },
     });
   });
@@ -92,7 +92,7 @@ describe("resolveConfig", () => {
     expect(resolveConfig({ dev: { strategy: "reload" } }).dev.strategy).toBe("reload");
     expect(resolveConfig({ dev: { strategy: "manual" } }).dev.strategy).toBe("manual");
     expect(() => resolveConfig({ dev: { strategy: "hot" as never } })).toThrow(
-      'droplets: dev.strategy is "hot"; use "remount", "reload", "manual"',
+      'droplets: dev.strategy is "hot"; use "hmr", "remount", "reload", "manual"',
     );
   });
 

@@ -106,7 +106,7 @@ export function createInitialState(): PluginState {
       fragmentCacheControl: DEFAULTS.fragmentCacheControl,
       csrf: { checkOrigin: true },
       limits: { ...DEFAULTS.limits },
-      dev: { server: { port: 5173 }, strategy: "remount", injectTool: false },
+      dev: { server: { port: 5173 }, strategy: "hmr", injectTool: false },
       server: { port: 8000 },
     },
     css: { scoped: true, tailwind: false, twPreflight: true },

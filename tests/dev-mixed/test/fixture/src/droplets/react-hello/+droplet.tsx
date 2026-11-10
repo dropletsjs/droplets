@@ -10,12 +10,13 @@ function useHydrated() {
   return hydrated;
 }
 
-export default function Hello() {
+export default function Hello({ data }: { data: { word: string } }) {
   const hydrated = useHydrated();
   const [count, setCount] = useState(0);
   return (
     <section data-testid="react" data-hydrated={hydrated}>
       <p data-text>React greets the host</p>
+      <p data-word>{data.word}</p>
       <button type="button" onClick={() => setCount((n) => n + 1)}>{count}</button>
     </section>
   );

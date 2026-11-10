@@ -1,17 +1,24 @@
 /**
- * A React, Preact, Vue and Solid project under `vite dev`, as a user runs it.
+ * Every renderer in one project under `vite dev`, as a user runs it, on a
+ * host page of another origin.
  *
- * The regression this guards: @vitejs/plugin-react turned React's Fast
- * Refresh on in Vite's shared `oxc` options, and @vitejs/plugin-vue compiles
- * every `<script lang="ts">` with those, so a Vue composable call
+ * The first regression this guards: @vitejs/plugin-react turned React's
+ * Fast Refresh on in Vite's shared `oxc` options, and @vitejs/plugin-vue
+ * compiles every `<script lang="ts">` with those, so a Vue composable call
  * (`useGreeting()`) was signed as a React hook with a `$RefreshSig$` the
  * server does not have: every droplet answered 500. Each renderer's
  * transforms must see that renderer's modules only.
  *
- * Over HTTP: each droplet renders (200), and only React's modules carry
- * React's refresh. In a browser, on a host page of another origin: each
- * hydrates without an error, and an edit to each, a Vue composable's
- * included, reaches the page in place, with no reload.
+ * Then `dev.strategy: "hmr"`, the default: an edit to a component goes
+ * through its framework's own HMR, so React (Fast Refresh), Preact
+ * (Prefresh) and Vue keep the component's state; Svelte and Solid swap the
+ * component in place with their own HMR; Lit and Hono JSX, which have none,
+ * remount in place; Handlebars gets its fragment again; a script droplet
+ * runs its cleanup and then its function again, on the same element. A load
+ * edit brings new data to the live component, its state kept. A new render
+ * contract (`ssr`, `hydrate`, `prerender`) leaves the droplet as it is and
+ * says so, in a toast or in the dev tool, but for `hydrate` turning on,
+ * which hydrates live. The page never reloads.
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import { cpSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -26,7 +33,20 @@ const PORT = 5191;
 const ORIGIN = `http://localhost:${PORT}`;
 /** The host's page, on another origin, as a host embeds droplets. */
 const HOST = "http://localhost:5192/";
-const DROPLETS = ["react-hello", "preact-hello", "vue-hello", "solid-hello"] as const;
+const DROPLETS = [
+  "react-hello",
+  "preact-hello",
+  "vue-hello",
+  "solid-hello",
+  "svelte-hello",
+  "lit-hello",
+  "hono-hello",
+  "hbs-hello",
+  "script-hello",
+  "contract",
+] as const;
+/** The droplets that hydrate, by the `data-testid` of their section. */
+const LIVE = ["react", "preact", "vue", "solid", "svelte", "lit", "hono"] as const;
 
 let server: ChildProcess | undefined;
 let output = "";
@@ -55,27 +75,57 @@ async function waitForServer() {
   throw new Error(`vite did not start:\n${output}`);
 }
 
-/** The host's page: each fragment as the server renders it, and /index.js once. */
-async function hostPage(): Promise<string> {
+/** The host's page: each fragment as the server renders it, and /index.js once, with the page's query. */
+async function hostPage(query: string): Promise<string> {
   const fragments = await Promise.all(DROPLETS.map(async (id) => (await get(`/droplets/${id}`)).text()));
   return `<!doctype html><html><head><meta charset="utf-8"><title>host</title>
-<script type="module" src="${ORIGIN}/index.js"></script></head>
+<script type="module" src="${ORIGIN}/index.js${query}"></script></head>
 <body>${fragments.join("\n")}</body></html>`;
 }
 
-/** A page on the host, its errors collected. */
-async function open(): Promise<{ page: Page; errors: string[] }> {
+type Opened = { page: Page; errors: string[]; logs: string[]; posts: string[] };
+
+/**
+ * A page on the host, its errors and console lines collected, and the
+ * fragment requests it makes; with a marker on `window` that a reload
+ * would lose.
+ */
+async function open(query = ""): Promise<Opened> {
   const page = await browser!.newPage();
   const errors: string[] = [];
+  const logs: string[] = [];
+  const posts: string[] = [];
   page.on("pageerror", (error) => errors.push(String(error)));
   page.on("console", (message) => {
     if (message.type() === "error") errors.push(message.text());
+    else logs.push(message.text());
   });
-  await page.goto(HOST);
-  for (const name of ["react", "preact", "vue", "solid"]) {
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (request.method() === "POST" && /^\/droplets\/[^/]+$/.test(url.pathname)) posts.push(url.pathname);
+  });
+  await page.goto(`${HOST}${query}`);
+  for (const name of LIVE) {
     await page.locator(`[data-testid=${name}][data-hydrated=true]`).waitFor({ timeout: 30_000 });
   }
-  return { page, errors };
+  await page.locator("[data-testid=script]").waitFor();
+  await page.evaluate(() => ((window as { loaded?: string }).loaded = "once"));
+  return { page, errors, logs, posts };
+}
+
+/** The page is the one `open` loaded: nothing reloaded it. */
+async function notReloaded(page: Page) {
+  expect(await page.evaluate(() => (window as { loaded?: string }).loaded)).toBe("once");
+}
+
+const text = (page: Page, name: string, field = "[data-text]") => page.locator(`[data-testid=${name}] ${field}`).textContent();
+const count = (page: Page, name: string) => page.locator(`[data-testid=${name}] button`).textContent();
+
+/** Clicks `name`'s button until it shows `to`. */
+async function clickTo(page: Page, name: string, to: number) {
+  const button = page.locator(`[data-testid=${name}] button`);
+  while (Number(await button.textContent()) < to) await button.click();
+  await expect.poll(() => button.textContent()).toBe(String(to));
 }
 
 beforeAll(async () => {
@@ -85,8 +135,9 @@ beforeAll(async () => {
   server.stdout?.on("data", (chunk) => (output += chunk));
   server.stderr?.on("data", (chunk) => (output += chunk));
   await waitForServer();
-  host = createServer((_request, response) => {
-    void hostPage().then((html) => response.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(html));
+  host = createServer((request, response) => {
+    const query = new URL(request.url ?? "/", HOST).search;
+    void hostPage(query).then((html) => response.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(html));
   });
   await new Promise<void>((done) => host!.listen(5192, "localhost", done));
   browser = await chromium.launch();
@@ -96,7 +147,7 @@ beforeAll(async () => {
   const page = await browser.newPage();
   await page.goto(HOST);
   await page.waitForLoadState("networkidle");
-  await page.waitForTimeout(1_000);
+  await page.waitForTimeout(1_500);
   await page.close();
 });
 
@@ -107,18 +158,19 @@ afterAll(async () => {
   rmSync(project, { recursive: true, force: true });
 });
 
-describe("a React, Preact, Vue and Solid project under vite dev", () => {
+describe("every renderer under vite dev", () => {
   it("renders every droplet on the server", async () => {
     for (const id of DROPLETS) {
       const response = await get(`/droplets/${id}`);
       const body = await response.text();
       expect(response.status, `${id}: ${body.slice(0, 500)}`).toBe(200);
-      expect(body).toContain("greets");
+      // A script droplet renders nothing on the server.
+      if (id !== "script-hello" && id !== "contract") expect(body).toContain("greets");
     }
     expect(output).not.toContain("$RefreshSig$");
   });
 
-  it("gives React's refresh to React's modules alone", async () => {
+  it("gives React's refresh to React's modules alone, and Prefresh to Preact's", async () => {
     const vue = await (await get("/src/droplets/vue-hello/+droplet.vue")).text();
     expect(vue).toContain("useGreeting");
     expect(vue).not.toMatch(/\$Refresh(?:Sig|Reg)\$/);
@@ -126,51 +178,243 @@ describe("a React, Preact, Vue and Solid project under vite dev", () => {
     expect(composable).not.toMatch(/\$Refresh(?:Sig|Reg)\$/);
     const solid = await (await get("/src/droplets/solid-hello/+droplet.tsx?droplets-renderer=solid")).text();
     expect(solid).not.toMatch(/\$Refresh(?:Sig|Reg)\$/);
-    // Preact's own JSX runtime, and none of React's.
+    const hono = await (await get("/src/droplets/hono-hello/+droplet.tsx?droplets-renderer=hono-jsx")).text();
+    expect(hono).not.toMatch(/\$Refresh(?:Sig|Reg)\$|__PREFRESH__/);
+    // Preact's own JSX runtime and Prefresh, none of React's.
     const preact = await (await get("/src/droplets/preact-hello/+droplet.tsx?droplets-renderer=preact")).text();
     expect(preact).toMatch(/preact[/_]jsx-runtime/);
-    expect(preact).not.toMatch(/\$Refresh(?:Sig|Reg)\$|[^p]react[/_]jsx/);
+    expect(preact).toContain("__PREFRESH__");
+    expect(preact).not.toMatch(/[^p]react[/_]jsx|react-refresh/);
     const react = await (await get("/src/droplets/react-hello/+droplet.tsx?droplets-renderer=react")).text();
     expect(react).toContain("$RefreshReg$");
     expect(react).toContain("$RefreshSig$");
+    expect(react).not.toContain("__PREFRESH__");
+    // The server's renders have neither.
+    const fragment = await (await get("/droplets/preact-hello")).text();
+    expect(fragment).toContain("Preact greets");
   });
 
   it("hydrates every droplet in the browser, without an error", async () => {
     const { page, errors } = await open();
-    for (const name of ["react", "preact", "vue", "solid"]) {
-      const button = page.locator(`[data-testid=${name}] button`);
-      await button.click();
-      await expect.poll(() => button.textContent()).toBe("1");
-    }
+    for (const name of LIVE) await clickTo(page, name, 1);
     expect(errors).toEqual([]);
     await page.close();
   });
 
-  it("brings an edit to each droplet to the page, with no reload", async () => {
-    const { page, errors } = await open();
-    await page.evaluate(() => ((window as { loaded?: string }).loaded = "once"));
-    const text = (name: string) => page.locator(`[data-testid=${name}] [data-text]`).textContent();
-
+  it("keeps the count through a component edit in React, Preact and Vue: their own HMR", async () => {
+    const { page, errors, logs } = await open();
     const edits = [
-      { name: "react", path: "src/droplets/react-hello/+droplet.tsx", from: "React greets", to: "React waves to" },
-      // No Prefresh: Preact's droplet remounts, still in place.
-      { name: "preact", path: "src/droplets/preact-hello/+droplet.tsx", from: "Preact greets", to: "Preact waves to" },
-      { name: "vue", path: "src/droplets/vue-hello/+droplet.vue", from: '"the host"', to: '"the edit"' },
-      // Through the import graph: the composable, not the component.
-      { name: "vue", path: "src/lib/useGreeting.ts", from: "Vue greets", to: "Vue waves to" },
-      { name: "solid", path: "src/droplets/solid-hello/+droplet.tsx", from: "Solid greets", to: "Solid waves to" },
+      { name: "react", path: "src/droplets/react-hello/+droplet.tsx", from: "React greets", to: "React waves to", field: "[data-text]", now: "React waves to the host" },
+      { name: "preact", path: "src/droplets/preact-hello/+droplet.tsx", from: "Preact greets", to: "Preact waves to", field: "[data-text]", now: "Preact waves to the host" },
+      // A template edit: Vue re-renders, the component stays.
+      { name: "vue", path: "src/droplets/vue-hello/+droplet.vue", from: "Vue says hi", to: "Vue says hello", field: "[data-label]", now: "Vue says hello" },
     ];
-    for (const { name, path, from, to } of edits) {
-      const before = await text(name);
+    for (const { name, path, from, to, field, now } of edits) {
+      await clickTo(page, name, 2);
       edit(path, from, to);
-      await expect.poll(() => text(name), { timeout: 15_000 }).not.toBe(before);
-      await page.locator(`[data-testid=${name}][data-hydrated=true]`).waitFor();
+      await expect.poll(() => text(page, name, field), { timeout: 15_000 }).toBe(now);
+      expect(await count(page, name), `${name} kept its count`).toBe("2");
     }
-    expect(await text("react")).toBe("React waves to the host");
-    expect(await text("preact")).toBe("Preact waves to the host");
-    expect(await text("vue")).toBe("Vue waves to the edit");
-    expect(await text("solid")).toBe("Solid waves to the host");
-    expect(await page.evaluate(() => (window as { loaded?: string }).loaded)).toBe("once");
+    expect(logs.filter((line) => line.includes("remounted in place"))).toEqual([]);
+    await notReloaded(page);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it("swaps a Svelte and a Solid component with their own HMR, in place", async () => {
+    const { page, errors, logs, posts } = await open();
+    const edits = [
+      { name: "svelte", path: "src/droplets/svelte-hello/+droplet.svelte", from: "Svelte greets", to: "Svelte waves to", now: "Svelte waves to the host" },
+      { name: "solid", path: "src/droplets/solid-hello/+droplet.tsx", from: "Solid greets", to: "Solid waves to", now: "Solid waves to the host" },
+    ];
+    for (const { name, path, from, to, now } of edits) {
+      await clickTo(page, name, 2);
+      edit(path, from, to);
+      await expect.poll(() => text(page, name), { timeout: 15_000 }).toBe(now);
+      // Their HMR makes the component again: its own state starts over
+      // (Svelte 5, solid-refresh), but nothing else on the page moves.
+      await expect.poll(() => count(page, name)).toBe("0");
+      await clickTo(page, name, 1);
+    }
+    // No fragment asked for again, no remount: the frameworks did it.
+    expect(posts).toEqual([]);
+    expect(logs.filter((line) => line.includes("remounted in place"))).toEqual([]);
+    await notReloaded(page);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it("brings an edit through the import graph: a Vue composable", async () => {
+    const { page, errors } = await open();
+    edit("src/lib/useGreeting.ts", "Vue greets", "Vue waves to");
+    await expect.poll(() => text(page, "vue"), { timeout: 15_000 }).toBe("Vue waves to the host");
+    await page.locator("[data-testid=vue][data-hydrated=true]").waitFor();
+    await clickTo(page, "vue", 1);
+    await notReloaded(page);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it("remounts Lit and Hono JSX in place, which have no HMR of their own", async () => {
+    const { page, errors, logs } = await open();
+    const edits = [
+      { name: "lit", path: "src/droplets/lit-hello/+droplet.lit.ts", from: "Lit greets", to: "Lit waves to", now: "Lit waves to the host", droplet: "lit-hello" },
+      { name: "hono", path: "src/droplets/hono-hello/+droplet.tsx", from: "Hono greets", to: "Hono waves to", now: "Hono waves to the host", droplet: "hono-hello" },
+    ];
+    for (const { name, path, from, to, now, droplet } of edits) {
+      await clickTo(page, name, 2);
+      edit(path, from, to);
+      await expect.poll(() => text(page, name), { timeout: 15_000 }).toBe(now);
+      await page.locator(`[data-testid=${name}][data-hydrated=true]`).waitFor();
+      // A fresh instance, from the fragment asked for again.
+      expect(await count(page, name)).toBe("0");
+      await expect.poll(() => logs.some((line) => line.includes(`${droplet}: no HMR of its framework took this edit; remounted in place`))).toBe(true);
+      await clickTo(page, name, 1);
+    }
+    await notReloaded(page);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it("swaps the markup of a Handlebars droplet, asked for again", async () => {
+    const { page, errors, posts } = await open();
+    edit("src/droplets/hbs-hello/+droplet.hbs", "Handlebars greets", "Handlebars waves to");
+    await expect.poll(() => text(page, "hbs"), { timeout: 15_000 }).toBe("Handlebars waves to the host");
+    expect(posts).toContain("/droplets/hbs-hello");
+    await notReloaded(page);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it("runs a script droplet's cleanup, then its function again on the same element", async () => {
+    const { page, errors } = await open();
+    const runs = () =>
+      page.evaluate(() => {
+        const runs = (window as { scriptRuns?: { els: HTMLElement[]; cleanups: number; texts: string[] } }).scriptRuns;
+        return runs ? { calls: runs.els.length, cleanups: runs.cleanups, same: runs.els.every((el) => el === runs.els[0]), texts: runs.texts } : null;
+      });
+    expect(await runs()).toMatchObject({ calls: 1, cleanups: 0 });
+    edit("src/droplets/script-hello/+droplet.script.ts", "Script greets", "Script waves to");
+    await expect.poll(() => text(page, "script"), { timeout: 15_000 }).toBe("Script waves to the host");
+    expect(await runs()).toEqual({ calls: 2, cleanups: 1, same: true, texts: ["Script greets the host", "Script waves to the host"] });
+    // The old run's markup went with its cleanup.
+    expect(await page.locator("[data-testid=script]").count()).toBe(1);
+    await notReloaded(page);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it("brings a load edit to the live component as new data, its count kept", async () => {
+    const { page, errors, posts } = await open();
+    // The server load: `_data` again, and the renderer's `update` hands the
+    // live component the new data.
+    for (const name of ["react", "preact", "vue", "solid", "lit", "hono"] as const) {
+      await clickTo(page, name, 2);
+      edit(`src/droplets/${name}-hello/+droplet.server.ts`, "from the server", "from the edited server");
+      await expect.poll(() => text(page, name, "[data-word]"), { timeout: 15_000 }).toBe("from the edited server");
+      expect(await count(page, name), `${name} kept its count`).toBe("2");
+    }
+    // The universal load: it runs in the browser too, the new one.
+    await clickTo(page, "svelte", 2);
+    edit("src/droplets/svelte-hello/+droplet.ts", "from the universal load", "from the edited load");
+    await expect.poll(() => text(page, "svelte", "[data-word]"), { timeout: 15_000 }).toBe("from the edited load");
+    expect(await count(page, "svelte")).toBe("2");
+    // Data, not a fragment: nothing rendered again on the server.
+    expect(posts).toEqual([]);
+    await notReloaded(page);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  describe("a new render contract", () => {
+    const flags = "src/droplets/contract/+droplet.tsx";
+    const toasts = (page: Page) => page.locator("droplets-dev-notifications .toast");
+
+    it("hydrates live when hydrate turns on, and tells of every other change without touching the droplet", async () => {
+      const { page, errors, logs } = await open();
+      const contract = page.locator("[data-testid=contract]");
+      expect(await contract.getAttribute("data-hydrated")).toBe("false");
+
+      // hydrate false → true: the server markup hydrates, live.
+      edit(flags, "export const hydrate = false;", "export const hydrate = true;");
+      await page.locator("[data-testid=contract][data-hydrated=true]").waitFor({ timeout: 15_000 });
+      await clickTo(page, "contract", 2);
+      const status = toasts(page).filter({ hasText: "contract changed its render contract: hydrate false → true" });
+      await expect.poll(() => status.count()).toBe(1);
+      expect(await status.getAttribute("role")).toBe("status");
+      expect(await status.locator("button", { hasText: "Reload page" }).count()).toBe(0);
+
+      // Between modes on a hydrated droplet: a console note, nothing else.
+      edit(flags, "export const hydrate = true;", 'export const hydrate = "visible";');
+      await expect.poll(() => logs.some((line) => line.includes('contract changed its render contract: hydrate true → visible'))).toBe(true);
+      expect(await toasts(page).filter({ hasText: "hydrate true → visible" }).count()).toBe(0);
+
+      // hydrate on → false: the running component stays; a reload shows it without.
+      edit(flags, 'export const hydrate = "visible";', "export const hydrate = false;");
+      const off = toasts(page).filter({ hasText: "contract changed its render contract: hydrate visible → false" });
+      await expect.poll(() => off.count(), { timeout: 15_000 }).toBe(1);
+      expect(await off.getAttribute("role")).toBe("alertdialog");
+      expect(await off.locator("button", { hasText: "Reload page" }).count()).toBe(1);
+      await clickTo(page, "contract", 3);
+
+      // ssr true → false: the markup stays.
+      edit(flags, "export const ssr = true;", "export const ssr = false;");
+      const ssrOff = toasts(page).filter({ hasText: "contract changed its render contract: ssr true → false" });
+      await expect.poll(() => ssrOff.count(), { timeout: 15_000 }).toBe(1);
+      expect(await ssrOff.getAttribute("role")).toBe("status");
+      expect(await ssrOff.locator("button").filter({ hasText: "Reload page" }).count()).toBe(0);
+
+      // ssr false → true: a reload renders it on the server.
+      edit(flags, "export const ssr = false;", "export const ssr = true;");
+      const ssrOn = toasts(page).filter({ hasText: "contract changed its render contract: ssr false → true" });
+      await expect.poll(() => ssrOn.count(), { timeout: 15_000 }).toBe(1);
+      // The newer news of the same flag replaces the older.
+      expect(await ssrOff.count()).toBe(0);
+      expect(await ssrOn.getAttribute("role")).toBe("alertdialog");
+      expect(await ssrOn.locator("button", { hasText: "Reload page" }).count()).toBe(1);
+
+      // prerender: only a build prerenders.
+      edit(flags, "export const prerender = false;", "export const prerender = true;");
+      const prerender = toasts(page).filter({ hasText: "contract changed its render contract: prerender false → true" });
+      await expect.poll(() => prerender.count(), { timeout: 15_000 }).toBe(1);
+      expect(await prerender.textContent()).toContain("vite preview");
+
+      // Never more than three at once, and one console line each.
+      expect(await toasts(page).count()).toBeLessThanOrEqual(3);
+      expect(logs.filter((line) => line.includes("contract changed its render contract: ssr false → true"))).toHaveLength(1);
+      // The droplet itself never moved: still the same, live instance.
+      expect(await count(page, "contract")).toBe("3");
+      // Dismissed, it goes.
+      await ssrOn.locator("button[aria-label=Dismiss]").click();
+      await expect.poll(() => ssrOn.count()).toBe(0);
+      await notReloaded(page);
+      expect(errors).toEqual([]);
+      await page.close();
+    });
+
+    it("shows the notice in the dev tool when it is on the page", async () => {
+      const { page, errors } = await open("?injectTool=true");
+      await page.locator("droplets-devtools").waitFor({ state: "attached" });
+      edit(flags, "export const prerender = true;", "export const prerender = false;");
+      const note = page.locator("droplets-devtools .note", { hasText: "contract changed its render contract: prerender true → false" });
+      await expect.poll(() => note.count(), { timeout: 15_000 }).toBe(1);
+      expect(await page.locator("droplets-dev-notifications .toast").count()).toBe(0);
+      await notReloaded(page);
+      expect(errors).toEqual([]);
+      await page.close();
+    });
+  });
+
+  it("still remounts under index.js?strategy=remount: no framework HMR runs there", async () => {
+    const { page, errors, posts } = await open("?strategy=remount");
+    await clickTo(page, "react", 2);
+    edit("src/droplets/react-hello/+droplet.tsx", "React waves to", "React bows to");
+    await expect.poll(() => text(page, "react"), { timeout: 15_000 }).toBe("React bows to the host");
+    await page.locator("[data-testid=react][data-hydrated=true]").waitFor();
+    // A fresh instance, from the fragment asked for again.
+    await expect.poll(() => count(page, "react")).toBe("0");
+    expect(posts).toContain("/droplets/react-hello");
+    await notReloaded(page);
     expect(errors).toEqual([]);
     await page.close();
   });

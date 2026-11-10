@@ -1,6 +1,6 @@
 import { dirname, resolve } from "node:path";
 import { getRequestListener } from "@hono/node-server";
-import { isCSSRequest, searchForWorkspaceRoot, type EnvironmentModuleNode, type Plugin, type PluginOption, type UserConfig } from "vite";
+import { isCSSRequest, searchForWorkspaceRoot, type EnvironmentModuleNode, type Plugin, type PluginOption, type UserConfig, type ViteDevServer } from "vite";
 import { discoverDroplets } from "../core/discover.ts";
 import { syncTypes } from "./types.ts";
 import { loadEnvState, missingStatic } from "../core/env.ts";
@@ -9,6 +9,7 @@ import { loadDropletsConfig } from "../core/load-config.ts";
 import { logger } from "../core/logger.ts";
 import { packageRoot } from "../core/paths.ts";
 import type { DropletsAdapter } from "../adapters.ts";
+import type { DevStrategy } from "../core/config.ts";
 import {
   rendererScopeFilter,
   sharingRenderers,
@@ -24,16 +25,20 @@ import {
   writeManifest,
 } from "./build.ts";
 import {
-  affectedDroplets,
+  classifyChange,
   createDevApp,
   createDevRuntime,
   dropletForFile,
   invalidateRegistry,
   type DevRuntime,
+  type DropletChange,
 } from "./dev.ts";
 import { frameworksPlugin } from "./frameworks.ts";
 import { userRenderers, withScriptRenderer } from "../script/index.ts";
-import { serverOnlyPlugin } from "./server-only.ts";
+import { isServerOnlyFile, serverOnlyPlugin } from "./server-only.ts";
+import type { DropletEntry } from "../core/discover.ts";
+import type { RenderContract } from "../runtime/dev-contract.ts";
+import type { DropletPagePayload, DropletUpdatePayload } from "../runtime/entry-client.ts";
 import { createCssConfig, resolveCss, tailwindPlugins, type DropletsCssOptions } from "./css.ts";
 import { externalizePlugin } from "./externalize.ts";
 import { createExternalMatcher, namedExternals, readClientExternal } from "./client-external.ts";
@@ -47,7 +52,7 @@ import {
   rendererExtensions,
   type PluginState,
 } from "./state.ts";
-import { virtualModulesPlugin } from "./virtual.ts";
+import { clientEntryId, virtualModulesPlugin } from "./virtual.ts";
 
 export type DropletsPluginOptions = {
   /**
@@ -120,6 +125,8 @@ export type DropletRegistryPayload = { droplets: DropletSummary[] };
 export type DropletsPluginApi = {
   /** The custom element name from the config. */
   element(): string;
+  /** `dev.strategy` from the config: what a page does about an edit, unless it says otherwise. */
+  strategy(): DevStrategy;
   droplets(): DropletSummary[];
   /** The configured renderers' names: `["svelte", "react"]`; never the built-in `script`. */
   renderers(): string[];
@@ -182,6 +189,19 @@ function stylesheetsOf(modules: EnvironmentModuleNode[]): EnvironmentModuleNode[
   return [...found];
 }
 
+/** What one edit touched, for the hooks of every environment. */
+type UpdatePlan = {
+  changes: Map<string, DropletChange>;
+  /** A droplet's component changed, its contract did not: the framework's HMR takes it. */
+  component: boolean;
+  /** A droplet's `ssr`, `hydrate` or `prerender` changed: no module update reaches the page. */
+  contract: boolean;
+};
+
+function contractOf(entry: Pick<DropletEntry, "ssr" | "hydrate" | "prerender">): RenderContract {
+  return { ssr: entry.ssr, hydrate: entry.hydrate, prerender: entry.prerender };
+}
+
 function isInside(root: string, file: string): boolean {
   return file === root || file.startsWith(`${root}/`) || file.startsWith(`${root}\\`);
 }
@@ -219,8 +239,70 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
   // droplet happens to use it.
   validateRenderers(state.renderers);
   let runtime: DevRuntime | null = null;
-  /** Droplets already notified per HMR timestamp, across environments. */
-  const notified = new Map<number, Set<string>>();
+  /** What each edit touched, per HMR timestamp: worked out once, in the first environment. */
+  const plans = new Map<number, UpdatePlan>();
+
+  /**
+   * Which droplets `file` reaches, through their component or their loads,
+   * with their render contract before and after; each hears of it once, as
+   * `droplets:update`, before Vite sends its own update.
+   */
+  const planUpdate = async (server: ViteDevServer, file: string, timestamp: number): Promise<UpdatePlan> => {
+    const plan: UpdatePlan = { changes: new Map(), component: false, contract: false };
+    if (!runtime) return plan;
+    const before = new Map(state.entries.map((entry) => [entry.id, contractOf(entry)]));
+    if (dropletForFile(state.dropletsRoot, file)) {
+      // Flags are read from source, so any edit may change the registry.
+      await runtime.refreshDropletMap();
+      const registry = JSON.stringify(summarize(state));
+      if (registry !== lastRegistry) {
+        lastRegistry = registry;
+        invalidateRegistry(server);
+        server.hot.send("droplets:registry", { droplets: summarize(state) });
+      }
+    }
+    const modules = Object.values(server.environments).flatMap((environment) => [
+      ...(environment.moduleGraph.getModulesByFile(file) ?? []),
+    ]);
+    plan.changes = classifyChange(
+      state.dropletsRoot,
+      file,
+      modules,
+      rendererExtensions(state),
+      (path) => isServerOnlyFile(state.root, path),
+    );
+
+    for (const [droplet, change] of plan.changes) {
+      const entry = state.entries.find((e) => e.id === droplet);
+      const after = entry ? contractOf(entry) : undefined;
+      const old = before.get(droplet);
+      const contract = old && after && JSON.stringify(old) !== JSON.stringify(after) ? { before: old, after } : null;
+      if (contract) plan.contract = true;
+      else if (change.component) plan.component = true;
+
+      let hydrate: HydrateMode | undefined;
+      try {
+        const mod = await runtime.loadSsrModule();
+        hydrate = (await mod.getDropletMeta?.(droplet))?.hydrate;
+      } catch (error) {
+        logger.debug("framework", "could not read droplet meta", {
+          droplet,
+          error,
+        });
+      }
+      const payload: DropletUpdatePayload = {
+        droplet,
+        timestamp,
+        kind: contract ? "contract" : change.component ? "component" : "load",
+        ...(change.universal ? { universal: true } : {}),
+        ...(contract ? contract : {}),
+        ...(hydrate === undefined ? {} : { hydrate }),
+        ...(entry ? { serverLoad: entry.hasServerLoad } : {}),
+      };
+      server.hot.send("droplets:update", payload);
+    }
+    return plan;
+  };
   /** The registry the browser last heard about, to send only real changes. */
   let lastRegistry = "";
 
@@ -229,6 +311,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
 
   const api: DropletsPluginApi = {
     element: () => state.config.element,
+    strategy: () => state.config.dev.strategy,
     droplets: () => summarize(state),
     renderers: () => userRenderers(state.renderers).map((renderer) => renderer.name),
     dropletsRoot: () => state.dropletsRoot,
@@ -359,68 +442,54 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
         invalidateRegistry(server);
       }
 
-      // `init` ran once, before the droplets started: the page starts over.
+      // `init` ran once, before the droplets started: only a new page runs
+      // it again. Whether this one reloads is `dev.strategy`'s call, in the
+      // page: never the host's page behind its back under `hmr`.
       if (CLIENT_HOOKS_FILES.some((hooks) => resolve(state.root, hooks) === file)) {
         if (this.environment.name !== "client") return [];
         if (structural) invalidateRegistry(server);
-        server.hot.send({ type: "full-reload" });
+        for (const mod of modules) this.environment.moduleGraph.invalidateModule(mod, new Set(), timestamp, true);
+        const hooks: DropletPagePayload = { reason: "hooks.client", timestamp };
+        server.hot.send("droplets:page", hooks);
         return [];
       }
 
-      if (dropletForFile(state.dropletsRoot, file)) {
-        // Flags are read from source, so any edit may change the registry.
-        await runtime.refreshDropletMap();
-        const registry = JSON.stringify(summarize(state));
-        if (registry !== lastRegistry) {
-          lastRegistry = registry;
-          invalidateRegistry(server);
-          server.hot.send("droplets:registry", { droplets: summarize(state) });
+      // Once per edit, in the client environment, which Vite runs first:
+      // what changed, for which droplets, and what the pages hear of it.
+      let plan = plans.get(timestamp);
+      if (!plan) {
+        plan = await planUpdate(server, file, timestamp);
+        plans.set(timestamp, plan);
+        for (const key of plans.keys()) {
+          if (key < timestamp - 10_000) plans.delete(key);
         }
       }
+      if (this.environment.name !== "client" || plan.changes.size === 0) return;
 
-      // This hook runs once per environment; notify each droplet only once.
-      let sent = notified.get(timestamp);
-      if (!sent) {
-        sent = new Set();
-        notified.set(timestamp, sent);
-        for (const key of notified.keys()) {
-          if (key < timestamp - 10_000) notified.delete(key);
-        }
+      // The modules invalidated as Vite would, and each affected droplet's
+      // client module with them: the next import of its bundle (a remount, a
+      // new load) asks for them again under a new `?t=`.
+      const invalidated = new Set<EnvironmentModuleNode>();
+      const graph = this.environment.moduleGraph;
+      for (const droplet of plan.changes.keys()) {
+        const folder = runtime.folderById().get(droplet);
+        const client = folder ? graph.getModuleById(`\0${clientEntryId(folder)}`) : undefined;
+        if (client) graph.invalidateModule(client, invalidated, timestamp, true);
       }
-
-      const affected = affectedDroplets(state.dropletsRoot, file, modules, rendererExtensions(state));
-      for (const droplet of affected) {
-        if (sent.has(droplet)) continue;
-        sent.add(droplet);
-
-        let hydrate: HydrateMode | undefined;
-        try {
-          const mod = await runtime.loadSsrModule();
-          hydrate = (await mod.getDropletMeta?.(droplet))?.hydrate;
-        } catch (error) {
-          logger.debug("framework", "could not read droplet meta", {
-            droplet,
-            error,
-          });
-        }
-        const entry = state.entries.find((e) => e.id === droplet);
-        server.hot.send("droplets:update", {
-          droplet,
-          ...(hydrate === undefined ? {} : { hydrate }),
-          ...(entry ? { serverLoad: entry.hasServerLoad } : {}),
-        });
-      }
-      // What the page does about a droplet is `dev.strategy`'s call, through
-      // `droplets:update`: Vite's own update would reload the host's page.
-      // The modules are invalidated as Vite would, so the next import of the
-      // droplet's bundle asks for them again under a new `?t=`. Stylesheets
-      // that depend on the file, Tailwind's among them, still update the
-      // Vite way: they replace themselves, nothing reloads.
-      if (affected.size > 0 && this.environment.name === "client") {
-        const invalidated = new Set<EnvironmentModuleNode>();
-        for (const mod of modules) this.environment.moduleGraph.invalidateModule(mod, invalidated, timestamp, true);
+      // A new render contract never reaches the page's instance, and a load
+      // edit reaches it as data: neither goes through the framework's HMR.
+      // Stylesheets that depend on the file, Tailwind's among them, still
+      // update the Vite way: they replace themselves, nothing reloads.
+      if (plan.contract || !plan.component) {
+        for (const mod of modules) graph.invalidateModule(mod, invalidated, timestamp, true);
         return stylesheetsOf(modules);
       }
+      // A component edit: Vite's own HMR, so the framework's runs (Fast
+      // Refresh, Prefresh, Vue, Svelte, Solid). Each droplet's client module
+      // accepts its component as a last resort, so an edit no framework
+      // module takes remounts the droplet in place rather than reloading the
+      // page; a page under another strategy drops these updates and follows
+      // `droplets:update`.
       return;
     },
 

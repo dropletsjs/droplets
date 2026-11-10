@@ -90,6 +90,83 @@ export function affectedDroplets(
   return found;
 }
 
+/** `/src/droplets/Hello/+droplet.server.ts` -> `{ droplet: "hello", server: true }`: a droplet's load file. */
+export function extractLoadFromModuleId(id: string): { droplet: string; server: boolean } | null {
+  const match = normalizePath(id.split("?")[0] ?? "").match(/\/([^/]+)\/\+[Dd]roplet(\.server)?\.[cm]?[jt]s$/);
+  if (!match?.[1]) return null;
+  return { droplet: dropletId(match[1]), server: match[2] !== undefined };
+}
+
+/** What an edit touches in one droplet: its component side, its loads, and which. */
+export type DropletChange = {
+  /** The component, its error page, or a module they import (the browser's side). */
+  component: boolean;
+  /** `+droplet.server.ts`, `+droplet.ts`, or a module only they import. */
+  load: boolean;
+  /** `+droplet.ts` (or a module it imports): the browser runs that load too. */
+  universal: boolean;
+};
+
+/**
+ * Which droplets an edit to `file` reaches, and through what. A file in a
+ * droplet folder is that droplet's: a load file or a server file
+ * (`*.server.*`, under `server/`) is its load, anything else its component.
+ * Any other file is traced up the module graphs given (the browser's and the
+ * server's): reaching a component makes it a component edit of that droplet,
+ * reaching `+droplet.ts` or `+droplet.server.ts` a load edit.
+ */
+export function classifyChange(
+  dropletsRoot: string,
+  file: string,
+  modules: Iterable<EnvironmentModuleNode>,
+  extensions?: string[],
+  isServerFile: (file: string) => boolean = () => false,
+): Map<string, DropletChange> {
+  const changes = new Map<string, DropletChange>();
+  const at = (droplet: string): DropletChange => {
+    let change = changes.get(droplet);
+    if (!change) changes.set(droplet, (change = { component: false, load: false, universal: false }));
+    return change;
+  };
+
+  const direct = dropletForFile(dropletsRoot, file);
+  if (direct) {
+    const load = extractLoadFromModuleId(file);
+    const change = at(direct);
+    if (load) {
+      change.load = true;
+      change.universal = !load.server;
+    } else if (isServerFile(file)) {
+      change.load = true;
+    } else {
+      change.component = true;
+    }
+    return changes;
+  }
+
+  const queue: EnvironmentModuleNode[] = [...modules];
+  const visited = new Set<EnvironmentModuleNode>();
+  while (queue.length) {
+    const mod = queue.pop();
+    if (!mod || visited.has(mod)) continue;
+    visited.add(mod);
+    if (mod.id) {
+      const component = extractDropletIdFromModuleId(mod.id, extensions);
+      if (component) at(component).component = true;
+      const load = extractLoadFromModuleId(mod.id);
+      if (load) {
+        const change = at(load.droplet);
+        change.load = true;
+        if (!load.server) change.universal = true;
+      }
+    }
+    for (const importer of mod.importers) {
+      if (!visited.has(importer)) queue.push(importer);
+    }
+  }
+  return changes;
+}
+
 /**
  * Forces the generated registry to be rebuilt in every environment. Needed
  * when a droplet folder appears or disappears, since the registry is derived

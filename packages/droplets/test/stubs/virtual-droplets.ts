@@ -1,7 +1,7 @@
 /** Test stand-in for the generated `virtual:droplets` module. */
 export const buildHash = "test01";
 export const elementName = "djs-droplet";
-export const devStrategy: "remount" | "reload" | "manual" = "remount";
+export const devStrategy: "hmr" | "remount" | "reload" | "manual" = "remount";
 export const devInjectTool: boolean = false;
 export const devToolUrl: string | null = null;
 export const dropletsById: Record<string, boolean> = { hello: true, clock: true, plain: true };

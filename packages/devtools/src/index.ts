@@ -130,6 +130,7 @@ export function dropletsDevtools(): Plugin {
               loaderUrl: api.loaderUrl,
               clientUrl: fsUrl(clientFile),
               server: serverMode ? await renderOnServer(api, origin, search) : undefined,
+              strategy: api.strategy(),
             }),
             req.originalUrl,
           );

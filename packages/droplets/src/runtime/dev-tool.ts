@@ -31,7 +31,7 @@ export type DevToolSource = {
   origin: string;
   /** Its custom element name. */
   element: string;
-  /** The HMR strategy in effect: the tool's choice, else `index.js?strategy=`, else `dev.strategy`. */
+  /** The HMR strategy in effect (`hmr`, `remount`, `reload`, `manual`): the tool's choice, else `index.js?strategy=`, else `dev.strategy`. */
   strategy(): DevStrategy;
   /** The tool's choice, kept for the tab's session. */
   setStrategy(strategy: DevStrategy): void;
@@ -44,4 +44,28 @@ export type DevToolSource = {
   subscribe(listener: () => void): () => void;
 };
 
-export type DropletsDevTools = { register(source: DevToolSource): void };
+/**
+ * Something the page should know under `vite dev` that it cannot show by
+ * itself: a droplet's new render contract (`ssr`, `hydrate`, `prerender`),
+ * a `hooks.client.ts` edit. Plain data.
+ */
+export type DevNotification = {
+  /** The same key replaces an earlier notification rather than stacking: `<origin> <droplet> contract`. */
+  key: string;
+  /** Names the droplet and the change: `counter changed its render contract: hydrate true → false`. */
+  message: string;
+  /** What happens next, or what to do. */
+  detail?: string;
+  /** Offer "Reload page": the change shows only once the page renders afresh. */
+  reload?: boolean;
+};
+
+export type DropletsDevTools = {
+  register(source: DevToolSource): void;
+  /**
+   * Shows a notification in the tool, with a "Reload page" button that
+   * calls `reload` when `notification.reload` is set. Without it (an older
+   * tool), `index.js` shows its own toast.
+   */
+  notify?(notification: DevNotification, reload: () => void): void;
+};

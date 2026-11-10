@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { EnvironmentModuleNode } from "vite";
 import {
   affectedDroplets,
+  classifyChange,
   dropletForFile,
   extractDropletIdFromModuleId,
+  extractLoadFromModuleId,
 } from "../../src/vite/dev.ts";
 import { withViteIdAliases } from "../../src/vite/externalize.ts";
 
@@ -73,6 +75,44 @@ describe("affectedDroplets", () => {
   it("returns nothing for files no droplet depends on", () => {
     const util = node("/proj/src/lib/util.ts", [node("/proj/src/other.ts")]);
     expect(affectedDroplets(root, "/proj/src/lib/util.ts", [util]).size).toBe(0);
+  });
+});
+
+describe("classifyChange: what an edit touches, per droplet", () => {
+  const root = "/proj/src/droplets";
+  const serverFile = (file: string) => /\.server\./.test(file) || file.includes("/server/");
+  const at = (file: string, modules: EnvironmentModuleNode[] = []) =>
+    Object.fromEntries(classifyChange(root, file, modules, [".svelte"], serverFile));
+
+  it("tells a droplet's load files from its component in its folder", () => {
+    expect(at("/proj/src/droplets/Clock/+droplet.server.ts")).toEqual({ clock: { component: false, load: true, universal: false } });
+    expect(at("/proj/src/droplets/clock/+droplet.ts")).toEqual({ clock: { component: false, load: true, universal: true } });
+    expect(at("/proj/src/droplets/clock/db.server.ts")).toEqual({ clock: { component: false, load: true, universal: false } });
+    expect(at("/proj/src/droplets/clock/server/db.ts")).toEqual({ clock: { component: false, load: true, universal: false } });
+    expect(at("/proj/src/droplets/clock/+droplet.svelte")).toEqual({ clock: { component: true, load: false, universal: false } });
+    expect(at("/proj/src/droplets/clock/Face.svelte")).toEqual({ clock: { component: true, load: false, universal: false } });
+  });
+
+  it("traces a shared file to the components and the loads that import it", () => {
+    const hello = node("/proj/src/droplets/hello/+droplet.svelte");
+    const worldLoad = node("/proj/src/droplets/World/+droplet.server.ts");
+    const pageLoad = node("/proj/src/droplets/page/+droplet.ts");
+    const util = node("/proj/src/lib/format.ts", [hello, worldLoad, pageLoad]);
+    expect(at("/proj/src/lib/format.ts", [util])).toEqual({
+      hello: { component: true, load: false, universal: false },
+      world: { component: false, load: true, universal: false },
+      page: { component: false, load: true, universal: true },
+    });
+  });
+
+  it("reaches nothing from a file no droplet imports", () => {
+    expect(at("/proj/src/lib/util.ts", [node("/proj/src/lib/util.ts", [node("/proj/src/other.ts")])])).toEqual({});
+  });
+
+  it("reads a load file's droplet off its id", () => {
+    expect(extractLoadFromModuleId("/p/src/droplets/HelloWorld/+droplet.server.ts?t=1")).toEqual({ droplet: "hello-world", server: true });
+    expect(extractLoadFromModuleId("/p/src/droplets/a/+droplet.js")).toEqual({ droplet: "a", server: false });
+    expect(extractLoadFromModuleId("/p/src/droplets/a/+droplet.svelte")).toBeNull();
   });
 });
 

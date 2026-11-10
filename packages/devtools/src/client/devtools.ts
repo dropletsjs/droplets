@@ -29,6 +29,8 @@ type PageData = {
   /** `server`: the page arrived with the droplet already rendered in it. */
   mode: "client" | "server";
   server?: { status: number; ms: number; bytes: number; method: Method };
+  /** `dev.strategy` of the config. */
+  strategy?: string;
 };
 
 declare module "vite/types/customEvent.d.ts" {
@@ -371,9 +373,25 @@ async function render(): Promise<void> {
 
 // --- Live updates ---------------------------------------------------------
 
+/**
+ * The strategy the page's loader follows: the dev tool's choice for this
+ * server, kept for the tab's session, else the config's. Under `hmr` the
+ * element on the stage handles every edit itself, in place; the page
+ * renders nothing again and never reloads.
+ */
+function strategy(): string {
+  try {
+    const chosen = sessionStorage.getItem(`droplets:strategy:${location.origin}`);
+    if (chosen) return chosen;
+  } catch {
+    // Storage blocked: the config's choice stands.
+  }
+  return data.strategy ?? "hmr";
+}
+
 if (import.meta.hot) {
   import.meta.hot.on("droplets:update", (payload) => {
-    if (payload.droplet !== state.droplet) return;
+    if (payload.droplet !== state.droplet || strategy() === "hmr") return;
     if (serverMode) location.reload();
     else scheduleRender(50);
   });
@@ -385,7 +403,7 @@ if (import.meta.hot) {
     persist();
     renderSelect();
     renderInfo();
-    if (JSON.stringify(current() ?? null) === before) return;
+    if (JSON.stringify(current() ?? null) === before || strategy() === "hmr") return;
     if (serverMode) location.reload();
     else scheduleRender(50);
   });

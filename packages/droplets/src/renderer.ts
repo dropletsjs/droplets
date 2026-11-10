@@ -167,14 +167,32 @@
  *
  * ## HMR
  *
- * In `vite dev`, core sends `droplets:update` over Vite's HMR channel when a
- * file a droplet depends on changes. The element then re-imports the
- * droplet's client module with a cache-busting query, refetches its data,
- * calls {@link RendererClientModule.unmount} on the old instance and
- * {@link RendererClientModule.mount} for the new one. Nothing is required
- * from the renderer beyond a working `unmount`; a renderer's own Vite plugin
- * may additionally hot-swap the component in place (as `vite-plugin-svelte`
- * does), which core does not interfere with.
+ * In `vite dev`, what a page does when a droplet's files change is
+ * `dev.strategy`. Under `"hmr"`, the default:
+ *
+ * - An edit to a component (or what it imports) goes through Vite's own
+ *   HMR, so the renderer's plugins hot-swap it as their framework does
+ *   (`vite-plugin-svelte`, `@vitejs/plugin-vue`, `vite-plugin-solid`, React
+ *   Fast Refresh, Prefresh). Each droplet's client module accepts its
+ *   component and error page as a last resort: an edit no framework module
+ *   takes stops there, and the element remounts the droplet in place (as
+ *   `"remount"` does) rather than reloading the page. A renderer without
+ *   HMR therefore needs nothing.
+ * - An edit to a load (`+droplet.server.ts`, `+droplet.ts`, or a server
+ *   file they import) runs the loads again and hands the live instance the
+ *   new data through {@link RendererClientModule.update}, which keeps the
+ *   component's state; without `update`, the element remounts.
+ * - A change of `ssr`, `hydrate` or `prerender` never reaches the page's
+ *   instance: the element says so, and hydrates live when `hydrate` turns on.
+ *
+ * Under `"remount"` the element re-imports the droplet's client module with
+ * a cache-busting query, refetches its data, calls
+ * {@link RendererClientModule.unmount} on the old instance and
+ * {@link RendererClientModule.mount} (or `hydrate`) for the new one.
+ *
+ * A renderer's compile settings for HMR (a refresh transform, its runtime)
+ * stay in its own plugins' transforms, as with every compile setting: see
+ * {@link DropletRenderer.plugins}.
  *
  * ## Example: a minimal renderer
  *
@@ -427,6 +445,17 @@ export type RendererClientModule = {
   hydrate(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): MaybePromise<unknown>;
   /** Tears down what `mount` or `hydrate` returned. Core empties the markers itself first. */
   unmount(instance: unknown): void | Promise<void>;
+  /**
+   * Optional. Renders a live instance (what `mount` or `hydrate` returned)
+   * with new props, keeping it and its state: the component sees the new
+   * `data` (and `form`) as a parent's new props. `data` has the same shape
+   * as the instance started with: the value for a hydrated instance, a
+   * promise (already settled, with React's `status` and `value` set) for
+   * a mounted one. Under `vite dev` this is how a load edit reaches the
+   * page. Return `false` when this instance cannot take them (an error
+   * page is showing, say): core then remounts, as it does without `update`.
+   */
+  update?(instance: unknown, props: RenderProps): MaybePromise<boolean | void>;
 };
 
 /**

@@ -179,7 +179,7 @@ describe("in vite dev", () => {
     expect(code).not.toMatch(/\bawait\b/);
   });
 
-  it("reloads the page when the file changes, appears or goes away", async () => {
+  it("tells the page when the file changes, appears or goes away, never reloading it itself", async () => {
     const send = vi.spyOn(server.hot, "send").mockImplementation(() => {});
     const plugin = server.config.plugins.find((each) => each.name === "droplets");
     const hook = plugin?.hotUpdate;
@@ -191,11 +191,13 @@ describe("in vite dev", () => {
     for (const type of ["update", "create", "delete"]) {
       send.mockClear();
       const options = { file, modules: [], server, timestamp: Date.now(), type };
-      // Once per environment: the client's reloads, the server's ignores it.
+      // Once per environment: the client's tells the page, the server's
+      // ignores it. The page decides: a notice under `hmr`, a reload under
+      // `reload` or `remount`. The host's page is never reloaded from here.
       expect(await hotUpdate.call({ environment: server.environments.ssr }, options)).toEqual([]);
       expect(send).not.toHaveBeenCalled();
       expect(await hotUpdate.call({ environment: server.environments.client }, options)).toEqual([]);
-      expect(send).toHaveBeenCalledExactlyOnceWith({ type: "full-reload" });
+      expect(send).toHaveBeenCalledExactlyOnceWith("droplets:page", { reason: "hooks.client", timestamp: options.timestamp });
     }
   });
 

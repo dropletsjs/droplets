@@ -1087,13 +1087,16 @@ export function rendererConformance(options: ConformanceOptions): void {
         await until(() => expect(el.querySelector("[data-testid=error]")?.textContent).toBe("[hello] Sorry, ref 42"));
       });
 
-      it("re-renders on an HMR update from the fragment asked for again, with the host's children carried over", async () => {
+      it("remounts from the fragment asked for again (dev.strategy remount, and hmr's fallback), with the host's children carried over", async () => {
         const el = mount(await withChildren("/droplets/hello?who=Ana", "kid-hmr"));
         if (interactive) await clickUntilLive(el);
         else await settle();
         fetches = [];
         await el.update({ droplet: "hello" });
-        // A fresh instance: the count starts over.
+        // A remount is a fresh instance: the count starts over. That is
+        // `dev.strategy: "remount"`, and under `"hmr"` an engine without HMR
+        // of its own (or an edit its HMR did not take); with HMR the
+        // framework swaps the component and keeps what it can.
         await until(() => expect(el.querySelector("[data-testid=count]")?.textContent?.trim()).toBe("0"));
         expect(el.querySelector("[data-testid=greeting]")?.textContent).toBe("Hello Ana!");
         if (interactive) await clickUntilLive(el);
@@ -1102,6 +1105,32 @@ export function rendererConformance(options: ConformanceOptions): void {
         expect(fetches.filter((u) => u.includes("/_data"))).toHaveLength(0);
         expect(el.querySelector(`[data-testid=children] ${IN_MARKER} > #kid-hmr`)).not.toBeNull();
         expect(document.querySelectorAll("#kid-hmr")).toHaveLength(1);
+      });
+
+      it("gives a live instance new data in place, its state kept, through the renderer's update (a load edit under hmr)", async () => {
+        const file = manifest.droplets["hello"]?.client;
+        expect(file).toBeDefined();
+        const bundle = (await import(pathToFileURL(resolve(clientRoot, file ?? "")).href)) as {
+          default: (target: HTMLElement, data: unknown, host: unknown, info: unknown) => Promise<unknown>;
+          update: (handle: unknown, data: unknown) => Promise<boolean>;
+          unmount: (handle: unknown) => unknown;
+        };
+        const target = document.createElement("div");
+        document.body.append(target);
+        const host = { fill: () => {}, empty: () => {} };
+        const handle = await bundle.default(target, { who: "Ana", greeting: "Hello Ana!" }, host, { location: origin, props: {} });
+        try {
+          await until(() => expect(target.querySelector("[data-testid=greeting]")?.textContent).toBe("Hello Ana!"));
+          const clicks = interactive ? await clickUntilLive(target) : 0;
+          const kept = await bundle.update(handle, { who: "Bo", greeting: "Hello Bo!" });
+          // A renderer without `update` remounts instead: nothing to check here.
+          if (!kept) return;
+          await until(() => expect(target.querySelector("[data-testid=greeting]")?.textContent).toBe("Hello Bo!"));
+          if (interactive) expect(Number(target.querySelector("[data-testid=count]")?.textContent?.trim())).toBe(clicks);
+        } finally {
+          await bundle.unmount(handle);
+          target.remove();
+        }
       });
     });
   });

@@ -38,7 +38,8 @@ import { prefix } from "virtual:droplets-renderer-lit";
 import { adoptTag, claimTag, componentOf, tagName } from "./tags.ts";
 import { hostTemplate } from "./template.ts";
 
-type Instance = { target: HTMLElement };
+/** What `mount` and `hydrate` return; with the host tag it rendered, for `update`. */
+type Instance = { target: HTMLElement; tag?: string; actionUrl?: ClientRenderContext["actionUrl"] };
 
 /** Where Lit keeps the part it rendered into a container; cleared with the container. */
 type LitContainer = HTMLElement & { _$litPart$?: unknown };
@@ -91,15 +92,17 @@ export async function mount(
   const shown = await settled(module, props, context);
   if (!shown) return { target };
   const component = componentOf(shown.module, context.droplet, shown.kind, LitElement);
+  let tag = "";
   const draw = () => {
-    const tag = claimTag(customElements, component, tagName(prefix, context.droplet, shown.kind));
+    tag = claimTag(customElements, component, tagName(prefix, context.droplet, shown.kind));
     render(hostTemplate(tag, shown.props, context.actionUrl), target);
   };
   // After the await: `actionUrl()` of `$droplets/form` knows the droplet again inside `rendering`.
   if (context.rendering) context.rendering(draw);
   else draw();
   for (const marker of markersIn(target)) context.children.fill(marker);
-  return { target };
+  // An error page takes no new data.
+  return shown.kind === context.kind ? { target, tag, actionUrl: context.actionUrl } : { target };
 }
 
 export function hydrate(
@@ -127,7 +130,20 @@ export function hydrate(
   element.removeAttribute("defer-hydration");
   const markers = context.markers();
   for (const marker of markers.length > 0 ? markers : markersIn(target)) context.children.fill(marker);
-  return { target };
+  return { target, tag: element.localName, actionUrl: context.actionUrl };
+}
+
+/**
+ * The host template again with new props, into the same container: Lit
+ * updates the element's properties, and the element, with its state,
+ * stays. `data` is the value, as on mount.
+ */
+export async function update(instance: unknown, props: RenderProps): Promise<boolean> {
+  const { target, tag, actionUrl } = instance as Instance;
+  if (!tag || !actionUrl || !(target as LitContainer)._$litPart$) return false;
+  const next = "data" in props ? { ...props, data: await props.data } : props;
+  render(hostTemplate(tag, next, actionUrl), target);
+  return true;
 }
 
 export function unmount(instance: unknown): void {

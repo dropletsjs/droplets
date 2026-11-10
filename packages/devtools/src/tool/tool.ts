@@ -8,14 +8,18 @@
  * with a group per server. The panel lives in a shadow root, out of the
  * host's styles and out of theirs.
  */
-import type { DevElementInfo, DevToolSource, DropletsDevTools } from "@dropletsjs/droplets";
+import type { DevElementInfo, DevNotification, DevToolSource, DropletsDevTools } from "@dropletsjs/droplets";
 import { describeMode, type DropletInfo } from "../shared.ts";
 
 /** What `/__droplets/devtools.json` answers: the server's droplets with their flags. */
 type ServerInfo = { element: string; droplets: DropletInfo[] };
 
 const OPEN_KEY = "droplets-devtools:tool-open";
-const STRATEGIES = ["remount", "reload", "manual"] as const;
+const STRATEGIES = ["hmr", "remount", "reload", "manual"] as const;
+/** At most this many notifications at once: the oldest goes first. */
+const MAX_NOTES = 3;
+/** How long a notification without a button stays. */
+const NOTE_TIMEOUT = 10_000;
 
 const STYLES = `
 :host { all: initial; }
@@ -49,6 +53,15 @@ li:first-child { border-top: 0; }
 .none { padding: 0 12px 10px; color: var(--muted); }
 .box { position: fixed; pointer-events: none; z-index: 2147483645; border: 2px solid var(--accent); border-radius: 4px; background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .box[hidden] { display: none; }
+.notes { position: fixed; left: 16px; bottom: 16px; display: grid; gap: 8px; width: min(380px, calc(100vw - 32px)); }
+.notes:empty { display: none; }
+.note { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 10px 10px 10px 12px; border: 1px solid var(--line);
+  border-left: 3px solid var(--accent); border-radius: 8px; background: var(--bg); box-shadow: 0 6px 20px rgb(0 0 0 / 0.18); }
+.note .message { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.note .detail { grid-column: 1; margin: 0; color: var(--muted); }
+.note .actions { grid-column: 1 / -1; display: flex; gap: 8px; }
+.note .reload { padding: 3px 10px; border: 1px solid var(--accent); border-radius: 6px; background: var(--accent); color: var(--bg); cursor: pointer; }
+.note .close { grid-column: 2; grid-row: 1; align-self: start; padding: 0 6px; border: 0; background: none; color: var(--muted); font-size: 16px; line-height: 1; cursor: pointer; }
 `;
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -107,7 +120,44 @@ function createTool(): DropletsDevTools {
     writeOpen(!panel.hidden);
     render();
   });
-  shadow.append(el("style", { textContent: STYLES }), box, el("div", { className: "root" }, [panel, pill]));
+  const notes = el("div", { className: "notes" });
+  notes.setAttribute("role", "region");
+  notes.setAttribute("aria-label", "Droplets notifications");
+  shadow.append(el("style", { textContent: STYLES }), box, el("div", { className: "root" }, [notes, panel, pill]));
+  let noteCount = 0;
+
+  /** A notification above the pill, the panel open or not; the same `key` replaces the one before. */
+  const notify = (notification: DevNotification, reload: () => void) => {
+    for (const old of Array.from(notes.children)) {
+      if ((old as HTMLElement).dataset["key"] === notification.key) old.remove();
+    }
+    const id = `droplets-note-${++noteCount}`;
+    const note = el("div", { className: "note" });
+    note.dataset["key"] = notification.key;
+    // With a button it asks for a decision: an alert dialog; without, a polite status.
+    note.setAttribute("role", notification.reload ? "alertdialog" : "status");
+    const message = el("p", { className: "message", id: `${id}-message`, textContent: notification.message });
+    const close = el("button", { className: "close", type: "button", textContent: "×" });
+    close.setAttribute("aria-label", "Dismiss");
+    const dismiss = () => note.remove();
+    close.addEventListener("click", dismiss);
+    note.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") dismiss();
+    });
+    note.append(message, close);
+    if (notification.detail) note.append(el("p", { className: "detail", id: `${id}-detail`, textContent: notification.detail }));
+    if (notification.reload) {
+      note.setAttribute("aria-labelledby", `${id}-message`);
+      if (notification.detail) note.setAttribute("aria-describedby", `${id}-detail`);
+      const button = el("button", { className: "reload", type: "button", textContent: "Reload page" });
+      button.addEventListener("click", () => reload());
+      note.append(el("div", { className: "actions" }, [button]));
+    } else {
+      setTimeout(dismiss, NOTE_TIMEOUT);
+    }
+    notes.append(note);
+    while (notes.children.length > MAX_NOTES) notes.firstElementChild?.remove();
+  };
 
   const highlight = (element: HTMLElement | null) => {
     const rect = element ? boxOf(element) : null;
@@ -189,6 +239,7 @@ function createTool(): DropletsDevTools {
 
   (document.body ?? document.documentElement).append(host);
   return {
+    notify,
     register(source) {
       sources.set(source.origin, source);
       let pending: ReturnType<typeof setTimeout> | undefined;

@@ -367,7 +367,7 @@ export function buildClientCode(
   entries: DropletEntry[],
   buildHash: string,
   elementName = "djs-droplet",
-  dev: ClientDevOptions = { strategy: "remount", injectTool: false, toolUrl: null },
+  dev: ClientDevOptions = { strategy: "hmr", injectTool: false, toolUrl: null },
   building = false,
   clientHooksFile: string | null = null,
 ): string {
@@ -445,13 +445,15 @@ export function createClientModuleCode(
   const withError = entry.hasError && entry.errorFile;
   const shared = sharingRenderers(renderers);
 
+  const componentModule = JSON.stringify(componentSpecifier(`${base}/${entry.file}`, entry.renderer, shared));
+  const errorModule = withError
+    ? JSON.stringify(componentSpecifier(`${base}/${entry.errorFile}`, entry.renderer, shared))
+    : null;
   const imports = [
     ...(renderer.clientSetup ? [`import ${modulePath(renderer.clientSetup)};`] : []),
     `import * as renderer from ${modulePath(renderer.client)};`,
-    `import * as component from ${JSON.stringify(componentSpecifier(`${base}/${entry.file}`, entry.renderer, shared))};`,
-    ...(withError
-      ? [`import * as errorPage from ${JSON.stringify(componentSpecifier(`${base}/${entry.errorFile}`, entry.renderer, shared))};`]
-      : ["const errorPage = undefined;"]),
+    `import * as component from ${componentModule};`,
+    ...(errorModule ? [`import * as errorPage from ${errorModule};`] : ["const errorPage = undefined;"]),
   ];
 
   return `${imports.join("\n")}
@@ -516,7 +518,7 @@ async function show(module, kind, target, props, host, info) {
   const instance = await withRender(rendering, () =>
     hydrating ? renderer.hydrate(module, target, props, context) : renderer.mount(module, target, props, context)
   );
-  return { engine: renderer, instance };
+  return { engine: renderer, instance, rendering };
 }
 
 export default function render(target, data, host, info) {
@@ -532,6 +534,29 @@ export function renderError(target, error, host, info) {
 
 export function unmount(handle) {
   return handle?.engine?.unmount(handle.instance);
+}
+
+/**
+ * New \`data\` (and \`form\`) for a live instance, which keeps its state:
+ * \`false\` when the renderer has no \`update\`, and the element remounts.
+ */
+export async function update(handle, data, info) {
+  const engine = handle?.engine;
+  if (!engine || typeof engine.update !== "function") return false;
+  const props = info && info.form !== undefined ? { data, form: info.form } : { data };
+  const done = await withRender(handle.rendering, () => engine.update(handle.instance, props));
+  return done !== false;
+}
+
+// Dev only: an edit that no HMR of the framework takes (an engine without
+// one, an export the framework cannot swap) stops here rather than
+// reloading the host's page, and the element remounts the droplet in place.
+if (import.meta.hot) {
+  import.meta.hot.accept([${[componentModule, ...(errorModule ? [errorModule] : [])].join(", ")}], () => {
+    globalThis.dispatchEvent(new CustomEvent("droplets:hot-fallback", {
+      detail: { droplet: ${id}, origin: new URL(import.meta.url).origin },
+    }));
+  });
 }
 `;
 }

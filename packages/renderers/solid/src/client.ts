@@ -33,6 +33,25 @@ import { ensureHydrationState } from "./client-setup.ts";
 /** What `mount` and `hydrate` return: Solid's dispose function. */
 type Handle = () => void;
 
+/** Each handle's props setter, for `update`. */
+const setters = new WeakMap<Handle, (props: RenderProps) => void>();
+
+/**
+ * The component's props as getters over one signal: a component reading
+ * `props.data` follows it, and `update` sets it without a new instance.
+ */
+function liveProps(props: RenderProps, children: () => JSX.Element): { props: Record<string, unknown>; set: (props: RenderProps) => void } {
+  const [current, setCurrent] = createSignal(props, { equals: false });
+  const live: Record<string, unknown> = { children };
+  for (const key of Object.keys(props)) {
+    Object.defineProperty(live, key, { enumerable: true, get: () => (current() as Record<string, unknown>)[key] });
+  }
+  if (!("form" in props) && "data" in props) {
+    Object.defineProperty(live, "form", { enumerable: true, get: () => (current() as Record<string, unknown>)["form"] });
+  }
+  return { props: live, set: (next) => setCurrent(() => next) };
+}
+
 /** A fresh marker, as the server prints it. */
 function createMarker(): HTMLElement {
   const marker = document.createElement("div");
@@ -128,8 +147,11 @@ export function mount(
 ): unknown {
   const component = componentOf(module, context);
   const children = childrenOf(context.children, () => undefined);
-  const render = () => createComponent(component, { ...props, children });
-  return solidRender(context.error ? withBoundary(render, context.error, children, context) : render, target);
+  const live = liveProps(props, children);
+  const render = () => createComponent(component, live.props);
+  const handle = solidRender(context.error ? withBoundary(render, context.error, children, context) : render, target);
+  setters.set(handle, live.set);
+  return handle;
 }
 
 export function hydrate(
@@ -150,10 +172,13 @@ export function hydrate(
   state.done = false;
   sharedConfig.done = false;
 
+  const live = liveProps(props, children);
   try {
-    return solidHydrate(() => createComponent(component, { ...props, children }), target, {
+    const handle = solidHydrate(() => createComponent(component, live.props), target, {
       renderId: context.renderId,
     });
+    setters.set(handle, live.set);
+    return handle;
   } finally {
     // Hydration is synchronous: whatever `children` renders from now on
     // (a conditional branch, a hot update) gets a fresh marker.
@@ -163,4 +188,12 @@ export function hydrate(
 
 export function unmount(instance: unknown): void {
   (instance as Handle)();
+}
+
+/** New props through the signal the component reads them from: no new instance, its state stays. */
+export function update(instance: unknown, props: RenderProps): boolean {
+  const set = setters.get(instance as Handle);
+  if (!set) return false;
+  set(props);
+  return true;
 }

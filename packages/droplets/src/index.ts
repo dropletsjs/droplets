@@ -65,7 +65,8 @@ export {
   validateRenderers,
   withFlagDefaults,
 } from "./renderer.ts";
-export type { DevElementInfo, DevElementState, DevToolSource, DropletsDevTools } from "./runtime/dev-tool.ts";
+export type { DevElementInfo, DevElementState, DevNotification, DevToolSource, DropletsDevTools } from "./runtime/dev-tool.ts";
+export type { RenderContract } from "./runtime/dev-contract.ts";
 export type {
   ActionUrl,
   ClientRenderContext,

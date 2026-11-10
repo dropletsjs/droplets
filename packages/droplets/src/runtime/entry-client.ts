@@ -10,6 +10,15 @@ import {
   elementName,
 } from "virtual:droplets";
 import { serverKey, serverRecord } from "./servers.ts";
+import {
+  contractChanges,
+  contractNotice,
+  hydrateAction,
+  readContract,
+  type ElementLife,
+  type RenderContract,
+} from "./dev-contract.ts";
+import { notify } from "./dev-notify.ts";
 
 /** Droplets that exist in this build. */
 const dropletRegistry = new Set(Object.keys(dropletsById));
@@ -21,6 +30,9 @@ const serverLoadRegistry = new Set(Object.keys(dropletsServerLoadById));
 const styleRegistry = new Map(Object.entries(dropletsStylesById));
 
 type DevStrategy = typeof devStrategy;
+
+const STRATEGIES: ReadonlySet<string> = new Set(["hmr", "remount", "reload", "manual"]);
+const isStrategy = (value: string | null): value is DevStrategy => value !== null && STRATEGIES.has(value);
 
 /** The page the droplet runs in, as `host`: its path and query, without the fragment (`#…`). */
 function pageUrl(): string {
@@ -72,11 +84,11 @@ function pageStrategy(): DevStrategy {
   } catch {
     // Storage blocked: the page's and the config's choice stand.
   }
-  if (chosen === "remount" || chosen === "reload" || chosen === "manual") return chosen;
+  if (isStrategy(chosen)) return chosen;
   const asked = new URL(import.meta.url).searchParams.get("strategy");
-  if (asked === "remount" || asked === "reload" || asked === "manual") return asked;
+  if (isStrategy(asked)) return asked;
   if (asked !== null) {
-    console.warn(`[droplets] index.js?strategy=${asked}: use remount, reload or manual; using ${devStrategy}`);
+    console.warn(`[droplets] index.js?strategy=${asked}: use hmr, remount, reload or manual; using ${devStrategy}`);
   }
   return devStrategy;
 }
@@ -92,13 +104,80 @@ function devNotify(): void {
   for (const listener of devListeners) listener();
 }
 
-/** Sent by the Vite plugin over Vite's own HMR channel in dev. */
+/**
+ * Sent by the Vite plugin over Vite's own HMR channel in dev, once per edit
+ * and droplet, before Vite's own update. Plain data, checked on arrival.
+ */
 export type DropletUpdatePayload = {
   droplet: string;
+  /**
+   * What the edit touched: the `component` (or what it imports), a `load`
+   * (`+droplet.server.ts`, `+droplet.ts`, or a server file they import), or
+   * the render `contract` (`ssr`, `hydrate`, `prerender`). Absent: load it
+   * again (the dev tool's Remount).
+   */
+  kind?: "component" | "load" | "contract";
+  /** The edit's HMR timestamp: Vite's update for it carries the same one. */
+  timestamp?: number;
+  /** A load edit reached `+droplet.ts`: the browser's load is new too. */
+  universal?: boolean;
+  /** With `kind: "contract"`: the flags before and after the edit. */
+  before?: RenderContract;
+  after?: RenderContract;
   hydrate?: boolean | "visible" | "interactive";
   /** Whether the droplet has `+droplet.server.ts` now. */
   serverLoad?: boolean;
 };
+
+/** Sent when the page itself is out of date: `src/hooks.client.ts` changed, and its `init` runs once per page. */
+export type DropletPagePayload = { reason: "hooks.client"; timestamp: number };
+
+const KINDS: ReadonlySet<string> = new Set(["component", "load", "contract"]);
+const isHydrateMode = (value: unknown): value is HydrateMode =>
+  value === true || value === false || value === "visible" || value === "interactive";
+
+/**
+ * A `droplets:update` from the socket, checked: a known droplet, known
+ * fields with the right types, own properties only. `null` otherwise.
+ */
+function readUpdate(value: unknown): DropletUpdatePayload | null {
+  if (!isObject(value) || !Object.hasOwn(value, "droplet")) return null;
+  const droplet = value["droplet"];
+  if (typeof droplet !== "string" || !dropletRegistry.has(droplet)) return null;
+  const payload: DropletUpdatePayload = { droplet };
+  const own = (key: string) => Object.hasOwn(value, key) && value[key] !== undefined;
+  if (own("kind")) {
+    const kind = value["kind"];
+    if (typeof kind !== "string" || !KINDS.has(kind)) return null;
+    payload.kind = kind as NonNullable<DropletUpdatePayload["kind"]>;
+  }
+  if (own("timestamp")) {
+    if (typeof value["timestamp"] !== "number") return null;
+    payload.timestamp = value["timestamp"];
+  }
+  if (own("universal")) payload.universal = value["universal"] === true;
+  if (own("hydrate")) {
+    if (!isHydrateMode(value["hydrate"])) return null;
+    payload.hydrate = value["hydrate"];
+  }
+  if (own("serverLoad")) {
+    if (typeof value["serverLoad"] !== "boolean") return null;
+    payload.serverLoad = value["serverLoad"];
+  }
+  if (payload.kind === "contract") {
+    const before = own("before") ? readContract(value["before"]) : null;
+    const after = own("after") ? readContract(value["after"]) : null;
+    if (!before || !after) return null;
+    payload.before = before;
+    payload.after = after;
+  }
+  return payload;
+}
+
+/** A settled promise of `value`, marked so React's `use()` reads it without suspending. */
+function settledPromise<T>(value: T): Promise<T> {
+  return Object.assign(Promise.resolve(value), { status: "fulfilled", value });
+}
 
 /**
  * Dispatched on a droplet element, bubbling up to `window`, when the page's
@@ -122,6 +201,7 @@ export const STALE_EVENT = "droplets:stale";
 declare module "vite/types/customEvent.d.ts" {
   interface CustomEventMap {
     "droplets:update": DropletUpdatePayload;
+    "droplets:page": DropletPagePayload;
   }
 }
 
@@ -176,6 +256,8 @@ type DropletClientModule = {
   /** Mounts or hydrates the error page; `null` when it does not run in the browser. */
   renderError?: (target: HTMLElement, error: unknown, children: DropletChildrenHost, info: DropletRenderInfo) => unknown;
   unmount?: (instance: unknown, options?: unknown) => unknown;
+  /** New `data` for the live instance `default` returned, which keeps its state; `false` when its renderer cannot. */
+  update?: (instance: unknown, data: unknown, info?: { form?: unknown }) => Promise<boolean>;
 };
 
 /**
@@ -295,6 +377,10 @@ const CLICK_REPLAY_HARD_CAP = 10_000;
  */
 const CLICK_RETRY_GAP = 400;
 
+/** Dev only, set by the element class under `vite dev`: remount the live elements of a droplet (how many); whether it is on the page. */
+let devRemountLive: ((droplet: string) => number) | undefined;
+let devShows: ((droplet: string) => boolean) | undefined;
+
 /**
  * Hosts one droplet. The element is self-sufficient: it knows which origin to
  * load its JS, CSS and data from, so a page can embed droplets served by
@@ -308,6 +394,10 @@ export class DjsDropletElement extends HTMLElement {
   #host: URL | null = null;
   #instance: unknown = null;
   #unmount: DropletClientModule["unmount"] | null = null;
+  /** The props the instance rendered with, after the schema: what a new load runs with in dev. */
+  #props: Record<string, unknown> = {};
+  /** Whether the instance got `data` as the value (hydrated) or as a promise (mounted). */
+  #dataShape: "value" | "promise" = "value";
   #hmrListener: ((payload: DropletUpdatePayload) => void) | null = null;
   /**
    * Bumped on connect, disconnect and every update: a render started in an
@@ -895,6 +985,8 @@ export class DjsDropletElement extends HTMLElement {
         if (run !== this.#run) return this.#discardOrphan(mod.unmount, instance);
         this.#instance = instance;
         this.#unmount = mod.unmount ?? null;
+        this.#props = props;
+        this.#dataShape = "value";
         return true;
       }
 
@@ -946,6 +1038,8 @@ export class DjsDropletElement extends HTMLElement {
       if (run !== this.#run) return this.#discardOrphan(mod.unmount, instance);
       this.#instance = instance;
       this.#unmount = mod.unmount ?? null;
+      this.#props = props;
+      this.#dataShape = typeof (data as PromiseLike<unknown> | null)?.then === "function" ? "promise" : "value";
     } catch (error) {
       if (run !== this.#run) return false;
       if (error instanceof NothingToRender) {
@@ -1177,6 +1271,12 @@ export class DjsDropletElement extends HTMLElement {
   #hydrateMode(droplet: string, hasMarkup: boolean): HydrateMode {
     const flag = hydrationRegistry.get(droplet);
     if (flag === undefined) return false;
+    return this.#modeOf(flag, hasMarkup);
+  }
+
+  /** The mode the droplet's `hydrate` flag gives this element: its `data-hydrate` over the flag. */
+  #modeOf(flag: HydrateMode, hasMarkup: boolean, warn = true): HydrateMode {
+    if (flag === false) return false;
     let mode: HydrateMode = flag;
     const asked = this.dataset["hydrate"];
     if (asked !== undefined) {
@@ -1185,7 +1285,7 @@ export class DjsDropletElement extends HTMLElement {
         : asked === "visible" || asked === "interactive" ? asked
         : undefined;
       if (parsed !== undefined) mode = parsed;
-      else if (import.meta.env.DEV) {
+      else if (import.meta.env.DEV && warn) {
         console.warn(`[droplets] data-hydrate="${asked}": use true, false, visible or interactive; using the droplet's own`);
       }
     }
@@ -1271,15 +1371,17 @@ export class DjsDropletElement extends HTMLElement {
 
   /**
    * Dev only. The plugin sends `droplets:update` over Vite's HMR socket when
-   * a file a droplet depends on changes; the element re-fetches its data and
-   * re-mounts. Updates only arrive from the origin that served this script.
+   * a file a droplet depends on changes; what the element does is the
+   * page's strategy. Updates only arrive from the origin that served this
+   * script.
    */
   #subscribeHmr(droplet: string): void {
     const hot = import.meta.hot;
     if (!hot) return;
 
-    this.#hmrListener = (payload) => {
-      if (payload.droplet !== droplet) return;
+    this.#hmrListener = (raw) => {
+      const payload = readUpdate(raw);
+      if (!payload || payload.droplet !== droplet) return;
       const strategy = pageStrategy();
       if (strategy === "reload") {
         if (!reloading) globalThis.location.reload();
@@ -1294,11 +1396,125 @@ export class DjsDropletElement extends HTMLElement {
         devNotify();
         return;
       }
-      this.update(payload).catch((error: unknown) => {
+      const done = strategy === "hmr" && payload.kind ? this.#hotUpdate(droplet, payload) : this.update(payload);
+      done.catch((error: unknown) => {
         console.error("[droplets] failed to handle hmr event", error);
       });
     };
     hot.on("droplets:update", this.#hmrListener);
+  }
+
+  /**
+   * Dev only: an edit under the `hmr` strategy. A component edit is the
+   * framework's HMR (or the client module's fallback, a remount in place)
+   * for a droplet live in the browser; one that is not (server markup that
+   * does not hydrate, or not yet) gets the server's new markup. A load edit
+   * brings the live component new data; a new render contract leaves the
+   * droplet as it is, but for `hydrate` turning on.
+   */
+  async #hotUpdate(droplet: string, payload: DropletUpdatePayload): Promise<void> {
+    if (payload.kind === "contract") return this.#hotContract(droplet, payload);
+    if (payload.kind === "load") return this.#hotData(droplet, payload);
+    if (!this.#hydrated) return this.update(payload);
+  }
+
+  /**
+   * Dev only: the loads ran again (`_data`, then `+droplet.ts`), and the
+   * live instance renders with their data through its renderer's `update`,
+   * keeping its state. Anything it cannot take that way (no instance, no
+   * `update`, an error page, a load that fails) loads again as a remount.
+   */
+  async #hotData(droplet: string, payload: DropletUpdatePayload): Promise<void> {
+    if (typeof payload.serverLoad === "boolean") {
+      if (payload.serverLoad) serverLoadRegistry.add(droplet);
+      else serverLoadRegistry.delete(droplet);
+    }
+    if (!this.#connected) return;
+    const handle = this.#instance;
+    if (!this.#hydrated || !handle || this.dataset["dropletError"] !== undefined) return this.update(payload);
+    const run = ++this.#run;
+    this.#dataRequest = null;
+    // A new `+droplet.ts`: a fresh client module, for its load. The
+    // component module is the same one, at the same URL.
+    const mod = await this.#importModule(droplet, payload.universal === true);
+    if (run !== this.#run) return;
+    if (!mod?.update) return this.update(payload);
+    let value: unknown;
+    try {
+      const answer: Payload = serverLoadRegistry.has(droplet)
+        ? await this.#serverData(droplet, { host: this.#context.host, props: this.#props }, true)
+        : { data: undefined };
+      if (run !== this.#run) return;
+      if (answer.failed) return this.update(payload);
+      const host = withoutFormResults(this.#host ?? new URL(pageUrl()));
+      value = await settle(mod.load ? mod.load({ host, props: this.#props, data: answer.data }) : answer.data);
+    } catch (error) {
+      if (run !== this.#run) return;
+      if (error instanceof NothingToRender) {
+        if (!(error instanceof StaleBuildError)) console.error(`[droplets] ${droplet}:`, error.message);
+        return;
+      }
+      // A load that throws: the remount shows the error page.
+      return this.update(payload);
+    }
+    if (run !== this.#run) return;
+    const kept = await mod.update(handle, this.#dataShape === "promise" ? settledPromise(value) : value);
+    if (run !== this.#run) return;
+    if (!kept) return this.update(payload);
+  }
+
+  /**
+   * Dev only: the droplet's `ssr`, `hydrate` or `prerender` changed. The
+   * registries follow; the element does not, but for `hydrate` turning on,
+   * which hydrates the markup there in the new mode, and a new mode while
+   * it still waits, which it then waits in. The page's notice is shown
+   * once per droplet, by the loader (see `onContract`).
+   */
+  async #hotContract(droplet: string, payload: DropletUpdatePayload): Promise<void> {
+    const { before, after } = payload;
+    if (!before || !after) return;
+    if (after.hydrate === false) hydrationRegistry.delete(droplet);
+    else hydrationRegistry.set(droplet, after.hydrate);
+    if (typeof payload.serverLoad === "boolean") {
+      if (payload.serverLoad) serverLoadRegistry.add(droplet);
+      else serverLoadRegistry.delete(droplet);
+    }
+    if (!this.#connected) return;
+    const contentRoot = this.#contentRoot();
+    const hasMarkup = contentRoot.childNodes.length > 0;
+    const life: ElementLife = this.#hydrated ? "live" : this.#stopWaiting ? "waiting" : "static";
+    const action = hydrateAction(this.#modeOf(before.hydrate, hasMarkup, false), this.#modeOf(after.hydrate, hasMarkup), life);
+    if (action === "hydrate" && !this.#readInline("[data-droplet-data]").found) {
+      // Markup that was never to hydrate came without its data: the server
+      // renders it again with the data inline, and that hydrates.
+      return this.update(payload);
+    }
+    if (action === "hydrate" || action === "rewait") {
+      const run = ++this.#run;
+      this.#stopWaiting?.();
+      this.#dropClicks();
+      await this.#start(droplet, contentRoot, run, true);
+    }
+  }
+
+  // Dev only, and absent from a build (a static block under a false
+  // condition is dropped): the loader's reach into the live elements.
+  static {
+    if (import.meta.env.DEV) {
+      devRemountLive = (droplet) => {
+        let count = 0;
+        for (const element of DjsDropletElement.#live) {
+          if (element.dataset["droplet"] !== droplet || !element.#hydrated) continue;
+          count++;
+          element.update({ droplet }).catch((error: unknown) => console.error("[droplets] remount failed", error));
+        }
+        return count;
+      };
+      devShows = (droplet) => {
+        for (const element of DjsDropletElement.#live) if (element.dataset["droplet"] === droplet) return true;
+        return false;
+      };
+    }
   }
 
   /**
@@ -1573,6 +1789,106 @@ function devToolSource(): DevToolSource {
   };
 }
 
+/** A stylesheet module's update: it replaces itself, under every strategy. */
+const STYLESHEET = /\.(?:css|less|sass|scss|styl|stylus|pcss|postcss|sss)(?:$|\?)/;
+
+/** Dev only: the page's reload, once however many notices ask for it. */
+function reloadPage(): void {
+  if (!reloading) globalThis.location.reload();
+  reloading = true;
+}
+
+/** The URL of a droplet's client module in Vite's HMR updates. */
+const CLIENT_MODULE = "virtual:droplet-client?";
+
+/**
+ * Dev only: what the page as a whole does about an edit, once per loader.
+ *
+ * - Under `hmr`, a new render contract gets its notice (`onContract`),
+ *   and an edit no framework module took (the client module's
+ *   `droplets:hot-fallback`) remounts the live droplet in place.
+ * - Under any other strategy, Vite's module updates for an edit to a
+ *   droplet are dropped before they run, stylesheets aside: the elements
+ *   follow `droplets:update` as that strategy says.
+ * - `src/hooks.client.ts` changed: under `hmr` a notice with "Reload
+ *   page", under `manual` a console line; `remount` and `reload` reload.
+ */
+function followHotUpdates(hot: NonNullable<ImportMeta["hot"]>): void {
+  const own = new URL(import.meta.url).origin;
+  /** Timestamps of edits to droplets that Vite's updates for are not this page's to run. */
+  const held = new Set<number>();
+  /** Contract notices already shown, per edit and droplet. */
+  const shown = new Set<string>();
+
+  hot.on("droplets:update", (raw) => {
+    const payload = readUpdate(raw);
+    if (!payload || payload.timestamp === undefined) return;
+    if (pageStrategy() !== "hmr") {
+      held.add(payload.timestamp);
+      return;
+    }
+    if (payload.kind === "contract") onContract(payload, shown, own);
+  });
+
+  hot.on("vite:beforeUpdate", (update) => {
+    // The same payload Vite applies next: what is left in it runs.
+    const selfAccepted = new Set(update.updates.filter((one) => one.path === one.acceptedPath).map((one) => one.path));
+    const kept = update.updates.filter((one) => {
+      if (held.has(one.timestamp)) return one.type === "css-update" || STYLESHEET.test(one.acceptedPath);
+      // A module that accepts some of its exports only (Svelte's
+      // `acceptExports(["default"])`, next to a `<script module>`'s flags)
+      // also reaches the client module, which imports all of them: its own
+      // HMR has the edit, and the client module's fallback stays out of it.
+      return !(one.path.startsWith(CLIENT_MODULE) && one.path !== one.acceptedPath && selfAccepted.has(one.acceptedPath));
+    });
+    for (const one of update.updates) held.delete(one.timestamp);
+    update.updates.splice(0, update.updates.length, ...kept);
+  });
+
+  hot.on("droplets:page", (raw) => {
+    if (!isObject(raw) || raw["reason"] !== "hooks.client") return;
+    const strategy = pageStrategy();
+    if (strategy === "manual") return console.info("[droplets] src/hooks.client.ts changed; reload the page to run its init again");
+    if (strategy !== "hmr") return reloadPage();
+    notify({
+      key: `${own} hooks.client`,
+      message: "src/hooks.client.ts changed",
+      detail: "Its init runs once per page, before any droplet starts: reload the page to run it again.",
+      reload: true,
+    }, reloadPage);
+  });
+
+  globalThis.addEventListener("droplets:hot-fallback", (event) => {
+    const detail: unknown = (event as CustomEvent<unknown>).detail;
+    if (!isObject(detail) || !Object.hasOwn(detail, "droplet") || !Object.hasOwn(detail, "origin")) return;
+    const { droplet, origin } = detail;
+    if (typeof droplet !== "string" || !dropletRegistry.has(droplet) || origin !== own) return;
+    if (pageStrategy() !== "hmr") return;
+    if ((devRemountLive?.(droplet) ?? 0) > 0) {
+      console.info(`[droplets] ${droplet}: no HMR of its framework took this edit; remounted in place`);
+    }
+  });
+}
+
+/** Dev only: the page's notice of a droplet's new render contract, once per edit, when the page shows it. */
+function onContract(payload: DropletUpdatePayload, shown: Set<string>, own: string): void {
+  const { droplet, before, after, timestamp } = payload;
+  if (!before || !after || !devShows?.(droplet)) return;
+  const key = `${timestamp} ${droplet}`;
+  if (shown.has(key)) return;
+  shown.add(key);
+  const notice = contractNotice(droplet, before, after);
+  if (!notice) return;
+  if (!notice.toast) {
+    console.info(`[droplets] ${notice.message}. ${notice.detail}`);
+    return;
+  }
+  // A later change of the same flags replaces this notice (ssr off, then on
+  // again: the newer one); a change of another flag shows next to it.
+  const flags = contractChanges(before, after).map((change) => change.flag).join(",");
+  notify({ key: `${own} ${droplet} contract ${flags}`, message: notice.message, detail: notice.detail, reload: notice.reload }, reloadPage);
+}
+
 /**
  * Dev only: the dev tool, for `dev.injectTool` or `index.js?injectTool=true`
  * (`false` turns it off for the page). The tool's module comes from this
@@ -1594,6 +1910,7 @@ async function injectDevTool(): Promise<void> {
 if (import.meta.env.DEV) {
   const asked = new URL(import.meta.url).searchParams.get("injectTool");
   if (asked === null ? devInjectTool : asked !== "false") void injectDevTool();
+  if (import.meta.hot) followHotUpdates(import.meta.hot);
 }
 
 // The tag name comes from `config.element`, so two droplets servers with

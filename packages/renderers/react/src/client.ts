@@ -108,6 +108,9 @@ function rootOptions(context: ClientRenderContext): RootOptions {
   };
 }
 
+/** What a root renders, for `update`: the same component and context, with new props. */
+const rendered = new WeakMap<Root, { component: ComponentType<Record<string, unknown>>; context: ClientRenderContext }>();
+
 export function mount(
   module: ComponentModule,
   target: HTMLElement,
@@ -117,6 +120,7 @@ export function mount(
   const component = componentOf(module, context);
   const root = createRoot(target, rootOptions(context));
   flushSync(() => root.render(tree(component, props, context)));
+  rendered.set(root, { component, context });
   return root;
 }
 
@@ -134,7 +138,17 @@ export function hydrate(
   flushSync(() => {
     root = hydrateRoot(target, tree(component, props, context), rootOptions(context));
   });
+  rendered.set(root!, { component, context });
   return root!;
+}
+
+/** The same tree with new props: React reconciles it, and the component keeps its state. */
+export function update(instance: unknown, props: RenderProps): boolean {
+  const root = instance as Root;
+  const known = rendered.get(root);
+  if (!known) return false;
+  flushSync(() => root.render(tree(known.component, props, known.context)));
+  return true;
 }
 
 export function unmount(instance: unknown): void {
