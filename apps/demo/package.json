@@ -1,0 +1,53 @@
+{
+  "name": "@dropletsjs/demo",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "The droplets the docs embed live: hello (Svelte), counter (React), poll (Vue), crash (Solid), and one counter-<renderer> per renderer for the renderer pages.",
+  "scripts": {
+    "dev": "node scripts/dev-secret.mjs && vite",
+    "build": "vite build",
+    "build:cloudflare": "DROPLETS_ADAPTER=cloudflare vite build",
+    "preview:cloudflare": "wrangler dev",
+    "deploy:cloudflare": "DROPLETS_ADAPTER=cloudflare vite build && wrangler deploy",
+    "start": "node --env-file-if-exists=.env.local dist/server.js",
+    "sync": "djs sync",
+    "clean": "rm -rf dist .wrangler",
+    "typecheck": "djs sync && tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@dropletsjs/droplets": "workspace:*",
+    "@dropletsjs/renderer-handlebars": "workspace:*",
+    "@dropletsjs/renderer-hono-jsx": "workspace:*",
+    "@dropletsjs/renderer-lit": "workspace:*",
+    "@dropletsjs/renderer-preact": "workspace:*",
+    "@dropletsjs/renderer-react": "workspace:*",
+    "@dropletsjs/renderer-solid": "workspace:*",
+    "@dropletsjs/renderer-vue": "workspace:*",
+    "hono": "^4.13.16",
+    "lit": "^3.3.3",
+    "preact": "^11.2.0",
+    "preact-render-to-string": "^6.8.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "solid-js": "^1.9.18",
+    "svelte": "^5.57.3",
+    "vue": "^3.5.45",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@dropletsjs/adapter-cloudflare": "workspace:*",
+    "@dropletsjs/adapter-node": "workspace:*",
+    "@dropletsjs/devtools": "workspace:*",
+    "@dropletsjs/renderer-svelte": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
+  }
+}

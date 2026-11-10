@@ -1,0 +1,11 @@
+{
+  // .droplets/ is written by `vite` and `djs sync`: it maps each droplet's ./$types.
+  "extends": ["../../tsconfig.base.json", "./.droplets/tsconfig.json"],
+  "compilerOptions": {
+    "types": ["node", "vite/client", "@dropletsjs/droplets/ambient"],
+    // React's JSX by default; the Solid files say `/** @jsxImportSource solid-js */`.
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "droplets.config.ts", "vite.config.ts", "vitest.config.ts"]
+}

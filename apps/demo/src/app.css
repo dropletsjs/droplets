@@ -1,0 +1,111 @@
+/*
+ * The stylesheet every demo droplet shares. The framework scopes it to
+ * <djs-demo> (`:root` becomes the element), so none of it reaches the host.
+ *
+ * The colors are the host's when it has them: the docs define --djs-* on
+ * their own :root and switch them with the theme, and a custom property
+ * inherits into the element. Elsewhere the fallbacks apply.
+ */
+:root {
+  --demo-ink: var(--djs-ink, #16191d);
+  --demo-muted: var(--djs-ink-muted, #59616b);
+  --demo-surface: var(--djs-surface-200, #ffffff);
+  --demo-sunken: var(--djs-surface-300, #eef0f2);
+  --demo-line: var(--djs-line, #dde1e5);
+  --demo-accent: var(--djs-accent, #cc3a00);
+  --demo-on-accent: var(--djs-on-accent, #ffffff);
+  --demo-success: var(--djs-success, #1d7a3a);
+  --demo-danger: var(--djs-danger, #b3123e);
+  --demo-danger-low: var(--djs-danger-low, #f2e6ea);
+  --demo-radius: var(--djs-radius-md, 8px);
+  --demo-mono: var(--djs-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+
+  display: block;
+  color: var(--demo-ink);
+  font-family: var(--djs-font-sans, ui-sans-serif, system-ui, sans-serif);
+  line-height: 1.5;
+}
+
+.demo-card {
+  box-sizing: border-box;
+  max-width: 36rem;
+  margin: 0;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--demo-line);
+  border-radius: var(--demo-radius);
+  background: var(--demo-surface);
+}
+
+.demo-card > * {
+  margin: 0;
+}
+
+.demo-card > * + * {
+  margin-top: 0.75rem;
+}
+
+.demo-tag {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--demo-line);
+  border-radius: 999px;
+  background: var(--demo-sunken);
+  color: var(--demo-muted);
+  font: 500 0.75rem/1.4 var(--demo-mono);
+}
+
+.demo-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.demo-muted {
+  color: var(--demo-muted);
+  font-size: 0.875rem;
+}
+
+.demo-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.demo-button {
+  min-height: 2.25rem;
+  padding: 0.375rem 0.875rem;
+  border: 1px solid transparent;
+  border-radius: var(--djs-radius-sm, 4px);
+  background: var(--demo-accent);
+  color: var(--demo-on-accent);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.demo-button.secondary {
+  border-color: var(--demo-line);
+  background: var(--demo-sunken);
+  color: var(--demo-ink);
+}
+
+.demo-button:focus-visible,
+.demo-choice input:focus-visible {
+  outline: 2px solid var(--djs-focus, var(--demo-accent));
+  outline-offset: 2px;
+}
+
+.demo-ok {
+  color: var(--demo-success);
+  font-weight: 600;
+}
+
+.demo-error {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--djs-radius-sm, 4px);
+  background: var(--demo-danger-low);
+  color: var(--demo-danger);
+  font-size: 0.875rem;
+}

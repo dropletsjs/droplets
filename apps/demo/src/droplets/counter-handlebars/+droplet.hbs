@@ -1,0 +1,12 @@
+{{!--
+export ssr = true
+export hydrate = false
+--}}
+{{!-- A template has no browser code: rendered on the server, never hydrated. --}}
+<section class="demo-card" data-hydrated="false">
+  <p class="demo-row"><span class="demo-tag">counter · {{data.framework}}</span></p>
+  <p class="demo-row">
+    <output class="demo-title">{{data.start}}</output>
+  </p>
+  <p class="demo-muted">Server HTML only: a Handlebars template has no code in the browser, so there is no button to press.</p>
+</section>

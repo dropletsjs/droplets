@@ -1,0 +1,13 @@
+# Workers Static Assets: the headers of the files the Worker never sees
+# (wrangler.jsonc sends /index.js and /droplets/* to the Worker first;
+# everything else that is a file is served as one, free of invocations).
+#
+# /assets/* holds the entry client, its chunks and the stylesheets, named by
+# their content. The docs import the scripts as modules from another
+# origin, so they need CORS; a stylesheet needs none, but one value for the
+# folder is simpler. Only the docs' origin: local runs use the Node server,
+# whose `cors` option allows the localhost origins.
+/assets/*
+  Access-Control-Allow-Origin: https://dropletsjs.dev
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff

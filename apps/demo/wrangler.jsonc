@@ -1,0 +1,31 @@
+// The demo droplets the docs embed, at https://demo.dropletsjs.dev.
+// Build with `pnpm --filter @dropletsjs/demo build:cloudflare`, then
+// `wrangler deploy` from this directory (apps/demo/README.md). The form
+// secret is a Worker secret: `wrangler secret put DROPLETS_SECRET`.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dropletsjs-demo",
+  "main": "dist/worker.js",
+  "compatibility_date": "2026-11-01",
+  // Svelte's server renderer uses AsyncLocalStorage from node:async_hooks.
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "dist/client",
+    "binding": "ASSETS",
+    // Only the routes whose path is also a file in dist/client go to the
+    // Worker first: /index.js (the file there is the bare entry import; the
+    // Worker serves the stub that records where it was loaded from) and
+    // /droplets/* (fragments, _data, actions, style.css, and client.js with
+    // CORS). Every other file, /assets/* above all, is served as a static
+    // asset without invoking the Worker, with public/_headers' headers. A
+    // path that is no file (/health, /droplets.json, /.vite/…, which
+    // .assetsignore keeps out of the upload) still reaches the Worker,
+    // which answers it or 404s.
+    "run_worker_first": ["/index.js", "/droplets/*"]
+  },
+  // Served only on the custom domain; no *.workers.dev or preview copies.
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "demo.dropletsjs.dev", "custom_domain": true }],
+  "observability": { "enabled": true }
+}
