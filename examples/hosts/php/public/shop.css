@@ -1,0 +1,250 @@
+/*
+ * The shop demo's page layout: header, hero, page grids and footer. Only the
+ * host's own markup is styled here; every droplet styles itself inside its
+ * <djs-shop> element. The same file sits in every host under
+ * examples/hosts/; keep the copies in step.
+ */
+:root {
+  --shop-brand: #5b3df5;
+  --shop-brand-soft: #efeafe;
+  --shop-coral: #ff5a4e;
+  --shop-ink: #15171c;
+  --shop-muted: #5d6370;
+  --shop-line: #e4e6eb;
+  --shop-paper: #ffffff;
+  --shop-soft: #f5f6f8;
+  --shop-radius: 16px;
+}
+
+body.shop {
+  margin: 0;
+  background: var(--shop-paper);
+  color: var(--shop-ink);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shop *,
+.shop ::before,
+.shop ::after {
+  box-sizing: border-box;
+}
+
+.shop-wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* Header: logo, nav, the cart badge droplet. Sticky, 64px. */
+.shop-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--shop-paper);
+  border-bottom: 1px solid var(--shop-line);
+}
+
+.shop-header > .shop-wrap {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-height: 64px;
+}
+
+.shop-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  color: var(--shop-ink);
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.shop-logo span {
+  color: var(--shop-brand);
+}
+
+.shop-nav {
+  display: flex;
+  gap: 4px;
+  margin: 0 auto;
+}
+
+.shop-nav a {
+  padding: 8px 16px;
+  border-radius: 999px;
+  color: var(--shop-muted);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.shop-nav a:hover {
+  color: var(--shop-ink);
+}
+
+.shop-nav a[aria-current="page"] {
+  background: var(--shop-brand-soft);
+  color: var(--shop-brand);
+}
+
+/* The badge is client-only: reserve its box so the header never shifts. */
+.shop-cart {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.shop-main {
+  min-height: 60vh;
+  padding-top: 24px;
+  padding-bottom: 64px;
+}
+
+/* /gallery */
+.shop-hero {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 160px;
+  margin-bottom: 24px;
+  padding: 32px;
+  border-radius: var(--shop-radius);
+  background: linear-gradient(120deg, #5b3df5 0%, #8b5cf6 55%, #ff5a4e 100%);
+  color: #ffffff;
+}
+
+.shop-hero h1 {
+  margin: 0;
+  font-size: 2.2rem;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.shop-hero p {
+  margin: 0.5rem 0 0;
+  opacity: 0.9;
+}
+
+.shop-gallery {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+
+/* /product/:slug */
+.shop-crumbs {
+  margin-bottom: 20px;
+  color: var(--shop-muted);
+  font-size: 0.9rem;
+}
+
+.shop-crumbs a {
+  color: var(--shop-muted);
+}
+
+.shop-crumbs [aria-current="page"] {
+  color: var(--shop-ink);
+  font-weight: 600;
+}
+
+.shop-comments {
+  margin-top: 48px;
+}
+
+/* /login: a 400px card, centred. */
+.shop-narrow {
+  max-width: 400px;
+  margin: 48px auto;
+}
+
+.shop-notice {
+  padding: 32px;
+  border: 1px solid var(--shop-line);
+  border-radius: var(--shop-radius);
+  text-align: center;
+}
+
+.shop-unavailable {
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: #ffe9e6;
+  color: #8a1c12;
+}
+
+/* Footer: the host stack in large type, the one thing that differs between hosts. */
+.shop-footer {
+  padding: 40px 0;
+  border-top: 1px solid var(--shop-line);
+  background: var(--shop-soft);
+}
+
+.shop-footer p {
+  margin: 0.25rem 0;
+  color: var(--shop-muted);
+}
+
+.shop-footer .shop-stack {
+  margin: 0 0 0.5rem;
+  color: var(--shop-ink);
+  font-size: clamp(2.25rem, 7vw, 4.5rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.shop-footer a {
+  color: var(--shop-ink);
+}
+
+@media (max-width: 760px) {
+  .shop-wrap {
+    padding: 0 16px;
+  }
+
+  .shop-header > .shop-wrap {
+    flex-wrap: wrap;
+    gap: 0 12px;
+    min-height: 56px;
+  }
+
+  .shop-logo {
+    min-height: 56px;
+  }
+
+  .shop-cart {
+    order: 2;
+    margin-left: auto;
+  }
+
+  .shop-nav {
+    order: 3;
+    width: 100%;
+    height: 40px;
+    margin: 0 0 4px -16px;
+  }
+
+  .shop-hero {
+    min-height: 120px;
+    padding: 20px;
+  }
+
+  .shop-hero h1 {
+    font-size: 1.5rem;
+  }
+
+  .shop-gallery {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .shop-narrow {
+    margin: 24px auto;
+  }
+}

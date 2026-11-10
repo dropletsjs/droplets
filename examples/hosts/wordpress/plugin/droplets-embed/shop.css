@@ -1,0 +1,103 @@
+/*
+ * The shop's pages inside the theme (Twenty Twenty-Five): only the markup
+ * the site's pages and template parts add around the droplets. Every
+ * droplet styles itself inside its <djs-shop> element. Colours and
+ * spacing come from the theme's presets where it has one.
+ */
+
+/* /gallery: the hero, then the filter beside the library. */
+.shop-hero {
+  margin-top: var(--wp--preset--spacing--40);
+  padding: var(--wp--preset--spacing--50);
+  border-radius: 16px;
+  background: linear-gradient(120deg, #5b3df5 0%, #8b5cf6 55%, #ff5a4e 100%);
+  color: #ffffff;
+}
+
+.shop-hero h1 {
+  margin: 0;
+  color: inherit;
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  line-height: 1.15;
+}
+
+.shop-hero p {
+  margin: 0.5rem 0 0;
+  opacity: 0.9;
+}
+
+.shop-gallery {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+  margin-block: var(--wp--preset--spacing--40) var(--wp--preset--spacing--60);
+}
+
+.shop-gallery > * {
+  margin-block: 0;
+}
+
+/* The header's cart badge: client-only, so its box is reserved. */
+.shop-cart {
+  display: flex;
+  align-items: center;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* /login: a 400px card, centred. */
+.shop-narrow {
+  max-width: 400px;
+  margin: var(--wp--preset--spacing--50) auto;
+}
+
+/* /product/<slug> */
+.shop-product {
+  margin-block: var(--wp--preset--spacing--40) var(--wp--preset--spacing--60);
+}
+
+.shop-crumbs {
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+}
+
+.shop-crumbs [aria-current="page"] {
+  font-weight: 600;
+}
+
+.shop-comments {
+  margin-top: 48px;
+}
+
+.shop-notice {
+  max-width: 400px;
+  margin: 48px auto;
+  padding: 32px;
+  border: 1px solid #e4e6eb;
+  border-radius: 16px;
+  text-align: center;
+}
+
+.shop-unavailable {
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: #ffe9e6;
+  color: #8a1c12;
+}
+
+/* The footer names the host, in large type, as on every host in examples/hosts/. */
+.shop-stack {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+@media (max-width: 760px) {
+  .shop-gallery {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+}

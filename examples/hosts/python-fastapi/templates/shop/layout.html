@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} · Droplets Shop on {{ stack }}</title>
+<link rel="stylesheet" href="/shop.css">
+{% for link in links -%}
+<link rel="{{ link.rel }}" href="{{ link.href }}"{% if link.as %} as="{{ link.as }}"{% endif %}>
+{% endfor -%}
+<script type="speculationrules">{"prefetch":[{"where":{"href_matches":"/product/*"},"eagerness":"moderate"}]}</script>
+<script type="module" src="/index.js"></script>
+</head>
+<body class="shop">
+{{ toasts }}
+<header class="shop-header"><div class="shop-wrap">
+<a class="shop-logo" href="/gallery"><span aria-hidden="true">◆</span> Droplets Shop</a>
+<nav class="shop-nav" aria-label="Shop">
+{%- for href, label in [("/gallery", "Gallery"), ("/admin", "Admin")] -%}
+<a href="{{ href }}"{% if href == current %} aria-current="page"{% endif %}>{{ label }}</a>
+{%- endfor -%}
+</nav>
+<div class="shop-cart">{{ cart }}</div>
+</div></header>
+<main class="shop-main shop-wrap">
+{% block main %}{% endblock %}
+</main>
+<footer class="shop-footer"><div class="shop-wrap">
+<p class="shop-stack">{{ stack }}</p>
+<p>Droplets demo shop · host: {{ stack }} · droplets: &lt;djs-shop&gt;</p>
+<p><a href="/gallery">Gallery</a> · <a href="/admin">Admin</a> · <a href="/">The Svelte example</a></p>
+</div></footer>
+</body>
+</html>

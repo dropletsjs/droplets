@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Droplets with htmx</title>
+  <!-- The same head on every page: a boosted link swaps only the <body>,
+       so whatever the next page needs is loaded already. -->
+  <!-- htmx 2 refuses requests to other origins unless told otherwise. -->
+  <meta name="htmx-config" content='{"selfRequestsOnly": false}'>
+  <script src="/vendor/htmx.min.js"></script>
+  <!-- Once per droplets server: each droplet element of that server, swapped
+       in now or later, loads its JavaScript, CSS and data from where its
+       /index.js came from. The Svelte example's, from its own origin: -->
+  <script type="module" src="http://localhost:8000/index.js"></script>
+  <!-- The shop's, through this site's proxy (nginx.conf): -->
+  <script type="module" src="/index.js"></script>
+</head>
+<body hx-boost="true" style="font-family: system-ui, sans-serif; background: #f8fafc; margin: 0; padding: 2rem;">
+  <main style="max-width: 48rem; margin: 0 auto;">
+    <h1>A static page, droplets by htmx</h1>
+    <p>
+      No server renders this page. htmx asks the droplets server for each
+      fragment and swaps it in; the element <code>/index.js</code> defined
+      hydrates it as it lands. The Svelte example's droplets, one per mode,
+      from another origin. The <a href="/shop">shop's droplets</a> have forms.
+    </p>
+
+    <!-- 1. As soon as the page loads. -->
+    <section id="on-load"
+             hx-get="http://localhost:8000/droplets/ssr-hydrate?who=htmx"
+             hx-trigger="load">
+      <p>Loading the server-rendered droplet…</p>
+    </section>
+
+    <!-- 2. When asked: the fragment replaces the target's content. -->
+    <section>
+      <button type="button" id="load-client"
+              hx-get="http://localhost:8000/droplets/client?who=Ana"
+              hx-target="#on-click">Load the client droplet</button>
+      <div id="on-click"></div>
+    </section>
+
+    <!-- 3. Only once it scrolls into view. -->
+    <div style="height: 120vh;" aria-hidden="true"></div>
+    <section id="on-reveal"
+             hx-get="http://localhost:8000/droplets/ssr-nohydrate?who=htmx"
+             hx-trigger="revealed">
+      <p>Scroll down to load the last one.</p>
+    </section>
+  </main>
+</body>
+</html>

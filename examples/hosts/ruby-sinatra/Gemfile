@@ -1,0 +1,6 @@
+source "https://rubygems.org"
+
+gem "sinatra", "~> 4.1"
+gem "rackup", "~> 2.2"
+# Pure Ruby server, so the slim Docker image needs no compiler.
+gem "webrick", "~> 1.9"

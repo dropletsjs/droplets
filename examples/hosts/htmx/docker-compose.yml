@@ -1,0 +1,47 @@
+# The published ports and the public URLs come from the environment, with
+# these defaults: WEB_PORT and WEB_URL (the htmx pages, :8010), DROPLETS_PORT
+# and DROPLETS_URL (the Svelte example's droplets server, :8000, which the
+# browser reaches directly). tests/hosts/run.mjs sets them for
+# HOSTS_PORT_BASE. The ports are published on 127.0.0.1 only.
+services:
+  # The Svelte example, on an origin of its own: the page's htmx asks it for
+  # fragments cross-origin. Its droplets.config.ts sets `cors: true`.
+  droplets:
+    build:
+      context: ../../..
+      dockerfile: examples/frameworks/Dockerfile
+    ports:
+      - "127.0.0.1:${DROPLETS_PORT:-8000}:8000"
+    environment:
+      # The pages that embed it: the `host` it accepts from their Origin.
+      DROPLETS_TRUSTED_ORIGINS: ${WEB_URL:-http://localhost:8010}
+
+  # The shop demo, behind nginx on the pages' own origin (/shop). Only nginx
+  # reaches it.
+  shop:
+    build:
+      context: ../../..
+      dockerfile: examples/shop/Dockerfile
+    expose:
+      - "8300"
+    environment:
+      # Demo values from examples/shop/.env.example. Never use them elsewhere.
+      ADMIN_USER: admin
+      ADMIN_PASSWORD: droplets
+      SHOP_SECRET: demo-only-secret-change-me-0123456789abcdef
+      # Signs a form result on the redirect back to the page (Post/Redirect/Get).
+      DROPLETS_SECRET: demo-only-droplets-secret-change-me-0123456789
+      # The public URL nginx sends as x-host, and the pages' form posts.
+      DROPLETS_TRUSTED_ORIGINS: ${WEB_URL:-http://localhost:8010}
+
+  # nginx.conf, html/ and htmx baked in (Dockerfile).
+  web:
+    build: .
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8010}:80"
+    environment:
+      SHOP_PUBLIC_URL: ${WEB_URL:-http://localhost:8010}
+      DROPLETS_PUBLIC_URL: ${DROPLETS_URL:-http://localhost:8000}
+    depends_on:
+      - droplets
+      - shop

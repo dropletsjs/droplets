@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Droplets in FastAPI</title>
+  <script type="module" src="{{ droplets_public_url }}/index.js"></script>
+</head>
+<body style="font-family: system-ui, sans-serif; background: #f8fafc; margin: 0; padding: 2rem;">
+  <main style="max-width: 48rem; margin: 0 auto;">
+    <h1>FastAPI page, three Svelte droplets</h1>
+    <p>Each fragment below was fetched by the Python process and rendered on the server.
+       Try <a href="/?who=Python">?who=Python</a>, or the <a href="/gallery">shop demo</a>.</p>
+    {% for fragment in fragments %}
+      {{ fragment }}
+    {% endfor %}
+  </main>
+</body>
+</html>

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><%= h(@shop[:title]) %> · Droplets Shop on <%= h(@shop[:stack]) %></title>
+<link rel="stylesheet" href="/shop.css">
+<%= @shop[:links] %>
+<script type="speculationrules">{"prefetch":[{"where":{"href_matches":"/product/*"},"eagerness":"moderate"}]}</script>
+<script type="module" src="/index.js"></script>
+</head>
+<body class="shop">
+<%= @shop[:toasts] %>
+<header class="shop-header"><div class="shop-wrap">
+<a class="shop-logo" href="/gallery"><span aria-hidden="true">◆</span> Droplets Shop</a>
+<nav class="shop-nav" aria-label="Shop"><% [["/gallery", "Gallery"], ["/admin", "Admin"]].each do |href, label| %><a href="<%= href %>"<%= ' aria-current="page"' if href == @shop[:current] %>><%= label %></a><% end %></nav>
+<div class="shop-cart"><%= @shop[:cart] %></div>
+</div></header>
+<main class="shop-main shop-wrap">
+<%= yield %>
+</main>
+<footer class="shop-footer"><div class="shop-wrap">
+<p class="shop-stack"><%= h(@shop[:stack]) %></p>
+<p>Droplets demo shop · host: <%= h(@shop[:stack]) %> · droplets: &lt;djs-shop&gt;</p>
+<p><a href="/gallery">Gallery</a> · <a href="/admin">Admin</a> · <a href="/">The Svelte example</a></p>
+</div></footer>
+</body>
+</html>

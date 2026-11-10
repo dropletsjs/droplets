@@ -1,0 +1,120 @@
+/*
+ * The Shop screen in wp-admin (shop-admin.php), enqueued there only. Every
+ * rule is under #droplets-shop-admin, the screen's own wrap: nothing here
+ * reaches the rest of wp-admin, and the droplet's own stylesheet is scoped
+ * to its <djs-shop> element by droplets.
+ *
+ * wp-admin styles bare elements and a few class names the droplet uses as
+ * well (`.wp-core-ui .button`, `.notice`, `.row-actions`, `p`, `b`, inputs), some with a higher
+ * specificity than the droplet's scoped rules. Inside the droplet, those
+ * are set back to what the droplet asks for, from its own custom
+ * properties (examples/wp-shop/src/app.css).
+ */
+
+#droplets-shop-admin .droplets-shop-admin-droplet {
+  max-width: 1100px;
+  margin-top: 16px;
+  padding: 16px 24px 24px;
+  border: 1px solid #c3c4c7;
+  border-radius: 4px;
+  background: #ffffff;
+  box-shadow: 0 1px 1px rgb(0 0 0 / 4%);
+}
+
+/*
+ * wp-admin's `p { font-size: 13px; line-height: 1.5 }`: the droplet's own
+ * size instead. As specific as wp-admin's rule
+ * (`:where`), and after it, so every class of the droplet still wins.
+ */
+:where(#droplets-shop-admin djs-shop) p {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* wp-admin's `b, strong { font-weight: 600 }`: the browser's own bold, as the droplet expects. */
+:where(#droplets-shop-admin djs-shop) :is(b, strong) {
+  font-weight: bolder;
+}
+
+/*
+ * wp-admin's list-table `.row-actions`: moved off screen (`left: -9999em`)
+ * until its row is hovered, greyed and small. The droplet's row actions
+ * (its Edit link) stay where the droplet puts them.
+ */
+#droplets-shop-admin djs-shop .row-actions {
+  position: static;
+  left: auto;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* `.wp-core-ui .button`, and its hover, focus and active states. */
+#droplets-shop-admin djs-shop .button,
+#droplets-shop-admin djs-shop .button:hover,
+#droplets-shop-admin djs-shop .button:focus,
+#droplets-shop-admin djs-shop .button:active {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 1.1em;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  box-shadow: none;
+  color: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  line-height: inherit;
+  vertical-align: baseline;
+  white-space: normal;
+  transform: none;
+}
+
+#droplets-shop-admin djs-shop .button.primary {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: var(--brand-ink);
+}
+
+#droplets-shop-admin djs-shop .button:disabled {
+  border-color: var(--grey-soft);
+  background: var(--grey-soft);
+  color: var(--grey);
+}
+
+#droplets-shop-admin djs-shop .button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--brand) 40%, transparent);
+  outline-offset: 2px;
+}
+
+/* wp-admin's text and number inputs: their colour, line height and focus ring. */
+#droplets-shop-admin djs-shop .field,
+#droplets-shop-admin djs-shop .field:focus {
+  height: auto;
+  min-height: 44px;
+  padding: 0.5em 0.8em;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: var(--paper);
+  box-shadow: none;
+  color: inherit;
+  line-height: inherit;
+}
+
+#droplets-shop-admin djs-shop .field:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--brand) 40%, transparent);
+  outline-offset: 2px;
+}
+
+/* `.notice` and `.wrap .notice`: wp-admin's boxed notice, its border and margins. */
+#droplets-shop-admin djs-shop .notice {
+  margin: 0;
+  padding: 0.6em 0.9em;
+  border: 0;
+  border-radius: var(--radius-small);
+  box-shadow: none;
+  font-size: 0.9rem;
+}

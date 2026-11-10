@@ -1,0 +1,10 @@
+{% extends "shop/layout.html" %}
+{% block main %}
+<nav class="shop-crumbs" aria-label="Breadcrumb">
+<a href="/gallery">Gallery</a> ›
+<a href="/gallery?category={{ category.slug | default('') | urlencode }}">{{ category.name | default('') }}</a> ›
+<span aria-current="page">{{ product.name }}</span>
+</nav>
+{{ fragments[0] }}
+<section class="shop-comments">{{ fragments[1] }}</section>
+{% endblock %}

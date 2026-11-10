@@ -1,0 +1,9 @@
+{
+  "name": "droplets-host-htmx",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A static htmx page that swaps droplets in: htmx is pinned here and copied into the nginx image (see the Dockerfile).",
+  "dependencies": {
+    "htmx.org": "2.0.11"
+  }
+}
