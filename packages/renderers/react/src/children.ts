@@ -1,6 +1,6 @@
 /**
  * The `children` prop of a React droplet: a React element that renders the
- * children marker, `<div data-app-children style="display: contents">`.
+ * children marker, `<div data-droplet-children style="display: contents">`.
  * Shared by the server and the browser, so the element trees match when
  * hydrating; it imports only `react`, so it is safe in the browser bundle.
  *
@@ -29,7 +29,7 @@ export function DropletChildren(): ReactElement {
     host.fill(marker);
     return () => host.empty(marker);
   }, [host]);
-  return createElement("div", { "data-app-children": "", style: { display: "contents" }, ref });
+  return createElement("div", { "data-droplet-children": "", style: { display: "contents" }, ref });
 }
 
 /** The `children` value handed to a component: one `<DropletChildren />`. */

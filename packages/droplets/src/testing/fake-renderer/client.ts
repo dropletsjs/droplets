@@ -34,7 +34,7 @@ function attach(
   context: ClientRenderContext,
 ): Instance {
   // When hydrating, the server's marker; when mounting, the one just written.
-  const marker = context.markers()[0] ?? target.querySelector("[data-app-children]");
+  const marker = context.markers()[0] ?? target.querySelector("[data-droplet-children]");
   if (marker) context.children.fill(marker);
   const attachFn = module["attach"];
   type Attach = (target: HTMLElement, props: RenderProps, context: ClientRenderContext) => (() => void) | undefined;

@@ -455,18 +455,18 @@ const response: Response = await droplets.fetch(new Request("http://localhost/dr
 | --- | --- | --- |
 | `data-droplet` | server, host | The droplet id. Unknown ids are left untouched. |
 | `data-params` | host | Plain JSON props. |
-| `data-context` | server, host | Base64 JSON `{ host, props }`, when no `[data-app-context]` is inlined. |
+| `data-context` | server, host | Base64 JSON `{ host, props }`, when no `[data-droplet-context]` is inlined. |
 | `data-hydrate` | host | `true`, `false`, `visible` or `interactive`: overrides the droplet's mode. |
 | `data-build` | server | The build that rendered it. |
 | `data-render-id` | server | The server render's id. |
 | `data-droplet-error` | server | The markup is the error page. |
 
-Children: `<script type="application/text" data-app-context>`,
-`<script type="application/text" data-app-data>`, `<link rel="stylesheet"
-data-app-style>` to the droplet's `style.css` (added by the element, with
-`<link rel="preload" data-app-preload>` for the stylesheets it imports, when
-the fragment brought none), `<div data-app-entry>` with the markup (created if
-missing), and the host's `<div data-app-slot>`. Nothing goes into `<head>`.
+Children: `<script type="application/text" data-droplet-context>`,
+`<script type="application/text" data-droplet-data>`, `<link rel="stylesheet"
+data-droplet-style>` to the droplet's `style.css` (added by the element, with
+`<link rel="preload" data-droplet-preload>` for the stylesheets it imports, when
+the fragment brought none), `<div data-droplet-entry>` with the markup (created if
+missing), and the host's `<div data-droplet-slot>`. Nothing goes into `<head>`.
 
 | Event | When |
 | --- | --- |

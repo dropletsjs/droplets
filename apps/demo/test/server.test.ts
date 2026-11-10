@@ -70,7 +70,7 @@ async function postWatched(path: string) {
 }
 
 const payload = (html: string, name: "data" | "context") => {
-  const encoded = html.match(new RegExp(`data-app-${name}>([^<]+)<`))?.[1];
+  const encoded = html.match(new RegExp(`data-droplet-${name}>([^<]+)<`))?.[1];
   return encoded ? JSON.parse(Buffer.from(encoded, "base64").toString("utf8")) : undefined;
 };
 
@@ -153,7 +153,7 @@ describe("the droplets", () => {
         expect(html).toMatch(/<output[^>]*>(?:<!--[^>]*-->)*3(?:<!--[^>]*-->)*<\/output>/);
         if (id === "handlebars") {
           // hydrate = false: no payload, no button, no bundle to fetch.
-          expect(html).not.toContain("data-app-data");
+          expect(html).not.toContain("data-droplet-data");
           expect(html).not.toContain("<button");
         } else {
           expect(payload(html, "data")).toEqual({ data: { framework, start: 3 } });
@@ -172,7 +172,7 @@ describe("the droplets", () => {
       const response = await call("/droplets/counter-script");
       expect(response.status).toBe(200);
       const html = await response.text();
-      expect(html).toContain('<div style="display: contents" data-app-entry></div>');
+      expect(html).toContain('<div style="display: contents" data-droplet-entry></div>');
       expect(html).not.toContain("Add one");
       expect(payload(html, "data")).toEqual({ data: { framework: "plain script", start: 3 } });
       expect((await call("/droplets/counter-script/client.js")).status).toBe(200);

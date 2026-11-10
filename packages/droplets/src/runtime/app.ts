@@ -1296,7 +1296,7 @@ export function createApp(options: AppOptions) {
     }
 
     const contextData = serializeBase64(ctx.wire);
-    const appContext = !ctx.noSSR && ctx.meta.ssr ? contextData : "";
+    const inlineContext = !ctx.noSSR && ctx.meta.ssr ? contextData : "";
     // Always an envelope, even around `undefined`: its presence tells the
     // client the server ran and `_data` is not needed. Client-only fragments
     // carry none, nor do components that never run in the browser.
@@ -1318,10 +1318,10 @@ export function createApp(options: AppOptions) {
         html,
         // Only server markup has an id to hydrate with.
         renderId: html ? renderId : undefined,
-        appData: hydrates && !ctx.clientOnly ? serializeBase64(envelope) : "",
-        appContext,
+        dropletData: hydrates && !ctx.clientOnly ? serializeBase64(envelope) : "",
+        dropletContext: inlineContext,
         // Without an inline script the client reads the context off the attribute.
-        contextAttr: appContext ? undefined : contextData,
+        contextAttr: inlineContext ? undefined : contextData,
         // The client hydrates the error page instead of the droplet.
         error: payload.failed === true,
         stylesheet: assets.stylesheet,

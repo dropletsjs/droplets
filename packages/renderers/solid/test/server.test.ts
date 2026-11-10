@@ -29,8 +29,8 @@ describe("render()", () => {
   it("renders the children marker exactly, without hydration attributes on it", () => {
     const html = render(hello, { data: { greeting: "Hello Ana!" } }, context("r1"));
     expect(html).toContain('<h1 data-testid="greeting">Hello Ana!</h1>');
-    expect(html).toContain('<div data-testid="children"><div data-app-children style="display: contents"></div></div>');
-    expect(html.match(/data-app-children/g)).toHaveLength(1);
+    expect(html).toContain('<div data-testid="children"><div data-droplet-children style="display: contents"></div></div>');
+    expect(html.match(/data-droplet-children/g)).toHaveLength(1);
   });
 
   it("keys the hydration ids by core's renderId, so droplets on one page never share keys", () => {
@@ -43,7 +43,7 @@ describe("render()", () => {
 
   it("renders an error page with several roots, each keyed", () => {
     const html = render(oops, { error: { message: "Sorry" } }, context("e1", "error"));
-    expect(html).toBe('<p data-hk="e100">Sorry</p><div data-hk="e101"><div data-app-children style="display: contents"></div></div>');
+    expect(html).toBe('<p data-hk="e100">Sorry</p><div data-hk="e101"><div data-droplet-children style="display: contents"></div></div>');
   });
 
   it("escapes what the loads return", () => {

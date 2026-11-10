@@ -30,6 +30,6 @@ export async function render(
   context: ServerRenderContext,
 ): Promise<string> {
   const component = componentOf(module, context);
-  const children = jsx("div", { "data-app-children": "", style: "display: contents" });
+  const children = jsx("div", { "data-droplet-children": "", style: "display: contents" });
   return String(await jsx(component, { ...props, children }).toString());
 }

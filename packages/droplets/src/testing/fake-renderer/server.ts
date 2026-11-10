@@ -18,7 +18,7 @@ export type FakeComponent = (
 ) => string;
 
 /** What `children()` outputs: the marker the element fills with the host's container. */
-export const MARKER = '<div data-app-children style="display: contents"></div>';
+export const MARKER = '<div data-droplet-children style="display: contents"></div>';
 
 export function render(
   module: ComponentModule,

@@ -64,19 +64,19 @@ const notes: Note[] = [
   {
     key: "part.inline",
     title: "Inline payloads",
-    text: "`data-app-context` carries the props and the host, `data-app-data` the load's result, both base64 JSON. Hydration reads them, so the browser asks for nothing more.",
+    text: "`data-droplet-context` carries the props and the host, `data-droplet-data` the load's result, both base64 JSON. Hydration reads them, so the browser asks for nothing more.",
     link: ["On connect", "guides/in-the-browser/#what-happens-on-connect"],
   },
   {
     key: "part.inline.error",
     title: "Inline payloads",
-    text: "`data-app-data` now holds `{ error }`, as `handleError` left it. The browser hydrates the error page from it.",
+    text: "`data-droplet-data` now holds `{ error }`, as `handleError` left it. The browser hydrates the error page from it.",
     link: ["Errors", "guides/errors/#errors-handleerror-and-error"],
   },
   {
     key: "part.markup",
     title: "Server markup",
-    text: "`+droplet.svelte`, rendered on the server into `data-app-entry`. In the browser it hydrates in place: at once, when visible, on first interaction, or never with `hydrate = false`.",
+    text: "`+droplet.svelte`, rendered on the server into `data-droplet-entry`. In the browser it hydrates in place: at once, when visible, on first interaction, or never with `hydrate = false`.",
     link: ["Flags", "guides/writing-droplets/#flags"],
   },
   {
@@ -161,14 +161,14 @@ const pieces = (text: string) => text.split("`").map((s, i) => ({ s, code: i % 2
           <span class="ax-a">data-render-id="dfks2s"</span><span data-show="error" hidden>{" "}<span class="ax-a ax-a-err">data-droplet-error</span></span><span class="ax-t">&gt;</span>
         </button>
 
-        <button type="button" class="ax-part ax-inline" data-part="inline" data-files={fileTargets(parts[1]!.from.ok)} aria-pressed="false" aria-label="Inline payloads: data-app-context and data-app-data">
-          <span class="ax-line"><span class="ax-t">&lt;script data-app-context&gt;</span><span class="ax-c">{"{ host, props }"}</span></span>
-          <span class="ax-line"><span class="ax-t">&lt;script data-app-data&gt;</span><span class="ax-c" data-show="ok">{"{ data }"}</span><span class="ax-c ax-c-err" data-show="error" hidden>{"{ error }"}</span></span>
+        <button type="button" class="ax-part ax-inline" data-part="inline" data-files={fileTargets(parts[1]!.from.ok)} aria-pressed="false" aria-label="Inline payloads: data-droplet-context and data-droplet-data">
+          <span class="ax-line"><span class="ax-t">&lt;script data-droplet-context&gt;</span><span class="ax-c">{"{ host, props }"}</span></span>
+          <span class="ax-line"><span class="ax-t">&lt;script data-droplet-data&gt;</span><span class="ax-c" data-show="ok">{"{ data }"}</span><span class="ax-c ax-c-err" data-show="error" hidden>{"{ error }"}</span></span>
         </button>
 
         <div class="ax-entry" data-part="markup" data-show="ok">
-          <button type="button" class="ax-part ax-entry-tag" data-part="markup" data-files={fileTargets(parts[2]!.from.ok)} aria-pressed="false" aria-label="data-app-entry: the server markup">
-            &lt;div data-app-entry&gt;
+          <button type="button" class="ax-part ax-entry-tag" data-part="markup" data-files={fileTargets(parts[2]!.from.ok)} aria-pressed="false" aria-label="data-droplet-entry: the server markup">
+            &lt;div data-droplet-entry&gt;
           </button>
           <div class="ax-ui">
             <p class="ax-hello">
@@ -184,7 +184,7 @@ const pieces = (text: string) => text.split("`").map((s, i) => ({ s, code: i % 2
 
         <div class="ax-entry ax-entry-err" data-show="error" hidden>
           <button type="button" class="ax-part ax-failed" data-part="failed" data-files={fileTargets(parts[5]!.from.error)} aria-pressed="false" aria-label="The error page, from +error.svelte">
-            <span class="ax-entry-label">&lt;div data-app-entry&gt;</span>
+            <span class="ax-entry-label">&lt;div data-droplet-entry&gt;</span>
             <span class="ax-err">
               <svg class="ax-warn" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5 18.5 17h-17z" /><path d="M10 8v4.2M10 14.2v.3" /></svg>
               <span>Something went wrong saying hello.</span>

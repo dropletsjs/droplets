@@ -8,7 +8,7 @@
  * The props of a droplet component: `data` from the loads, and `children`,
  * whatever the renderer uses to render the children marker in light DOM (a
  * Svelte snippet, a Vue component, a React node…). The element moves the
- * host's `<div data-app-slot>` container into the marker; it stays empty
+ * host's `<div data-droplet-slot>` container into the marker; it stays empty
  * when the host has none. Renderer packages export a
  * version with `Children` filled in, e.g. `DropletProps` from
  * `@dropletsjs/renderer-svelte` types `children` as a `Snippet`.

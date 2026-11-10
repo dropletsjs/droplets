@@ -68,7 +68,7 @@ describe("render()", () => {
   it("renders the component with data and the bare children marker, unscoped", async () => {
     const html = await render({ default: Scoped }, { data: { greeting: "Hi" } }, serverContext());
     expect(html).toBe(
-      `<section data-v-test><h1 data-v-test>Hi</h1><div class="kids" data-v-test><!--[--><div data-app-children style="display: contents"></div><!--]--></div></section>`,
+      `<section data-v-test><h1 data-v-test>Hi</h1><div class="kids" data-v-test><!--[--><div data-droplet-children style="display: contents"></div><!--]--></div></section>`,
     );
   });
 
@@ -112,7 +112,7 @@ describe("DropletChildren in the browser", () => {
     document.body.appendChild(target);
     const host = fakeHost();
     const app = mount({ default: Scoped }, target, { data: { greeting: "Hi" } }, clientContext(host));
-    const marker = target.querySelector<HTMLElement>("div.kids > [data-app-children]");
+    const marker = target.querySelector<HTMLElement>("div.kids > [data-droplet-children]");
     expect(marker).not.toBeNull();
     expect(marker?.style.display).toBe("contents");
     expect(marker?.hasAttribute("data-v-test")).toBe(false);
@@ -140,18 +140,18 @@ describe("DropletChildren in the browser", () => {
     const connected: boolean[] = [];
     host.empty.mockImplementation((marker) => connected.push(marker.isConnected));
     const app = mount({ default: Toggling }, target, { data: {} }, clientContext(host));
-    const first = target.querySelector("[data-app-children]");
+    const first = target.querySelector("[data-droplet-children]");
     expect(host.fill).toHaveBeenCalledWith(first);
 
     show.value = false;
     await nextTick();
     expect(host.empty).toHaveBeenCalledWith(first);
     expect(connected).toEqual([true]);
-    expect(target.querySelector("[data-app-children]")).toBeNull();
+    expect(target.querySelector("[data-droplet-children]")).toBeNull();
 
     show.value = true;
     await nextTick();
-    const second = target.querySelector("[data-app-children]");
+    const second = target.querySelector("[data-droplet-children]");
     expect(second).not.toBeNull();
     expect(second).not.toBe(first);
     expect(host.fill).toHaveBeenLastCalledWith(second);
@@ -163,7 +163,7 @@ describe("DropletChildren in the browser", () => {
     target.innerHTML = String(await render({ default: Scoped }, { data: { greeting: "Hi" } }, serverContext()));
     document.body.appendChild(target);
     // The element took the host's container out before hydrating: an empty marker.
-    const serverMarker = target.querySelector("[data-app-children]")!;
+    const serverMarker = target.querySelector("[data-droplet-children]")!;
     const host = fakeHost();
     const h1 = target.querySelector("h1");
     const app = hydrate({ default: Scoped }, target, { data: { greeting: "Hi" } }, clientContext(host, [serverMarker]));
@@ -171,7 +171,7 @@ describe("DropletChildren in the browser", () => {
     expect(host.fill).toHaveBeenCalledTimes(1);
     expect(host.fill).toHaveBeenCalledWith(serverMarker);
     expect(target.querySelector("h1")).toBe(h1);
-    expect(target.querySelector("[data-app-children]")).toBe(serverMarker);
+    expect(target.querySelector("[data-droplet-children]")).toBe(serverMarker);
     unmount(app);
   });
 

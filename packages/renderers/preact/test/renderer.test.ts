@@ -89,7 +89,7 @@ const serverContext = (kind: ServerRenderContext["kind"] = "droplet"): ServerRen
   actionUrl: () => "/droplets/hello",
 });
 
-const MARKER = `<div data-app-children style="display:contents;"></div>`;
+const MARKER = `<div data-droplet-children style="display:contents;"></div>`;
 
 /** `+droplet.tsx` as the fixture has it. */
 function Hello({ data, children }: { data: { greeting: string }; children?: ComponentChildren }): VNode {
@@ -181,7 +181,7 @@ describe("mount()", () => {
     const instance = mount({ default: Hello }, target, { data: { greeting: "Hi" } }, clientContext(host)) as PreactInstance;
 
     // Committed synchronously: the DOM is there when mount returns.
-    const marker = target.querySelector<HTMLElement>("[data-testid=children] > [data-app-children]");
+    const marker = target.querySelector<HTMLElement>("[data-testid=children] > [data-droplet-children]");
     expect(marker).not.toBeNull();
     expect(marker?.style.display).toBe("contents");
     expect(target.shadowRoot).toBeNull();
@@ -213,18 +213,18 @@ describe("mount()", () => {
     const connected: boolean[] = [];
     host.empty.mockImplementation((marker) => connected.push(marker.isConnected));
     const instance = mount({ default: Toggling }, target, { data: {} }, clientContext(host)) as PreactInstance;
-    const first = target.querySelector("[data-app-children]");
+    const first = target.querySelector("[data-droplet-children]");
     expect(host.fill).toHaveBeenCalledWith(first);
 
     toggle();
     await flush();
     expect(host.empty).toHaveBeenCalledWith(first);
     expect(connected).toEqual([true]);
-    expect(target.querySelector("[data-app-children]")).toBeNull();
+    expect(target.querySelector("[data-droplet-children]")).toBeNull();
 
     toggle();
     await flush();
-    const second = target.querySelector("[data-app-children]");
+    const second = target.querySelector("[data-droplet-children]");
     expect(second).not.toBeNull();
     expect(second).not.toBe(first);
     expect(host.fill).toHaveBeenLastCalledWith(second);
@@ -258,7 +258,7 @@ describe("mount()", () => {
     await mount({ default: Hello }, target, { data: Promise.reject(new Error("down")) }, context);
     expect(handle).toHaveBeenCalledTimes(1);
     expect(q(target, "error").textContent).toBe("handled down");
-    expect(target.querySelector("[data-testid=error-children] > [data-app-children]")).not.toBeNull();
+    expect(target.querySelector("[data-testid=error-children] > [data-droplet-children]")).not.toBeNull();
     expect(host.fill).toHaveBeenCalledTimes(1);
 
     const quiet = newTarget();
@@ -297,7 +297,7 @@ describe("mount()", () => {
     expect(handle).toHaveBeenCalledWith(expect.objectContaining({ message: "render failed" }));
     expect(q(target, "fragile")).toBeNull();
     expect(q(target, "error").textContent).toBe("Sorry");
-    expect(host.fill).toHaveBeenLastCalledWith(target.querySelector("[data-app-children]"));
+    expect(host.fill).toHaveBeenLastCalledWith(target.querySelector("[data-droplet-children]"));
     unmount(instance);
   });
 
@@ -312,7 +312,7 @@ describe("hydrate()", () => {
     const target = newTarget();
     target.innerHTML = String(render({ default: Hello }, { data: { greeting: "Hi" } }, serverContext()));
     // The element took the host's container out before hydrating: an empty marker.
-    const serverMarker = target.querySelector("[data-app-children]")!;
+    const serverMarker = target.querySelector("[data-droplet-children]")!;
     const order: string[] = [];
     const host: DropletChildrenHost = {
       fill: (marker) => order.push(`fill:${marker === serverMarker ? "same" : "other"}:${marker.isConnected}`),
@@ -327,8 +327,8 @@ describe("hydrate()", () => {
     expect(order).toEqual(["fill:same:true"]);
     expect(q(target, "greeting")).toBe(h1);
     expect(q(target, "count")).toBe(button);
-    expect(target.querySelector("[data-app-children]")).toBe(serverMarker);
-    expect(target.querySelectorAll("[data-app-children]")).toHaveLength(1);
+    expect(target.querySelector("[data-droplet-children]")).toBe(serverMarker);
+    expect(target.querySelectorAll("[data-droplet-children]")).toHaveLength(1);
 
     button.click();
     await flush();
@@ -345,7 +345,7 @@ describe("hydrate()", () => {
     const target = newTarget();
     target.innerHTML = String(render({ default: Oops }, { error: { message: "no" } }, serverContext("error")));
     const p = q(target, "error");
-    const marker = target.querySelector("[data-app-children]")!;
+    const marker = target.querySelector("[data-droplet-children]")!;
     const host = fakeHost();
     const instance = hydrate({ default: Oops }, target, { error: { message: "no" } }, clientContext(host, [marker], "error"));
     expect(q(target, "error")).toBe(p);

@@ -77,7 +77,7 @@ describe.skipIf(!hasDeno)("deno adapter", () => {
     expect(html).toContain('data-testid="greeting">Hello Deno!</h1>');
     expect(html.startsWith('<test-droplet data-droplet="hello"')).toBe(true);
     // Runtime secrets come from the process environment.
-    const data = html.match(/data-app-data>([^<]+)</)?.[1];
+    const data = html.match(/data-droplet-data>([^<]+)</)?.[1];
     expect(data && JSON.parse(Buffer.from(data, "base64").toString("utf8")).data).toMatchObject({ who: "Deno", secret: "from-deno" });
 
     const manifest = JSON.parse(await readFile(resolve(outDir, "client/droplets.json"), "utf8"));

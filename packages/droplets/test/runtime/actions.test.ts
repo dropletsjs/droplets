@@ -19,7 +19,7 @@ const ORIGIN = "http://drops.test";
 const decode = (b64: string) => JSON.parse(Buffer.from(b64, "base64").toString("utf8")) as unknown;
 /** The inline `{ data, form }` envelope of a fragment. */
 const envelope = (html: string): unknown => {
-  const match = html.match(/<script type="application\/text" data-app-data>([^<]*)<\/script>/);
+  const match = html.match(/<script type="application\/text" data-droplet-data>([^<]*)<\/script>/);
   return match?.[1] ? decode(match[1]) : undefined;
 };
 

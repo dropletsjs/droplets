@@ -18,7 +18,7 @@ import { html, unsafeStatic } from "lit/static-html.js";
 export function hostTemplate(tag: string, props: RenderProps, actionUrl: ActionUrl): TemplateResult {
   const element = unsafeStatic(tag);
   if ("error" in props) {
-    return html`<${element} .error=${props.error}><div data-app-children style="display: contents"></div></${element}>`;
+    return html`<${element} .error=${props.error}><div data-droplet-children style="display: contents"></div></${element}>`;
   }
-  return html`<${element} .data=${props.data} .form=${props.form} .actionUrl=${actionUrl}><div data-app-children style="display: contents"></div></${element}>`;
+  return html`<${element} .data=${props.data} .form=${props.form} .actionUrl=${actionUrl}><div data-droplet-children style="display: contents"></div></${element}>`;
 }

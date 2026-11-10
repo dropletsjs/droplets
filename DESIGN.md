@@ -325,7 +325,7 @@ must satisfy each rule below, and test it:
   `document.baseURI`, matches the droplet's location by exact origin and path
   (`<location>/droplets/<id>`), never a prefix; `formaction` on the submitter
   wins over the form's `action`. Forms inside the host's slot content
-  (`[data-app-slot]`) and inside a nested droplet belong to someone else and
+  (`[data-droplet-slot]`) and inside a nested droplet belong to someone else and
   are left alone; so are submits with a `target` other than `_self` or that
   another listener already `preventDefault()`ed. Cross-origin hosts: the
   `FormData` fetch is a simple request, so the host's origin must be in

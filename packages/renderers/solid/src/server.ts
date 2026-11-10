@@ -17,7 +17,7 @@ import { renderToString, ssr } from "solid-js/web";
  * key it gives the root of a compiled template. A function, like its browser
  * counterpart, so a component can treat `children` the same on both sides.
  */
-const children = () => ssr('<div data-app-children style="display: contents"></div>');
+const children = () => ssr('<div data-droplet-children style="display: contents"></div>');
 
 function componentOf(module: ComponentModule, context: ServerRenderContext): Component<Record<string, unknown>> {
   const component = module.default;

@@ -268,7 +268,7 @@ function hostOf(form: HTMLFormElement): DropletFormHost | null {
   const candidate = host as Partial<DropletFormHost>;
   if (typeof candidate.actionTarget !== "function" || typeof candidate.updateForm !== "function") return null;
   // The host page's children, in their container: someone else's form.
-  const slot = closestThrough(form, "[data-app-slot]");
+  const slot = closestThrough(form, "[data-droplet-slot]");
   if (slot && host.contains(slot)) return null;
   return host as DropletFormHost;
 }

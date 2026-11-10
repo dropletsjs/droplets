@@ -138,7 +138,7 @@ describe("djs add", () => {
     for (const name of ["script-plain", "script-loaded"]) {
       const response = await get(`/droplets/${name}?who=Cy`);
       expect(response.status, name).toBe(200);
-      expect(await response.text()).toMatch(/<div style="display: contents" data-app-entry><\/div><\/[a-z-]+>$/);
+      expect(await response.text()).toMatch(/<div style="display: contents" data-droplet-entry><\/div><\/[a-z-]+>$/);
       expect((await get(`/droplets/${name}/client.js`)).status, name).toBe(200);
     }
     expect(await stylesheet("/droplets/script-loaded/style.css")).toContain("font-family");

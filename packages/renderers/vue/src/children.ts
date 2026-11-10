@@ -12,7 +12,7 @@
  * </template>
  * ```
  *
- * It renders the children marker, `<div data-app-children style="display: contents">`,
+ * It renders the children marker, `<div data-droplet-children style="display: contents">`,
  * on the server and in the browser, where it tells the element to fill it
  * once mounted and to empty it in `onBeforeUnmount`, which Vue runs before
  * it removes the DOM. The element's callbacks reach it through app-level
@@ -46,6 +46,6 @@ export const DropletChildren = defineComponent({
     onBeforeUnmount(() => {
       if (host && marker.value) host.empty(marker.value);
     });
-    return () => [h("div", { "data-app-children": "", style: "display: contents", ref: marker })];
+    return () => [h("div", { "data-droplet-children": "", style: "display: contents", ref: marker })];
   },
 });

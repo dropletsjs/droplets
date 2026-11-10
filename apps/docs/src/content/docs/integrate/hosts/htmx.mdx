@@ -74,7 +74,7 @@ the document, since `/index.js` defined it, and the element does what it
 does on any page:
 
 - it links its stylesheet inside itself (the fragment's
-  `<link data-app-style>`) and waits for it before it mounts, so the markup
+  `<link data-droplet-style>`) and waits for it before it mounts, so the markup
   never shows unstyled;
 - it hydrates as the droplet says: `ssr-hydrate` hydrates at once, `client`
   renders in the browser and fetches its data, `ssr-nohydrate` stays server

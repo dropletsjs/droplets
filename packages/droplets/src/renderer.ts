@@ -24,8 +24,8 @@
  *   `handleError`, `entries`, `transform`), then `+droplet.ts` (`props`
  *   schema, `load`, `handleError`), then asks the renderer's
  *   {@link RendererServerModule.render} for HTML. The result is wrapped in
- *   the custom element with the inline payloads (`data-app-data`,
- *   `data-app-context`) and served as the fragment at `/droplets/<id>`.
+ *   the custom element with the inline payloads (`data-droplet-data`,
+ *   `data-droplet-context`) and served as the fragment at `/droplets/<id>`.
  * - Builds one browser bundle per droplet (`/droplets/<id>/client.js`),
  *   generated from a template that imports the component, the
  *   `+droplet.ts` module and the renderer's {@link RendererClientModule}.
@@ -50,7 +50,7 @@
  *   at the environment, not at `vite build` vs `vite dev`.
  * - Renders a component to HTML on the server with `{ data }` (droplet) or
  *   `{ error }` (error page) plus a `children` value that outputs the
- *   marker `<div data-app-children style="display: contents"></div>` where
+ *   marker `<div data-droplet-children style="display: contents"></div>` where
  *   the component renders its children.
  * - Mounts or hydrates a component in the browser with the same props, where
  *   `children` renders the same marker in light DOM and reports it to the
@@ -62,14 +62,14 @@
  * ## Children, in detail
  *
  * A host puts its children in one container, a direct child of the element:
- * `<djs-droplet data-droplet="hello"><div data-app-slot>…children…</div></djs-droplet>`,
+ * `<djs-droplet data-droplet="hello"><div data-droplet-slot>…children…</div></djs-droplet>`,
  * in the page or appended to a fetched fragment. The element's direct
  * children are exactly that container, the payload scripts and the content
  * root; anything else is removed at connect. The component receives a
  * `children` value and renders it where it wants the host's content:
  *
  * - On the server, `children` must produce one empty element carrying
- *   `data-app-children` and `style="display: contents"`, the marker. Nothing
+ *   `data-droplet-children` and `style="display: contents"`, the marker. Nothing
  *   else, in particular no text: the element finds it by the attribute.
  * - In the browser, `children` must render the same marker (light DOM, not
  *   shadow DOM) and call `context.children.fill(marker)` once it is connected
@@ -199,7 +199,7 @@
  *   };
  * }
  *
- * const MARKER = '<div data-app-children style="display: contents"></div>';
+ * const MARKER = '<div data-droplet-children style="display: contents"></div>';
  *
  * // server.ts — `RendererServerModule`
  * export function render(module, props) {
@@ -208,7 +208,7 @@
  *
  * // client.ts — `RendererClientModule`
  * function attach(module, target, props, context) {
- *   const marker = target.querySelector("[data-app-children]");
+ *   const marker = target.querySelector("[data-droplet-children]");
  *   if (marker) context.children.fill(marker);
  *   const cleanup = module.attach?.(target, props);
  *   return { cleanup, marker, target, context };
@@ -336,7 +336,7 @@ export type ServerRenderOutput = string | { html: string; head?: string };
 export type RendererServerModule = {
   /**
    * Renders `module`'s component with `props` plus a `children` value that
-   * outputs the marker `<div data-app-children style="display: contents"></div>`.
+   * outputs the marker `<div data-droplet-children style="display: contents"></div>`.
    * May be async (top-level `await` in components, streaming engines
    * collected to a string).
    */
@@ -345,7 +345,7 @@ export type RendererServerModule = {
 
 /**
  * The element's callbacks for the `children` value of a component. The
- * renderer calls them on the `[data-app-children]` marker its `children`
+ * renderer calls them on the `[data-droplet-children]` marker its `children`
  * renders.
  */
 export type DropletChildrenHost = {

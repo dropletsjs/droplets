@@ -12,4 +12,4 @@
   export { marker };
 </script>
 
-{#snippet marker()}<div data-app-children style="display: contents" use:fill out:release|global></div>{/snippet}
+{#snippet marker()}<div data-droplet-children style="display: contents" use:fill out:release|global></div>{/snippet}

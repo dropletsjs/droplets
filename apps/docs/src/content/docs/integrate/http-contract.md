@@ -37,10 +37,10 @@ default tag name):
 
 ```html
 <djs-droplet data-droplet="hello" data-build="36a187" data-render-id="dfks2s">
-  <script type="application/text" data-app-context>eyJ1cmwiOi…</script>
-  <script type="application/text" data-app-data>eyJkYXRhIjp7…</script>
-  <link rel="stylesheet" href="https://drops.example.com/droplets/hello/style.css?c=36a187" data-app-style>
-  <div style="display: contents" data-app-entry>
+  <script type="application/text" data-droplet-context>eyJ1cmwiOi…</script>
+  <script type="application/text" data-droplet-data>eyJkYXRhIjp7…</script>
+  <link rel="stylesheet" href="https://drops.example.com/droplets/hello/style.css?c=36a187" data-droplet-style>
+  <div style="display: contents" data-droplet-entry>
     <h1>Hello Ana!</h1>
   </div>
 </djs-droplet>
@@ -52,15 +52,15 @@ default tag name):
 | `data-build` | The build that rendered it; see [deploys while a page is open](/guides/errors/#deploys-while-a-page-is-open). |
 | `data-render-id` | The id of this server render, for engines that key hydration by it. |
 | `data-droplet-error` | Present when the markup is the error page. |
-| `data-context` | The context as an attribute, when there is no inline `data-app-context`. |
-| `data-app-context` | Base64 JSON `{ host, props }`, after the props schema: where it renders, and its props. Sent back when the browser needs `_data`. |
-| `data-app-data` | Base64 JSON envelope, `{ "data": … }` or `{ "error": … }`. Its presence tells the browser the server load ran. Absent for droplets that never hydrate and for `clientOnly`. |
-| `link[data-app-style]` | The droplet's `style.css`, inside the element, ahead of its markup, so the markup never shows unstyled and nothing goes into the host's `<head>`. Absent when the droplet has no styles. |
-| `[data-app-entry]` | The server-rendered markup. The browser hydrates it in place. |
+| `data-context` | The context as an attribute, when there is no inline `data-droplet-context`. |
+| `data-droplet-context` | Base64 JSON `{ host, props }`, after the props schema: where it renders, and its props. Sent back when the browser needs `_data`. |
+| `data-droplet-data` | Base64 JSON envelope, `{ "data": … }` or `{ "error": … }`. Its presence tells the browser the server load ran. Absent for droplets that never hydrate and for `clientOnly`. |
+| `link[data-droplet-style]` | The droplet's `style.css`, inside the element, ahead of its markup, so the markup never shows unstyled and nothing goes into the host's `<head>`. Absent when the droplet has no styles. |
+| `[data-droplet-entry]` | The server-rendered markup. The browser hydrates it in place. |
 
-A host adds its own content as one `<div data-app-slot>` before the closing
+A host adds its own content as one `<div data-droplet-slot>` before the closing
 tag; see [Host children](/guides/in-the-browser/#host-children). Hand-written
-`data-app-data` must use the envelope.
+`data-droplet-data` must use the envelope.
 
 Once `/index.js` has run on the page, every element takes care of itself; see
 [In the browser](/guides/in-the-browser/). The markup never says where to load

@@ -4,7 +4,7 @@ import { dropletElement } from "../../src/runtime/page.ts";
 const base = {
   element: "djs-droplet",
   droplet: "hello",
-  appData: "",
+  dropletData: "",
   html: "<p>hi</p>",
 };
 
@@ -13,16 +13,16 @@ describe("dropletElement", () => {
     const out = String(await dropletElement(base));
     expect(out).toBe(
       '<djs-droplet data-droplet="hello">' +
-        '<div style="display: contents" data-app-entry><p>hi</p></div></djs-droplet>',
+        '<div style="display: contents" data-droplet-entry><p>hi</p></div></djs-droplet>',
     );
   });
 
   it("inlines context and data payloads as text scripts", async () => {
     const out = String(
-      await dropletElement({ ...base, appContext: "Y3R4", appData: "ZGF0YQ==" }),
+      await dropletElement({ ...base, dropletContext: "Y3R4", dropletData: "ZGF0YQ==" }),
     );
-    expect(out).toContain('<script type="application/text" data-app-context>Y3R4</script>');
-    expect(out).toContain('<script type="application/text" data-app-data>ZGF0YQ==</script>');
+    expect(out).toContain('<script type="application/text" data-droplet-context>Y3R4</script>');
+    expect(out).toContain('<script type="application/text" data-droplet-data>ZGF0YQ==</script>');
   });
 
   it("stamps the build and marks error pages", async () => {
@@ -43,13 +43,13 @@ describe("dropletElement", () => {
   it("puts the context on an attribute when asked", async () => {
     const out = String(await dropletElement({ ...base, contextAttr: "Y3R4" }));
     expect(out).toContain(' data-context="Y3R4"');
-    expect(out).not.toContain("data-app-context");
+    expect(out).not.toContain("data-droplet-context");
   });
 
   it("links the stylesheet inside the element, right before the content root, escaped", async () => {
     const out = String(await dropletElement({ ...base, stylesheet: 'http://x.test/droplets/hello/style.css?c=1&"' }));
     expect(out).toContain(
-      '<link rel="stylesheet" href="http://x.test/droplets/hello/style.css?c=1&amp;&quot;" data-app-style><div style="display: contents" data-app-entry>',
+      '<link rel="stylesheet" href="http://x.test/droplets/hello/style.css?c=1&amp;&quot;" data-droplet-style><div style="display: contents" data-droplet-entry>',
     );
     expect(String(await dropletElement(base))).not.toContain("<link");
   });

@@ -126,7 +126,7 @@ describe("<djs-droplet>", () => {
     );
     await tick();
     expect(el.innerHTML).toBe("<p>ssr</p>");
-    expect(el.querySelector("[data-app-entry]")).toBeNull();
+    expect(el.querySelector("[data-droplet-entry]")).toBeNull();
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(document.head.querySelector('link[href*="drops.test"]')).toBeNull();
   });
@@ -135,10 +135,10 @@ describe("<djs-droplet>", () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
     mount(
-      '<djs-droplet data-droplet="clock"><div data-app-entry><p>1</p></div></djs-droplet>',
+      '<djs-droplet data-droplet="clock"><div data-droplet-entry><p>1</p></div></djs-droplet>',
     );
     mount(
-      '<djs-droplet data-droplet="clock"><div data-app-entry><p>2</p></div></djs-droplet>',
+      '<djs-droplet data-droplet="clock"><div data-droplet-entry><p>2</p></div></djs-droplet>',
     );
     await tick();
 
@@ -276,7 +276,7 @@ describe("<djs-droplet>", () => {
     );
     await tick();
     expect(String(error.mock.calls[0]?.[0])).toContain("failed to render droplet");
-    expect(el.querySelector("[data-app-entry]")?.childNodes.length).toBe(0);
+    expect(el.querySelector("[data-droplet-entry]")?.childNodes.length).toBe(0);
   });
 
   it("does not call _data for a droplet without a server load", async () => {
@@ -346,7 +346,7 @@ describe("<djs-droplet>", () => {
     expect(fake.handleError).not.toHaveBeenCalled();
     expect(fake.renderError).not.toHaveBeenCalled();
     expect(String(error.mock.calls[0]?.[1])).toContain("Invalid props");
-    expect(el.querySelector("[data-app-entry]")?.childNodes.length).toBe(0);
+    expect(el.querySelector("[data-droplet-entry]")?.childNodes.length).toBe(0);
   });
 
   it("shows +error.svelte for a { error } from _data, through handleError", async () => {
@@ -384,7 +384,7 @@ describe("<djs-droplet>", () => {
       expect(fake.unmount).toHaveBeenCalledOnce();
       expect(fake.handleError).not.toHaveBeenCalled();
       expect(fake.renderError).not.toHaveBeenCalled();
-      expect(el.querySelector("[data-app-entry]")?.childNodes.length).toBe(0);
+      expect(el.querySelector("[data-droplet-entry]")?.childNodes.length).toBe(0);
     }
     expect(error).toHaveBeenCalled();
   });
@@ -410,21 +410,21 @@ describe("<djs-droplet>", () => {
       handleError: vi.fn(async () => Promise.reject(new Error("handler broke"))),
     });
     const a = mount(
-      '<djs-droplet data-droplet="plain"><div data-app-entry><p>ssr</p></div></djs-droplet>',
+      '<djs-droplet data-droplet="plain"><div data-droplet-entry><p>ssr</p></div></djs-droplet>',
     );
     await tick();
     expect(throwing.renderError).not.toHaveBeenCalled();
-    expect(a.querySelector("[data-app-entry]")?.childNodes.length).toBe(0);
+    expect(a.querySelector("[data-droplet-entry]")?.childNodes.length).toBe(0);
 
     fakeModule({
       load: vi.fn(async () => Promise.reject(new Error("x"))),
       renderError: vi.fn(() => null),
     });
     const b = mount(
-      '<djs-droplet data-droplet="plain"><div data-app-entry><p>ssr</p></div></djs-droplet>',
+      '<djs-droplet data-droplet="plain"><div data-droplet-entry><p>ssr</p></div></djs-droplet>',
     );
     await tick();
-    expect(b.querySelector("[data-app-entry]")?.childNodes.length).toBe(0);
+    expect(b.querySelector("[data-droplet-entry]")?.childNodes.length).toBe(0);
   });
 
   it("hydrates a server-rendered error page from the inline error", async () => {
@@ -433,8 +433,8 @@ describe("<djs-droplet>", () => {
     const fake = fakeModule({ handleError: vi.fn(async () => ({ message: "[hello] Sorry" })) });
     const el = mount(
       '<djs-droplet data-droplet="hello" data-droplet-error>' +
-        `<script type="application/text" data-app-data>${encode({ error: { message: "Sorry" } })}</script>` +
-        '<div data-app-entry><p>[hello] Sorry</p></div></djs-droplet>',
+        `<script type="application/text" data-droplet-data>${encode({ error: { message: "Sorry" } })}</script>` +
+        '<div data-droplet-entry><p>[hello] Sorry</p></div></djs-droplet>',
     );
     await tick();
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -445,7 +445,7 @@ describe("<djs-droplet>", () => {
     const [target, shown] = fake.renderError.mock.calls[0] as unknown as [HTMLElement, unknown];
     expect(shown).toEqual({ message: "[hello] Sorry" });
     expect(target.innerHTML).toBe("<p>[hello] Sorry</p>");
-    expect(el.querySelector("[data-app-entry]")).toBe(target);
+    expect(el.querySelector("[data-droplet-entry]")).toBe(target);
   });
 
   it("leaves a server-rendered error page alone when it does not hydrate", async () => {
@@ -453,7 +453,7 @@ describe("<djs-droplet>", () => {
     const importSpy = vi.fn();
     mod.DjsDropletElement.importModule = importSpy as never;
     const el = mount(
-      '<djs-droplet data-droplet="clock" data-droplet-error><div data-app-entry><p>sorry</p></div></djs-droplet>',
+      '<djs-droplet data-droplet="clock" data-droplet-error><div data-droplet-entry><p>sorry</p></div></djs-droplet>',
     );
     await tick();
     // clock's +error.svelte does not hydrate: nothing loads, the markup stays.
@@ -469,7 +469,7 @@ describe("<djs-droplet>", () => {
     window.addEventListener("droplets:stale", listener);
     try {
       const el = mount(
-        '<djs-droplet data-droplet="hello" data-build="new999"><div data-app-entry><p>ssr</p></div></djs-droplet>',
+        '<djs-droplet data-droplet="hello" data-build="new999"><div data-droplet-entry><p>ssr</p></div></djs-droplet>',
       );
       await tick();
       expect(events).toHaveLength(1);
@@ -509,7 +509,7 @@ describe("<djs-droplet>", () => {
     // A deploy is not the droplet's fault: no error page.
     expect(fake.handleError).not.toHaveBeenCalled();
     expect(fake.renderError).not.toHaveBeenCalled();
-    expect(el.querySelector("[data-app-entry]")?.childNodes.length).toBe(0);
+    expect(el.querySelector("[data-droplet-entry]")?.childNodes.length).toBe(0);
   });
 
   it("hydrates with the load's promise fields settled, as the server rendered", async () => {
@@ -517,8 +517,8 @@ describe("<djs-droplet>", () => {
     const fake = fakeModule({ load: vi.fn(async () => ({ title: "Hi", comments: Promise.resolve(["a"]) })) });
     mount(
       '<djs-droplet data-droplet="hello">' +
-        `<script type="application/text" data-app-data>${encode({ data: {} })}</script>` +
-        "<div data-app-entry><p>ssr</p></div></djs-droplet>",
+        `<script type="application/text" data-droplet-data>${encode({ data: {} })}</script>` +
+        "<div data-droplet-entry><p>ssr</p></div></djs-droplet>",
     );
     await tick();
     const data = fake.default.mock.calls[0]?.[1];
@@ -552,9 +552,9 @@ describe("<djs-droplet>", () => {
 
     mount(
       `<djs-droplet data-droplet="hello">` +
-        `<script type="application/text" data-app-context>${encode({ host: "https://host.test/a", props: { page: 2 } })}</script>` +
-        `<script type="application/text" data-app-data>${encode({ data: { who: "Inline" } })}</script>` +
-        `<div data-app-entry><p>ssr</p></div></djs-droplet>`,
+        `<script type="application/text" data-droplet-context>${encode({ host: "https://host.test/a", props: { page: 2 } })}</script>` +
+        `<script type="application/text" data-droplet-data>${encode({ data: { who: "Inline" } })}</script>` +
+        `<div data-droplet-entry><p>ssr</p></div></djs-droplet>`,
     );
     await tick();
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -571,8 +571,8 @@ describe("<djs-droplet>", () => {
     const fake = fakeModule();
     mount(
       `<djs-droplet data-droplet="hello">` +
-        `<script type="application/text" data-app-data>${encode({})}</script>` +
-        `<div data-app-entry></div></djs-droplet>`,
+        `<script type="application/text" data-droplet-data>${encode({})}</script>` +
+        `<div data-droplet-entry></div></djs-droplet>`,
     );
     await tick();
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -585,17 +585,17 @@ type RenderInfo = import("../../src/runtime/entry-client.ts").DropletRenderInfo;
 type MarkerInstance = { marker: HTMLElement; host: ChildrenHost };
 
 /**
- * A module whose component renders its children: a `[data-app-children]`
+ * A module whose component renders its children: a `[data-droplet-children]`
  * marker the host fills, adopted when the server rendered one. `unmount`
  * does what Svelte does: the DOM goes first, the component's teardown runs
  * after.
  */
 function markerModule(overrides: Record<string, unknown> = {}) {
   const show = (target: HTMLElement, host: ChildrenHost, info?: RenderInfo): MarkerInstance => {
-    let marker = (info?.markers()[0] as HTMLElement | undefined) ?? target.querySelector<HTMLElement>("[data-app-children]");
+    let marker = (info?.markers()[0] as HTMLElement | undefined) ?? target.querySelector<HTMLElement>("[data-droplet-children]");
     if (!marker) {
       marker = document.createElement("div");
-      marker.setAttribute("data-app-children", "");
+      marker.setAttribute("data-droplet-children", "");
       target.appendChild(marker);
     }
     host.fill(marker);
@@ -614,18 +614,18 @@ function markerModule(overrides: Record<string, unknown> = {}) {
 
 /** The host's container, wherever it is in the element. */
 const containerOf = (el: HTMLElement) =>
-  Array.from(el.querySelectorAll<HTMLElement>("[data-app-slot]")).find((c) => c.closest("[data-droplet]") === el) ?? null;
+  Array.from(el.querySelectorAll<HTMLElement>("[data-droplet-slot]")).find((c) => c.closest("[data-droplet]") === el) ?? null;
 /** The container under the element, where it waits hidden. */
-const parkedIn = (el: HTMLElement) => el.querySelector<HTMLElement>(":scope > [data-app-slot]");
+const parkedIn = (el: HTMLElement) => el.querySelector<HTMLElement>(":scope > [data-droplet-slot]");
 /** The container inside the droplet's own marker. */
 const filledIn = (el: HTMLElement) =>
-  Array.from(el.querySelectorAll<HTMLElement>(":scope > [data-app-entry] [data-app-children] > [data-app-slot]"))
+  Array.from(el.querySelectorAll<HTMLElement>(":scope > [data-droplet-entry] [data-droplet-children] > [data-droplet-slot]"))
     .find((c) => c.closest("[data-droplet]") === el) ?? null;
 
 const ssrWithMarker = (droplet: string, extra = "") =>
   `<djs-droplet data-droplet="${droplet}"${extra}>` +
-  `<script type="application/text" data-app-data>${encode({ data: {} })}</script>` +
-  '<div data-app-entry><article><h1>ssr</h1><div data-app-children style="display: contents"></div></article></div>';
+  `<script type="application/text" data-droplet-data>${encode({ data: {} })}</script>` +
+  '<div data-droplet-entry><article><h1>ssr</h1><div data-droplet-children style="display: contents"></div></article></div>';
 
 describe("the droplet's stylesheet", () => {
   /** Holds back `load` and `error` of the droplet's `style.css` until the test lets them through. */
@@ -643,7 +643,7 @@ describe("the droplet's stylesheet", () => {
       }
     };
     vi.spyOn(HTMLLinkElement.prototype, "dispatchEvent").mockImplementation(function (this: HTMLLinkElement, event: Event) {
-      if (!releasing && this.hasAttribute("data-app-style") && (event.type === "load" || event.type === "error")) {
+      if (!releasing && this.hasAttribute("data-droplet-style") && (event.type === "load" || event.type === "error")) {
         held.push(() => release(this, event));
         return true;
       }
@@ -660,12 +660,12 @@ describe("the droplet's stylesheet", () => {
 
     const links = Array.from(el.querySelectorAll(":scope > link")).map((link) => link.outerHTML);
     expect(links).toEqual([
-      '<link rel="preload" as="style" href="http://drops.test/assets/Badge-1.css" data-app-preload="">',
-      '<link rel="preload" as="style" href="http://drops.test/assets/plain-2.css" data-app-preload="">',
-      '<link rel="stylesheet" href="http://drops.test/droplets/plain/style.css?c=test01" data-app-style="">',
+      '<link rel="preload" as="style" href="http://drops.test/assets/Badge-1.css" data-droplet-preload="">',
+      '<link rel="preload" as="style" href="http://drops.test/assets/plain-2.css" data-droplet-preload="">',
+      '<link rel="stylesheet" href="http://drops.test/droplets/plain/style.css?c=test01" data-droplet-style="">',
     ]);
     // Before the content root, nothing in <head> but the global stylesheet.
-    expect(el.querySelector(":scope > link[data-app-style] + [data-app-entry]")).not.toBeNull();
+    expect(el.querySelector(":scope > link[data-droplet-style] + [data-droplet-entry]")).not.toBeNull();
     expect(document.head.querySelector('link[href*="style.css"]')).toBeNull();
 
     // The bundle is there, the stylesheet is not: no mount yet.
@@ -685,7 +685,7 @@ describe("the droplet's stylesheet", () => {
     const el = mount('<djs-droplet data-droplet="plain"></djs-droplet>');
     await tick();
     expect(fake.default).not.toHaveBeenCalled();
-    fail(el.querySelector<HTMLLinkElement>(":scope > link[data-app-style]")!);
+    fail(el.querySelector<HTMLLinkElement>(":scope > link[data-droplet-style]")!);
     await tick();
     expect(fake.default).toHaveBeenCalledOnce();
   });
@@ -697,8 +697,8 @@ describe("the droplet's stylesheet", () => {
     const context = encode({ host: "https://host.test/", props: {} });
     const el = mount(
       `<djs-droplet data-droplet="plain" data-context="${context}">` +
-        '<link rel="stylesheet" href="http://drops.test/droplets/plain/style.css?c=test01" data-app-style>' +
-        '<div style="display: contents" data-app-entry></div></djs-droplet>',
+        '<link rel="stylesheet" href="http://drops.test/droplets/plain/style.css?c=test01" data-droplet-style>' +
+        '<div style="display: contents" data-droplet-entry></div></djs-droplet>',
     );
     await tick();
     expect(el.querySelectorAll(":scope > link")).toHaveLength(1);
@@ -706,7 +706,7 @@ describe("the droplet's stylesheet", () => {
     held.forEach((release) => release());
     await tick();
     expect(fake.default).toHaveBeenCalledOnce();
-    expect(el.querySelectorAll(":scope > link[data-app-style]")).toHaveLength(1);
+    expect(el.querySelectorAll(":scope > link[data-droplet-style]")).toHaveLength(1);
   });
 
   it("hydrates server markup without waiting for the stylesheet", async () => {
@@ -715,9 +715,9 @@ describe("the droplet's stylesheet", () => {
     const fake = fakeModule();
     mount(
       '<djs-droplet data-droplet="plain">' +
-        `<script type="application/text" data-app-data>${encode({ data: {} })}</script>` +
-        '<link rel="stylesheet" href="http://drops.test/droplets/plain/style.css?c=test01" data-app-style>' +
-        '<div style="display: contents" data-app-entry><p>ssr</p></div></djs-droplet>',
+        `<script type="application/text" data-droplet-data>${encode({ data: {} })}</script>` +
+        '<link rel="stylesheet" href="http://drops.test/droplets/plain/style.css?c=test01" data-droplet-style>' +
+        '<div style="display: contents" data-droplet-entry><p>ssr</p></div></djs-droplet>',
     );
     await tick();
     expect(fake.default).toHaveBeenCalledOnce();
@@ -732,24 +732,24 @@ describe("children", () => {
     const el = mount(
       '<djs-droplet data-droplet="plain">\n' +
         '  <p>loose</p> stray text <!-- note -->\n' +
-        `  <script type="application/text" data-app-context>${encode({ props: { a: 1 } })}</script>\n` +
-        '  <div data-app-slot><b>kid</b></div>\n</djs-droplet>',
+        `  <script type="application/text" data-droplet-context>${encode({ props: { a: 1 } })}</script>\n` +
+        '  <div data-droplet-slot><b>kid</b></div>\n</djs-droplet>',
     );
     // Synchronously at connect: the container, the payload, the content root
     // and the droplet's stylesheet with its preloads (plain has two), nothing else.
     const kinds = Array.from(el.childNodes).map((n) => (n as Element).localName + Array.from((n as Element).attributes ?? []).map((a) => `[${a.name}]`).join(""));
     expect(kinds.sort()).toEqual([
-      "div[data-app-entry][style]",
-      "div[data-app-slot][hidden]",
-      "link[rel][as][href][data-app-preload]",
-      "link[rel][as][href][data-app-preload]",
-      "link[rel][href][data-app-style]",
-      "script[type][data-app-context]",
+      "div[data-droplet-entry][style]",
+      "div[data-droplet-slot][hidden]",
+      "link[rel][as][href][data-droplet-preload]",
+      "link[rel][as][href][data-droplet-preload]",
+      "link[rel][href][data-droplet-style]",
+      "script[type][data-droplet-context]",
     ]);
     expect(el.querySelector("b")?.textContent).toBe("kid");
     // One warning per real node: the <p> and the text. Whitespace and the comment go quietly.
     expect(warn).toHaveBeenCalledTimes(2);
-    expect(String(warn.mock.calls[0]?.[0])).toContain("<div data-app-slot>");
+    expect(String(warn.mock.calls[0]?.[0])).toContain("<div data-droplet-slot>");
     await tick();
     expect(filledIn(el)?.innerHTML).toBe("<b>kid</b>");
   });
@@ -762,7 +762,7 @@ describe("children", () => {
       await new Promise<void>((r) => (release = r));
       return fake;
     }) as never;
-    const el = mount(`${ssrWithMarker("hello")}<div data-app-slot><p>kid</p></div></djs-droplet>`);
+    const el = mount(`${ssrWithMarker("hello")}<div data-droplet-slot><p>kid</p></div></djs-droplet>`);
     // Synchronously: in the marker, shown, the same node the host wrote.
     const container = filledIn(el);
     expect(container).not.toBeNull();
@@ -792,7 +792,7 @@ describe("children", () => {
         return { marker, host };
       }),
     });
-    const el = mount(`${ssrWithMarker("hello")}<div data-app-slot><p>kid</p></div></djs-droplet>`);
+    const el = mount(`${ssrWithMarker("hello")}<div data-droplet-slot><p>kid</p></div></djs-droplet>`);
     const container = filledIn(el)!;
     await tick();
     expect(fake.default).toHaveBeenCalledOnce();
@@ -812,8 +812,8 @@ describe("children", () => {
       });
       const el = mount(
         `<djs-droplet data-droplet="${droplet}">` +
-          `<script type="application/text" data-app-data>${encode({ data: {} })}</script>` +
-          '<div data-app-entry><p>ssr</p></div><div data-app-slot><p>kid</p></div></djs-droplet>',
+          `<script type="application/text" data-droplet-data>${encode({ data: {} })}</script>` +
+          '<div data-droplet-entry><p>ssr</p></div><div data-droplet-slot><p>kid</p></div></djs-droplet>',
       );
       const container = parkedIn(el);
       expect(container?.hidden, droplet).toBe(true);
@@ -829,11 +829,11 @@ describe("children", () => {
     markerModule({ default: vi.fn((_t: HTMLElement, _d: unknown, host: ChildrenHost) => ({ host })), unmount: vi.fn() });
     const nested =
       '<djs-droplet data-droplet="clock">' +
-      '<div data-app-entry><div data-app-children id="theirs"></div></div></djs-droplet>';
+      '<div data-droplet-entry><div data-droplet-children id="theirs"></div></div></djs-droplet>';
     const el = mount(
       '<djs-droplet data-droplet="hello">' +
-        `<script type="application/text" data-app-data>${encode({ data: {} })}</script>` +
-        `<div data-app-entry><section>${nested}</section></div><div data-app-slot><p>kid</p></div></djs-droplet>`,
+        `<script type="application/text" data-droplet-data>${encode({ data: {} })}</script>` +
+        `<div data-droplet-entry><section>${nested}</section></div><div data-droplet-slot><p>kid</p></div></djs-droplet>`,
     );
     expect(parkedIn(el)?.hidden).toBe(true);
     expect(el.querySelector("#theirs")?.childNodes.length).toBe(0);
@@ -845,7 +845,7 @@ describe("children", () => {
     vi.stubGlobal("fetch", vi.fn());
     markerModule();
     const el = mount(
-      '<djs-droplet data-droplet="plain">\n  <div data-app-slot><p>kid</p> <b>two</b></div>\n</djs-droplet>',
+      '<djs-droplet data-droplet="plain">\n  <div data-droplet-slot><p>kid</p> <b>two</b></div>\n</djs-droplet>',
     );
     // Synchronously, before anything loads: out of sight, still in the document.
     const container = parkedIn(el);
@@ -863,7 +863,7 @@ describe("children", () => {
     vi.stubGlobal("fetch", vi.fn());
     const fake = markerModule();
     const el = mount(
-      '<djs-droplet data-droplet="plain"><div data-app-slot><p>kid</p></div></djs-droplet>',
+      '<djs-droplet data-droplet="plain"><div data-droplet-slot><p>kid</p></div></djs-droplet>',
     );
     await tick();
     const { marker, host } = fake.default.mock.results[0]?.value as MarkerInstance;
@@ -879,8 +879,8 @@ describe("children", () => {
 
     // True again: a new marker.
     const next = document.createElement("div");
-    next.setAttribute("data-app-children", "");
-    el.querySelector("[data-app-entry]")?.appendChild(next);
+    next.setAttribute("data-droplet-children", "");
+    el.querySelector("[data-droplet-entry]")?.appendChild(next);
     host.fill(next);
     expect(container.parentNode).toBe(next);
     expect(container.hidden).toBe(false);
@@ -894,7 +894,7 @@ describe("children", () => {
       default: vi.fn((target: HTMLElement, _data: unknown, host: ChildrenHost) => {
         const fragment = document.createDocumentFragment();
         const marker = document.createElement("div");
-        marker.setAttribute("data-app-children", "");
+        marker.setAttribute("data-droplet-children", "");
         fragment.appendChild(marker);
         host.fill(marker);
         detached = marker;
@@ -904,7 +904,7 @@ describe("children", () => {
       }),
     });
     const el = mount(
-      '<djs-droplet data-droplet="plain"><div data-app-slot><p>kid</p></div></djs-droplet>',
+      '<djs-droplet data-droplet="plain"><div data-droplet-slot><p>kid</p></div></djs-droplet>',
     );
     await tick();
     expect(filledIn(el)?.parentElement).toBe(detached);
@@ -915,7 +915,7 @@ describe("children", () => {
     vi.stubGlobal("fetch", vi.fn());
     const fake = markerModule();
     const el = mount(
-      '<djs-droplet data-droplet="plain"><div data-app-slot><p>kid</p></div></djs-droplet>',
+      '<djs-droplet data-droplet="plain"><div data-droplet-slot><p>kid</p></div></djs-droplet>',
     );
     await tick();
     const container = containerOf(el)!;
@@ -969,13 +969,13 @@ describe("children", () => {
     for (const [name, arrange, droplet] of cases) {
       arrange();
       const el = mount(
-        `<djs-droplet data-droplet="${droplet}" data-params='{"page":"x"}'><div data-app-slot><p>kid</p><em>two</em></div></djs-droplet>`,
+        `<djs-droplet data-droplet="${droplet}" data-params='{"page":"x"}'><div data-droplet-slot><p>kid</p><em>two</em></div></djs-droplet>`,
       );
       const container = parkedIn(el);
       expect(container?.hidden, name).toBe(true);
       await tick();
       await tick();
-      expect(el.querySelector(":scope > [data-app-entry]")?.childNodes.length, name).toBe(0);
+      expect(el.querySelector(":scope > [data-droplet-entry]")?.childNodes.length, name).toBe(0);
       expect(parkedIn(el), name).toBe(container);
       expect(container?.hidden, name).toBe(false);
       expect(container?.innerHTML, name).toBe("<p>kid</p><em>two</em>");
@@ -991,7 +991,7 @@ describe("children", () => {
       handleError: vi.fn(async () => Promise.reject(new Error("broke"))),
     });
     const el = mount(
-      '<djs-droplet data-droplet="plain"><div data-app-slot><p>kid</p></div></djs-droplet>',
+      '<djs-droplet data-droplet="plain"><div data-droplet-slot><p>kid</p></div></djs-droplet>',
     );
     await tick();
     expect(parkedIn(el)?.hidden).toBe(false);
@@ -1007,11 +1007,11 @@ describe("children", () => {
     const fake = markerModule();
     const inner =
       '<djs-droplet data-droplet="clock">' +
-      `<script type="application/text" data-app-context>${encode({ host: "https://inner.test", props: { from: "inner" } })}</script>` +
-      `<script type="application/text" data-app-data>${encode({ data: { from: "inner" } })}</script>` +
-      '<div data-app-entry><p>inner</p></div><div data-app-slot><i>theirs</i></div></djs-droplet>';
+      `<script type="application/text" data-droplet-context>${encode({ host: "https://inner.test", props: { from: "inner" } })}</script>` +
+      `<script type="application/text" data-droplet-data>${encode({ data: { from: "inner" } })}</script>` +
+      '<div data-droplet-entry><p>inner</p></div><div data-droplet-slot><i>theirs</i></div></djs-droplet>';
     const el = mount(
-      `<djs-droplet data-droplet="plain" data-params='{"from":"outer"}'><div data-app-slot>${inner}</div></djs-droplet>`,
+      `<djs-droplet data-droplet="plain" data-params='{"from":"outer"}'><div data-droplet-slot>${inner}</div></djs-droplet>`,
     );
     await tick();
     const [target] = fake.default.mock.calls[0] as unknown as [HTMLElement];
@@ -1022,8 +1022,8 @@ describe("children", () => {
     // The nested droplet moved along, markup intact, its own container untouched.
     const nested = filledIn(el)?.firstElementChild as HTMLElement;
     expect(nested.dataset["droplet"]).toBe("clock");
-    expect(nested.querySelector("[data-app-entry]")?.innerHTML).toBe("<p>inner</p>");
-    expect(nested.querySelector(":scope > [data-app-slot]")?.innerHTML).toBe("<i>theirs</i>");
+    expect(nested.querySelector("[data-droplet-entry]")?.innerHTML).toBe("<p>inner</p>");
+    expect(nested.querySelector(":scope > [data-droplet-slot]")?.innerHTML).toBe("<i>theirs</i>");
   });
 
   it("moves with moveBefore where the browser has it, and re-inserts otherwise", async () => {
@@ -1039,7 +1039,7 @@ describe("children", () => {
     try {
       markerModule();
       const el = mount(
-        '<djs-droplet data-droplet="plain"><div data-app-slot><p>kid</p></div></djs-droplet>',
+        '<djs-droplet data-droplet="plain"><div data-droplet-slot><p>kid</p></div></djs-droplet>',
       );
       await tick();
       expect(filledIn(el)?.innerHTML).toBe("<p>kid</p>");
@@ -1049,7 +1049,7 @@ describe("children", () => {
       // The marker already left the document: moveBefore refuses, append stands in.
       const fake = markerModule();
       const other = mount(
-        '<djs-droplet data-droplet="plain"><div data-app-slot><p>kid</p></div></djs-droplet>',
+        '<djs-droplet data-droplet="plain"><div data-droplet-slot><p>kid</p></div></djs-droplet>',
       );
       await tick();
       const { marker, host } = fake.default.mock.results[0]?.value as MarkerInstance;
@@ -1069,7 +1069,7 @@ describe("leaving the document", () => {
     vi.stubGlobal("fetch", vi.fn());
     const fake = markerModule();
     const el = mount(
-      '<djs-droplet data-droplet="plain"><div data-app-slot><p>kid</p></div></djs-droplet>',
+      '<djs-droplet data-droplet="plain"><div data-droplet-slot><p>kid</p></div></djs-droplet>',
     );
     await tick();
     expect(fake.default).toHaveBeenCalledOnce();
@@ -1090,7 +1090,7 @@ describe("leaving the document", () => {
     vi.stubGlobal("fetch", vi.fn());
     const fake = markerModule();
     const el = mount(
-      '<djs-droplet data-droplet="plain"><div data-app-slot><p>kid</p></div></djs-droplet>',
+      '<djs-droplet data-droplet="plain"><div data-droplet-slot><p>kid</p></div></djs-droplet>',
     );
     await tick();
     const parent = el.parentElement!;
@@ -1284,8 +1284,8 @@ describe("clicks before hydration", () => {
 
   const ssr = (droplet: string, markup: string, extra = "") =>
     `<djs-droplet data-droplet="${droplet}"${extra}>` +
-    `<script type="application/text" data-app-data>${encode({ data: {} })}</script>` +
-    `<div data-app-entry>${markup}</div></djs-droplet>`;
+    `<script type="application/text" data-droplet-data>${encode({ data: {} })}</script>` +
+    `<div data-droplet-entry>${markup}</div></djs-droplet>`;
 
   it("holds clicks on server markup that hydrates, replays them in order, then steps aside", async () => {
     vi.stubGlobal("fetch", vi.fn());
@@ -1332,8 +1332,8 @@ describe("clicks before hydration", () => {
     expect(click(error.querySelector("#e")!)).toBe(true);
     await tick();
     expect(importSpy).toHaveBeenCalledOnce();
-    expect(clientOnly.querySelector("[data-app-entry]")).not.toBeNull();
-    expect(added.filter(([target, type]) => type === "click" && target instanceof Element && target.matches("[data-app-entry]"))).toEqual([]);
+    expect(clientOnly.querySelector("[data-droplet-entry]")).not.toBeNull();
+    expect(added.filter(([target, type]) => type === "click" && target instanceof Element && target.matches("[data-droplet-entry]"))).toEqual([]);
   });
 
   it("holds clicks on a server-rendered error page that hydrates", async () => {
@@ -1342,8 +1342,8 @@ describe("clicks before hydration", () => {
     const { fake, release } = slowModule({ renderError: listening(spy) });
     const el = mount(
       '<djs-droplet data-droplet="hello" data-droplet-error>' +
-        `<script type="application/text" data-app-data>${encode({ error: { message: "Sorry" } })}</script>` +
-        '<div data-app-entry><p>Sorry</p><button id="retry">0</button></div></djs-droplet>',
+        `<script type="application/text" data-droplet-data>${encode({ error: { message: "Sorry" } })}</script>` +
+        '<div data-droplet-entry><p>Sorry</p><button id="retry">0</button></div></djs-droplet>',
     );
     const retry = el.querySelector("#retry")!;
     expect(click(retry)).toBe(false);
@@ -1360,18 +1360,18 @@ describe("clicks before hydration", () => {
     const { release } = slowModule({ default: listening(spy) });
     const nested =
       '<djs-droplet data-droplet="clock">' +
-      '<div data-app-entry><button id="inner">inner</button></div></djs-droplet>';
+      '<div data-droplet-entry><button id="inner">inner</button></div></djs-droplet>';
     const el = mount(
-      ssr("hello", `<button id="own">own</button><div data-app-children></div>${nested}`).replace(
+      ssr("hello", `<button id="own">own</button><div data-droplet-children></div>${nested}`).replace(
         /<\/djs-droplet>$/,
-        '<div data-app-slot><button id="kid">kid</button></div></djs-droplet>',
+        '<div data-droplet-slot><button id="kid">kid</button></div></djs-droplet>',
       ),
     );
     const own = el.querySelector("#own")!;
     const kid = el.querySelector("#kid")!;
     const inner = el.querySelector("#inner")!;
     // The container moved into the marker at connect: the kid's click is still the host's.
-    expect(kid.closest("[data-app-children]")).not.toBeNull();
+    expect(kid.closest("[data-droplet-children]")).not.toBeNull();
     expect(click(own)).toBe(false);
     expect(click(kid)).toBe(true);
     expect(click(inner)).toBe(true);
@@ -1534,7 +1534,7 @@ describe("clicks before hydration", () => {
     expect(click(el.querySelector("#a")!)).toBe(false);
     release();
     await tick();
-    const root = el.querySelector("[data-app-entry]")!;
+    const root = el.querySelector("[data-droplet-entry]")!;
     expect(root.childNodes.length).toBe(0);
     // Whatever shows up in the root from now on is not held back.
     const later = document.createElement("button");
@@ -1549,21 +1549,21 @@ describe("dev remount", () => {
   const fragment = (droplet: string, markup: string, options: { data?: unknown; error?: boolean; ssr?: boolean; style?: string } = {}) =>
     `<djs-droplet data-droplet="${droplet}"` +
     `${options.ssr === false ? ` data-context="${encode(context)}"` : ""}${options.error ? " data-droplet-error" : ""}>` +
-    `${options.ssr === false ? "" : `<script type="application/text" data-app-context>${encode(context)}</script>`}` +
-    `${"data" in options ? `<script type="application/text" data-app-data>${encode(options.data)}</script>` : ""}` +
-    `${options.style ? `<link rel="stylesheet" href="${options.style}" data-app-style>` : ""}` +
-    `<div style="display: contents" data-app-entry>${markup}</div></djs-droplet>`;
+    `${options.ssr === false ? "" : `<script type="application/text" data-droplet-context>${encode(context)}</script>`}` +
+    `${"data" in options ? `<script type="application/text" data-droplet-data>${encode(options.data)}</script>` : ""}` +
+    `${options.style ? `<link rel="stylesheet" href="${options.style}" data-droplet-style>` : ""}` +
+    `<div style="display: contents" data-droplet-entry>${markup}</div></djs-droplet>`;
   const html = (body: string, status = 200) =>
     new Response(body, { status, headers: { "content-type": "text/html; charset=utf-8" } });
-  const withSlot = (source: string) => source.replace("</djs-droplet>", "<div data-app-slot><p>kid</p></div></djs-droplet>");
+  const withSlot = (source: string) => source.replace("</djs-droplet>", "<div data-droplet-slot><p>kid</p></div></djs-droplet>");
 
   it("asks for a server fragment again, with its context, and hydrates the new markup with the value", async () => {
     const fetchSpy = vi.fn(async () =>
-      html(fragment("plain", '<h1>v2</h1><div data-app-children style="display: contents"></div>', { data: { data: { v: 2 } } })),
+      html(fragment("plain", '<h1>v2</h1><div data-droplet-children style="display: contents"></div>', { data: { data: { v: 2 } } })),
     );
     vi.stubGlobal("fetch", fetchSpy);
     const fake = markerModule();
-    const el = mount(withSlot(fragment("plain", '<h1>v1</h1><div data-app-children style="display: contents"></div>', { data: { data: { v: 1 } } })));
+    const el = mount(withSlot(fragment("plain", '<h1>v1</h1><div data-droplet-children style="display: contents"></div>', { data: { data: { v: 1 } } })));
     await tick();
     const container = containerOf(el)!;
     expect(fake.default).toHaveBeenCalledOnce();
@@ -1580,7 +1580,7 @@ describe("dev remount", () => {
     expect(fake.default).toHaveBeenCalledTimes(2);
     expect(((await dataOf(fake, 1)) as unknown as { data: unknown }).data).toEqual({ v: 2 });
     expect(fake.default.mock.calls[1]?.[1]).not.toBeInstanceOf(Promise);
-    expect(el.querySelectorAll(":scope > [data-app-data]").length).toBe(1);
+    expect(el.querySelectorAll(":scope > [data-droplet-data]").length).toBe(1);
     expect(filledIn(el)).toBe(container);
   });
 
@@ -1595,13 +1595,13 @@ describe("dev remount", () => {
     const links = el.querySelectorAll<HTMLLinkElement>(":scope > link");
     expect(links).toHaveLength(1);
     expect(links[0]?.getAttribute("href")).toBe("http://drops.test/droplets/plain/style.css?c=v2");
-    expect(el.querySelector(":scope > link[data-app-style] + [data-app-entry]")).not.toBeNull();
+    expect(el.querySelector(":scope > link[data-droplet-style] + [data-droplet-entry]")).not.toBeNull();
   });
 
   it("mounts in the browser when the new fragment has no markup (ssr turned off)", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => html(fragment("plain", "", { data: { data: { v: 2 } }, ssr: false }))));
     const fake = markerModule();
-    const el = mount(fragment("plain", '<h1>v1</h1><div data-app-children style="display: contents"></div>', { data: { data: { v: 1 } } }));
+    const el = mount(fragment("plain", '<h1>v1</h1><div data-droplet-children style="display: contents"></div>', { data: { data: { v: 1 } } }));
     await tick();
 
     await el.update({ droplet: "plain" });
@@ -1626,7 +1626,7 @@ describe("dev remount", () => {
   it("unmounts and keeps the server markup when hydration is turned off, without reloading", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => html(fragment("plain", "<p>v2</p>"))));
     const fake = markerModule();
-    const el = mount(fragment("plain", '<p>v1</p><div data-app-children style="display: contents"></div>', { data: { data: {} } }));
+    const el = mount(fragment("plain", '<p>v1</p><div data-droplet-children style="display: contents"></div>', { data: { data: {} } }));
     await tick();
 
     await el.update({ droplet: "plain", hydrate: false });
@@ -1707,7 +1707,7 @@ describe("lazy hydrate", () => {
     vi.stubGlobal("IntersectionObserver", Observer);
     return made;
   }
-  const withSlot = (html: string) => `${html}<div data-app-slot><button id="kid">kid</button></div></djs-droplet>`;
+  const withSlot = (html: string) => `${html}<div data-droplet-slot><button id="kid">kid</button></div></djs-droplet>`;
 
   it("interactive: loads nothing until the first interaction with its own markup", async () => {
     vi.stubGlobal("fetch", vi.fn());
@@ -1796,7 +1796,7 @@ describe("what the dev tool sees", () => {
     markerModule();
     const waiting = mount(ssrWithMarker("plain", ' data-hydrate="interactive"') + "</djs-droplet>");
     const hydrated = mount(ssrWithMarker("plain") + "</djs-droplet>");
-    const fixed = mount('<djs-droplet data-droplet="clock"><div data-app-entry><p>1</p></div></djs-droplet>');
+    const fixed = mount('<djs-droplet data-droplet="clock"><div data-droplet-entry><p>1</p></div></djs-droplet>');
     const mounted = mount(`<djs-droplet data-droplet="hello" data-params='{"page":1}'></djs-droplet>`);
     await tick();
     await tick();

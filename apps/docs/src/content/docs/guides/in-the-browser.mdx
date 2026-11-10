@@ -87,7 +87,7 @@ framework re-ordering its parent) keeps its instance.
 ## Styles
 
 Nothing goes into the host's `<head>`. A fragment carries
-`<link rel="stylesheet" data-app-style>` to `/droplets/<id>/style.css` inside
+`<link rel="stylesheet" data-droplet-style>` to `/droplets/<id>/style.css` inside
 the element, ahead of its markup: the browser applies it before it paints that
 markup, and it stays with the element wherever the host moves it. It imports
 the shared stylesheet first, then the droplet's own; components shared by
@@ -182,12 +182,12 @@ nested droplet, belongs to them.
 
 A host can put content inside a droplet, and the component decides where it
 shows (`children` in each [renderer](/renderers/)). The host writes its
-content in **one** `<div data-app-slot>`, a direct child of the element:
+content in **one** `<div data-droplet-slot>`, a direct child of the element:
 
 ```html
 <djs-droplet data-droplet="card">
   <!-- … the fragment's own scripts and markup … -->
-  <div data-app-slot>
+  <div data-droplet-slot>
     <p>Anything the host renders, other droplets included.</p>
   </div>
 </djs-droplet>
@@ -198,7 +198,7 @@ closing tag:
 
 ```js
 const html = await (await fetch(`${DROPLETS}/droplets/card`)).text();
-const withChildren = html.replace(/<\/([a-z][\w-]*)>$/, `<div data-app-slot>${children}</div></$1>`);
+const withChildren = html.replace(/<\/([a-z][\w-]*)>$/, `<div data-droplet-slot>${children}</div></$1>`);
 ```
 
 - The server renders a marker where the component puts `children`. At connect,
@@ -213,7 +213,7 @@ const withChildren = html.replace(/<\/([a-z][\w-]*)>$/, `<div data-app-slot>${ch
   `moveBefore` where the browser has it).
 - The element's direct children are exactly the payload scripts, the
   droplet's stylesheet link (and the preloads the element adds with it), the
-  content root (`data-app-entry`) and that container. Anything else directly
+  content root (`data-droplet-entry`) and that container. Anything else directly
   under the element is removed at connect, with a warning in dev.
 
 ## Elements a host writes itself

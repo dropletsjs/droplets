@@ -19,8 +19,8 @@
  * });
  * ```
  *
- * The suite checks the children contract as well: the host's `<div data-app-slot>`
- * container shows inside the component's `[data-app-children]` marker before
+ * The suite checks the children contract as well: the host's `<div data-droplet-slot>`
+ * container shows inside the component's `[data-droplet-children]` marker before
  * the bundle loads, is the same node after hydration, and stays hidden under
  * the element when the server HTML has no marker.
  *
@@ -156,7 +156,7 @@ const decode = (b64: string): unknown =>
   JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))));
 
 /** The inline payload of a fragment, decoded; `undefined` when absent. */
-function payload(html: string, attribute: "data-app-data" | "data-app-context"): unknown {
+function payload(html: string, attribute: "data-droplet-data" | "data-droplet-context"): unknown {
   const match = html.match(new RegExp(`${attribute}>([^<]+)<`))?.[1];
   return match ? decode(match) : undefined;
 }
@@ -187,10 +187,10 @@ async function until(check: () => void | Promise<void>, timeout = 5000): Promise
 
 const tick = () => new Promise((r) => setTimeout(r, 20));
 
-/** The children marker as the engines print it: `data-app-children` may get `=""`, the style may be normalized. */
-const MARKER = /<div data-app-children(?:="")? style="display:\s*contents;?"><\/div>/;
+/** The children marker as the engines print it: `data-droplet-children` may get `=""`, the style may be normalized. */
+const MARKER = /<div data-droplet-children(?:="")? style="display:\s*contents;?"><\/div>/;
 /** The host's children, where the component rendered them. */
-const IN_MARKER = "[data-app-children] > [data-app-slot]";
+const IN_MARKER = "[data-droplet-children] > [data-droplet-slot]";
 
 /**
  * Clicks the count button until it answers: hydration is asynchronous and
@@ -329,7 +329,7 @@ export function rendererConformance(options: ConformanceOptions): void {
         expect(html).toMatch(/data-render-id="[a-z0-9]+"/);
         expect(html).toMatch(/<h1 data-testid="greeting">Hello Ana!<\/h1>/);
         // One empty marker, where the element puts the host's container.
-        expect(html.match(/data-app-children/g)).toHaveLength(1);
+        expect(html.match(/data-droplet-children/g)).toHaveLength(1);
         expect(html).toMatch(new RegExp(`data-testid="children"[^>]*>(\\s|<!--[^>]*-->)*${MARKER.source}`));
         expect(html.endsWith(`</div></${element}>`)).toBe(true);
 
@@ -340,8 +340,8 @@ export function rendererConformance(options: ConformanceOptions): void {
 
       it("inlines the server data and the context for the browser", async () => {
         const html = await (await get("/droplets/hello?who=Ana")).text();
-        expect(payload(html, "data-app-data")).toMatchObject({ data: { who: "Ana" } });
-        expect(payload(html, "data-app-context")).toEqual({ host: `${origin}/`, props: { who: "Ana" } });
+        expect(payload(html, "data-droplet-data")).toMatchObject({ data: { who: "Ana" } });
+        expect(payload(html, "data-droplet-context")).toEqual({ host: `${origin}/`, props: { who: "Ana" } });
         // `_data` answers the server load alone.
         const data = await post("/droplets/hello/_data", { props: { who: "Ana" } });
         expect(await data.json()).toMatchObject({ data: { who: "Ana" } });
@@ -355,7 +355,7 @@ export function rendererConformance(options: ConformanceOptions): void {
         expect(html).toMatch(/data-testid="error"[^>]*>\[hello\] Sorry, ref 42</);
         expect(html).toMatch(new RegExp(`data-testid="error-children"[^>]*>(\\s|<!--[^>]*-->)*${MARKER.source}`));
         // What left the server, before the handleError of +droplet.ts.
-        expect(payload(html, "data-app-data")).toEqual({ error: { message: "Sorry, ref 42" } });
+        expect(payload(html, "data-droplet-data")).toEqual({ error: { message: "Sorry, ref 42" } });
 
         // error() is an answer, not a failure: no error page.
         const missing = await get("/droplets/hello?who=nobody");
@@ -365,9 +365,9 @@ export function rendererConformance(options: ConformanceOptions): void {
 
       it("leaves a client-only droplet empty on the server", async () => {
         const html = await (await get("/droplets/frame")).text();
-        expect(html).not.toContain("data-app-children");
+        expect(html).not.toContain("data-droplet-children");
         expect(html).not.toContain("data-render-id");
-        expect(html).toContain('<div style="display: contents" data-app-entry></div>');
+        expect(html).toContain('<div style="display: contents" data-droplet-entry></div>');
         // The context travels as an attribute when nothing was rendered.
         expect(html).toMatch(/ data-context="/);
       });
@@ -402,7 +402,7 @@ export function rendererConformance(options: ConformanceOptions): void {
         expect(html).toContain("<h1>Page 2</h1>");
         expect(html).toContain("<p>host.test</p>");
         // The token, replaced by this request's host.
-        expect(payload(html, "data-app-data")).toMatchObject({
+        expect(payload(html, "data-droplet-data")).toMatchObject({
           data: { page: 2, building: true, home: "https://host.test/home" },
         });
         expect(html).not.toContain("DROPLET_");
@@ -416,19 +416,19 @@ export function rendererConformance(options: ConformanceOptions): void {
         const live = await liveAnswer.text();
         expect(live).toContain("<h1>Page 3</h1>");
         expect(live).toContain("<p>shop.test</p>");
-        expect(payload(live, "data-app-data")).toMatchObject({
+        expect(payload(live, "data-droplet-data")).toMatchObject({
           data: { page: 3, building: false, home: "https://shop.test/home" },
         });
 
         // A render for one host serves that host only.
         const fixed = await (await post("/droplets/docs", { host: "https://fixed.test/docs", props: { page: 5 } })).text();
-        expect(payload(fixed, "data-app-data")).toMatchObject({ data: { page: 5, building: true } });
+        expect(payload(fixed, "data-droplet-data")).toMatchObject({ data: { page: 5, building: true } });
         const other = await (await post("/droplets/docs", { host: "https://other.test/docs", props: { page: 5 } })).text();
-        expect(payload(other, "data-app-data")).toMatchObject({ data: { page: 5, building: false } });
+        expect(payload(other, "data-droplet-data")).toMatchObject({ data: { page: 5, building: false } });
 
         // Live, the whole of host is there.
         const ref = await (await post("/droplets/docs", { host: "https://host.test/docs?ref=r1", props: { page: 7 } })).text();
-        expect(payload(ref, "data-app-data")).toMatchObject({ data: { page: 7, ref: "r1" } });
+        expect(payload(ref, "data-droplet-data")).toMatchObject({ data: { page: 7, ref: "r1" } });
 
         expect((await get("/droplets/docs?page=x")).status).toBe(400);
 
@@ -439,7 +439,7 @@ export function rendererConformance(options: ConformanceOptions): void {
         const brokenHtml = await broken.text();
         expect(brokenHtml).toContain("data-droplet-error");
         expect(brokenHtml).toMatch(/data-testid="docs-error"[^>]*>This page is unavailable</);
-        expect(payload(brokenHtml, "data-app-data")).toEqual({ error: { message: "This page is unavailable" } });
+        expect(payload(brokenHtml, "data-droplet-data")).toEqual({ error: { message: "This page is unavailable" } });
       });
 
       it("stops prerendering a render that reads more of host than the build knows", async () => {
@@ -482,7 +482,7 @@ export function rendererConformance(options: ConformanceOptions): void {
         expect(html).toMatch(/data-testid="form"[^>]*>Thanks, Ana</);
         // The load ran again; the result goes with its data, for hydration.
         if (!byAttribute) {
-          expect(payload(html, "data-app-data")).toEqual({ data: { count: 1 }, form: { message: "Thanks, Ana" } });
+          expect(payload(html, "data-droplet-data")).toEqual({ data: { count: 1 }, form: { message: "Thanks, Ana" } });
         }
         expect(actionOf(html, "sign")).toBe(actionOn("/droplets/guestbook"));
         expect(html).not.toContain("noJS");
@@ -520,10 +520,10 @@ export function rendererConformance(options: ConformanceOptions): void {
           const html = await page.text();
           expect(html).toMatch(/data-testid="form"[^>]*>Thanks, Ana</);
           if (!byAttribute) {
-            expect(payload(html, "data-app-data")).toEqual({ data: { count: 1 }, form: { message: "Thanks, Ana" } });
+            expect(payload(html, "data-droplet-data")).toEqual({ data: { count: 1 }, form: { message: "Thanks, Ana" } });
           }
           // The app's code never sees it: the context the browser gets has the page without it.
-          expect((payload(html, "data-app-context") as { host?: string } | undefined)?.host ?? PAGE).toBe(PAGE);
+          expect((payload(html, "data-droplet-context") as { host?: string } | undefined)?.host ?? PAGE).toBe(PAGE);
           expect(html).not.toContain(key());
 
           // `_data` answers it too, for a droplet the browser renders.
@@ -685,7 +685,7 @@ export function rendererConformance(options: ConformanceOptions): void {
           expect(sheets.join("")).toContain("italic");
           // Linked inside the element, ahead of the markup, and announced.
           const href = `${origin}/droplets/static-note/style.css?c=${manifest.__hash}`;
-          expect(html).toContain(`<link rel="stylesheet" href="${href}" data-app-style><div style="display: contents" data-app-entry>`);
+          expect(html).toContain(`<link rel="stylesheet" href="${href}" data-droplet-style><div style="display: contents" data-droplet-entry>`);
           expect(res.headers.get("link")).toContain(`<${href}>; rel=preload; as=style`);
           // It never hydrates: no bundle to preload.
           expect(res.headers.get("link")).not.toContain("client.js");
@@ -740,7 +740,7 @@ export function rendererConformance(options: ConformanceOptions): void {
       const withChildren = async (path: string, kid: string) =>
         (await (await get(path)).text()).replace(
           new RegExp(`</${element}>$`),
-          `<div data-app-slot><p id="${kid}">from host</p></div></${element}>`,
+          `<div data-droplet-slot><p id="${kid}">from host</p></div></${element}>`,
         );
 
       /** Moves the test's window to `url`, as a page there would be: what `actionUrl()` reads in the browser. */
@@ -848,11 +848,11 @@ export function rendererConformance(options: ConformanceOptions): void {
         // docs hydrates, static-note never does; neither renders its children.
         for (const [path, kid] of [["/droplets/docs?page=3", "kid-docs"], ["/droplets/static-note", "kid-note"]]) {
           const el = mount(await withChildren(path!, kid!));
-          const container = el.querySelector<HTMLElement>(":scope > [data-app-slot]");
+          const container = el.querySelector<HTMLElement>(":scope > [data-droplet-slot]");
           expect(container, path).not.toBeNull();
           expect(container?.hidden, path).toBe(true);
           await settle();
-          expect(el.querySelector(":scope > [data-app-slot]"), path).toBe(container);
+          expect(el.querySelector(":scope > [data-droplet-slot]"), path).toBe(container);
           expect(container?.hidden, path).toBe(true);
           expect(document.querySelectorAll(`#${kid}`), path).toHaveLength(1);
         }
@@ -860,12 +860,12 @@ export function rendererConformance(options: ConformanceOptions): void {
 
       it("mounts a client-only droplet and moves the host's children into its marker", async () => {
         const el = mount(
-          `<${element} data-droplet="frame"><div data-app-slot><p id="kid-frame">from host</p></div></${element}>`,
+          `<${element} data-droplet="frame"><div data-droplet-slot><p id="kid-frame">from host</p></div></${element}>`,
         );
         // Nothing rendered yet: the container waits under the element, hidden.
-        expect(el.querySelector<HTMLElement>(":scope > [data-app-slot]")?.hidden).toBe(true);
-        await until(() => expect(el.querySelector(`[data-app-entry] [data-testid=frame] ${IN_MARKER} > #kid-frame`)).not.toBeNull());
-        expect(el.querySelector<HTMLElement>("[data-app-slot]")?.hidden).toBe(false);
+        expect(el.querySelector<HTMLElement>(":scope > [data-droplet-slot]")?.hidden).toBe(true);
+        await until(() => expect(el.querySelector(`[data-droplet-entry] [data-testid=frame] ${IN_MARKER} > #kid-frame`)).not.toBeNull());
+        expect(el.querySelector<HTMLElement>("[data-droplet-slot]")?.hidden).toBe(false);
         expect(document.querySelectorAll("#kid-frame")).toHaveLength(1);
         // Light DOM: no shadow root anywhere.
         expect(el.shadowRoot).toBeNull();

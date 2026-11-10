@@ -106,7 +106,7 @@ describe("the plugin in a Vite server, on the fixture", () => {
     const html = mod.default({ data: { greeting: "Hello Ana!", who: "Ana" } });
     expect(html).toContain('<h1 data-testid="greeting">Hello Ana!</h1>');
     expect(html).toContain('<p data-testid="shout">ANA</p>');
-    expect(html).toContain('<div data-testid="children"><div data-app-children style="display: contents"></div></div>');
+    expect(html).toContain('<div data-testid="children"><div data-droplet-children style="display: contents"></div></div>');
   });
 
   it("registers partials and helpers once, in the renderer's own environment", async () => {
@@ -154,7 +154,7 @@ describe("configurable partials and helpers", () => {
     const server = await devServer(root, { partials: "templates/parts", helpers: "lib/helpers.ts" });
     try {
       const mod = await load<{ default: Template }>(server, "/templates/page.hbs");
-      expect(mod.default({ data: { name: "new" } })).toBe('<b class="badge">new!</b><div data-app-children style="display: contents"></div>');
+      expect(mod.default({ data: { name: "new" } })).toBe('<b class="badge">new!</b><div data-droplet-children style="display: contents"></div>');
     } finally {
       await server.close();
     }

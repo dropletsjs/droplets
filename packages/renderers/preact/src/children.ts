@@ -1,6 +1,6 @@
 /**
  * The `children` prop of a Preact droplet: a vnode that renders the children
- * marker, `<div data-app-children style="display: contents">`. Shared by the
+ * marker, `<div data-droplet-children style="display: contents">`. Shared by the
  * server and the browser, so the trees match when hydrating; it imports only
  * `preact` and `preact/hooks`, so it is safe in the browser bundle.
  *
@@ -35,7 +35,7 @@ export function DropletChildren(): AnyVNode {
     host.fill(marker);
     return () => host.empty(marker);
   }, [host]);
-  return h("div", { "data-app-children": "", style: MARKER_STYLE, ref });
+  return h("div", { "data-droplet-children": "", style: MARKER_STYLE, ref });
 }
 
 /** The `children` value handed to a component: one `<DropletChildren />`. */

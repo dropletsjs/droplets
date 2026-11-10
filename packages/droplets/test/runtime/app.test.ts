@@ -9,7 +9,7 @@ import { locationScript } from "../../src/runtime/servers.ts";
 const decode = (b64: string) =>
   JSON.parse(Buffer.from(b64, "base64").toString("utf8")) as unknown;
 
-/** Pulls the inlined payload out of a `<script data-app-…>` tag. */
+/** Pulls the inlined payload out of a `<script data-droplet-…>` tag. */
 const payload = (html: string, attribute: string): unknown => {
   const match = html.match(
     new RegExp(`<script type="application/text" ${attribute}>([^<]*)</script>`),
@@ -315,7 +315,7 @@ describe("createApp: props and the load event", () => {
       headers: { referer: "https://shop.test/product/mug?ref=x" },
     })).text();
     expect(renderDroplet.mock.calls[0]?.[1].host.href).toBe("https://shop.test/product/mug?ref=x");
-    expect(payload(html, "data-app-context")).toEqual({ host: "https://shop.test/product/mug?ref=x", props: { who: "H" } });
+    expect(payload(html, "data-droplet-context")).toEqual({ host: "https://shop.test/product/mug?ref=x", props: { who: "H" } });
   });
 
   it("treats a malformed JSON body as no body, and never reads a POST's query as props", async () => {
@@ -362,8 +362,8 @@ describe("createApp: fragment", () => {
     expect(html).not.toContain("data-droplet-location");
     expect(html).not.toContain("<html");
     expect(html).toContain('<p>hello:{"who":"Ana"}</p>');
-    expect(payload(html, "data-app-context")).toEqual({ host: "http://drops.test/", props: { who: "Ana" } });
-    expect(payload(html, "data-app-data")).toEqual({ data: { name: "hello", props: { who: "Ana" } } });
+    expect(payload(html, "data-droplet-context")).toEqual({ host: "http://drops.test/", props: { who: "Ana" } });
+    expect(payload(html, "data-droplet-data")).toEqual({ data: { name: "hello", props: { who: "Ana" } } });
   });
 
   it("stamps the fragment and _data with the build that served them", async () => {
@@ -442,7 +442,7 @@ describe("createApp: fragment", () => {
     });
     const html = await (await app.request("/droplets/hello")).text();
     expect(Buffer.from(html).toString()).not.toContain("session-token");
-    expect(JSON.stringify(payload(html, "data-app-context"))).not.toContain("secret");
+    expect(JSON.stringify(payload(html, "data-droplet-context"))).not.toContain("secret");
   });
 
   it("404s unknown droplets and when the renderer returns null", async () => {
@@ -465,8 +465,8 @@ describe("createApp: fragment", () => {
     const { app } = fakeApp();
     const html = await (await app.request("/droplets/static")).text();
     expect(html).toContain("<p>static:{}</p>");
-    expect(html).not.toContain("data-app-data");
-    expect(html).toContain("data-app-context");
+    expect(html).not.toContain("data-droplet-data");
+    expect(html).toContain("data-droplet-context");
   });
 
   it("?noSSR runs the server load but renders nothing", async () => {
@@ -474,10 +474,10 @@ describe("createApp: fragment", () => {
     const html = await (await app.request("http://drops.test/droplets/hello?noSSR&who=X")).text();
     expect(renderDroplet).not.toHaveBeenCalled();
     expect(loadDropletData).toHaveBeenCalledOnce();
-    expect(html).toContain('<div style="display: contents" data-app-entry></div>');
-    expect(payload(html, "data-app-data")).toEqual({ data: { name: "hello", props: { who: "X" } } });
+    expect(html).toContain('<div style="display: contents" data-droplet-entry></div>');
+    expect(payload(html, "data-droplet-data")).toEqual({ data: { name: "hello", props: { who: "X" } } });
     // Without SSR the context travels on the attribute instead of a script.
-    expect(html).not.toContain("data-app-context");
+    expect(html).not.toContain("data-droplet-context");
     const attr = html.match(/ data-context="([^"]+)"/)?.[1];
     expect(attr && decode(attr)).toEqual({ host: "http://drops.test/", props: { who: "X" } });
   });
@@ -487,7 +487,7 @@ describe("createApp: fragment", () => {
     const html = await (await app.request("/droplets/hello?clientOnly")).text();
     expect(renderDroplet).not.toHaveBeenCalled();
     expect(loadDropletData).not.toHaveBeenCalled();
-    expect(html).not.toContain("data-app-data");
+    expect(html).not.toContain("data-droplet-data");
     expect(html).toContain(" data-context=");
   });
 
@@ -496,7 +496,7 @@ describe("createApp: fragment", () => {
     const html = await (await app.request("/droplets/spa")).text();
     expect(renderDroplet).not.toHaveBeenCalled();
     expect(loadDropletData).toHaveBeenCalledOnce();
-    expect(html).toContain("data-app-data");
+    expect(html).toContain("data-droplet-data");
   });
 
   it("answers error() from a droplet with its status and message", async () => {
@@ -523,7 +523,7 @@ describe("createApp: fragment", () => {
     expect(html.startsWith('<djs-droplet data-droplet="hello" data-build="abc123" data-droplet-error>')).toBe(true);
     expect(html).toContain('<style>.oops{}</style><p class="oops">Sorry</p>');
     // The error as it left the server: the browser hydrates +error.svelte with it.
-    expect(payload(html, "data-app-data")).toEqual({ error: { message: "Sorry" } });
+    expect(payload(html, "data-droplet-data")).toEqual({ error: { message: "Sorry" } });
     // With the droplet's props, for its action URLs.
     expect(renderError).toHaveBeenCalledWith("hello", { message: "Sorry" }, {});
   });
@@ -541,22 +541,22 @@ describe("createApp: fragment", () => {
       getDropletMeta: flags(false, true),
     });
     const a = await (await spa.app.request("/droplets/hello")).text();
-    expect(a).toContain("<div style=\"display: contents\" data-app-entry></div>");
+    expect(a).toContain("<div style=\"display: contents\" data-droplet-entry></div>");
     expect(a).toContain("data-droplet-error");
-    expect(payload(a, "data-app-data")).toEqual({ error: { message: "Sorry" } });
+    expect(payload(a, "data-droplet-data")).toEqual({ error: { message: "Sorry" } });
     expect(renderError).not.toHaveBeenCalled();
 
     // hydrate = false: markup only, nothing for the browser.
     const static_ = fakeApp({ renderDroplet: failed, renderError, getDropletMeta: flags(true, false) });
     const b = await (await static_.app.request("/droplets/hello")).text();
     expect(b).toContain("<p>error page</p>");
-    expect(b).not.toContain("data-app-data");
+    expect(b).not.toContain("data-droplet-data");
 
     // ?noSSR renders no markup; the error stays inline for the browser.
     const both = fakeApp({ renderDroplet: failed, renderError, loadDropletData: failed, getDropletMeta: flags(true, true) });
     const c = await (await both.app.request("/droplets/hello?noSSR")).text();
     expect(c).not.toContain("<p>error page</p>");
-    expect(payload(c, "data-app-data")).toEqual({ error: { message: "Sorry" } });
+    expect(payload(c, "data-droplet-data")).toEqual({ error: { message: "Sorry" } });
   });
 
 
@@ -919,7 +919,7 @@ describe("createApp: fragment styles and preloads", () => {
     const { app } = withEntry();
     const html = await (await app.request("http://drops.test/droplets/hello")).text();
     expect(html).toContain(
-      '<link rel="stylesheet" href="http://drops.test/droplets/hello/style.css?c=abc123" data-app-style><div style="display: contents" data-app-entry>',
+      '<link rel="stylesheet" href="http://drops.test/droplets/hello/style.css?c=abc123" data-droplet-style><div style="display: contents" data-droplet-entry>',
     );
     // Nothing to link for a droplet without styles.
     expect(await (await app.request("/droplets/other")).text()).not.toContain("<link");
@@ -970,7 +970,7 @@ describe("createApp: fragment styles and preloads", () => {
     const failed = await app.request("http://drops.test/droplets/hello");
     expect(failed.status).toBe(500);
     expect(failed.headers.get("link")).toContain("hello/client.js?c=abc123>; rel=modulepreload");
-    expect(await failed.text()).toContain("data-app-style");
+    expect(await failed.text()).toContain("data-droplet-style");
 
     const posted = await withEntry().app.request("http://drops.test/droplets/hello", {
       method: "POST",
@@ -978,7 +978,7 @@ describe("createApp: fragment styles and preloads", () => {
       body: JSON.stringify({ props: { who: "Body" } }),
     });
     expect(posted.headers.get("link")).toContain("style.css?c=abc123>; rel=preload; as=style");
-    expect(await posted.text()).toContain("data-app-style");
+    expect(await posted.text()).toContain("data-droplet-style");
 
     const prerendered = withEntry({
       getDropletMeta: () => ({ exists: true, ssr: true, hydrate: true, prerender: true }),
@@ -986,7 +986,7 @@ describe("createApp: fragment styles and preloads", () => {
     });
     const built = await prerendered.app.request("http://drops.test/droplets/hello");
     const html = await built.text();
-    expect(html).toContain('data-app-style><div style="display: contents" data-app-entry><p>built</p>');
+    expect(html).toContain('data-droplet-style><div style="display: contents" data-droplet-entry><p>built</p>');
     expect(built.headers.get("link")).toContain("style.css?c=abc123>; rel=preload; as=style");
   });
 
@@ -994,11 +994,11 @@ describe("createApp: fragment styles and preloads", () => {
     const off = withEntry({ linkHeader: false });
     const res = await off.app.request("http://drops.test/droplets/hello");
     expect(res.headers.get("link")).toBeNull();
-    expect(await res.text()).toContain("data-app-style");
+    expect(await res.text()).toContain("data-droplet-style");
 
     const unhashed = fakeApp({ buildHash: undefined });
     const html = await (await unhashed.app.request("http://drops.test/droplets/hello")).text();
-    expect(html).toContain('href="http://drops.test/droplets/hello/style.css" data-app-style');
+    expect(html).toContain('href="http://drops.test/droplets/hello/style.css" data-droplet-style');
   });
 });
 
@@ -1248,7 +1248,7 @@ describe("createApp: props schema", () => {
     const { app, renderDroplet } = fakeApp({ validateProps });
     const html = await (await app.request("/droplets/hello?page=2")).text();
     expect(renderDroplet.mock.calls[0]?.[1].props).toEqual({ page: 2 });
-    expect(payload(html, "data-app-context")).toMatchObject({ props: { page: 2 } });
+    expect(payload(html, "data-droplet-context")).toMatchObject({ props: { page: 2 } });
   });
 
   it("answers 400 as an endpoint does when the props do not match, before any load", async () => {
@@ -1280,7 +1280,7 @@ describe("createApp: inline data", () => {
     });
     const html = await (await app.request("/droplets/hello")).text();
     // Present, so the client knows not to ask _data.
-    expect(payload(html, "data-app-data")).toEqual({});
+    expect(payload(html, "data-droplet-data")).toEqual({});
   });
 });
 
@@ -1307,9 +1307,9 @@ describe("createApp: prerendered droplets", () => {
       body: JSON.stringify({ host: "https://host.test/docs", props: { page: 1 } }),
     })).text();
     expect(html).toContain("<p>page one</p>");
-    expect(payload(html, "data-app-data")).toEqual({ data: { page: 1 } });
+    expect(payload(html, "data-droplet-data")).toEqual({ data: { page: 1 } });
     // The context is this request's, not the build's.
-    expect(payload(html, "data-app-context")).toEqual({ host: "https://host.test/docs", props: { page: 1 } });
+    expect(payload(html, "data-droplet-context")).toEqual({ host: "https://host.test/docs", props: { page: 1 } });
     expect(renderDroplet).not.toHaveBeenCalled();
     expect(loadDropletData).not.toHaveBeenCalled();
   });
@@ -1356,7 +1356,7 @@ describe("createApp: prerendered droplets", () => {
     const html = await res.text();
     expect(html).toContain("data-droplet-error");
     expect(html).toContain("<p>unavailable</p>");
-    expect(payload(html, "data-app-data")).toEqual({ error: { message: "Unavailable" } });
+    expect(payload(html, "data-droplet-data")).toEqual({ error: { message: "Unavailable" } });
     const data = await app.request("/droplets/docs/_data", init);
     expect(data.status).toBe(500);
     expect(await data.json()).toEqual({ error: { message: "Unavailable" } });
@@ -1387,7 +1387,7 @@ describe("createApp: prerendered droplets", () => {
     expect(await (await request("https://fixed.test/docs?ref=1")).text()).toContain("<p>fixed</p>");
     const html = await (await request("https://shop.test/a&b")).text();
     expect(html).toContain('<a href="https://shop.test/x?to=%2Fa%26b">/a&amp;b</a>');
-    expect(payload(html, "data-app-data")).toEqual({ data: { home: "https://shop.test/home", path: "/a&b" } });
+    expect(payload(html, "data-droplet-data")).toEqual({ data: { home: "https://shop.test/home", path: "/a&b" } });
     // transform sees the HTML with the tokens already replaced.
     expect(transformDroplet.mock.calls[1]?.[1].html).not.toContain("DROPLET_");
   });
@@ -1405,7 +1405,7 @@ describe("createApp: prerendered droplets", () => {
       body: JSON.stringify({ host: "https://shop.test/p", props: { page: 1 } }),
     })).text();
     expect(html).toContain("<p>https://shop.test and __$DROPLET_HOST$__</p>");
-    expect(payload(html, "data-app-data")).toEqual({ data: { home: "https://shop.test/home", text: "__$DROPLET_PATH$__" } });
+    expect(payload(html, "data-droplet-data")).toEqual({ data: { home: "https://shop.test/home", text: "__$DROPLET_PATH$__" } });
   });
 
   it("replaces the location token with where this request reaches the server, never an untrusted x-host", async () => {
@@ -1426,7 +1426,7 @@ describe("createApp: prerendered droplets", () => {
 
     const own = await request({});
     expect(own).toContain('<form action="http://drops.test/droplets/docs?/add">');
-    expect(payload(own, "data-app-data")).toEqual({ data: { api: "http://drops.test/api" } });
+    expect(payload(own, "data-droplet-data")).toEqual({ data: { api: "http://drops.test/api" } });
     // Before transform, as for the host tokens.
     expect(transformDroplet.mock.calls[0]?.[1].html).toContain("http://drops.test/droplets/docs");
 

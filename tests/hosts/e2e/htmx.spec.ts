@@ -45,7 +45,7 @@ test("droplets swapped in by htmx", async ({ page, rec }) => {
   expect(fragment!.url().startsWith(`${DROPLETS}/`)).toBe(true);
   expect(fragment!.headers()["hx-request"]).toBe("true");
   const style = await svelte("ssr-hydrate").evaluate((element) => {
-    const link = element.querySelector<HTMLLinkElement>(":scope > link[data-app-style]");
+    const link = element.querySelector<HTMLLinkElement>(":scope > link[data-droplet-style]");
     return { href: link?.href ?? "", loaded: Boolean(link?.sheet), radius: getComputedStyle(element.querySelector("article")!).borderTopLeftRadius };
   });
   expect(style.href.startsWith(`${DROPLETS}/droplets/ssr-hydrate/style.css`)).toBe(true);

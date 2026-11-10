@@ -82,7 +82,7 @@ function createRenderId(): string {
 
 /**
  * Renders a component through its renderer. The `children` value the
- * component receives outputs the `[data-app-children]` marker, where the
+ * component receives outputs the `[data-droplet-children]` marker, where the
  * element puts the host's children in the browser; the renderer builds it.
  */
 async function renderWith(

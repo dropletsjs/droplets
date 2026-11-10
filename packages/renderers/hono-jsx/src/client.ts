@@ -54,7 +54,7 @@ function childrenOf(host: DropletChildrenHost): Child {
       host.fill(marker);
       return () => host.empty(marker);
     }, []);
-    return jsx("div", { ref, "data-app-children": "", style: "display: contents" });
+    return jsx("div", { ref, "data-droplet-children": "", style: "display: contents" });
   }
   return jsx(DropletChildren, {});
 }

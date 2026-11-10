@@ -22,7 +22,7 @@ const inline = /(?<=>)<script(?![^>]*\ssrc=)([^>]*)>([\s\S]*?)<\/script>/g;
 
 // Only scripts the browser runs need a hash: no type, a JavaScript type or
 // `module`. The payloads inside a live droplet's fragment
-// (`<script type="application/text" data-app-data>`) are data: CSP does
+// (`<script type="application/text" data-droplet-data>`) are data: CSP does
 // not apply to them, and they change with every build of the demo.
 const runs = (attributes) => {
   const type = /\stype=(["']?)([^"'\s>]*)\1/i.exec(attributes)?.[2]?.toLowerCase() ?? "";

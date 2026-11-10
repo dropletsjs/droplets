@@ -59,9 +59,9 @@ function clientModule(component: ComponentModule) {
 /** The fragment the server answers for a script droplet: the payloads and an empty content root. */
 const fragment = (id: string, data: unknown) =>
   `<djs-droplet data-droplet="${id}" data-build="test01">` +
-  `<script type="application/text" data-app-context>${encode({ host: "http://page.test/", props: {} })}</script>` +
-  `<script type="application/text" data-app-data>${encode({ data })}</script>` +
-  `<div style="display: contents" data-app-entry></div></djs-droplet>`;
+  `<script type="application/text" data-droplet-context>${encode({ host: "http://page.test/", props: {} })}</script>` +
+  `<script type="application/text" data-droplet-data>${encode({ data })}</script>` +
+  `<div style="display: contents" data-droplet-entry></div></djs-droplet>`;
 
 function place(html: string): HTMLElement[] {
   const wrapper = document.createElement("div");
@@ -70,7 +70,7 @@ function place(html: string): HTMLElement[] {
   return Array.from(wrapper.children) as HTMLElement[];
 }
 
-const entryOf = (element: Element) => element.querySelector<HTMLElement>(":scope > [data-app-entry]")!;
+const entryOf = (element: Element) => element.querySelector<HTMLElement>(":scope > [data-droplet-entry]")!;
 
 describe("a script droplet in the browser", () => {
   it("runs the default export with the load's data and the element's content root", async () => {

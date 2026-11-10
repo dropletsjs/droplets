@@ -162,13 +162,13 @@ test.describe("a script droplet: +droplet.script.ts, a page-view tracker", () =>
     const response = await request.get(`${dropletsOf(exampleOf())}/droplets/page-views?page=pricing`);
     expect(response.ok()).toBe(true);
     const html = await response.text();
-    expect(html).toContain('<div style="display: contents" data-app-entry></div>');
+    expect(html).toContain('<div style="display: contents" data-droplet-entry></div>');
     // CSP-clean: every script in it is a payload.
     expect(html.match(/<script\b[^>]*>/g)).toEqual([
-      '<script type="application/text" data-app-context>',
-      '<script type="application/text" data-app-data>',
+      '<script type="application/text" data-droplet-context>',
+      '<script type="application/text" data-droplet-data>',
     ]);
-    const data = html.match(/data-app-data>([^<]+)</)?.[1] ?? "";
+    const data = html.match(/data-droplet-data>([^<]+)</)?.[1] ?? "";
     expect(JSON.parse(Buffer.from(data, "base64").toString())).toEqual({ data: { page: "pricing", views: expect.any(Number) } });
     // The props schema runs before the load, as for any droplet.
     expect((await request.get(`${dropletsOf(exampleOf())}/droplets/page-views?page=..%2Fetc`)).status()).toBe(400);
@@ -182,7 +182,7 @@ test.describe("a script droplet: +droplet.script.ts, a page-view tracker", () =>
     await expect(trackers).toHaveCount(2);
     for (const tracker of await trackers.all()) {
       // One line per element, in its own content root.
-      const line = tracker.locator(":scope > [data-app-entry] > [data-testid='page-views']");
+      const line = tracker.locator(":scope > [data-droplet-entry] > [data-testid='page-views']");
       await expect(line).toHaveCount(1);
       await expect(line).toHaveAttribute("data-tracked", "yes");
       await expect(line).toHaveText(/^pricing: \d+ views$/);

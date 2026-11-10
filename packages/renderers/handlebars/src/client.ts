@@ -21,7 +21,7 @@ type Instance = {
 
 /** The template's own children markers in `target`, not those of a droplet nested in its markup. */
 export function markersIn(target: HTMLElement): Element[] {
-  return [...target.querySelectorAll("[data-app-children]")].filter((marker) => {
+  return [...target.querySelectorAll("[data-droplet-children]")].filter((marker) => {
     const owner = marker.closest("[data-droplet]");
     return !owner || !target.contains(owner);
   });

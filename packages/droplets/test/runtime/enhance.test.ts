@@ -209,7 +209,7 @@ describe("enhanceDropletForm", () => {
   });
 
   it("finds its droplet element from a component's shadow root (Lit)", async () => {
-    const host = mount(`<div data-app-entry><shadow-card></shadow-card></div>`);
+    const host = mount(`<div data-droplet-entry><shadow-card></shadow-card></div>`);
     const root = host.querySelector("shadow-card")!.attachShadow({ mode: "open" });
     root.innerHTML = `<form data-testid="sign" method="post" action="${OWN}"><input name="name" value="Ana"></form>`;
     const inShadow = root.querySelector("form")!;
@@ -223,7 +223,7 @@ describe("enhanceDropletForm", () => {
   it("leaves a form outside any droplet element, or in the host's children, alone", async () => {
     document.body.innerHTML =
       `<form data-testid="loose" method="post" action="${OWN}"></form>` +
-      `<enhance-host data-droplet="guestbook"><div data-app-slot><form data-testid="kid" method="post" action="${OWN}"></form></div></enhance-host>`;
+      `<enhance-host data-droplet="guestbook"><div data-droplet-slot><form data-testid="kid" method="post" action="${OWN}"></form></div></enhance-host>`;
     enhanceDropletForm(form("loose"));
     enhanceDropletForm(form("kid"));
     form("loose").requestSubmit();

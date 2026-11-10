@@ -139,7 +139,7 @@ import type { DevElementInfo, DevElementState, DevToolSource, DropletsDevTools }
 
 /**
  * What the element hands a component for its `children`: the renderer
- * renders a `[data-app-children]` marker and calls back when it is in the
+ * renders a `[data-droplet-children]` marker and calls back when it is in the
  * DOM and before it goes away. Defined with the renderer contract;
  * re-exported here.
  */
@@ -152,7 +152,7 @@ export type { DropletChildrenHost };
 export type DropletRenderInfo = {
   /** From `data-render-id`; absent for markup rendered without one. */
   renderId?: string | undefined;
-  /** This droplet's server-rendered `[data-app-children]` markers, excluding those of nested droplets. */
+  /** This droplet's server-rendered `[data-droplet-children]` markers, excluding those of nested droplets. */
   markers: () => Element[];
   /** For the renderer's error boundary, when the droplet mounts with `data` still to come. */
   handleError?: (error: unknown) => Promise<unknown>;
@@ -206,9 +206,9 @@ export { decodeBase64Json };
  * element is removed at connect.
  */
 const ALLOWED_CHILDREN =
-  "[data-app-entry],[data-app-context],[data-app-data],[data-app-slot],link[data-app-style],link[data-app-preload]";
+  "[data-droplet-entry],[data-droplet-context],[data-droplet-data],[data-droplet-slot],link[data-droplet-style],link[data-droplet-preload]";
 /** The droplet's `style.css`, linked inside the element. */
-const STYLE_LINK = "link[data-app-style]";
+const STYLE_LINK = "link[data-droplet-style]";
 /** What can hold focus in a droplet's markup, to put focus back after a form action renders it again. */
 const FOCUSABLE = "a[href],button,input,select,textarea,[tabindex]";
 
@@ -220,10 +220,10 @@ function stylesheetSettled(link: HTMLLinkElement): Promise<void> {
   });
 }
 
-/** The host's children: one `<div data-app-slot>` the host puts in the element. */
-const CONTAINER = "[data-app-slot]";
-/** Where a component renders its children: `<div data-app-children style="display: contents">`. */
-const MARKER = "[data-app-children]";
+/** The host's children: one `<div data-droplet-slot>` the host puts in the element. */
+const CONTAINER = "[data-droplet-slot]";
+/** Where a component renders its children: `<div data-droplet-children style="display: contents">`. */
+const MARKER = "[data-droplet-children]";
 
 /**
  * How far ahead of the viewport a `"visible"` droplet starts loading: with
@@ -320,7 +320,7 @@ export class DjsDropletElement extends HTMLElement {
    * reuses the answer, or waits for it, instead of asking again.
    */
   #dataRequest: { key: string; promise: Promise<Payload> } | null = null;
-  /** The host's `[data-app-slot]` container, once connect found it. */
+  /** The host's `[data-droplet-slot]` container, once connect found it. */
   #container: HTMLElement | null = null;
   /** The markers the component filled with the container. */
   #markers = new Set<Element>();
@@ -363,10 +363,10 @@ export class DjsDropletElement extends HTMLElement {
 
   /** The content root is a direct child: a nested droplet has its own. */
   #contentRoot(): HTMLElement {
-    const existing = this.querySelector<HTMLElement>(":scope > [data-app-entry]");
+    const existing = this.querySelector<HTMLElement>(":scope > [data-droplet-entry]");
     if (existing) return existing;
     const div = document.createElement("div");
-    div.setAttribute("data-app-entry", "");
+    div.setAttribute("data-droplet-entry", "");
     div.style.display = "contents";
     this.appendChild(div);
     return div;
@@ -405,13 +405,13 @@ export class DjsDropletElement extends HTMLElement {
       preload.rel = "preload";
       preload.as = "style";
       preload.href = `${base}/${file}`;
-      preload.setAttribute("data-app-preload", "");
+      preload.setAttribute("data-droplet-preload", "");
       this.insertBefore(preload, contentRoot);
     }
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href = this.#withCacheBust(`${base}/droplets/${encodeURIComponent(droplet)}/style.css`);
-    link.setAttribute("data-app-style", "");
+    link.setAttribute("data-droplet-style", "");
     this.#ownStyle = { link, ready: stylesheetSettled(link) };
     this.insertBefore(link, contentRoot);
   }
@@ -463,7 +463,7 @@ export class DjsDropletElement extends HTMLElement {
       };
     };
 
-    const inline = this.#readInline<unknown>("[data-app-context]");
+    const inline = this.#readInline<unknown>("[data-droplet-context]");
     if (inline.found) return complete(inline.data) ?? { host: here, props: {} };
 
     const attr = this.dataset["context"];
@@ -491,7 +491,7 @@ export class DjsDropletElement extends HTMLElement {
   /**
    * The element's direct children are a closed set. Whitespace between
    * tags goes quietly; anything else a host left loose in the element is
-   * removed, with a word in dev: children go in `<div data-app-slot>`.
+   * removed, with a word in dev: children go in `<div data-droplet-slot>`.
    */
   #pruneChildren(): void {
     for (const node of Array.from(this.childNodes)) {
@@ -499,13 +499,13 @@ export class DjsDropletElement extends HTMLElement {
         if ((node as Element).matches(ALLOWED_CHILDREN)) continue;
         if (import.meta.env.DEV) {
           console.warn(
-            `[droplets] <${elementName}> takes its children in one <div data-app-slot>; removed a loose <${(node as Element).localName}>`,
+            `[droplets] <${elementName}> takes its children in one <div data-droplet-slot>; removed a loose <${(node as Element).localName}>`,
             node,
           );
         }
       } else if (node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").trim() !== "") {
         if (import.meta.env.DEV) {
-          console.warn(`[droplets] <${elementName}> takes its children in one <div data-app-slot>; removed loose text`, node);
+          console.warn(`[droplets] <${elementName}> takes its children in one <div data-droplet-slot>; removed loose text`, node);
         }
       }
       node.remove();
@@ -849,7 +849,7 @@ export class DjsDropletElement extends HTMLElement {
       let props = context.props;
       const inline = options.refresh
         ? { found: false, data: undefined }
-        : this.#readInline<unknown>("[data-app-data]");
+        : this.#readInline<unknown>("[data-droplet-data]");
       const inlinePayload = (): Payload =>
         isObject(inline.data) && "error" in inline.data
           ? { failed: true, error: inline.data["error"] }
@@ -1064,7 +1064,7 @@ export class DjsDropletElement extends HTMLElement {
     run: number,
     cacheBust: boolean,
   ): Promise<boolean> {
-    const inline = this.#readInline<unknown>("[data-app-data]");
+    const inline = this.#readInline<unknown>("[data-droplet-data]");
     if (!inline.found || !isObject(inline.data) || !("error" in inline.data)) return false;
     const mod = await this.#importModule(droplet, cacheBust);
     if (!mod || run !== this.#run) return false;
@@ -1449,17 +1449,17 @@ export class DjsDropletElement extends HTMLElement {
 
   /**
    * Dev only: how the element reached the page. A server fragment carries
-   * its context (`[data-app-context]` or `data-context`); a `clientOnly`
+   * its context (`[data-droplet-context]` or `data-context`); a `clientOnly`
    * one has neither markup nor data for a droplet that hydrates, as an
    * element the host wrote itself.
    */
   #arrival(droplet: string, contentRoot: HTMLElement): "fragment" | "client" {
-    const fromServer = this.#readInline("[data-app-context]").found || this.dataset["context"] !== undefined;
+    const fromServer = this.#readInline("[data-droplet-context]").found || this.dataset["context"] !== undefined;
     if (!fromServer) return "client";
     const clientOnly =
       hydrationRegistry.has(droplet) &&
       contentRoot.childNodes.length === 0 &&
-      !this.#readInline("[data-app-data]").found;
+      !this.#readInline("[data-droplet-data]").found;
     return clientOnly ? "client" : "fragment";
   }
 
@@ -1502,13 +1502,13 @@ export class DjsDropletElement extends HTMLElement {
     }
     // Preloads this element added for a stylesheet it linked itself: the
     // answer brings its own link, or the element links one again after.
-    this.querySelectorAll(":scope > link[data-app-preload]").forEach((preload) => preload.remove());
-    for (const selector of ["[data-app-context]", "[data-app-data]", STYLE_LINK]) {
+    this.querySelectorAll(":scope > link[data-droplet-preload]").forEach((preload) => preload.remove());
+    for (const selector of ["[data-droplet-context]", "[data-droplet-data]", STYLE_LINK]) {
       this.querySelector(`:scope > ${selector}`)?.remove();
       const node = fresh.querySelector(`:scope > ${selector}`);
       if (node) this.insertBefore(node, contentRoot);
     }
-    const entry = fresh.querySelector(":scope > [data-app-entry]");
+    const entry = fresh.querySelector(":scope > [data-droplet-entry]");
     contentRoot.replaceChildren(...Array.from(entry?.childNodes ?? []));
     this.#context = this.#readContext();
   }

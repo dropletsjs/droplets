@@ -44,7 +44,7 @@ test("the server markup carries the shadow root as a declarative template, hydra
   // is a <template shadowrootmode> with the component's styles in it.
   expect(html).toMatch(new RegExp(`<${TAG}\\s+defer-hydration><template shadowroot="open" shadowrootmode="open"><style>`));
   // The host's children go in light DOM, after the shadow root: a <slot> shows them.
-  expect(html).toMatch(new RegExp(`</template><div data-app-children style="display: contents"></div></${TAG}>`));
+  expect(html).toMatch(new RegExp(`</template><div data-droplet-children style="display: contents"></div></${TAG}>`));
   expect(html.replace(/<!--[^>]*-->/g, "")).toContain("Hello Ana!");
   // A droplet without JavaScript is the same markup, minus nothing: the parser attaches it.
   const still = await (await request.get(`${droplets}/droplets/ssr-nohydrate`)).text();

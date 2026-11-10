@@ -11,13 +11,13 @@ export type DropletElementProps = {
    */
   droplet: string;
   /** Base64 server load result, inlined so hydration skips a round trip. */
-  appData: string;
+  dropletData: string;
   /** Base64 request context, for client-side refetches. */
-  appContext?: string;
-  /** Same payload as `appContext`, as an attribute, when no SSR happened. */
+  dropletContext?: string;
+  /** Same payload as `dropletContext`, as an attribute, when no SSR happened. */
   contextAttr?: string | undefined;
   /**
-   * A load failed: `html` and `appData` belong to `+error.*`, which the
+   * A load failed: `html` and `dropletData` belong to `+error.*`, which the
    * client hydrates instead of the droplet.
    */
   error?: boolean | undefined;
@@ -59,12 +59,12 @@ export function dropletElement(props: DropletElementProps): Html {
   // The tag name is validated in resolveConfig; it is never user input.
   const tag = raw(props.element);
   return html`<${tag} data-droplet="${props.droplet}"${buildAttribute}${renderAttribute}${contextAttribute}${errorAttribute}>${
-    payloadScript("data-app-context", props.appContext ?? "")
+    payloadScript("data-droplet-context", props.dropletContext ?? "")
   }${
-    payloadScript("data-app-data", props.appData)
+    payloadScript("data-droplet-data", props.dropletData)
   }${
-    props.stylesheet ? html`<link rel="stylesheet" href="${props.stylesheet}" data-app-style>` : ""
-  }<div style="display: contents" data-app-entry>${
+    props.stylesheet ? html`<link rel="stylesheet" href="${props.stylesheet}" data-droplet-style>` : ""
+  }<div style="display: contents" data-droplet-entry>${
     raw(props.html)
   }</div></${tag}>`;
 }

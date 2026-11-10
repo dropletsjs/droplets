@@ -89,7 +89,7 @@ const serverContext: ServerRenderContext = {
   renderId: "r1",
   actionUrl: () => "/droplets/hello",
 };
-const MARKER = '<div data-app-children="" style="display: contents"></div>';
+const MARKER = '<div data-droplet-children="" style="display: contents"></div>';
 
 describe("the server module", () => {
   it("renders the component with the children marker", async () => {
@@ -158,7 +158,7 @@ describe("the client module", () => {
     mount({ default: Hello }, el, { data: Promise.resolve({ greeting: "Hi" }) }, clientContext(children));
     await settle();
     expect(el.querySelector("h1")?.textContent).toBe("Hi");
-    expect(el.querySelector("[data-testid=children] > [data-app-children]")).not.toBeNull();
+    expect(el.querySelector("[data-testid=children] > [data-droplet-children]")).not.toBeNull();
     expect(calls).toHaveLength(1);
     expect(calls[0]).toMatch(/^fill:/);
   });
@@ -170,7 +170,7 @@ describe("the client module", () => {
     hydrate({ default: Hello }, el, { data: { greeting: "Hi" } }, clientContext(children));
     expect(el.querySelector("h1")?.textContent).toBe("Hi");
     expect(el.querySelector("h1")).not.toBe(old);
-    expect(el.querySelectorAll("[data-app-children]")).toHaveLength(1);
+    expect(el.querySelectorAll("[data-droplet-children]")).toHaveLength(1);
     el.querySelector("button")?.click();
   });
 
@@ -186,7 +186,7 @@ describe("the client module", () => {
     mount({ default: Toggle }, el, { data: undefined }, clientContext(children));
     hide();
     await settle();
-    expect(el.querySelector("[data-app-children]")).toBeNull();
+    expect(el.querySelector("[data-droplet-children]")).toBeNull();
     expect(calls.at(-1)).toBe("empty:true");
   });
 

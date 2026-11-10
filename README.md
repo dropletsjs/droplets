@@ -141,7 +141,7 @@ same shop into a WordPress site that owns the data and the login.
   goes through `handleError` to the droplet's own `+error.*` page. See
   [Errors](https://dropletsjs.dev/guides/errors/).
 - **In the browser:** data inlined into the fragment, host content passed in
-  with `<div data-app-slot>`, `droplets:stale` when a deploy lands while a
+  with `<div data-droplet-slot>`, `droplets:stale` when a deploy lands while a
   page is open. See [In the browser](https://dropletsjs.dev/guides/in-the-browser/).
 - **Server code:** `handle` in `src/hooks.server.ts`, `+server.ts` endpoints
   under `/api/`, typed environment variables in `src/env.ts`. See

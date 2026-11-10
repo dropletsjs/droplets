@@ -30,8 +30,8 @@ describe("mount", () => {
     document.body.appendChild(target);
     const ctx = context();
     const instance = await mount(hello, target, { data: { greeting: "Hi" } }, ctx);
-    expect(target.innerHTML).toBe('<h1>Hi</h1><div data-testid="children"><div data-app-children="" style="display: contents"></div></div><i>r1</i>');
-    const marker = target.querySelector("[data-app-children]");
+    expect(target.innerHTML).toBe('<h1>Hi</h1><div data-testid="children"><div data-droplet-children="" style="display: contents"></div></div><i>r1</i>');
+    const marker = target.querySelector("[data-droplet-children]");
     expect(ctx.children.fill).toHaveBeenCalledWith(marker);
     expect(ctx.children.fill).toHaveBeenCalledTimes(1);
 
@@ -88,15 +88,15 @@ describe("mount", () => {
 describe("hydrate", () => {
   it("keeps the server DOM and fills the server's markers", () => {
     const target = document.createElement("div");
-    target.innerHTML = '<h1>Hi</h1><div data-testid="children"><div data-app-children style="display: contents"></div></div>';
+    target.innerHTML = '<h1>Hi</h1><div data-testid="children"><div data-droplet-children style="display: contents"></div></div>';
     const h1 = target.querySelector("h1");
-    const marker = target.querySelector("[data-app-children]")!;
+    const marker = target.querySelector("[data-droplet-children]")!;
     const ctx = context("droplet", [marker]);
 
     const instance = hydrate(hello, target, { data: { greeting: "Other" } }, ctx);
     expect(target.querySelector("h1")).toBe(h1);
     expect(target.querySelector("h1")?.textContent).toBe("Hi");
-    expect(target.querySelector("[data-app-children]")).toBe(marker);
+    expect(target.querySelector("[data-droplet-children]")).toBe(marker);
     expect(ctx.children.fill).toHaveBeenCalledWith(marker);
 
     unmount(instance);
@@ -106,10 +106,10 @@ describe("hydrate", () => {
 
   it("finds the markers itself when the context lists none", () => {
     const target = document.createElement("div");
-    target.innerHTML = '<div><div data-app-children style="display: contents"></div></div>';
+    target.innerHTML = '<div><div data-droplet-children style="display: contents"></div></div>';
     const ctx = context();
     hydrate(hello, target, { data: {} }, ctx);
-    expect(ctx.children.fill).toHaveBeenCalledWith(target.querySelector("[data-app-children]"));
+    expect(ctx.children.fill).toHaveBeenCalledWith(target.querySelector("[data-droplet-children]"));
   });
 });
 
@@ -119,7 +119,7 @@ describe("markersIn", () => {
     host.setAttribute("data-droplet", "outer");
     const target = document.createElement("div");
     host.appendChild(target);
-    target.innerHTML = '<div data-app-children id="mine"></div><test-droplet data-droplet="inner"><div data-app-children id="theirs"></div></test-droplet>';
+    target.innerHTML = '<div data-droplet-children id="mine"></div><test-droplet data-droplet="inner"><div data-droplet-children id="theirs"></div></test-droplet>';
     expect(markersIn(target).map((s) => s.id)).toEqual(["mine"]);
   });
 });

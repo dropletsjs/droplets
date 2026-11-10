@@ -75,7 +75,7 @@ const second = toggle ? await fetchFragment(id, toggle.props, page) : null;
     if (!(element instanceof Element) || !element.closest(".live-droplet")) return;
     const fresh = document.createElement(element.localName);
     fresh.setAttribute("data-droplet", droplet);
-    const context = element.querySelector(":scope > script[data-app-context]")?.textContent;
+    const context = element.querySelector(":scope > script[data-droplet-context]")?.textContent;
     if (context) fresh.setAttribute("data-context", context.trim());
     element.replaceWith(fresh);
   });

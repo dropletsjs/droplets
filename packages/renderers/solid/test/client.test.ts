@@ -37,7 +37,7 @@ delegateEvents(["click"]);
  */
 const serverHtml = (renderId: string, kid: string) =>
   `<section data-hk="${renderId}00"><h1 data-testid="greeting">Hello ${kid}!</h1><button data-testid="count">0</button>` +
-  `<div data-testid="children"><div data-app-children style="display: contents"></div></div></section>`;
+  `<div data-testid="children"><div data-droplet-children style="display: contents"></div></div></section>`;
 
 function host(): DropletChildrenHost & { filled: Element[]; emptied: Array<[Element, boolean]> } {
   const filled: Element[] = [];
@@ -51,7 +51,7 @@ function contextFor(target: HTMLElement, renderId: string, children: DropletChil
     kind: "droplet",
     renderId,
     children,
-    markers: () => Array.from(target.querySelectorAll("[data-app-children]")),
+    markers: () => Array.from(target.querySelectorAll("[data-droplet-children]")),
     actionUrl: (name) => `https://drops.test/droplets/hello${name ? `?/${name}` : ""}`,
   };
 }
@@ -70,7 +70,7 @@ describe("mount()", () => {
     const children = host();
     const handle = mount(hello, target, { data: { greeting: "Hi" } }, contextFor(target, "m1", children));
 
-    const marker = target.querySelector<HTMLElement>("[data-testid=children] > [data-app-children]");
+    const marker = target.querySelector<HTMLElement>("[data-testid=children] > [data-droplet-children]");
     expect(marker).not.toBeNull();
     expect(marker?.style.display).toBe("contents");
     expect(target.shadowRoot).toBeNull();
@@ -99,15 +99,15 @@ describe("mount()", () => {
     document.body.append(target);
     const children = host();
     const handle = mount(toggling, target, { data: {} }, contextFor(target, "t1", children));
-    const first = target.querySelector("[data-app-children]")!;
+    const first = target.querySelector("[data-droplet-children]")!;
     expect(children.filled).toEqual([first]);
 
     setShow(false);
     expect(children.emptied).toEqual([[first, true]]);
-    expect(target.querySelector("[data-app-children]")).toBeNull();
+    expect(target.querySelector("[data-droplet-children]")).toBeNull();
 
     setShow(true);
-    const second = target.querySelector("[data-app-children]")!;
+    const second = target.querySelector("[data-droplet-children]")!;
     expect(second).not.toBe(first);
     expect(children.filled).toEqual([first, second]);
     unmount(handle);
@@ -120,15 +120,15 @@ describe("hydrate()", () => {
     target.innerHTML = serverHtml("h1x", "kid-a");
     document.body.append(target);
     const greeting = q(target, "greeting");
-    const marker = target.querySelector("[data-app-children]")!;
+    const marker = target.querySelector("[data-droplet-children]")!;
     const children = host();
 
     const handle = hydrate(hello, target, { data: { greeting: "Hello kid-a!" } }, contextFor(target, "h1x", children));
 
     expect(q(target, "greeting")).toBe(greeting);
-    expect(target.querySelector("[data-app-children]")).toBe(marker);
+    expect(target.querySelector("[data-droplet-children]")).toBe(marker);
     expect(children.filled).toEqual([marker]);
-    expect(target.querySelectorAll("[data-app-children]")).toHaveLength(1);
+    expect(target.querySelectorAll("[data-droplet-children]")).toHaveLength(1);
 
     q(target, "count").click();
     expect(q(target, "count").textContent).toBe("1");
@@ -151,13 +151,13 @@ describe("hydrate()", () => {
     expect(hyState()?.done).toBe(true);
 
     const greeting = q(second, "greeting");
-    const marker = second.querySelector("[data-app-children]")!;
+    const marker = second.querySelector("[data-droplet-children]")!;
     const children = host();
     hydrate(hello, second, { data: { greeting: "Hello kid-2!" } }, contextFor(second, "bbb", children));
 
     // Adopted, not re-rendered: the same nodes, keyed by its own renderId.
     expect(q(second, "greeting")).toBe(greeting);
-    expect(second.querySelector("[data-app-children]")).toBe(marker);
+    expect(second.querySelector("[data-droplet-children]")).toBe(marker);
     expect(children.filled).toEqual([marker]);
     q(second, "count").click();
     expect(q(second, "count").textContent).toBe("1");

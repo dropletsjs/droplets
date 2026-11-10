@@ -71,7 +71,7 @@ describe("on Cloudflare Workers", () => {
     const html = await response.text();
     expect(html).toMatch(/<test-lit-hello\s+defer-hydration><template shadowroot="open" shadowrootmode="open"><style>h1 \{ color: rgb\(1, 2, 3\); \}<\/style>/);
     expect(html.replace(/<!--[^>]*-->/g, "")).toContain('<h1 data-testid="greeting">Hello Ana!</h1>');
-    expect(html).toMatch(/<\/template><div data-app-children style="display: contents"><\/div><\/test-lit-hello>/);
+    expect(html).toMatch(/<\/template><div data-droplet-children style="display: contents"><\/div><\/test-lit-hello>/);
     // `actionUrl`, as the renderer handed it to the element.
     expect(html).toMatch(/<form method="post" action="http:\/\/worker\.test\/droplets\/hello\?who=Ana&amp;__droplet_return=[^"]+" data-testid="sign">/);
   });
@@ -88,7 +88,7 @@ describe("on Cloudflare Workers", () => {
   it("leaves a client-only droplet empty on the server", async () => {
     const html = await (await get("/droplets/frame")).text();
     expect(html).not.toContain("test-lit-frame");
-    expect(html).toContain('<div style="display: contents" data-app-entry></div>');
+    expect(html).toContain('<div style="display: contents" data-droplet-entry></div>');
   });
 
   it("runs a form action posted without JavaScript and renders its result", async () => {

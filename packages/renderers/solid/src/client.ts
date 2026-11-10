@@ -36,7 +36,7 @@ type Handle = () => void;
 /** A fresh marker, as the server prints it. */
 function createMarker(): HTMLElement {
   const marker = document.createElement("div");
-  marker.setAttribute("data-app-children", "");
+  marker.setAttribute("data-droplet-children", "");
   marker.style.display = "contents";
   return marker;
 }

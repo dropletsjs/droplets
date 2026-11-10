@@ -137,7 +137,7 @@ describe("the server render", () => {
     // Data is escaped, never markup.
     expect(text(out)).toContain("<h1>Hi &lt;b&gt;Ana&lt;/b&gt;</h1><p>none</p>");
     expect(out).toContain('<form action="https://shop.test/droplets/hello?/add">');
-    expect(out).toMatch(/<\/template><div data-app-children style="display: contents"><\/div><\/test-lit-hello><!--\/lit-part-->$/);
+    expect(out).toMatch(/<\/template><div data-droplet-children style="display: contents"><\/div><\/test-lit-hello><!--\/lit-part-->$/);
   });
 
   it("passes the form action's result as `form`", async () => {

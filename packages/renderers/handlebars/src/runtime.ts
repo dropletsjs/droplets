@@ -21,7 +21,7 @@ export type Template = Handlebars.TemplateDelegate;
 export const env: HandlebarsEnvironment = Handlebars.create();
 
 /** What `{{{children}}}` outputs: the marker the element fills with the host's container. */
-export const MARKER = '<div data-app-children style="display: contents"></div>';
+export const MARKER = '<div data-droplet-children style="display: contents"></div>';
 
 // `{{{children}}}` (or `{{children}}`) outputs the children marker, as the
 // contract wants it.

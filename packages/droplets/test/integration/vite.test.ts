@@ -134,7 +134,7 @@ describe("vite build", () => {
         readFile(resolve(outDir, "client/assets/chunks", f), "utf8")
       ),
     );
-    expect([hello, ...chunks].some((code) => code.includes('<div data-app-children style="display: contents"></div>'))).toBe(true);
+    expect([hello, ...chunks].some((code) => code.includes('<div data-droplet-children style="display: contents"></div>'))).toBe(true);
     // The error page hydrates with its droplet: in the same bundle.
     const docs = await readFile(resolve(outDir, "client/droplets/docs/client.js"), "utf8");
     expect(docs).toContain("docs-error");
@@ -174,7 +174,7 @@ describe("vite build", () => {
         body: JSON.stringify({ host, props }),
       });
     const dataOf = (html: string) => {
-      const match = html.match(/data-app-data>([^<]+)</)?.[1];
+      const match = html.match(/data-droplet-data>([^<]+)</)?.[1];
       return match ? JSON.parse(Buffer.from(match, "base64").toString()) : undefined;
     };
 
@@ -357,7 +357,7 @@ describe("vite dev", () => {
     const html = await res.text();
     expect(html).toContain("Hello Dev!");
     expect(html).not.toContain("data-droplet-location");
-    const data = html.match(/data-app-data>([^<]+)</)?.[1];
+    const data = html.match(/data-droplet-data>([^<]+)</)?.[1];
     expect(data && JSON.parse(Buffer.from(data, "base64").toString())).toEqual({
       data: {
         who: "Dev",
@@ -379,11 +379,11 @@ describe("vite dev", () => {
     // Server handleError, then the one in +droplet.ts.
     expect(html).toMatch(/<p class="oops" data-testid="error">\[hello\] Sorry, ref 42<\/p>/);
     // What the renderer returned as `head` sits before the markup, in the element.
-    expect(html).toMatch(/data-app-entry><style>\.oops \{ color: crimson; \}<\/style><p class="oops"/);
+    expect(html).toMatch(/data-droplet-entry><style>\.oops \{ color: crimson; \}<\/style><p class="oops"/);
     expect(html).toMatch(/data-render-id="[a-z0-9]+"/);
     expect(html).not.toContain("hunter2");
     // Inline: what left the server, before the handleError of +droplet.ts.
-    const data = html.match(/data-app-data>([^<]+)</)?.[1];
+    const data = html.match(/data-droplet-data>([^<]+)</)?.[1];
     expect(data && JSON.parse(Buffer.from(data, "base64").toString())).toEqual({
       error: { message: "Sorry, ref 42" },
     });
@@ -411,7 +411,7 @@ describe("vite dev", () => {
   });
 
   it("renders an empty children marker, in the droplet and its error page", async () => {
-    const marker = '<div data-app-children style="display: contents"></div>';
+    const marker = '<div data-droplet-children style="display: contents"></div>';
     const html = await (await fetch(`${origin}/droplets/hello?who=Dev`)).text();
     expect(html).toContain(`<div data-testid="children">${marker}</div>`);
 
@@ -420,9 +420,9 @@ describe("vite dev", () => {
 
     // Client-only: no markup, the marker appears when the browser mounts.
     const frame = await (await fetch(`${origin}/droplets/frame`)).text();
-    expect(frame).not.toContain("data-app-children");
+    expect(frame).not.toContain("data-droplet-children");
     expect(frame).not.toContain("data-render-id");
-    expect(frame).toContain('<div style="display: contents" data-app-entry></div>');
+    expect(frame).toContain('<div style="display: contents" data-droplet-entry></div>');
     // The renderer's client module is served through the droplet's entry.
     const client = await (await fetch(`${origin}/droplets/frame/client.js`)).text();
     expect(client).toContain("fake-renderer/client.js");
@@ -432,7 +432,7 @@ describe("vite dev", () => {
     // The load's promise field is settled before the render and the inline data.
     const bare = await (await fetch(`${origin}/droplets/bare`)).text();
     expect(bare).toContain("bare ok");
-    const inline = bare.match(/data-app-data>([^<]+)</)?.[1];
+    const inline = bare.match(/data-droplet-data>([^<]+)</)?.[1];
     expect(inline && JSON.parse(Buffer.from(inline, "base64").toString())).toEqual({ data: { ok: true } });
     expect(await (await fetch(`${origin}/droplets/bare/_data`, {
       method: "POST",
@@ -513,7 +513,7 @@ describe("vite dev", () => {
     // Component styles come with the JavaScript in dev: nothing to link or preload.
     const fragment = await fetch(`${origin}/droplets/static-note`);
     expect(fragment.headers.get("link")).toBeNull();
-    expect(await fragment.text()).not.toContain("data-app-style");
+    expect(await fragment.text()).not.toContain("data-droplet-style");
     expect(await (await fetch(`${origin}/droplets/static-note/style.css`)).text()).toBe("");
   });
 
@@ -563,7 +563,7 @@ describe("vite dev", () => {
     const html = await res.text();
     expect(html).toContain("<h1>Page 2</h1>");
     expect(html).toContain(`<p>${new URL(origin).host}</p>`);
-    const context = html.match(/data-app-context>([^<]+)</)?.[1];
+    const context = html.match(/data-droplet-context>([^<]+)</)?.[1];
     expect(context && JSON.parse(Buffer.from(context, "base64").toString()).props).toEqual({ page: 2 });
 
     const refused = await fetch(`${origin}/droplets/docs?page=x`);
