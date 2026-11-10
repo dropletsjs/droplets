@@ -1,0 +1,14 @@
+{
+  "name": "@dropletsjs/tests-hosts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The shop demo on every host in examples/hosts/, end to end: each compose stack started, the same flow in a browser, recorded.",
+  "scripts": {
+    "e2e": "node run.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "catalog:",
+    "@types/node": "catalog:"
+  }
+}
