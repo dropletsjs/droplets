@@ -1,0 +1,108 @@
+name: CI
+
+# Hardening notes (public repo):
+# - Triggers are `pull_request` and `push` to main only. Never add
+#   `pull_request_target` or `workflow_run`: both run with the base repo's
+#   token and secrets in the context of fork-controlled code.
+# - RUNNERS: GitHub-hosted only (`ubuntu-latest`). A self-hosted runner must
+#   NEVER be attached to this public repository (or to an org runner group it
+#   can use): any fork PR could then run arbitrary code on that machine. Do
+#   not change `runs-on` to `self-hosted` or a custom label.
+# - The token is read-only, checkout does not persist it, and no secrets are
+#   referenced anywhere in this file.
+# - Every action is pinned to a full commit SHA; Dependabot bumps them.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  # Cancel superseded PR runs; let every push to main finish.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: Check (Node 22)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Version comes from "packageManager" in the root package.json.
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+      # The Bun and Deno adapters' suites serve a build with the real runtime;
+      # they are skipped where the binary is missing.
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.x
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      # Builds and starts apps/demo (Node) on a local port, for the live
+      # droplets the pages inline; the build fails without it.
+      - run: pnpm docs:build
+      # Every inline script Starlight writes has its hash in apps/docs/public/_headers.
+      - run: pnpm docs:check-csp
+
+  e2e:
+    name: Browser (tests/examples)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm --filter @dropletsjs/tests-examples exec playwright install --with-deps chromium
+      # Builds the eight framework examples, then runs one project per example.
+      - run: pnpm test:e2e
+
+  docker:
+    name: Docker image smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build the droplets server image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: examples/frameworks/Dockerfile
+          push: false
+          load: true
+          tags: droplets-svelte:ci
+          cache-from: type=gha
+          # Only main writes the layer cache, so a PR can't seed it.
+          cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max' || '' }}
+      - name: Smoke test
+        run: |
+          docker run -d --rm --name droplets -p 8000:8000 droplets-svelte:ci
+          for i in $(seq 1 30); do curl -sf http://localhost:8000/health && break; sleep 1; done
+          for id in ssr-hydrate ssr-nohydrate; do
+            # Frameworks may put hydration markers between text nodes.
+            curl -sf "http://localhost:8000/droplets/$id?who=CI" | sed 's/<!--[^>]*-->//g' | grep -q "Hello CI!"
+          done
+          curl -sf -o /dev/null "http://localhost:8000/droplets/client/client.js"
+          curl -sf -o /dev/null http://localhost:8000/index.js
+          docker stop droplets

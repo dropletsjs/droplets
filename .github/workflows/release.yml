@@ -1,0 +1,123 @@
+name: Release
+
+# Changesets flow, in two jobs so that only the publish step can publish:
+#
+#   1. `version` (every push to main): while .changeset/*.md files exist it
+#      opens or updates the "Version Packages" PR. It has no id-token and no
+#      environment, so it cannot publish anything.
+#   2. `publish`: runs only when no changesets are pending AND at least one of
+#      the 13 public packages has a version that is not on npm yet (i.e. right
+#      after the Version PR merged). It runs in the `npm-release` environment,
+#      which requires a reviewer's approval, and publishes through npm trusted
+#      publishing (OIDC): there is no NPM_TOKEN anywhere. Provenance is
+#      generated automatically for a public repo + public package.
+#
+# Pre mode is on (.changeset/pre.json, tag "alpha"), so `changeset publish`
+# publishes under the `alpha` dist-tag. The guard step below refuses to
+# publish if pre mode is off, so 1.0.0 doesn't go out as `latest` by accident.
+#
+# GitHub-hosted runners only: npm trusted publishing doesn't accept
+# self-hosted runners, and a self-hosted runner must never serve this public
+# repo anyway (see ci.yml).
+#
+# Never add `pull_request_target` or `workflow_run` triggers here.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Read-only by default; each job asks for what it needs.
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Version PR / detect pending release
+    if: github.repository == 'dropletsjs/droplets'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # push the changeset-release/main branch
+      pull-requests: write # open/update the Version Packages PR
+    outputs:
+      has-changesets: ${{ steps.changesets.outputs.has-changesets }}
+      unpublished: ${{ steps.pending.outputs.unpublished }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      # No dependency cache in release jobs: a poisoned cache must not reach them.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile
+      # No publish-script: this job only versions. changesets/action v2 pushes
+      # through the GitHub API with the job token, so checkout needn't keep it.
+      - id: changesets
+        uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          version-script: pnpm version-packages
+          commit-message: "Version Packages"
+          pr-title: "Version Packages (alpha)"
+      - id: pending
+        name: Any public package version not on npm yet?
+        if: steps.changesets.outputs.has-changesets == 'false'
+        run: |
+          pnpm ls -r --depth -1 --json \
+            | node -e 'for (const p of JSON.parse(require("fs").readFileSync(0, "utf8"))) if (!p.private && p.name && p.version) console.log(`${p.name}@${p.version}`)' \
+            > "$RUNNER_TEMP/public-packages.txt"
+          unpublished=false
+          while read -r spec; do
+            if ! npm view "$spec" version >/dev/null 2>&1; then
+              echo "Not on npm yet: $spec"
+              unpublished=true
+            fi
+          done < "$RUNNER_TEMP/public-packages.txt"
+          echo "unpublished=$unpublished" >> "$GITHUB_OUTPUT"
+
+  publish:
+    name: Publish to npm (alpha)
+    needs: version
+    if: needs.version.outputs.has-changesets == 'false' && needs.version.outputs.unpublished == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Required reviewers + "main only" deployment branches are set on the
+    # environment in the repository settings. The npm trusted publisher is bound to this
+    # environment name, so the OIDC token is only accepted from here.
+    environment: npm-release
+    permissions:
+      contents: write # git tags + GitHub releases
+      pull-requests: write # changesets/action comments on released PRs
+      id-token: write # npm trusted publishing (OIDC)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      # Trusted publishing needs npm >= 11.5.1 (dist-tag handling >= 11.21.0);
+      # Node 22 ships npm 10. `pnpm publish` hands the tarball to this npm.
+      - run: npm install -g npm@11.21.2
+      - name: Refuse to publish outside pre mode "alpha"
+        run: |
+          test -f .changeset/pre.json || { echo "::error::.changeset/pre.json missing: pre mode is off"; exit 1; }
+          node -e 'const p=require("./.changeset/pre.json"); if (p.mode!=="pre"||p.tag!=="alpha") { console.error(`::error::pre mode is ${p.mode}/${p.tag}, expected pre/alpha`); process.exit(1) }'
+      - run: pnpm install --frozen-lockfile
+      - uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          # `pnpm release` = build + `changeset publish` (tag "alpha" from pre.json).
+          publish-script: pnpm release
+          create-github-releases: true
+        env:
+          NPM_CONFIG_PROVENANCE: "true"

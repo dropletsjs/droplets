@@ -1,0 +1,28 @@
+# .github/dependabot.yml
+version: 2
+updates:
+  # Keeps the SHA-pinned actions current; Dependabot rewrites the SHA and
+  # the `# vX.Y.Z` comment together.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "ci"
+
+  # Root pnpm workspace (pnpm-lock.yaml covers every workspace package).
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+    # Majors still arrive one PR each, ungrouped.
+    commit-message:
+      prefix: "deps"
+    versioning-strategy: increase-if-necessary

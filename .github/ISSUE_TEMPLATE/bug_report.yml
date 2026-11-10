@@ -1,0 +1,75 @@
+name: Bug report
+description: Something in Droplets does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Security problems go through private reporting
+        (Security tab → Report a vulnerability), not here.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "`@dropletsjs/droplets` and the renderer and adapter versions, plus Node and Vite."
+      placeholder: "@dropletsjs/droplets 1.0.0-alpha.0, Node 22, Vite 8"
+    validations:
+      required: true
+  - type: dropdown
+    id: renderer
+    attributes:
+      label: Renderer
+      description: The framework the affected droplet is written in.
+      multiple: true
+      options:
+        - Svelte
+        - Vue
+        - Solid
+        - React
+        - Hono JSX
+        - Handlebars
+        - Not renderer-specific
+    validations:
+      required: true
+  - type: dropdown
+    id: adapter
+    attributes:
+      label: Adapter
+      multiple: true
+      options:
+        - node
+        - cloudflare
+        - bun
+        - deno
+        - Dev server only (vite dev)
+    validations:
+      required: true
+  - type: input
+    id: host
+    attributes:
+      label: Host stack
+      description: What serves the page the droplet is embedded in, if any.
+      placeholder: "nginx, Express, Next.js, WordPress, none (opened directly)"
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: |
+        A repository, or the smallest droplet and config that show the problem:
+        the relevant part of `vite.config.ts`, the `+droplet.*` file with its
+        `ssr`/`hydrate` flags, and the request you make.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: What happened instead. Paste errors and logs as text.
+    validations:
+      required: true

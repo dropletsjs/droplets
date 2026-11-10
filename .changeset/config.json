@@ -1,0 +1,32 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.0.0/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [
+    [
+      "@dropletsjs/droplets",
+      "@dropletsjs/devtools",
+      "@dropletsjs/adapter-node",
+      "@dropletsjs/adapter-cloudflare",
+      "@dropletsjs/adapter-bun",
+      "@dropletsjs/adapter-deno",
+      "@dropletsjs/renderer-svelte",
+      "@dropletsjs/renderer-vue",
+      "@dropletsjs/renderer-react",
+      "@dropletsjs/renderer-preact",
+      "@dropletsjs/renderer-solid",
+      "@dropletsjs/renderer-hono-jsx",
+      "@dropletsjs/renderer-handlebars",
+      "@dropletsjs/renderer-lit",
+      "create-droplets"
+    ]
+  ],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "privatePackages": {
+    "version": false,
+    "tag": false
+  }
+}
