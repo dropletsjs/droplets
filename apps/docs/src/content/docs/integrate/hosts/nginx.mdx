@@ -59,14 +59,12 @@ location ^~ /_fragment/ {
   (`http://localhost:8081`) when it starts.
 - The `location ~` block passes `/index.js`, `/droplets/*`, `/assets/*` and
   `/api/*` to the shop, so the browser only talks to nginx.
-- nginx sends no location header. The shop knows its public URL from
-  `DROPLETS_ORIGIN=http://localhost:8081` and writes every fragment's URLs on
-  it. The headers a client could name another location with
-  (`x-droplet-location`, `Forwarded`, `X-Forwarded-*`) are cleared: the shop
-  would trust them only against that list anyway.
+- nginx sends `x-droplet-location: ${SHOP_PUBLIC_URL}` in place of any a
+  client sent, and the shop writes every fragment's URLs on it. `Forwarded`
+  and `X-Forwarded-*` are cleared, so nothing a browser sends names another
+  location.
 - `DROPLETS_TRUSTED_ORIGINS=http://localhost:8081` is where the host pages
-  are. Here it is the same origin, but it is a different setting:
-  `DROPLETS_ORIGIN` is where the shop is reached, `DROPLETS_TRUSTED_ORIGINS`
+  are. It is why the shop honours that header (its origin is listed), and it
   bounds `event.host`, so a page anywhere else renders as the shop's own.
 
 ## The shop demo, recorded
@@ -91,10 +89,11 @@ SSI pages in `examples/hosts/nginx/shop/`.
 | `droplets` | 8000, internal only | the Svelte example's droplets server, behind port 8080 |
 
 The internal addresses are `upstream` blocks (`server shop:8300;`). The
-public ones are in two places: each droplets server's `DROPLETS_ORIGIN` and
+public ones are in two places: each droplets server's
 `DROPLETS_TRUSTED_ORIGINS` (`http://localhost:8081` for `shop`,
 `http://localhost:8080` for `droplets`),
-and `web`'s `SHOP_PUBLIC_URL`, which fills in the `Referer` of
+and `web`'s `DROPLETS_PUBLIC_URL` and `SHOP_PUBLIC_URL`, which fill in the
+`x-droplet-location` nginx sends and the `Referer` of
 `/_fragment/` (`nginx.conf` is a template, the nginx image's
 `/etc/nginx/templates/`). The shop has its own
 port because its `/index.js` and `/droplets/*` would collide with the basic
@@ -124,19 +123,19 @@ any droplet starts (the shop's `src/hooks.client.ts`):
 
 `location ~ ^/(index\.js|droplets/|assets/|api/)` passes `/index.js`,
 `/droplets/*` (fragments, `_data`, form actions), `/assets/*` and `/api/*`
-to the shop with `x-droplet-location`, `Forwarded` and `X-Forwarded-*`
-cleared. Bodies, `Set-Cookie` and `303`s pass through as they are, so the
+to the shop with `x-droplet-location` set to `${SHOP_PUBLIC_URL}` and
+`Forwarded` and `X-Forwarded-*` cleared. Bodies, `Set-Cookie` and `303`s pass through as they are, so the
 cart and the login cookies are first-party, and nothing is cross-origin.
 `client_max_body_size 4m` lets the admin's image uploads through.
 
 ### The shop's environment
 
-- `DROPLETS_ORIGIN: http://localhost:8081`: the shop's
-  [public location](/integrate/http-contract/#x-droplet-location-the-public-location),
-  where it writes its URLs and the only origin whose
-  [form posts](/integrate/http-contract/#form-posts-the-origin-check) it accepts.
 - `DROPLETS_TRUSTED_ORIGINS: http://localhost:8081`: where the host pages
-  are. It bounds `event.host`: a host outside it becomes the shop's origin.
+  are. The shop honours the
+  [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location)
+  nginx sends because its origin is listed, writes its URLs there, and
+  accepts [form posts](/integrate/http-contract/#form-posts-the-origin-check)
+  from it. It bounds `event.host`: a host outside it becomes the shop's origin.
 - `DROPLETS_SECRET`: signs a form's result on the redirect back to the page
   when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)).
 - `ADMIN_USER`, `ADMIN_PASSWORD`, `SHOP_SECRET`: the demo login
@@ -176,7 +175,7 @@ The host is a static `index.html`. nginx does two things:
   receives server-rendered markup.
 - **Reverse proxy.** The droplets routes are proxied under nginx's own origin.
   The browser only ever talks to nginx, so the droplets server needs no CORS,
-  and `DROPLETS_ORIGIN` tells it to write the fragments' URLs on nginx's origin. Droplets build
+  and the `x-droplet-location` nginx sends tells it to write the fragments' URLs on nginx's origin. Droplets build
   their API calls from that origin ([`$droplets/drop`](/reference/api/#dropletsdrop)),
   so `/api/*` goes through the proxy too.
 
@@ -220,7 +219,7 @@ server {
   # endpoints.
   location ~ ^/(index\.js|droplets/|assets/|api/) {
     proxy_pass http://droplets;
-    proxy_set_header x-droplet-location "";
+    proxy_set_header x-droplet-location ${DROPLETS_PUBLIC_URL};
     proxy_set_header Forwarded "";
     proxy_set_header X-Forwarded-Host "";
     proxy_set_header X-Forwarded-Proto "";
@@ -229,29 +228,33 @@ server {
 }
 ```
 
-nginx says nothing about where it is: the droplets server has the site's
-public URL in its environment, and with that one entry it needs no header.
+nginx tells the droplets server where it is: `DROPLETS_PUBLIC_URL`
+(`http://localhost:8080`) is written into the config when the container
+starts, so the header is never built from the request. The droplets server
+honours it because its origin is listed:
 
 ```yaml
 # docker-compose.yml
 droplets:
   environment:
-    DROPLETS_ORIGIN: http://localhost:8080
     DROPLETS_TRUSTED_ORIGINS: http://localhost:8080
+web:
+  environment:
+    DROPLETS_PUBLIC_URL: http://localhost:8080
 ```
 
-`DROPLETS_ORIGIN` is the droplets server's location; `DROPLETS_TRUSTED_ORIGINS`
-is where the host pages are, and keeps `event.host` within them.
+`DROPLETS_TRUSTED_ORIGINS` is where the host pages are: it makes that
+location header count and keeps `event.host` within them.
 
-The `proxy_set_header` lines clear what a client may have sent. The
-droplets server would only trust a location header whose origin is in
-`DROPLETS_ORIGIN` (or `trustedOrigins`) anyway; clearing them keeps a
-client's own headers from ever counting.
+`proxy_set_header x-droplet-location` replaces a client's own header, and
+the other lines clear the forwarded ones, so nothing a browser sends names
+another location.
 
-Behind a path (`location /mfe/`), put the path in it:
-`DROPLETS_ORIGIN=https://shop.example/mfe`. With several public URLs (one
-server for `shop.example` and `www.shop.example`), list them all and let
-nginx say which one the request came through, with the path:
+Behind a path (`location /mfe/`), put the path in the URL:
+`proxy_set_header x-droplet-location https://shop.example/mfe;`. With
+several public URLs (one server for `shop.example` and `www.shop.example`),
+list them all and let nginx say which one the request came through, with
+the path:
 
 ```nginx
 location /mfe/ {
@@ -263,7 +266,7 @@ location /mfe/ {
 ```
 
 ```bash
-DROPLETS_ORIGIN=https://shop.example,https://www.shop.example
+DROPLETS_TRUSTED_ORIGINS=https://shop.example,https://www.shop.example
 ```
 
 `$host` comes from the client's `Host` header, so it is only used when it

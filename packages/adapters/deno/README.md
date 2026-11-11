@@ -59,7 +59,7 @@ present), `dist/server/_prerendered/` and `dist/client/`. Ship the whole
 All from the Node adapter's `createNodeServerApp`: `/assets/*` from
 `dist/client/assets` (hashed files immutable, `public/` under
 `/assets/public/` revalidated), `droplets.json` read once, and
-`DROPLETS_SECRET`, `DROPLETS_TRUSTED_ORIGINS`, `DROPLETS_ORIGIN` and your
+`DROPLETS_SECRET`, `DROPLETS_TRUSTED_ORIGINS`, `DROPLETS_ENV_MAX_AGE` and your
 private variables from the process environment. It logs errors only.
 See its [README](../node/README.md) and
 [Deployment](https://dropletsjs.dev/guides/deployment/).

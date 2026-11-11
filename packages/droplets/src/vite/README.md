@@ -99,40 +99,40 @@ restarts the server.
 
 ## Facts
 
-- `droplets()` returns the virtual-modules plugin, the dev externalize plugin, the core `droplets` plugin, asset URLs, Tailwind, server-only, renderer graphs, then each renderer's own plugins, in that order. `plugin.ts:592`
+- `droplets()` returns the virtual-modules plugin, the dev externalize plugin, the core `droplets` plugin, asset URLs, Tailwind, server-only, renderer graphs, then each renderer's own plugins, in that order. `plugin.ts:573`
 - `droplets()` options are `configFile`, `adapter`, `renderers` and `css`; nothing else is read. `plugin.ts:48`
-- `droplets()` appends the built-in script renderer after the user's renderers. `plugin.ts:227`
-- `droplets()` validates the renderers when it is called: two renderers claiming one extension without `packages` to tell them apart is an error. `plugin.ts:239`, `../renderer.ts:623`
-- `config` hook loads `droplets.config.*`, the env state, discovers the droplets and writes `.droplets/`, in every `vite dev` and `vite build`. `plugin.ts:339`, `plugin.ts:344`, `plugin.ts:354`, `plugin.ts:359`
-- `config` hook: a `static` env variable without a value throws under `vite build` and only warns under `vite dev`. `plugin.ts:350`
-- `config` hook sets `appType: "custom"`. `plugin.ts:368`
-- `config` hook sets `server.fs.allow` to the workspace root, the package root and the renderers' module folders. `plugin.ts:375`
-- `config` hook sets `server.port` from `dev.server.port` only when Vite's own `server.port` is unset. `plugin.ts:376`
-- `server.origin` under `vite dev` is set to `http://localhost:<port>` unless the user set `server.origin` or `middlewareMode`, so asset URLs are absolute to the dev server. `plugin.ts:379`
-- `server.origin` is corrected to the real port once the dev server listens on another one. `plugin.ts:412`
-- `optimizeDeps.exclude` gets the plain package names of the client build's `external`. `plugin.ts:383`
-- `config` hook under `vite build` requires an adapter, sets `experimental.renderBuiltUrl` and the `client`, `ssr` and `server` environments. `plugin.ts:387`, `plugin.ts:388`, `plugin.ts:395`
-- `vite build` with no droplet found warns `no droplets found` and builds. `plugin.ts:390`
-- `vite dev` ssr environment bundles `SERVER_NO_EXTERNAL` (`resolve.noExternal`). `plugin.ts:398`
-- `vite dev` sets the runtime env store from the `.env` values. `plugin.ts:422`
-- `vite dev` middleware is added after Vite's own and registered before the first scan; an early request waits for it. `plugin.ts:441`
-- `droplets.config.ts` change (or a file it imports) restarts the dev server. `plugin.ts:427`, `plugin.ts:448`
-- `hotUpdate`: a `hooks.server.*` file or a route under the API folder that appears or goes away invalidates the registry. `plugin.ts:457`
-- `hotUpdate`: an edit to `src/hooks.client.*` sends `droplets:hooks-client` and no Vite update. `plugin.ts:465`, `plugin.ts:470`
-- `hotUpdate` plans an edit once per timestamp, in the first environment, and forgets plans older than 10 seconds. `plugin.ts:476`, `plugin.ts:481`
-- `hotUpdate`: an edit in a droplet folder rescans the flags; a changed registry sends `droplets:registry`. `plugin.ts:255`, `plugin.ts:262`
-- `droplets:update` goes to every affected droplet with `kind` `contract`, `component` or `load`. `plugin.ts:297`, `plugin.ts:303`
-- `hotUpdate`: a contract change or a load edit invalidates the modules and hands Vite only the stylesheets that depend on the file. `plugin.ts:500`
-- `hotUpdate`: a component edit goes through Vite's own HMR, so the framework's runs. `plugin.ts:510`
-- `generateBundle` of the client build records every bare import left external, for `importmap`'s `externals`. `plugin.ts:514`
-- `buildApp` writes the manifest and copies `public/` right after the client build. `plugin.ts:543`, `plugin.ts:544`
-- `buildApp` prerenders right after the ssr build, then removes `dist/server/` unless the adapter has `separateSsrBundle`. `plugin.ts:548`, `plugin.ts:552`
-- `adapter.afterBuild` runs last, with `root`, `outDir`, `manifestPath`, `serverPath` and the resolved `config`. `plugin.ts:558`, `plugin.ts:563`, `../../test/integration/vite.test.ts:241`
-- `vite preview` runs `adapter.preview`; without it the plugin warns and serves nothing. `plugin.ts:571`
-- `DropletsPluginApi` (`plugin.api`) gives `element`, `strategy`, `droplets`, `renderers`, `dropletsRoot`, `importMapPath`, `fetch`, `loaderUrl`, `syncTypes` and `setDevTool`. `plugin.ts:116`, `plugin.ts:313`
-- `DropletsPluginApi.renderers()` never lists the built-in `script` renderer. `plugin.ts:317`
-- `DropletsPluginApi.fetch` throws outside `vite dev`. `plugin.ts:321`
-- `DropletsPluginApi.loaderUrl` is `/index.js`. `plugin.ts:325`
+- `droplets()` appends the built-in script renderer after the user's renderers. `plugin.ts:216`
+- `droplets()` validates the renderers when it is called: two renderers claiming one extension without `packages` to tell them apart is an error. `plugin.ts:220`, `../renderer.ts:623`
+- `config` hook loads `droplets.config.*`, the env state, discovers the droplets and writes `.droplets/`, in every `vite dev` and `vite build`. `plugin.ts:320`, `plugin.ts:325`, `plugin.ts:335`, `plugin.ts:340`
+- `config` hook: a `static` env variable without a value throws under `vite build` and only warns under `vite dev`. `plugin.ts:331`
+- `config` hook sets `appType: "custom"`. `plugin.ts:349`
+- `config` hook sets `server.fs.allow` to the workspace root, the package root and the renderers' module folders. `plugin.ts:356`
+- `config` hook sets `server.port` from `dev.server.port` only when Vite's own `server.port` is unset. `plugin.ts:357`
+- `server.origin` under `vite dev` is set to `http://localhost:<port>` unless the user set `server.origin` or `middlewareMode`, so asset URLs are absolute to the dev server. `plugin.ts:360`
+- `server.origin` is corrected to the real port once the dev server listens on another one. `plugin.ts:393`
+- `optimizeDeps.exclude` gets the plain package names of the client build's `external`. `plugin.ts:364`
+- `config` hook under `vite build` requires an adapter, sets `experimental.renderBuiltUrl` and the `client`, `ssr` and `server` environments. `plugin.ts:368`, `plugin.ts:369`, `plugin.ts:376`
+- `vite build` with no droplet found warns `no droplets found` and builds. `plugin.ts:371`
+- `vite dev` ssr environment bundles `SERVER_NO_EXTERNAL` (`resolve.noExternal`). `plugin.ts:379`
+- `vite dev` sets the runtime env store from the `.env` values. `plugin.ts:403`
+- `vite dev` middleware is added after Vite's own and registered before the first scan; an early request waits for it. `plugin.ts:422`
+- `droplets.config.ts` change (or a file it imports) restarts the dev server. `plugin.ts:408`, `plugin.ts:429`
+- `hotUpdate`: a `hooks.server.*` file or a route under the API folder that appears or goes away invalidates the registry. `plugin.ts:438`
+- `hotUpdate`: an edit to `src/hooks.client.*` sends `droplets:hooks-client` and no Vite update. `plugin.ts:446`, `plugin.ts:451`
+- `hotUpdate` plans an edit once per timestamp, in the first environment, and forgets plans older than 10 seconds. `plugin.ts:457`, `plugin.ts:462`
+- `hotUpdate`: an edit in a droplet folder rescans the flags; a changed registry sends `droplets:registry`. `plugin.ts:236`, `plugin.ts:243`
+- `droplets:update` goes to every affected droplet with `kind` `contract`, `component` or `load`. `plugin.ts:278`, `plugin.ts:284`
+- `hotUpdate`: a contract change or a load edit invalidates the modules and hands Vite only the stylesheets that depend on the file. `plugin.ts:481`
+- `hotUpdate`: a component edit goes through Vite's own HMR, so the framework's runs. `plugin.ts:491`
+- `generateBundle` of the client build records every bare import left external, for `importmap`'s `externals`. `plugin.ts:495`
+- `buildApp` writes the manifest and copies `public/` right after the client build. `plugin.ts:524`, `plugin.ts:525`
+- `buildApp` prerenders right after the ssr build, then removes `dist/server/` unless the adapter has `separateSsrBundle`. `plugin.ts:529`, `plugin.ts:533`
+- `adapter.afterBuild` runs last, with `root`, `outDir`, `manifestPath`, `serverPath` and the resolved `config`. `plugin.ts:539`, `plugin.ts:544`, `../../test/integration/vite.test.ts:241`
+- `vite preview` runs `adapter.preview`; without it the plugin warns and serves nothing. `plugin.ts:552`
+- `DropletsPluginApi` (`plugin.api`) gives `element`, `strategy`, `droplets`, `renderers`, `dropletsRoot`, `importMapPath`, `fetch`, `loaderUrl`, `syncTypes` and `setDevTool`. `plugin.ts:105`, `plugin.ts:294`
+- `DropletsPluginApi.renderers()` never lists the built-in `script` renderer. `plugin.ts:298`
+- `DropletsPluginApi.fetch` throws outside `vite dev`. `plugin.ts:302`
+- `DropletsPluginApi.loaderUrl` is `/index.js`. `plugin.ts:306`
 - Build environments are `client`, `ssr` and `server`, built in that order. `build.ts:93`
 - Build environment `ssr` builds only when the adapter has `separateSsrBundle` or a droplet has `prerender`. `build.ts:111`
 - `vite build` without an adapter throws, naming `node()` from `@dropletsjs/adapter-node`. `build.ts:98`
@@ -162,15 +162,15 @@ restarts the server.
 - `__DROPLETS_BUILD_ROOT__` in a browser bundle becomes the way back to the build's root (`../../` from `droplets/<id>/client.js`); under `vite dev` it becomes `/`. `assets.ts:170`, `assets.ts:152`
 - `new URL("./x", import.meta.url)` of an existing file, in a universal project file of a server bundle, becomes a `?url` import on the location token; server files keep theirs. `assets.ts:154`, `assets.ts:156`, `assets.ts:84`
 - `public/` is copied to `dist/client/assets/public/` and nowhere else. `assets.ts:100`
-- `public/` under `vite dev` is served at `/assets/public/*` with `cache-control: no-cache` and a sha1 `ETag`, 304 when it matches. `assets.ts:124`, `assets.ts:132`, `dev.ts:428`
+- `public/` under `vite dev` is served at `/assets/public/*` with `cache-control: no-cache` and a sha1 `ETag`, 304 when it matches. `assets.ts:124`, `assets.ts:132`, `dev.ts:427`
 - `public/` under `vite dev`: a path outside it, a folder or a missing file answers `404 Not Found`. `assets.ts:114`, `assets.ts:117`
 - `assetUrlsPlugin` is `sharedDuringBuild`: one location token nonce for every environment of a build. `assets.ts:144`
-- `buildHash` is 6 random hex characters, created per `droplets()` instance. `state.ts:96`, `state.ts:103`
-- `tokenNonce` is created per `droplets()` instance; each server bundle exports its own. `state.ts:104`, `virtual.ts:268`
+- `buildHash` is 6 random hex characters, created per `droplets()` instance. `state.ts:79`, `state.ts:86`
+- `tokenNonce` is created per `droplets()` instance; each server bundle exports its own. `state.ts:87`, `virtual.ts:268`
 - Prerender host fallback: `host` of the config, else none (host-agnostic renders). `prerender.ts:113`
-- `hooks.server` files looked up: `src/hooks.server.ts`, `src/hooks.server.js`. `state.ts:178`
-- `hooks.client` files looked up: `src/hooks.client.ts`, `.mts`, `.js`, `.mjs`. `state.ts:183`
-- `importmap.server` files looked up: `src/importmap.server.ts`, `src/importmap.server.js`. `state.ts:185`
+- `hooks.server` files looked up: `src/hooks.server.ts`, `src/hooks.server.js`. `state.ts:159`
+- `hooks.client` files looked up: `src/hooks.client.ts`, `.mts`, `.js`, `.mjs`. `state.ts:164`
+- `importmap.server` files looked up: `src/importmap.server.ts`, `src/importmap.server.js`. `state.ts:166`
 - Virtual ids: `virtual:droplets`, `virtual:droplets-dev`, `virtual:droplet-client?name=<folder>`, `virtual:droplets-css`, `virtual:droplets-config`, `virtual:droplets-ssr`, `virtual:droplets-manifest`. `virtual.ts:31`, `virtual.ts:33`, `virtual.ts:65`, `virtual.ts:67`, `virtual.ts:69`, `virtual.ts:71`, `virtual.ts:73`
 - `$droplets/*` modules: `$droplets/env`, `$droplets/env/public`, `$droplets/env/private`, `$droplets/server`, `$droplets/drop`, `$droplets/form`. `virtual.ts:35`, `virtual.ts:37`, `virtual.ts:39`, `virtual.ts:41`, `virtual.ts:43`, `virtual.ts:45`
 - `$droplets/server` and `$droplets/env/private` are refused in the client environment and to any project file that is not a server file, on the server too. `virtual.ts:48`, `virtual.ts:721`

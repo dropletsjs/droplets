@@ -70,9 +70,10 @@ const server = spawn(process.execPath, ["dist/server.js"], {
     // should run as deployed, with a secret of 32 random bytes.
     DROPLETS_SECRET: randomBytes(32).toString("base64url"),
     // The fragments are requested with `x-droplet-location: <DEMO_PUBLIC_URL>`,
-    // so the URLs they write are where browsers reach the demo: that origin is
-    // the demo's own.
-    DROPLETS_ORIGIN: publicUrl.origin,
+    // so the URLs they write are where browsers reach the demo. Deployed, that
+    // is the request's own origin; here the server is on 127.0.0.1, so the
+    // header is trusted by listing its origin.
+    DROPLETS_TRUSTED_ORIGINS: publicUrl.origin,
   },
   stdio: ["ignore", "pipe", "pipe"],
 });

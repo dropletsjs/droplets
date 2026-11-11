@@ -174,9 +174,8 @@ For each proxied request and each server-side fragment fetch:
 
 - Send `x-droplet-location: <the public origin>` and list that origin (and
   the host's own) in `DROPLETS_TRUSTED_ORIGINS` on the shop. The shop
-  honours `x-droplet-location` only when its origin is trusted (its own, in
-  `DROPLETS_ORIGIN` or in `DROPLETS_TRUSTED_ORIGINS`); otherwise it is
-  ignored.
+  honours `x-droplet-location` only when its origin is trusted (its own, or
+  in `DROPLETS_TRUSTED_ORIGINS`); otherwise it is ignored.
 - Forward the browser's `Cookie` header on fragment fetches (`cart_id`,
   `shop_admin`): the cart, the admin list and the login state render from it.
 - Pass `Set-Cookie` back untouched. The shop never sets `Domain`, so the

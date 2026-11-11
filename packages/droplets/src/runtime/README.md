@@ -19,7 +19,6 @@ const app = createDropletsApp({
   loadClientModule: (name) => assets.loadClientModule(name),
   loadEntryClient: () => assets.loadEntryClient(),
   buildHash: assets.buildHash,
-  origin: config.origin,
   trustedOrigins: config.trustedOrigins,
   // …
 });
@@ -42,7 +41,7 @@ Public pieces: `$droplets/server` (`./server`, `server.ts`) and `./enhance`
 |---|---|
 | `app.ts` | `createDropletsApp`: the middleware chain and every route. |
 | `host.ts`, `web-url.ts` | The droplet location from request headers, `event.host`, the prerender host tokens. |
-| `security.ts` | The origin (CSRF) check, the body size limits, `DROPLETS_ORIGIN` and `DROPLETS_TRUSTED_ORIGINS`. |
+| `security.ts` | The origin (CSRF) check, the body size limits, `DROPLETS_TRUSTED_ORIGINS`. |
 | `dev-log.ts` | The runtime's warnings, for `vite dev` and the build's prerender; a production server has none. |
 | `cookies.ts` | `event.cookies`: parse, serialize, defaults, read-only and prerender jars. |
 | `form.ts`, `form-token.server.ts`, `enhance.ts` | Form actions: action URLs, reserved query keys, the signed no-JavaScript result, `enhanceDropletForm`. |
@@ -80,7 +79,7 @@ Then the route.
 
 ### Location and headers
 
-- The droplet location is resolved once per request in `resolveLocation` and stored on the context before any route runs. `app.ts:916`
+- The droplet location is resolved once per request in `resolveLocation` and stored on the context before any route runs. `app.ts:903`
 - The location header order is `x-droplet-location`, then `Forwarded`, then `X-Forwarded-Host` with `X-Forwarded-Proto`/`X-Forwarded-Port`. `host.ts:81`
 - `x-droplet-location` with a comma in it is ignored. `host.ts:84`
 - `X-Forwarded-Prefix` supplies the prefix for `Forwarded` and `X-Forwarded-Host` (its first value only). `host.ts:88`
@@ -88,123 +87,123 @@ Then the route.
 - `Forwarded` is read from its first element only, with quotes stripped. `host.ts:150`
 - A location prefix is accepted only if it starts with `/`, is at most 256 characters and has no `//`, `\`, `..`, `?`, `#` or control characters. `web-url.ts:46`
 - `webUrl` accepts only `http:`/`https:` URLs and strips credentials and the hash. `web-url.ts:10`
-- A header location is trusted only when its origin is the request's own, an `origin` entry or a `trustedOrigins` entry; `"*"` in either trusts any. `app.ts:470`
-- An untrusted location header is ignored; under `vite dev` it warns once per source, the value cut to 200 characters. `app.ts:477`, `dev-log.ts:42`
-- Without a trusted header the location is the single `origin` entry, else the request's own origin. `app.ts:479`
-- `DROPLETS_ORIGIN` overrides `origin`, and `DROPLETS_TRUSTED_ORIGINS` overrides `trustedOrigins`, read per request. `app.ts:831`
-- `"*"` in `origin`, `trustedOrigins` or their env variables is never refused; under `vite dev` it warns `"*" trusts any forwarded location`. `app.ts:839`, `security.ts:73`, `dev-log.ts:49`
-- A malformed `DROPLETS_ORIGIN`/`DROPLETS_TRUSTED_ORIGINS` entry is skipped; under `vite dev` it warns once per raw value. `security.ts:70`, `security.ts:101`, `dev-log.ts:52`
-- `Vary` on fragments and `_data` lists `x-droplet-location`, `forwarded`, `x-forwarded-host`, `x-forwarded-proto`, `x-forwarded-port`, `x-forwarded-prefix` and `origin`. `app.ts:420`
-- CORS exposes `Link` and `x-droplets-build`. `app.ts:278`
-- `x-droplets-build` carries the build hash on `_data` answers. `app.ts:1271`
-- `x-droplets-prerender-error: host` or `cookies` marks a 500 when a prerendered droplet reads the host, props, URL or cookies. `app.ts:675`
-- `event.url` is the request path on the location's origin. `app.ts:657`
+- A header location is trusted only when its origin is the request's own or a `trustedOrigins` entry; `"*"` in `trustedOrigins` trusts any. `app.ts:467`, `app.ts:470`
+- An untrusted location header is ignored; under `vite dev` it warns once per source, the value cut to 200 characters. `app.ts:471`, `dev-log.ts:42`
+- Without a trusted header the location is the request's own origin. `app.ts:473`
+- `DROPLETS_TRUSTED_ORIGINS` adds to `trustedOrigins`, read per request. `app.ts:825`
+- `"*"` in `trustedOrigins` or `DROPLETS_TRUSTED_ORIGINS` is never refused; under `vite dev` it warns `"*" trusts any forwarded location`. `app.ts:827`, `security.ts:73`, `dev-log.ts:49`
+- A malformed `DROPLETS_TRUSTED_ORIGINS` entry is skipped; under `vite dev` it warns once per raw value. `security.ts:70`, `dev-log.ts:52`
+- `Vary` on fragments and `_data` lists `x-droplet-location`, `forwarded`, `x-forwarded-host`, `x-forwarded-proto`, `x-forwarded-port`, `x-forwarded-prefix` and `origin`. `app.ts:416`
+- CORS exposes `Link` and `x-droplets-build`. `app.ts:274`
+- `x-droplets-build` carries the build hash on `_data` answers. `app.ts:1258`
+- `x-droplets-prerender-error: host` or `cookies` marks a 500 when a prerendered droplet reads the host, props, URL or cookies. `app.ts:668`
+- `event.url` is the request path on the location's origin. `app.ts:650`
 - `event.host` is the `Origin` header (skipping `null`), else the location's origin. `host.ts:181`
 
 ### Middleware and `handle`
 
-- `handle`, the body read, `event.host`, cookies and `event` are skipped for `/index.js`, `/env.js` and `/assets/*`. `app.ts:348`, `app.ts:974`
-- The health route answers `ok` before `handle` runs; its path defaults to `/health`. `app.ts:926`
-- The request body is read only for a droplet that exists. `app.ts:979`
-- A `handle` that throws answers through `handleError`, as text. `app.ts:1037`
-- A `handle` that returns something other than a `Response` answers `handle must return a Response`. `app.ts:1040`
-- A failing `hooks.server` import answers through `handleError`, as text. `app.ts:1016`
+- `handle`, the body read, `event.host`, cookies and `event` are skipped for `/index.js`, `/env.js` and `/assets/*`. `app.ts:344`, `app.ts:961`
+- The health route answers `ok` before `handle` runs; its path defaults to `/health`. `app.ts:913`
+- The request body is read only for a droplet that exists. `app.ts:966`
+- A `handle` that throws answers through `handleError`, as text. `app.ts:1024`
+- A `handle` that returns something other than a `Response` answers `handle must return a Response`. `app.ts:1027`
+- A failing `hooks.server` import answers through `handleError`, as text. `app.ts:1003`
 
 ### Origin check and limits
 
-- The origin check runs unless `csrf.checkOrigin` is `false`. `app.ts:944`
-- The origin check refuses a cross-site POST, PUT, PATCH or DELETE with a form-capable type with 403 `Cross-site <METHOD> form submissions are forbidden`. `security.ts:159`
-- The origin check lets an untyped request without `Origin` through. `security.ts:157`
-- The origin check lets every request through when `trustedOrigins` has `"*"`. `security.ts:155`
-- The origin check guards `/api`, `/api/`, `/droplets/` and the import map paths. `security.ts:116`
+- The origin check runs unless `csrf.checkOrigin` is `false`. `app.ts:931`
+- The origin check refuses a cross-site POST, PUT, PATCH or DELETE with a form-capable type with 403 `Cross-site <METHOD> form submissions are forbidden`. `security.ts:128`
+- The origin check lets an untyped request without `Origin` through. `security.ts:126`
+- The origin check lets every request through when `trustedOrigins` has `"*"`. `security.ts:124`
+- The origin check guards `/api`, `/api/`, `/droplets/` and the import map paths. `security.ts:85`
 - Body limits default to 1 MB JSON, 1 MB form, 10 MB multipart and 8 KB `x-droplet-props`. `../core/config.ts:197`
-- A body over its type's limit answers 413 `Payload Too Large`. `security.ts:180`
-- An `x-droplet-props` header over its limit answers 431 `x-droplet-props is too large; send the props in a POST body`. `security.ts:186`
-- A limit of `Infinity` turns that check off. `security.ts:189`
-- `limitFor` maps `application/json` and `+json` to the JSON limit, form-urlencoded and `text/plain` to the form limit, anything else to multipart. `security.ts:166`
+- A body over its type's limit answers 413 `Payload Too Large`. `security.ts:149`
+- An `x-droplet-props` header over its limit answers 431 `x-droplet-props is too large; send the props in a POST body`. `security.ts:155`
+- A limit of `Infinity` turns that check off. `security.ts:158`
+- `limitFor` maps `application/json` and `+json` to the JSON limit, form-urlencoded and `text/plain` to the form limit, anything else to multipart. `security.ts:135`
 
 ### Props
 
-- Fragment props come from the query minus the reserved keys, else from the base64 `x-droplet-props` header. `app.ts:378`
-- A malformed `x-droplet-props` is ignored; under `vite dev` it warns `ignoring malformed x-droplet-props header`. `app.ts:392`, `dev-log.ts:73`
-- POST props for a render come from the JSON body (`props`, `context`); an action POST takes them from the query. `app.ts:790`
-- The JSON body is read only for POST with a content type containing `application/json`; malformed JSON gives no props. `app.ts:317`
+- Fragment props come from the query minus the reserved keys, else from the base64 `x-droplet-props` header. `app.ts:374`
+- A malformed `x-droplet-props` is ignored; under `vite dev` it warns `ignoring malformed x-droplet-props header`. `app.ts:388`, `dev-log.ts:69`
+- POST props for a render come from the JSON body (`props`, `context`); an action POST takes them from the query. `app.ts:783`
+- The JSON body is read only for POST with a content type containing `application/json`; malformed JSON gives no props. `app.ts:313`
 - Reserved query keys are `__cb`, `c`, `t`, `noSSR`, `clientOnly`, `__droplet_return`, every key starting with `/` and every key starting with `__droplet_form_`. `form.ts:26`
-- `clientOnly` and `noSSR` in the query count by presence. `app.ts:779`
+- `clientOnly` and `noSSR` in the query count by presence. `app.ts:772`
 - Props validation errors (`PropsError`) answer 400 with `Invalid props: …`. `entry-server.ts:143`
 - `propsKey` sorts keys, so props differing only in key order share a prerender entry. `props.ts:90`
 
 ### Fragments: `GET|POST /droplets/:id`
 
-- An unknown droplet answers 404 `Not Found`, as text. `app.ts:777`
-- A droplet name in the URL is decoded; a malformed escape names no droplet. `app.ts:758`
+- An unknown droplet answers 404 `Not Found`, as text. `app.ts:770`
+- A droplet name in the URL is decoded; a malformed escape names no droplet. `app.ts:751`
 - The droplet registry is a `Map`, so `__proto__` names no droplet. `entry-server.ts:57`
-- A POST with a form body runs an action, `text/plain` answers 415, and a `?/name` key with a non-form body answers 400. `app.ts:1657`
-- A prerendered fragment is looked up by host key, then by props key. `app.ts:1217`
-- A prerendered lookup for a droplet with `ssr = false` and no entry for these props answers 404. `app.ts:1220`
-- The fragment's context script is written only when SSR ran (`!noSSR && ssr`). `app.ts:1453`
-- `data-droplet-data` is written only when the droplet hydrates and the request is not `clientOnly`. `app.ts:1475`
-- `data-render-id` is written only when there is server HTML. `app.ts:1474`
-- A failed render answers 500 with the error component, else the action's status, else 200. `app.ts:1483`
-- A response carrying a form result gets `cache-control: private, no-store`. `app.ts:1466`
+- A POST with a form body runs an action, `text/plain` answers 415, and a `?/name` key with a non-form body answers 400. `app.ts:1644`
+- A prerendered fragment is looked up by host key, then by props key. `app.ts:1204`
+- A prerendered lookup for a droplet with `ssr = false` and no entry for these props answers 404. `app.ts:1207`
+- The fragment's context script is written only when SSR ran (`!noSSR && ssr`). `app.ts:1440`
+- `data-droplet-data` is written only when the droplet hydrates and the request is not `clientOnly`. `app.ts:1462`
+- `data-render-id` is written only when there is server HTML. `app.ts:1461`
+- A failed render answers 500 with the error component, else the action's status, else 200. `app.ts:1470`
+- A response carrying a form result gets `cache-control: private, no-store`. `app.ts:1453`
 - `fragmentCacheControl` defaults to `private, no-store` and is set only when the response has none. `../core/config.ts:198`
-- The `Link` header preloads `style.css` (only with styles), each CSS file and the entry, and modulepreloads `client.js` only when `hydrate === true`. `app.ts:1310`
-- `linkHeader: false` drops the `Link` header. `app.ts:1315`
-- `client.js` and `style.css` URLs in a fragment carry `?c=<build>`. `app.ts:1298`
+- The `Link` header preloads `style.css` (only with styles), each CSS file and the entry, and modulepreloads `client.js` only when `hydrate === true`. `app.ts:1297`
+- `linkHeader: false` drops the `Link` header. `app.ts:1302`
+- `client.js` and `style.css` URLs in a fragment carry `?c=<build>`. `app.ts:1285`
 - The origin check counts a POST, PUT, PATCH or DELETE as form-capable when it is form-urlencoded, multipart or `text/plain`. `security.ts:33`
-- Every URL a fragment emits for its own files is built on the droplet location. `app.ts:1311`
+- Every URL a fragment emits for its own files is built on the droplet location. `app.ts:1298`
 
 ### `_data`
 
-- `_data` answers `{ data }`, plus `form` when a result is carried. `app.ts:1284`
-- `_data` answers a failed load with 500 `{ error }`. `app.ts:1282`
-- `_data` answers PUT, PATCH and DELETE with 405 and `allow: GET, POST`. `app.ts:1265`
-- `_data` carrying a form result gets `cache-control: private, no-store`. `app.ts:1286`
+- `_data` answers `{ data }`, plus `form` when a result is carried. `app.ts:1271`
+- `_data` answers a failed load with 500 `{ error }`. `app.ts:1269`
+- `_data` answers PUT, PATCH and DELETE with 405 and `allow: GET, POST`. `app.ts:1252`
+- `_data` carrying a form result gets `cache-control: private, no-store`. `app.ts:1273`
 
 ### Static routes
 
-- `/index.js` answers 404 without `loadEntryClient` or code, and is `no-store`. `app.ts:1101`, `app.ts:1106`
-- `/index.js` answers what `loadEntryClient` returns, with nothing added. `app.ts:1107`
-- `/env.js` answers 404 without `publicEnv` or when it has no names (no `public: true` variable without `static`). `app.ts:1116`, `app.ts:1119`
-- `/env.js` is `publicEnvScript` of `publicEnv()` under `<element>:<build>`, read through `readRuntimeEnv`, nothing taken from the request. `app.ts:1122`, `entry-server.ts:385`
-- `/env.js` cache-control is `public, max-age=600`; `DROPLETS_ENV_MAX_AGE` sets the seconds, `0` gives `no-store`. `app.ts:352`, `app.ts:370`, `app.ts:1121`
-- `DROPLETS_ENV_MAX_AGE` is parsed once per raw value (a `Map`); anything but a non-negative integer of seconds keeps 600, with a warning once per value under `vite dev` only. `app.ts:355`, `app.ts:369`, `dev-log.ts:78`
-- `/index.css` answers 404 when there is no global CSS or it is empty. `app.ts:1132`
-- `style.css` answers 404 when the droplet has no stylesheets, or no `dropletStyles` loader is set; with stylesheets it answers `text/css`, cached a month. `app.ts:1144`, `app.ts:1148`
-- `styleImports` is `style.css`: one `@import url("../../<file>")` per stylesheet, relative to `/droplets/<id>/style.css`; `vite build` writes the same as a file. `app.ts:297`, `../vite/build.ts:327`
-- A fragment links and preloads `style.css` only when the droplet has stylesheets. `app.ts:1314`
-- `client.js` answers 404 for an unknown droplet, `hydrate === false` or no loader. `app.ts:1160`
-- Cached files get `public, max-age=2592000, immutable`. `app.ts:910`
-- The import map answers 404 when none is configured, is `no-store`, and escapes `<`. `app.ts:1079`
-- `/` answers `loadIndex()`'s HTML, else 404. `app.ts:1093`
+- `/index.js` answers 404 without `loadEntryClient` or code, and is `no-store`. `app.ts:1088`, `app.ts:1093`
+- `/index.js` answers what `loadEntryClient` returns, with nothing added. `app.ts:1094`
+- `/env.js` answers 404 without `publicEnv` or when it has no names (no `public: true` variable without `static`). `app.ts:1103`, `app.ts:1106`
+- `/env.js` is `publicEnvScript` of `publicEnv()` under `<element>:<build>`, read through `readRuntimeEnv`, nothing taken from the request. `app.ts:1109`, `entry-server.ts:385`
+- `/env.js` cache-control is `public, max-age=600`; `DROPLETS_ENV_MAX_AGE` sets the seconds, `0` gives `no-store`. `app.ts:348`, `app.ts:366`, `app.ts:1108`
+- `DROPLETS_ENV_MAX_AGE` is parsed once per raw value (a `Map`); anything but a non-negative integer of seconds keeps 600, with a warning once per value under `vite dev` only. `app.ts:351`, `app.ts:365`, `dev-log.ts:74`
+- `/index.css` answers 404 when there is no global CSS or it is empty. `app.ts:1119`
+- `style.css` answers 404 when the droplet has no stylesheets, or no `dropletStyles` loader is set; with stylesheets it answers `text/css`, cached a month. `app.ts:1131`, `app.ts:1135`
+- `styleImports` is `style.css`: one `@import url("../../<file>")` per stylesheet, relative to `/droplets/<id>/style.css`; `vite build` writes the same as a file. `app.ts:293`, `../vite/build.ts:327`
+- A fragment links and preloads `style.css` only when the droplet has stylesheets. `app.ts:1301`
+- `client.js` answers 404 for an unknown droplet, `hydrate === false` or no loader. `app.ts:1147`
+- Cached files get `public, max-age=2592000, immutable`. `app.ts:897`
+- The import map answers 404 when none is configured, is `no-store`, and escapes `<`. `app.ts:1066`
+- `/` answers `loadIndex()`'s HTML, else 404. `app.ts:1080`
 
 ### Form actions
 
-- A request names one action at most; two `?/name` keys answer 400 `One action per request: ?/name once`. `app.ts:1528`
-- A droplet without `actions` answers 405 with `allow: GET`. `app.ts:1555`
-- An unknown action answers 404 `No action named "<name>"`, the name cut to 100 characters. `app.ts:1538`
+- A request names one action at most; two `?/name` keys answer 400 `One action per request: ?/name once`. `app.ts:1515`
+- A droplet without `actions` answers 405 with `allow: GET`. `app.ts:1542`
+- An unknown action answers 404 `No action named "<name>"`, the name cut to 100 characters. `app.ts:1525`
 - Action names match `^[A-Za-z_][\w-]*$`. `form.ts:141`
 - An action is found only through `ACTION_NAME`, a deny list (`__proto__`, `constructor`, `prototype`) and `Object.hasOwn`. `entry-server.ts:316`
-- An action answers JSON when `accept` contains `application/json`. `app.ts:1542`
-- A JSON action answer is the outcome with the failure's status, else 200. `app.ts:1607`
-- An action redirect, native or JSON, goes only to this server or a trusted origin (`redirectTarget`, the same check in both modes), else 400 `Bad Request: the action redirects off this site` (as `{ message }` in JSON) and a `console.error`. `app.ts:1593`, `app.ts:1599`
-- A JSON action redirect answers 200 `{ type: "redirect", status, location }` with the checked absolute URL. `app.ts:1602`
-- A native action redirect answers 303. `app.ts:1603`
-- Action data that is not plain JSON (depth over 64, non-finite numbers, non-plain prototypes) answers 500. `app.ts:503`
-- With `DROPLETS_SECRET` set, a form posted without JavaScript needs `__droplet_return` or a `Referer` on this server or a trusted origin, else 400. `app.ts:1549`
-- With `DROPLETS_SECRET`, a native post answers 303 back to its page with `__droplet_form_<droplet>_<build>` holding the signed result. `app.ts:1626`
-- Without `DROPLETS_SECRET`, a native post answers the fragment with the form result inline. `app.ts:1611`
-- A form result over 2 KB is sent without its data; under `vite dev` with a warning. `app.ts:1624`, `dev-log.ts:76`
-- The back page refuses `<location>/droplets…` URLs. `app.ts:610`
-- `__droplet_return` is at most 2048 characters. `app.ts:628`
-- A carried form result is used only when its action still exists. `app.ts:887`
+- An action answers JSON when `accept` contains `application/json`. `app.ts:1529`
+- A JSON action answer is the outcome with the failure's status, else 200. `app.ts:1594`
+- An action redirect, native or JSON, goes only to this server or a trusted origin (`redirectTarget`, the same check in both modes), else 400 `Bad Request: the action redirects off this site` (as `{ message }` in JSON) and a `console.error`. `app.ts:1580`, `app.ts:1586`
+- A JSON action redirect answers 200 `{ type: "redirect", status, location }` with the checked absolute URL. `app.ts:1589`
+- A native action redirect answers 303. `app.ts:1590`
+- Action data that is not plain JSON (depth over 64, non-finite numbers, non-plain prototypes) answers 500. `app.ts:496`
+- With `DROPLETS_SECRET` set, a form posted without JavaScript needs `__droplet_return` or a `Referer` on this server or a trusted origin, else 400. `app.ts:1536`
+- With `DROPLETS_SECRET`, a native post answers 303 back to its page with `__droplet_form_<droplet>_<build>` holding the signed result. `app.ts:1613`
+- Without `DROPLETS_SECRET`, a native post answers the fragment with the form result inline. `app.ts:1598`
+- A form result over 2 KB is sent without its data; under `vite dev` with a warning. `app.ts:1611`, `dev-log.ts:72`
+- The back page refuses `<location>/droplets…` URLs. `app.ts:603`
+- `__droplet_return` is at most 2048 characters. `app.ts:621`
+- A carried form result is used only when its action still exists. `app.ts:874`
 
 ### Form tokens (`form-token.server.ts`)
 
 - The form token is verified with HMAC-SHA-256 before its payload is parsed. `form-token.server.ts:199`
 - A form token is at most 2048 characters. `form-token.server.ts:26`
 - A form token lives 5 minutes, with 60 seconds of clock skew. `form-token.server.ts:22`
-- `DROPLETS_SECRET` should be at least 32 bytes; a missing or shorter one is ignored, with a warning once under `vite dev`. `form-token.server.ts:28`, `form-token.server.ts:80`, `dev-log.ts:57`
+- `DROPLETS_SECRET` should be at least 32 bytes; a missing or shorter one is ignored, with a warning once under `vite dev`. `form-token.server.ts:28`, `form-token.server.ts:80`, `dev-log.ts:55`
 - The token's MAC covers the version `droplets-form-v2`, the droplet, the build and the page. `form-token.server.ts:111`
 - A form token's status must be 200 or 400-599. `form-token.server.ts:222`
 - A form token's data is copied into null-prototype objects. `form-token.server.ts:154`
@@ -225,18 +224,18 @@ Then the route.
 - `fail(status)` takes 400-599. `server.ts:416`
 - `json()` sets `content-type: application/json`. `server.ts:503`
 - `text()` sets `text/plain; charset=utf-8`. `server.ts:508`
-- A thrown `HttpError` answers its status and message; a thrown `Redirect` answers its location as written. `app.ts:719`
-- Any other thrown error is logged and answers 500 with `handleError`'s message, never a stack. `app.ts:719`
+- A thrown `HttpError` answers its status and message; a thrown `Redirect` answers its location as written. `app.ts:712`
+- Any other thrown error is logged and answers 500 with `handleError`'s message, never a stack. `app.ts:712`
 - Without `handleError`, production renders answer `Internal Error`. `load.ts:40`
 
 ### `/api`
 
-- `/api` without a matching route answers 404 `{ "message": "Not Found" }`. `app.ts:1667`
+- `/api` without a matching route answers 404 `{ "message": "Not Found" }`. `app.ts:1654`
 - `/api` accepts GET, POST, PUT, PATCH, DELETE, OPTIONS and HEAD. `routes.ts:6`
-- `/api` HEAD falls back to GET with a null body. `app.ts:1673`
-- `/api` picks the method handler through `Object.hasOwn`, else `fallback`. `app.ts:1675`
-- `/api` answers an unhandled method with 405 and `allow`. `app.ts:1679`
-- `/api` answers a handler that returns no `Response` with 500 JSON. `app.ts:1686`
+- `/api` HEAD falls back to GET with a null body. `app.ts:1660`
+- `/api` picks the method handler through `Object.hasOwn`, else `fallback`. `app.ts:1662`
+- `/api` answers an unhandled method with 405 and `allow`. `app.ts:1666`
+- `/api` answers a handler that returns no `Response` with 500 JSON. `app.ts:1673`
 - `allowedMethods` adds HEAD when GET is there. `routes.ts:93`
 
 ### Prerender host tokens
@@ -244,7 +243,7 @@ Then the route.
 - Prerender host tokens are `__$DROPLET_HOST<nonce>$__`, `__$DROPLET_PATH<nonce>$__` and `http://droplets.invalid/__$DROPLET_LOCATION<nonce>$__`. `host.ts:126`
 - `tokenNonce` is 16 random hex characters. `host.ts:140`
 - Host tokens are replaced HTML-escaped in markup and JSON-escaped in data. `host.ts:279`
-- `tokenNonce` also replaces tokens in live renders. `app.ts:1263`
+- `tokenNonce` also replaces tokens in live renders. `app.ts:1250`
 
 ### Fragment markup (`element.ts`)
 
@@ -253,7 +252,7 @@ Then the route.
 - Inline payloads are `<script type="application/text">` with `data-droplet-context` or `data-droplet-data`. `element.ts:44`
 - The droplet's stylesheet link carries `data-droplet-style`. `element.ts:65`
 - Server HTML sits in `<div style="display: contents" data-droplet-entry>`. `element.ts:66`
-- Inline JSON escapes `<` as `<`. `app.ts:401`
+- Inline JSON escapes `<` as `<`. `app.ts:397`
 
 ### Server records and env
 
@@ -261,7 +260,7 @@ Then the route.
 - `serverLocation` is the record's origin, else the build root `__DROPLETS_BUILD_ROOT__` from `import.meta.url`. `server-records.ts:48`
 - The runtime env falls back to `process.env` where `process` exists. `env-store.ts:26`
 - Request info uses `AsyncLocalStorage` through `process.getBuiltinModule`, never a Node import. `request-store.ts:39`
-- A production server logs errors only, with `console.error`: a plain message, then the error as it is. `app.ts:699`, `app.ts:707`, `app.ts:730`, `app.ts:1583`, `app.ts:1595`, `entry-server.ts:227`
+- A production server logs errors only, with `console.error`: a plain message, then the error as it is. `app.ts:692`, `app.ts:700`, `app.ts:723`, `app.ts:1570`, `app.ts:1582`, `entry-server.ts:227`
 - Runtime warnings reach the logger only through `devLog` (`vite dev`, the build's prerender) or behind `import.meta.env.DEV` (`entry-server.ts`), so a production bundle holds neither. `app.ts:184`, `entry-server.ts:123`, `entry-server.ts:348`
 - `DEV_DROPLETS_LOG` sets the level of the dev and build log; a production server ignores it. `../core/logger.ts:41`
 

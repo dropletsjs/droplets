@@ -44,7 +44,10 @@ https://dropletsjs.dev and the docs' local dev server on port 4321, on
 Every other origin gets no CORS answer and a `403` for a form post.
 `pnpm docs:dev --port 4400` starts this dev server with `DOCS_PORT=4400`,
 which adds that port's `localhost` and `127.0.0.1` origins; nothing else sets
-it.
+it. The location is computed per request: deployed, it is the request's own
+origin. The docs build runs the demo on `127.0.0.1` and asks for fragments
+with `x-droplet-location: <DEMO_PUBLIC_URL>`, so `apps/docs/scripts/with-demo.mjs`
+lists that origin in `DROPLETS_TRUSTED_ORIGINS` for its run.
 
 ### The poll's input
 

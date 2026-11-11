@@ -287,10 +287,10 @@ When a reverse proxy fronts the droplets server:
 - set `x-droplet-location` to the public URL, written out in the proxy's
   configuration (never built from the request's `Host`, and overwriting any
   `x-droplet-location` a client sent), so fragments point at the proxy. Under
-  a path, include it: `x-droplet-location: https://shop.example/mfe`. Set its
-  origin as [`origin`](/guides/configuration/) (or `DROPLETS_ORIGIN`): the
-  server ignores a location whose origin is not its own, in `origin` or in
-  `trustedOrigins`. A proxy that already sends `Forwarded` or
+  a path, include it: `x-droplet-location: https://shop.example/mfe`. List
+  its origin in [`trustedOrigins`](/guides/configuration/#options) (or
+  `DROPLETS_TRUSTED_ORIGINS`): the server ignores a location whose origin is
+  not its own or listed there. A proxy that already sends `Forwarded` or
   `X-Forwarded-Proto` and `X-Forwarded-Host` (with `X-Forwarded-Prefix` under
   a path) is read the same way, when `x-droplet-location` is absent. Keep the
   droplets server unreachable except through the proxy;
@@ -358,9 +358,9 @@ the error itself, nothing else. Those are:
 - on Node, Bun and Deno, `dist/client/droplets.json` is missing (not built).
 
 Warnings are for `vite dev` and `vite build`, and never reach a production
-bundle: an untrusted forwarded location, `"*"` in `origin` or
-`trustedOrigins`, an entry of `DROPLETS_ORIGIN` or `DROPLETS_TRUSTED_ORIGINS`
-that is not one, `DROPLETS_SECRET` missing or too short, `cors` allowing
+bundle: an untrusted forwarded location, `"*"` in `trustedOrigins`, an
+entry of `DROPLETS_TRUSTED_ORIGINS` that is not an origin,
+`DROPLETS_SECRET` missing or too short, `cors` allowing
 every origin, a malformed `x-droplet-props`, an action result over 2 KB. Set
 their level with `DEV_DROPLETS_LOG` (`error`, `warn`, `info`, the default,
 or `debug`); a production server ignores it.

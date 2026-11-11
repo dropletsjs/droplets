@@ -12,16 +12,15 @@ What ships is described by the guides at https://dropletsjs.dev; where the two d
   (`x-droplet-*`), response headers plural (`x-droplets-*`).
 - One location per request, the first candidate that parses and is
   trusted: `x-droplet-location`; the first element of `Forwarded`; the first
-  `X-Forwarded-Proto` + `X-Forwarded-Host` (+ `X-Forwarded-Port`); the single
-  `origin` entry; the request's origin. The forwarded ones take the prefix
-  from `X-Forwarded-Prefix`. First values, because later proxies append.
-- Trust: a header's origin must be the request's own, in `origin` /
-  `DROPLETS_ORIGIN` (new: our own public locations, origin plus optional
-  prefix) or in `trustedOrigins` / `DROPLETS_TRUSTED_ORIGINS`. Earlier the
-  forwarded headers were not read for the location at all, because proxies
-  rewrite them hop by hop; with the allow-list, reading them is safe and a
-  plain reverse proxy needs no custom header.
-- `"*"` in either list trusts any location: the owner's call, documented
+  `X-Forwarded-Proto` + `X-Forwarded-Host` (+ `X-Forwarded-Port`); else the
+  request's own origin. The forwarded ones take the prefix from
+  `X-Forwarded-Prefix`. First values, because later proxies append.
+- Trust: a header's origin must be the request's own or in
+  `trustedOrigins` / `DROPLETS_TRUSTED_ORIGINS`. One list for both jobs
+  (form posts and location headers): a proxy's public origin is where the
+  host pages are too. With the allow-list, reading the forwarded headers is
+  safe and a plain reverse proxy needs no custom header.
+- `"*"` in `trustedOrigins` trusts any location: the owner's call, documented
   ("Trusting any location") and warned about once at start, never refused.
   The general rule: give the owner the knobs and the advice, don't enforce.
 - A prefix starts with `/`, has no `//`, `\`, `..`, `?`, `#` or control
@@ -106,8 +105,8 @@ Two words, two things:
 
 - **location**: where the droplet *lives*, the droplets server as the
   browser reaches it. On the server the resolved location (see "The
-  droplet location" above: `x-droplet-location`, the forwarded headers,
-  `origin`, all against an allow-list), the
+  droplet location" above: `x-droplet-location` and the forwarded headers
+  against an allow-list, else the request's origin), the
   URL `/index.js` was loaded from in the browser, `droplet.url()` from
   `$droplets/drop`. (`data-droplet-location` is gone since the tighten step:
   markup never says where to load code from.)

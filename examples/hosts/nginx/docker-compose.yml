@@ -11,9 +11,8 @@ services:
     expose:
       - "8000"
     environment:
-      # Its public URL: nginx's basic page, which proxies it on its own origin.
-      DROPLETS_ORIGIN: ${DROPLETS_URL:-http://localhost:8080}
-      # Where its host page is: event.host stays within it.
+      # nginx's basic page, which proxies it on its own origin: event.host
+      # stays within it, and the x-droplet-location nginx sends is trusted.
       DROPLETS_TRUSTED_ORIGINS: ${DROPLETS_URL:-http://localhost:8080}
 
   # The shop demo, served by nginx on :8081. Only nginx reaches it.
@@ -30,19 +29,19 @@ services:
       SHOP_SECRET: demo-only-secret-change-me-0123456789abcdef
       # Signs a form result on the redirect back to the page (posts without JavaScript).
       DROPLETS_SECRET: demo-only-droplets-secret-change-me-0123456789
-      # Its public URL: nginx's shop origin, where its pages and form posts are.
-      DROPLETS_ORIGIN: ${WEB_URL:-http://localhost:8081}
-      # Where its host pages are: event.host stays within it.
+      # nginx's shop origin, where its pages and form posts are: event.host
+      # stays within it, and the x-droplet-location nginx sends is trusted.
       DROPLETS_TRUSTED_ORIGINS: ${WEB_URL:-http://localhost:8081}
 
   # nginx.conf, html/ and shop/ baked in (Dockerfile). nginx.conf is a
-  # template, with the shop's public URL below filled in at start.
+  # template, with the public URLs below filled in at start.
   web:
     build: .
     ports:
       - "127.0.0.1:${DROPLETS_PORT:-8080}:80"
       - "127.0.0.1:${WEB_PORT:-8081}:8081"
     environment:
+      DROPLETS_PUBLIC_URL: ${DROPLETS_URL:-http://localhost:8080}
       SHOP_PUBLIC_URL: ${WEB_URL:-http://localhost:8081}
     depends_on:
       - droplets

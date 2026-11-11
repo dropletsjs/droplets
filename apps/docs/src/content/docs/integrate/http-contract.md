@@ -191,14 +191,11 @@ and is trusted wins:
 3. `X-Forwarded-Proto` and `X-Forwarded-Host`, their first values, with
    `X-Forwarded-Port` when the host has no port of its own, the prefix from
    `X-Forwarded-Prefix`;
-4. the [`origin`](/guides/configuration/#the-public-location) entry, when exactly one is
-   configured;
-5. the request's own origin.
+4. the request's own origin.
 
 A host that fetches fragments on its server sends `x-droplet-location`. A
 reverse proxy needs nothing new: the forwarded headers it already sets are
-read, or the droplets server has its public URL in `origin`
-(`DROPLETS_ORIGIN`), and no header at all.
+read once their origin is trusted.
 
 ```
 GET /droplets/hello?who=Ana
@@ -206,10 +203,10 @@ x-droplet-location: https://drops.example.com
 ```
 
 ```ts
-// droplets.config.ts
+// droplets.config.ts: trust the location the host names
 import { config } from "@dropletsjs/droplets";
 
-export default config({ origin: "https://drops.example.com" });
+export default config({ trustedOrigins: ["https://drops.example.com"] });
 ```
 
 ### Trust
@@ -219,12 +216,11 @@ server writes about itself. A location from a header (1 to 3) is used only
 when its origin is:
 
 - the request's own, or
-- in [`origin`](/guides/configuration/#the-public-location) (or `DROPLETS_ORIGIN`), or
 - in [`trustedOrigins`](/guides/configuration/#options) (or `DROPLETS_TRUSTED_ORIGINS`).
 
 One that is not is skipped for the next, with a warning under `vite dev`,
-once per header. Without any list, forwarded headers count only when they name
-the request's own origin. `"*"` in either list trusts any location; see
+once per header. Without a list, forwarded headers count only when they name
+the request's own origin. `"*"` in the list trusts any location; see
 [Trusting any location](/guides/security/#trusting-any-location) before
 you use it.
 
@@ -408,8 +404,9 @@ A request without a content type and without an `Origin` passes: that
 is another server calling, not a browser. This is SvelteKit's `csrf.checkOrigin`; `csrf: { checkOrigin: false }`
 turns it off. JSON bodies and `GET`s are not checked: a JSON post from
 another origin needs a CORS preflight, which `cors` answers. Behind a proxy
-that rewrites the request, put the public URL in `origin` (or
-`DROPLETS_ORIGIN`), or list the page's origin in `trustedOrigins`.
+that rewrites the request, have it name the public URL in a location
+header whose origin is in `trustedOrigins`, or list the page's origin in
+`trustedOrigins`.
 
 ## Body limits
 

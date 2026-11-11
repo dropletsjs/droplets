@@ -76,8 +76,7 @@ from (`https://shop.example/mfe` for a bundle at
 `https://shop.example/mfe/droplets/cart/client.js`). On the server it is the
 request's
 [public location](/integrate/http-contract/#x-droplet-location-the-public-location):
-a trusted location header, else the single `origin` entry, else the request's
-own origin. It works in components and in plain `.ts` files.
+a trusted location header, else the request's own origin. It works in components and in plain `.ts` files.
 
 Outside a request on the server (a module's top level, read once when the
 server starts) `origin` is the build's location token,

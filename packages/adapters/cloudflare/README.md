@@ -128,7 +128,7 @@ the binding when it answers them; the manifest itself is in the bundle.
 
 The bindings (vars and secrets) are the runtime environment: each request
 sets them as the source of `$droplets/env` private variables,
-`DROPLETS_SECRET`, `DROPLETS_TRUSTED_ORIGINS` and `DROPLETS_ORIGIN`, and
+`DROPLETS_SECRET`, `DROPLETS_TRUSTED_ORIGINS` and `DROPLETS_ENV_MAX_AGE`, and
 `platform.env` in server code holds all of them. `.env` files are a build
 input only. Set the secret with `wrangler secret put DROPLETS_SECRET`.
 `PORT` and `server.port` do not apply: the platform decides the address. Set
@@ -185,10 +185,10 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - Assets binding missing from `env`: the request throws `droplets: no "<name>" binding`. `src/worker.ts:119`, `test/worker.test.ts:269`
 - App is created once per assets binding object and kept in a `WeakMap`. `src/worker.ts:27`, `src/worker.ts:124`
 - Bindings are the runtime env: every request calls `setRuntimeEnv(env)` before it is answered. `src/worker.ts:135`
-- `platform.env` is the Worker's `env`, every binding included. `../../droplets/src/runtime/app.ts:517`, `test/worker.test.ts:87`
-- `platform.context` is the Worker's execution context when the runtime has one. `../../droplets/src/runtime/app.ts:553`
+- `platform.env` is the Worker's `env`, every binding included. `../../droplets/src/runtime/app.ts:510`, `test/worker.test.ts:87`
+- `platform.context` is the Worker's execution context when the runtime has one. `../../droplets/src/runtime/app.ts:546`
 - `.env` values are not in `dist/worker.js`; runtime secrets come from the bindings. `test/worker.test.ts:103`
-- `DROPLETS_TRUSTED_ORIGINS` and `DROPLETS_ORIGIN` bindings are read per request. `../../droplets/src/runtime/app.ts:832`, `../../droplets/src/runtime/app.ts:837`, `test/worker.test.ts:227`
+- `DROPLETS_TRUSTED_ORIGINS` binding is read per request, for form posts and for the location headers it trusts. `../../droplets/src/runtime/app.ts:825`, `test/worker.test.ts:227`, `test/worker.test.ts:245`
 - Droplet lookup in the inlined manifest uses `Object.hasOwn`: `__proto__` and other prototype names find nothing. `src/worker.ts:43`, `test/worker.test.ts:221`
 - Files are read through the binding by pathname; the origin `https://assets.invalid` is a placeholder. `src/worker.ts:50`
 - File the binding answers with a non-2xx status reads as missing (`null`). `src/worker.ts:51`
@@ -205,7 +205,7 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - `/assets/public/*` without a binding `ETag` gets one from the SHA-1 of the body in base64url, and `304` with no body when `If-None-Match` lists it. `src/worker.ts:104`, `src/worker.ts:110`
 - `/assets/public/*` status from 300 to 399 other than 304 passes through untouched. `src/worker.ts:85`
 - `/robots.txt` answers 404: `public/` is served only under `/assets/public/`. `test/worker.test.ts:195`
-- `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:892`, `test/worker.test.ts:214`
+- `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:879`, `test/worker.test.ts:214`
 - `nodejs_compat` gives `AsyncLocalStorage`, found through `process.getBuiltinModule`; without it overlapping requests share one request store. `../../droplets/src/runtime/request-store.ts:46`, `../../droplets/src/runtime/request-store.ts:60`
 - Node engine for the build is `>=22`. `package.json:36`
 - `vite` is a peer dependency (`^8.0.0`): the adapter reads `defaultServerConditions` from it. `package.json:49`, `src/index.ts:6`

@@ -28,7 +28,7 @@
   Checked by: `../../test/runtime/app.test.ts` ("createDropletsApp: handleError").
 - Each input rule has a negative test: `__proto__` names, tampered and expired tokens, odd field names.
   Checked by: `../../test/runtime/actions.test.ts`, `../../test/runtime/form-token.test.ts`, `../../test/runtime/security.test.ts`.
-- The droplet location is resolved once per request in `resolveLocation` and trusted only against the allow-list (`origin`/`DROPLETS_ORIGIN`, `trustedOrigins`/`DROPLETS_TRUSTED_ORIGINS`, the request's own origin); `"*"` warns and is never refused.
+- The droplet location is resolved once per request in `resolveLocation`: a location header is trusted only against the allow-list (`trustedOrigins`/`DROPLETS_TRUSTED_ORIGINS`, the request's own origin), else it is the request's own origin; `"*"` warns and is never refused.
   Checked by: `../../test/runtime/app.test.ts` ("createDropletsApp: the droplet location", `"*"`).
 - `handle` never runs for `/index.js`, `/env.js` and `/assets/*`.
   Checked by: `../../test/runtime/app.test.ts` ("never runs for files: /index.js and everything under /assets/", "createDropletsApp: /env.js").

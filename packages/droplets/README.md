@@ -154,8 +154,8 @@ export const load = ({ props }: LoadEvent) => {
 | `GET /` | The index page when the build has one, else `404` |
 
 A host fetching fragments through an internal address sends the public
-location in `x-droplet-location`, with its origin listed in `origin` (or
-`DROPLETS_ORIGIN`). Pages on other origins need `cors: true`. Every URL a
+location in `x-droplet-location`, with its origin listed in `trustedOrigins`
+(or `DROPLETS_TRUSTED_ORIGINS`). Pages on other origins need `cors: true`. Every URL a
 droplet emits for its own files is on that droplet location, so a fragment
 works under any origin or path prefix the server is reached through. `handle`
 in `src/hooks.server.ts` never runs for `/index.js`, `/env.js` and `/assets/*`.
@@ -292,7 +292,7 @@ renderer under `testing/`.
 - `rendererConformance` runs on `fakeRenderer()` and `test/fixtures/app` in this package. `test/conformance.test.ts:7`
 - `fakeRenderer()` is named `fake` and handles `.fake.js`. `src/testing/fake-renderer/index.ts:31`
 - `createServerApp` throws when the SSR bundle exports neither `renderDroplet` nor a default. `src/server/app.ts:81`
-- `cors` allowing every origin warns once under `vite dev` (`devLog`); `createServerApp` warns about nothing. `src/runtime/app.ts:841`, `src/runtime/dev-log.ts:66`
+- `cors` allowing every origin warns once under `vite dev` (`devLog`); `createServerApp` warns about nothing. `src/runtime/app.ts:828`, `src/runtime/dev-log.ts:62`
 - `createServerApp` mounts `/assets/*` on the adapter's `assetHandler`. `src/server/app.ts:120`
 - `AssetLoaders`: every loader returns `null` for something that does not exist. `src/server/app.ts:43`
 - `FALLBACK_MANIFEST` is the manifest a runtime answers with before the build is found: no droplets, `__entryClient` `index.js`. `src/server/manifest.ts:42`
@@ -315,12 +315,12 @@ renderer under `testing/`.
 - Adapter contract `DropletsAdapter`: `name`, `serverEntry`, `serverFile`, `separateSsrBundle`, optional `noExternal`, `environment`, `afterBuild`, `preview`. `src/adapters.ts:10`
 - `AdapterBuildContext`, what `afterBuild` gets: `root`, `outDir`, `manifestPath`, `serverPath` and the resolved `config`. `src/adapters.ts:47`, `src/adapters.ts:57`
 - `vite build` without an adapter throws, naming `@dropletsjs/adapter-node`. `src/vite/build.ts:96`
-- Health route answers `ok` and is mounted before `handle`. `src/runtime/app.ts:926`
-- `handle` never runs for `/index.js`, `/env.js` and `/assets/*`. `src/runtime/app.ts:348`, `src/runtime/app.ts:974`
-- Routes: `/` `src/runtime/app.ts:1093`, `/index.js` `src/runtime/app.ts:1100`, `/index.css` `src/runtime/app.ts:1128`, `style.css` `src/runtime/app.ts:1141`, `client.js` `src/runtime/app.ts:1157`, `_data` `src/runtime/app.ts:1269`, the fragment `src/runtime/app.ts:1653`, `/api` `src/runtime/app.ts:1694`
-- `_data` answers `405` with `allow: GET, POST` for `PUT`, `PATCH`, `DELETE`. `src/runtime/app.ts:1265`
-- Droplet file URLs (the stylesheet, `client.js`, the `Link` preloads) are built on the request's droplet location. `src/runtime/app.ts:1312`
-- `style.css` imports each stylesheet as `../../<file>`, relative to itself. `src/runtime/app.ts:298`
+- Health route answers `ok` and is mounted before `handle`. `src/runtime/app.ts:913`
+- `handle` never runs for `/index.js`, `/env.js` and `/assets/*`. `src/runtime/app.ts:344`, `src/runtime/app.ts:961`
+- Routes: `/` `src/runtime/app.ts:1080`, `/index.js` `src/runtime/app.ts:1087`, `/index.css` `src/runtime/app.ts:1115`, `style.css` `src/runtime/app.ts:1128`, `client.js` `src/runtime/app.ts:1144`, `_data` `src/runtime/app.ts:1256`, the fragment `src/runtime/app.ts:1640`, `/api` `src/runtime/app.ts:1681`
+- `_data` answers `405` with `allow: GET, POST` for `PUT`, `PATCH`, `DELETE`. `src/runtime/app.ts:1252`
+- Droplet file URLs (the stylesheet, `client.js`, the `Link` preloads) are built on the request's droplet location. `src/runtime/app.ts:1299`
+- `style.css` imports each stylesheet as `../../<file>`, relative to itself. `src/runtime/app.ts:294`
 - Dev element code enters production code through one gate: `if (import.meta.env.DEV) installDevElement(...)`. `src/runtime/entry-client.ts:1374`
 - Client module dev hooks (`update`, the HMR fallback) are emitted only under `vite dev` or a non-production build. `src/vite/virtual.ts:713`
 - Build hash is random per plugin instance, so per build environment; the entry module is named `assets/index.[hash].js`, not after it. `src/vite/state.ts:96`, `src/vite/build.ts:33`

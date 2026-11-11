@@ -73,7 +73,7 @@ Hono app itself. `paths` is `{ clientRoot, ssrEntryUrl, serverRoot? }`
 
 The config is bundled at build time: `droplets.config.ts` is not read at
 runtime. What is read from `process.env` at runtime: `PORT` (once, at
-startup), `DROPLETS_SECRET`, `DROPLETS_TRUSTED_ORIGINS`, `DROPLETS_ORIGIN`
+startup), `DROPLETS_SECRET`, `DROPLETS_TRUSTED_ORIGINS`, `DROPLETS_ENV_MAX_AGE`
 and your own private variables. It logs errors only, with `console.error`. See
 [Deployment](https://dropletsjs.dev/guides/deployment/).
 
@@ -124,8 +124,8 @@ by path.
 - `vite preview` calls `node().preview`, which serves `dist/client` and `dist/server/entry-server.js` through `createNodeServerApp`. `src/index.ts:30`, `../../droplets/src/vite/plugin.ts:550`
 - `dist/server.js` resolves `client/` and `server/entry-server.js` relative to its own file, not the working directory. `src/entry.ts:10`
 - `droplets.config.ts` is bundled into `dist/server.js` through `virtual:droplets-config`; it is not read at runtime. `src/entry.ts:4`, `test/index.test.ts:27`
-- `PORT` is read once at startup and overrides `server.port` from the config. `src/entry.ts:17`, `../../droplets/src/core/config.ts:375`
-- `PORT` is converted with `Number()`; empty, `0` or not a number falls back to `server.port`, then 8000. `../../droplets/src/core/config.ts:344`
+- `PORT` is read once at startup and overrides `server.port` from the config. `src/entry.ts:17`, `../../droplets/src/core/config.ts:358`
+- `PORT` is converted with `Number()`; empty, `0` or not a number falls back to `server.port`, then 8000. `../../droplets/src/core/config.ts:327`
 - `server.port` defaults to 8000. `../../droplets/src/core/config.ts:195`
 - Listening starts only when `process.argv[1]` is this file's own URL: `node dist/server.js` listens. `src/entry.ts:43`
 - Listening does not start through a symlink or for `node dist/server` without the extension. `src/entry.ts:43`
@@ -147,7 +147,7 @@ by path.
 - Client bundles, `/index.js` and the global CSS are read from disk per request, not cached. `src/assets.ts:71`, `src/assets.ts:75`, `src/assets.ts:83`
 - File read errors other than ENOENT are thrown, not turned into null. `src/fs.ts:19`
 - `/assets/*` is the only route that serves files from `dist/client`. `../../droplets/src/server/app.ts:120`
-- `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:330`, `../../droplets/src/runtime/app.ts:892`
+- `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:326`, `../../droplets/src/runtime/app.ts:879`
 - `/assets/*` serves from `dist/client/assets`. `src/static.ts:48`
 - `/assets/*` path resolving outside `dist/client/assets` answers `404 Not Found` before any read. `src/static.ts:57`
 - `/assets/*` missing file or directory answers `404 Not Found`. `src/static.ts:66`
@@ -159,8 +159,8 @@ by path.
 - `/assets/public/*` answers `304` with no body when any `If-None-Match` tag equals the `ETag`. `src/static.ts:76`
 - `/assets/public/*` is the only path with an `ETag`; hashed files never revalidate. `src/static.ts:69`, `test/static.test.ts:61`
 - `public/robots.txt` is not served at `/robots.txt`: it answers 404. `test/app.test.ts:126`
-- Runtime env comes from `process.env`: `DROPLETS_SECRET`, `DROPLETS_TRUSTED_ORIGINS`, `DROPLETS_ORIGIN` and private variables, per read. `../../droplets/src/runtime/env-store.ts:26`
+- Runtime env comes from `process.env`: `DROPLETS_SECRET`, `DROPLETS_TRUSTED_ORIGINS`, `DROPLETS_ENV_MAX_AGE` and private variables, per read. `../../droplets/src/runtime/env-store.ts:26`
 - Node engine is `>=22`. `package.json:35`
 - Build script runs the tests before tsdown. `package.json:38`
 - Tests build the framework's fixture app and fail when `@dropletsjs/droplets` is not built. `test/build-fixture.ts:19`
-- A droplet without stylesheets has no `style.css` (404), and `/index.css` answers 404 without a shared stylesheet: the empty file is not in the build. `../../droplets/src/runtime/app.ts:1148`, `test/app.test.ts:187`
+- A droplet without stylesheets has no `style.css` (404), and `/index.css` answers 404 without a shared stylesheet: the empty file is not in the build. `../../droplets/src/runtime/app.ts:1135`, `test/app.test.ts:187`

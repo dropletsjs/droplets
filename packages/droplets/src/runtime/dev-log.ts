@@ -17,8 +17,8 @@ export type DevLog = {
   untrustedLocation(input: { location: string; source: string }): void;
   /** A `"*"` in `option`, which trusts any location a request's headers name. */
   anyLocation(input: { option: string }): void;
-  /** An entry of `DROPLETS_ORIGIN` or `DROPLETS_TRUSTED_ORIGINS` that is skipped. */
-  badEnvEntry(input: { variable: "DROPLETS_ORIGIN" | "DROPLETS_TRUSTED_ORIGINS"; entry: string }): void;
+  /** An entry of `DROPLETS_TRUSTED_ORIGINS` that is skipped. */
+  badEnvEntry(input: { variable: "DROPLETS_TRUSTED_ORIGINS"; entry: string }): void;
   /** `DROPLETS_SECRET` missing or too short, once each. */
   secret(input: { problem: "missing" | "short"; minBytes: number }): void;
   /** `cors` allows every origin, once. */
@@ -43,18 +43,14 @@ export function createDevLog(): DevLog {
       if (!first(`location:${source}`)) return;
       logger.warn(
         "framework",
-        `ignoring the location ${JSON.stringify(location.slice(0, 200))} from ${source}: its origin must be this server's or listed in origin or trustedOrigins (or DROPLETS_ORIGIN, DROPLETS_TRUSTED_ORIGINS)`,
+        `ignoring the location ${JSON.stringify(location.slice(0, 200))} from ${source}: its origin must be this server's or listed in trustedOrigins (or DROPLETS_TRUSTED_ORIGINS)`,
       );
     },
     anyLocation({ option }) {
       logger.warn("framework", `${option}: "*" trusts any forwarded location; see ${ANY_LOCATION_DOCS}`);
     },
     badEnvEntry({ variable, entry }) {
-      const example =
-        variable === "DROPLETS_ORIGIN"
-          ? "a location such as https://shop.example or https://shop.example/mfe"
-          : "an origin such as https://shop.example";
-      logger.warn("framework", `${variable}: ignoring ${JSON.stringify(entry)}, not ${example}`);
+      logger.warn("framework", `${variable}: ignoring ${JSON.stringify(entry)}, not an origin such as https://shop.example`);
     },
     secret({ problem, minBytes }) {
       if (!first(`secret:${problem}`)) return;

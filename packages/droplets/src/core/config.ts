@@ -225,8 +225,6 @@ export type NormalizeTrustedOriginsInput = { origins: unknown };
 
 type LocationOfInput = { value: unknown };
 
-export type NormalizeOriginInput = { value: unknown };
-
 type NormalizeLocationInput = { value: unknown };
 
 type NormalizeHostInput = { value: unknown };
@@ -326,21 +324,6 @@ function locationOf({ value }: LocationOfInput): string | null {
   if (url.username !== "" || url.password !== "" || url.hostname.includes("*")) return null;
   if (url.pathname === "/") return url.origin;
   return isLocationPrefix({ prefix: url.pathname }) ? `${url.origin}${url.pathname.replace(/\/+$/, "")}` : null;
-}
-
-/** `origin` as a list of locations, `"*"` kept; throws for anything else. */
-export function normalizeOrigin({ value }: NormalizeOriginInput): string[] {
-  if (value === undefined) return [];
-  const entries: unknown[] = typeof value === "string" ? [value] : Array.isArray(value) ? value : [null];
-  return entries.map((entry) => {
-    const location = entry === "*" ? entry : locationOf({ value: entry });
-    if (location === null) {
-      throw new Error(
-        `droplets: origin takes this server's public URL, an origin with an optional path prefix such as "https://shop.example" or "https://shop.example/mfe" (or "*"), got ${JSON.stringify(entry)}`,
-      );
-    }
-    return location;
-  });
 }
 
 /** `location` as `scheme://host[:port][/prefix]`, or `undefined` when it is not set; throws for anything else. */

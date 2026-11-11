@@ -8,7 +8,7 @@
   Checked by: `pnpm-workspace.yaml`.
 - The shop flow passes against `docker compose up --build` on port 8081: gallery, cart, admin, no-JavaScript post, fresh visitor, edited product.
   Checked by: `pnpm test:hosts nginx` (`tests/hosts/run.mjs`, `tests/hosts/e2e/shop.spec.ts`).
-- Each droplets server learns its public URL from `DROPLETS_ORIGIN` in `docker-compose.yml`; every proxied location clears `x-droplet-location`, `Forwarded` and `X-Forwarded-Host`/`-Proto`/`-Prefix`.
+- Each droplets server learns its public URL from the `x-droplet-location` nginx sends (`DROPLETS_PUBLIC_URL`, `SHOP_PUBLIC_URL`), trusted through its `DROPLETS_TRUSTED_ORIGINS`; every proxied location replaces a client's `x-droplet-location` and clears `Forwarded` and `X-Forwarded-Host`/`-Proto`/`-Prefix`.
 - `DROPLETS_TRUSTED_ORIGINS` of both the droplets server and the shop in `docker-compose.yml` lists the origin of the pages that embed them.
 - The proxy passes bodies, `303`s and every `Set-Cookie` on untouched.
   Checked by: `tests/hosts/e2e/shop.spec.ts` ("without JavaScript, add to cart lands back on the host page").

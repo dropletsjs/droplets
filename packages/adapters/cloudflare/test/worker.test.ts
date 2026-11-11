@@ -242,7 +242,7 @@ describe("worker", () => {
     ).toBe(405);
   });
 
-  it("ignores a client's X-Forwarded-Host unless a DROPLETS_ORIGIN binding lists it", async () => {
+  it("ignores a client's X-Forwarded-Host unless a DROPLETS_TRUSTED_ORIGINS binding lists it", async () => {
     const render = async ({ bindings }: RenderInput) =>
       (
         await worker.default.fetch(
@@ -256,7 +256,7 @@ describe("worker", () => {
     const forged = await render({ bindings: {} });
     expect(forged).not.toContain("shop.test");
     expect(forged).toContain("http://drops.test/droplets/hello/");
-    const listed = await render({ bindings: { DROPLETS_ORIGIN: "https://shop.test" } });
+    const listed = await render({ bindings: { DROPLETS_TRUSTED_ORIGINS: "https://shop.test" } });
     expect(listed).toContain("https://shop.test/mfe/droplets/hello/");
     expect(listed).not.toContain("http://drops.test/droplets/hello/");
   });

@@ -35,8 +35,8 @@ one (`http://localhost:8000`). Send the public origin in the
 `x-droplet-location` header when fetching a fragment, so the URLs it writes
 use that origin, and load `/index.js` from the same place: the browser loads
 every droplet from where `/index.js` came from. The droplets server honours
-`x-droplet-location` only when its origin is trusted (its own, in
-`DROPLETS_ORIGIN` or in `DROPLETS_TRUSTED_ORIGINS`), so each compose file
+`x-droplet-location` only when its origin is trusted (its own, or in
+`DROPLETS_TRUSTED_ORIGINS`), so each compose file
 gives it `DROPLETS_TRUSTED_ORIGINS` (the public URL and the host's own
 origin). The
 [Security model](https://dropletsjs.dev/guides/security/) has what a host

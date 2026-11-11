@@ -30,12 +30,12 @@ nothing is cross-origin.
   its API URLs on the droplets server's public origin (`droplet.url()`),
   which here is nginx's.
 
-The droplets server has nginx's public URL in `DROPLETS_ORIGIN` and writes
-the fragments' URLs on that origin. nginx sends no location header and
-clears the ones a client could send (`x-droplet-location`, `Forwarded`,
-`X-Forwarded-Host`, `X-Forwarded-Proto`, `X-Forwarded-Prefix`).
-`DROPLETS_TRUSTED_ORIGINS` names where the host page is, so `event.host`
-stays on it.
+nginx sends its public URL as `x-droplet-location` (in place of any a
+client sent) and clears `Forwarded`, `X-Forwarded-Host`,
+`X-Forwarded-Proto` and `X-Forwarded-Prefix`; the droplets server writes the
+fragments' URLs on that location. It trusts the header because
+`DROPLETS_TRUSTED_ORIGINS` lists its origin, which is also where the host
+page is, so `event.host` stays on it.
 
 ### The shop demo (`shop/`, port 8081)
 
@@ -56,9 +56,9 @@ two tools, no code:
   out with named captures. An `auth_request` to the product fragment runs
   first: an unknown product answers 404, an old `v` a 302 to the page
   without it.
-- `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` are proxied with the
-  location headers cleared (the shop has its public URL in
-  `DROPLETS_ORIGIN`), so the login's `Set-Cookie` and `303`, the cart cookie
+- `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` are proxied with
+  `x-droplet-location` set to the shop's public URL and the forwarded
+  headers cleared, so the login's `Set-Cookie` and `303`, the cart cookie
   and the form posts pass through untouched. Bodies up to 4 MB (admin image
   uploads).
 
@@ -81,9 +81,9 @@ redirects, cannot be composed with SSI: render that page in code instead
 
 ### Behind a path or several public URLs
 
-`DROPLETS_ORIGIN` holds one public URL. Behind a path prefix, or with more
-than one public URL, send `X-Forwarded-Host`, `X-Forwarded-Proto` and
-`X-Forwarded-Prefix` from nginx instead, and list each origin in
+Behind a path prefix, put it in the URL nginx sends
+(`x-droplet-location: https://shop.example/mfe`). With more than one public
+URL, send each server block's own, and list each origin in
 `DROPLETS_TRUSTED_ORIGINS`. See the
 [nginx guide](https://dropletsjs.dev/integrate/hosts/nginx/).
 
@@ -91,16 +91,16 @@ than one public URL, send `X-Forwarded-Host`, `X-Forwarded-Proto` and
 
 `docker-compose.yml` reads `DROPLETS_PORT` and `DROPLETS_URL` (the basic
 page, default 8080) and `WEB_PORT` and `WEB_URL` (the shop, default 8081).
-`nginx.conf` is a template: the nginx image fills in `SHOP_PUBLIC_URL` at
-start.
+`nginx.conf` is a template: the nginx image fills in `DROPLETS_PUBLIC_URL`
+and `SHOP_PUBLIC_URL` at start.
 
 ### IIS
 
 [`iis/web.config`](./iis/web.config) is a URL Rewrite + ARR reverse-proxy
 sketch. It has not been run on a Windows host. It sets an `X-Host` request
-header, which the droplets server does not read: set `DROPLETS_ORIGIN` on
-the droplets server instead, or send `x-droplet-location` with the site's
-public URL written out. IIS cannot include arbitrary URLs server-side, so
+header, which the droplets server does not read: send `x-droplet-location`
+with the site's public URL written out, and list its origin in the droplets
+server's `DROPLETS_TRUSTED_ORIGINS`. IIS cannot include arbitrary URLs server-side, so
 pair it with a page that fetches fragments itself (any of the other hosts)
 or with the client-only pattern from [`react-vite`](../react-vite).
 
@@ -114,20 +114,19 @@ compose stack on port 8081 (needs Docker).
 
 - Dockerfile is `nginx:1.27-alpine` with `nginx.conf` as a template and `html/` and `shop/` baked in. `Dockerfile:4`, `Dockerfile:5`, `Dockerfile:6`, `Dockerfile:7`
 - Compose droplets service builds `examples/frameworks/Dockerfile` from the repository root and only exposes 8000. `docker-compose.yml:9`, `docker-compose.yml:12`
-- Compose droplets service `DROPLETS_ORIGIN` is the basic page's public URL, default `http://localhost:8080`. `docker-compose.yml:15`
-- Compose droplets service `DROPLETS_TRUSTED_ORIGINS` is the basic page's public URL. `docker-compose.yml:17`
-- Compose shop service builds `examples/shop/Dockerfile` and only exposes 8300. `docker-compose.yml:23`, `docker-compose.yml:25`
-- Compose shop demo login is `admin` / `droplets`. `docker-compose.yml:28`, `docker-compose.yml:29`
-- Compose shop `DROPLETS_SECRET` is a demo value. `docker-compose.yml:32`
-- Compose shop `DROPLETS_ORIGIN` and `DROPLETS_TRUSTED_ORIGINS` are the shop origin, default `http://localhost:8081`. `docker-compose.yml:34`, `docker-compose.yml:36`
-- Compose web service publishes `127.0.0.1:${DROPLETS_PORT:-8080}:80` and `127.0.0.1:${WEB_PORT:-8081}:8081`. `docker-compose.yml:43`, `docker-compose.yml:44`
-- Compose web service `SHOP_PUBLIC_URL` defaults to `http://localhost:8081`. `docker-compose.yml:46`
+- Compose droplets service `DROPLETS_TRUSTED_ORIGINS` is the basic page's public URL, default `http://localhost:8080`. `docker-compose.yml:16`
+- Compose shop service builds `examples/shop/Dockerfile` and only exposes 8300. `docker-compose.yml:22`, `docker-compose.yml:24`
+- Compose shop demo login is `admin` / `droplets`. `docker-compose.yml:27`, `docker-compose.yml:28`
+- Compose shop `DROPLETS_SECRET` is a demo value. `docker-compose.yml:31`
+- Compose shop `DROPLETS_TRUSTED_ORIGINS` is the shop origin, default `http://localhost:8081`. `docker-compose.yml:34`
+- Compose web service publishes `127.0.0.1:${DROPLETS_PORT:-8080}:80` and `127.0.0.1:${WEB_PORT:-8081}:8081`. `docker-compose.yml:41`, `docker-compose.yml:42`
+- Compose web service `DROPLETS_PUBLIC_URL` defaults to `http://localhost:8080`, `SHOP_PUBLIC_URL` to `http://localhost:8081`. `docker-compose.yml:44`, `docker-compose.yml:45`
 - Upstreams: `droplets:8000` and `shop:8300`. `nginx.conf:17`, `nginx.conf:21`
 - Basic server listens on 80, root `/usr/share/nginx/html`, `ssi on` for `/`. `nginx.conf:25`, `nginx.conf:28`, `nginx.conf:33`
 - Basic page includes `client`, `ssr-hydrate` and `ssr-nohydrate` with `who=nginx`. `html/index.html:21`, `html/index.html:22`, `html/index.html:23`
 - Basic page loads `/index.js` from its own origin. `html/index.html:8`
 - Basic proxy: `/index.js`, `/droplets/*`, `/assets/*`, `/api/*` go to the droplets server. `nginx.conf:40`
-- Basic proxy clears `x-droplet-location`, `Forwarded` and `X-Forwarded-Host`/`-Proto`/`-Prefix`. `nginx.conf:42`, `nginx.conf:46`
+- Basic proxy sends `x-droplet-location: ${DROPLETS_PUBLIC_URL}` and clears `Forwarded` and `X-Forwarded-Host`/`-Proto`/`-Prefix`. `nginx.conf:42`, `nginx.conf:46`
 - Shop server listens on 8081 with `absolute_redirect off`. `nginx.conf:71`, `nginx.conf:73`
 - Shop `/` answers 302 to `/gallery`. `nginx.conf:81`
 - Shop pages `/gallery`, `/login`, `/admin` are SSI rewrites to `gallery.html`, `login.html`, `admin.html`. `nginx.conf:83`, `nginx.conf:135`, `nginx.conf:139`
@@ -141,7 +140,7 @@ compose stack on port 8081 (needs Docker).
 - Shop product id, name and category come from named captures on the `_data` JSON. `shop/product.html:2`
 - Shop product name and category are echoed with `encoding="entity"` or `encoding="url"`. `shop/product.html:5`, `shop/product.html:13`
 - Shop any other path answers 404. `nginx.conf:151`
-- Shop proxy: `/index.js`, `/droplets/*`, `/assets/*`, `/api/*` go to the shop with location headers cleared. `nginx.conf:156`, `nginx.conf:158`
+- Shop proxy: `/index.js`, `/droplets/*`, `/assets/*`, `/api/*` go to the shop with `x-droplet-location: ${SHOP_PUBLIC_URL}` and the forwarded headers cleared. `nginx.conf:156`, `nginx.conf:158`
 - Shop proxy `client_max_body_size` is 4m. `nginx.conf:164`
 - Shop fragments go through the internal `/_fragment/` location. `nginx.conf:170`, `nginx.conf:171`
 - Shop fragment `Referer` is `${SHOP_PUBLIC_URL}$request_uri`, the page itself. `nginx.conf:174`

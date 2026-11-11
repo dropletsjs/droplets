@@ -5,7 +5,7 @@
  */
 import type { Context, MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { normalizeOrigin, normalizeTrustedOrigins, type BodyLimits } from "../core/config.ts";
+import { normalizeTrustedOrigins, type BodyLimits } from "../core/config.ts";
 import type { DevLog } from "./dev-log.ts";
 
 /** Methods a cross-site form, or a fetch without preflight, can send with a body. */
@@ -72,37 +72,6 @@ export function trustedOriginsWith({ configured, raw, devLog }: TrustedOriginsWi
     }
     if (parsed.includes("*")) devLog?.anyLocation({ option: "DROPLETS_TRUSTED_ORIGINS" });
     fromEnv.set(raw, parsed);
-  }
-  return [...new Set([...configured, ...parsed])];
-}
-
-/** The locations of `DROPLETS_ORIGIN`, by raw value, as `fromEnv` keeps them. */
-const originFromEnv = new Map<string, string[]>();
-
-export type OriginWithInput = { configured: readonly string[]; raw: string | undefined; devLog?: DevLog | undefined };
-
-/**
- * `origin` from the config with `DROPLETS_ORIGIN`, a comma-separated list
- * of locations read at runtime, added. An entry that is not a location is
- * skipped, with a warning under `vite dev`.
- */
-export function originWith({ configured, raw, devLog }: OriginWithInput): readonly string[] {
-  if (!raw?.trim()) return configured;
-  let parsed = originFromEnv.get(raw);
-  if (!parsed) {
-    parsed = [];
-    for (const entry of raw
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean)) {
-      try {
-        parsed.push(...normalizeOrigin({ value: entry }));
-      } catch {
-        devLog?.badEnvEntry({ variable: "DROPLETS_ORIGIN", entry });
-      }
-    }
-    if (parsed.includes("*")) devLog?.anyLocation({ option: "DROPLETS_ORIGIN" });
-    originFromEnv.set(raw, parsed);
   }
   return [...new Set([...configured, ...parsed])];
 }

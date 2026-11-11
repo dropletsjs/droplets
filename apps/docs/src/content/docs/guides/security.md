@@ -49,11 +49,11 @@ It comes from `x-droplet-location`, else `Forwarded`, else
 `X-Forwarded-Proto` with `X-Forwarded-Host` (and `X-Forwarded-Prefix`).
 Anyone can send those headers, so:
 
-- a header's location is used only when its origin is the request's own,
-  in `origin` / `DROPLETS_ORIGIN`, or in `trustedOrigins` /
-  `DROPLETS_TRUSTED_ORIGINS`. An untrusted one is skipped (with a warning
-  under `vite dev`), and never reaches an action URL. Without a list, forwarded headers count
-  only when they name the request's own origin;
+- a header's location is used only when its origin is the request's own
+  or in `trustedOrigins` / `DROPLETS_TRUSTED_ORIGINS`. An untrusted one is
+  skipped (with a warning under `vite dev`), and never reaches an action
+  URL. Without a list, forwarded headers count only when they name the
+  request's own origin;
 - it must be an `http:` or `https:` URL; credentials, query and hash are
   dropped, and a path prefix with `//`, `\`, `..`, `?`, `#` or control
   characters, or over 256 characters, is dropped too;
@@ -63,8 +63,7 @@ Anyone can send those headers, so:
   values, or clears them, never passing on a client's; and the droplets
   server is not reachable around that proxy.
 
-With no header, `origin` gives the location when it has one entry, else the
-request's own origin. See
+With no trusted header, the location is the request's own origin. See
 [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location).
 
 `host` (where the droplet renders) is taken from the request too: a render
@@ -79,13 +78,12 @@ elements load JavaScript, CSS and data from the URL the page loaded
 
 ### Trusting any location
 
-`"*"` in `origin` (or `DROPLETS_ORIGIN`) or in `trustedOrigins` (or
-`DROPLETS_TRUSTED_ORIGINS`) trusts any location a request's headers name.
-The server allows it; under `vite dev` it warns once when it starts (a
-production server logs errors only):
+`"*"` in `trustedOrigins` (or `DROPLETS_TRUSTED_ORIGINS`) trusts any
+location a request's headers name. The server allows it; under `vite dev`
+it warns once when it starts (a production server logs errors only):
 
 ```
-origin: "*" trusts any forwarded location; see https://dropletsjs.dev/guides/security/#trusting-any-location
+trustedOrigins: "*" trusts any forwarded location; see https://dropletsjs.dev/guides/security/#trusting-any-location
 ```
 
 What it opens up:
@@ -105,8 +103,8 @@ It may be acceptable when no client can set these headers: a server on a
 private network that only your own services reach, or behind a proxy that
 strips every one of them and sets them itself, with the droplets server
 reachable through nothing else. Even then, prefer listing the exact
-locations in `origin`. With `"*"`, a header's location is still checked
-for a web URL and a clean prefix, nothing more.
+origins in `trustedOrigins`. With `"*"`, a header's location is still
+checked for a web URL and a clean prefix, nothing more.
 
 ## Caching
 

@@ -90,18 +90,18 @@ request arrived at, so the server reads it from the request, in this order
 ([details](/integrate/http-contract/#where-it-comes-from)):
 `x-droplet-location`, then `Forwarded`, then `X-Forwarded-Proto` with
 `X-Forwarded-Host` (both with `X-Forwarded-Prefix` for a path). A header's
-location counts only when its origin is the request's own, in `origin` or
-in `trustedOrigins`; with no header that counts, a single `origin` entry is
-the location, else the request's own origin.
+location counts only when its origin is the request's own or listed in
+`trustedOrigins`; with no header that counts, the location is the request's
+own origin.
 
 ```ts
-// One public URL, under a path: no header needed.
-export default config({ origin: "https://shop.example/mfe" });
+// The proxy sends x-droplet-location: https://shop.example/mfe
+export default config({ trustedOrigins: ["https://shop.example"] });
 ```
 
 ```bash
 # Or at runtime, several of them: the proxy's forwarded headers pick one.
-DROPLETS_ORIGIN=https://shop.example,https://www.shop.example node dist/server.js
+DROPLETS_TRUSTED_ORIGINS=https://shop.example,https://www.shop.example node dist/server.js
 ```
 
 `"*"` trusts any location a header names, and warns once at start under
@@ -223,8 +223,8 @@ Client externals are declared in
 | Variable | Effect |
 | --- | --- |
 | `PORT` | Overrides both ports, so a container can relocate the server without a rebuild. |
-| `DROPLETS_ORIGIN` | Comma-separated locations added to `origin`, read at runtime (per request, so Workers bindings work). |
-| `DROPLETS_TRUSTED_ORIGINS` | Comma-separated origins added to `trustedOrigins`, read at runtime. |
+| `DROPLETS_TRUSTED_ORIGINS` | Comma-separated origins added to `trustedOrigins`, read at runtime (per request, so Workers bindings work). |
+| `DROPLETS_ENV_MAX_AGE` | Seconds a browser or CDN may keep `/env.js`, read at runtime: `600` by default, `0` sends `no-store`, an invalid value keeps `600` ([Environment variables](/guides/server/#environment-variables)). |
 | `DROPLETS_SECRET` | 32 or more random bytes, read at runtime: signs the result of a form posted without JavaScript, carried back to the page on the redirect ([Post/Redirect/Get](/guides/actions/#without-javascript-postredirectget)). Without it, or shorter, such a post answers the fragment instead, with a warning under `vite dev`. |
 | `DEV_DROPLETS_LOG` | The level of the `vite dev` and `vite build` log: `error`, `warn`, `info` (default) or `debug`. A production server ignores it: it logs errors only ([Logging](/guides/deployment/#logging)). |
 
