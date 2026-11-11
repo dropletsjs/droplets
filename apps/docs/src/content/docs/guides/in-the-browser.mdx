@@ -64,8 +64,8 @@ From the script tag to a live droplet:
 When a droplet element connects to the page, it:
 
 1. takes where to load from: the URL `/index.js` was loaded from, path
-   prefix included (the page's own origin if `/index.js` was not loaded
-   from the droplets server). The markup has no say in it;
+   prefix included (before `/index.js` recorded it, the root of the build
+   its bundle came from, prefix included). The markup has no say in it;
 2. links the droplet's stylesheet inside the element when the markup did
    not bring it (see [Styles](#styles));
 3. moves the host's children into place (see [Host children](#host-children));
@@ -128,7 +128,8 @@ A host overrides the mode per element:
 
 `data-hydrate` takes `true`, `false`, `visible` or `interactive`; an unknown
 value warns in dev. It cannot turn hydration on for a droplet that ships no
-bundle (`hydrate = false` in the component).
+bundle (`hydrate = false` in the component), and `false` does not stop a
+[script droplet](/renderers/script/), which only runs in the browser.
 
 ## Clicks before hydration
 

@@ -546,6 +546,59 @@ export default { plugins: [scopeStylesPlugin({ element: "acme-widgets" })] };
 With `css.scoped: false` nothing is rewritten; keep every stylesheet free of
 resets and element selectors then, since they apply to the whole host page.
 
+## Files: images, fonts, `public/`
+
+Every URL a droplet writes for its own files is on the droplet location, the
+place the host page loads `/index.js` from, path prefix included: never a
+root-relative `/assets/…`, which would point at the host's own server. That
+holds in the server's HTML, after hydration and when the droplet mounts in
+the browser, for a page on another origin and behind a proxy's prefix
+(`x-droplet-location: https://shop.example/mfe`).
+
+**Import the file** from the component, or from a module it imports:
+
+```svelte
+<script lang="ts">
+  import logo from "./logo.png";
+</script>
+
+<img src={logo} alt="" width="24" height="24" />
+```
+
+The server renders
+`<img src="https://drops.example/assets/logo-B2x9kQ1p.png">`, and
+`https://shop.example/mfe/assets/logo-B2x9kQ1p.png` for a request whose
+location is `https://shop.example/mfe`. In the browser the bundle works the
+URL out from its own address (`new URL("../../assets/logo-B2x9kQ1p.png",
+import.meta.url)`), so it stays on whatever location served it. Files under
+4 KB become `data:` URLs (Vite's `build.assetsInlineLimit`).
+
+`new URL("./logo.png", import.meta.url).href` in a component gives the same
+URL, on the server and in the browser. In a server file (`*.server.*`,
+`server/`) it stays the file on the server's disk, to read.
+
+**In CSS**, `url(./bg.png)` is the file next to the stylesheet and
+`url(/img/a.png)` is `public/img/a.png`; the build writes both relative to
+the stylesheet (`url(./bg-Cq3x.png)`, `url(./public/img/a.png)`), and the
+stylesheet is on the droplet location.
+
+**`public/`** is copied to `dist/client/assets/public/` and served at
+`/assets/public/<file>` by every adapter and by `vite dev`, with
+`cache-control: no-cache` and an `ETag`: browsers ask again each time and get
+a `304` while the file is the same, since its name does not change between
+builds. Nothing of `public/` is served at the root (`/robots.txt` is a 404).
+Name a public file with `droplet.url()`:
+
+```ts
+import droplet from "$droplets/drop";
+
+const terms = droplet.url("assets/public/terms.pdf");
+```
+
+Files are public. `handle` never runs for `/index.js` or `/assets/*` (see
+[`handle`](/guides/server/#handle)); keep a file only some users may see
+behind an endpoint or a signed URL.
+
 ## Script droplets
 
 Some droplets are no component at all: an analytics tracker, a third-party

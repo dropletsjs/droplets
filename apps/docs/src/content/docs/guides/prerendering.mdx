@@ -51,9 +51,9 @@ A host-agnostic render gets a stand-in for `host`: `host.origin`,
 `host.pathname` and `host.href` (and `String(host)`, `JSON.stringify`) give
 the tokens `__$DROPLET_HOST$__` and `__$DROPLET_PATH$__`. Every render made
 at build, with a host or without, has the droplets server's location as a
-token too, `__$DROPLET_LOCATION$__` (`droplet.origin`, action URLs), replaced
-with the location of each request that serves it. Each token carries the
-build's nonce (`__$DROPLET_HOST_<nonce>$__`).
+token too, `http://droplets.invalid/__$DROPLET_LOCATION$__` (`droplet.origin`,
+action URLs, imported files), replaced with the location of each request that
+serves it. Each token carries the build's nonce (`__$DROPLET_HOST_<nonce>$__`).
 `<a href="{host.origin}/sale">` is stored as `<a href="__$DROPLET_HOST$__/sale">`,
 and every request that serves it gets the tokens replaced with its own
 `host`, after `handle` and before `transform`: in the HTML (escaped for

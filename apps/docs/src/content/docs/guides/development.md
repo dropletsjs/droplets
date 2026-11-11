@@ -186,6 +186,17 @@ export default defineConfig({
 });
 ```
 
+**Files in dev.** Imported files and CSS `url()`s are on the dev server
+itself, absolute (`http://localhost:5173/src/lib/logo.png`): the plugin sets
+Vite's `server.origin` to the dev server's address unless you set one, so a
+host page on another origin loads them. They ignore a location's path prefix:
+`vite dev` serves its modules from its root, so try a prefixed proxy against a
+build (`vite preview`). Stylesheets
+are not linked inside the element as in a build: Vite injects them into the
+host page's `<head>` as `<style>` elements. `public/` is served at
+`/assets/public/*` as in a build, and Vite also serves it at the root
+(`/robots.txt`), which a build does not.
+
 **Scoped styles of non-hydrating droplets in dev.** In dev, a component's
 styles reach the browser through the droplet's client module. A droplet with
 `hydrate = false` never loads that module, so it renders without its component

@@ -114,6 +114,12 @@ Droplet bundles, stylesheets and everything under `/assets/` are sent with
 are content-addressed; for the routes, every build gets a short hash, appended
 to their URLs as `?c=<hash>`, so a deploy invalidates them.
 
+`/assets/public/*`, the project's `public/`, keeps its file names from build
+to build, so it is sent `cache-control: no-cache` with an `ETag`: the browser
+asks each time, with `If-None-Match`, and gets a `304` with no body while the
+file is the same. Requests for files never pass through `handle` (see
+[`handle`](/guides/server/#handle)): anything under `/assets/` is public.
+
 `/index.js` is the exception: a small stub, always `no-store`, that imports
 the entry client under a name unique to the build, relative to its own URL:
 

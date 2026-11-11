@@ -66,14 +66,28 @@ const response = await fetch(droplet.url("/api/counter"));
 
 | Export | What it is |
 | --- | --- |
-| `droplet.origin` | The droplets server's location as the browser reaches it, path prefix included, without a trailing slash. |
-| `droplet.url(path)` | `origin` + `path`: the URL of one of your `/api` endpoints, or any other route. |
+| `droplet.origin` | The droplet location: where the browser loads `/index.js` from, path prefix included, without a trailing slash. |
+| `droplet.url(path)` | `origin` + `path`: one of your `/api` endpoints, a file of `public/` (`droplet.url("assets/public/robots.txt")`), or any other route. An absolute URL, such as an imported file's, comes back as it is. |
 
 A droplet runs inside someone else's page, so `fetch("/api/counter")` would
 hit the host. In the browser, `origin` is where the page loaded `/index.js`
-from (the page's own origin if it did not); on the server it is the request's
+from; before `/index.js` recorded it, the root of the build the bundle came
+from (`https://shop.example/mfe` for a bundle at
+`https://shop.example/mfe/droplets/cart/client.js`). On the server it is the
+request's
 [public location](/integrate/http-contract/#x-droplet-location-the-public-location):
-a trusted location header, else the single `origin` entry, else the request's own origin. It works in components and in plain `.ts` files.
+a trusted location header, else the single `origin` entry, else the request's
+own origin. It works in components and in plain `.ts` files.
+
+Outside a request on the server (a module's top level, read once when the
+server starts) `origin` is the build's location token,
+`http://droplets.invalid/__$DROPLET_LOCATION_<nonce>$__`. A fragment, its
+inline data, `_data` and an action's JSON answer get it replaced with the
+location of the request they answer, so a URL made at the top level and
+rendered still lands on the right server. A `+server.ts` response is not
+rewritten: call `droplet.url()` inside the handler, where it reads the
+request, and pass an imported file's URL through it
+(`droplet.url(logo)`) to put it on the request's location.
 
 ## `$droplets/form`
 
@@ -334,7 +348,9 @@ type DropletsAdapter = {
 in fragments' `Link` header), and `dropletStyles(id)` the droplet's
 stylesheets (`css`, paths under `assets/`, shared chunks' first), which
 `style.css` imports and fragments link and preload. `assetHandler` serves
-`/assets/*`, immutable.
+`/assets/*`: `public, max-age=2592000, immutable`, except `/assets/public/*`,
+the project's `public/`, sent `no-cache` with an `ETag` and answered `304`
+when `If-None-Match` matches. `handle` never runs for it.
 
 An adapter entry imports `virtual:droplets-config` (the config),
 `virtual:droplets-ssr` and `virtual:droplets-manifest` (`droplets.json`);

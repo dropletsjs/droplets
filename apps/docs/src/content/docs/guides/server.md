@@ -15,8 +15,19 @@ per page before any droplet starts.
 
 ### `handle`
 
-Runs for every request except the health check: fill `event.locals`, answer
-early without calling `resolve`, or change the response.
+Runs for every request except the health check and the files: fill
+`event.locals`, answer early without calling `resolve`, or change the
+response.
+
+`/index.js` and every path under `/assets/` (the bundles' chunks,
+stylesheets, imported files and `public/` at `/assets/public/`) are answered
+without calling `handle`, on every adapter and in `vite dev`, as SvelteKit
+serves its static files. Fragments, `_data`, actions, `/droplets/<id>/client.js`
+and `style.css`, and `/api/*` all run through it. So `handle` cannot guard a
+file: everything under `/assets/` is public to whoever has its URL. A file
+only some users may see belongs behind an endpoint that checks who asks, in
+`src/api/`, or on a storage service that hands out signed URLs, and the
+droplet links to that.
 
 ```ts
 // src/hooks.server.ts

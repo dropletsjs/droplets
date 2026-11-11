@@ -104,8 +104,9 @@ droplets: counter/+droplet.script.ts: "interactive" waits for a first interactio
 droplets: counter/+droplet.script.ts: a script droplet renders nothing on the server, so it has no ssr flag; remove export const ssr
 ```
 
-A host's `data-hydrate="false"` on one element still keeps that element from
-running.
+A host's `data-hydrate="false"` is ignored on a script droplet's element,
+with a warning in `vite dev`: a script droplet only runs in the browser, so
+there is nothing to keep. `data-hydrate="visible"` still defers it.
 
 ## Specifics
 

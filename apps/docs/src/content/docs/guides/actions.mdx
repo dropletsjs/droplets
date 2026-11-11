@@ -120,7 +120,7 @@ The location is where the droplets server is reached, as for
 server (a [trusted `x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location)
 or forwarded headers, else the configured `origin`, else the request's origin;
 an untrusted location never reaches an action URL), and the URL the page
-loaded `/index.js` from in the browser. A prerendered droplet holds a token there (`__$DROPLET_LOCATION_<nonce>$__`), replaced per
+loaded `/index.js` from in the browser. A prerendered droplet holds a token there (`http://droplets.invalid/__$DROPLET_LOCATION_<nonce>$__`), replaced per
 request with the location it is served from, before `transform`.
 
 The page is `event.host` on the server (its `origin` and `pathname`; at

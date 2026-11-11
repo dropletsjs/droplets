@@ -46,7 +46,7 @@ export default defineConfig({ plugins: [droplets({ adapter: node(), renderers: [
 
 | Adapter | Package | Emits |
 | --- | --- | --- |
-| `node()` | `@dropletsjs/adapter-node` | `dist/server.js` + `dist/server/entry-server.js`; reads `dist/client` and `dist/server/_prerendered` from disk, serves only `/assets/` as files. `vite preview` uses it too. |
+| `node()` | `@dropletsjs/adapter-node` | `dist/server.js` + `dist/server/entry-server.js`; reads `dist/client` and `dist/server/_prerendered` from disk, serves only `/assets/` as files (`public/` at `/assets/public/`). `vite preview` uses it too. |
 | `cloudflare()` | `@dropletsjs/adapter-cloudflare` | `dist/worker.js`, self-contained, renderer and manifest inlined; `dist/client` served by Workers Static Assets. |
 | `bun()` | `@dropletsjs/adapter-bun` | As `node()`; `bun dist/server.js` serves it. |
 | `deno()` | `@dropletsjs/adapter-deno` | As `node()`; `deno serve -A dist/server.js` serves it. |
@@ -89,11 +89,20 @@ export default defineConfig({ plugins: [droplets({ adapter: cloudflare(), render
   "assets": {
     "directory": "dist/client",
     "binding": "ASSETS",
-    // Droplet routes decide first; the binding serves /assets/* and the bundles.
+    // Every request reaches the Worker, files included.
     "run_worker_first": true
   }
 }
 ```
+
+`run_worker_first` must be `true`: the Worker answers `/index.js` with the
+stub that records where it was loaded from, and reads `/droplets/*` and
+`/assets/*` through the binding to send them with CORS and their cache
+headers. Served straight from the static assets, a page on another origin
+could not load them. The adapter reads your wrangler config
+(`wrangler.jsonc`, `wrangler.json` or `wrangler.toml`) after `vite build`
+and stops the build when `run_worker_first` is `false`, unset or a list of
+paths; it warns when the file does not parse.
 
 ```bash
 vite build
@@ -107,7 +116,8 @@ Worker's bindings, and `platform.env` in server code holds them all.
 Prerendered droplets are read through the assets binding, from
 `dist/client/_prerendered/<random>/`: a name new every build that only the
 Worker's inlined manifest holds, so no assets config makes them reachable at
-a URL one could guess. `vite build` also writes `dist/client/.assetsignore`,
+a URL one could guess. `public/` is in `dist/client/assets/public/`, served at
+`/assets/public/*` with `no-cache` and the binding's `ETag`. `vite build` also writes `dist/client/.assetsignore`,
 which keeps `droplets.json` and `.vite/` out of the upload. Set `cors` in `droplets.config.ts` if
 pages on other origins embed your droplets. On the free plan this is enough
 to host a droplets server for a documentation site or a demo.
@@ -219,8 +229,8 @@ When a reverse proxy fronts the droplets server:
   droplets server unreachable except through the proxy;
 - keep the `cache-control` headers it sends; they are safe to honour: `/index.js`
   is `no-store`, fragments and `_data` are `private, no-store`
-  (`fragmentCacheControl`), everything else it serves for the browser is
-  immutable.
+  (`fragmentCacheControl`), `/assets/public/*` is `no-cache` with an `ETag`,
+  everything else it serves for the browser is immutable.
 
 ### `/index.js` and CDNs
 
@@ -229,7 +239,7 @@ the stub records its own URL. So `/index.js` must come from the droplets
 server, under its prefix: `https://shop.example/mfe/index.js` makes the
 elements load from `https://shop.example/mfe`. A CDN in front works when it
 pulls from the server at the same URL (origin pull); `/index.js` is
-`no-store`, the rest is immutable and caches well. Copying the files to
+`no-store`, `/assets/public/*` revalidates, the rest is immutable and caches well. Copying the files to
 another bucket under another URL does not: there is no option that bakes a
 location into the build.
 

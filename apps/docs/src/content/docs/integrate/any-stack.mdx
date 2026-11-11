@@ -83,7 +83,7 @@ droplets server, every method, body streamed:
 | --- | --- |
 | `/index.js` | The entry stub, `no-store`; it imports the element from `/assets/` |
 | `/droplets/*` | `client.js` bundles, `style.css`, `_data` refreshes and form actions (`POST /droplets/<id>?/name`) |
-| `/assets/*` | The entry client, shared chunks, stylesheets, images |
+| `/assets/*` | The entry client, shared chunks, stylesheets, images, and `public/` at `/assets/public/` |
 | `/api/*` | Your [`+server.ts`](/guides/server/#api-routes) endpoints, which [`$droplets/drop`](/reference/api/#dropletsdrop) calls |
 
 Two more only when you use them: `/index.css` (the shared stylesheet, for a

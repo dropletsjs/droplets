@@ -17,7 +17,8 @@ interface; anything that can make a request can host a droplet.
 | `GET /droplets/:id/style.css` | That droplet's stylesheets, the shared one first, as `@import`s; empty when it has none |
 | `GET /index.js` | A small stub that imports the entry client, which defines the droplet element, and carries the dynamic public env |
 | `GET /index.css` | The shared stylesheet, for pages that want to link it themselves |
-| `GET /assets/*` | The entry client, shared chunks, stylesheets and assets |
+| `GET /assets/*` | The entry client, shared chunks, stylesheets and imported files, cached for good |
+| `GET /assets/public/*` | The project's `public/` folder, `no-cache` with an `ETag` (`304` when `If-None-Match` matches) |
 | `ALL /api/*` | Your [`+server.ts`](/guides/server/#api-routes) endpoints |
 | `GET /health` | `ok`, for health checks (`health` option) |
 | `GET /importmap`, `/importmap.js` | The [import map](/guides/server/#import-maps), when there are externals |
