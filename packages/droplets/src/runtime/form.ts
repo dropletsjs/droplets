@@ -20,7 +20,8 @@ export const RETURN_KEY = "__droplet_return";
  * Query keys the framework owns; never forwarded as droplet props. Keys that
  * start with `/` name a form action (`?/add`), and keys that start with
  * `__droplet_form_` are kept for the result of a form posted without
- * JavaScript: neither is a prop either.
+ * JavaScript: neither is a prop either. `@dropletsjs/devtools` keeps a copy,
+ * checked against this one by its `test/reserved-keys.test.ts`.
  */
 export const RESERVED_QUERY_KEYS: ReadonlySet<string> = new Set(["__cb", "c", "t", "noSSR", "clientOnly", RETURN_KEY]);
 

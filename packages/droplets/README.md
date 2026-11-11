@@ -273,7 +273,7 @@ renderer under `testing/`.
 - vitest aliases the virtual modules to `test/stubs/*` and runs `test/**/*.test.ts` in Node with `test/setup.ts`. `vitest.config.ts:8`, `vitest.config.ts:17`
 - Portability: `test/portability.test.ts` NEUTRAL list is `runtime`, `server`, `core/config.ts`, `core/logger.ts`. `test/portability.test.ts:14`
 - Portability forbids in NEUTRAL files: `node:` imports, `Buffer`, `process.argv/cwd/exit`, an unguarded `process.env`, `__dirname`. `test/portability.test.ts:16`
-- Entry `.` exports `config`, `DEV_STRATEGIES`, `isValidElementName`, `resolveConfig`, `logger`, `setLogLevel`. `src/index.ts:1`, `src/index.ts:2`
+- Entry `.` exports `config`, `isValidElementName`, `resolveConfig`, `logger`, `setLogLevel`, and the type `DevStrategy`; `DEV_STRATEGIES` stays internal. `src/index.ts:1`, `src/index.ts:2`, `src/index.ts:6`
 - Entry `.` exports `DropletsApp`, the type of the Hono app `createServerApp` returns. `src/index.ts:11`
 - Entry `.` exports `createServerApp`, `createPrerenderedLoader`, `PRERENDER_DIR`, `setRuntimeEnv`, `FALLBACK_MANIFEST` for adapters. `src/index.ts:85`, `src/index.ts:86`, `src/index.ts:87`, `src/index.ts:47`
 - Entry `.` exports the renderer helpers `defineRenderer`, `importsPackage`, `parseHydrateMode`, `RENDERER_QUERY`, `rendererScopeFilter`, `validateRenderers`, `withFlagDefaults`. `src/index.ts:57`

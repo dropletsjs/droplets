@@ -105,13 +105,13 @@ droplets with their flags, which the tool reads from each server.
 - Server mode fetches the fragment in process through `api.fetch`, the droplets dev app with its hooks. `src/index.ts:54`
 - Server mode inlines the answer only when its content type contains `text/html`; otherwise the stage is empty. `src/index.ts:65`
 - Server mode links `/index.css` and `/droplets/<id>/style.css` in `<head>`, each only when it answers 200 (in dev `style.css` answers 404). `src/index.ts:59`
-- Server mode with an unknown `droplet` id renders the first droplet; with no droplets it renders nothing. `src/shared.ts:174`, `src/index.ts:51`
-- Tool state `method` is `POST` only for `method=POST`, else `GET`. `src/shared.ts:178`
-- Tool state `mode` is `json` only for `mode=json`, else `builder`. `src/shared.ts:179`
-- Tool state `props` that is not a JSON object is dropped: `{}`. `src/shared.ts:180`
-- Fragment request GET puts props in the query; non-string values travel as JSON text, empty keys are skipped. `src/shared.ts:85`, `src/shared.ts:165`
-- Fragment request POST sends `content-type: application/json` with the body `{ props }`. `src/shared.ts:154`
-- Fragment request path is `/droplets/<id>` with the id URI-encoded. `src/shared.ts:153`
+- Server mode with an unknown `droplet` id renders the first droplet; with no droplets it renders nothing. `src/shared.ts:189`, `src/index.ts:51`
+- Tool state `method` is `POST` only for `method=POST`, else `GET`. `src/shared.ts:193`
+- Tool state `mode` is `json` only for `mode=json`, else `builder`. `src/shared.ts:194`
+- Tool state `props` that is not a JSON object is dropped: `{}`. `src/shared.ts:195`
+- Fragment request GET puts props in the query; non-string values travel as JSON text, empty keys are skipped. `src/shared.ts:84`, `src/shared.ts:180`
+- Fragment request POST sends `content-type: application/json` with the body `{ props }`. `src/shared.ts:169`
+- Fragment request path is `/droplets/<id>` with the id URI-encoded. `src/shared.ts:168`
 - Devtools page data is JSON in `<script type="application/json" id="dt-data">`, with `<` escaped as the JSON unicode escape `\u003c`. `src/page.tsx:47`, `src/page.tsx:197`
 - Devtools page `strategy` defaults to `hmr` when the input has none. `src/page.tsx:162`
 - Devtools page loads `<loaderUrl>?injectTool=true`: the dev tool is always on there. `src/page.tsx:203`
@@ -128,11 +128,12 @@ droplets with their flags, which the tool reads from each server.
 - Page strategy is `sessionStorage["droplets:strategy:<origin>"]`, else the config's `dev.strategy`, else `hmr`. `src/client/devtools-page.ts:418`
 - Page panel position is kept in `localStorage["droplets-devtools:panel"]`. `src/client/devtools-page.ts:490`
 - Page panel starts folded when the window is narrower than 640 px. `src/client/devtools-page.ts:504`
-- Page panel keeps at least 12 px of itself inside the viewport. `src/shared.ts:204`
+- Page panel keeps at least 12 px of itself inside the viewport. `src/shared.ts:219`
 - Page panel drag starts after 4 px of movement; less is a click. `src/client/devtools-page.ts:551`
 - Alt+D folds and unfolds the page panel. `src/client/devtools-page.ts:574`
-- Props warnings name the reserved query keys `__cb`, `c`, `t`, `noSSR` and `clientOnly`. `src/shared.ts:26`
-- Props warnings over GET say every value is sent as text when a value is not a string. `src/shared.ts:141`
+- Props warnings name the reserved query keys: `__cb`, `c`, `t`, `noSSR`, `clientOnly`, `__droplet_return`, any key starting with `/` or `__droplet_form_`. `src/shared.ts:131`, `src/shared.ts:140`, `src/shared.ts:148`
+- Reserved query keys are the devtools' own copy of the runtime's `RESERVED_QUERY_KEYS`; `test/reserved-keys.test.ts` fails when the two differ. `src/shared.ts:131`, `test/reserved-keys.test.ts:24`
+- Props warnings over GET say every value is sent as text when a value is not a string. `src/shared.ts:155`
 - Dev tool creates one panel per page: the first module sets `window.DropletsDevTools`, later ones reuse it. `src/tool/panel.ts:257`
 - Dev tool renders in an open shadow root on a `<droplets-devtools>` element appended to `document.body`. `src/tool/panel.ts:80`, `src/tool/panel.ts:240`
 - Dev tool keeps open or closed in `localStorage["droplets-devtools:tool-open"]`; closed by default. `src/tool/panel.ts:18`, `src/tool/panel.ts:52`

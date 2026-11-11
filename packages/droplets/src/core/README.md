@@ -127,7 +127,7 @@ builds and runs them.
 - `resolveConfig` reads no environment itself: the caller passes `{ port }`. `config.ts:340`
 - `resolveConfig` reads only the known keys; unknown keys are dropped without a warning. `config.ts:366`
 - `DEV_STRATEGIES` is `hmr`, `remount`, `reload`, `manual`; `DevStrategy` is derived from it. `config.ts:146`, `config.ts:149`
-- `DEV_STRATEGIES` and `DevStrategy` are exported from `@dropletsjs/droplets`. `../index.ts:1`
+- `DevStrategy` is exported from `@dropletsjs/droplets` as a type; `DEV_STRATEGIES` is not exported. `../index.ts:6`
 - `dev.strategy` defaults to `hmr`; any other value than `DEV_STRATEGIES` throws. `config.ts:386`, `config.ts:387`
 - `dev.server.port` defaults to 5173; `PORT` wins over it. `config.ts:186`, `config.ts:391`
 - `dev.injectTool` defaults to `false`. `config.ts:393`

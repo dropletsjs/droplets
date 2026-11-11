@@ -4,7 +4,6 @@
  * (`tool/panel.ts`). No DOM, no Node: plain functions over plain data.
  */
 import type { DropletSummary } from "@dropletsjs/droplets/vite";
-import { isReservedQueryKey } from "@dropletsjs/droplets/enhance";
 
 /** One droplet, as the core plugin describes it; the fields after `hasServerLoad` may be missing. */
 export type DropletInfo = Pick<DropletSummary, "id" | "folder" | "ssr" | "hydrate" | "hasLoad" | "hasServerLoad"> &
@@ -123,6 +122,22 @@ export function parseJsonProps({ text }: ParseJsonPropsInput): JsonResult {
     return { ok: false, error: 'Props must be a JSON object, like { "who": "Ana" }.' };
   }
   return { ok: true, props: value as Props };
+}
+
+/**
+ * The query keys droplets keeps for itself, a copy of the runtime's
+ * `RESERVED_QUERY_KEYS` (`test/reserved-keys.test.ts` fails when they part).
+ */
+export const RESERVED_QUERY_KEYS: ReadonlySet<string> = new Set(["__cb", "c", "t", "noSSR", "clientOnly", "__droplet_return"]);
+
+/** The prefix of the query keys a no-JavaScript action's result rides on. */
+export const FORM_RESULT_PREFIX = "__droplet_form_";
+
+type IsReservedQueryKeyInput = { key: string };
+
+/** A query key droplets owns, which never reaches a droplet as a prop. */
+export function isReservedQueryKey({ key }: IsReservedQueryKeyInput): boolean {
+  return RESERVED_QUERY_KEYS.has(key) || key.startsWith("/") || key.startsWith(FORM_RESULT_PREFIX);
 }
 
 type PropWarningsInput = { props: Readonly<Props>; method: Method };

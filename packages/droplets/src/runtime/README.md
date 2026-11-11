@@ -127,7 +127,7 @@ Then the route.
 - A malformed `x-droplet-props` warns `ignoring malformed x-droplet-props header`. `app.ts:366`
 - POST props for a render come from the JSON body (`props`, `context`); an action POST takes them from the query. `app.ts:781`
 - The JSON body is read only for POST with a content type containing `application/json`; malformed JSON gives no props. `app.ts:315`
-- Reserved query keys are `__cb`, `c`, `t`, `noSSR`, `clientOnly`, `__droplet_return`, every key starting with `/` and every key starting with `__droplet_form_`. `form.ts:25`
+- Reserved query keys are `__cb`, `c`, `t`, `noSSR`, `clientOnly`, `__droplet_return`, every key starting with `/` and every key starting with `__droplet_form_`. `form.ts:26`
 - `clientOnly` and `noSSR` in the query count by presence. `app.ts:770`
 - Props validation errors (`PropsError`) answer 400 with `Invalid props: …`. `entry-server.ts:146`
 - `propsKey` sorts keys, so props differing only in key order share a prerender entry. `props.ts:90`
@@ -176,7 +176,7 @@ Then the route.
 - A request names one action at most; two `?/name` keys answer 400 `One action per request: ?/name once`. `app.ts:1510`
 - A droplet without `actions` answers 405 with `allow: GET`. `app.ts:1519`
 - An unknown action answers 404 `No action named "<name>"`, the name cut to 100 characters. `app.ts:1520`
-- Action names match `^[A-Za-z_][\w-]*$`. `form.ts:140`
+- Action names match `^[A-Za-z_][\w-]*$`. `form.ts:141`
 - An action is found only through `ACTION_NAME`, a deny list (`__proto__`, `constructor`, `prototype`) and `Object.hasOwn`. `entry-server.ts:319`
 - An action answers JSON when `accept` contains `application/json`. `app.ts:1524`
 - A JSON action answer is the outcome with the failure's status, else 200. `app.ts:1590`
@@ -279,12 +279,12 @@ Then the route.
 
 ### `enhanceDropletForm` (`enhance.ts`)
 
-- `enhanceDropletForm` intercepts only POST forms, form-urlencoded or multipart, with target `""` or `_self`. `enhance.ts:157`
-- `enhanceDropletForm` intercepts only forms posting to exactly `<location>/droplets/<id>`. `enhance.ts:169`
-- `enhanceDropletForm` posts with `accept: application/json` and `redirect: "manual"`. `enhance.ts:342`
-- `enhanceDropletForm` dispatches `droplets:action` on `globalThis`. `enhance.ts:363`
-- `enhanceDropletForm` reads the answer through `Object.hasOwn`. `enhance.ts:215`
-- `enhanceDropletForm` follows only an absolute http(s) redirect location without credentials, as the server answers one; a relative, protocol-relative (`//…`, `/\…`) or `javascript:` one is logged and not followed. `enhance.ts:242`, `enhance.ts:367`
+- `enhanceDropletForm` intercepts only POST forms, form-urlencoded or multipart, with target `""` or `_self`. `enhance.ts:155`
+- `enhanceDropletForm` intercepts only forms posting to exactly `<location>/droplets/<id>`. `enhance.ts:167`
+- `enhanceDropletForm` posts with `accept: application/json` and `redirect: "manual"`. `enhance.ts:340`
+- `enhanceDropletForm` dispatches `droplets:action` on `globalThis`. `enhance.ts:361`
+- `enhanceDropletForm` reads the answer through `Object.hasOwn`. `enhance.ts:213`
+- `enhanceDropletForm` follows only an absolute http(s) redirect location without credentials, as the server answers one; a relative, protocol-relative (`//…`, `/\…`) or `javascript:` one is logged and not followed. `enhance.ts:240`, `enhance.ts:365`
 
 ### `hooks.client`
 

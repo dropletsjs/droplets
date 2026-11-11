@@ -16,8 +16,6 @@
  * @module
  */
 
-export { isReservedQueryKey } from "./form.ts";
-
 /** The encodings an action takes; a `text/plain` form is left to the browser (the server answers `415`). */
 const ENCTYPES = new Set(["application/x-www-form-urlencoded", "multipart/form-data"]);
 
