@@ -3,9 +3,9 @@
 ## Rules
 
 - The demo trusts only the docs' origins: `cors.origin` and `trustedOrigins` in `droplets.config.ts` both come from `docsOrigins()` in `src/lib/origins.ts`, exact origins only.
-  Checked by: `test/origins.test.ts`, `test/server.test.ts` ("CORS", "who may post"), `test/worker.test.ts` ("refuses CORS and form posts to other origins").
-- The Worker serves static files with `assets.run_worker_first: true` in `wrangler.jsonc`, so `/index.js`, `/droplets/*` and `/assets/*` get the Worker's CORS and cache headers.
-  Checked by: `test/worker.test.ts`.
+  Checked by: `test/origins.test.ts`, `test/server.test.ts` ("CORS", "who may post"), `test/worker.test.ts` ("refuses CORS and form posts to other origins"); the build's files are public, sent to any origin.
+- `wrangler.jsonc` sets no `run_worker_first`: static assets answer `/index.js`, `/assets/*` and each droplet's `client.js` and `style.css` with the headers of `dist/client/_headers`; renders, `_data`, actions and `/env.js` reach the Worker.
+  Checked by: `test/worker.test.ts` ("static assets, with the headers of _headers").
 - Every live droplet the guide embeds is a real droplet in `src/droplets/`; a docs page embeds only droplets that exist here.
   Checked by: `pnpm docs:build` (`../docs/src/components/live-droplet.ts`, `../docs/src/components/RendererDemo.astro`).
 - Each renderer has one `counter-<renderer>` droplet, the same card in each, whose files are what its renderer page shows.

@@ -85,13 +85,14 @@ npx wrangler secret put DROPLETS_SECRET   # once: openssl rand -base64 32
 npx wrangler deploy
 ```
 
-`run_worker_first` is `true`, as the Cloudflare adapter advises (it warns
-when it is not): every request reaches the Worker, which answers `/index.js`
-with the stub that records where it was loaded from and reads `/droplets/*`
-and `/assets/*` through the assets binding, with CORS for the docs' origins
-and their cache headers. A path that is no file (`/health`) is the Worker's
-too, and `/droplets.json` is never uploaded (`.assetsignore`, written by the
-adapter). `test/worker.test.ts` checks that nothing server-only is reachable.
+`wrangler.jsonc` sets no `run_worker_first`: static assets answer the
+build's files (`/index.js`, `/assets/*`, each droplet's `client.js` and
+`style.css`) before the Worker runs, with the CORS and cache headers of the
+`dist/client/_headers` the Cloudflare adapter writes. A path that is no file
+(renders, `_data`, the poll's action, `/health`) reaches the Worker, which
+allows only the docs' origins. `/droplets.json` is never uploaded
+(`.assetsignore`, written by the adapter). `test/worker.test.ts` checks
+both under `wrangler dev`, and that nothing server-only is reachable.
 
 Every build has a new build hash, and a page only hydrates fragments of the
 build its `/index.js` comes from. The docs inline fragments at their build,
@@ -123,8 +124,8 @@ so after a demo deploy, build and deploy the docs against it
 - Worker name `dropletsjs-demo`, entry `dist/worker.js`. `wrangler.jsonc:7`, `wrangler.jsonc:8`
 - Worker uses `nodejs_compat` (Svelte's server renderer needs `node:async_hooks`). `wrangler.jsonc:11`
 - Worker assets: `dist/client` through the `ASSETS` binding. `wrangler.jsonc:13`, `wrangler.jsonc:14`
-- Worker `run_worker_first` is `true`: every request, files included, reaches the Worker. `wrangler.jsonc:19`
-- Worker runs only on the custom domain `demo.dropletsjs.dev`; no `*.workers.dev` or preview URLs. `wrangler.jsonc:22`, `wrangler.jsonc:23`, `wrangler.jsonc:24`
+- Worker sets no `run_worker_first`: static assets answer the build's files with `_headers` (`Access-Control-Allow-Origin: *`), the rest reaches the Worker. `wrangler.jsonc:12`, `test/worker.test.ts:108`, `test/worker.test.ts:112`, `test/worker.test.ts:134`
+- Worker runs only on the custom domain `demo.dropletsjs.dev`; no `*.workers.dev` or preview URLs. `wrangler.jsonc:17`, `wrangler.jsonc:18`, `wrangler.jsonc:19`
 - Cloudflare adapter warns, never fails, when `run_worker_first` sends the build's files through the Worker. `../../packages/adapters/cloudflare/src/index.ts:253`
 - Cloudflare adapter writes `client/.assetsignore` with `/droplets.json` and `/.vite/`. `../../packages/adapters/cloudflare/src/index.ts:15`, `../../packages/adapters/cloudflare/src/index.ts:211`
 - `/health` is the framework's default health route. `../../packages/droplets/src/core/config.ts:191`
@@ -154,7 +155,7 @@ so after a demo deploy, build and deploy the docs against it
 - `server.test.ts` covers the droplets, every renderer's counter, and props refused before a load. `test/server.test.ts:81`, `test/server.test.ts:148`, `test/server.test.ts:186`
 - `server.test.ts` covers the poll's action: stateless, Post/Redirect/Get, plain data only, code resolved before the body, size limits, who may post. `test/server.test.ts:200`, `test/server.test.ts:221`, `test/server.test.ts:232`, `test/server.test.ts:244`, `test/server.test.ts:288`, `test/server.test.ts:329`, `test/server.test.ts:364`
 - `server.test.ts` covers CORS, the droplet location, and server-only code never in a client bundle. `test/server.test.ts:389`, `test/server.test.ts:415`, `test/server.test.ts:429`
-- `worker.test.ts` builds with `DROPLETS_ADAPTER=cloudflare` into `dist-worker/` and runs `wrangler dev` on it. `test/worker.test.ts:56`, `test/worker.test.ts:58`, `test/worker.test.ts:68`
-- `worker.test.ts` uses `wrangler.jsonc` without `routes`, pointed at its build. `test/worker.test.ts:43`, `test/worker.test.ts:47`, `test/worker.test.ts:48`
-- `worker.test.ts` covers run_worker_first, other origins refused, nothing server-only served or uploaded. `test/worker.test.ts:106`, `test/worker.test.ts:165`, `test/worker.test.ts:176`, `test/worker.test.ts:194`
+- `worker.test.ts` builds with `DROPLETS_ADAPTER=cloudflare` into `dist-worker/` and runs `wrangler dev` on it. `test/worker.test.ts:57`, `test/worker.test.ts:59`, `test/worker.test.ts:69`
+- `worker.test.ts` uses `wrangler.jsonc` without `routes`, pointed at its build. `test/worker.test.ts:44`, `test/worker.test.ts:48`, `test/worker.test.ts:49`
+- `worker.test.ts` covers the build's files from static assets with `_headers`, the rest from the Worker, other origins refused, nothing server-only served or uploaded. `test/worker.test.ts:107`, `test/worker.test.ts:146`, `test/worker.test.ts:184`, `test/worker.test.ts:195`, `test/worker.test.ts:213`
 - `origins.test.ts` covers `docsOrigins()`. `test/origins.test.ts:4`

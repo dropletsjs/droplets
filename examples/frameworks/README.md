@@ -115,7 +115,7 @@ in Chromium, each embedded in a host page on another origin
 - Svelte example adds the `page-views` script droplet, its props a slug `page` defaulting to `home`. `svelte/src/droplets/page-views/+droplet.ts:9`
 - `POST /api/page-views` takes `application/json` only (415), at most 256 bytes (413), one own `page` slug (400). `svelte/src/api/page-views/+server.ts:27`, `svelte/src/api/page-views/+server.ts:31`, `svelte/src/api/page-views/+server.ts:42`
 - Lit example adds `guestbook`, a default form action that answers `fail(422)` without a name. `lit/src/droplets/guestbook/+droplet.server.ts:8`
-- Wrangler config: `main` is `dist/worker.js`, `nodejs_compat` on, the `ASSETS` binding over `dist/client` with `run_worker_first: true`. `svelte/wrangler.jsonc:4`, `svelte/wrangler.jsonc:7`, `svelte/wrangler.jsonc:12`
+- Wrangler config: `main` is `dist/worker.js`, `nodejs_compat` on, the `ASSETS` binding over `dist/client`, no `run_worker_first`: static assets answer the build's files with `dist/client/_headers`. `svelte/wrangler.jsonc:4`, `svelte/wrangler.jsonc:7`, `svelte/wrangler.jsonc:10`
 - `typecheck` runs `djs sync` first; Svelte uses `svelte-check`, Vue `vue-tsc`, the others `tsc`. `svelte/package.json:22`, `vue/package.json:22`, `react/package.json:22`
 - Droplets packages are `workspace:*` dependencies inside the repository. `svelte/package.json:25`
 - Dockerfile builds the example named by `EXAMPLE`, `svelte` by default. `Dockerfile:24`

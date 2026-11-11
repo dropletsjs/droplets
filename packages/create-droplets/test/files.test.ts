@@ -43,6 +43,8 @@ describe("the project files", () => {
       name: "acme-widgets",
       main: "dist/worker.js",
     });
+    // Static assets answer the build's files before the Worker, with dist/client/_headers.
+    expect(JSON.parse(all["wrangler.jsonc"] ?? "").assets).toEqual({ directory: "dist/client", binding: "ASSETS" });
   });
 
   it("has the package manager install only versions 7 days old, Droplets' own exempt", () => {

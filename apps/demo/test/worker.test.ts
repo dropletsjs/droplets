@@ -6,9 +6,10 @@ import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // The Worker build under `wrangler dev` (workerd, local, no account), with
-// the assets config of wrangler.jsonc as it is deployed: `run_worker_first`
-// is true, so every request, files included, reaches the Worker. Built into
-// dist-worker/ so the Node build in dist/ stays as it is.
+// the assets config of wrangler.jsonc as it is deployed: no
+// `run_worker_first`, so static assets answer the build's files with the
+// headers of dist/client/_headers, and the rest reaches the Worker. Built
+// into dist-worker/ so the Node build in dist/ stays as it is.
 const root = fileURLToPath(new URL("..", import.meta.url));
 const out = join(root, "dist-worker");
 const DOCS = "https://dropletsjs.dev";
@@ -24,7 +25,7 @@ const SERVER_ONLY = [
 
 let wrangler: ChildProcess | undefined;
 let base = "";
-let manifest: { __entryModule: string; __globalCss: string };
+let manifest: { __entryModule: string; __globalCss: string; droplets: Record<string, { css?: string[] }> };
 
 const freePort = () =>
   new Promise<number>((resolve, reject) => {
@@ -103,33 +104,51 @@ afterAll(async () => {
   await rm(out, { recursive: true, force: true });
 });
 
-describe("the Worker, behind run_worker_first", () => {
-  it("serves /index.js itself: the stub that records where it was loaded from", async () => {
-    const response = await call("/index.js");
-    expect(response.status).toBe(200);
-    expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(response.headers.get("access-control-allow-origin")).toBe(DOCS);
-    const code = await response.text();
-    expect(code).toContain('Symbol.for("droplets.servers")');
-    expect(code).toContain(`import "./${manifest.__entryModule}";\n`);
+describe("static assets, with the headers of _headers", () => {
+  it("deploys no run_worker_first", async () => {
+    expect((await testConfig()).assets).not.toHaveProperty("run_worker_first");
   });
 
-  it("serves /assets/* itself, through the binding, with CORS and cached for good", async () => {
-    for (const path of [manifest.__entryModule, manifest.__globalCss]) {
-      const response = await call(`/${path}`);
-      expect(response.status, path).toBe(200);
-      expect(response.headers.get("cache-control"), path).toBe("public, max-age=2592000, immutable");
-      expect(response.headers.get("access-control-allow-origin"), path).toBe(DOCS);
+  it("answers /index.js, the file of the build, to any origin and never cached", async () => {
+    for (const origin of [DOCS, "https://elsewhere.example"]) {
+      const response = await call("/index.js", { headers: { origin } });
+      expect(response.status, origin).toBe(200);
+      expect(response.headers.get("cache-control"), origin).toBe("no-store");
+      expect(response.headers.get("access-control-allow-origin"), origin).toBe("*");
+      expect(await response.text(), origin).toBe(await readFile(join(out, "client/index.js"), "utf8"));
     }
   });
 
-  it("renders fragments and serves bundles under /droplets/*", async () => {
+  it("answers the entry, the stylesheets and each droplet's client.js and style.css, cached for good", async () => {
+    const styled = Object.keys(manifest.droplets).find((id) => manifest.droplets[id]?.css?.length);
+    if (!styled) expect.unreachable("a droplet with stylesheets");
+    for (const path of [manifest.__entryModule, manifest.__globalCss, "droplets/hello/client.js", `droplets/${styled}/style.css`]) {
+      const response = await call(`/${path}`);
+      expect(response.status, path).toBe(200);
+      expect(response.headers.get("cache-control"), path).toBe("public, max-age=2592000, immutable");
+      expect(response.headers.get("access-control-allow-origin"), path).toBe("*");
+      expect(await response.text(), path).toBe(await readFile(join(out, "client", path), "utf8"));
+    }
+  });
+
+  it("leaves what is no file to the Worker: _data and /env.js with the docs' CORS, a missing file no-store", async () => {
+    const data = await call("/droplets/hello/_data?who=Worker");
+    expect(data.status).toBe(200);
+    expect(data.headers.get("access-control-allow-origin")).toBe(DOCS);
+    // The demo declares no runtime public variables: the Worker's 404, not a file.
+    expect((await call("/env.js")).status).toBe(404);
+    const missing = await call(`/assets/missing-${Date.now()}.js`);
+    expect(missing.status).toBe(404);
+    expect(missing.headers.get("cache-control")).toBe("no-store");
+  });
+});
+
+describe("the Worker", () => {
+  it("renders fragments with the docs' CORS", async () => {
     const hello = await call("/droplets/hello?who=Worker");
     expect(hello.status).toBe(200);
+    expect(hello.headers.get("access-control-allow-origin")).toBe(DOCS);
     expect(await hello.text()).toContain("Hello Worker!");
-    const bundle = await call("/droplets/hello/client.js");
-    expect(bundle.headers.get("cache-control")).toBe("public, max-age=2592000, immutable");
-    expect(bundle.headers.get("access-control-allow-origin")).toBe(DOCS);
     const crashed = await call("/droplets/crash?fail=1");
     expect(crashed.status).toBe(500);
     expect(await crashed.text()).toContain("data-droplet-error");
@@ -163,8 +182,8 @@ describe("the Worker, behind run_worker_first", () => {
   });
 
   it("refuses CORS and form posts to other origins", async () => {
-    const index = await call("/index.js", { headers: { origin: "https://evil.example" } });
-    expect(index.headers.get("access-control-allow-origin")).toBeNull();
+    const fragment = await call("/droplets/hello?who=Worker", { headers: { origin: "https://evil.example" } });
+    expect(fragment.headers.get("access-control-allow-origin")).toBeNull();
     const posted = await call("/droplets/poll?/vote", {
       method: "POST",
       body: new URLSearchParams({ answer: "vue" }),

@@ -11,12 +11,7 @@
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "dist/client",
-    "binding": "ASSETS",
-    // Every request reaches the Worker first, files included. /index.js is
-    // dynamic (the location and the public env, no-store), and /droplets/*
-    // and /assets/* get CORS and their cache headers from the Worker, which
-    // reads the files through the binding.
-    "run_worker_first": true
+    "binding": "ASSETS"
   },
   // Served only on the custom domain; no *.workers.dev or preview copies.
   "workers_dev": false,

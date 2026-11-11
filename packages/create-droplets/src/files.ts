@@ -223,7 +223,7 @@ function wrangler({ name }: WranglerInput): string {
       main: "dist/worker.js",
       compatibility_date: "2025-10-01",
       compatibility_flags: ["nodejs_compat"],
-      assets: { directory: "dist/client", binding: "ASSETS", run_worker_first: true },
+      assets: { directory: "dist/client", binding: "ASSETS" },
     },
     null,
     2,

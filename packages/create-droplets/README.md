@@ -146,7 +146,7 @@ HTML page that embeds it:
 - `tsconfig.json` takes `jsx: "react-jsx"` and `jsxImportSource` from the first JSX framework, and then includes `src/**/*.tsx`. `src/files.ts:173`, `src/files.ts:175`
 - `src/app.css` imports `tailwindcss` with Tailwind and makes `:root` `display: block`. `src/files.ts:196`
 - `.gitignore` lists `node_modules/`, `dist/`, `.droplets/`, `.wrangler/`, `.env.local` and `.env.*.local`. `src/files.ts:205`
-- `wrangler.jsonc` (Cloudflare): `main` `dist/worker.js`, `nodejs_compat`, assets `dist/client` bound as `ASSETS` with `run_worker_first: true`. `src/files.ts:226`
+- `wrangler.jsonc` (Cloudflare): `main` `dist/worker.js`, `nodejs_compat`, assets `dist/client` bound as `ASSETS`, no `run_worker_first`: static assets answer the build's files. `src/files.ts:226`, `test/files.test.ts:47`
 - `svelte.config.js` (Svelte) sets `compilerOptions: { runes: true }` for editor tooling. `src/files.ts:239`
 - `CLAUDE.md` (with `--claude`) is `@AGENTS.md`. `src/files.ts:348`
 - Release age settings: pnpm `minimumReleaseAge: 10080`, npm `min-release-age=7`, Yarn `npmMinimalAgeGate: 10080`, Bun `minimumReleaseAge = 604800`, Deno `P7D`. `src/files.ts:286`, `src/files.ts:298`, `src/files.ts:308`, `src/files.ts:320`, `src/files.ts:328`
