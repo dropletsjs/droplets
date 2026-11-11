@@ -95,20 +95,31 @@ export default defineConfig({ plugins: [droplets({ adapter: cloudflare(), render
 }
 ```
 
-`run_worker_first` must be `true`: the Worker answers `/index.js` with the
-stub that records where it was loaded from, and reads `/droplets/*` and
-`/assets/*` through the binding to send them with CORS and their cache
-headers. Served straight from the static assets, a page on another origin
-could not load them. The adapter reads your wrangler config
-(`wrangler.jsonc`, `wrangler.json` or `wrangler.toml`) after `vite build`
-and stops the build when `run_worker_first` is `false`, unset or a list of
-paths; it warns when the file does not parse.
-
 ```bash
 vite build
 wrangler dev        # local, in workerd
 wrangler deploy
 ```
+
+### `run_worker_first`
+
+Set `run_worker_first` to `true`, or to a list that covers `/index.js`,
+`/droplets/*` and `/assets/*` (`["/index.js", "/droplets/*", "/assets/*"]`,
+or `["/*"]`). The Worker answers `/index.js` with the stub that records
+where it was loaded from, and reads `/droplets/*` and `/assets/*` through
+the binding to send them with CORS and their cache headers.
+
+Without it, Workers Static Assets answer those paths before the Worker
+runs. `/index.js` and the bundles go out without the Worker's CORS headers,
+and `/index.js` is the bare entry file, without the stub (the location
+record, runtime public env variables) and without `no-store`, so a browser
+or CDN may keep it past the next deploy. A page on another origin cannot
+load the droplets at all.
+
+The adapter reads your wrangler config (`wrangler.jsonc`, `wrangler.json` or
+`wrangler.toml`) after `vite build` and warns once when `run_worker_first`
+is `false`, unset, or a list that misses one of those paths. The build goes
+on: the setting is yours. It also warns when the file does not parse.
 
 The Worker bundles everything, so there are no `node_modules` at runtime.
 `PORT` and `server.port` do not apply. Environment variables come from the

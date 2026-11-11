@@ -65,7 +65,7 @@ npx wrangler secret put DROPLETS_SECRET   # once: openssl rand -base64 32
 npx wrangler deploy
 ```
 
-`run_worker_first` is `true`, as the Cloudflare adapter requires: every
+`run_worker_first` is `true`, as the Cloudflare adapter advises: every
 request reaches the Worker, which answers `/index.js` with the stub that
 records where it was loaded from and reads `/droplets/*` and `/assets/*`
 through the assets binding, with CORS for https://dropletsjs.dev and their

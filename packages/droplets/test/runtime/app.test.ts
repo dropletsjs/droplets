@@ -803,9 +803,10 @@ describe("createDropletsApp: file URLs of the server bundle", () => {
   });
 
   it("leaves a token of another nonce alone: that is content", async () => {
-    const { app } = filesApp({ tokenNonce: "other" });
+    const foreign = "http://droplets.invalid/__$DROPLET_LOCATION_other$__/assets/logo.abc.png";
+    const { app } = filesApp({ renderDroplet: async () => ({ html: `<img src="${logo}"><img src="${foreign}">` }) });
     const html = await (await app.request("http://drops.test/droplets/hello")).text();
-    expect(html).toContain(`<img src="${logo}">`);
+    expect(html).toContain(`<img src="http://drops.test/assets/logo.abc.png"><img src="${foreign}">`);
   });
 });
 

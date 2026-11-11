@@ -55,6 +55,48 @@ function runWorkerFirst({ file, text }: WranglerConfig): unknown {
   return config.assets?.run_worker_first;
 }
 
+/** What the Worker must answer itself; a `*` stands for anything, `/` included, as in `run_worker_first`. */
+const WORKER_ROUTES = ["/index.js", "/droplets/*", "/assets/*"];
+
+const RUN_WORKER_FIRST_DOCS = "https://dropletsjs.dev/guides/deployment/#run_worker_first";
+
+type RoutePair = { pattern: string; route: string };
+
+/** Whether the `run_worker_first` glob `pattern` matches `route` literally. */
+function matchesRoute({ pattern, route }: RoutePair): boolean {
+  const source = pattern.split("*").map((part) => part.replace(/[.+?^${}()|[\]\\]/g, "\\$&")).join(".*");
+  return new RegExp(`^${source}$`).test(route);
+}
+
+/** Whether `pattern` matches every path `route` stands for. */
+function coversRoute({ pattern, route }: RoutePair): boolean {
+  if (!route.endsWith("*")) return matchesRoute({ pattern, route });
+  const prefix = pattern.slice(0, -1);
+  return pattern.endsWith("*") && !prefix.includes("*") && route.startsWith(prefix);
+}
+
+/** Whether `pattern` matches any path `route` stands for. */
+function touchesRoute({ pattern, route }: RoutePair): boolean {
+  if (!route.endsWith("*")) return matchesRoute({ pattern, route });
+  const [literal = ""] = pattern.split("*");
+  const prefix = route.slice(0, -1);
+  return literal.startsWith(prefix) || (pattern.includes("*") && prefix.startsWith(literal));
+}
+
+/** Whether a `run_worker_first` value sends every route of `WORKER_ROUTES` to the Worker: `true`, or a list that covers them and excludes none (`!`). */
+function coversWorkerRoutes({ value }: { value: unknown }): boolean {
+  if (value === true) return true;
+  if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) return false;
+  const patterns: string[] = value;
+  const included = patterns.filter((p) => !p.startsWith("!"));
+  const excluded = patterns.filter((p) => p.startsWith("!")).map((p) => p.slice(1));
+  return WORKER_ROUTES.every(
+    (route) =>
+      included.some((pattern) => coversRoute({ pattern, route })) &&
+      !excluded.some((pattern) => touchesRoute({ pattern, route })),
+  );
+}
+
 export type CloudflareAdapterOptions = {
   /**
    * The binding name of Workers Static Assets, as declared in the wrangler
@@ -128,15 +170,13 @@ export function cloudflare(options: CloudflareAdapterOptions = {}): DropletsAdap
       try {
         value = runWorkerFirst({ file, text: await readFile(resolve(root, file), "utf8") });
       } catch {
-        logger.warn("framework", `could not read assets.run_worker_first in ${file}; it must be true`);
+        logger.warn("framework", `could not read assets.run_worker_first in ${file}; set it to true, see ${RUN_WORKER_FIRST_DOCS}`);
         return;
       }
-      if (value !== true) {
-        // Static assets answered first would serve /index.js without the
-        // location record and every file without CORS or its cache headers:
-        // a page on another origin breaks, so the build stops.
-        throw new Error(
-          `droplets: ${file}: assets.run_worker_first is ${value === undefined ? "not set" : JSON.stringify(value)}; set "assets": { "run_worker_first": true }: /index.js, /droplets/* and /assets/* need the Worker's answer (CORS, cache headers, the location record)`,
+      if (!coversWorkerRoutes({ value })) {
+        logger.warn(
+          "framework",
+          `${file}: assets.run_worker_first is ${value === undefined ? "not set" : JSON.stringify(value)}, so static assets answer ${WORKER_ROUTES.join(", ")} without the Worker's CORS and no-store headers and pages on another origin cannot load them; set it to true, see ${RUN_WORKER_FIRST_DOCS}`,
         );
       }
     },
