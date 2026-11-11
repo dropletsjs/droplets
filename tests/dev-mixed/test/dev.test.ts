@@ -342,6 +342,7 @@ describe("every renderer under vite dev", () => {
       const status = toasts(page).filter({ hasText: "contract changed its render contract: hydrate false → true" });
       await expect.poll(() => status.count()).toBe(1);
       expect(await status.getAttribute("role")).toBe("status");
+      expect(await status.evaluate((toast) => getComputedStyle(toast).borderLeftWidth)).toBe("3px");
       expect(await status.locator("button", { hasText: "Reload page" }).count()).toBe(0);
 
       // Between modes on a hydrated droplet: a console note, nothing else.
@@ -398,6 +399,7 @@ describe("every renderer under vite dev", () => {
       edit(flags, "export const prerender = true;", "export const prerender = false;");
       const note = page.locator("droplets-devtools .note", { hasText: "contract changed its render contract: prerender true → false" });
       await expect.poll(() => note.count(), { timeout: 15_000 }).toBe(1);
+      expect(await note.evaluate((item) => getComputedStyle(item).borderLeftWidth)).toBe("3px");
       expect(await page.locator("droplets-dev-notifications .toast").count()).toBe(0);
       await notReloaded(page);
       expect(errors).toEqual([]);

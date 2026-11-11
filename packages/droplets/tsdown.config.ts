@@ -1,65 +1,66 @@
 import { defineConfig } from "tsdown";
-import { packageConfig, type PackageOptions } from "../tsdown.config.base.ts";
+import { base, bareImport, cssInline, graphCheck } from "@dropletsjs/config/tsdown";
 
-export const options: PackageOptions = {
-  dir: import.meta.dirname,
+export default defineConfig({
+  ...base,
   entry: [
-    // package.json `exports` and the `djs` bin.
-    "index",
-    "vite",
-    "env",
-    "postcss",
-    "testing/index",
-    "runtime/server",
-    "runtime/enhance",
-    "cli",
-    // Resolved by path (src/core/paths.ts): the consumer's Vite compiles them.
-    "runtime/entry-client",
-    "runtime/entry-server",
-    "runtime/props",
-    "runtime/load",
-    "runtime/env-store",
-    "runtime/request-store",
-    "runtime/form",
-    "runtime/client-init",
-    // Resolved by path from src/script/index.ts and src/testing.
-    "script/server",
-    "script/client",
-    "testing/conformance-entry",
-    "testing/fake-renderer/server",
-    "testing/fake-renderer/client",
+    "./src/index.ts",
+    "./src/vite.ts",
+    "./src/env.ts",
+    "./src/postcss.ts",
+    "./src/testing/index.ts",
+    "./src/runtime/server.ts",
+    "./src/runtime/enhance.ts",
+    "./src/cli.ts",
+    // Resolved by path (src/core/paths.ts, src/script, src/testing), so their names stay fixed.
+    "./src/runtime/entry-client.ts",
+    "./src/runtime/entry-server.ts",
+    "./src/runtime/props.ts",
+    "./src/runtime/load.ts",
+    "./src/runtime/env-store.ts",
+    "./src/runtime/request-store.ts",
+    "./src/runtime/form.ts",
+    "./src/runtime/client-init.ts",
+    "./src/script/server.ts",
+    "./src/script/client.ts",
+    "./src/testing/conformance-entry.ts",
+    "./src/testing/fake-renderer/server.ts",
+    "./src/testing/fake-renderer/client.ts",
   ],
-  client: [
-    "runtime/entry-client",
-    "runtime/props",
-    "runtime/load",
-    "runtime/form",
-    "runtime/enhance",
-    "runtime/client-init",
-    "script/client",
-    "testing/fake-renderer/client",
+  // Oxc's helpers are our own output (a tagged template holding `</script>` needs one).
+  deps: { neverBundle: (id) => bareImport.test(id) && !id.startsWith("@oxc-project/runtime/") },
+  plugins: [
+    cssInline(),
+    graphCheck({
+      client: [
+        "runtime/entry-client",
+        "runtime/props",
+        "runtime/load",
+        "runtime/form",
+        "runtime/enhance",
+        "runtime/client-init",
+        "script/client",
+        "testing/fake-renderer/client",
+      ],
+      server: [
+        "runtime/app",
+        "runtime/entry-server",
+        "runtime/server",
+        "runtime/env-store",
+        "runtime/request-store",
+        "runtime/security",
+        "runtime/cookies",
+        "runtime/element",
+        "index",
+        "vite",
+        "cli",
+        "testing/index",
+        "testing/conformance",
+        "vite/",
+        "core/",
+        "add/",
+        "css/",
+      ],
+    }),
   ],
-  // Server code by role (`*.server.*` and `server/` are by name).
-  server: [
-    "runtime/app",
-    "runtime/entry-server",
-    "runtime/server",
-    "runtime/env-store",
-    "runtime/request-store",
-    "runtime/security",
-    "runtime/cookies",
-    "runtime/element",
-    "index",
-    "vite",
-    "cli",
-    "testing/index",
-    "testing/conformance",
-    // The Vite plugin, the config, `djs add`, the CSS scoping: Node only.
-    "vite/",
-    "core/",
-    "add/",
-    "css/",
-  ],
-};
-
-export default defineConfig(packageConfig(options));
+});

@@ -72,6 +72,7 @@
   },
   "devDependencies": {
     "@dropletsjs/adapter-cloudflare": "workspace:*",
+    "@dropletsjs/config": "workspace:*",
     "@dropletsjs/droplets": "workspace:*",
     "@types/node": "^24.9.0",
     "lit": "^3.3.3",

@@ -75,6 +75,7 @@ describe("in vite dev", () => {
     expect(res.headers.get("cache-control")).toBe("no-store");
     const html = await res.text();
     expect(html).toContain("<title>Droplets devtools</title>");
+    expect(html).toMatch(/<style>[^<]*--dt-panel: #ffffff;/);
     expect(html).toContain("/@vite/client");
     expect(html).toContain("&lt;test-droplet&gt;");
     const data = JSON.parse(html.match(/id="dt-data">([^<]+)</)?.[1] ?? "{}");

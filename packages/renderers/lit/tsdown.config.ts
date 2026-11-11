@@ -1,12 +1,21 @@
 import { defineConfig } from "tsdown";
-import { packageConfig, type PackageOptions } from "../../tsdown.config.base.ts";
+import { base, bareImport, graphCheck } from "@dropletsjs/config/tsdown";
 
-export const options: PackageOptions = {
-  dir: import.meta.dirname,
-  // `server`, `client` and `client-setup` are resolved by path from `index`.
-  entry: ["index", "server", "client", "client-setup", "element", "form"],
-  client: ["client", "client-setup", "element", "form"],
-  server: ["index", "server", "plugin", "render"],
-};
-
-export default defineConfig(packageConfig(options));
+export default defineConfig({
+  ...base,
+  entry: [
+    "./src/index.ts",
+    "./src/server.ts",
+    "./src/client.ts",
+    "./src/client-setup.ts",
+    "./src/element.ts",
+    "./src/form.ts",
+  ],
+  deps: { neverBundle: [bareImport] },
+  plugins: [
+    graphCheck({
+      client: ["client", "client-setup", "element", "form"],
+      server: ["index", "server", "plugin", "render"],
+    }),
+  ],
+});

@@ -1,6 +1,6 @@
 import { raw } from "hono/html";
+import STYLES from "./page.css?inline";
 import type { DropletInfo, Method } from "./shared.ts";
-import { STYLES } from "./styles.ts";
 
 /** A droplet rendered on the server, for server mode. */
 export type ServerRender = {

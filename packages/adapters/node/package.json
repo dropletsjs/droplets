@@ -49,6 +49,7 @@
     "hono": "^4.13.16"
   },
   "devDependencies": {
+    "@dropletsjs/config": "workspace:*",
     "@dropletsjs/droplets": "workspace:*",
     "@types/node": "^24.9.0",
     "hono": "^4.13.16",

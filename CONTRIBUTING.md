@@ -16,7 +16,7 @@ packages/adapters/bun/         @dropletsjs/adapter-bun: dist/server.js for bun
 packages/adapters/deno/        @dropletsjs/adapter-deno: dist/server.js for deno serve
 packages/renderers/*/          @dropletsjs/renderer-{svelte,vue,react,preact,solid,hono-jsx,handlebars,lit}
 packages/create-droplets/      create-droplets: npm create droplets
-packages/tsdown.config.base.ts the build every other package shares (tsdown)
+packages/config/               @dropletsjs/config (private): the tsdown options and checks the packages share
 examples/frameworks/*/         one example per framework, the same three droplets each
 examples/frameworks/Dockerfile the image of one of them (EXAMPLE=svelte for the hosts)
 examples/shop/                 the shop demo, in six frameworks, on SQLite
@@ -36,9 +36,10 @@ DESIGN.md                      design decisions, as they were taken
 
 `packages/**`, `examples/*`, `examples/frameworks/*`, `tests/*` and `apps/*`
 form a pnpm workspace; `pnpm build` compiles every package in dependency
-order, each with tsdown: its `tsdown.config.ts` lists the entries and calls
-`packageConfig` of `packages/tsdown.config.base.ts`, the one config they all
-share (minified ESM, `.d.ts`, nothing from `node_modules` bundled). `examples/hosts/*` are deliberately **not** in the workspace: each has
+order, each with tsdown: its `tsdown.config.ts` spreads the shared `base` of
+`@dropletsjs/config/tsdown` (minified ESM, `.d.ts`) and lists its own entries,
+externals (nothing from `node_modules` is bundled) and the client and server
+lists of `graphCheck`. `examples/hosts/*` are deliberately **not** in the workspace: each has
 its own toolchain (npm, Python, Ruby, PHP…) and runs with Docker Compose or
 on its own. The tool ranges the examples and tests use (Vite, TypeScript,
 Tailwind, Playwright…) are the pnpm `catalog:` in `pnpm-workspace.yaml`;

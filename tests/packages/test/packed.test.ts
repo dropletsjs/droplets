@@ -2,8 +2,8 @@
  * The published packages as npm packs them (`npm pack`, unpacked): what the
  * code resolves by path is there, server code is out of every client entry's
  * graph, nothing is imported that the consumer may not have, and no source
- * maps ship. The build checks the client graph itself
- * (packages/tsdown.config.base.ts); this checks the tarball.
+ * maps ship. The build checks the client graph itself (graphCheck of
+ * @dropletsjs/config/tsdown); this checks the tarball.
  */
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
@@ -12,7 +12,8 @@ import { join, posix, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseAst } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { isServerPath, type PackageOptions } from "../../../packages/tsdown.config.base.ts";
+import { isServerPath, type GraphCheckOptions } from "@dropletsjs/config/tsdown";
+import type { UserConfig } from "tsdown";
 
 const packagesDir = fileURLToPath(new URL("../../../packages/", import.meta.url));
 
@@ -46,6 +47,20 @@ const walk = (dir: string): string[] =>
 
 type Node = { type: string; [key: string]: unknown };
 
+type Built = { entry: string[]; asIs: string[] } & Required<GraphCheckOptions>;
+
+/** A package's `tsdown.config.ts`: its entries and copies as names under `src/`, and its graphCheck lists. */
+async function builtBy(file: string): Promise<Built> {
+  const config = ((await import(file)) as { default: UserConfig }).default;
+  const name = (path: string) => path.replace(/^\.\/src\//, "");
+  const check = [config.plugins].flat().find((plugin) => plugin && "name" in plugin && plugin.name === "droplets:graph-check");
+  return {
+    entry: (config.entry as string[]).map((path) => name(path).replace(/\.ts$/, "")),
+    asIs: [config.copy ?? []].flat().map((path) => name(path as string)),
+    ...(check as { api: Required<GraphCheckOptions> }).api,
+  };
+}
+
 /** The module specifiers a file imports, statically or with a literal `import()`. */
 function importsOf(code: string): string[] {
   const found: string[] = [];
@@ -74,13 +89,13 @@ describe.each(PACKAGES)("%s, packed", (path) => {
   const source = join(packagesDir, path);
   const pkg = JSON.parse(readFileSync(join(source, "package.json"), "utf8")) as PackageJson;
   const unpacked = join(root, path.replaceAll("/", "-"));
-  let options: PackageOptions;
+  let options: Built;
   let files: string[] = [];
   const at = (file: string) => join(unpacked, file);
   const has = (file: string) => files.includes(posix.normalize(file.replace(/^\.\//, "")));
 
   beforeAll(async () => {
-    options = ((await import(join(source, "tsdown.config.ts"))) as { options: PackageOptions }).options;
+    options = await builtBy(join(source, "tsdown.config.ts"));
     mkdirSync(unpacked, { recursive: true });
     const [{ filename }] = JSON.parse(
       execFileSync("npm", ["pack", "--json", "--ignore-scripts", "--pack-destination", unpacked], {
@@ -117,14 +132,14 @@ describe.each(PACKAGES)("%s, packed", (path) => {
   });
 
   it("ships the as-is files unchanged", () => {
-    for (const file of options.asIs ?? []) {
+    for (const file of options.asIs) {
       expect(readFileSync(at(`dist/${file}`), "utf8"), file).toBe(readFileSync(join(source, "src", file), "utf8"));
     }
   });
 
   it("keeps server code out of what the client entries reach", () => {
-    const serverEntries = new Set((options.server ?? []).filter((name) => options.entry.includes(name)).map((name) => `dist/${name}.js`));
-    for (const entry of options.client ?? []) {
+    const serverEntries = new Set(options.server.filter((name) => options.entry.includes(name)).map((name) => `dist/${name}.js`));
+    for (const entry of options.client) {
       const seen = new Set<string>();
       const queue = [[`dist/${entry}.js`]];
       for (let via = queue.shift(); via; via = queue.shift()) {
@@ -168,11 +183,15 @@ describe.each(PACKAGES)("%s, packed", (path) => {
     expect(dist).not.toMatch(/import\.meta\.env\s*=|\{\s*DEV\s*:\s*(true|false)/);
   });
 
-  it("keeps the JSDoc in the types, and keeps the *.css declaration out", () => {
+  it("keeps the JSDoc in the types, and no CSS import in any file", () => {
     const types = files.filter((file) => file.endsWith(".d.ts"));
     expect(types.length).toBeGreaterThan(0);
     expect(types.some((file) => readFileSync(at(file), "utf8").includes("/**"))).toBe(true);
-    expect(types.filter((file) => /(^|\/)css\.d\.ts$/.test(file) || readFileSync(at(file), "utf8").includes('"*.css"'))).toEqual([]);
+    const css = /\.css(\?|$)/;
+    const js = files.filter((file) => file.startsWith("dist/") && file.endsWith(".js"));
+    expect(js.filter((file) => importsOf(readFileSync(at(file), "utf8")).some((specifier) => css.test(specifier)))).toEqual([]);
+    const typeImports = (file: string) => [...readFileSync(at(file), "utf8").matchAll(/^(?:import|export)\b[^;]*?["']([^"']+)["']/gm)].map((match) => match[1]!);
+    expect(types.filter((file) => typeImports(file).some((specifier) => css.test(specifier)))).toEqual([]);
   });
 
   it.runIf(path === "droplets")("keeps the @vite-ignore of the runtime's dynamic imports", () => {

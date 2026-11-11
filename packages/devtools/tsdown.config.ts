@@ -1,12 +1,15 @@
 import { defineConfig } from "tsdown";
-import { packageConfig, type PackageOptions } from "../tsdown.config.base.ts";
+import { base, bareImport, cssInline, graphCheck } from "@dropletsjs/config/tsdown";
 
-export const options: PackageOptions = {
-  dir: import.meta.dirname,
-  // `index` is the Vite plugin; it serves the other two by path.
-  entry: ["index", "client/devtools", "tool/tool"],
-  client: ["client/devtools", "tool/tool"],
-  server: ["index", "page"],
-};
-
-export default defineConfig(packageConfig(options));
+export default defineConfig({
+  ...base,
+  entry: ["./src/index.ts", "./src/client/devtools.ts", "./src/tool/tool.ts"],
+  deps: { neverBundle: [bareImport] },
+  plugins: [
+    cssInline(),
+    graphCheck({
+      client: ["client/devtools", "tool/tool"],
+      server: ["index", "page"],
+    }),
+  ],
+});

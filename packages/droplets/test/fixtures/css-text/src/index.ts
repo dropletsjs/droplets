@@ -1,5 +1,5 @@
-// A sample for packages/tsdown.config.base.ts, built by test/build/tsdown.test.ts.
-import styles from "./styles.css";
+// A sample for @dropletsjs/config/tsdown, built by test/build/tsdown.test.ts.
+import styles from "./styles.css?inline";
 
 /** The stylesheet, as text. */
 export const css: string = styles;

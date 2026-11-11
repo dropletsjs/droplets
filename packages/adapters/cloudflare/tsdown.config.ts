@@ -1,10 +1,9 @@
 import { defineConfig } from "tsdown";
-import { packageConfig, type PackageOptions } from "../../tsdown.config.base.ts";
+import { base, bareImport, graphCheck } from "@dropletsjs/config/tsdown";
 
-export const options: PackageOptions = {
-  dir: import.meta.dirname,
-  // `worker` is resolved by path from `index`: the bundled `dist/worker.js`.
-  entry: ["index", "worker"],
-};
-
-export default defineConfig(packageConfig(options));
+export default defineConfig({
+  ...base,
+  entry: ["./src/index.ts", "./src/worker.ts"],
+  deps: { neverBundle: [bareImport] },
+  plugins: [graphCheck()],
+});

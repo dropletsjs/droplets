@@ -66,6 +66,7 @@
   },
   "devDependencies": {
     "@dropletsjs/adapter-node": "workspace:*",
+    "@dropletsjs/config": "workspace:*",
     "@dropletsjs/droplets": "workspace:*",
     "@dropletsjs/renderer-react": "workspace:*",
     "@types/node": "^24.9.0",

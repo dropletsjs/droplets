@@ -1,7 +1,7 @@
 /**
- * The shared package build (packages/tsdown.config.base.ts) on small
- * samples: a `.css` import inlined as text, what minifying keeps, and a
- * client entry that reaches server code failing the build.
+ * @dropletsjs/config/tsdown on small samples: a `.css?inline` import
+ * inlined as text, what minifying keeps, and a client entry that reaches
+ * server code failing the build.
  */
 import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -9,19 +9,28 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "tsdown";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { packageConfig, type PackageOptions } from "../../../tsdown.config.base.ts";
+import { bareImport, base, cssInline, graphCheck, type GraphCheckOptions } from "@dropletsjs/config/tsdown";
 
 const fixtures = fileURLToPath(new URL("../fixtures/", import.meta.url));
 
-const run = (options: PackageOptions, overrides: Parameters<typeof build>[0] = {}) =>
-  build({ ...packageConfig(options), config: false, logLevel: "silent", ...overrides });
+const run = (dir: string, entry: string[], check: GraphCheckOptions, overrides: Parameters<typeof build>[0] = {}) =>
+  build({
+    ...base,
+    cwd: dir,
+    entry: entry.map((name) => `./src/${name}.ts`),
+    deps: { neverBundle: [bareImport] },
+    plugins: [cssInline(), graphCheck(check)],
+    config: false,
+    logLevel: "silent",
+    ...overrides,
+  });
 
-describe("a .css import", () => {
+describe("a .css?inline import", () => {
   const dir = join(fixtures, "css-text");
   let code = "";
 
   beforeAll(async () => {
-    await run({ dir, entry: ["index"], client: ["index"] });
+    await run(dir, ["index"], { client: ["index"] });
     code = await readFile(join(dir, "dist/index.js"), "utf8");
   });
   afterAll(() => rm(join(dir, "dist"), { recursive: true, force: true }));
@@ -76,16 +85,9 @@ describe("a client entry", () => {
     await writeFile(join(dir, "src/client.ts"), client);
     await writeFile(join(dir, "src/server.ts"), `import { shared } from "./shared.ts";\nimport { app } from "./app.ts";\nexport const render = () => shared() + app();\n`);
   };
-  const options = (extra: Partial<PackageOptions> = {}): PackageOptions => ({
-    dir,
-    entry: ["client", "server"],
-    client: ["client"],
-    ...extra,
-  });
-
   it("builds when it shares only client-safe code with the server", async () => {
     await entries(`import { shared } from "./shared.ts";\nexport const hydrate = () => shared();\n`);
-    await run(options(), { dts: false });
+    await run(dir, ["client", "server"], { client: ["client"] }, { dts: false });
     expect(await readFile(join(dir, "dist/client.js"), "utf8")).not.toContain("secret");
   });
 
@@ -96,6 +98,6 @@ describe("a client entry", () => {
     ["a Node built-in", `import { join } from "node:path";\nexport const hydrate = () => join("a", "b");\n`, /imports a Node built-in/],
   ])("fails the build when it reaches %s", async (_, client, message) => {
     await entries(client);
-    await expect(run(options({ server: ["app"] }), { dts: false })).rejects.toThrow(message);
+    await expect(run(dir, ["client", "server"], { client: ["client"], server: ["app"] }, { dts: false })).rejects.toThrow(message);
   });
 });
