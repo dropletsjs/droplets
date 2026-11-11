@@ -20,7 +20,7 @@
  *   `prerender`) through {@link DropletRenderer.readFlags}, or from the
  *   component's top-level `export const <flag> = <literal>` declarations
  *   when the renderer has no reader. Flags live in the component only: one
- *   exported from `+droplet.ts` or `+droplet.server.ts` is an error.
+ *   exported from `+droplet.ts` or `+droplet.server.ts` is ignored.
  * - Runs the load chain on the server: `+droplet.server.ts` (`load`,
  *   `handleError`, `entries`, `transform`), then `+droplet.ts` (`props`
  *   schema, `load`, `handleError`), then asks the renderer's
@@ -111,7 +111,7 @@
  * `@dropletsjs/droplets/vite` (Svelte's `<script module>`, Vue's plain
  * `<script>`); one whose component cannot carry exports reads its own syntax
  * (Handlebars: the comment a template opens with). A flag exported from
- * `+droplet.ts` or `+droplet.server.ts` fails the build and `vite dev`. The
+ * `+droplet.ts` or `+droplet.server.ts` is ignored. The
  * error page has none of its own: it is the droplet's error boundary and
  * follows the droplet's flags; core ignores any it declares, with a warning
  * in dev.
