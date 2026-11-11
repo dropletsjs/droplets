@@ -392,7 +392,7 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
     // others behave as in a build (404 when the droplet has `ssr = false`).
     loadPrerendered: async (name, key, event) => {
       const mod = await runtime.loadSsrModule();
-      const keys = (await mod.prerenderKeys?.(name, state.config.host)) ?? [];
+      const keys = (await mod.prerenderKeys?.(name)) ?? [];
       if (!keys.includes(key)) return null;
       const result = await (mod.renderDroplet ?? mod.default)?.(name, event);
       if (!result) return null;

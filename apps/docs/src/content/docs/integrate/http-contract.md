@@ -272,6 +272,10 @@ with anything else is skipped for the next one, never an error. With
 [`trustedOrigins`](/guides/configuration/) set, a `host` whose origin is
 neither in the list nor the server's own falls back to the location's origin.
 
+With [`host`](/guides/configuration/#a-fixed-host) in `droplets.config.ts`,
+`host` is that origin, with the body's path and query when the body names a
+page on it, else the origin alone; `Origin` is not read.
+
 `host`, the location headers and the props come from the request: any client can send
 any value. Use them to render, never to decide who may see what; that is the
 job of cookies or a token checked in `handle`. A response shaped by them is
@@ -397,7 +401,8 @@ answered `403` before `handle` runs, unless its `Origin` header is:
 - the server's own origin, or its [location](#x-droplet-location-the-public-location)'s, or
 - in `trustedOrigins` in `droplets.config.ts`, or in the
   `DROPLETS_TRUSTED_ORIGINS` environment variable (comma-separated, read at
-  runtime, added to the config's list); `"*"` trusts every origin.
+  runtime, added to the config's list); `"*"` trusts every origin; or
+- [`host`](/guides/configuration/#a-fixed-host)'s origin, when it is set.
 
 A form submission without an `Origin` is refused too: every browser sends
 one. So is `Origin: null`, what a browser sends from a page with

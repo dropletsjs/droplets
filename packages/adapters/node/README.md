@@ -146,8 +146,8 @@ by path.
 - Droplet lookup in the manifest uses `Object.hasOwn`: `__proto__` and other prototype names find nothing. `src/assets.ts:62`, `test/assets.test.ts:57`
 - Client bundles, `/index.js` and the global CSS are read from disk per request, not cached. `src/assets.ts:71`, `src/assets.ts:75`, `src/assets.ts:83`
 - File read errors other than ENOENT are thrown, not turned into null. `src/fs.ts:19`
-- `/assets/*` is the only route that serves files from `dist/client`. `../../droplets/src/server/app.ts:121`
-- `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:331`, `../../droplets/src/runtime/app.ts:887`
+- `/assets/*` is the only route that serves files from `dist/client`. `../../droplets/src/server/app.ts:122`
+- `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:342`, `../../droplets/src/runtime/app.ts:902`
 - `/assets/*` serves from `dist/client/assets`. `src/static.ts:48`
 - `/assets/*` path resolving outside `dist/client/assets` answers `404 Not Found` before any read. `src/static.ts:57`
 - `/assets/*` missing file or directory answers `404 Not Found`. `src/static.ts:66`
@@ -163,4 +163,4 @@ by path.
 - Node engine is `>=22`. `package.json:35`
 - Build script runs the tests before tsdown. `package.json:38`
 - Tests build the framework's fixture app and fail when `@dropletsjs/droplets` is not built. `test/build-fixture.ts:19`
-- A droplet without stylesheets has no `style.css` (404), and `/index.css` answers 404 without a shared stylesheet: the empty file is not in the build. `../../droplets/src/runtime/app.ts:1143`, `test/app.test.ts:187`
+- A droplet without stylesheets has no `style.css` (404), and `/index.css` answers 404 without a shared stylesheet: the empty file is not in the build. `../../droplets/src/runtime/app.ts:1164`, `test/app.test.ts:187`

@@ -2123,6 +2123,74 @@ describe("createDropletsApp: the droplet location", () => {
   });
 });
 
+describe("createDropletsApp: a fixed host", () => {
+  const HOST = "https://shop.test";
+  type HostOfInput = { body?: Record<string, unknown>; headers?: Record<string, string>; options?: Partial<DropletsAppOptions> };
+  const hostOf = async ({ body, headers = {}, options = {} }: HostOfInput) => {
+    const { app, renderDroplet } = fakeApp({ host: HOST, ...options });
+    await app.request("http://drops.test/droplets/hello", {
+      method: body ? "POST" : "GET",
+      headers: { ...(body ? { "content-type": "application/json" } : {}), ...headers },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    return renderDroplet.mock.calls[0]?.[1].host.href;
+  };
+
+  it("is the fixed origin with the reported page's path and query when the page is on it", async () => {
+    expect(await hostOf({ body: { host: "https://shop.test/docs?q=1#top" } })).toBe("https://shop.test/docs?q=1");
+    expect(await hostOf({ body: { host: "https://shop.test" } })).toBe("https://shop.test/");
+  });
+
+  it("is the fixed origin alone for a page on another origin, or none, whatever Origin says", async () => {
+    expect(await hostOf({ body: { host: "https://evil.example/docs?q=1" } })).toBe("https://shop.test/");
+    expect(await hostOf({ body: { host: "https://other.test/docs" }, options: { trustedOrigins: ["https://other.test", "*"] } })).toBe(
+      "https://shop.test/",
+    );
+    expect(await hostOf({ headers: { origin: "https://page.test" } })).toBe("https://shop.test/");
+    expect(await hostOf({})).toBe("https://shop.test/");
+  });
+
+  it("keeps a reported path that looks like another origin on the fixed one", async () => {
+    const href = await hostOf({ body: { host: "https://shop.test//evil.example/x" } });
+    expect(new URL(href ?? "").origin).toBe(HOST);
+    expect(href).toBe("https://shop.test//evil.example/x");
+  });
+
+  it("takes form posts from the fixed host's origin", async () => {
+    const post = (options: Partial<DropletsAppOptions>, origin: string) =>
+      fakeApp(options).app.request("http://drops.test/droplets/hello", {
+        method: "POST",
+        headers: { "content-type": "text/plain", origin },
+        body: "x",
+      });
+    expect((await post({ host: HOST }, HOST)).status).not.toBe(403);
+    expect((await post({ host: HOST }, "https://evil.example")).status).toBe(403);
+  });
+
+  it("serves the render stored for the fixed host, its page token replaced by the request's page", async () => {
+    const PATH = "__$DROPLET_PATH_n1$__";
+    const loadPrerendered = vi.fn(async (_name: string, key: string) =>
+      key === `{"page":1} ${HOST}` ? { html: `<a href="${HOST}${PATH}">here</a>`, data: { path: PATH }, nonce: "n1" } : null,
+    );
+    const { app, renderDroplet } = fakeApp({
+      host: HOST,
+      getDropletMeta: () => ({ exists: true, ssr: true, prerender: true }),
+      loadPrerendered,
+    });
+    const html = await (
+      await app.request("http://drops.test/droplets/docs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ host: "https://shop.test/guide", props: { page: 1 } }),
+      })
+    ).text();
+    expect(html).toContain('<a href="https://shop.test/guide">here</a>');
+    expect(payload({ html, attribute: "data-droplet-data" })).toEqual({ data: { path: "/guide" } });
+    expect(renderDroplet).not.toHaveBeenCalled();
+    expect(loadPrerendered.mock.calls.map((call) => call[1])).toEqual([`{"page":1} https://shop.test/guide`, `{"page":1} ${HOST}`]);
+  });
+});
+
 describe("createDropletsApp: a fixed location", () => {
   let warn: MockInstance<typeof logger.warn>;
   beforeEach(() => {

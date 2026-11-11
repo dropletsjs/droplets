@@ -28,7 +28,7 @@ export type SsrModule = {
   validateDropletProps?: (name: string, props: Record<string, unknown>) => Promise<Record<string, unknown>>;
   transformDroplet?: (name: string, event: TransformEvent) => Promise<string>;
   getEntries?: (name: string) => Promise<Array<{ props: Record<string, unknown>; host?: string }>>;
-  prerenderKeys?: (name: string, fallbackHost?: string) => Promise<string[]>;
+  prerenderKeys?: (name: string) => Promise<string[]>;
   publicEnv?: () => Record<string, string | undefined>;
   findAction?: FindAction;
   /** The nonce of the location tokens the bundle writes (see `DropletsAppOptions.tokenNonce`). */
@@ -112,6 +112,7 @@ export function createServerApp({ ssr, assets, config }: ServerAppOptions): Drop
     cors: config.cors,
     trustedOrigins: config.trustedOrigins,
     location: config.location,
+    host: config.host,
     fragmentCacheControl: config.fragmentCacheControl,
     csrf: config.csrf,
     limits: config.limits,

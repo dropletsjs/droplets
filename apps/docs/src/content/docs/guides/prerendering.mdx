@@ -41,10 +41,20 @@ Each entry renders for the first host it can have:
 2. [`host`](/guides/configuration/#options) in `droplets.config.ts` (`host: "https://shop.example"`);
 3. none: the render is **host-agnostic**.
 
-A render with a host is a real `URL` to its loads, and is stored under its
-props and that host's origin and path. A request gets it only when its own
-`host` matches; any other host gets the host-agnostic render of the same
-props when there is one, else a live render.
+A render for the entry's `host` is a real `URL` to its loads, and is stored
+under its props and that host's origin and path. A request gets it only when
+its own `host` matches.
+
+A render for `host` of the config is a real `URL` of that origin too:
+`host.hostname`, `host.protocol` and `host.port` read as they are, and
+`host.search` and `host.hash` are empty. Its page is not known at build:
+`host.pathname` and `host.href` are the path token below, filled in with each
+request's page. It is stored under its props and the origin alone, and
+serves every page of that origin.
+
+A request looks for the render made for its page, then the one for `host`
+of the config, then the host-agnostic one of the same props; with none, it
+renders live.
 
 A host-agnostic render gets a stand-in for `host`: `host.origin`,
 `host.pathname` and `host.href` (and `String(host)`, `JSON.stringify`) give

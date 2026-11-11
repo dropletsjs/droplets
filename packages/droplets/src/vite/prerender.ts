@@ -109,14 +109,15 @@ export async function prerender({ state, ssrEntry }: PrerenderInput): Promise<nu
       ...(ssr.tokenNonce === undefined ? {} : { tokenNonce: ssr.tokenNonce }),
       building: true,
       location: state.config.location,
+      // An entry without `host` renders for this one: the app knows it.
+      host: state.config.host,
     });
 
-    const fallbackHost = state.config.host;
     let count = 0;
     for (const entry of targets) {
       const index: PrerenderIndex = {};
       for (const event of await ssr.getEntries(entry.id)) {
-        const host = event.host ?? fallbackHost;
+        const host = event.host;
         const props = event.props;
         const response = await app.request(`${PRERENDER_ORIGIN}/droplets/${entry.id}`, {
           method: "POST",

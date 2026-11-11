@@ -170,7 +170,8 @@ restarts the server.
 - `tokenNonce` is created per `droplets()` instance; each server bundle exports its own. `state.ts:87`, `virtual.ts:267`
 - Server bundles write `location` of the config in a build, else the instance's location token; `vite dev` always writes the token. `state.ts:177`
 - The prerender app takes `location` of the config: its renders hold it, not a token. `prerender.ts:111`
-- Prerender host fallback: `host` of the config, else none (host-agnostic renders). `prerender.ts:114`
+- Prerender host fallback: the app gets `host` of the config, and an entry without `host` renders for it; else none (host-agnostic renders). `prerender.ts:113`, `prerender.ts:120`
+- `vite dev` ignores `host` of the config: an entry without `host` is host-agnostic there. `dev.ts:395`, `../runtime/entry-server.ts:266`
 - `hooks.server` files looked up: `src/hooks.server.ts`, `src/hooks.server.js`. `state.ts:159`
 - `hooks.client` files looked up: `src/hooks.client.ts`, `.mts`, `.js`, `.mjs`. `state.ts:164`
 - `importmap.server` files looked up: `src/importmap.server.ts`, `src/importmap.server.js`. `state.ts:166`
@@ -250,15 +251,15 @@ restarts the server.
 - `css.postcss` as a config file path: the plugin warns and adds nothing. `css.ts:160`
 - `css.tailwind` adds `@tailwindcss/vite` unless a plugin named `@tailwindcss/vite*` is already there; without Tailwind installed it throws. `css.ts:222`, `css.ts:223`, `css.ts:225`
 - `css.twPreflight: false` rewrites `@import "tailwindcss"` to theme and utilities and drops the preflight import; a preflight that still shows up warns. `css.ts:89`, `css.ts:147`
-- Prerender requests go to `http://droplets.build/droplets/<id>` as a POST of `{ props, host? }`, through `handle`, with `building` set. `prerender.ts:33`, `prerender.ts:121`, `prerender.ts:87`
+- Prerender requests go to `http://droplets.build/droplets/<id>` as a POST of `{ props, host? }`, through `handle`, with `building` set. `prerender.ts:33`, `prerender.ts:122`, `prerender.ts:87`
 - Prerender sets the runtime env store from the mode's `.env` values while it runs. `prerender.ts:89`
 - Prerender imports a fresh copy of the SSR bundle (`?prerender=<time>`). `prerender.ts:92`
 - Prerender root: `dist/server/_prerendered` when the adapter ships `dist/server`, else `dist/client/_prerendered/<32 hex>` with that name written into `droplets.json` as `__prerendered`. `prerender.ts:53`, `prerender.ts:54`, `prerender.ts:83`
 - Prerender removes the previous build's renders first. `prerender.ts:73`, `prerender.ts:74`
-- Prerender file: `<id>/<16 hex of sha256(key)>.json`, listed in `<id>/index.json`. `prerender.ts:42`, `prerender.ts:159`
-- Prerender: a render that read `host` without one stops the build. `prerender.ts:126`
-- Prerender: a non-2xx answer warns `not stored, it renders live`. `prerender.ts:136`
-- Prerender: a failed load is stored with `failed: true` and `error`, without headers. `prerender.ts:153`
+- Prerender file: `<id>/<16 hex of sha256(key)>.json`, listed in `<id>/index.json`. `prerender.ts:42`, `prerender.ts:160`
+- Prerender: a render that read `host` without one stops the build. `prerender.ts:127`
+- Prerender: a non-2xx answer warns `not stored, it renders live`. `prerender.ts:137`
+- Prerender: a failed load is stored with `failed: true` and `error`, without headers. `prerender.ts:154`
 - `.droplets/` holds one `$types.d.ts` per droplet at `.droplets/types/<droplet folder from the root>/`. `sync-types.ts:8`, `sync-types.ts:221`
 - `.droplets/tsconfig.json`: `module: "esnext"`, `moduleResolution: "bundler"`, `rootDirs` of the root and `.droplets/types`; `include` and `files` only for a `x.tsx` next to `x.ts`. `sync-types.ts:127`, `sync-types.ts:131`
 - `.droplets/` files are written only when their content changed; stale `$types.d.ts` are removed. `sync-types.ts:186`, `sync-types.ts:238`

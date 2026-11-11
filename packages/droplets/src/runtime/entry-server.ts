@@ -259,15 +259,15 @@ export async function loadDropletData(name: string, event: LoadEvent): Promise<D
 
 /**
  * The lookup keys of the renders `entries` lists, after the schema: which
- * props, for which host, have a prerendered render. `fallbackHost` is what
- * an entry without `host` renders for (`host` of the config); without one,
- * the render is host-agnostic.
+ * props, for which host, have a prerendered render. `vite dev` reads them;
+ * it ignores `host` of the config, so an entry without `host` is
+ * host-agnostic.
  */
-export async function prerenderKeys(name: string, fallbackHost?: string): Promise<string[]> {
+export async function prerenderKeys(name: string): Promise<string[]> {
   const keys: string[] = [];
   for (const entry of await getEntries(name)) {
-    const host = parseHost({ value: entry.host ?? fallbackHost }) ?? undefined;
-    keys.push(prerenderKey(propsKey(await validateDropletProps(name, entry.props)), host));
+    const host = parseHost({ value: entry.host }) ?? undefined;
+    keys.push(prerenderKey({ key: propsKey(await validateDropletProps(name, entry.props)), host }));
   }
   return keys;
 }

@@ -187,6 +187,50 @@ export function hostFromHeaders({ headers, location }: HostFromHeadersInput): UR
   return new URL(location.origin);
 }
 
+export type FixedHostInput = { fixed: string; reported: URL | null };
+
+/**
+ * `event.host` under `host` of the config: that origin, with the reported
+ * page's path and query when the page is on it; the origin alone for any
+ * other page or none. `Origin` is never read.
+ */
+export function fixedHost({ fixed, reported }: FixedHostInput): URL {
+  const url = new URL(fixed);
+  if (reported?.origin !== url.origin) return url;
+  // Set, never joined: a path like `//evil.example` stays a path.
+  url.pathname = reported.pathname;
+  url.search = reported.search;
+  return url;
+}
+
+export type FixedPrerenderHostInput = { fixed: string; tokens?: HostTokens | undefined };
+
+/**
+ * The host of a render made at build for `host` of the config: a real URL
+ * of that origin, so `hostname`, `protocol` and `port` read as they are and
+ * `search` and `hash` are empty. Its page is not known: with `tokens`,
+ * `pathname` and `href` are the path token, replaced per request.
+ */
+export function fixedPrerenderHost({ fixed, tokens }: FixedPrerenderHostInput): URL {
+  const url = new URL(fixed);
+  if (!tokens) return url;
+  const href = `${url.origin}${tokens.path}`;
+  const overrides: Record<string, unknown> = {
+    pathname: tokens.path,
+    href,
+    toString: () => href,
+    toJSON: () => href,
+    valueOf: () => href,
+  };
+  return new Proxy(url, {
+    get(target, property) {
+      if (typeof property === "string" && Object.hasOwn(overrides, property)) return overrides[property];
+      const value: unknown = Reflect.get(target, property, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
+
 /**
  * The host of a render made at build without one: `origin`, `pathname` and
  * `href` (and `toString()`, `toJSON()`) give tokens. Any other URL field

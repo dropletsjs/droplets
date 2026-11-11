@@ -141,8 +141,26 @@ one:
 export default config({ host: "https://shop.example" });
 ```
 
-Prerendering renders every entry without its own `host` for it; see
+At runtime `event.host` is that origin, with the path and query of the page
+the request reports (a render body's `host`) when that page is on it; for a
+page on another origin, or none, it is the origin alone. `Origin` is not
+read. A form posted from that origin passes the
+[origin check](/integrate/http-contract/#form-posts-the-origin-check), and
+an action may redirect there, as if it were in `trustedOrigins`; a location
+header naming it is not trusted for that.
+
+Prerendering renders every entry without its own `host` for it, and stores
+it for every page of that origin; see
 [`host` at build](/guides/prerendering/#host-at-build).
+
+A form posted without JavaScript from such a render returns to the page the
+render was made for, not the visitor's: the path is filled in per request,
+the query is not. Either don't prerender that droplet, or name the page in
+the entry (`{ props, host: "https://shop.example/docs" }`).
+[`enhanceDropletForm`](/guides/actions/) is unaffected: it never leaves the
+page.
+
+`vite dev` ignores `host` and takes it from each request.
 
 ### The element name
 

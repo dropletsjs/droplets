@@ -7,6 +7,8 @@ import { readRuntimeEnv } from "./env-store.ts";
 import { backUrl, formResultKey, isReservedQueryKey, RETURN_KEY, splitFormResults } from "./form.ts";
 import { formSecret, mintFormResult, readFormResult } from "./form-token.server.ts";
 import {
+  fixedHost,
+  fixedPrerenderHost,
   headerLocations,
   hostFromHeaders,
   hostTokens,
@@ -194,6 +196,13 @@ export type DropletsAppOptions = {
    * `DropletsConfig.location`): every request's, with no header read.
    */
   location?: string | undefined;
+  /**
+   * The origin of the page every droplet renders on (see
+   * `DropletsConfig.host`): `event.host` stays on it, a form post from it
+   * passes the origin check, and a prerender renders an entry without a
+   * `host` there.
+   */
+  host?: string | undefined;
   /** See `DropletsConfig.fragmentCacheControl`. Default: `private, no-store`. */
   fragmentCacheControl?: string | false | undefined;
   /** See `DropletsConfig.csrf`. Default: the `Origin` check is on. */
@@ -243,6 +252,8 @@ type AppEnv = {
     body?: Record<string, unknown> | undefined;
     /** While prerendering without a host: the stand-in and what read it (a `HostProbe`). */
     hostProbe?: { host: URL; violation: Error | undefined };
+    /** While prerendering an entry without a host, under `host` of the config: the host it renders for. */
+    configHost?: URL;
     /** The request's cookies and the ones the response sets (a `CookieJar`, inlined: this type is public). */
     cookieJar?: { cookies: RequestEvent["cookies"]; setCookies(): string[] };
     /** While prerendering: a use of `cookies`, which stops the build. */
@@ -832,6 +843,10 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
   function trustedOrigins(): readonly string[] {
     return trustedOriginsWith({ configured: configuredOrigins, raw: readRuntimeEnv("DROPLETS_TRUSTED_ORIGINS"), devLog: options.devLog });
   }
+  /** The origins a form may post from and an action may redirect to: `trustedOrigins`, plus `host`. */
+  function formOrigins(): readonly string[] {
+    return options.host === undefined ? trustedOrigins() : [...trustedOrigins(), options.host];
+  }
   if (configuredOrigins.includes("*")) options.devLog?.anyLocation({ option: "trustedOrigins" });
   if (options.cors?.origin === "*") options.devLog?.corsAny();
   // One per build: what host-agnostic renders hold for `host`, never sent.
@@ -937,7 +952,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
   // Before `handle`, as SvelteKit does: a cross-site form post, or a body
   // too large, never reaches the app's code.
   if (options.csrf?.checkOrigin !== false) {
-    app.use("*", originCheck({ trustedOrigins, ownOrigins, extraPaths: importMapPaths }));
+    app.use("*", originCheck({ trustedOrigins: formOrigins, ownOrigins, extraPaths: importMapPaths }));
   }
   app.use("*", sizeLimits({ limits: options.limits ?? DEFAULTS.limits, extraPaths: importMapPaths }));
 
@@ -974,7 +989,10 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     const body = renderRoute && (await dropletMeta({ options, droplet })).exists ? await readBodyJson({ c }) : undefined;
     c.set("body", body);
     let host = parseHost({ value: contextFromBody({ body }).host });
-    if (!host && buildTokens && renderRoute) {
+    if (!host && options.building && renderRoute && options.host !== undefined) {
+      host = fixedPrerenderHost({ fixed: options.host, tokens: buildTokens });
+      c.set("configHost", host);
+    } else if (!host && buildTokens && renderRoute) {
       // No host known at build: tokens, and a record of what else was read.
       const probe = prerenderHost({ droplet, entry: JSON.stringify(contextFromBody({ body }).props ?? {}), tokens: buildTokens });
       c.set("hostProbe", probe);
@@ -994,7 +1012,10 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
       const jar = createCookies({ request: c.req.raw, url: urlOn({ origin: publicLocation({ c }), request: new URL(c.req.url) }) });
       c.set("cookieJar", jar);
       cookies = jar.cookies;
-      host = boundedHost({ c, host: host ?? hostFromHeaders({ headers: c.req.raw.headers, location: new URL(publicOrigin({ c })) }) });
+      host =
+        options.host === undefined
+          ? boundedHost({ c, host: host ?? hostFromHeaders({ headers: c.req.raw.headers, location: new URL(publicOrigin({ c })) }) })
+          : fixedHost({ fixed: options.host, reported: host });
       // A no-JavaScript action's result rides on the page's URL: taken out
       // here, before `handle`, so no code of the app ever sees it in `host`.
       const split = splitFormResults(host);
@@ -1201,8 +1222,9 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
 
   /**
    * The build-time render for these props, when the droplet has them: the
-   * one made for this host (origin and path), else the host-agnostic one
-   * with its tokens replaced by this host. `null` means render live; props
+   * one made for this host (origin and path), else the one made for `host`
+   * of the config, else the host-agnostic one, with its tokens replaced by
+   * this host. `null` means render live; props
    * `entries` did not list answer 404 when the droplet cannot render on the
    * server (`ssr = false`).
    */
@@ -1211,7 +1233,10 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     const key = propsKey(ctx.event.props);
     const host = ctx.event.host;
     const found =
-      (await options.loadPrerendered(ctx.droplet, prerenderKey(key, host), ctx.event)) ??
+      (await options.loadPrerendered(ctx.droplet, prerenderKey({ key, host }), ctx.event)) ??
+      (options.host === undefined
+        ? null
+        : await options.loadPrerendered(ctx.droplet, prerenderKey({ key, host, isOriginOnly: true }), ctx.event)) ??
       (await options.loadPrerendered(ctx.droplet, key, ctx.event));
     if (!found && !ctx.meta.ssr) throw new HttpError(404);
     if (!found) return null;
@@ -1364,7 +1389,10 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
         if (probe?.violation) return hostInPrerender({ c, error: probe.violation });
         if (!result) return c.text("Not Found", 404);
         // A render for a known host is stored for that host only.
-        const key = probe?.host === ctx.event.host ? propsKey(ctx.event.props) : prerenderKey(propsKey(ctx.event.props), ctx.event.host);
+        const key =
+          probe?.host === ctx.event.host
+            ? propsKey(ctx.event.props)
+            : prerenderKey({ key: propsKey(ctx.event.props), host: ctx.event.host, isOriginOnly: c.get("configHost") === ctx.event.host });
         // The tokens' nonce goes to the build with the render, and stays on
         // the server. Every render has one: its location is a token too.
         const nonce = { nonce: buildNonce };
@@ -1536,7 +1564,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     // The request decides: one that accepts JSON (`enhanceDropletForm`, or
     // any script) gets the result; anything else is a native navigation.
     const wantsJson = (c.req.header("accept") ?? "").includes("application/json");
-    const allowed = redirectOrigins({ c, trusted: trustedOrigins() });
+    const allowed = redirectOrigins({ c, trusted: formOrigins() });
     const secret = wantsJson ? null : formSecret({ raw: readRuntimeEnv("DROPLETS_SECRET"), devLog: options.devLog });
     // Where the answer goes back to, known before the action runs (from
     // the URL and the headers, never the body): a post that cannot be

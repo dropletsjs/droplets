@@ -208,6 +208,19 @@ describe("form actions: results", () => {
     expect(relative.headers.get("location")).toBe(`${ORIGIN}/thanks?x=1`);
   });
 
+  it("lets an action redirect to the fixed host, and nowhere else off-site", async () => {
+    const { app } = actionsApp({
+      actions: { home: () => redirect(303, "https://shop.test/thanks"), away: () => redirect(303, "https://evil.example/") },
+      overrides: { host: "https://shop.test" },
+    });
+    const home = await app.request(submit({ path: "/droplets/guestbook?/home" }));
+    expect(home.status).toBe(303);
+    expect(home.headers.get("location")).toBe("https://shop.test/thanks");
+    const away = await app.request(submit({ path: "/droplets/guestbook?/away" }));
+    expect(away.status).toBe(400);
+    expect(away.headers.get("location")).toBeNull();
+  });
+
   it("refuses a redirect the validator refuses", async () => {
     const { app } = actionsApp({ actions: { bad: () => redirect(303, "javascript:alert(1)") } });
     const res = await app.request(submit({ path: "/droplets/guestbook?/bad" }));

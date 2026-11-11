@@ -72,6 +72,8 @@ read.
 `host` (where the droplet renders) is taken from the request too: a render
 body, then `Origin`, then the location's origin. With `trustedOrigins` set,
 a `host` outside it (and not this server) becomes the location's origin.
+With [`host`](/guides/configuration/#a-fixed-host) set, it is that origin,
+with the body's path and query only when the body names a page on it.
 `hostFrom()` checks a candidate the same way for a `handle` that reads
 `Referer`. See [`host`](/guides/writing-droplets/#host).
 

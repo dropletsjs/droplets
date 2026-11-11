@@ -163,6 +163,10 @@ On the server, first match wins:
 2. `Origin`;
 3. the origin of the droplets server's location.
 
+With [`host`](/guides/configuration/#a-fixed-host) in `droplets.config.ts`,
+`host` is that origin, with the body's path and query when the body names a
+page on it; `Origin` is not read.
+
 Only `http:` and `https:` URLs count; a value that is not one is skipped for
 the next source. With `trustedOrigins` set, a host outside it (and not this
 server) becomes the location's origin. `Origin` carries an origin only, so

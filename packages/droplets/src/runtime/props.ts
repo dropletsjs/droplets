@@ -91,13 +91,18 @@ export function propsKey(props: Record<string, unknown>): string {
   return JSON.stringify(sortKeys({ value: props }));
 }
 
+export type PrerenderKeyInput = { key: string; host?: URL | undefined; isOriginOnly?: boolean };
+
 /**
  * What a build-time render is stored under: its `propsKey`, and, for a
  * render made for a known host, that host's origin and path (never its
- * query). The host-agnostic render of the same props has the `propsKey` alone.
+ * query). A render for the config's `host` alone, which knows no page, has
+ * the origin without a path (`isOriginOnly`); the host-agnostic render of
+ * the same props has the `propsKey` alone.
  */
-export function prerenderKey(key: string, host?: URL): string {
-  return host ? `${key} ${host.origin}${host.pathname}` : key;
+export function prerenderKey({ key, host, isOriginOnly = false }: PrerenderKeyInput): string {
+  if (!host) return key;
+  return isOriginOnly ? `${key} ${host.origin}` : `${key} ${host.origin}${host.pathname}`;
 }
 
 type SortKeysInput = { value: unknown };

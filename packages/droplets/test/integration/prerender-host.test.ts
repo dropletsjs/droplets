@@ -91,8 +91,19 @@ describe("host while prerendering", () => {
     await build({ root });
     expect(await stored(root)).toEqual({
       '{"a":1} https://entry.test/docs': { home: "https://entry.test/home", path: "/docs" },
-      '{"a":2} https://config.test/': { home: "https://config.test/home", path: "/" },
+      '{"a":2} https://config.test': { home: "https://config.test/home", path: "__$DROPLET_PATH_<nonce>$__" },
     });
+  }, 90_000);
+
+  it("gives a render for host of the config a real URL: its origin's fields, an empty query", async () => {
+    const root = await project({
+      server:
+        "export const load = ({ host }) => ({ home: `${host.protocol}//${host.hostname}:${host.port}`, path: `[${host.search}${host.hash}${host.searchParams.size}]` });\n",
+      config: 'export default { host: "https://config.test:8443" };\n',
+    });
+    roots.push(root);
+    await build({ root });
+    expect(await stored(root)).toEqual({ "{} https://config.test:8443": { home: "https://config.test:8443", path: "[0]" } });
   }, 90_000);
 
   it("renders host-agnostic, with tokens, when nothing gives a host", async () => {
