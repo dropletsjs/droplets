@@ -507,7 +507,7 @@ describe("vite dev", () => {
     const fragment = await fetch(`${origin}/droplets/static-note`);
     expect(fragment.headers.get("link")).toBeNull();
     expect(await fragment.text()).not.toContain("data-droplet-style");
-    expect(await (await fetch(`${origin}/droplets/static-note/style.css`)).text()).toBe("");
+    expect((await fetch(`${origin}/droplets/static-note/style.css`)).status).toBe(404);
   });
 
   it("records where the dev /index.js came from, so a host page on another origin loads from the dev server", async () => {

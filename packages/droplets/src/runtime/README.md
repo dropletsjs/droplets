@@ -163,8 +163,9 @@ Then the route.
 
 - `/index.js` answers 404 without `loadEntryClient` or code, and is `no-store`. `app.ts:1091`
 - `/index.js` prepends the location record and the public env (only when the env has keys). `app.ts:1099`
-- `/index.css` answers 404 when there is no global CSS. `app.ts:1114`
-- `style.css` answers `text/css` cached a month even when the droplet has no styles. `app.ts:1128`
+- `/index.css` answers 404 when there is no global CSS or it is empty. `app.ts:1114`
+- `style.css` answers 404 when the droplet has no stylesheets, or no `dropletStyles` loader is set; with stylesheets it answers `text/css`, cached a month. `app.ts:1126`, `app.ts:1130`
+- A fragment links and preloads `style.css` only when the droplet has stylesheets. `app.ts:1296`
 - `client.js` answers 404 for an unknown droplet, `hydrate === false` or no loader. `app.ts:1142`
 - Cached files get `public, max-age=2592000, immutable`. `app.ts:900`
 - The import map answers 404 when none is configured, is `no-store`, and escapes `<`. `app.ts:1069`

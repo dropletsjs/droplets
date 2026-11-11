@@ -164,3 +164,4 @@ by path.
 - Node engine is `>=22`. `package.json:35`
 - Build script runs the tests before tsdown. `package.json:38`
 - Tests build the framework's fixture app and fail when `@dropletsjs/droplets` is not built. `test/build-fixture.ts:19`
+- A droplet without stylesheets has no `style.css` (404), and `/index.css` answers 404 without a shared stylesheet: the empty file is not in the build. `../../droplets/src/runtime/app.ts:1130`, `test/app.test.ts:179`

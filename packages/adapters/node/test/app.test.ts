@@ -163,3 +163,28 @@ describe("createNodeServerApp", () => {
     }
   });
 });
+
+describe("createNodeServerApp without a shared stylesheet", () => {
+  const plainDir = resolve(FIXTURE_ROOT, "dist-node-app-no-css");
+  let paths: NodeServerPaths;
+
+  beforeAll(async () => {
+    paths = await buildFixture({ outDir: plainDir, css: { path: false } });
+  });
+
+  afterAll(async () => {
+    await rm(plainDir, { recursive: true, force: true });
+  });
+
+  it("serves no stylesheet that has nothing in it, and links none", async () => {
+    const app = await createNodeServerApp(paths, resolveConfig({ element: "test-droplet" }));
+    expect((await app.request("/index.css")).status).toBe(404);
+    expect((await app.request("/droplets/hello/style.css")).status).toBe(404);
+    expect((await app.request("/droplets/static-note/style.css")).status).toBe(200);
+    expect((await app.request("/droplets-css.js")).status).toBe(404);
+    const fragment = await app.request("/droplets/hello?who=Node");
+    expect(await fragment.text()).not.toContain("data-droplet-style");
+    expect(fragment.headers.get("link") ?? "").not.toContain(".css");
+    expect(await (await app.request("/droplets/docs?page=2")).text()).not.toContain("style.css");
+  });
+});

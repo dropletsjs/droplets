@@ -54,6 +54,11 @@ async function renderOnServer({ api, origin, search }: RenderOnServerInput): Pro
   const response = await api.fetch(new Request(`${origin}${url}`, init));
   const html = await response.text();
   const base = `/droplets/${encodeURIComponent(state.droplet)}`;
+  // Only stylesheets that exist: an empty one is never generated, and answers 404.
+  const styles: string[] = [];
+  for (const href of ["/index.css", `${base}/style.css`]) {
+    if ((await api.fetch(new Request(`${origin}${href}`))).ok) styles.push(href);
+  }
   return {
     droplet: state.droplet,
     method: state.method,
@@ -63,7 +68,7 @@ async function renderOnServer({ api, origin, search }: RenderOnServerInput): Pro
     bytes: new TextEncoder().encode(html).length,
     // Only HTML belongs in the page; an error without an error page is text.
     html: (response.headers.get("content-type") ?? "").includes("text/html") ? html : "",
-    styles: ["/index.css", `${base}/style.css`],
+    styles,
   };
 }
 

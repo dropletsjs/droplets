@@ -227,7 +227,9 @@ restarts the server.
 - Dev SSR module is loaded through the ssr environment's runner (else `ssrLoadModule`), outside any request's info. `dev.ts:249`, `dev.ts:252`
 - Dev droplet rescan that fails (two components, an unknown extension) logs the error and keeps the previous list. `dev.ts:264`
 - Dev droplet rescan writes `.droplets/` again. `dev.ts:268`
-- Dev app: droplets have no stylesheets of their own; `style.css` is empty and fragments link none. `dev.ts:339`
+- Dev app: droplets have no stylesheets of their own; `style.css` answers 404 and fragments link none. `dev.ts:340`
+- Dev app: `/index.css` answers 404 without a shared stylesheet (`css.path` false or missing). `dev.ts:327`
+- Build: an empty shared stylesheet is removed from `dist/client/assets/`, and the 0-byte `droplets-css.js` chunk of its entry is never kept. `build.ts:295`, `build.ts:298`
 - Dev app sends no `Link` header. `dev.ts:410`
 - Dev app re-reads `handle`, `+server.ts` routes and `handleError` from the SSR module per request. `dev.ts:366`, `dev.ts:367`, `dev.ts:369`
 - Dev app renders listed `entries` props live; nothing is prerendered. `dev.ts:384`

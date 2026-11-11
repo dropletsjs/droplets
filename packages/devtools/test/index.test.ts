@@ -120,7 +120,8 @@ describe("in vite dev", () => {
     const stage = html.slice(html.indexOf('<div id="dt-stage">'), html.indexOf("</test-droplet>"));
     expect(stage).toContain("Hello Server!");
     expect(html).toContain('<link rel="stylesheet" href="/index.css"/>');
-    expect(html).toContain('<link rel="stylesheet" href="/droplets/hello/style.css"/>');
+    // Component styles come with the JavaScript in dev: style.css answers 404, so it is not linked.
+    expect(html).not.toContain("/droplets/hello/style.css");
   });
 
   it("server mode: POST props, and error pages as they are", async () => {

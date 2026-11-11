@@ -104,7 +104,7 @@ droplets with their flags, which the tool reads from each server.
 - Devtools page includes the import map block fetched from `api.importMapPath()` through `api.fetch`; nothing when there is no path or the answer is not ok. `src/index.ts:37`, `src/index.ts:40`
 - Server mode fetches the fragment in process through `api.fetch`, the droplets dev app with its hooks. `src/index.ts:54`
 - Server mode inlines the answer only when its content type contains `text/html`; otherwise the stage is empty. `src/index.ts:65`
-- Server mode links `/index.css` and `/droplets/<id>/style.css` in `<head>`. `src/index.ts:66`
+- Server mode links `/index.css` and `/droplets/<id>/style.css` in `<head>`, each only when it answers 200 (in dev `style.css` answers 404). `src/index.ts:59`
 - Server mode with an unknown `droplet` id renders the first droplet; with no droplets it renders nothing. `src/shared.ts:174`, `src/index.ts:51`
 - Tool state `method` is `POST` only for `method=POST`, else `GET`. `src/shared.ts:178`
 - Tool state `mode` is `json` only for `mode=json`, else `builder`. `src/shared.ts:179`

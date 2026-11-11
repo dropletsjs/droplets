@@ -324,7 +324,7 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
   // Hand the browser an @import so Vite serves and watches the real file.
   const loadGlobalStyle = () => {
     const path = state.css.path;
-    if (!path) return "";
+    if (!path) return null;
     const href = path.startsWith("/") ? path : `/${path.replace(/^\.\//, "")}`;
     return `@import ${JSON.stringify(href)};\n`;
   };
@@ -333,7 +333,7 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
    * Styles reach the browser through JavaScript in dev: Vite injects the
    * shared stylesheet with the entry and component styles with the droplet's
    * client module. So a droplet has no stylesheets of its own here:
-   * `style.css` is empty, and fragments neither link nor preload one. A
+   * `style.css` answers 404, and fragments neither link nor preload one. A
    * droplet with `hydrate = false` therefore renders without its component
    * styles in dev, styled in a production build.
    */

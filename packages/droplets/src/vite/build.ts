@@ -289,9 +289,15 @@ export async function writeManifest(state: PluginState): Promise<string> {
       sharedCss,
     });
   const full = translate(true);
-  // Nothing to share (no stylesheet, no Tailwind): no droplet asks for it.
+  // Nothing to share (no stylesheet, no Tailwind): no droplet asks for it, and the file is not kept.
   const sharedCss = Boolean((await loadTextFile({ path: resolve(clientRoot, full.__globalCss) }))?.trim());
   const manifest = sharedCss ? full : translate(false);
+  if (!sharedCss) await rm(resolve(clientRoot, full.__globalCss), { force: true });
+  // The shared stylesheet's entry has no JavaScript: its chunk is empty.
+  const cssChunk = Object.values(viteManifest ?? {}).find((entry) => entry?.name === GLOBAL_CSS_NAME)?.file;
+  if (cssChunk && (await loadTextFile({ path: resolve(clientRoot, cssChunk) })) === "") {
+    await rm(resolve(clientRoot, cssChunk), { force: true });
+  }
   // A droplet that never runs in the browser goes through the client build
   // only so its <style> is extracted. Its JavaScript is removed from the output.
   for (const entry of state.entries) {

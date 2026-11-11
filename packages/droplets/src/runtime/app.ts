@@ -1111,7 +1111,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     if (!options.loadGlobalStyle) return c.text("Not Found", 404);
     try {
       const css = await options.loadGlobalStyle();
-      if (css === null || css === undefined) return c.text("Not Found", 404);
+      if (!css) return c.text("Not Found", 404);
       c.header("content-type", "text/css; charset=utf-8");
       cacheForever({ c });
       return c.body(css);
@@ -1123,13 +1123,14 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
   app.get("/droplets/:droplet/style.css", async (c) => {
     const droplet = c.req.param("droplet");
     const meta = await dropletMeta({ options, droplet });
-    if (!meta.exists) return c.text("Not Found", 404);
-
-    c.header("content-type", "text/css; charset=utf-8");
-    cacheForever({ c });
-    if (!options.dropletStyles) return c.body("");
+    if (!meta.exists || !options.dropletStyles) return c.text("Not Found", 404);
     try {
-      return c.body(styleImports({ files: await options.dropletStyles(droplet) }));
+      const files = await options.dropletStyles(droplet);
+      // An empty stylesheet is never generated: nothing links to it either.
+      if (files.length === 0) return c.text("Not Found", 404);
+      c.header("content-type", "text/css; charset=utf-8");
+      cacheForever({ c });
+      return c.body(styleImports({ files }));
     } catch (error) {
       return failure({ c, options, error, as: "text", where: "droplet style" });
     }

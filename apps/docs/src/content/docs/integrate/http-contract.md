@@ -14,9 +14,9 @@ interface; anything that can make a request can host a droplet.
 | `POST /droplets/:id` | With a JSON body: the same fragment, props from `{ "host": "…", "props": { … } }` (`host` optional: the page the droplet renders on, for a server-to-server request that has no browser `Origin` or `Referer`); the query string is never props here. With a form body: a [form action](#form-actions) |
 | `GET`, `POST /droplets/:id/_data` | `{ "data": … }`: the server load only, no rendering; other methods answer `405` |
 | `GET /droplets/:id/client.js` | That droplet's bundle; `404` when it never hydrates |
-| `GET /droplets/:id/style.css` | That droplet's stylesheets, the shared one first, as `@import`s; empty when it has none |
+| `GET /droplets/:id/style.css` | That droplet's stylesheets, the shared one first, as `@import`s; `404` when it has none (nothing links to it then) |
 | `GET /index.js` | A small stub that imports the entry client, which defines the droplet element, and carries the dynamic public env |
-| `GET /index.css` | The shared stylesheet, for pages that want to link it themselves |
+| `GET /index.css` | The shared stylesheet, for pages that want to link it themselves; `404` when there is none or it is empty |
 | `GET /assets/*` | The entry client, shared chunks, stylesheets and imported files, cached for good |
 | `GET /assets/public/*` | The project's `public/` folder, `no-cache` with an `ETag` (`304` when `If-None-Match` matches) |
 | `ALL /api/*` | Your [`+server.ts`](/guides/server/#api-routes) endpoints |

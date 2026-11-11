@@ -174,3 +174,4 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - `vite` is a peer dependency (`^8.0.0`): the adapter reads `defaultServerConditions` from it. `package.json:49`, `src/index.ts:6`
 - Build script runs the tests before tsdown. `package.json:39`
 - Tests build the framework's fixture app and fail when `@dropletsjs/droplets` is not built. `test/build-fixture.ts:18`
+- A droplet without stylesheets has no `style.css` (404), and `/index.css` answers 404 without a shared stylesheet: the binding has no such file. `src/worker.ts:61`, `test/worker.test.ts:273`

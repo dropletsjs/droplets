@@ -254,3 +254,30 @@ describe("worker", () => {
     );
   });
 });
+
+describe("worker without a shared stylesheet", () => {
+  const plainDir = resolve(FIXTURE_ROOT, "dist-cloudflare-worker-no-css");
+  let worker: Worker;
+  const env = { ASSETS: fakeAssets({ clientRoot: resolve(plainDir, "client") }) };
+  const call = ({ path }: CallInput) => worker.default.fetch(new Request(`http://drops.test${path}`), env, {});
+
+  beforeAll(async () => {
+    await buildFixture({ outDir: plainDir, css: { path: false } });
+    worker = (await import(pathToFileURL(resolve(plainDir, "worker.js")).href)) as Worker;
+  });
+
+  afterAll(async () => {
+    await rm(plainDir, { recursive: true, force: true });
+  });
+
+  it("serves no stylesheet that has nothing in it, and links none", async () => {
+    expect((await call({ path: "/index.css" })).status).toBe(404);
+    expect((await call({ path: "/droplets/hello/style.css" })).status).toBe(404);
+    expect((await call({ path: "/droplets/static-note/style.css" })).status).toBe(200);
+    expect((await call({ path: "/droplets-css.js" })).status).toBe(404);
+    const fragment = await call({ path: "/droplets/hello?who=Worker" });
+    expect(await fragment.text()).not.toContain("data-droplet-style");
+    expect(fragment.headers.get("link") ?? "").not.toContain(".css");
+    expect(await (await call({ path: "/droplets/docs?page=2" })).text()).not.toContain("style.css");
+  });
+});

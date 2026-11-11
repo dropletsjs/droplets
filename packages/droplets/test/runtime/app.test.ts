@@ -184,12 +184,17 @@ describe("createDropletsApp: assets", () => {
     expect(await hello.text()).toBe('@import url("../../assets/Badge-1.css");\n@import url("../../assets/hello-2.css");\n');
     expect(hello.headers.get("cache-control")).toContain("immutable");
 
-    // No styles of its own is normal, not an error.
+    // No styles: no stylesheet at all, like /index.css without a shared one.
     const other = await app.request("/droplets/other/style.css");
-    expect(other.status).toBe(200);
-    expect(await other.text()).toBe("");
+    expect(other.status).toBe(404);
+    expect(other.headers.get("cache-control")).toBeNull();
 
     expect((await app.request("/droplets/missing/style.css")).status).toBe(404);
+  });
+
+  it("answers 404 for an empty shared stylesheet", async () => {
+    const { app } = fakeApp({ loadGlobalStyle: () => "" });
+    expect((await app.request("/index.css")).status).toBe(404);
   });
 
   it("serves a droplet with hydrate = false its style.css too", async () => {
@@ -203,9 +208,11 @@ describe("createDropletsApp: assets", () => {
       loadEntryClient: undefined,
       loadGlobalStyle: undefined,
       loadClientModule: undefined,
+      dropletStyles: undefined,
     });
     expect((await app.request("/index.js")).status).toBe(404);
     expect((await app.request("/index.css")).status).toBe(404);
+    expect((await app.request("/droplets/hello/style.css")).status).toBe(404);
     expect((await app.request("/droplets/hello/client.js")).status).toBe(404);
   });
 
