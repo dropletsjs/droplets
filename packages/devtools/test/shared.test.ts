@@ -72,6 +72,9 @@ describe("props", () => {
     expect(propWarnings({ props: { n: 1 }, method: "POST" })).toEqual([]);
     expect(propWarnings({ props: { n: 1 }, method: "GET" })[0]).toMatch(/GET sends every value as text/);
     expect(propWarnings({ props: { c: "1", noSSR: "" }, method: "POST" })[0]).toMatch(/^c, noSSR are reserved/);
+    expect(propWarnings({ props: { __droplet_return: "/", __droplet_form_cart_abc: "" }, method: "POST" })[0]).toMatch(
+      /^__droplet_return, __droplet_form_cart_abc are reserved/,
+    );
   });
 });
 

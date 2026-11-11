@@ -3,6 +3,7 @@
  * dev server for its fragment, exactly as a host page would, and re-renders
  * whenever the droplet or the registry changes.
  */
+import type { DevStrategy } from "@dropletsjs/droplets";
 import type { DropletRegistryPayload } from "@dropletsjs/droplets/vite";
 import type { ServerRender } from "../page.tsx";
 import {
@@ -32,7 +33,7 @@ type PageData = {
   mode: "client" | "server";
   server?: Pick<ServerRender, "status" | "ms" | "bytes" | "method">;
   /** `dev.strategy` of the config. */
-  strategy?: string;
+  strategy?: DevStrategy;
 };
 
 declare module "vite/types/customEvent.d.ts" {

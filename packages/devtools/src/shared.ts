@@ -4,6 +4,7 @@
  * (`tool/panel.ts`). No DOM, no Node: plain functions over plain data.
  */
 import type { DropletSummary } from "@dropletsjs/droplets/vite";
+import { isReservedQueryKey } from "@dropletsjs/droplets/enhance";
 
 /** One droplet, as the core plugin describes it; the fields after `hasServerLoad` may be missing. */
 export type DropletInfo = Pick<DropletSummary, "id" | "folder" | "ssr" | "hydrate" | "hasLoad" | "hasServerLoad"> &
@@ -21,9 +22,6 @@ export type ToolState = {
   mode: EditorMode;
   props: Props;
 };
-
-/** Query keys the droplets server keeps for itself; never props. */
-export const RESERVED_KEYS = new Set(["__cb", "c", "t", "noSSR", "clientOnly"]);
 
 export type RenderMode = {
   label: string;
@@ -132,7 +130,7 @@ type PropWarningsInput = { props: Readonly<Props>; method: Method };
 /** Things worth telling the user about the props they are about to send. */
 export function propWarnings({ props, method }: PropWarningsInput): string[] {
   const warnings: string[] = [];
-  const reserved = Object.keys(props).filter((key) => RESERVED_KEYS.has(key));
+  const reserved = Object.keys(props).filter((key) => isReservedQueryKey({ key }));
   if (reserved.length) {
     warnings.push(
       `${reserved.join(", ")} ${reserved.length === 1 ? "is" : "are"} reserved by droplets and never reach the droplet as props.`,

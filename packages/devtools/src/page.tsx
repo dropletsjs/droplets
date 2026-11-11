@@ -1,5 +1,6 @@
 import { raw } from "hono/html";
 import STYLES from "./page.css?inline";
+import type { DevStrategy } from "@dropletsjs/droplets";
 import type { DropletInfo, Method } from "./shared.ts";
 
 /** A droplet rendered on the server, for server mode. */
@@ -29,7 +30,7 @@ export type DevtoolsPageInput = {
   /** Present in server mode: the droplet, already rendered. */
   server?: ServerRender | undefined;
   /** `dev.strategy` of the config: under `hmr` the page leaves edits to the element. */
-  strategy?: string;
+  strategy?: DevStrategy;
   /** `false` leaves the page's own `<style>` out, for `withPageStyles` to add. */
   pageStyles?: boolean;
 };

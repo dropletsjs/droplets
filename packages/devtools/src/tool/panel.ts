@@ -8,7 +8,7 @@
  * with a group per server. The panel lives in a shadow root, out of the
  * host's styles and out of theirs.
  */
-import type { DevElementInfo, DevNotification, DevToolSource, DropletsDevTools } from "@dropletsjs/droplets";
+import type { DevElementInfo, DevNotification, DevToolSource, DropletsDevTools, DevStrategy } from "@dropletsjs/droplets";
 import { describeMode, type DropletInfo } from "../shared.ts";
 import STYLES from "./panel.css?inline";
 
@@ -16,7 +16,7 @@ import STYLES from "./panel.css?inline";
 type ServerInfo = { element: string; droplets: DropletInfo[] };
 
 const OPEN_KEY = "droplets-devtools:tool-open";
-const STRATEGIES = ["hmr", "remount", "reload", "manual"] as const;
+const STRATEGIES: readonly DevStrategy[] = ["hmr", "remount", "reload", "manual"];
 /** At most this many notifications at once: the oldest goes first. */
 const MAX_NOTES = 3;
 /** How long a notification without a button stays. */
@@ -183,7 +183,7 @@ function createTool(): DropletsDevTools {
       tag: "select",
       children: STRATEGIES.map((s) => el({ tag: "option", props: { value: s, textContent: s, selected: s === source.strategy() } })),
     });
-    select.addEventListener("change", () => source.setStrategy(select.value as (typeof STRATEGIES)[number]));
+    select.addEventListener("change", () => source.setStrategy(select.value as DevStrategy));
     const reload = el({ tag: "button", props: { className: "act", type: "button", textContent: "Reload page" } });
     reload.addEventListener("click", () => source.reload());
     const elements = source.elements();
