@@ -35,7 +35,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsdown",
+    "build": "vitest run && tsdown",
     "clean": "rm -rf dist",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",

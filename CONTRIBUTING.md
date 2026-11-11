@@ -94,7 +94,8 @@ a mixed `vite dev`) and check them from outside, in a browser or a shell. A
 test of one package's behaviour goes in that package's `test/`, even when
 it builds a fixture. Unit tests import from `src/`
 directly; the integration tests need `dist/` to exist, so run `pnpm build`
-first (`pnpm check` does). Every renderer runs `rendererConformance()` from
+first (`pnpm check` does). A package whose tests need no `dist/` of its own
+(the adapters, create-droplets) runs them in its `build`. Every renderer runs `rendererConformance()` from
 `@dropletsjs/droplets/testing` on a fixture app in its `test/fixtures/app`: a
 change to the renderer contract shows up there for all of them.
 
