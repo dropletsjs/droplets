@@ -93,8 +93,10 @@ export function headerLocations(headers: Headers, requestUrl: URL): { source: Lo
 
 /**
  * What stands for `host.origin` and `host.pathname` in a build-time render,
- * and for the droplets server's location (`droplet.origin`, `actionUrl()`):
- * where a render is served from is only known per request.
+ * and for the droplets server's location (`droplet.origin`, `actionUrl()`,
+ * every file the SSR bundle imports): where a render is served from is only
+ * known per request. The location token is a URL, so `new URL(token + path)`
+ * works on it.
  */
 export type HostTokens = { host: string; path: string; location: string };
 
@@ -108,7 +110,7 @@ export function hostTokens(nonce = ""): HostTokens {
   return {
     host: `__$DROPLET_HOST${suffix}$__`,
     path: `__$DROPLET_PATH${suffix}$__`,
-    location: `__$DROPLET_LOCATION${suffix}$__`,
+    location: `http://droplets.invalid/__$DROPLET_LOCATION${suffix}$__`,
   };
 }
 

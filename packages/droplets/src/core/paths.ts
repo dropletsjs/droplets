@@ -44,6 +44,9 @@ export const formModulePath = resolve(packageDist, "runtime/form.js");
 /** `enhanceDropletForm`: what `$droplets/form` re-exports, and `@dropletsjs/droplets/enhance` is. */
 export const enhanceModulePath = resolve(packageDist, "runtime/enhance.js");
 
+/** Where the browser loads a server from: `$droplets/drop` and `$droplets/form` in the browser, and the element. */
+export const serverRecordsModulePath = resolve(packageDist, "runtime/server-records.js");
+
 /** Runs `init` of `src/hooks.client.ts`: imported by the browser registry only when the file exists. */
 export const clientInitModulePath = resolve(packageDist, "runtime/client-init.js");
 

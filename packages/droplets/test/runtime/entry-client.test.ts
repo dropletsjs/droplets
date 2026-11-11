@@ -161,13 +161,17 @@ describe("<djs-droplet>", () => {
     expect(mod.DjsDropletElement.importModule).toHaveBeenCalledWith("https://shop.test/mfe/droplets/plain/client.js?c=test01");
   });
 
-  it("falls back to the page's origin when /index.js recorded nothing", async () => {
+  it("falls back to the root of the build its bundle came from, never the page's origin, when /index.js recorded nothing", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json({ data: {} })));
     delete servers[SERVERS];
     fakeModule();
     mount('<djs-droplet data-droplet="plain"></djs-droplet>');
     await tick();
-    expect(mod.DjsDropletElement.importModule).toHaveBeenCalledWith(`${location.origin}/droplets/plain/client.js?c=test01`);
+    // Unbuilt here: the build writes the way from the bundle back to its root in place of the marker.
+    expect(mod.DjsDropletElement.importModule).toHaveBeenCalledWith(
+      expect.stringMatching(/^file:\/\/\/.+\/src\/runtime\/__DROPLETS_BUILD_ROOT__\/droplets\/plain\/client\.js\?c=test01$/),
+    );
+    expect(mod.DjsDropletElement.importModule).not.toHaveBeenCalledWith(`${location.origin}/droplets/plain/client.js?c=test01`);
   });
 
   it("fetches _data with the attribute context when nothing is inlined", async () => {

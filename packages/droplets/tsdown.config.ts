@@ -21,6 +21,7 @@ export default defineConfig({
     "./src/runtime/request-store.ts",
     "./src/runtime/form.ts",
     "./src/runtime/client-init.ts",
+    "./src/runtime/server-records.ts",
     // Its own file, so a production build can drop it whole.
     "./src/runtime/dev-element.ts",
     "./src/script/server.ts",
@@ -41,6 +42,7 @@ export default defineConfig({
         "runtime/form",
         "runtime/enhance",
         "runtime/client-init",
+        "runtime/server-records",
         "runtime/dev-element",
         "script/client",
         "testing/fake-renderer/client",

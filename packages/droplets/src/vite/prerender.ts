@@ -99,6 +99,8 @@ export async function prerender(state: PluginState, ssrEntry: string): Promise<n
       ...(ssr.validateDropletProps ? { validateProps: ssr.validateDropletProps } : {}),
       ...(ssr.renderError ? { renderError: ssr.renderError } : {}),
       buildHash: state.buildHash,
+      // The renders' tokens are the bundle's own: one nonce for both.
+      ...(ssr.tokenNonce === undefined ? {} : { tokenNonce: ssr.tokenNonce }),
       building: true,
     });
 

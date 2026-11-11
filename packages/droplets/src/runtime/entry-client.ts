@@ -6,7 +6,7 @@ import {
   dropletsStylesById,
   elementName,
 } from "virtual:droplets";
-import { serverKey, serverRecord } from "./server-records.ts";
+import { serverKey, serverLocation } from "./server-records.ts";
 import { installDevElement } from "./dev-element.ts";
 
 /** Droplets that exist in this build. */
@@ -311,11 +311,12 @@ export class DjsDropletElement extends HTMLElement {
   /**
    * Where this droplet's JavaScript, CSS and data load from: the server's
    * location, which `/index.js` recorded from the URL the page loaded it
-   * from (prefix included), else the page's origin. Never from the markup:
-   * a fragment, or anything else written into the page, cannot move it.
+   * from (prefix included), else the root of the build this element came
+   * with, as `$droplets/drop` and `$droplets/form` find it. Never from the
+   * markup: a fragment, or anything else written into the page, cannot move it.
    */
   #location(): string {
-    return serverRecord(serverKey(elementName, buildHash)).origin ?? globalThis.location.origin;
+    return serverLocation({ key: serverKey(elementName, buildHash) });
   }
 
   #withCacheBust(url: string, token?: string): string {
@@ -1358,7 +1359,7 @@ if (import.meta.env.DEV) {
     nothingToRender: NothingToRender,
     staleBuild: StaleBuildError,
     pageUrl,
-    location: () => serverRecord(serverKey(elementName, buildHash)).origin,
+    location: () => serverLocation({ key: serverKey(elementName, buildHash) }),
   });
 }
 

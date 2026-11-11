@@ -41,6 +41,8 @@ export const hooks: Record<string, unknown> = {};
 export const importMapModule: Record<string, unknown> = {};
 /** Server build: public variables read at runtime (`public: true`, not `static`). */
 export const publicEnvNames: string[] = [];
+/** Server build: the nonce of the location tokens the bundle writes. */
+export const tokenNonce = "";
 
 /** Client build: build identity + which droplets exist / hydrate. */
 export const buildHash = "";

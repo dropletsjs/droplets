@@ -8,6 +8,8 @@ export const api: unknown[] = [];
 export const hooks: Record<string, unknown> = {};
 /** Server build: the exports of `src/importmap.server.ts`, or `{}`. */
 export const importMapModule: Record<string, unknown> = {};
+export const publicEnvNames: string[] = [];
+export const tokenNonce = "";
 const droplets: Record<string, unknown> = {};
 export default droplets;
 export const dropletsStylesById: Record<string, string[]> = {

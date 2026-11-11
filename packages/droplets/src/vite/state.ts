@@ -8,6 +8,7 @@ import type { DropletsAdapter } from "../adapters.ts";
 import type { EnvState } from "../core/env.ts";
 import type { DropletRenderer } from "../renderer.ts";
 import type { ResolvedCss } from "./css.ts";
+import { tokenNonce } from "../runtime/host.ts";
 
 /**
  * Everything the individual plugins share. Filled in by the main plugin's
@@ -16,6 +17,14 @@ import type { ResolvedCss } from "./css.ts";
 export type PluginState = {
   /** Short per-build token, appended to asset URLs as `?c=`. */
   buildHash: string;
+  /**
+   * The nonce of the location tokens this instance writes into server
+   * bundles (see `hostTokens`). Per instance, so per environment of a build:
+   * each bundle exports its own (`tokenNonce`) and the server reads it there.
+   */
+  tokenNonce: string;
+  /** Vite's `publicDir`, absolute; `""` when it is turned off. */
+  publicDir: string;
   /** The user's project root. */
   root: string;
   /** Where `vite build` writes; `dist` unless the user changed `build.outDir`. */
@@ -93,6 +102,8 @@ export function createBuildHash(): string {
 export function createInitialState(): PluginState {
   return {
     buildHash: createBuildHash(),
+    tokenNonce: tokenNonce(),
+    publicDir: "",
     root: process.cwd(),
     outDir: resolve(process.cwd(), "dist"),
     configPath: null,

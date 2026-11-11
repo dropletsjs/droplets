@@ -44,6 +44,7 @@ import { externalizePlugin } from "./externalize.ts";
 import { createExternalMatcher, namedExternals, readClientExternal } from "./client-external.ts";
 import { rm } from "node:fs/promises";
 import { prerender } from "./prerender.ts";
+import { assetUrlsPlugin, builtUrl, copyPublicDir } from "./assets.ts";
 import {
   applyConfig,
   createInitialState,
@@ -375,12 +376,18 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
           ...(userConfig.server?.port === undefined
             ? { port: state.dev.server.port }
             : {}),
+          // Asset URLs on the dev server itself, so a host page on another
+          // origin loads them; corrected once it listens (another port).
+          ...(env.command === "serve" && userConfig.server?.origin === undefined && !userConfig.server?.middlewareMode
+            ? { origin: `http://localhost:${userConfig.server?.port ?? state.dev.server.port}` }
+            : {}),
         },
         ...(external.length ? { optimizeDeps: { exclude: external } } : {}),
       };
 
       if (env.command === "build") {
         requireAdapter(state);
+        result.experimental = { renderBuiltUrl: builtUrl({ user: userConfig.experimental?.renderBuiltUrl }) };
         if (state.entries.length === 0) {
           logger.warn("framework", "no droplets found", {
             folder: state.config.dropletsFolder,
@@ -397,8 +404,21 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
       return result;
     },
 
+    configResolved(config) {
+      state.publicDir = config.publicDir;
+    },
+
     configureServer(server) {
       runtime = createDevRuntime(server, state);
+      const origin = server.config.server.origin;
+      if (origin?.startsWith("http://localhost:") && server.httpServer) {
+        server.httpServer.once("listening", () => {
+          const address = server.httpServer?.address();
+          if (address && typeof address === "object" && origin !== `http://localhost:${address.port}`) {
+            (server.config.server as { origin?: string }).origin = `http://localhost:${address.port}`;
+          }
+        });
+      }
       const devRuntime = runtime;
       // Runtime private variables come from .env files in dev, like Vite's own.
       setRuntimeEnv(state.env.values);
@@ -523,7 +543,10 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
         await builder.build(environment);
         // The manifest exists before the server builds, so an adapter's entry
         // can import it rather than read it at runtime.
-        if (name === "client") manifestPath = await writeManifest(state);
+        if (name === "client") {
+          manifestPath = await writeManifest(state);
+          await copyPublicDir(state);
+        }
         // Before the server: a Worker reads the renders through its assets.
         if (name === "ssr") {
           const renders = await prerender(state, resolve(state.outDir, "server/entry-server.js"));
@@ -572,6 +595,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
     virtualModulesPlugin(state),
     externalizePlugin(state),
     core,
+    assetUrlsPlugin(state),
   ];
   plugins.push(tailwindPlugins(state), serverOnlyPlugin(state), rendererGraphsPlugin(state));
   // Each renderer compiles its own component files; when another renderer

@@ -15,6 +15,8 @@ import {
 } from "../runtime/app.ts";
 import type { HandleServerError, ImportMap, ImportMapHandler } from "../runtime/server.ts";
 import type { SsrModule } from "../server/app.ts";
+import { withoutRequestInfo } from "../runtime/request-store.ts";
+import { PUBLIC_PATH, publicFileHandler } from "./assets.ts";
 import { withViteIdAliases } from "./externalize.ts";
 import { checkImportMap } from "./importmap-check.ts";
 import { readIndexHtml } from "./index-html.ts";
@@ -219,13 +221,16 @@ export function createDevRuntime(
   const ssrEnvironment = (): DevEnvironment | undefined =>
     server.environments["ssr"];
 
-  const loadSsrModule = async (): Promise<SsrModule> => {
-    const env = ssrEnvironment();
-    if (env && isRunnableDevEnvironment(env)) {
-      return (await env.runner.import(entryServerPath)) as SsrModule;
-    }
-    return (await server.ssrLoadModule(toViteFsPath(entryServerPath))) as SsrModule;
-  };
+  // Evaluated as at a server's start, outside the request that asked first:
+  // a module's top level never keeps that request's location.
+  const loadSsrModule = (): Promise<SsrModule> =>
+    withoutRequestInfo(async () => {
+      const env = ssrEnvironment();
+      if (env && isRunnableDevEnvironment(env)) {
+        return (await env.runner.import(entryServerPath)) as SsrModule;
+      }
+      return (await server.ssrLoadModule(toViteFsPath(entryServerPath))) as SsrModule;
+    });
 
   const refreshDropletMap = async () => {
     let entries;
@@ -318,7 +323,7 @@ export function createDevApp(
   /** Warnings already printed, so an unchanged map does not repeat them. */
   const warned = new Set<string>();
 
-  return createDropletsApp({
+  const app = createDropletsApp({
     element: config.element,
     health: config.health,
     importMap: config.importMap,
@@ -384,6 +389,7 @@ export function createDevApp(
     // worth announcing ahead.
     linkHeader: false,
     buildHash: state.buildHash,
+    tokenNonce: state.tokenNonce,
     cors: config.cors,
     origin: config.origin,
     trustedOrigins: config.trustedOrigins,
@@ -391,4 +397,6 @@ export function createDevApp(
     csrf: config.csrf,
     limits: config.limits,
   });
+  if (state.publicDir) app.get(`/${PUBLIC_PATH}/*`, publicFileHandler({ publicDir: state.publicDir }));
+  return app;
 }

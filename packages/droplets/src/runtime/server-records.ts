@@ -35,6 +35,25 @@ export function serverRecord(key: string): ServerRecord {
   return (global[SERVERS][key] ??= {});
 }
 
+/** The server whose location `serverLocation` reads: its key (`serverKey`). */
+export type ServerLocationInput = { key: string };
+
+/**
+ * Where the browser loads a server's files from: the location `/index.js`
+ * recorded, else the root of the build this code was bundled into, found
+ * from the bundle's own URL, path prefix included. The build replaces
+ * `__DROPLETS_BUILD_ROOT__` in each output file with the way from that file
+ * back to the root (`../../`), and `vite dev` with `/`.
+ */
+export function serverLocation({ key }: ServerLocationInput): string {
+  return serverRecord(key).origin ?? buildRoot(import.meta.url);
+}
+
+// Not `new URL("…", import.meta.url)`: Vite would take the marker for a file to bundle.
+function buildRoot(moduleUrl: string): string {
+  return new URL("__DROPLETS_BUILD_ROOT__", moduleUrl).href.replace(/\/$/, "");
+}
+
 /**
  * The JavaScript `/index.js` starts with: the server's location under
  * `key`, from the URL the page loaded it from. `/index.js` is a module

@@ -38,6 +38,8 @@ export type SsrModule = {
   prerenderKeys?: (name: string, fallbackHost?: string) => Promise<string[]>;
   publicEnv?: () => Record<string, string | undefined>;
   findAction?: FindAction;
+  /** The nonce of the location tokens the bundle writes (see `DropletsAppOptions.tokenNonce`). */
+  tokenNonce?: string;
 };
 
 /**
@@ -123,6 +125,7 @@ export function createServerApp({ ssr, assets, config }: ServerAppOptions) {
     dropletStyles: (name) => assets.dropletStyles(name),
     loadIndex: () => assets.loadIndex(),
     buildHash: assets.buildHash,
+    ...(ssr.tokenNonce === undefined ? {} : { tokenNonce: ssr.tokenNonce }),
     cors: config.cors,
     origin: config.origin,
     trustedOrigins: config.trustedOrigins,

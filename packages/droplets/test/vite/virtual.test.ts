@@ -391,7 +391,7 @@ describe("virtualModulesPlugin", () => {
     expect(browser).toContain(`?.[${JSON.stringify(`${state.config.element}:${state.buildHash}`)}]?.env`);
     expect(browser).not.toContain("https://api");
     expect(await load.call(server, "\0$droplets/env/public")).toContain('return readRuntimeEnv("PUBLIC_API")');
-    expect(await load.call(client, "\0$droplets/drop")).toContain('Symbol.for("droplets.servers")');
+    expect(await load.call(client, "\0$droplets/drop")).toContain("serverLocation");
     expect(await load.call(server, "\0$droplets/drop")).toContain("requestInfo");
     const privateCode = await load.call(server, "\0$droplets/env/private");
     expect(privateCode).toContain('get "KEY"()');
@@ -474,6 +474,10 @@ describe("virtualModulesPlugin", () => {
   });
 });
 
+const records = new URL("../../src/runtime/server-records.ts", import.meta.url).pathname;
+const store = new URL("../../src/runtime/request-store.ts", import.meta.url).pathname;
+const TOKEN = "http://droplets.invalid/__$DROPLET_LOCATION_n1$__";
+
 describe("$droplets/drop", () => {
   type Drop = { origin: string; url(path: string): string };
   const load = async (code: string) => {
@@ -493,21 +497,28 @@ describe("$droplets/drop", () => {
       "djs:b1": { origin: "https://drops.example/prefix" },
       "other:b1": { origin: "https://other.example" },
     };
-    const droplet = await load(buildDropClientCode("djs:b1"));
+    const droplet = await load(buildDropClientCode("djs:b1", `file://${records}`));
     expect(droplet.origin).toBe("https://drops.example/prefix");
     expect(droplet.url("/api/counter")).toBe("https://drops.example/prefix/api/counter");
     expect(droplet.url("api/counter")).toBe("https://drops.example/prefix/api/counter");
+    expect(droplet.url("assets/public/logo.svg")).toBe("https://drops.example/prefix/assets/public/logo.svg");
+    // A file the bundle imports is on the location already.
+    expect(droplet.url("https://drops.example/prefix/assets/a.png")).toBe("https://drops.example/prefix/assets/a.png");
     delete global[servers];
   });
 
-  it("answers the request's public origin on the server, a plain path outside a request", async () => {
-    const store = new URL("../../src/runtime/request-store.ts", import.meta.url).pathname;
+  it("answers the request's public location on the server, the location token outside a request", async () => {
     const { withRequestInfo } = await import(store);
-    const droplet = await load(buildDropServerCode(`file://${store}`));
-    expect(droplet.origin).toBe("");
-    expect(droplet.url("/api/x")).toBe("/api/x");
-    withRequestInfo({ origin: "https://drops.example/" }, () => {
-      expect(droplet.url("/api/x")).toBe("https://drops.example/api/x");
+    const droplet = await load(buildDropServerCode(`file://${store}`, TOKEN));
+    // A module's top level: the token, which each response replaces.
+    expect(droplet.origin).toBe(TOKEN);
+    expect(droplet.url("/api/x")).toBe(`${TOKEN}/api/x`);
+    withRequestInfo({ origin: "https://host.example/mfe" }, () => {
+      expect(droplet.origin).toBe("https://host.example/mfe");
+      expect(droplet.url("/api/x")).toBe("https://host.example/mfe/api/x");
+      expect(droplet.url("assets/public/robots.txt")).toBe("https://host.example/mfe/assets/public/robots.txt");
+      // An imported file's URL, as the server bundle writes it.
+      expect(droplet.url(`${TOKEN}/assets/logo.png`)).toBe("https://host.example/mfe/assets/logo.png");
     });
   });
 });
@@ -528,12 +539,11 @@ describe("$droplets/form", () => {
   };
 
   it("answers the rendering droplet's action URL on the server, on the request's public location", async () => {
-    const store = new URL("../../src/runtime/request-store.ts", import.meta.url).pathname;
     const { withRequestInfo } = await import(store);
-    const actionUrl = await load(buildFormServerCode(`file://${store}`, `file://${form}`, `file://${enhance}`));
+    const actionUrl = await load(buildFormServerCode(`file://${store}`, `file://${form}`, TOKEN, `file://${enhance}`));
     // Outside a render it needs the droplet.
     expect(() => actionUrl("add")).toThrow(/knows the droplet only while one renders/);
-    expect(actionUrl("add", { droplet: "cart" })).toBe("/droplets/cart?/add");
+    expect(actionUrl("add", { droplet: "cart" })).toBe(`${TOKEN}/droplets/cart?/add`);
     const info = { origin: "https://drops.example/mfe", render: { droplet: "cart", props: { id: "p1" } } };
     withRequestInfo(info, () => {
       expect(actionUrl()).toBe("https://drops.example/mfe/droplets/cart?id=p1");
@@ -554,7 +564,7 @@ describe("$droplets/form", () => {
     const servers = Symbol.for("droplets.servers");
     const global = globalThis as unknown as Record<symbol, Record<string, { origin?: string }> | undefined>;
     global[servers] = { "djs:b1": { origin: "https://drops.example/prefix/" } };
-    const actionUrl = await load(buildFormClientCode("djs:b1", `file://${form}`, `file://${enhance}`));
+    const actionUrl = await load(buildFormClientCode("djs:b1", `file://${form}`, `file://${enhance}`, `file://${records}`));
     expect(() => actionUrl()).toThrow(/call it as the component sets up/);
     expect(actionUrl("add", { droplet: "cart" })).toBe("https://drops.example/prefix/droplets/cart?/add");
     withRender({ droplet: "cart", location: "https://drops.example/prefix/", props: { page: 2 } }, () => {

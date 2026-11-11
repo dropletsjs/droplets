@@ -213,6 +213,13 @@ export type DropletsAppOptions = {
   limits?: BodyLimits | undefined;
   /** Short per-build token appended to asset URLs as `?c=`. */
   buildHash?: string;
+  /**
+   * The nonce of the tokens the SSR bundle writes for this server's
+   * location (see `hostTokens`): the files it imports, `droplet.url()`
+   * outside a request. Replaced in every fragment, its data and `_data`;
+   * a prerender stores its renders under the same nonce.
+   */
+  tokenNonce?: string;
 };
 
 /** The context a droplet was rendered with; travels to the client and back. */
@@ -232,6 +239,11 @@ type DropletContext = {
   /** The props schema ran: a form action runs it before the render that follows. */
   prepared?: boolean;
 };
+
+/** A live answer's HTML, for `liveHtml`. */
+type LiveHtml = { ctx: DropletContext; html: string };
+/** A live answer's data, for `liveData`. */
+type LiveData<T> = { ctx: DropletContext; data: T };
 
 type AppEnv = {
   Variables: {
@@ -762,8 +774,9 @@ export function createDropletsApp(options: DropletsAppOptions) {
   if (configuredLocations.includes("*")) warnAnyLocation("origin");
   if (configuredOrigins.includes("*")) warnAnyLocation("trustedOrigins");
   // One per build: what host-agnostic renders hold for `host`, never sent.
-  const buildNonce = options.building ? tokenNonce() : "";
+  const buildNonce = options.building ? (options.tokenNonce ?? tokenNonce()) : "";
   const buildTokens = options.building ? hostTokens(buildNonce) : undefined;
+  const liveTokens = !options.building && options.tokenNonce !== undefined ? hostTokens(options.tokenNonce) : undefined;
   const importMapPaths = options.importMap ? [options.importMap.path, `${options.importMap.path}.js`] : [];
   const cacheControl = options.fragmentCacheControl === undefined
     ? DEFAULTS.fragmentCacheControl
@@ -1125,6 +1138,17 @@ export function createDropletsApp(options: DropletsAppOptions) {
     };
   };
 
+  /**
+   * A live answer with the SSR bundle's tokens replaced for this request,
+   * so the files it imports and `droplet.url()` outside a request point at
+   * the location. A stored render had its tokens replaced already: nothing
+   * is left to replace in it.
+   */
+  const liveHtml = ({ ctx, html }: LiveHtml): string =>
+    liveTokens ? replaceHostTokens(html, { host: ctx.event.host, location: ctx.dropletLocation }, liveTokens) : html;
+  const liveData = <T>({ ctx, data }: LiveData<T>): T =>
+    liveTokens ? replaceHostTokensInData(data, { host: ctx.event.host, location: ctx.dropletLocation }, liveTokens) : data;
+
   /** The server load alone, or a payload without load: `{ data: undefined }`. */
   const loadPayload = async (ctx: DropletContext): Promise<DropletPayload> =>
     options.loadDropletData
@@ -1153,12 +1177,13 @@ export function createDropletsApp(options: DropletsAppOptions) {
       const payload: DropletPayload = found
         ? found.failed ? { failed: true, error: found.error } : { data: found.data }
         : await loadPayload(ctx);
-      if (payload.failed) return c.json({ error: payload.error ?? null }, 500);
+      if (payload.failed) return c.json(liveData({ ctx, data: { error: payload.error ?? null } }), 500);
       applyHeaders(c, found ? storedHeaders(found.headers) : ctx.headers);
-      if (!carried) return c.json({ data: payload.data });
+      if (!carried) return c.json(liveData({ ctx, data: { data: payload.data } }));
       // One visitor's result: never kept by a shared cache.
       c.header("cache-control", "private, no-store");
-      return c.json(carried.form === undefined ? { data: payload.data } : { data: payload.data, form: carried.form });
+      const answer = carried.form === undefined ? { data: payload.data } : { data: payload.data, form: carried.form };
+      return c.json(liveData({ ctx, data: answer }));
     } catch (error) {
       return failure(c, options, error, { as: "json", where: "_data" });
     }
@@ -1306,6 +1331,7 @@ export function createDropletsApp(options: DropletsAppOptions) {
         renderId = page.renderId;
       }
 
+      html = liveHtml({ ctx, html });
       if (html && options.transformDroplet) {
         // `setHeaders` belongs to the load; `transform` only rewrites HTML.
         const { setHeaders: _setHeaders, ...event } = ctx.event;
@@ -1326,7 +1352,7 @@ export function createDropletsApp(options: DropletsAppOptions) {
     const hydrates = ctx.meta.hydrate !== false;
     // The action's result goes with the data, so hydration sees the `form` the server rendered with.
     const form = action?.form === undefined ? {} : { form: action.form };
-    const envelope = payload.failed ? { error: payload.error ?? null } : { data: payload.data, ...form };
+    const envelope = liveData({ ctx, data: payload.failed ? { error: payload.error ?? null } : { data: payload.data, ...form } });
     if (assets.link) c.header("link", assets.link);
     // An error page carries none: a cache-control meant for the droplet's
     // content must not keep its failure.
@@ -1418,7 +1444,8 @@ export function createDropletsApp(options: DropletsAppOptions) {
       );
     }
 
-    const answer = (result: ActionResult) => c.json(result, result.type === "failure" ? (result.status as 400) : 200);
+    const answer = (result: ActionResult) =>
+      c.json(liveData({ ctx, data: result }), result.type === "failure" ? (result.status as 400) : 200);
     let outcome: ActionResult;
     try {
       await prepare(ctx);
@@ -1477,7 +1504,7 @@ export function createDropletsApp(options: DropletsAppOptions) {
     const minted = await mintFormResult(secret, { droplet: ctx.droplet, build, page: pageOf(back)! }, {
       action: name,
       status: outcome.status,
-      ...(outcome.data === undefined ? {} : { data: outcome.data }),
+      ...(outcome.data === undefined ? {} : { data: liveData({ ctx, data: outcome.data }) }),
     });
     if (minted.dropped) {
       logger.warn(

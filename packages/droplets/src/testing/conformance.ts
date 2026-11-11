@@ -609,7 +609,7 @@ export function rendererConformance(options: ConformanceOptions): void {
         expect(stored, "guestbook is prerendered").toBeTruthy();
         const tokens = `__$DROPLET_HOST_${stored!.nonce}$____$DROPLET_PATH_${stored!.nonce}$__`;
         expect(actionOf(stored!.html, "sign")).toBe(
-          `__$DROPLET_LOCATION_${stored!.nonce}$__/droplets/guestbook?__droplet_return=${encodeURIComponent(tokens)}`,
+          `http://droplets.invalid/__$DROPLET_LOCATION_${stored!.nonce}$__/droplets/guestbook?__droplet_return=${encodeURIComponent(tokens)}`,
         );
 
         // A trusted x-droplet-location (this server's own origin, under a prefix) moves them.

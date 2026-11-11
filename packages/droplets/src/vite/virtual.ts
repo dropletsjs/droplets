@@ -14,6 +14,7 @@ import {
   propsModulePath,
   requestStorePath,
   serverModulePath,
+  serverRecordsModulePath,
   toViteFsPath,
 } from "../core/paths.ts";
 import type { DevStrategy } from "../core/config.ts";
@@ -22,6 +23,7 @@ import { isScriptDroplet } from "../script/index.ts";
 import { tailwindActive } from "./css.ts";
 import { isServerPath, projectPath } from "./server-only.ts";
 import { componentSpecifier } from "./renderer-graphs.ts";
+import { hostTokens } from "../runtime/host.ts";
 import { locationScript, publicEnvScript, serverKey } from "../runtime/server-records.ts";
 import { CLIENT_HOOKS_FILES, HOOKS_FILES, IMPORTMAP_FILES, rendererNamed, type PluginState } from "./state.ts";
 
@@ -127,6 +129,8 @@ export type ServerCodeExtras = {
   renderers?: DropletRenderer[];
   /** Public variables read at runtime, which `/index.js` hands to the page. */
   publicEnvNames?: string[];
+  /** The nonce of the location tokens this bundle writes (see `hostTokens`). */
+  tokenNonce?: string;
 };
 
 /** An absolute module path as an import specifier Vite resolves in any environment. */
@@ -255,6 +259,7 @@ export function buildServerCode(
     extras.hooksFile ? "export { hooks };" : "export const hooks = {};",
     extras.importMapFile ? "export { importMapModule };" : "export const importMapModule = {};",
     `export const publicEnvNames = ${JSON.stringify(extras.publicEnvNames ?? [])};`,
+    `export const tokenNonce = ${JSON.stringify(extras.tokenNonce ?? "")};`,
     "",
   ].join("\n");
 }
@@ -263,32 +268,53 @@ export function buildServerCode(
 const JOIN = `const join = (base, path) => \`\${base.replace(/\\/+$/, "")}/\${String(path).replace(/^\\/+/, "")}\`;`;
 
 /**
- * `$droplets/drop` in the browser: where the page loads this build's
- * droplets from, as `/index.js` recorded it from its own URL; the bundle's
- * own origin without it.
+ * `url(base, path)`: an absolute URL as it is (a file the bundle imports,
+ * which the build put on the location already), anything else joined to
+ * `base`.
  */
-export function buildDropClientCode(key: string): string {
+const URL_OF = [
+  JOIN,
+  "const url = (base, path) => /^[a-z][a-z0-9+.-]*:/i.test(String(path)) ? String(path) : join(base, path);",
+].join("\n");
+
+/**
+ * `$droplets/drop` in the browser: where the page loads this build's
+ * droplets from, as `/index.js` recorded it from its own URL; without it,
+ * the root of the build the bundle belongs to (`serverLocation`).
+ */
+export function buildDropClientCode(key: string, recordsModule: string = serverRecordsModulePath): string {
   return [
-    `const origin = () => globalThis[Symbol.for("droplets.servers")]?.[${JSON.stringify(key)}]?.origin ?? new URL(import.meta.url).origin;`,
-    JOIN,
+    `import { serverLocation } from ${modulePath(recordsModule)};`,
+    `const origin = () => serverLocation({ key: ${JSON.stringify(key)} });`,
+    URL_OF,
     "export const droplet = Object.freeze({",
     "  get origin() { return origin(); },",
-    "  url(path) { return join(origin(), path); },",
+    "  url(path) { return url(origin(), path); },",
     "});",
     "export default droplet;",
     "",
   ].join("\n");
 }
 
-/** `$droplets/drop` on the server: the current request's public origin, `""` outside a request. */
-export function buildDropServerCode(requestStore: string): string {
+/**
+ * `$droplets/drop` on the server: the current request's public location;
+ * outside a request (a module's top level) the bundle's location token
+ * `location`, which every fragment and its data have replaced for theirs.
+ * A path that starts with the token (a file the bundle imports) gets the
+ * request's location in its place.
+ */
+export function buildDropServerCode(requestStore: string, location: string): string {
   return [
-    `import { requestInfo } from ${JSON.stringify(requestStore)};`,
-    "const origin = () => requestInfo()?.origin ?? \"\";",
-    JOIN,
+    `import { requestInfo } from ${modulePath(requestStore)};`,
+    `const token = ${JSON.stringify(location)};`,
+    "const origin = () => requestInfo()?.origin ?? token;",
+    URL_OF,
     "export const droplet = Object.freeze({",
     "  get origin() { return origin(); },",
-    "  url(path) { return origin() ? join(origin(), path) : `/${String(path).replace(/^\\/+/, \"\")}`; },",
+    "  url(path) {",
+    "    const value = String(path);",
+    "    return value.startsWith(token) ? origin() + value.slice(token.length) : url(origin(), value);",
+    "  },",
     "});",
     "export default droplet;",
     "",
@@ -322,10 +348,16 @@ const ACTION_URL = (current: string, location: string, page: string, enhanceModu
  * `/index.js` recorded (as `$droplets/drop`), for the page in
  * `window.location`.
  */
-export function buildFormClientCode(key: string, formModule: string, enhanceModule: string = enhanceModulePath): string {
+export function buildFormClientCode(
+  key: string,
+  formModule: string,
+  enhanceModule: string = enhanceModulePath,
+  recordsModule: string = serverRecordsModulePath,
+): string {
   return [
     `import { actionHref, browserPage, currentRender } from ${JSON.stringify(formModule)};`,
-    `const origin = () => globalThis[Symbol.for("droplets.servers")]?.[${JSON.stringify(key)}]?.origin ?? new URL(import.meta.url).origin;`,
+    `import { serverLocation } from ${modulePath(recordsModule)};`,
+    `const origin = () => serverLocation({ key: ${JSON.stringify(key)} });`,
     ACTION_URL("currentRender()", "render?.location ?? origin()", "browserPage()", enhanceModule),
   ].join("\n");
 }
@@ -335,11 +367,16 @@ export function buildFormClientCode(key: string, formModule: string, enhanceModu
  * on its public location (a trusted location header, else the request's origin;
  * a token at build), for the page of `event.host` (tokens at build).
  */
-export function buildFormServerCode(requestStore: string, formModule: string, enhanceModule: string = enhanceModulePath): string {
+export function buildFormServerCode(
+  requestStore: string,
+  formModule: string,
+  location: string,
+  enhanceModule: string = enhanceModulePath,
+): string {
   return [
     `import { requestInfo } from ${JSON.stringify(requestStore)};`,
     `import { actionHref } from ${JSON.stringify(formModule)};`,
-    ACTION_URL("requestInfo()?.render", "requestInfo()?.origin ?? \"\"", "requestInfo()?.page", enhanceModule),
+    ACTION_URL("requestInfo()?.render", `requestInfo()?.origin ?? ${JSON.stringify(location)}`, "requestInfo()?.page", enhanceModule),
   ].join("\n");
 }
 
@@ -672,6 +709,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
           importMapFile: await findFile(IMPORTMAP_FILES),
           renderers: state.renderers,
           publicEnvNames: dynamicPublicNames(state.env),
+          tokenNonce: state.tokenNonce,
         });
       }
 
@@ -704,12 +742,12 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
       if (id === RESOLVED_DROP) {
         return this.environment.config.consumer === "client"
           ? buildDropClientCode(serverKey(state.config.element, state.buildHash))
-          : buildDropServerCode(requestStorePath);
+          : buildDropServerCode(requestStorePath, hostTokens(state.tokenNonce).location);
       }
       if (id === RESOLVED_FORM) {
         return this.environment.config.consumer === "client"
           ? buildFormClientCode(serverKey(state.config.element, state.buildHash), formModulePath)
-          : buildFormServerCode(requestStorePath, formModulePath);
+          : buildFormServerCode(requestStorePath, formModulePath, hostTokens(state.tokenNonce).location);
       }
       if (id === RESOLVED_ENV_PRIVATE) return buildPrivateEnvCode(state.env, envStorePath);
 

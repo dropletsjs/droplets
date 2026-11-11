@@ -31,6 +31,7 @@ export type RequestInfo = {
 type Storage = {
   run<T>(store: RequestInfo, callback: () => T): T;
   getStore(): RequestInfo | undefined;
+  exit?<T>(callback: () => T): T;
 };
 
 type Holder = { storage: Storage | null; current?: RequestInfo };
@@ -75,6 +76,22 @@ export function withRequestInfo<T>(info: RequestInfo, callback: () => T): T {
   if (result instanceof Promise) return result.finally(restore) as T;
   restore();
   return result;
+}
+
+/**
+ * Runs `callback` as outside any request: what it starts, a module's
+ * first evaluation under `vite dev` among it, sees no request's info.
+ */
+export function withoutRequestInfo<T>(callback: () => T): T {
+  const store = holder();
+  if (store.storage?.exit) return store.storage.exit(callback);
+  const previous = store.current;
+  store.current = undefined;
+  try {
+    return callback();
+  } finally {
+    if (store.current === undefined) store.current = previous;
+  }
 }
 
 /** The current request's, or `undefined` outside one (a prerender, a module's top level). */

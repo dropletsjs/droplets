@@ -116,6 +116,7 @@ export function createBuildEnvironments(
     build: {
       outDir: state.outDir,
       emptyOutDir: false,
+      copyPublicDir: false,
       ssr: adapter.serverEntry,
       rolldownOptions: {
         output: { format: "esm", entryFileNames: adapter.serverFile },
@@ -127,6 +128,8 @@ export function createBuildEnvironments(
       build: {
         outDir: resolve(state.outDir, "client"),
         emptyOutDir: true,
+        // `public/` goes to `assets/public/` (`copyPublicDir`), the only path served.
+        copyPublicDir: false,
         manifest: true,
         rolldownOptions: {
           preserveEntrySignatures: "exports-only",
@@ -153,6 +156,7 @@ export function createBuildEnvironments(
       build: {
         outDir: resolve(state.outDir, "server"),
         emptyOutDir: true,
+        copyPublicDir: false,
         ssr: entryServerPath,
         rolldownOptions: {
           output: { format: "esm", entryFileNames: "entry-server.js" },

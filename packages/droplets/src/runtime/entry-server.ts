@@ -1,4 +1,4 @@
-import droplets, { api, hooks, importMapModule, publicEnvNames } from "virtual:droplets";
+import droplets, { api, hooks, importMapModule, publicEnvNames, tokenNonce } from "virtual:droplets";
 import { readRuntimeEnv } from "./env-store.ts";
 import { logger } from "../core/logger.ts";
 import type {
@@ -376,6 +376,8 @@ export async function renderError(
   );
   return { body: html, html, renderId, ...(head === undefined ? {} : { head }) };
 }
+
+export { tokenNonce };
 
 /** The public variables read at runtime, with their values now: `/index.js` hands them to the page. */
 export function publicEnv(): Record<string, string | undefined> {

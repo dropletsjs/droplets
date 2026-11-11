@@ -731,6 +731,59 @@ describe("createDropletsApp: handle", () => {
   });
 });
 
+describe("createDropletsApp: file URLs of the server bundle", () => {
+  const TOKEN = "http://droplets.invalid/__$DROPLET_LOCATION_b1ld$__";
+  const logo = `${TOKEN}/assets/logo.abc.png`;
+  const filesApp = (overrides: Partial<DropletsAppOptions> = {}) =>
+    fakeApp({
+      tokenNonce: "b1ld",
+      trustedOrigins: ["https://shop.test"],
+      renderDroplet: async () => ({ html: `<img src="${logo}">`, serverData: { logo } }),
+      loadDropletData: async () => ({ data: { logo } }),
+      ...overrides,
+    });
+
+  it("puts them on the location of each request: the fragment, its data and _data", async () => {
+    const { app } = filesApp();
+    const own = await (await app.request("http://drops.test/droplets/hello")).text();
+    expect(own).toContain('<img src="http://drops.test/assets/logo.abc.png">');
+    expect(payload(own, "data-droplet-data")).toEqual({ data: { logo: "http://drops.test/assets/logo.abc.png" } });
+
+    const proxied = await (await app.request("http://drops.test/droplets/hello", {
+      headers: { "x-droplet-location": "https://shop.test/mfe" },
+    })).text();
+    expect(proxied).toContain('<img src="https://shop.test/mfe/assets/logo.abc.png">');
+    expect(payload(proxied, "data-droplet-data")).toEqual({ data: { logo: "https://shop.test/mfe/assets/logo.abc.png" } });
+    expect(proxied).not.toContain("DROPLET_");
+
+    const data = await app.request("http://drops.test/droplets/hello/_data", {
+      headers: { "x-droplet-location": "https://shop.test/mfe" },
+    });
+    expect(await data.json()).toEqual({ data: { logo: "https://shop.test/mfe/assets/logo.abc.png" } });
+  });
+
+  it("puts them on the location in an action's JSON answer", async () => {
+    const { app } = filesApp({ findAction: async () => () => ({ logo }) });
+    const res = await app.request("http://drops.test/droplets/hello", {
+      method: "POST",
+      headers: {
+        origin: "http://drops.test",
+        accept: "application/json",
+        "content-type": "application/x-www-form-urlencoded",
+        "x-droplet-location": "https://shop.test/mfe",
+      },
+      body: "",
+    });
+    expect(JSON.stringify(await res.json())).toContain('"logo":"https://shop.test/mfe/assets/logo.abc.png"');
+  });
+
+  it("leaves a token of another nonce alone: that is content", async () => {
+    const { app } = filesApp({ tokenNonce: "other" });
+    const html = await (await app.request("http://drops.test/droplets/hello")).text();
+    expect(html).toContain(`<img src="${logo}">`);
+  });
+});
+
 describe("createDropletsApp: /api", () => {
   const users: ApiModule = {
     GET: ({ params, locals }) => json({ id: params["id"], user: locals["user"] ?? null }),
@@ -1414,8 +1467,8 @@ describe("createDropletsApp: prerendered droplets", () => {
 
   it("replaces the location token with where this request reaches the server, never an untrusted x-droplet-location", async () => {
     const stored = vi.fn(async () => ({
-      html: '<form action="__$DROPLET_LOCATION_n0nce$__/droplets/docs?/add"></form>',
-      data: { api: "__$DROPLET_LOCATION_n0nce$__/api" },
+      html: '<form action="http://droplets.invalid/__$DROPLET_LOCATION_n0nce$__/droplets/docs?/add"></form>',
+      data: { api: "http://droplets.invalid/__$DROPLET_LOCATION_n0nce$__/api" },
       nonce: "n0nce",
     }));
     const transformDroplet = vi.fn(async (_name: string, event: TransformEvent) => event.html);
@@ -1504,7 +1557,7 @@ describe("createDropletsApp: building", () => {
       body: JSON.stringify({ props: {} }),
     });
     const { nonce } = (await res.json()) as { nonce: string };
-    expect(seen).toBe(`__$DROPLET_LOCATION_${nonce}$__`);
+    expect(seen).toBe(`http://droplets.invalid/__$DROPLET_LOCATION_${nonce}$__`);
   });
 
   it("answers a failed load with the error and its +error.svelte markup", async () => {
