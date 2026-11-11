@@ -350,7 +350,12 @@ export function projectFiles(choices: Choices): Record<string, string> {
   if (choices.frameworks.some((f) => f.name === "svelte")) files["svelte.config.js"] = SVELTE_CONFIG;
   for (const framework of choices.frameworks) {
     const name = starterName({ framework });
-    const droplet = dropletFiles({ name, framework, flags: flagsFor({ target: "full", hydrate: "always" }).flags, files: new Set(["server"]) });
+    const droplet = dropletFiles({
+      name,
+      framework,
+      flags: flagsFor({ target: "full", hydrate: "always" }).flags,
+      files: new Set(["server"]),
+    });
     for (const [file, content] of Object.entries(droplet)) files[`src/droplets/${name}/${file}`] = content;
   }
   return files;

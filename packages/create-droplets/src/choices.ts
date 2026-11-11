@@ -182,7 +182,12 @@ export function parseFlags({ argv }: ParseFlagsInput): Flags {
   if (positionals.length > 1) throw new Error(`one folder, not ${positionals.length}: ${positionals.join(" ")}`);
   const frameworkNames = FRAMEWORKS.map((f) => f.name);
   const adapterNames = ADAPTERS.map((a) => a.value);
-  const frameworks = list({ value: values.frameworks, flag: "frameworks", pick: (name) => frameworkNamed({ name }), allowed: frameworkNames });
+  const frameworks = list({
+    value: values.frameworks,
+    flag: "frameworks",
+    pick: (name) => frameworkNamed({ name }),
+    allowed: frameworkNames,
+  });
   const adapters = list({
     value: values.adapters,
     flag: "adapters",
