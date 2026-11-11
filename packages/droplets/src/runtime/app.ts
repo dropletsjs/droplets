@@ -176,8 +176,6 @@ export type DropletsAppOptions = {
   loadPrerendered?: LoadPrerendered;
   /** Finds the form actions of `+droplet.server.ts`. Without it, a form post answers 405. */
   findAction?: FindAction;
-  /** `vite dev`: a form action's broken result names what is wrong in the answer, not only in the log. */
-  dev?: boolean;
   /** The droplet's `transform`, run over its HTML on every request. */
   transformDroplet?: (name: string, event: TransformEvent) => MaybePromise<string>;
   /**
@@ -194,8 +192,6 @@ export type DropletsAppOptions = {
   getImportMap?: () => MaybePromise<ImportMapHandler | undefined>;
   /** The client build's external imports, handed to `importmap`. */
   externals?: () => MaybePromise<string[]>;
-  /** Dev only: adds Vite's `/@id/` spellings and checks the map. */
-  transformImportMap?: (map: ImportMap, externals: string[]) => MaybePromise<ImportMap>;
   /** Enables cross-origin access to every route; see `DropletsConfig.cors`. */
   cors?: DropletsCorsOptions | undefined;
   /**
@@ -421,6 +417,10 @@ function publicOrigin(c: Context): string {
 
 /** An action returned data that cannot travel as plain JSON. */
 class ActionDataError extends Error {}
+
+export function isActionDataError(error: unknown): error is Error {
+  return error instanceof ActionDataError;
+}
 
 /**
  * Plain JSON: `null`, booleans, finite numbers, strings, arrays and object
@@ -946,9 +946,7 @@ export function createDropletsApp(options: DropletsAppOptions) {
       const { request, url } = c.get("event");
       const map: unknown = await handler({ request, url, externals: [...externals] });
       if (!isObject(map)) throw new Error("importmap must return an import map, e.g. { imports: { ... } }");
-      return options.transformImportMap
-        ? options.transformImportMap(map as ImportMap, externals)
-        : (map as ImportMap);
+      return map as ImportMap;
     };
 
     const serveImportMap = (as: "html" | "js") => async (c: AppContext) => {
@@ -1424,7 +1422,7 @@ export function createDropletsApp(options: DropletsAppOptions) {
     } catch (error) {
       if (error instanceof ActionDataError) {
         logger.error("framework", "form action failed", { path: c.req.path, error });
-        const message = options.dev ? error.message : await unexpectedMessage(c, options, error);
+        const message = await unexpectedMessage(c, options, error);
         return wantsJson ? c.json({ message }, 500) : c.text(message, 500);
       }
       // `error()`, props the schema refused, and crashes: as a load's.

@@ -7,11 +7,13 @@ import { entryServerPath, toViteFsPath } from "../core/paths.ts";
 import { CORE_SUFFIXES } from "../renderer.ts";
 import {
   createDropletsApp,
+  isActionDataError,
   type GetDropletMeta,
   type LoadClientModule,
   type LoadDropletData,
   type RenderDroplet,
 } from "../runtime/app.ts";
+import type { HandleServerError, ImportMap, ImportMapHandler } from "../runtime/server.ts";
 import type { SsrModule } from "../server/app.ts";
 import { withViteIdAliases } from "./externalize.ts";
 import { checkImportMap } from "./importmap-check.ts";
@@ -19,6 +21,28 @@ import { readIndexHtml } from "./index-html.ts";
 import { externalsList, fallbackPrerenderHost, type PluginState } from "./state.ts";
 import { syncTypes } from "./sync-types.ts";
 import { clientEntryId, RESOLVED_VIRTUAL_DROPLETS } from "./virtual.ts";
+
+/**
+ * `handleError` under `vite dev`: a form action's data that cannot travel
+ * as JSON is the developer's bug, so the answer names it, not only the log.
+ * Kept out of the runtime app, which production servers bundle.
+ */
+export function devHandleError(handleError: HandleServerError | undefined): HandleServerError {
+  return (input) => (isActionDataError(input.error) ? { message: input.error.message } : handleError?.(input));
+}
+
+/** `importmap` under `vite dev`, its map passed through `transform`; anything else is left for the app to refuse. */
+export function devImportMap(
+  handler: ImportMapHandler | undefined,
+  transform: (map: ImportMap, externals: string[]) => ImportMap,
+): ImportMapHandler | undefined {
+  if (!handler) return undefined;
+  return async (event) => {
+    const externals = [...event.externals];
+    const map: unknown = await handler(event);
+    return typeof map === "object" && map !== null && !Array.isArray(map) ? transform(map as ImportMap, externals) : (map as ImportMap);
+  };
+}
 
 function normalizePath(value: string): string {
   return value.replace(/\\/g, "/");
@@ -298,26 +322,26 @@ export function createDevApp(
     element: config.element,
     health: config.health,
     importMap: config.importMap,
-    getImportMap: async () => (await runtime.loadSsrModule()).getImportMap?.(),
-    externals: () => externalsList(state),
     // Vite serves bare imports as `/@id/<name>` in dev; map both spellings.
-    transformImportMap: (map, externals) => {
-      if (config.warnImportMap) {
-        for (const warning of checkImportMap(map, externals, state.root)) {
-          if (warned.has(warning)) continue;
-          warned.add(warning);
-          logger.warn("framework", `importmap: ${warning} (warnImportMap: false hides this)`);
+    getImportMap: async () =>
+      devImportMap((await runtime.loadSsrModule()).getImportMap?.(), (map, externals) => {
+        if (config.warnImportMap) {
+          for (const warning of checkImportMap(map, externals, state.root)) {
+            if (warned.has(warning)) continue;
+            warned.add(warning);
+            logger.warn("framework", `importmap: ${warning} (warnImportMap: false hides this)`);
+          }
         }
-      }
-      return { ...map, imports: withViteIdAliases(map.imports) ?? {} };
-    },
+        return { ...map, imports: withViteIdAliases(map.imports) ?? {} };
+      }),
+    externals: () => externalsList(state),
     // Re-read per request, so editing hooks.server.ts or a +server.ts shows
     // up on the next request.
     getHandle: async () => (await runtime.loadSsrModule()).getHandle?.(),
     matchApi: async (pathname) => (await runtime.loadSsrModule()).matchApi?.(pathname) ?? null,
     renderError: async (name, error) =>
       (await runtime.loadSsrModule()).renderError?.(name, error) ?? null,
-    getHandleError: async () => (await runtime.loadSsrModule()).getHandleError?.(),
+    getHandleError: async () => devHandleError((await runtime.loadSsrModule()).getHandleError?.()),
     validateProps: async (name, props) => {
       const mod = await runtime.loadSsrModule();
       return mod.validateDropletProps ? mod.validateDropletProps(name, props) : props;
@@ -330,7 +354,6 @@ export function createDevApp(
       const mod = await runtime.loadSsrModule();
       return mod.findAction ? mod.findAction(name, action) : "none";
     },
-    dev: true,
     // Nothing is prerendered in dev: props `entries` lists render live, the
     // others behave as in a build (404 when the droplet has `ssr = false`).
     loadPrerendered: async (name, key, event) => {

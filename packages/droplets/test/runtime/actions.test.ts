@@ -13,6 +13,7 @@ import {
   type Handle,
   type LoadEvent,
 } from "../../src/runtime/server.ts";
+import { devHandleError } from "../../src/vite/dev.ts";
 
 const ORIGIN = "http://drops.test";
 
@@ -222,7 +223,7 @@ describe("form actions: results", () => {
       nan: () => ({ n: Number.NaN }),
       fn: () => ({ f: () => 1 }),
     };
-    const dev = actionsApp(actions, { dev: true });
+    const dev = actionsApp(actions, { getHandleError: () => devHandleError(undefined) });
     const prod = actionsApp(actions);
     for (const name of Object.keys(actions)) {
       const inDev = await dev.app.request(submit(`/droplets/guestbook?/${name}`));

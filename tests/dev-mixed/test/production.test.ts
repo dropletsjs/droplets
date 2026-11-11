@@ -3,7 +3,8 @@
  * `vite build`: nothing of HMR or of `vite dev` reaches the output. Not the
  * entry's dev module (`dev-element`, with the strategies, the remount, the
  * notices and the dev tool's hooks), not a renderer's `clientDev`, not a
- * framework's refresh runtime, not a dev-only warning; and no module of
+ * framework's refresh runtime, not a dev-only warning, not the dev server's
+ * options of the runtime app (in the server bundle); and no module of
  * theirs is in any chunk at all, nor a file of theirs among the output.
  */
 import { execFileSync } from "node:child_process";
@@ -17,7 +18,7 @@ const project = here("../.tmp/production");
 const dist = join(project, "dist");
 
 /** Text that only HMR or `vite dev` code holds. */
-const DEV_MARKERS = [
+const DEV_MARKERS: (string | RegExp)[] = [
   "import.meta.hot",
   "__vite__createHotContext",
   "@vite/client",
@@ -47,6 +48,8 @@ const DEV_MARKERS = [
   "__PREFRESH__",
   "__getReactRefreshIgnoredExports",
   "__dropletsReactRefresh",
+  "transformImportMap",
+  /\.dev\s*\?\s*[\w$]+\.message\b/,
 ];
 
 /** Our dev-only modules, as the bundler names them. */
@@ -111,7 +114,9 @@ describe("a production build of every renderer", () => {
     const found: string[] = [];
     for (const file of files.filter((name) => /\.m?js$/.test(name))) {
       const code = readFileSync(join(dist, file), "utf8");
-      for (const marker of DEV_MARKERS) if (code.includes(marker)) found.push(`${file}: ${marker}`);
+      for (const marker of DEV_MARKERS) {
+        if (typeof marker === "string" ? code.includes(marker) : marker.test(code)) found.push(`${file}: ${marker}`);
+      }
     }
     expect(found).toEqual([]);
   });
