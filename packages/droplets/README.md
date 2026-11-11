@@ -315,7 +315,7 @@ renderer under `testing/`.
 - `vite build` without an adapter throws, naming `@dropletsjs/adapter-node`. `src/vite/build.ts:84`
 - Health route answers `ok` and is mounted before `handle`. `src/runtime/app.ts:916`
 - `handle` never runs for `/index.js` and `/assets/*`. `src/runtime/app.ts:346`, `src/runtime/app.ts:964`
-- Routes: `/` `src/runtime/app.ts:1083`, `/index.js` `src/runtime/app.ts:1090`, `/index.css` `src/runtime/app.ts:1110`, `style.css` `src/runtime/app.ts:1123`, `client.js` `src/runtime/app.ts:1138`, `_data` `src/runtime/app.ts:1250`, the fragment `src/runtime/app.ts:1637`, `/api` `src/runtime/app.ts:1679`
+- Routes: `/` `src/runtime/app.ts:1083`, `/index.js` `src/runtime/app.ts:1090`, `/index.css` `src/runtime/app.ts:1110`, `style.css` `src/runtime/app.ts:1123`, `client.js` `src/runtime/app.ts:1139`, `_data` `src/runtime/app.ts:1251`, the fragment `src/runtime/app.ts:1641`, `/api` `src/runtime/app.ts:1682`
 - `_data` answers `405` with `allow: GET, POST` for `PUT`, `PATCH`, `DELETE`. `src/runtime/app.ts:1247`
 - Droplet file URLs (the stylesheet, `client.js`, the `Link` preloads) are built on the request's droplet location. `src/runtime/app.ts:1294`
 - `style.css` imports each stylesheet as `../../<file>`, relative to itself. `src/runtime/app.ts:296`

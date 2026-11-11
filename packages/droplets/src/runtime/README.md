@@ -137,7 +137,7 @@ Then the route.
 - An unknown droplet answers 404 `Not Found`, as text. `app.ts:768`
 - A droplet name in the URL is decoded; a malformed escape names no droplet. `app.ts:749`
 - The droplet registry is a `Map`, so `__proto__` names no droplet. `entry-server.ts:57`
-- A POST with a form body runs an action, `text/plain` answers 415, and a `?/name` key with a non-form body answers 400. `app.ts:1641`
+- A POST with a form body runs an action, `text/plain` answers 415, and a `?/name` key with a non-form body answers 400. `app.ts:1645`
 - A prerendered fragment is looked up by host key, then by props key. `app.ts:1199`
 - A prerendered lookup for a droplet with `ssr = false` and no entry for these props answers 404. `app.ts:1202`
 - The fragment's context script is written only when SSR ran (`!noSSR && ssr`). `app.ts:1435`
@@ -179,14 +179,15 @@ Then the route.
 - Action names match `^[A-Za-z_][\w-]*$`. `form.ts:140`
 - An action is found only through `ACTION_NAME`, a deny list (`__proto__`, `constructor`, `prototype`) and `Object.hasOwn`. `entry-server.ts:319`
 - An action answers JSON when `accept` contains `application/json`. `app.ts:1524`
-- A JSON action answer is the outcome with the failure's status, else 200. `app.ts:1574`
-- A native action redirect goes only to this server or a trusted origin, else 400 `Bad Request: the action redirects off this site`. `app.ts:1576`
-- A native action redirect answers 303. `app.ts:1587`
+- A JSON action answer is the outcome with the failure's status, else 200. `app.ts:1590`
+- An action redirect, native or JSON, goes only to this server or a trusted origin (`redirectTarget`, the same check in both modes), else 400 `Bad Request: the action redirects off this site` (as `{ message }` in JSON) and a warning. `app.ts:1575`, `app.ts:1582`
+- A JSON action redirect answers 200 `{ type: "redirect", status, location }` with the checked absolute URL. `app.ts:1585`
+- A native action redirect answers 303. `app.ts:1586`
 - Action data that is not plain JSON (depth over 64, non-finite numbers, non-plain prototypes) answers 500. `app.ts:490`
 - With `DROPLETS_SECRET` set, a form posted without JavaScript needs `__droplet_return` or a `Referer` on this server or a trusted origin, else 400. `app.ts:1531`
-- With `DROPLETS_SECRET`, a native post answers 303 back to its page with `__droplet_form_<droplet>_<build>` holding the signed result. `app.ts:1611`
-- Without `DROPLETS_SECRET`, a native post answers the fragment with the form result inline. `app.ts:1589`
-- A form result over 2 KB is sent without its data, with a warning. `app.ts:1604`
+- With `DROPLETS_SECRET`, a native post answers 303 back to its page with `__droplet_form_<droplet>_<build>` holding the signed result. `app.ts:1614`
+- Without `DROPLETS_SECRET`, a native post answers the fragment with the form result inline. `app.ts:1594`
+- A form result over 2 KB is sent without its data, with a warning. `app.ts:1607`
 - The back page refuses `<location>/droplets…` URLs. `app.ts:597`
 - `__droplet_return` is at most 2048 characters. `app.ts:615`
 - A carried form result is used only when its action still exists. `app.ts:877`
@@ -223,12 +224,12 @@ Then the route.
 
 ### `/api`
 
-- `/api` without a matching route answers 404 `{ "message": "Not Found" }`. `app.ts:1652`
+- `/api` without a matching route answers 404 `{ "message": "Not Found" }`. `app.ts:1655`
 - `/api` accepts GET, POST, PUT, PATCH, DELETE, OPTIONS and HEAD. `routes.ts:6`
-- `/api` HEAD falls back to GET with a null body. `app.ts:1658`
-- `/api` picks the method handler through `Object.hasOwn`, else `fallback`. `app.ts:1660`
-- `/api` answers an unhandled method with 405 and `allow`. `app.ts:1663`
-- `/api` answers a handler that returns no `Response` with 500 JSON. `app.ts:1671`
+- `/api` HEAD falls back to GET with a null body. `app.ts:1661`
+- `/api` picks the method handler through `Object.hasOwn`, else `fallback`. `app.ts:1663`
+- `/api` answers an unhandled method with 405 and `allow`. `app.ts:1667`
+- `/api` answers a handler that returns no `Response` with 500 JSON. `app.ts:1674`
 - `allowedMethods` adds HEAD when GET is there. `routes.ts:93`
 
 ### Prerender host tokens
@@ -280,10 +281,10 @@ Then the route.
 
 - `enhanceDropletForm` intercepts only POST forms, form-urlencoded or multipart, with target `""` or `_self`. `enhance.ts:157`
 - `enhanceDropletForm` intercepts only forms posting to exactly `<location>/droplets/<id>`. `enhance.ts:169`
-- `enhanceDropletForm` posts with `accept: application/json` and `redirect: "manual"`. `enhance.ts:328`
-- `enhanceDropletForm` dispatches `droplets:action` on `globalThis`. `enhance.ts:354`
+- `enhanceDropletForm` posts with `accept: application/json` and `redirect: "manual"`. `enhance.ts:342`
+- `enhanceDropletForm` dispatches `droplets:action` on `globalThis`. `enhance.ts:363`
 - `enhanceDropletForm` reads the answer through `Object.hasOwn`. `enhance.ts:215`
-- `enhanceDropletForm` follows only http(s) redirects. `enhance.ts:236`
+- `enhanceDropletForm` follows only an absolute http(s) redirect location without credentials, as the server answers one; a relative, protocol-relative (`//…`, `/\…`) or `javascript:` one is logged and not followed. `enhance.ts:242`, `enhance.ts:367`
 
 ### `hooks.client`
 

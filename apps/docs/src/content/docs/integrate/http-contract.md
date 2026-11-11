@@ -315,7 +315,8 @@ answered:
 | --- | --- | --- | --- |
 | data, or nothing | `200` `{ "type": "success", "status": 200, "data": … }` | `303` back to the page, the result in its query | `200`, the fragment rendered again with `form` |
 | `fail(status, data)` | `status` `{ "type": "failure", "status": …, "data": … }` | `303` back to the page, the result in its query | `status`, the fragment with `form` |
-| `redirect(status, location)` | `200` `{ "type": "redirect", "status": …, "location": "…" }` | `303`, `location` | `303`, `location` |
+| `redirect(status, location)` | `200` `{ "type": "redirect", "status": …, "location": "…" }`, `location` absolute | `303`, `location` | `303`, `location` |
+| `redirect()` off the server's own origins and `trustedOrigins` | `400` `{ "message": … }` | `400`, plain text | `400`, plain text |
 | `error(status)` | `status`, `{ "message": … }` | `status`, the message | `status`, the message |
 | data that is not plain JSON | `500` | `500` | `500` |
 
@@ -344,7 +345,7 @@ A native post goes back to the host page, so a reload never posts again:
 | success or `fail()` | `303`, `location`: the page (below) without its `#hash`, its `?/name`, `__droplet_return` and `__droplet_form_*` keys, plus `__droplet_form_<droplet>_<build>=<result>` |
 | `redirect()` | `303`, `location`: its target |
 | no page that passes: neither `__droplet_return` (once, 2 KB at most) nor `Referer` names one whose origin is this server's (its location's included) or in `trustedOrigins`, outside `<location>/droplets/` | `400`, plain text; the action does not run |
-| a `redirect()` to such an origin, `javascript:` or anything but `http(s)` | `400`, plain text |
+| a `redirect()` to such an origin, `javascript:` or anything but `http(s)` | `400`, plain text (`400` `{ "message": … }` to a request that accepts JSON: the same check) |
 | no `DROPLETS_SECRET` (or under 32 bytes) | the fragment rendered with `form`, as the table above; a warning in the log, once |
 
 The page, read from the URL and the headers before the body: the

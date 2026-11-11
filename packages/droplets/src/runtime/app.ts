@@ -1570,22 +1570,24 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
       return failure({ c, options, error, as: wantsJson ? "json" : "text", where: `action ${name}` });
     }
 
-    if (wantsJson) {
-      applyHeaders({ c, headers: ctx.headers });
-      return c.json(liveData({ ctx, data: outcome }), outcome.type === "failure" ? (outcome.status as 400) : 200);
-    }
     if (outcome.type === "redirect") {
-      // The browser follows it at once: only to this server or a trusted origin.
+      // Followed at once, by the browser or by enhanceDropletForm: only to this server or a trusted origin.
       const target = redirectTarget({ value: outcome.location, allowed });
       if (!target) {
         logger.warn(
           "framework",
           `${ctx.droplet}: action ${name} redirects to ${JSON.stringify(outcome.location.slice(0, 200))}, which is not on this server or a trusted origin; answered 400`,
         );
-        return c.text("Bad Request: the action redirects off this site", 400);
+        const message = "Bad Request: the action redirects off this site";
+        return wantsJson ? c.json({ message }, 400) : c.text(message, 400);
       }
       applyHeaders({ c, headers: ctx.headers });
+      if (wantsJson) return c.json(liveData({ ctx, data: { ...outcome, location: target.href } }), 200);
       return c.body(null, 303, { location: target.href });
+    }
+    if (wantsJson) {
+      applyHeaders({ c, headers: ctx.headers });
+      return c.json(liveData({ ctx, data: outcome }), outcome.type === "failure" ? (outcome.status as 400) : 200);
     }
     if (!secret || !back) {
       // The render that follows applies what the action and its load set.

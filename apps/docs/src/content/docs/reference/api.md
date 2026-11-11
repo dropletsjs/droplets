@@ -150,7 +150,7 @@ it is made of:
 | `ownAction(action, location, droplet)`, `ActionTarget` | `{ url, name }` when the action is this droplet's own, by exact origin and path; else `null`. |
 | `formBody(data, enctype)` | `FormData`, or `URLSearchParams` for form-urlencoded. |
 | `actionAnswer(body)`, `ActionAnswer` | An action's JSON answer, checked; `null` for anything else. |
-| `redirectTarget(location, base)` | An `http(s)` URL to follow, or `null`. |
+| `redirectTarget(location)` | The URL to follow when `location` is an absolute `http(s)` URL without credentials, as the server answers a redirect; else `null`. |
 | `plainCopy(data)` | A copy through JSON, for the `droplets:action` detail. |
 | `ACTION_EVENT`, `DropletFormHost` | `"droplets:action"`, and the element's `actionTarget()` and `updateForm()`. |
 
@@ -236,7 +236,7 @@ The module behind `$droplets/server`.
 | Export | What it is |
 | --- | --- |
 | `error(status, message?)` | Throws an HTTP error, answered with its status. |
-| `redirect(status, location)` | Throws a redirect (300–308) to an `http(s)` URL or a path on the site; `javascript:`, protocol-relative (`//…`) or control characters throw. From an action posted without JavaScript, the target must be on the server's own origin or in `trustedOrigins` (`"*"` does not count), else `400`. |
+| `redirect(status, location)` | Throws a redirect (300–308) to an `http(s)` URL or a path on the site; `javascript:`, protocol-relative (`//…`) or control characters throw. From an action, posted with or without JavaScript, the target must be on the server's own origin or in `trustedOrigins` (`"*"` does not count), else `400`. |
 | `hostFrom(value)` | A `host` for `handle` to set: a web URL without credentials or hash, within `trustedOrigins` when set; `null` otherwise. |
 | `fail(status, data?)` | An action's failure: an `ActionFailure` with a `400`–`599` status (any other throws); the component gets `data` as `form`. Without JavaScript `data` rides in the page's URL: 2 KB at most, display only. |
 | `ActionFailure`, `isActionFailure(value)` | What `fail()` returns: `{ status, data }`. |

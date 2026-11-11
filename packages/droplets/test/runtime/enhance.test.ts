@@ -94,10 +94,23 @@ describe("actionAnswer and redirectTarget", () => {
     }
   });
 
-  it("lets a redirect go to http(s) only", () => {
-    expect(redirectTarget("/bye", "https://shop.test/p")).toBe("https://shop.test/bye");
-    expect(redirectTarget("javascript:alert(1)", "https://shop.test/p")).toBeNull();
-    expect(redirectTarget("data:text/html,x", "https://shop.test/p")).toBeNull();
+  it("lets a redirect go only where the server sends one: an absolute http(s) URL, without credentials", () => {
+    expect(redirectTarget("https://shop.test/bye?x=1#top")).toBe("https://shop.test/bye?x=1#top");
+    expect(redirectTarget("http://drops.test/bye")).toBe("http://drops.test/bye");
+    for (const bad of [
+      "/bye",
+      "bye",
+      "//evil.example/x",
+      "/\\evil.example/x",
+      "\\\\evil.example/x",
+      "javascript:alert(1)",
+      "JavaScript:alert(1)",
+      "data:text/html,x",
+      "https://user:pw@shop.test/",
+      "",
+    ]) {
+      expect(redirectTarget(bad), bad).toBeNull();
+    }
   });
 });
 
@@ -173,12 +186,14 @@ describe("enhanceDropletForm", () => {
     expect(assign).toHaveBeenCalledWith("https://shop.test/bye");
     expect(events[0]).toMatchObject({ action: "leave", type: "redirect", status: 303, data: undefined });
 
-    answer = () => Response.json({ type: "redirect", status: 303, location: "javascript:alert(1)" });
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    form("leave").requestSubmit();
-    await flush();
+    for (const location of ["javascript:alert(1)", "//evil.example/x", "/\\evil.example/x", "/bye"]) {
+      answer = () => Response.json({ type: "redirect", status: 303, location });
+      form("leave").requestSubmit();
+      await flush();
+    }
     expect(assign).toHaveBeenCalledTimes(1);
-    expect(error).toHaveBeenCalled();
+    expect(error).toHaveBeenCalledTimes(4);
   });
 
   it("ignores a second submit while one is in flight", async () => {

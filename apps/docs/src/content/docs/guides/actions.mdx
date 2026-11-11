@@ -171,7 +171,8 @@ never as a place to send the browser (an open redirect). A page to go back
 to is never one of the droplets server's own, under
 `<location>/droplets/` (a fragment or an action URL). A post with no page
 that passes answers `400` and its action does not run; a `redirect()`
-elsewhere answers `400` too (with a warning in the log).
+elsewhere answers `400` too (with a warning in the log), to an enhanced
+form's JSON request as well.
 
 A host page with `Referrer-Policy: no-referrer` cannot post to the droplets
 server at all: under that policy the browser sends `Origin: null` with a
@@ -344,8 +345,10 @@ submitter's `formaction` and `formenctype` count) with
   fragment, rendered with `form` by the server (a JSON render that carries
   `form`), swapped in. Either way focus goes back to the control in the
   same place;
-- **redirect**: the page goes there (`location.assign`, `http:` and
-  `https:` only);
+- **redirect**: the page goes there (`location.assign`), to the absolute
+  `http:` or `https:` URL the server answers, already checked against its
+  own origins and `trustedOrigins`; a relative, protocol-relative
+  (`//…`), `javascript:` or credentialed location is never followed;
 - **`droplets:action`** is dispatched on `window`, with
   `{ droplet, action, type, status, data }`, for the rest of the page;
 - an answer that is no result (an `error()`, a network failure) is logged

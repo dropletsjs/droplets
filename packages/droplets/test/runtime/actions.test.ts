@@ -570,6 +570,47 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
     expect((await star.request(submit({ path: "/droplets/guestbook?/leave", body: "", headers: native }))).status).toBe(303);
   });
 
+  it("checks a redirect's target the same way for a JSON answer and an HTML one", async () => {
+    // As a Redirect a hand-made value or another copy of the framework could
+    // carry, past redirect()'s own validation: the server's check still holds.
+    const raw = (location: string) => () => ({ [Symbol.for("droplets.redirect")]: true, status: 303, location });
+    const actions = {
+      leave: () => redirect(303, "/bye"),
+      shop: () => redirect(302, "https://shop.test/thanks#done"),
+      away: () => redirect(303, "https://evil.example/x"),
+      lookalike: () => redirect(303, "http://drops.test.evil.example/x"),
+      protocol: raw("//evil.example/x"),
+      backslash: raw("/\\evil.example/x"),
+      script: raw("javascript:alert(1)"),
+      credentials: raw("http://user:pw@drops.test/x"),
+    };
+    const { app } = actionsApp({ actions, overrides: { trustedOrigins: ["https://shop.test"] } });
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const json = { accept: "application/json" };
+    const post = (name: string, headers: Record<string, string>) =>
+      app.request(submit({ path: `/droplets/guestbook?/${name}`, body: "", headers }));
+
+    expect(await (await post("leave", json)).json()).toEqual({ type: "redirect", status: 303, location: `${ORIGIN}/bye` });
+    expect(await (await post("shop", json)).json()).toEqual({ type: "redirect", status: 302, location: "https://shop.test/thanks#done" });
+    expect((await post("shop", native)).headers.get("location")).toBe("https://shop.test/thanks#done");
+
+    for (const name of ["away", "lookalike", "protocol", "backslash", "script", "credentials"]) {
+      const html = await post(name, native);
+      expect(html.status, name).toBe(400);
+      expect(html.headers.get("location"), name).toBeNull();
+      expect(await html.text(), name).toBe("Bad Request: the action redirects off this site");
+      const res = await post(name, json);
+      expect(res.status, name).toBe(400);
+      expect(res.headers.get("location"), name).toBeNull();
+      expect(await res.json(), name).toEqual({ message: "Bad Request: the action redirects off this site" });
+    }
+    expect(warn).toHaveBeenCalledTimes(12);
+
+    // "*" trusts every Origin for the CSRF check, never a redirect target, in JSON too.
+    const star = actionsApp({ actions, overrides: { trustedOrigins: ["*"] } }).app;
+    expect((await star.request(submit({ path: "/droplets/guestbook?/away", body: "", headers: json }))).status).toBe(400);
+  });
+
   it("goes back only to a Referer on this server or a trusted origin, and runs nothing otherwise", async () => {
     const ran = vi.fn<Action>(() => ({ ok: true }));
     const { app } = actionsApp({ actions: { default: ran }, overrides: { trustedOrigins: ["https://shop.test"] } });

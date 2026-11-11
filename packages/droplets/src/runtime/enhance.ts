@@ -232,14 +232,23 @@ export function actionAnswer(body: string): ActionAnswer | null {
   return { type: type as "success" | "failure", status, data: Object.hasOwn(value, "data") ? value["data"] : undefined };
 }
 
-/** Where a redirect may send the page: an `http:` or `https:` URL, never `javascript:` or `data:`. */
-export function redirectTarget(location: string, base: string): string | null {
+/**
+ * Where a redirect may send the page: only what the server answers, an
+ * absolute `http:` or `https:` URL without credentials, already checked
+ * against its own and its trusted origins. A relative, protocol-relative
+ * (`//evil.example`, `/\evil.example`) or `javascript:` location never
+ * came from it, and is never followed.
+ */
+export function redirectTarget(location: string): string | null {
+  let url: URL;
   try {
-    const url = new URL(location, base);
-    return url.protocol === "http:" || url.protocol === "https:" ? url.href : null;
+    url = new URL(location);
   } catch {
+    // Not absolute: the server never answers that.
     return null;
   }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+  return url.username === "" && url.password === "" ? url.href : null;
 }
 
 /** The data an answer carried, copied for the page: plain JSON, never the object the component got. */
@@ -355,9 +364,9 @@ async function send({ host, droplet, action, body, options }: SendInput): Promis
 
   const update = async (): Promise<void> => {
     if (settled.type !== "redirect") return host.updateForm(settled.data);
-    const location = redirectTarget(settled.location, document.baseURI);
+    const location = redirectTarget(settled.location);
     if (location) globalThis.location.assign(location);
-    else console.error(`[droplets] ${droplet}: action ${action.name} redirected to a URL that is not http(s)`);
+    else console.error(`[droplets] ${droplet}: action ${action.name} redirected to a URL the server never answers; not followed`);
   };
   const onResult = options.onResult as ((result: EnhanceResult) => void | Promise<void>) | undefined;
   if (!onResult) return update();
