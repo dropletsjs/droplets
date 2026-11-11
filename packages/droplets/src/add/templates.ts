@@ -415,15 +415,13 @@ function handlebarsComponent(context: Context): string {
 
 /**
  * A script droplet: plain browser code, called once per element with the
- * loads' `data` and the element. Only `hydrate = "visible"` is written:
- * it has no `ssr`, and `true` is the default.
+ * loads' `data` and the element. It is client only, so no flag is written.
  */
 function scriptComponent(context: Context): string {
   return [
     ...(context.files.has("css") ? [`import "./${CSS_FILE}";`] : []),
     'import type { DropletScript } from "./$types";',
     "",
-    ...(context.flags.hydrate === "visible" ? ['export const hydrate = "visible";', ""] : []),
     "/**",
     " * Runs in the browser only, once per element: `data` is what the loads",
     " * returned, `el` the droplet's element; add anything under it. The cleanup",

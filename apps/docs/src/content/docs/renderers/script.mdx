@@ -1,6 +1,6 @@
 ---
 title: Plain script
-description: "Script droplets: +droplet.script.ts, export default (data, el), no framework and no package, rendered in the browser only, hydrate true or visible, with a live droplet."
+description: "Script droplets: +droplet.script.ts, export default (data, el), no framework and no package, always client only, no flags, with a live droplet."
 tableOfContents: false
 ---
 
@@ -33,12 +33,11 @@ writes `src/droplets/counter/+droplet.script.ts` and the optional files you
 pick, then its `./$types`. To answer up front:
 
 ```bash
-npx djs add counter --framework script --hydrate visible --with server,css --yes
+npx djs add counter --framework script --with server,css --yes
 ```
 
-- `--target` does not apply: it renders nothing on the server and always
-  runs in the browser;
-- `--hydrate` is `always` (the default) or `visible`;
+- `--target` and `--hydrate` do not apply: it is always client only, so it
+  renders nothing on the server and runs at once in the browser;
 - `--with` takes `server`, `universal` and `css` (a `style.css` the script
   imports), never `error`: a script droplet has no error page.
 
@@ -46,7 +45,7 @@ npx djs add counter --framework script --hydrate visible --with server,css --yes
 
 | File | What it is |
 | --- | --- |
-| `+droplet.script.ts`, `+droplet.script.js` | The script: its default export runs in the browser. Its flag is a named export. |
+| `+droplet.script.ts`, `+droplet.script.js` | The script: its default export runs in the browser. It has no flags. |
 | `+droplet.server.ts` | Optional: the server load, as for any droplet; its result comes inline in the fragment. |
 | `+droplet.ts` | Optional: the props schema, and a load that runs on the server and in the browser. |
 
@@ -85,24 +84,27 @@ export default track;
 
 | | |
 | --- | --- |
-| Server rendering | no: the fragment is the element, its data and an empty `el` |
-| `hydrate` | `true` (the default): as soon as the element connects; `"visible"`: when it is about to scroll into view |
-| Prerendering | yes: `prerender = true` stores the load's data at build |
+| Server rendering | no: it is always client only (`ssr` false); the fragment is the element, its data and an empty `el` |
+| `hydrate` | always `true`: it runs as soon as the element connects |
+| Prerendering | no |
 | Imports | any package, whatever the project's other droplets are written in |
 
-Everything else fails the build, naming the fix:
+A script droplet has no flags. One it exports never fails the build: in
+`vite build` and `vite dev` it warns once per file and is ignored, and the
+droplet stays client only. `hydrate = true` is what it already is:
 
 ```
-droplets: counter/+droplet.script.ts: hydrate = false would never run it; a script droplet only runs in the browser. Remove the line (it runs at once) or use "visible"
+[droplets:framework] counter/+droplet.script.ts exports hydrate = true; a script droplet is always hydrated (locked to true)
 ```
 
-```
-droplets: counter/+droplet.script.ts: "interactive" waits for a first interaction with the server markup, and a script droplet has none; use true (the default) or "visible"
-```
+Any other flag (`ssr` with any value, `prerender` with any value, `hydrate`
+with `false`, `"visible"` or `"interactive"`):
 
 ```
-droplets: counter/+droplet.script.ts: a script droplet renders nothing on the server, so it has no ssr flag; remove export const ssr
+[droplets:framework] counter/+droplet.script.ts exports hydrate = false; this is ignored, a script droplet is client only
 ```
+
+Other named exports are the script's own business and say nothing.
 
 A host's `data-hydrate="false"` is ignored on a script droplet's element,
 with a warning in `vite dev`: a script droplet only runs in the browser, so
@@ -111,12 +113,13 @@ there is nothing to keep. `data-hydrate="visible"` still defers it.
 ## Specifics
 
 - **What the server sends.** The server never imports the file, so it may
-  touch `window` or `document` at the top level. The fragment has no script
-  that runs: it stays [CSP-clean](/guides/security/), like every fragment.
+  touch `window` or `document` at the top level. It is the client-only
+  fragment: the props ride on the element as `data-context`, and there is no
+  script that runs, so it stays [CSP-clean](/guides/security/), like every
+  fragment.
 
   ```html
-  <djs-demo data-droplet="counter-script" data-build="…">
-    <script type="application/text" data-droplet-context>…</script>
+  <djs-demo data-droplet="counter-script" data-build="…" data-context="…">
     <script type="application/text" data-droplet-data>…</script>
     <link rel="stylesheet" href="…/droplets/counter-script/style.css?c=…" data-droplet-style>
     <div style="display: contents" data-droplet-entry></div>

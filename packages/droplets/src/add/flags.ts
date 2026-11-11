@@ -43,26 +43,11 @@ const DEFAULT_HYDRATE: Record<Target, HydrateChoice> = {
   ssg: "always",
 };
 
-/** When a script droplet runs: it always does, at once or as it scrolls into view. */
-export const SCRIPT_HYDRATE: readonly { value: HydrateChoice; label: string; hint: string }[] = [
-  { value: "always", label: "always", hint: "as soon as the page loads" },
-  { value: "visible", label: "visible", hint: "when it is about to scroll into view" },
-];
-
-export type ScriptFlagsInput = { hydrate?: HydrateChoice | undefined };
-
 export type TargetFlags = { flags: Flags; notes: Note[] };
 
-/**
- * The flags of a script droplet: no target to choose (nothing renders on
- * the server, it always runs in the browser), and only `always` or
- * `visible`. Throws for anything else.
- */
-export function scriptFlags({ hydrate = "always" }: ScriptFlagsInput = {}): Flags {
-  if (hydrate !== "always" && hydrate !== "visible") {
-    throw new Error(`--hydrate ${hydrate}: a script droplet always runs in the browser; use always or visible`);
-  }
-  return { ssr: true, hydrate: MODES[hydrate], prerender: false };
+/** The flags of a script droplet: client only, nothing to choose. */
+export function scriptFlags(): Flags {
+  return { ssr: false, hydrate: true, prerender: false };
 }
 
 export type FlagsForInput = { target: Target; hydrate?: HydrateChoice | undefined };

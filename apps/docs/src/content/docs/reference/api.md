@@ -8,7 +8,7 @@ description: "Everything the packages export, the files you write, and the dropl
 | File | Exports | Runs |
 | --- | --- | --- |
 | `src/droplets/<name>/+droplet.<ext>` | the component; `ssr`, `hydrate`, `prerender` flags | server and browser |
-| `src/droplets/<name>/+droplet.script.ts` (or `.js`) | instead of a component: default `(data, el) => void \| cleanup` (`DropletScript`); `hydrate` (`true` or `"visible"`) and `prerender`. See [Script droplets](/renderers/script/) | browser |
+| `src/droplets/<name>/+droplet.script.ts` (or `.js`) | instead of a component: default `(data, el) => void \| cleanup` (`DropletScript`); no flags: always client only (`ssr` false, hydrated at once, never prerendered), an exported flag warns and is ignored. See [Script droplets](/renderers/script/) | browser |
 | `src/droplets/<name>/+droplet.server.ts` | `load`, `actions`, `handleError`, `entries`, `transform` | server |
 | `src/droplets/<name>/+droplet.ts` | `props` (a Standard Schema), `load`, `handleError` | server and browser |
 | `src/droplets/<name>/+error.<ext>` | the error page | server and browser |

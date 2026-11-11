@@ -300,10 +300,11 @@ renderer under `testing/`.
 - `createPrerenderedLoader` reads each droplet's `index.json` once and each render on demand. `src/server/prerendered.ts:57`, `src/server/prerendered.ts:62`
 - `createPrerenderedLoader` reads nothing for a droplet name that is not one path segment (`""`, `.`, `..`, `/`, `\`, NUL). `src/server/prerendered.ts:30`
 - `createPrerenderedLoader` looks a props key up with `Object.hasOwn`; a malformed file counts as no render. `src/server/prerendered.ts:68`, `src/server/prerendered.ts:44`
-- Script droplet renderer is built in, named `script`, for `+droplet.script.ts` and `+droplet.script.js`; core adds it after the user's renderers. `src/renderer.ts:614`, `src/renderer.ts:616`, `src/script/index.ts:82`
-- Script droplet with `ssr` fails the build. `src/script/index.ts:50`
-- Script droplet with `hydrate = false` fails the build. `src/script/index.ts:53`
-- Script droplet with `hydrate = "interactive"` fails the build. `src/script/index.ts:59`
+- Script droplet renderer is built in, named `script`, for `+droplet.script.ts` and `+droplet.script.js`; core adds it after the user's renderers. `src/renderer.ts:614`, `src/renderer.ts:616`, `src/script/index.ts:81`
+- Script droplet is client only: `ssr` false, `hydrate` true, `prerender` false, whatever the file exports. `src/script/index.ts:42`, `src/script/index.ts:64`
+- Script droplet flag never fails the build: `hydrate = true` warns `exports hydrate = true; a script droplet is always hydrated (locked to true)`, any other flag `exports <name> = <value>; this is ignored, a script droplet is client only`. `src/script/index.ts:60`, `src/script/index.ts:61`
+- Script droplet flag warnings come once per file and flag, across rescans and environments; non-flag exports say nothing. `src/script/index.ts:45`, `src/script/index.ts:55`
+- `djs add --framework script` writes no flag and refuses `--target` and `--hydrate`. `src/add/flags.ts:49`, `src/add/add.ts:251`, `src/add/add.ts:252`
 - Script droplet server render is `""`: the fragment is the element, its data payload and an empty content root. `src/script/server.ts:9`
 - Script droplet `hydrate` is `mount`; `mount` throws when the file has no default function. `src/script/client.ts:46`, `src/script/client.ts:34`
 - Renderer flag defaults: `ssr` true, `hydrate` true, `prerender` false. `src/renderer.ts:597`

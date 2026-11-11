@@ -221,7 +221,7 @@ restarts the server.
 - Renderer marks: with two renderers sharing an extension, modules a droplet reaches get `?droplets-renderer=<name>`, spread to script modules outside `node_modules` and outside the renderers' packages. `renderer-graphs.ts:361`, `renderer-graphs.ts:364`
 - Flags come from `discoverDroplets`, read from the droplet's component only. `../core/discover.ts:171`, `../core/discover.ts:251`
 - Flags an error page declares are ignored (a warning in dev); the error page follows the droplet. `../core/discover.ts:181`
-- Script droplet flags: `ssr`, `hydrate = false` and `hydrate = "interactive"` each throw. `../script/index.ts:51`, `../script/index.ts:54`, `../script/index.ts:60`
+- Script droplet flags are ignored with a warning, once per file and flag: it is always `ssr` false, `hydrate` true, `prerender` false. `../script/index.ts:51`, `../script/index.ts:64`
 - `classifyChange`: in a droplet folder, `+droplet.ts` is a universal load edit, `+droplet.server.ts` or a server file a load edit, anything else a component edit. `dev.ts:182`, `dev.ts:187`, `dev.ts:190`
 - `classifyChange`: a file outside the droplet folders is traced up the module graphs to the components and loads that import it. `dev.ts:195`
 - Dev SSR module is loaded through the ssr environment's runner (else `ssrLoadModule`), outside any request's info. `dev.ts:249`, `dev.ts:252`

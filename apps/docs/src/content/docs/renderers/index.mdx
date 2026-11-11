@@ -45,7 +45,7 @@ like for like.
 | [Hono JSX](/renderers/hono-jsx/) | `+droplet.tsx`, `.jsx` | yes | all four | 8.4 kB | `hono/jsx`; hydration renders again |
 | [Handlebars](/renderers/handlebars/) | `+droplet.hbs` | yes | all four | 0 with `hydrate = false`, 6.9 kB with `true` | no behaviour in the browser; flags in a comment |
 | [Lit](/renderers/lit/) | `+droplet.lit.ts`, `.lit.js` | yes (Lit Labs) | all four | 10.9 kB | declarative shadow DOM; styles live in the shadow root |
-| [Plain script](/renderers/script/) | `+droplet.script.ts`, `.script.js` | no: an empty element | `true`, `"visible"` | 1.6 kB | built in, no package; `(data, el)` |
+| [Plain script](/renderers/script/) | `+droplet.script.ts`, `.script.js` | no: an empty element | always `true` (client only) | 1.6 kB | built in, no package; `(data, el)` |
 
 </div>
 

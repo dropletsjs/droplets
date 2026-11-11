@@ -35,10 +35,7 @@ describe("flagsFor()", () => {
 });
 
 describe("scriptFlags()", () => {
-  it("runs a script droplet at once or when visible, and refuses the rest", () => {
-    expect(scriptFlags()).toEqual({ ssr: true, hydrate: true, prerender: false });
-    expect(scriptFlags({ hydrate: "visible" }).hydrate).toBe("visible");
-    expect(() => scriptFlags({ hydrate: "none" })).toThrow(/a script droplet always runs in the browser/);
-    expect(() => scriptFlags({ hydrate: "interactive" })).toThrow(/use always or visible/);
+  it("is client only: no server render, hydrated, never prerendered", () => {
+    expect(scriptFlags()).toEqual({ ssr: false, hydrate: true, prerender: false });
   });
 });

@@ -19,10 +19,9 @@
  *
  * The server renders nothing for it (the fragment is the element, its data
  * payload and an empty content root) and never imports the file: it may
- * touch `window` at the top level. In the browser it always runs: at once,
- * or with `export const hydrate = "visible"` as the element is about to
- * scroll into view. `hydrate = false`, `"interactive"` (there is no server
- * markup to interact with) and any `ssr` are build errors.
+ * touch `window` at the top level. It is client only and runs at once in
+ * the browser: `ssr` false, `hydrate` true, never prerendered, whatever the
+ * file exports. An exported flag warns once per file and is ignored.
  *
  * The renderer is built in: core adds it to every renderer list, so no
  * package is needed. It is plain JavaScript; no Vite plugin, no framework.
@@ -34,35 +33,35 @@
  */
 import { resolve } from "node:path";
 import { langOfFile, readExportedFlags } from "../core/flags.ts";
+import { logger } from "../core/logger.ts";
 import { packageDist } from "../core/paths.ts";
 import { SCRIPT_RENDERER, SCRIPT_SUFFIXES, type DropletRenderer, type ReadFlagsInput, type RenderFlags } from "../renderer.ts";
 
 type ReadScriptFlagsInput = Pick<ReadFlagsInput, "source" | "file" | "droplet">;
 
+const CLIENT_ONLY: RenderFlags = { ssr: false, hydrate: true, prerender: false };
+
+/** Discovery reads a file again on every rescan and in every environment. */
+const reported = new Set<string>();
+
 /**
- * The flags of a script droplet: `hydrate` (`true`, the default, or
- * `"visible"`) and `prerender`. Anything that would keep it from running
- * in the browser, or that it cannot have, is an error naming the fix.
+ * The flags of a script droplet, always client only. A flag the file
+ * exports never fails the build: it warns once and is ignored.
  */
-export function readScriptFlags({ source, file, droplet }: ReadScriptFlagsInput): Partial<RenderFlags> {
+export function readScriptFlags({ source, file, droplet }: ReadScriptFlagsInput): RenderFlags {
   const where = `${droplet}/${file}`;
-  const flags = readExportedFlags(source, droplet, langOfFile({ file }));
-  if (flags.ssr !== undefined) {
-    throw new Error(`droplets: ${where}: a script droplet renders nothing on the server, so it has no ssr flag; remove export const ssr`);
-  }
-  if (flags.hydrate === false) {
-    throw new Error(
-      `droplets: ${where}: hydrate = false would never run it; a script droplet only runs in the browser. ` +
-        'Remove the line (it runs at once) or use "visible"',
+  for (const [name, value] of Object.entries(readExportedFlags(source, droplet, langOfFile({ file })))) {
+    const key = `${where}:${name}`;
+    if (reported.has(key)) continue;
+    reported.add(key);
+    logger.warn(
+      "framework",
+      name === "hydrate" && value === true
+        ? `${where} exports hydrate = true; a script droplet is always hydrated (locked to true)`
+        : `${where} exports ${name} = ${JSON.stringify(value)}; this is ignored, a script droplet is client only`,
     );
   }
-  if (flags.hydrate === "interactive") {
-    throw new Error(
-      `droplets: ${where}: "interactive" waits for a first interaction with the server markup, and a script droplet has none; ` +
-        'use true (the default) or "visible"',
-    );
-  }
-  return flags;
+  return { ...CLIENT_ONLY };
 }
 
 /** The built-in renderer of `+droplet.script.ts` and `+droplet.script.js`. */

@@ -178,6 +178,9 @@ describe("the droplets", () => {
       const html = await response.text();
       expect(html).toContain('<div style="display: contents" data-droplet-entry></div>');
       expect(html).not.toContain("Add one");
+      // Client only: the props ride on the element, no inline context script.
+      expect(html).toMatch(/data-context="[^"]+"/);
+      expect(html).not.toContain("data-droplet-context");
       expect(payload(html, "data")).toEqual({ data: { framework: "plain script", start: 3 } });
       expect((await call("/droplets/counter-script/client.js")).status).toBe(200);
     });

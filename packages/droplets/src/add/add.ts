@@ -14,7 +14,6 @@ import { ADD_KINDS, FRAMEWORKS, frameworkNamed, kindNamed, packageName, SCRIPT, 
 import {
   FULL_HYDRATE,
   HYDRATE_CHOICES,
-  SCRIPT_HYDRATE,
   TARGETS,
   flagsFor,
   scriptFlags,
@@ -247,21 +246,11 @@ export async function runAdd({ name, flags }: RunAddInput): Promise<void> {
   }
   if (!framework) throw new Error("no framework");
   if (framework.builtIn) {
-    // A script droplet: no target, no renderer to install, `always` or `visible`.
+    // A script droplet: no target, no renderer to install, client only.
     if (target !== undefined)
       throw new Error("--target does not apply to a script droplet: it renders nothing on the server and always runs in the browser");
-    const chosen =
-      hydrate ??
-      (interactive
-        ? answer({
-            value: await prompts.select({
-              message: "Runs",
-              options: SCRIPT_HYDRATE.map((h) => ({ ...h })),
-              initialValue: "always" as HydrateChoice,
-            }),
-          })
-        : "always");
-    const flags = scriptFlags({ hydrate: chosen });
+    if (hydrate !== undefined) throw new Error("--hydrate does not apply to a script droplet: it is client only and runs at once");
+    const flags = scriptFlags();
     if (files?.includes("error")) throw new Error("--with error: a script droplet has no error page; it renders nothing");
     const choices = dropletFileChoices({ framework });
     const chosenFiles =

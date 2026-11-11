@@ -20,8 +20,10 @@
   Checked by: a real `vite build` of a project with a config file (`pnpm build:examples`, `pnpm test:e2e`).
 - Flags (`ssr`, `hydrate`, `prerender`) live only in the droplet's component; anywhere else they are ignored, and on `+error.*` they warn in dev.
   Checked by: `test/core/discover.test.ts`.
-- A flag mistake warns and is ignored; flags fail the build only in a Handlebars flags comment and in a script droplet (`ssr`, `hydrate = false`, `hydrate = "interactive"`).
-  Checked by: `test/core/script.test.ts`, the Handlebars renderer's tests.
+- A flag mistake warns and is ignored; flags fail the build only in a Handlebars flags comment.
+  Checked by: `test/core/discover.test.ts`, the Handlebars renderer's tests.
+- A script droplet is client only (`ssr` false, `hydrate` true, never prerendered) whatever it exports; each flag it exports warns once per file and is ignored, and a host's `data-hydrate="false"` is ignored on it.
+  Checked by: `test/core/script.test.ts`, `test/integration/script.test.ts`.
 - The build fails for server code in a client bundle and for another framework's files or packages in a droplet, naming the import chain.
   Checked by: `test/integration/server-only.test.ts`, `test/vite/renderer-graphs.test.ts`, `tests/dev-mixed`.
 - Every URL a droplet emits for its own files (`client.js`, `style.css`, its stylesheets, built and public files) is on the droplet location, so it works under any origin or prefix.

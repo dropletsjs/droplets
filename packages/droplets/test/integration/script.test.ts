@@ -3,15 +3,17 @@
  * component droplet: its file reaches the browser bundle only, never the
  * server's (it touches `window` at the top level, which would throw there),
  * its server load and the server files behind it stay out of the browser,
- * and its fragment is the element, the payloads and an empty content root,
- * with no script that runs.
+ * and its fragment is the client-only one (the context on the element, the
+ * data payload and an empty content root), with no script that runs. Any
+ * flag it exports warns once and is ignored.
  */
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createBuilder, createServer, type ViteDevServer } from "vite";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { setLogLevel } from "../../src/core/logger.ts";
 import { fakeRenderer } from "../../src/testing/index.ts";
 import { droplets, type DropletsAdapter } from "../../src/vite.ts";
 
@@ -83,16 +85,13 @@ const dataOf = (html: string) => {
   return match ? JSON.parse(Buffer.from(match, "base64").toString()) : undefined;
 };
 
-/** The fragment of a script droplet: the element, its two payloads, an empty content root. */
+/** The client-only fragment of a script droplet: the context on the element, the data payload, an empty content root. */
 function expectScriptFragment(html: string) {
   expect(html).toMatch(
-    /^<djs-droplet data-droplet="tracker"[^>]*><script type="application\/text" data-droplet-context>[^<]+<\/script><script type="application\/text" data-droplet-data>[^<]+<\/script><div style="display: contents" data-droplet-entry><\/div><\/djs-droplet>$/,
+    /^<djs-droplet data-droplet="tracker" data-build="[^"]+" data-context="[^"]+"><script type="application\/text" data-droplet-data>[^<]+<\/script><div style="display: contents" data-droplet-entry><\/div><\/djs-droplet>$/,
   );
-  // Nothing that runs: every script is a payload.
-  expect(html.match(/<script\b[^>]*>/g)).toEqual([
-    '<script type="application/text" data-droplet-context>',
-    '<script type="application/text" data-droplet-data>',
-  ]);
+  // Nothing that runs: the one script is the data payload.
+  expect(html.match(/<script\b[^>]*>/g)).toEqual(['<script type="application/text" data-droplet-data>']);
   expect(html).not.toContain("SCRIPT_MARKER");
 }
 
@@ -160,14 +159,36 @@ describe("a script droplet's server files", () => {
       /src\/droplets\/tracker\/db\.server\.ts is server code and cannot reach the browser: .*src\/droplets\/tracker\/\+droplet\.script\.ts -> src\/droplets\/tracker\/db\.server\.ts/,
     );
   }, 90_000);
+});
 
-  it("fail the build when hydrate = false keeps it from ever running", async () => {
+describe("a script droplet's flags", () => {
+  it("never fail the build: each warns once, and it stays client only, hydrated, never prerendered", async () => {
     const root = await project({
       ...FILES,
-      "src/droplets/tracker/+droplet.script.ts": "export const hydrate = false;\nexport default () => {};\n",
+      "src/droplets/tracker/+droplet.script.ts":
+        "export const hydrate = false;\nexport const ssr = true;\nexport const prerender = true;\nexport default (data, el) => { el.textContent = 'SCRIPT_MARKER'; };\n",
     });
     roots.push(root);
-    await expect(build(root)).rejects.toThrow(/tracker\/\+droplet\.script\.ts: hydrate = false would never run it/);
+    setLogLevel("warn");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      await build(root);
+    } finally {
+      setLogLevel("error");
+    }
+    const ignored = "this is ignored, a script droplet is client only";
+    expect(warn.mock.calls.map((call) => String(call[0])).filter((message) => message.includes("+droplet.script.ts exports"))).toEqual([
+      `[droplets:framework] tracker/+droplet.script.ts exports ssr = true; ${ignored}`,
+      `[droplets:framework] tracker/+droplet.script.ts exports hydrate = false; ${ignored}`,
+      `[droplets:framework] tracker/+droplet.script.ts exports prerender = true; ${ignored}`,
+    ]);
+    const manifest = JSON.parse(await readFile(join(root, "dist/client/droplets.json"), "utf8"));
+    expect(manifest.droplets.tracker.client).toBeTruthy();
+    expect(await scripts(join(root, "dist/client"))).toContain("SCRIPT_MARKER");
+    expect(existsSync(join(root, "dist/server/_prerendered/tracker"))).toBe(false);
+    const ssr = await import(pathToFileURL(join(root, "dist/server/entry-server.js")).href);
+    expect(ssr.getDropletMeta("tracker")).toEqual({ exists: true, ssr: false, hydrate: true });
+    warn.mockRestore();
   }, 90_000);
 });
 
@@ -195,7 +216,7 @@ describe("a script droplet in vite dev", () => {
     (server.config.plugins.find((plugin) => plugin.name === "droplets") ?? expect.unreachable("the droplets plugin")).api as {
       fetch(request: Request): Promise<Response>;
       renderers(): string[];
-      droplets(): { id: string; renderer: string; hydrate: unknown }[];
+      droplets(): { id: string; renderer: string; ssr: unknown; hydrate: unknown; prerender: unknown }[];
     };
 
   it("is listed with the built-in renderer, which is not among the configured ones", () => {
@@ -204,7 +225,7 @@ describe("a script droplet in vite dev", () => {
       api()
         .droplets()
         .find((d) => d.id === "tracker"),
-    ).toMatchObject({ renderer: "script", hydrate: true });
+    ).toMatchObject({ renderer: "script", ssr: false, hydrate: true, prerender: false });
   });
 
   it("answers the same fragment, without evaluating the script on the server", async () => {

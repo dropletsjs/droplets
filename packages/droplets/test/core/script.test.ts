@@ -1,7 +1,7 @@
 /**
  * Script droplets as core sees them before anything is built: discovery
- * tells `+droplet.script.ts` from the load files, the flags that cannot
- * apply are errors, no renderer can take the built-in's place, the server
+ * tells `+droplet.script.ts` from the load files, a script droplet is
+ * client only whatever it exports (a flag warns once and is ignored), no renderer can take the built-in's place, the server
  * registry never imports the file, and `./$types` types its default export.
  */
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -60,11 +60,11 @@ describe("discovering script droplets", () => {
         hasLoad: true,
         hasServerLoad: true,
         hasError: false,
-        ssr: true,
+        ssr: false,
         hydrate: true,
         prerender: false,
       }),
-      expect.objectContaining({ id: "widget", file: "+droplet.script.js", renderer: "script", hasLoad: false }),
+      expect.objectContaining({ id: "widget", file: "+droplet.script.js", renderer: "script", hasLoad: false, ssr: false }),
     ]);
   });
 
@@ -108,34 +108,79 @@ describe("discovering script droplets", () => {
     expect(warn.mock.calls.flat().join(" ")).toContain("a script droplet has no error page");
   });
 
-  it('reads hydrate = "visible" and prerender', async () => {
+  it("is client only whatever it exports: ssr false, hydrated, never prerendered", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
     const root = await folder({
-      "later/+droplet.script.ts": `export const hydrate = "visible";\nexport const prerender = true;\n${RUN}`,
+      "later/+droplet.script.ts": `export const hydrate = "visible";\nexport const prerender = true;\nexport const ssr = true;\n${RUN}`,
+      "off/+droplet.script.ts": `export const hydrate = false;\n${RUN}`,
     });
-    const [entry] = await discoverDroplets({ dropletsRoot: root, renderers });
-    expect(entry).toMatchObject({ hydrate: "visible", prerender: true, ssr: true });
+    const entries = await discoverDroplets({ dropletsRoot: root, renderers });
+    expect(entries.map(({ id, ssr, hydrate, prerender }) => ({ id, ssr, hydrate, prerender }))).toEqual([
+      { id: "later", ssr: false, hydrate: true, prerender: false },
+      { id: "off", ssr: false, hydrate: true, prerender: false },
+    ]);
   });
 });
 
 describe("the flags of a script droplet", () => {
-  const read = (source: string) => readScriptFlags({ source, file: "+droplet.script.ts", droplet: "tracker" });
+  const CLIENT_ONLY = { ssr: false, hydrate: true, prerender: false };
+  let file = 0;
+  /** Each read is another file: the warnings come once per file. */
+  const read = (source: string) => readScriptFlags({ source, file: "+droplet.script.ts", droplet: `tracker${++file}` });
+  const warnings = () => {
+    setLogLevel("warn");
+    return vi.spyOn(console, "warn").mockImplementation(() => {});
+  };
 
-  it("are a build error when they would keep it from running, or cannot apply", () => {
-    expect(() => read("export const hydrate = false;")).toThrow(/tracker\/\+droplet\.script\.ts: hydrate = false would never run it/);
-    expect(() => read('export const hydrate = "interactive";')).toThrow(/a script droplet has none; use true \(the default\) or "visible"/);
-    expect(() => read("export const ssr = false;")).toThrow(/renders nothing on the server, so it has no ssr flag/);
-    expect(() => read("export const ssr = true;")).toThrow(/no ssr flag/);
+  it("are locked: ssr false, hydrate true, prerender false, with nothing exported", () => {
+    const warn = warnings();
+    expect(read(RUN)).toEqual(CLIENT_ONLY);
+    expect(warn).not.toHaveBeenCalled();
   });
 
-  it("stop discovery, and so the build", async () => {
+  it("never fail the build: hydrate = true warns that it is locked", () => {
+    const warn = warnings();
+    expect(read(`export const hydrate = true;\n${RUN}`)).toEqual(CLIENT_ONLY);
+    expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
+      `[droplets:framework] tracker${file}/+droplet.script.ts exports hydrate = true; a script droplet is always hydrated (locked to true)`,
+    ]);
+  });
+
+  it.each([
+    ["export const hydrate = false;", "hydrate = false"],
+    ['export const hydrate = "interactive";', 'hydrate = "interactive"'],
+    ['export const hydrate = "visible";', 'hydrate = "visible"'],
+    ["export const ssr = false;", "ssr = false"],
+    ["export const ssr = true;", "ssr = true"],
+    ["export const prerender = true;", "prerender = true"],
+    ["export const prerender = false;", "prerender = false"],
+  ])("ignore %s, with a warning", (line, shown) => {
+    const warn = warnings();
+    expect(read(`${line}\n${RUN}`)).toEqual(CLIENT_ONLY);
+    expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
+      `[droplets:framework] tracker${file}/+droplet.script.ts exports ${shown}; this is ignored, a script droplet is client only`,
+    ]);
+  });
+
+  it("warn once per file, and say nothing of exports that are not flags", () => {
+    const warn = warnings();
+    const source = `export const hydrate = false;\nexport const ssr = true;\nexport const answer = 42;\n${RUN}`;
+    const once = (droplet: string) => readScriptFlags({ source, file: "+droplet.script.ts", droplet });
+    for (const droplet of ["twice", "twice", "again"]) expect(once(droplet)).toEqual(CLIENT_ONLY);
+    expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
+      "[droplets:framework] twice/+droplet.script.ts exports ssr = true; this is ignored, a script droplet is client only",
+      "[droplets:framework] twice/+droplet.script.ts exports hydrate = false; this is ignored, a script droplet is client only",
+      "[droplets:framework] again/+droplet.script.ts exports ssr = true; this is ignored, a script droplet is client only",
+      "[droplets:framework] again/+droplet.script.ts exports hydrate = false; this is ignored, a script droplet is client only",
+    ]);
+  });
+
+  it("never stop discovery", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
     const root = await folder({ "off/+droplet.script.ts": `export const hydrate = false;\n${RUN}` });
-    await expect(discoverDroplets({ dropletsRoot: root, renderers })).rejects.toThrow(/hydrate = false would never run it/);
-  });
-
-  it('take true and "visible"', () => {
-    expect(read("export const hydrate = true;")).toEqual({ hydrate: true });
-    expect(read("export const hydrate = 'visible';")).toEqual({ hydrate: "visible" });
-    expect(read(RUN)).toEqual({});
+    expect(await discoverDroplets({ dropletsRoot: root, renderers })).toEqual([
+      expect.objectContaining({ id: "off", ssr: false, hydrate: true }),
+    ]);
   });
 });
 
@@ -164,7 +209,7 @@ const tracker = {
   hasLoad: true,
   hasServerLoad: true,
   hasError: false,
-  ssr: true,
+  ssr: false,
   hydrate: true as const,
   prerender: false,
 };

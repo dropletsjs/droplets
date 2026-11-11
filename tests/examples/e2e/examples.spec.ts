@@ -158,16 +158,14 @@ test("an endpoint with a route param answers JSON, and its hook ran", async ({ r
 test.describe("a script droplet: +droplet.script.ts, a page-view tracker", () => {
   test.skip(() => exampleOf() !== "svelte", "only the Svelte example has one");
 
-  test("its fragment is the element, its data and nothing that runs", async ({ request }) => {
+  test("its fragment is the client-only one: the element, its data and nothing that runs", async ({ request }) => {
     const response = await request.get(`${dropletsOf(exampleOf())}/droplets/page-views?page=pricing`);
     expect(response.ok()).toBe(true);
     const html = await response.text();
     expect(html).toContain('<div style="display: contents" data-droplet-entry></div>');
-    // CSP-clean: every script in it is a payload.
-    expect(html.match(/<script\b[^>]*>/g)).toEqual([
-      '<script type="application/text" data-droplet-context>',
-      '<script type="application/text" data-droplet-data>',
-    ]);
+    // Client only: the props ride on the element, and the one script is the data payload (CSP-clean).
+    expect(html).toMatch(/^<djs-svelte data-droplet="page-views" [^>]*data-context="[^"]+"/);
+    expect(html.match(/<script\b[^>]*>/g)).toEqual(['<script type="application/text" data-droplet-data>']);
     const data = html.match(/data-droplet-data>([^<]+)</)?.[1] ?? "";
     expect(JSON.parse(Buffer.from(data, "base64").toString())).toEqual({ data: { page: "pricing", views: expect.any(Number) } });
     // The props schema runs before the load, as for any droplet.

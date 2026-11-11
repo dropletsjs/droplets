@@ -15,7 +15,8 @@ const FLAGS_WHERE: Record<Framework["name"], string> = {
   "hono-jsx": "named exports of the component file: `export const hydrate = true;`",
   handlebars: "the comment the template opens with: `{{!-- export hydrate = true --}}`",
   lit: "named exports of the component file: `export const hydrate = true;`",
-  script: 'named exports of `+droplet.script.ts`: `export const hydrate = "visible";` (no `ssr`)',
+  script:
+    "none: a `+droplet.script.ts` is always client only (`ssr` false, hydrated at once, never prerendered); an exported flag warns and is ignored",
 };
 
 const STYLES_WHERE: Record<Framework["name"], string> = {

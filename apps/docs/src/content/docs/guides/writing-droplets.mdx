@@ -44,9 +44,10 @@ dev server tracks which droplets depend on it.
 
 Three flags decide how a droplet is delivered. They live in the droplet's
 component, `+droplet.<ext>`, and nowhere else: `<script module>` in Svelte, a
-plain `<script>` in Vue, named exports in React, Preact, Solid, Hono JSX, Lit
-and script droplets, the opening comment in Handlebars. Each
-[renderer's page](/renderers/) shows where.
+plain `<script>` in Vue, named exports in React, Preact, Solid, Hono JSX and
+Lit, the opening comment in Handlebars. Each
+[renderer's page](/renderers/) shows where. A script droplet has none: it is
+always client only.
 
 ```svelte
 <script module lang="ts">
@@ -608,8 +609,9 @@ Some droplets are no component at all: an analytics tracker, a third-party
 widget, a vanilla UI. A **script droplet** is a `+droplet.script.ts` (or
 `.js`) whose default export runs in the browser with the droplet's data and
 its element, `(data, el) => void | cleanup`, with the same loads as any
-droplet. The server renders nothing for it, `hydrate` is `true` or
-`"visible"`, and no renderer is needed: it is built in.
+droplet. It is always client only: the server renders nothing for it, it
+runs as soon as the element connects, it is never prerendered, and a flag it
+exports warns and is ignored. No renderer is needed: it is built in.
 [Plain script](/renderers/script/) has the details, a live one and an
 example.
 

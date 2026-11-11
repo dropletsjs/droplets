@@ -59,7 +59,7 @@ beforeAll(async () => {
   }
   // Script droplets: built in, nothing to install or register.
   await djs(["add", "script-plain", "--framework", "script", "--yes"]);
-  await djs(["add", "script-loaded", "--framework", "script", "--hydrate", "visible", "--with", "server,universal,css", "--yes"]);
+  await djs(["add", "script-loaded", "--framework", "script", "--with", "server,universal,css", "--yes"]);
 });
 
 afterAll(() => {
@@ -91,11 +91,12 @@ describe("djs add", () => {
       "const run: DropletScript = (_data, el) => {",
     );
     const loaded = readFileSync(`${project}/src/droplets/script-loaded/+droplet.script.ts`, "utf8");
-    expect(loaded).toContain('export const hydrate = "visible";');
     expect(loaded).toContain('import "./style.css";');
-    expect(loaded).not.toContain("export const ssr");
+    expect(loaded).not.toMatch(/export const (ssr|hydrate|prerender)/);
     for (const args of [
       ["--target", "ssr"],
+      ["--hydrate", "always"],
+      ["--hydrate", "visible"],
       ["--hydrate", "none"],
       ["--hydrate", "interactive"],
       ["--with", "error"],

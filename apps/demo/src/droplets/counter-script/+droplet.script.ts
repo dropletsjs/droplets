@@ -1,8 +1,5 @@
 import type { DropletScript } from "./$types";
 
-// When it runs: true (at once, the default) or "visible". Nothing else.
-export const hydrate = true;
-
 /** An element with a class and, optionally, its text. */
 function make<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text = "") {
   const element = document.createElement(tag);

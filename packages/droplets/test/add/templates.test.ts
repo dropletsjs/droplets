@@ -103,14 +103,14 @@ describe("dropletFiles()", () => {
 });
 
 describe("dropletFiles() for a script droplet", () => {
-  const script = (files: DropletFile[] = [], hydrate: "always" | "visible" = "always") => ({
+  const script = (files: DropletFile[] = []) => ({
     name: "page-views",
     framework: kindNamed({ name: "script" }) ?? expect.unreachable("script"),
-    flags: scriptFlags({ hydrate }),
+    flags: scriptFlags(),
     files: new Set(files),
   });
 
-  it("writes +droplet.script.ts, typed by ./$types, with no ssr flag", () => {
+  it("writes +droplet.script.ts, typed by ./$types, with no flag", () => {
     const files = dropletFiles(script());
     expect(Object.keys(files)).toEqual(["+droplet.script.ts"]);
     const code = files["+droplet.script.ts"] ?? expect.unreachable("+droplet.script.ts");
@@ -121,11 +121,11 @@ describe("dropletFiles() for a script droplet", () => {
     expect(readExportedFlags(code, "x", "ts")).toEqual({});
   });
 
-  it("writes hydrate only when visible, data from the loads, and styles from style.css", () => {
-    const files = dropletFiles(script(["server", "universal", "css"], "visible"));
+  it("writes data from the loads and styles from style.css, still with no flag", () => {
+    const files = dropletFiles(script(["server", "universal", "css"]));
     expect(Object.keys(files).sort()).toEqual(["+droplet.script.ts", "+droplet.server.ts", "+droplet.ts", "style.css"]);
     const code = files["+droplet.script.ts"] ?? expect.unreachable("+droplet.script.ts");
-    expect(readExportedFlags(code, "x", "ts")).toEqual({ hydrate: "visible" });
+    expect(readExportedFlags(code, "x", "ts")).toEqual({});
     expect(code).toContain('import "./style.css";');
     expect(code).toContain("heading.textContent = data.greeting;");
   });
