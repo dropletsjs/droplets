@@ -42,7 +42,7 @@ describe("dropletForFile", () => {
     expect(dropletForFile(root, "/proj/src/lib/Badge.svelte")).toBeNull();
     expect(dropletForFile(root, "/proj/src/droplets")).toBeNull();
     expect(dropletForFile(root, "/proj/src/droplets-other/x/+droplet.svelte")).toBeNull();
-    // Nothing is reserved any more: every route lives under /droplets/.
+    // No id is reserved: every route lives under /droplets/.
     expect(dropletForFile(root, "/proj/src/droplets/drops/+droplet.svelte")).toBe("drops");
   });
 });

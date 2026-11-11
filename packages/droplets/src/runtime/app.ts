@@ -415,11 +415,6 @@ export function resetLocationWarnings(): void {
  */
 function resolveLocation(c: Context, origin: readonly string[], trusted: readonly string[]): string {
   const own = new URL(c.req.url).origin;
-  // The header's old name, never honoured; the warning can go at 1.0.
-  if (c.req.header("x-host") !== undefined && !warnedSources.has("old")) {
-    warnedSources.add("old");
-    logger.warn("framework", "x-host is now x-droplet-location");
-  }
   const locations = origin.filter((entry) => entry !== "*");
   const any = origin.includes("*") || trusted.includes("*");
   const allowed = new Set([own, ...locations.map((entry) => new URL(entry).origin), ...trusted]);

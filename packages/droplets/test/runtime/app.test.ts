@@ -1177,11 +1177,11 @@ describe("createDropletsApp: where props come from", () => {
   });
 });
 
-describe("createDropletsApp: no noJS", () => {
+describe("createDropletsApp: the query as it came", () => {
   it("hands every event the request as it came, the query untouched", async () => {
     const seen: string[] = [];
     let request: Request | undefined;
-    const raw = new Request("http://drops.test/droplets/hello?who=Ana&noJS&x=a%20b");
+    const raw = new Request("http://drops.test/droplets/hello?who=Ana&compact&x=a%20b");
     const handle: Handle = ({ event, resolve }) => {
       seen.push(`handle ${event.url.search}`);
       return resolve(event);
@@ -1197,8 +1197,7 @@ describe("createDropletsApp: no noJS", () => {
     const res = await app.fetch(raw);
     expect(res.status).toBe(200);
     expect(request).toBe(raw);
-    // `noJS` is no framework key: a prop like any other.
-    expect(seen).toEqual(["handle ?who=Ana&noJS&x=a%20b", 'load {"who":"Ana","noJS":"","x":"a b"}']);
+    expect(seen).toEqual(["handle ?who=Ana&compact&x=a%20b", 'load {"who":"Ana","compact":"","x":"a b"}']);
   });
 
   it("never makes a no-JS result key a prop", async () => {
@@ -1786,13 +1785,6 @@ describe("createDropletsApp: the droplet location", () => {
     expect((await post({})).status).toBe(403);
     expect((await post(viaShop)).status).not.toBe(403);
     expect((await post({ "x-forwarded-host": "evil.example", "x-forwarded-proto": "https", origin: "https://evil.example" })).status).toBe(403);
-  });
-
-  it("never honours x-host, and warns about it once", async () => {
-    const { app } = fakeApp();
-    expect(await locationOf({ "x-host": "http://internal:8000/mfe" }, {}, app)).toBe("http://internal:8000");
-    expect(await locationOf({ "x-host": "http://internal:8000/mfe" }, {}, app)).toBe("http://internal:8000");
-    expect(warnings().filter((text) => text === "x-host is now x-droplet-location")).toHaveLength(1);
   });
 
   describe('"*"', () => {

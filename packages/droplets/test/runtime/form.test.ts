@@ -97,8 +97,7 @@ describe("reserved query keys", () => {
     for (const key of ["c", "t", "__cb", "noSSR", "clientOnly", "/add", "__droplet_form_cart_b1", "__droplet_return"]) {
       expect(isReservedQueryKey(key), key).toBe(true);
     }
-    // `noJS` is gone: a key like any other.
-    for (const key of ["page", "noJS"]) expect(isReservedQueryKey(key), key).toBe(false);
+    for (const key of ["page", "productId"]) expect(isReservedQueryKey(key), key).toBe(false);
   });
 });
 

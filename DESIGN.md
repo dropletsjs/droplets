@@ -27,12 +27,10 @@ What ships is described by the guides at https://dropletsjs.dev; where the two d
 - A prefix starts with `/`, has no `//`, `\`, `..`, `?`, `#` or control
   characters, is at most 256 characters, and keeps the origin when joined;
   otherwise it is dropped (URL hygiene, applied with `"*"` too).
-- `event.host` no longer reads the forwarded headers: body `host`, `Origin`,
+- `event.host` does not read the forwarded headers: body `host`, `Origin`,
   then the location's origin.
 - `Vary` lists the location headers, but CDNs ignore `Vary` on custom
   headers: the allow-list is the guard.
-- The header's old name is not honoured; a request with it gets one
-  warning per process, until 1.0.
 
 ## `dev.strategy: "hmr"`: the framework's own HMR, never a reload (built 2026-11-11)
 

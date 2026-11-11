@@ -471,7 +471,6 @@ export function rendererConformance(options: ConformanceOptions): void {
         expect(actionOf(plain, "sign")).toBe(actionOn("/droplets/guestbook"));
         expect(actionOf(plain, "leave")).toBe(actionOn("/droplets/guestbook?/leave"));
         expect(actionOf(plain, "plain")).toBe(actionOn("/droplets/guestbook?/echo"));
-        expect(plain).not.toContain("noJS");
 
         // A native submit (no JavaScript, no `accept: application/json`) with
         // no secret to sign the result with: the fragment again, with `form`.
@@ -485,7 +484,6 @@ export function rendererConformance(options: ConformanceOptions): void {
           expect(payload(html, "data-droplet-data")).toEqual({ data: { count: 1 }, form: { message: "Thanks, Ana" } });
         }
         expect(actionOf(html, "sign")).toBe(actionOn("/droplets/guestbook"));
-        expect(html).not.toContain("noJS");
 
         const refused = await submit("/droplets/guestbook", { name: "" });
         expect(refused.status).toBe(422);
@@ -629,12 +627,12 @@ export function rendererConformance(options: ConformanceOptions): void {
         for (const html of [served, live]) expect(html).not.toContain("evil.example");
       });
 
-      it("hands the action its URL as it came: no key is stripped, noJS is a prop like any other", async () => {
+      it("hands the action its URL as it came: no key is stripped", async () => {
         const json = { accept: "application/json" };
         const echoed = await submit("/droplets/guestbook?/echo", {}, json);
         expect(await echoed.json()).toEqual({ type: "success", status: 200, data: { message: "?/echo" } });
-        const kept = await submit("/droplets/guestbook?/echo&noJS&x=1", {}, json);
-        expect(await kept.json()).toMatchObject({ data: { message: "?/echo&noJS&x=1" } });
+        const kept = await submit("/droplets/guestbook?/echo&compact&x=1", {}, json);
+        expect(await kept.json()).toMatchObject({ data: { message: "?/echo&compact&x=1" } });
       });
 
       it("renders a JSON render that carries form with it, live", async () => {
@@ -899,7 +897,6 @@ export function rendererConformance(options: ConformanceOptions): void {
           expect(action("sign")).toBe(actionOn("/droplets/guestbook"));
           expect(action("leave")).toBe(actionOn("/droplets/guestbook?/leave"));
           expect(action("plain")).toBe(actionOn("/droplets/guestbook?/echo"));
-          expect(el.innerHTML).not.toContain("noJS");
           // Hydration found what the server rendered.
           expect(logged).toEqual([]);
         } finally {

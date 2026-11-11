@@ -394,7 +394,7 @@ describe("form actions: the request decides the answer", () => {
     expect(await res.text()).toContain('<p>guestbook:{}:{"message":"Thanks, Ana"}</p>');
   });
 
-  it("has no noJS: the key is a prop like any other, and the URL reaches the action as it came", async () => {
+  it("makes an unknown key a prop, and hands the action the URL as it came", async () => {
     const seen: unknown[] = [];
     const { app } = actionsApp({
       add: async ({ request, props }) => {
@@ -402,9 +402,9 @@ describe("form actions: the request decides the answer", () => {
         return { ok: true };
       },
     });
-    const res = await app.request(submit("/droplets/guestbook?/add&page=2&noJS", "", { accept: "application/json" }));
+    const res = await app.request(submit("/droplets/guestbook?/add&page=2&compact", "", { accept: "application/json" }));
     expect(await res.json()).toEqual({ type: "success", status: 200, data: { ok: true } });
-    expect(seen).toEqual([`${ORIGIN}/droplets/guestbook?/add&page=2&noJS`, { page: "2", noJS: "" }]);
+    expect(seen).toEqual([`${ORIGIN}/droplets/guestbook?/add&page=2&compact`, { page: "2", compact: "" }]);
   });
 });
 
