@@ -196,11 +196,13 @@ describe("vite build", () => {
     expect(dataOf(forHost)).toEqual({ data: { page: 5, building: true, hooked: true, home: "https://fixed.test/home" } });
     const elsewhere = await (await post({ page: 5 }, "https://fixed.test/other")).text();
     expect(dataOf(elsewhere)).toEqual({ data: { page: 5, building: false, hooked: true, home: "https://fixed.test/home" } });
-    // Without a body host: the forwarded headers, then the request's origin.
+    // Without a body host: Origin, then the location; forwarded headers no trusted list names are not one.
+    const fromOrigin = await app.request("http://drops.test/droplets/docs?page=2", { headers: { origin: "https://shop.test" } });
+    expect(dataOf(await fromOrigin.text())).toMatchObject({ data: { page: 2, home: "https://shop.test/home" } });
     const forwarded = await app.request("http://drops.test/droplets/docs?page=2", {
       headers: { "x-forwarded-host": "shop.test", "x-forwarded-proto": "https" },
     });
-    expect(dataOf(await forwarded.text())).toMatchObject({ data: { page: 2, home: "https://shop.test/home" } });
+    expect(dataOf(await forwarded.text())).toMatchObject({ data: { page: 2, home: "http://drops.test/home" } });
 
     const refused = await post({ page: "x" });
     expect(refused.status).toBe(400);

@@ -13,7 +13,7 @@
  * never reaches a link, a script URL or a redirect.
  */
 import { HostUrlPropsErrorInPrerender } from "./server.ts";
-import { webUrl, withinTrusted } from "./web-url.ts";
+import { isLocationPrefix, webUrl, withinTrusted } from "./web-url.ts";
 
 export { webUrl, withinTrusted };
 
@@ -23,13 +23,72 @@ export function parseHost(value: unknown): URL | null {
 }
 
 /**
- * Where the droplets server is reached, from `x-host`: its origin and the
- * path prefix a proxy serves it under (`https://shop.example/mfe`), without
- * a trailing slash, query or hash. `null` unless it is a web URL.
+ * `origin` with `prefix`, without a trailing slash: `https://shop.example/mfe`.
+ * `origin` alone when the prefix is missing, is not an `isLocationPrefix`,
+ * or would leave the origin once joined.
+ */
+export function withPrefix(origin: string, prefix: string | undefined): string {
+  if (prefix === undefined || !isLocationPrefix(prefix)) return origin;
+  const url = webUrl(`${origin}${prefix}`);
+  if (!url || url.origin !== origin || url.search !== "" || !isLocationPrefix(url.pathname)) return origin;
+  return `${origin}${url.pathname.replace(/\/+$/, "")}`;
+}
+
+/**
+ * Where a droplets server is reached, from a URL: its origin and the path
+ * prefix it is served under (`https://shop.example/mfe`), without a
+ * trailing slash, query or hash. `null` unless it is a web URL; a path that
+ * is no valid prefix is dropped (see `withPrefix`).
  */
 export function parseLocation(value: unknown): string | null {
   const url = webUrl(value);
-  return url ? `${url.origin}${url.pathname.replace(/\/+$/, "")}` : null;
+  return url ? withPrefix(url.origin, url.pathname) : null;
+}
+
+/** The headers that can name where this server is reached, in the order they are tried. */
+export type LocationSource = "x-droplet-location" | "forwarded" | "x-forwarded-host";
+
+/** A host as a proxy writes it: a name or an IP literal, and a port. Nothing that a URL would read as more. */
+const AUTHORITY = /^(?:[a-z0-9_.-]+|\[[0-9a-f:.]+\])(?::\d{1,5})?$/i;
+
+function forwardedOrigin(proto: string, host: string | undefined): string | null {
+  if (!host || !AUTHORITY.test(host)) return null;
+  return webUrl(`${proto}://${host}`)?.origin ?? null;
+}
+
+/**
+ * The locations this request's headers name, in order: `x-droplet-location`
+ * (one URL, its path the prefix); the first element of RFC 7239
+ * `Forwarded` (`proto` and `host`); the first `X-Forwarded-Proto` and
+ * `X-Forwarded-Host`, with `X-Forwarded-Port` when the host has none. The
+ * last two take their prefix from `X-Forwarded-Prefix`. First values only:
+ * the first proxy wrote them, the ones after it only appended. A header
+ * that does not parse is left out. None of them is trusted yet.
+ */
+export function headerLocations(headers: Headers, requestUrl: URL): { source: LocationSource; location: string }[] {
+  const found: { source: LocationSource; location: string }[] = [];
+  const sent = headers.get("x-droplet-location");
+  const named = sent === null || sent.includes(",") ? null : parseLocation(sent.trim());
+  if (named) found.push({ source: "x-droplet-location", location: named });
+
+  const protocol = requestUrl.protocol.replace(/:$/, "");
+  const prefix = firstValue(headers.get("x-forwarded-prefix"));
+  const forwarded = headers.get("forwarded");
+  if (forwarded) {
+    const { host, proto } = parseForwarded(forwarded);
+    const origin = forwardedOrigin(proto ?? protocol, host);
+    if (origin) found.push({ source: "forwarded", location: withPrefix(origin, prefix) });
+  }
+  const forwardedHost = firstValue(headers.get("x-forwarded-host"));
+  if (forwardedHost) {
+    const port = firstValue(headers.get("x-forwarded-port"));
+    const withPort = port && /^\d{1,5}$/.test(port) && Number(port) <= 65535 && !/:\d+$/.test(forwardedHost)
+      ? `${forwardedHost}:${port}`
+      : forwardedHost;
+    const origin = forwardedOrigin(firstValue(headers.get("x-forwarded-proto")) ?? protocol, withPort);
+    if (origin) found.push({ source: "x-forwarded-host", location: withPrefix(origin, prefix) });
+  }
+  return found;
 }
 
 /**
@@ -55,8 +114,8 @@ export function hostTokens(nonce = ""): HostTokens {
 
 /**
  * What the tokens of a build-time render become for one request: the host
- * it renders on, and the location it is served from (a trusted `x-host`,
- * else the request's origin; never an untrusted header).
+ * it renders on, and the location it is served from (the request's
+ * resolved location; never an untrusted header).
  */
 export type TokenValues = { host: URL; location: string };
 
@@ -87,32 +146,17 @@ function firstValue(value: string | null): string | undefined {
 }
 
 /**
- * The host page, the classic way: `Forwarded` (RFC 7239), then
- * `X-Forwarded-Proto` + `X-Forwarded-Host`, then `Origin`, then the
- * request's own origin. Headers carry an origin only: the path is `/`. A
- * value that is not a web URL (`X-Forwarded-Proto: javascript`) is skipped
- * for the next source.
+ * The host page when the request body names none: its `Origin`, else
+ * `location`, where this server is reached (an origin only: the path is
+ * `/`). `Origin` must be a web URL, `null` is skipped.
  */
-export function hostFromHeaders(headers: Headers, requestUrl: URL): URL {
-  const protocol = requestUrl.protocol.replace(/:$/, "");
-  const forwarded = headers.get("forwarded");
-  if (forwarded) {
-    const { host, proto } = parseForwarded(forwarded);
-    const url = host ? webUrl(`${proto ?? protocol}://${host}`) : null;
-    if (url) return new URL(url.origin);
-  }
-  const forwardedHost = firstValue(headers.get("x-forwarded-host"));
-  if (forwardedHost) {
-    const proto = firstValue(headers.get("x-forwarded-proto")) ?? protocol;
-    const url = webUrl(`${proto}://${forwardedHost}`);
-    if (url) return new URL(url.origin);
-  }
+export function hostFromHeaders(headers: Headers, location: URL): URL {
   const origin = headers.get("origin");
   if (origin && origin !== "null") {
     const url = webUrl(origin);
     if (url) return new URL(url.origin);
   }
-  return new URL(requestUrl.origin);
+  return new URL(location.origin);
 }
 
 /**

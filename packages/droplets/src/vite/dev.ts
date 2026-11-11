@@ -385,6 +385,7 @@ export function createDevApp(
     linkHeader: false,
     buildHash: state.buildHash,
     cors: config.cors,
+    origin: config.origin,
     trustedOrigins: config.trustedOrigins,
     fragmentCacheControl: config.fragmentCacheControl,
     csrf: config.csrf,

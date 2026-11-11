@@ -3,7 +3,7 @@ export type Droplet = {
   /**
    * The droplets server as the browser reaches it: where the page loads
    * the droplets from (the URL it loaded `/index.js` from), or on the
-   * server the request's public location (`x-host`, an `http(s)` URL). May
+   * server the request's public location (a trusted location header, an `http(s)` URL). May
    * carry a path when a proxy serves the droplets under one. `""` on the
    * server outside a request.
    */

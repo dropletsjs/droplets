@@ -31,12 +31,14 @@ yourself and the client takes care of data and rendering.
 
 The host usually reaches the droplets server over an internal address
 (`http://droplets:8000` inside Docker) while browsers reach it over a public
-one (`http://localhost:8000`). Send the public origin in the `x-host` header
-when fetching a fragment, so the URLs it writes use that origin, and load
-`/index.js` from the same place: the browser loads every droplet from where
-`/index.js` came from. The droplets server honours `x-host` only from an
-origin it trusts, so each compose file gives it `DROPLETS_TRUSTED_ORIGINS`
-(the public URL and the host's own origin). The
+one (`http://localhost:8000`). Send the public origin in the
+`x-droplet-location` header when fetching a fragment, so the URLs it writes
+use that origin, and load `/index.js` from the same place: the browser loads
+every droplet from where `/index.js` came from. The droplets server honours
+`x-droplet-location` only when its origin is trusted (its own, in
+`DROPLETS_ORIGIN` or in `DROPLETS_TRUSTED_ORIGINS`), so each compose file
+gives it `DROPLETS_TRUSTED_ORIGINS` (the public URL and the host's own
+origin). The
 [Security model](https://dropletsjs.dev/guides/security/) has what a host
 should and should not pass on.
 
@@ -94,8 +96,8 @@ props each takes from the page's URL.
 
 Each host proxies `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` to the
 shop under its own origin, so the cart and admin cookies are first-party and
-nothing is cross-origin, with a fixed `x-host` (the host's public origin,
-never the request's Host). Hosts that render on the server fetch the
+nothing is cross-origin, with a fixed `x-droplet-location` (the host's public
+origin, never the request's Host). Hosts that render on the server fetch the
 fragments there: they forward the browser's `Cookie`, send the page as
 `Referer`, never follow redirects, paste only HTML answers, pass the
 fragments' `Set-Cookie` on with the page and their `Link` preloads into its

@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
-import { createDropletsApp, type DropletsAppOptions } from "../../src/runtime/app.ts";
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
+import { logger } from "../../src/core/logger.ts";
+import { createDropletsApp, resetLocationWarnings, type DropletsAppOptions } from "../../src/runtime/app.ts";
 import { UnhandledDropletError } from "../../src/runtime/load.ts";
 import type { ApiModule, ApiRoute } from "../../src/runtime/routes.ts";
 import { matchRoute } from "../../src/runtime/routes.ts";
@@ -146,9 +147,9 @@ describe("createDropletsApp: assets", () => {
         return { html: name, serverData: null };
       },
     });
-    const first = app.request("/droplets/hello", { headers: { "x-host": "https://first.example" } });
+    const first = app.request("/droplets/hello", { headers: { "x-droplet-location": "https://first.example" } });
     await new Promise((resolve) => setTimeout(resolve, 10));
-    await app.request("/droplets/hello", { headers: { "x-host": "https://second.example" } });
+    await app.request("/droplets/hello", { headers: { "x-droplet-location": "https://second.example" } });
     release();
     await first;
     expect(seen).toEqual([
@@ -262,11 +263,11 @@ describe("createDropletsApp: props and the load event", () => {
   it("builds the droplet event: request, host, locals, platform, droplet, props", async () => {
     const { app, renderDroplet } = fakeApp();
     await app.request("http://internal:8000/droplets/hello?who=E", {
-      headers: { "x-host": "https://public.test" },
+      headers: { "x-droplet-location": "https://public.test" },
     });
     const event = renderDroplet.mock.calls[0]?.[1];
     expect(event?.droplet).toBe("hello");
-    // Where it renders: nothing says, so the request's own origin. `x-host`
+    // Where it renders: nothing says, so the request's own origin. The location
     // is where the droplet lives, not where it renders.
     expect(event?.host.href).toBe("http://internal:8000/");
     expect(event).not.toHaveProperty("url");
@@ -291,18 +292,22 @@ describe("createDropletsApp: props and the load event", () => {
     expect(event?.props).toEqual({ a: 1 });
   });
 
-  it("takes host the classic way: Forwarded, X-Forwarded-*, Origin, the request", async () => {
-    const hostOf = async (headers: Record<string, string>) => {
-      const { app, renderDroplet } = fakeApp();
+  it("takes host without a body from Origin, else the location's origin; never from forwarded headers", async () => {
+    const hostOf = async (headers: Record<string, string>, options: Partial<DropletsAppOptions> = {}) => {
+      const { app, renderDroplet } = fakeApp(options);
       await app.request("http://drops.test/droplets/hello", { headers });
       return renderDroplet.mock.calls[0]?.[1].host.href;
     };
-    expect(await hostOf({ forwarded: 'for=1.2.3.4;proto=https;host="shop.test:8443"' })).toBe("https://shop.test:8443/");
-    expect(await hostOf({ "x-forwarded-host": "shop.test, proxy.test", "x-forwarded-proto": "https" })).toBe("https://shop.test/");
-    expect(await hostOf({ "x-forwarded-host": "shop.test" })).toBe("http://shop.test/");
+    expect(await hostOf({ forwarded: 'for=1.2.3.4;proto=https;host="shop.test:8443"' })).toBe("http://drops.test/");
+    expect(await hostOf({ "x-forwarded-host": "shop.test, proxy.test", "x-forwarded-proto": "https" })).toBe("http://drops.test/");
     expect(await hostOf({ origin: "https://page.test" })).toBe("https://page.test/");
     expect(await hostOf({ origin: "null" })).toBe("http://drops.test/");
     expect(await hostOf({})).toBe("http://drops.test/");
+    // A trusted location stands in for the host: its origin, not its prefix.
+    const trusted = { origin: ["https://shop.test/mfe"] };
+    expect(await hostOf({}, trusted)).toBe("https://shop.test/");
+    expect(await hostOf({ "x-forwarded-host": "shop.test", "x-forwarded-proto": "https" }, { origin: ["https://shop.test", "https://two.test"] })).toBe("https://shop.test/");
+    expect(await hostOf({ origin: "https://page.test" }, trusted)).toBe("https://page.test/");
   });
 
   it("lets handle replace host; loads and the context see its value", async () => {
@@ -385,51 +390,51 @@ describe("createDropletsApp: fragment", () => {
     expect(html).toContain('<p>hello:{"who":"Body"}</p>');
   });
 
-  it("uses a trusted x-host as the public location, prefix included, for the URLs it writes", async () => {
+  it("uses a trusted x-droplet-location as the public location, prefix included, for the URLs it writes", async () => {
     const { app } = fakeApp({ trustedOrigins: ["https://public.test", "https://shop.test"] });
-    for (const [xHost, location] of [
+    for (const [sent, location] of [
       ["https://public.test", "https://public.test"],
       ["https://shop.test/mfe/", "https://shop.test/mfe"],
       ["https://user:pw@shop.test/mfe?x=1#y", "https://shop.test/mfe"],
     ] as const) {
-      const res = await app.request("http://internal:8000/droplets/hello", { headers: { "x-host": xHost } });
-      expect(await res.text(), xHost).toContain(`href="${location}/droplets/hello/style.css?c=abc123"`);
-      expect(res.headers.get("link"), xHost).toContain(`<${location}/droplets/hello/style.css?c=abc123>; rel=preload`);
+      const res = await app.request("http://internal:8000/droplets/hello", { headers: { "x-droplet-location": sent } });
+      expect(await res.text(), sent).toContain(`href="${location}/droplets/hello/style.css?c=abc123"`);
+      expect(res.headers.get("link"), sent).toContain(`<${location}/droplets/hello/style.css?c=abc123>; rel=preload`);
     }
   });
 
-  it("ignores an x-host that is not trusted: a request cannot point the server's URLs elsewhere", async () => {
-    for (const trustedOrigins of [[], ["*"], ["https://shop.test"]]) {
+  it("ignores an x-droplet-location that is not trusted: a request cannot point the server's URLs elsewhere", async () => {
+    for (const trustedOrigins of [[], ["https://shop.test"]]) {
       const { app } = fakeApp({ trustedOrigins, fragmentCacheControl: "public, max-age=60" });
       const res = await app.request("http://internal:8000/droplets/hello", {
-        headers: { "x-host": "https://evil.example/mfe" },
+        headers: { "x-droplet-location": "https://evil.example/mfe" },
       });
       const html = await res.text();
       expect(html, String(trustedOrigins)).toContain('href="http://internal:8000/droplets/hello/style.css?c=abc123"');
       expect(html, String(trustedOrigins)).not.toContain("evil.example");
       expect(res.headers.get("link") ?? "", String(trustedOrigins)).not.toContain("evil.example");
       // Cacheable: it varies on what its URLs come from.
-      expect(res.headers.get("vary")).toBe("x-host, forwarded, x-forwarded-host, x-forwarded-proto, origin");
+      expect(res.headers.get("vary")).toBe("x-droplet-location, forwarded, x-forwarded-host, x-forwarded-proto, x-forwarded-port, x-forwarded-prefix, origin");
     }
   });
 
-  it("honours an x-host on the request's own origin without a list", async () => {
+  it("honours an x-droplet-location on the request's own origin without a list", async () => {
     const { app } = fakeApp();
     const res = await app.request("http://internal:8000/droplets/hello", {
-      headers: { "x-host": "http://internal:8000/mfe" },
+      headers: { "x-droplet-location": "http://internal:8000/mfe" },
     });
     expect(await res.text()).toContain('href="http://internal:8000/mfe/droplets/hello/style.css?c=abc123"');
   });
 
-  it("ignores an x-host that is not an http(s) URL: it never becomes a script or style URL", async () => {
+  it("ignores an x-droplet-location that is not an http(s) URL: it never becomes a script or style URL", async () => {
     const { app } = fakeApp({ trustedOrigins: ["https://public.test"] });
-    for (const xHost of ["data:text/javascript,alert(1)//", "javascript:alert(1)", "not a url", "ftp://drops.test"]) {
-      const res = await app.request("http://internal:8000/droplets/hello", { headers: { "x-host": xHost } });
+    for (const sent of ["data:text/javascript,alert(1)//", "javascript:alert(1)", "not a url", "ftp://drops.test"]) {
+      const res = await app.request("http://internal:8000/droplets/hello", { headers: { "x-droplet-location": sent } });
       const html = await res.text();
-      expect(html, xHost).toContain('href="http://internal:8000/droplets/hello/style.css?c=abc123"');
-      expect(html, xHost).not.toContain("javascript:");
-      expect(html, xHost).not.toContain("data:text");
-      expect(res.headers.get("link"), xHost).not.toMatch(/data:|javascript:|ftp:/);
+      expect(html, sent).toContain('href="http://internal:8000/droplets/hello/style.css?c=abc123"');
+      expect(html, sent).not.toContain("javascript:");
+      expect(html, sent).not.toContain("data:text");
+      expect(res.headers.get("link"), sent).not.toMatch(/data:|javascript:|ftp:/);
     }
   });
 
@@ -937,10 +942,10 @@ describe("createDropletsApp: fragment styles and preloads", () => {
     ].join(", "));
   });
 
-  it("uses the public origin from a trusted x-host for the link and the header", async () => {
+  it("uses the public origin from a trusted x-droplet-location for the link and the header", async () => {
     const { app } = withEntry({ trustedOrigins: ["https://public.test"] });
     const res = await app.request("http://internal:8000/droplets/hello", {
-      headers: { "x-host": "https://public.test" },
+      headers: { "x-droplet-location": "https://public.test" },
     });
     const link = res.headers.get("link") ?? "";
     expect(link).toContain("<https://public.test/droplets/hello/style.css?c=abc123>; rel=preload; as=style");
@@ -1033,7 +1038,7 @@ describe("createDropletsApp: Cache-Control of fragments and _data", () => {
 });
 
 describe("createDropletsApp: setHeaders in a droplet's load", () => {
-  const HOST_VARY = "x-host, forwarded, x-forwarded-host, x-forwarded-proto, origin";
+  const HOST_VARY = "x-droplet-location, forwarded, x-forwarded-host, x-forwarded-proto, x-forwarded-port, x-forwarded-prefix, origin";
   const publicLoad = (event: LoadEvent) => {
     event.setHeaders({ "Cache-Control": "public, max-age=60", vary: "Accept-Language" });
     return { name: "hello", props: event.props };
@@ -1070,7 +1075,7 @@ describe("createDropletsApp: setHeaders in a droplet's load", () => {
       },
     });
     const res = await app.request("/droplets/hello/_data");
-    expect(res.headers.get("vary")).toBe("Origin, cookie, x-host, forwarded, x-forwarded-host, x-forwarded-proto");
+    expect(res.headers.get("vary")).toBe("Origin, cookie, x-droplet-location, forwarded, x-forwarded-host, x-forwarded-proto, x-forwarded-port, x-forwarded-prefix");
   });
 
   it("puts none of them on an error answer or a failed load", async () => {
@@ -1408,7 +1413,7 @@ describe("createDropletsApp: prerendered droplets", () => {
     expect(payload(html, "data-droplet-data")).toEqual({ data: { home: "https://shop.test/home", text: "__$DROPLET_PATH$__" } });
   });
 
-  it("replaces the location token with where this request reaches the server, never an untrusted x-host", async () => {
+  it("replaces the location token with where this request reaches the server, never an untrusted x-droplet-location", async () => {
     const stored = vi.fn(async () => ({
       html: '<form action="__$DROPLET_LOCATION_n0nce$__/droplets/docs?/add"></form>',
       data: { api: "__$DROPLET_LOCATION_n0nce$__/api" },
@@ -1430,12 +1435,24 @@ describe("createDropletsApp: prerendered droplets", () => {
     // Before transform, as for the host tokens.
     expect(transformDroplet.mock.calls[0]?.[1].html).toContain("http://drops.test/droplets/docs");
 
-    const proxied = await request({ "x-host": "https://shop.test/mfe/" });
+    const proxied = await request({ "x-droplet-location": "https://shop.test/mfe/" });
     expect(proxied).toContain('<form action="https://shop.test/mfe/droplets/docs?/add">');
 
-    const poisoned = await request({ "x-host": "https://evil.example/x" });
-    expect(poisoned).toContain('<form action="http://drops.test/droplets/docs?/add">');
-    expect(poisoned).not.toContain("evil.example");
+    const forwarded = await request({ "x-forwarded-host": "shop.test", "x-forwarded-proto": "https", "x-forwarded-prefix": "/fw" });
+    expect(forwarded).toContain('<form action="https://shop.test/fw/droplets/docs?/add">');
+    expect(payload(forwarded, "data-droplet-data")).toEqual({ data: { api: "https://shop.test/fw/api" } });
+
+    for (const headers of <Record<string, string>[]>[
+      { "x-droplet-location": "https://evil.example/x" },
+      { "x-forwarded-host": "evil.example", "x-forwarded-proto": "https" },
+      { forwarded: "proto=https;host=evil.example" },
+      { "x-forwarded-host": "shop.test", "x-forwarded-proto": "https", "x-forwarded-prefix": "/x/../../evil" },
+    ]) {
+      const poisoned = await request(headers);
+      expect(poisoned, JSON.stringify(headers)).toMatch(/<form action="(http:\/\/drops\.test|https:\/\/shop\.test)\/droplets\/docs\?\/add">/);
+      expect(poisoned, JSON.stringify(headers)).not.toContain("evil");
+      expect(JSON.stringify(payload(poisoned, "data-droplet-data"))).not.toContain("evil");
+    }
   });
 
   it("runs transform per request, over stored and live HTML", async () => {
@@ -1484,7 +1501,7 @@ describe("createDropletsApp: building", () => {
     });
     const res = await app.request("http://droplets.build/droplets/hello", {
       method: "POST",
-      headers: { "content-type": "application/json", "x-host": "http://droplets.build/prefix" },
+      headers: { "content-type": "application/json", "x-droplet-location": "http://droplets.build/prefix" },
       body: JSON.stringify({ props: {} }),
     });
     const { nonce } = (await res.json()) as { nonce: string };
@@ -1654,5 +1671,167 @@ describe("createDropletsApp: handleError", () => {
     });
     const res = await app.request("/droplets/hello/_data", { method: "POST" });
     expect(await res.json()).toEqual({ message: "Internal Server Error" });
+  });
+});
+
+describe("createDropletsApp: the droplet location", () => {
+  let warn: MockInstance<typeof logger.warn>;
+  beforeEach(() => {
+    resetLocationWarnings();
+    warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    warn.mockRestore();
+    vi.unstubAllEnvs();
+  });
+
+  const warnings = () => warn.mock.calls.map((call) => String(call[1]));
+
+  /** Where the fragment's stylesheet points: the location the request resolved to. */
+  const locationOf = async (headers: Record<string, string>, options: Partial<DropletsAppOptions> = {}, app = fakeApp(options).app) => {
+    const html = await (await app.request("http://internal:8000/droplets/hello", { headers })).text();
+    return html.match(/<link rel="stylesheet" href="([^"]*)\/droplets\/hello\/style\.css/)?.[1];
+  };
+  const SHOP = { origin: ["https://shop.test", "https://two.test"] };
+  const viaShop = { "x-forwarded-host": "shop.test", "x-forwarded-proto": "https" };
+
+  it("ignores a forged X-Forwarded-Host without a list", async () => {
+    expect(await locationOf({ "x-forwarded-host": "evil.example", "x-forwarded-proto": "https" })).toBe("http://internal:8000");
+    expect(await locationOf({ forwarded: "proto=https;host=evil.example" })).toBe("http://internal:8000");
+    // Unless it names the request's own origin.
+    expect(await locationOf({ "x-forwarded-host": "internal:8000", "x-forwarded-prefix": "/mfe" })).toBe("http://internal:8000/mfe");
+  });
+
+  it("ignores a forwarded location not in the list, with one warning per header", async () => {
+    const { app } = fakeApp(SHOP);
+    const evil = { "x-forwarded-host": "evil.example", "x-forwarded-proto": "https" };
+    expect(await locationOf(evil, {}, app)).toBe("http://internal:8000");
+    expect(await locationOf(evil, {}, app)).toBe("http://internal:8000");
+    expect(warnings().filter((text) => text.includes("x-forwarded-host"))).toHaveLength(1);
+    expect(warnings()[0]).toContain("https://evil.example");
+    expect(await locationOf({ forwarded: "host=evil.example" }, {}, app)).toBe("http://internal:8000");
+    expect(warnings().filter((text) => text.includes("from forwarded"))).toHaveLength(1);
+  });
+
+  it("uses a forwarded location whose origin is listed in origin or trustedOrigins, with its prefix and port", async () => {
+    expect(await locationOf({ ...viaShop, "x-forwarded-prefix": "/mfe/" }, SHOP)).toBe("https://shop.test/mfe");
+    expect(await locationOf({ ...viaShop, "x-forwarded-prefix": "/mfe" }, { trustedOrigins: ["https://shop.test"] })).toBe("https://shop.test/mfe");
+    expect(await locationOf({ ...viaShop, "x-forwarded-port": "8443" }, { origin: ["https://shop.test:8443"] })).toBe("https://shop.test:8443");
+    // A default port is no port; a host with a port keeps its own.
+    expect(await locationOf({ ...viaShop, "x-forwarded-port": "443" }, SHOP)).toBe("https://shop.test");
+    expect(await locationOf({ "x-forwarded-host": "shop.test:9000", "x-forwarded-proto": "https", "x-forwarded-port": "443" }, { origin: ["https://shop.test:9000"] })).toBe("https://shop.test:9000");
+    expect(await locationOf({ forwarded: 'for=1.2.3.4;proto=https;host="shop.test"', "x-forwarded-prefix": "/fw" }, SHOP)).toBe("https://shop.test/fw");
+  });
+
+  it("reads the first hop of a forwarded header, never a later one", async () => {
+    expect(await locationOf({ "x-forwarded-host": "shop.test, evil.example", "x-forwarded-proto": "https, http" }, SHOP)).toBe("https://shop.test");
+    expect(await locationOf({ "x-forwarded-host": "evil.example, shop.test", "x-forwarded-proto": "https" }, SHOP)).toBe("http://internal:8000");
+    expect(await locationOf({ forwarded: "proto=https;host=shop.test, proto=https;host=evil.example" }, SHOP)).toBe("https://shop.test");
+    expect(await locationOf({ forwarded: "proto=https;host=evil.example, proto=https;host=shop.test" }, SHOP)).toBe("http://internal:8000");
+    expect(await locationOf({ ...viaShop, "x-forwarded-prefix": "/one, /two" }, SHOP)).toBe("https://shop.test/one");
+  });
+
+  it("drops a prefix that is no clean path, keeping the trusted origin", async () => {
+    for (const prefix of ["@evil.example", "evil", "/a/../../b", "/..", "//evil.example/x", "/a\\b", "/a\tb", "/a?x=1", "/a#x", `/${"a".repeat(300)}`]) {
+      expect(await locationOf({ ...viaShop, "x-forwarded-prefix": prefix }, SHOP), prefix).toBe("https://shop.test");
+    }
+    for (const sent of ["https://shop.test//evil.example/x", "https://shop.test/a/..%2f..%2fb/%09", "https://shop.test/a\\b"]) {
+      expect(await locationOf({ "x-droplet-location": sent }, SHOP), sent).toMatch(/^https:\/\/shop\.test(\/[a-z%0-9.]*)*$/i);
+      expect(await locationOf({ "x-droplet-location": sent }, SHOP), sent).not.toContain("//evil");
+    }
+    expect(await locationOf({ "x-droplet-location": "https://shop.test//evil.example/x" }, SHOP)).toBe("https://shop.test");
+    // A host that is more than a host: refused, never read as a URL.
+    for (const host of ["evil.example@shop.test", "shop.test/evil", "shop.test?x", "shop.test#x"]) {
+      expect(await locationOf({ "x-forwarded-host": host, "x-forwarded-proto": "https" }, SHOP), host).toBe("http://internal:8000");
+    }
+    // Two values in a single-valued header: refused.
+    expect(await locationOf({ "x-droplet-location": "https://shop.test/a, https://evil.example" }, SHOP)).toBe("http://internal:8000");
+  });
+
+  it("tries x-droplet-location, then Forwarded, then X-Forwarded-*, skipping the untrusted ones", async () => {
+    const all = { "x-droplet-location": "https://two.test/named", forwarded: "proto=https;host=two.test", ...viaShop };
+    expect(await locationOf(all, SHOP)).toBe("https://two.test/named");
+    expect(await locationOf({ forwarded: "proto=https;host=two.test", ...viaShop }, SHOP)).toBe("https://two.test");
+    expect(await locationOf({ ...all, "x-droplet-location": "https://evil.example", forwarded: "host=evil.example" }, SHOP)).toBe("https://shop.test");
+  });
+
+  it("uses the single origin entry when no header names a location, and the request's origin with several", async () => {
+    expect(await locationOf({}, { origin: ["https://shop.test/mfe"] })).toBe("https://shop.test/mfe");
+    expect(await locationOf({ "x-forwarded-host": "evil.example" }, { origin: ["https://shop.test/mfe"] })).toBe("https://shop.test/mfe");
+    expect(await locationOf({}, SHOP)).toBe("http://internal:8000");
+    expect(await locationOf({}, { origin: ["*"] })).toBe("http://internal:8000");
+  });
+
+  it("reads DROPLETS_ORIGIN per request, adding to origin", async () => {
+    const { app } = fakeApp();
+    expect(await locationOf({}, {}, app)).toBe("http://internal:8000");
+    vi.stubEnv("DROPLETS_ORIGIN", "https://shop.test/mfe");
+    expect(await locationOf({}, {}, app)).toBe("https://shop.test/mfe");
+    vi.stubEnv("DROPLETS_ORIGIN", "https://shop.test, https://two.test, not a url");
+    expect(await locationOf({ forwarded: "proto=https;host=two.test" }, {}, app)).toBe("https://two.test");
+    expect(await locationOf({}, {}, app)).toBe("http://internal:8000");
+    expect(warnings().some((text) => text.includes('DROPLETS_ORIGIN: ignoring "not a url"'))).toBe(true);
+    vi.stubEnv("DROPLETS_ORIGIN", "");
+    expect(await locationOf({ forwarded: "proto=https;host=two.test" }, {}, app)).toBe("http://internal:8000");
+  });
+
+  it("puts the origin check and redirect targets on the resolved location", async () => {
+    const { app } = fakeApp(SHOP);
+    const post = (headers: Record<string, string>) =>
+      app.request("http://internal:8000/droplets/hello", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded", origin: "https://shop.test", ...headers },
+        body: "a=1",
+      });
+    expect((await post({})).status).toBe(403);
+    expect((await post(viaShop)).status).not.toBe(403);
+    expect((await post({ "x-forwarded-host": "evil.example", "x-forwarded-proto": "https", origin: "https://evil.example" })).status).toBe(403);
+  });
+
+  it("never honours x-host, and warns about it once", async () => {
+    const { app } = fakeApp();
+    expect(await locationOf({ "x-host": "http://internal:8000/mfe" }, {}, app)).toBe("http://internal:8000");
+    expect(await locationOf({ "x-host": "http://internal:8000/mfe" }, {}, app)).toBe("http://internal:8000");
+    expect(warnings().filter((text) => text === "x-host is now x-droplet-location")).toHaveLength(1);
+  });
+
+  describe('"*"', () => {
+    const anyLocation = (text: string) => text.includes('"*" trusts any forwarded location') && text.includes("/guides/security/#trusting-any-location");
+
+    it("in origin or trustedOrigins, accepts any forwarded location", async () => {
+      const evil = { "x-forwarded-host": "evil.example", "x-forwarded-proto": "https", "x-forwarded-prefix": "/x" };
+      expect(await locationOf(evil, { origin: ["*"] })).toBe("https://evil.example/x");
+      expect(await locationOf(evil, { trustedOrigins: ["*"] })).toBe("https://evil.example/x");
+      expect(await locationOf({ "x-droplet-location": "https://any.example/p" }, { origin: ["*"] })).toBe("https://any.example/p");
+      vi.stubEnv("DROPLETS_ORIGIN", "*");
+      expect(await locationOf(evil)).toBe("https://evil.example/x");
+    });
+
+    it("still drops a prefix that is no clean path", async () => {
+      for (const prefix of ["@evil.example", "/a/../b", "//evil.example", "/a\tb", `/${"a".repeat(300)}`]) {
+        expect(await locationOf({ ...viaShop, "x-forwarded-prefix": prefix }, { origin: ["*"] }), prefix).toBe("https://shop.test");
+      }
+      expect(await locationOf({ "x-forwarded-host": "evil.example@shop.test" }, { origin: ["*"] })).toBe("http://internal:8000");
+    });
+
+    it("warns once, when the app starts, not per request", async () => {
+      const { app } = fakeApp({ origin: ["*"] });
+      expect(warnings().filter(anyLocation)).toEqual(['origin: "*" trusts any forwarded location; see https://dropletsjs.dev/guides/security/#trusting-any-location']);
+      await locationOf(viaShop, {}, app);
+      await locationOf(viaShop, {}, app);
+      expect(warnings().filter(anyLocation)).toHaveLength(1);
+      fakeApp({ trustedOrigins: ["*"] });
+      expect(warnings().filter((text) => anyLocation(text) && text.startsWith("trustedOrigins"))).toHaveLength(1);
+      fakeApp();
+      expect(warnings().filter(anyLocation)).toHaveLength(2);
+    });
+
+    it("in DROPLETS_ORIGIN, warns once", async () => {
+      const { app } = fakeApp();
+      vi.stubEnv("DROPLETS_ORIGIN", "https://shop.test,*");
+      await locationOf({}, {}, app);
+      await locationOf({}, {}, app);
+      expect(warnings().filter((text) => anyLocation(text) && text.startsWith("DROPLETS_ORIGIN"))).toHaveLength(1);
+    });
   });
 });

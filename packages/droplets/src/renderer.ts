@@ -334,7 +334,7 @@ export type ServerRenderContext = {
   /**
    * The URL of the droplet's form action `name` (`default` without one):
    * `${location}/droplets/<id>?/<name>`, on the request's public
-   * location (a trusted `x-host`, else the request's origin; a token
+   * location (a trusted location header, else the request's origin; a token
    * replaced per request at build). See "Form actions" above.
    */
   actionUrl: ActionUrl;

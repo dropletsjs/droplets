@@ -27,7 +27,7 @@ browser then talks to one origin, and the droplets' cookies are first-party.
 | Header | On | Value | Why |
 | --- | --- | --- | --- |
 | `accept: text/html` | your request | exactly that | What every example sends. A `GET` fragment is HTML whatever `accept` says; on an action `POST` (the proxy), `accept: application/json` is what makes the answer JSON, so the proxy passes the browser's `accept` on unchanged. |
-| `x-host` | your request | your public origin, written out in your config: `https://www.example.com` | The URLs the fragment writes (its stylesheet, its `Link` preloads, its form actions) point there. Honoured only when listed in `DROPLETS_TRUSTED_ORIGINS`. See [`x-host`](/integrate/http-contract/#x-host-the-public-location). |
+| `x-droplet-location` | your request | your public origin, written out in your config: `https://www.example.com` | The URLs the fragment writes (its stylesheet, its `Link` preloads, its form actions) point there. Honoured only when its origin is trusted: the droplets server's own, in `DROPLETS_ORIGIN` or in `DROPLETS_TRUSTED_ORIGINS`. See [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location). |
 | `Cookie` | your request | the browser's `Cookie` header, as it came | The droplet's `handle` and loads see the visitor's session, cart and login. |
 | `Referer` | your request | the page's own URL, query included: `https://www.example.com/product/mug?v=3` | A `handle` that reads it with [`hostFrom`](/guides/writing-droplets/#host) gets the page as the droplet's `host`. After a form posted without JavaScript, the query carries the form's result ([Post/Redirect/Get](/guides/actions/#without-javascript-postredirectget)). |
 | redirects | your HTTP client | not followed: `redirect: "manual"` | A `3xx` is the droplet's answer (a moved product, a login). Answer the browser with the same status and `Location`. Following it would make your server request a URL someone else chose. |
@@ -46,7 +46,7 @@ async function fragment(page, id, props) {
   const res = await fetch(`${DROPLETS_INTERNAL_URL}/droplets/${encodeURIComponent(id)}?${new URLSearchParams(props)}`, {
     headers: {
       accept: "text/html",
-      "x-host": PUBLIC_ORIGIN, // fixed, from your config: never from the request
+      "x-droplet-location": PUBLIC_ORIGIN, // fixed, from your config: never from the request
       referer: PUBLIC_ORIGIN + page.pathAndQuery,
       ...(page.cookie ? { cookie: page.cookie } : {}),
     },
@@ -91,25 +91,29 @@ page that links it itself) and `/importmap.js` (with
 [externals](/guides/server/#import-maps)). The rest of the
 [routes](/integrate/http-contract/#routes) are for servers, not browsers.
 
-On each proxied request, set `x-host` to your public origin, clear
-`Forwarded`, `X-Forwarded-Host` and `X-Forwarded-Proto` (a client could name
-another host with them), do not follow redirects, and pass `Set-Cookie`
-back untouched. If your HTTP client decodes the body, drop
+On each proxied request, set `x-droplet-location` to your public origin,
+clear `Forwarded`, `X-Forwarded-Host`, `X-Forwarded-Proto` and
+`X-Forwarded-Prefix` (a client could set them; the droplets server reads
+them only as a fallback for its location, and trusts them only against its
+allow-list), do not follow redirects, and pass `Set-Cookie` back untouched.
+If your HTTP client decodes the body, drop
 `content-encoding` and `content-length` from the answer. In nginx, from
 `examples/hosts/nginx/nginx.conf`:
 
 ```nginx
 location ~ ^/(index\.js|droplets/|assets/|api/) {
   proxy_pass http://shop;
-  proxy_set_header x-host ${SHOP_PUBLIC_URL};
+  proxy_set_header x-droplet-location ${SHOP_PUBLIC_URL};
   proxy_set_header Forwarded "";
   proxy_set_header X-Forwarded-Host "";
   proxy_set_header X-Forwarded-Proto "";
+  proxy_set_header X-Forwarded-Prefix "";
 }
 ```
 
 Without a proxy, load `/index.js` from the droplets server's public URL,
-send that URL as `x-host`, and turn on [`cors`](/guides/security/#cors) on
+send that URL as `x-droplet-location` (its origin is then the droplets
+server's `DROPLETS_ORIGIN`), and turn on [`cors`](/guides/security/#cors) on
 the droplets server: the browser then fetches bundles and data across
 origins, and the droplets' cookies are third-party.
 
@@ -119,7 +123,8 @@ On the droplets server:
 
 | Variable | Value | What for |
 | --- | --- | --- |
-| `DROPLETS_TRUSTED_ORIGINS` | `https://www.example.com`, comma-separated for several | The `x-host` values it honours, and the origins whose form posts pass the [`Origin` check](/integrate/http-contract/#form-posts-the-origin-check). Added to `trustedOrigins` in `droplets.config.ts`, read at runtime. |
+| `DROPLETS_ORIGIN` | `https://drops.example.com` | Its own public origin, when the browser reaches it directly: an `x-droplet-location` on it is honoured, and a single entry is the location when no header names one. Added to [`origin`](/guides/configuration/) in `droplets.config.ts`, read at runtime. |
+| `DROPLETS_TRUSTED_ORIGINS` | `https://www.example.com`, comma-separated for several | The origins whose `x-droplet-location` it honours, and the origins whose form posts pass the [`Origin` check](/integrate/http-contract/#form-posts-the-origin-check). Added to `trustedOrigins` in `droplets.config.ts`, read at runtime. |
 | `DROPLETS_SECRET` | 32 or more random bytes | Signs a form's result on the `303` back to your page when JavaScript is off. Without it, such a post answers the droplet's fragment instead. |
 | `PORT` | `8000` by default | Where `node dist/server.js` (and Bun's) listens. |
 
@@ -129,11 +134,11 @@ On your server, two values the known hosts read from their environment
 | Variable | Example | What for |
 | --- | --- | --- |
 | `DROPLETS_INTERNAL_URL` | `http://droplets:8000` | Where your server reaches the droplets server: fragment fetches and the proxy |
-| `DROPLETS_PUBLIC_URL` | `https://www.example.com` | Where the browser reaches the droplets routes: sent as `x-host` |
+| `DROPLETS_PUBLIC_URL` | `https://www.example.com` | Where the browser reaches the droplets routes: sent as `x-droplet-location` |
 
 ## Security checklist
 
-1. Write `x-host` out in your config, never pass on a client's or build it from `Host`, and list it in `DROPLETS_TRUSTED_ORIGINS`.
+1. Write `x-droplet-location` out in your config, never pass on a client's or build it from `Host`, and list it in `DROPLETS_TRUSTED_ORIGINS`.
 2. Keep the droplets server reachable only through your server and your proxy.
 3. Paste only `text/html` answers, and never follow a fragment's redirect.
 4. Forward the browser's `Cookie`, pass `Set-Cookie` on without a `Domain`, and send pages with fragments as `private, no-store`.

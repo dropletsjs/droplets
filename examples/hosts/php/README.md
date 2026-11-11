@@ -6,7 +6,7 @@ not a file in `public/` to `public/index.php`; `public/` is the document
 root, so `app/` is never served.
 
 `/` fetches the Svelte example's three droplets at once (`curl_multi`), sends
-`x-host` so the fragments point at the browser-facing origin, and prints
+`x-droplet-location` so the fragments point at the browser-facing origin, and prints
 them into `app/views/index.php`, which loads `/index.js` once.
 
 ```bash
@@ -29,7 +29,7 @@ page's at once with `curl_multi` (`app/http.php`), into the templates under
 host's own origin, so its cookies (the cart, the admin session) are
 first-party and nothing is cross-origin.
 
-- `x-host` is `SHOP_PUBLIC_URL`, written out in the environment: never the
+- `x-droplet-location` is `SHOP_PUBLIC_URL`, written out in the environment: never the
   request's Host. The shop lists that origin in `DROPLETS_TRUSTED_ORIGINS`.
 - Fragment fetches forward the browser's `Cookie`, send the page URL
   (`REQUEST_URI`, query included) as `Referer`, never follow redirects, and

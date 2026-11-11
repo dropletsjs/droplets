@@ -20,7 +20,7 @@ client = httpx.AsyncClient(
 
 async def fragment(request: Request, droplet: str, params: list[tuple[str, str]] | None = None) -> dict:
     url = f"{SHOP_INTERNAL_URL}/droplets/{quote(droplet, safe='')}?{urlencode(params or [])}"
-    headers = {"accept": "text/html", "x-host": SHOP_ORIGIN, "referer": SHOP_ORIGIN + _raw_target(request)}
+    headers = {"accept": "text/html", "x-droplet-location": SHOP_ORIGIN, "referer": SHOP_ORIGIN + _raw_target(request)}
     cookie = request.headers.get("cookie")
     if cookie:
         headers["cookie"] = cookie
@@ -46,7 +46,7 @@ async def fragment(request: Request, droplet: str, params: list[tuple[str, str]]
 ```
 
 - `fragment()` sends `GET /droplets/<id>?<params>` to `SHOP_INTERNAL_URL`
-  with `accept: text/html`, `x-host` set to this host's public origin
+  with `accept: text/html`, `x-droplet-location` set to this host's public origin
   (`SHOP_ORIGIN`, from `SHOP_PUBLIC_URL`), the browser's `Cookie` as it came,
   and the page's path and query as `referer`.
 - The shared client never follows a redirect (`follow_redirects=False`), so
@@ -82,7 +82,7 @@ and the Jinja templates in `templates/shop/`.
 | On `web` | Value | Used for |
 | --- | --- | --- |
 | `SHOP_INTERNAL_URL` | `http://shop:8300` | internal: fragment fetches and the proxy |
-| `SHOP_PUBLIC_URL` | `http://localhost:8001` | public: this host's own origin, sent as `x-host` |
+| `SHOP_PUBLIC_URL` | `http://localhost:8001` | public: this host's own origin, sent as `x-droplet-location` |
 | `DROPLETS_INTERNAL_URL`, `DROPLETS_PUBLIC_URL` | `http://droplets:8000`, `http://localhost:8000` | the same pair, for the basic page |
 
 ### How a page gets a droplet
@@ -111,7 +111,7 @@ shop's `src/hooks.client.ts`):
 
 One handler on `/index.js`, `/droplets/{rest:path}` (fragments, `_data`,
 form actions), `/assets/{rest:path}` and `/api/{rest:path}`, for every
-method, passes the request to the shop with `x-host` written out and passes
+method, passes the request to the shop with `x-droplet-location` written out and passes
 the answer back: status, `Set-Cookie` and redirects untouched. The shop's
 cookies (`cart_id`, `shop_admin`) are first-party, and nothing is
 cross-origin; the shop sets them only from form actions and `/api`, which
@@ -120,7 +120,7 @@ come through here.
 ### The shop's environment
 
 - `DROPLETS_TRUSTED_ORIGINS: http://localhost:8001`: the only origin whose
-  [`x-host`](/integrate/http-contract/#x-host-the-public-location) and
+  [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location) and
   [form posts](/integrate/http-contract/#form-posts-the-origin-check) the shop accepts.
 - `DROPLETS_SECRET`: signs a form's result on the redirect back to the page
   when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)).
@@ -161,7 +161,7 @@ async def fetch_droplet(client: httpx.AsyncClient, droplet: str, **props: str) -
     query = f"?{urlencode(props)}" if props else ""
     response = await client.get(
         f"{DROPLETS_INTERNAL_URL}/droplets/{droplet}{query}",
-        headers={"x-host": DROPLETS_PUBLIC_URL},
+        headers={"x-droplet-location": DROPLETS_PUBLIC_URL},
         timeout=5.0,
     )
     response.raise_for_status()

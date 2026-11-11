@@ -20,7 +20,7 @@ Three parties: the browser, the host and the shop (a droplets server the
 host reaches on an internal address, never exposed). The host owns the
 page: its routes, the layout, the header and footer. For each page it
 fetches the droplets that fill its slots from the shop, server to server,
-passing its public origin as `x-host`, the browser's `Cookie` and the page's
+passing its public origin as `x-droplet-location`, the browser's `Cookie` and the page's
 own URL as `Referer`, and pastes the HTML in. The page loads `/index.js`
 once and each droplet hydrates itself. Everything else the browser asks
 the shop for (bundles, `_data`, form posts, `/api`) goes through a proxy on

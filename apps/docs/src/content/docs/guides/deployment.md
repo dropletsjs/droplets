@@ -194,9 +194,10 @@ app.use(getRequestListener(droplets.fetch));   // /index.js, /droplets/*, /asset
 app.listen(3000);
 ```
 
-Droplet routes and your routes then share one origin: no CORS, no `x-host`,
-and the page can call `droplets.fetch(new Request(url))` in-process to render
-fragments without an HTTP round trip. The
+Droplet routes and your routes then share one origin: no CORS, no
+`x-droplet-location`, and the page can call
+`droplets.fetch(new Request(url))` in-process to render fragments without an
+HTTP round trip. The
 [Express example](/integrate/hosts/express/) shows both this and the usual
 separate-process setup.
 
@@ -206,12 +207,16 @@ When a reverse proxy fronts the droplets server:
 
 - forward `/index.js`, `/index.css`, `/droplets/*` and `/assets/*` to it (and
   `/api/*` and `/importmap` if you use them);
-- set `x-host` to the public URL, written out in the proxy's configuration
-  (never built from the request's `Host`, and overwriting any `x-host` a
-  client sent), so fragments point at the proxy. Under a path, include it:
-  `x-host: https://shop.example/mfe`. List its origin in `trustedOrigins` (or
-  `DROPLETS_TRUSTED_ORIGINS`): the server ignores an `x-host` it does not
-  trust, and keep the droplets server unreachable except through the proxy;
+- set `x-droplet-location` to the public URL, written out in the proxy's
+  configuration (never built from the request's `Host`, and overwriting any
+  `x-droplet-location` a client sent), so fragments point at the proxy. Under
+  a path, include it: `x-droplet-location: https://shop.example/mfe`. Set its
+  origin as [`origin`](/guides/configuration/) (or `DROPLETS_ORIGIN`): the
+  server ignores a location whose origin is not its own, in `origin` or in
+  `trustedOrigins`. A proxy that already sends `Forwarded` or
+  `X-Forwarded-Proto` and `X-Forwarded-Host` (with `X-Forwarded-Prefix` under
+  a path) is read the same way, when `x-droplet-location` is absent. Keep the
+  droplets server unreachable except through the proxy;
 - keep the `cache-control` headers it sends; they are safe to honour: `/index.js`
   is `no-store`, fragments and `_data` are `private, no-store`
   (`fragmentCacheControl`), everything else it serves for the browser is

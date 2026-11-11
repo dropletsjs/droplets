@@ -57,7 +57,8 @@ const pick = (query, keys) => {
 /**
  * `internalUrl`: how this process reaches the shop (`http://shop:8300` in
  * Docker). `publicUrl`: this host's own public origin. It goes out as
- * `x-host` on every request, written out here: never the client's Host.
+ * `x-droplet-location` on every request, written out here: never the
+ * client's Host.
  */
 export function shop({ internalUrl, publicUrl }) {
   const internal = internalUrl.replace(/\/+$/, "");
@@ -67,7 +68,7 @@ export function shop({ internalUrl, publicUrl }) {
   // ---- The proxy --------------------------------------------------------
 
   async function proxy(req, res) {
-    const headers = new Headers({ "x-host": origin });
+    const headers = new Headers({ "x-droplet-location": origin });
     for (const name of FORWARDED_REQUEST_HEADERS) {
       const value = req.get(name);
       if (value) headers.set(name, value);
@@ -103,7 +104,7 @@ export function shop({ internalUrl, publicUrl }) {
 
   /** The browser's request, as the shop should see it: its cookies, this page as the host. */
   const fragmentHeaders = (req) => {
-    const headers = { accept: "text/html", "x-host": origin, referer: origin + req.originalUrl };
+    const headers = { accept: "text/html", "x-droplet-location": origin, referer: origin + req.originalUrl };
     const cookie = req.get("cookie");
     if (cookie) headers.cookie = cookie;
     return headers;
@@ -143,7 +144,7 @@ export function shop({ internalUrl, publicUrl }) {
   async function product(slug) {
     const url = `${internal}/droplets/product-page/_data?${new URLSearchParams({ slug })}`;
     try {
-      const response = await fetch(url, { headers: { "x-host": origin, accept: "application/json" }, redirect: "manual" });
+      const response = await fetch(url, { headers: { "x-droplet-location": origin, accept: "application/json" }, redirect: "manual" });
       if (!response.ok) return null;
       const body = await response.json();
       const found = body?.data?.product;

@@ -41,7 +41,7 @@ the shop or the basic page; `/` is still the Svelte example.
 The shop is proxied under this app's origin, so its cart and admin cookies
 are first-party and nothing is cross-origin: `/index.js`, `/droplets/*`,
 `/assets/*` and `/api/*` go to the shop with a fixed
-`x-host: http://localhost:8004`, never the client's Host. In the image,
+`x-droplet-location: http://localhost:8004`, never the client's Host. In the image,
 nginx does it (`nginx.conf`, which answers every other route with
 `index.html`); under `vite dev` and `vite preview`, `server.proxy` does, to
 `SHOP_INTERNAL_URL` (default `http://localhost:8300`). The app's own build

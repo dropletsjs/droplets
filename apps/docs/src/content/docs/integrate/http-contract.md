@@ -1,6 +1,6 @@
 ---
 title: The HTTP contract
-description: "Every route a droplets server exposes, the fragment's markup and Link header, x-host and host, form actions, the Origin check and body limits."
+description: "Every route a droplets server exposes, the fragment's markup and Link header, x-droplet-location and host, form actions, the Origin check and body limits."
 ---
 
 A droplets server is an ordinary HTTP server. These routes are the whole
@@ -22,6 +22,10 @@ interface; anything that can make a request can host a droplet.
 | `GET /health` | `ok`, for health checks (`health` option) |
 | `GET /importmap`, `/importmap.js` | The [import map](/guides/server/#import-maps), when there are externals |
 | `GET /` | The `index` page in production; the [devtools page](/guides/development/#the-devtools-page) in `vite dev` |
+
+Header names follow one rule: what a request sends is singular,
+`x-droplet-*` (`x-droplet-location`, `x-droplet-props`); what a response
+sends is plural, `x-droplets-*` (`x-droplets-build`).
 
 Unknown droplets answer `404`. A load that fails answers the error page with
 `500` ([Errors](/guides/errors/)); `error()` and `redirect()` answer their own
@@ -146,102 +150,122 @@ GET /droplets/products/_data?category=mugs
   { "data": { "products": [ … ] } }
 ```
 
-## `x-host`: the public location
+## `x-droplet-location`: the public location
 
-`x-host` carries one URL: the droplets server's public location, as the
-**browser** sees it. That is the origin, and the path prefix if there is
-one, under which the browser reaches `/index.js`, `/droplets/*`,
-`/assets/*` and `/api/*`:
+The droplets server's location is where the **browser** reaches it: the
+origin, and the path prefix if there is one, under which the browser loads
+`/index.js`, `/droplets/*`, `/assets/*` and `/api/*`:
 
 - the host's own origin when the host proxies those paths
-  (`x-host: https://www.example.com`), as every [known host](/integrate/hosts/overview/) does;
+  (`https://www.example.com`), as every [known host](/integrate/hosts/overview/) does;
 - the droplets server's public URL when the page loads `/index.js` from it
-  directly (`x-host: https://drops.example.com`).
+  directly (`https://drops.example.com`).
 
 It differs from `Host`. `Host` is the address the request was sent to, so it
 says where the **host's server** reached the droplets server:
 `Host: droplets:8000` inside Docker, `Host: localhost:8000` on one machine.
-Without `x-host` the droplets server takes its location from `Host` (the
-request's own origin) and writes URLs the browser cannot reach. It also
-differs from `host` in a load, which is the page the droplet renders on
-([below](#host-where-the-droplet-renders)).
+Taken from `Host` alone, the location is one the browser cannot reach. It
+also differs from `host` in a load, which is the page the droplet renders
+on ([below](#host-where-the-droplet-renders)).
 
 What the location decides: every URL the fragment writes about the server
 (its `style.css` link, the `Link` header, action URLs, `droplet.origin`),
 the origins the [`Origin` check](#form-posts-the-origin-check) accepts as
 its own, and `request.url` in `handle` and `+server.ts`.
 
-Send it when fetching a fragment or proxying a request, and list its origin
-in [`trustedOrigins`](/guides/configuration/) (or
-`DROPLETS_TRUSTED_ORIGINS`):
+### Where it comes from
+
+The server works it out once per request. The first of these that parses
+and is trusted wins:
+
+1. `x-droplet-location`: one URL, its path the prefix
+   (`x-droplet-location: https://shop.example/mfe`);
+2. `Forwarded` (RFC 7239), its first element's `proto` and `host`, the prefix
+   from `X-Forwarded-Prefix`;
+3. `X-Forwarded-Proto` and `X-Forwarded-Host`, their first values, with
+   `X-Forwarded-Port` when the host has no port of its own, the prefix from
+   `X-Forwarded-Prefix`;
+4. the [`origin`](/guides/configuration/#the-public-location) entry, when exactly one is
+   configured;
+5. the request's own origin.
+
+A host that fetches fragments on its server sends `x-droplet-location`. A
+reverse proxy needs nothing new: the forwarded headers it already sets are
+read, or the droplets server has its public URL in `origin`
+(`DROPLETS_ORIGIN`), and no header at all.
 
 ```
 GET /droplets/hello?who=Ana
-x-host: https://drops.example.com
+x-droplet-location: https://drops.example.com
 ```
 
 ```ts
 // droplets.config.ts
 import { config } from "@dropletsjs/droplets";
 
-export default config({ trustedOrigins: ["https://drops.example.com"] });
+export default config({ origin: "https://drops.example.com" });
 ```
 
-`x-host` is honoured only when its origin is the request's own or listed in
-`trustedOrigins` (`"*"` does not count); otherwise it is ignored, with a
-warning in the log, and the request's origin is used. Anyone can send the
-header, and it decides the URLs the server writes about itself: with a cache
-in front, one request with `x-host: https://evil.example` would otherwise
-leave a fragment whose stylesheet, `Link` preloads and form actions point at
-the attacker, served to everyone. The proxy or host must **overwrite**
-`x-host` with a fixed value, never pass on a client's, and the droplets
-server should not be reachable around it.
+### Trust
 
-A path prefix is kept: `x-host: https://shop.example/mfe/` puts every URL
-under `https://shop.example/mfe`. The value must be an `http:` or `https:`
-URL; credentials, query and hash are dropped, and anything else (`data:`,
-`javascript:`, a bare word) is ignored in favour of the request's own origin.
-`request.url` in `handle` and `+server.ts` uses the same location.
+Any client can send these headers, and the location decides the URLs the
+server writes about itself. A location from a header (1 to 3) is used only
+when its origin is:
 
-`x-host` only shapes the URLs the server writes. The browser takes its own
-location from `/index.js`: the elements load JavaScript, CSS and data from
-the URL the page loaded `/index.js` from, prefix included, whatever the
-markup says. Point the `<script src>` at the same place as `x-host`.
+- the request's own, or
+- in [`origin`](/guides/configuration/#the-public-location) (or `DROPLETS_ORIGIN`), or
+- in [`trustedOrigins`](/guides/configuration/#options) (or `DROPLETS_TRUSTED_ORIGINS`).
 
-### Why not `X-Forwarded-Host`?
+One that is not is skipped for the next, with a warning in the log, once
+per header. Without any list, forwarded headers count only when they name
+the request's own origin. `"*"` in either list trusts any location; see
+[Trusting any location](/guides/security/#trusting-any-location) before
+you use it.
 
-Proxies, CDNs and load balancers set and overwrite `X-Forwarded-Host`,
-`X-Forwarded-Proto` and `Forwarded` on their own, hop by hop: a load
-balancer in front of the droplets server replaces what the host page's
-server wrote with what it saw itself. Those headers cannot reliably carry
-what the host page asks for. A header of its own, which that
-infrastructure does not touch, can: `x-host` arrives as the host wrote it.
-Droplets still reads the forwarded headers, for what they do mean: the
-host of the request a proxy forwarded, which becomes the droplet's
-[`host`](#host-where-the-droplet-renders) when nothing better names the page.
+The allow-list is the guard that matters. Fragments answer
+`Vary: x-droplet-location, forwarded, x-forwarded-host, x-forwarded-proto, x-forwarded-port, x-forwarded-prefix, origin`
+when they are cacheable, but CDNs ignore `Vary` on custom headers (most
+only honour `Accept-Encoding`), so a shared cache can still hand one
+request's fragment to everyone. With a location that is not on the list,
+that fragment would point its stylesheet, `Link` preloads and form actions
+at the attacker. The proxy or host should still **overwrite** these headers
+with fixed values (or clear them), never pass on a client's, and the
+droplets server should not be reachable around it.
+
+The first value of a forwarded header is read, never a later one: the
+first proxy wrote it, the ones after it only appended. The value must be an
+`http:` or `https:` URL; credentials, query and hash are dropped, and
+anything else (`data:`, `javascript:`, a bare word, a host with a path or
+`@` in it) is skipped. A prefix must start with `/`, have no `//`, `\`,
+`..`, `?`, `#` or control characters, be 256 characters at most, and keep
+the origin once joined to it; a prefix that is not is dropped, and the
+location is the origin alone. `x-droplet-location: https://shop.example/mfe/`
+puts every URL under `https://shop.example/mfe`.
+
+The location only shapes the URLs the server writes. The browser takes its
+own location from `/index.js`: the elements load JavaScript, CSS and data
+from the URL the page loaded `/index.js` from, prefix included, whatever the
+markup says. Point the `<script src>` at the same place.
 
 ## `host`: where the droplet renders
 
-`x-host` says where the droplet **lives**; `host` in load events says where it
-**renders**: the host page. A host tells it, first match wins:
+The location says where the droplet **lives**; `host` in load events says
+where it **renders**: the host page. A host tells it, first match wins:
 
 1. `"host"` in a POST body: `{ "host": "https://shop.example/product/mug", "props": { … } }`;
-2. `Forwarded: proto=https;host=shop.example` (RFC 7239);
-3. `X-Forwarded-Host: shop.example` with `X-Forwarded-Proto: https`;
-4. `Origin`, as browsers send it;
-5. else the request's own origin.
+2. `Origin`, as browsers send it;
+3. else the origin of the droplets server's [location](#x-droplet-location-the-public-location).
 
-Headers carry no path, so `host.pathname` is `/` unless a body gave one, or
-`handle` read it from `Referer` or `X-Forwarded-Uri`; see
-[`host`](/guides/writing-droplets/#host). A proxy that forwards the page's
-request (nginx with `proxy_set_header X-Forwarded-Host $host`) needs nothing else.
+`Origin` carries no path, so `host.pathname` is `/` unless a body gave one,
+or `handle` read it from `Referer` or `X-Forwarded-Uri`; see
+[`host`](/guides/writing-droplets/#host).
 
 Only `http:` and `https:` URLs count, without credentials or hash; a source
 with anything else is skipped for the next one, never an error. With
 [`trustedOrigins`](/guides/configuration/) set, a `host` whose origin is
-neither in the list nor the server's own falls back to the server's origin.
+neither in the list nor the server's own falls back to the location's origin.
 
-`host`, `x-host` and the props come from the request: any client can send
+`host`, the location headers and the props come from the request: any client can send
 any value. Use them to render, never to decide who may see what; that is the
 job of cookies or a token checked in `handle`. A response shaped by them is
 per request, which is why fragments are [not cached](#caching) by default.
@@ -297,8 +321,8 @@ answered:
 Action URLs (`actionUrl()` of `$droplets/form`, `{{action}}` in Handlebars)
 are `<location>/droplets/<id>?/<name>&<props>&__droplet_return=<page>`, the
 same on the server, in the browser and in a prerender, on the
-[public location](#x-host-the-public-location): a trusted `x-host`, never an
-untrusted one, and a per-request token in a prerendered render. `<page>` is
+[public location](#x-droplet-location-the-public-location), never an
+untrusted header's, and a per-request token in a prerendered render. `<page>` is
 the page the form is on, its origin and path, encoded: `host` on the server
 (the host tokens in a prerender, filled per request), `window.location` in
 the browser.
@@ -318,7 +342,7 @@ A native post goes back to the host page, so a reload never posts again:
 | --- | --- |
 | success or `fail()` | `303`, `location`: the page (below) without its `#hash`, its `?/name`, `__droplet_return` and `__droplet_form_*` keys, plus `__droplet_form_<droplet>_<build>=<result>` |
 | `redirect()` | `303`, `location`: its target |
-| no page that passes: neither `__droplet_return` (once, 2 KB at most) nor `Referer` names one whose origin is this server's (a trusted `x-host`'s included) or in `trustedOrigins`, outside `<location>/droplets/` | `400`, plain text; the action does not run |
+| no page that passes: neither `__droplet_return` (once, 2 KB at most) nor `Referer` names one whose origin is this server's (its location's included) or in `trustedOrigins`, outside `<location>/droplets/` | `400`, plain text; the action does not run |
 | a `redirect()` to such an origin, `javascript:` or anything but `http(s)` | `400`, plain text |
 | no `DROPLETS_SECRET` (or under 32 bytes) | the fragment rendered with `form`, as the table above; a warning in the log, once |
 
@@ -361,7 +385,7 @@ or `DELETE` whose body is form-urlencoded, multipart or `text/plain`, or has
 no content type at all. Such a request to `/droplets/*` or `/api/*` is
 answered `403` before `handle` runs, unless its `Origin` header is:
 
-- the server's own origin, or a trusted `x-host`'s, or
+- the server's own origin, or its [location](#x-droplet-location-the-public-location)'s, or
 - in `trustedOrigins` in `droplets.config.ts`, or in the
   `DROPLETS_TRUSTED_ORIGINS` environment variable (comma-separated, read at
   runtime, added to the config's list); `"*"` trusts every origin.
@@ -376,8 +400,8 @@ A request without a content type and without an `Origin` passes: that
 is another server calling, not a browser. This is SvelteKit's `csrf.checkOrigin`; `csrf: { checkOrigin: false }`
 turns it off. JSON bodies and `GET`s are not checked: a JSON post from
 another origin needs a CORS preflight, which `cors` answers. Behind a proxy
-that rewrites the request, send `x-host` or list the public origin in
-`trustedOrigins`.
+that rewrites the request, put the public URL in `origin` (or
+`DROPLETS_ORIGIN`), or list the page's origin in `trustedOrigins`.
 
 ## Body limits
 

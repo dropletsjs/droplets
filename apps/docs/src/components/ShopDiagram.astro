@@ -120,7 +120,7 @@
     <title id="shop-flow-title">Who talks to whom</title>
     <desc id="shop-flow-desc">
       The browser asks the host for pages. The host fetches fragments from the shop on its server, with
-      x-host, the browser's cookies and the page URL. The browser reaches the shop through the host's proxy for
+      x-droplet-location, the browser's cookies and the page URL. The browser reaches the shop through the host's proxy for
       scripts, data and form posts. The shop reads and writes SQLite.
     </desc>
     <defs>
@@ -155,7 +155,7 @@
     <!-- 2: host to shop -->
     <line class="arrow" x1="300" y1="252" x2="300" y2="386" marker-end="url(#shop-arrow)" />
     <text class="small end" x="290" y="278">② GET /droplets/&lt;id&gt;?props, _data</text>
-    <text class="small end" x="290" y="294">x-host: the host's public origin</text>
+    <text class="small end" x="290" y="294">x-droplet-location: the host's public origin</text>
     <text class="small end" x="290" y="310">Cookie: the browser's, forwarded</text>
     <text class="small end" x="290" y="326">Referer: the page URL, query included</text>
     <text class="small end" x="290" y="346">← fragment, Set-Cookie, Link preloads</text>

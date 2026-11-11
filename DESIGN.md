@@ -5,6 +5,35 @@
 How to read this: each section is one design decision, recorded as it was taken, with its reasons and how much of it is built.
 What ships is described by the guides at https://dropletsjs.dev; where the two differ, the guides are right.
 
+## The droplet location: `x-droplet-location` and the forwarded headers (built 2026-11-11)
+
+- The request header that names the droplets server's public location is
+  `x-droplet-location`. Naming rule: request headers singular
+  (`x-droplet-*`), response headers plural (`x-droplets-*`).
+- One location per request, the first candidate that parses and is
+  trusted: `x-droplet-location`; the first element of `Forwarded`; the first
+  `X-Forwarded-Proto` + `X-Forwarded-Host` (+ `X-Forwarded-Port`); the single
+  `origin` entry; the request's origin. The forwarded ones take the prefix
+  from `X-Forwarded-Prefix`. First values, because later proxies append.
+- Trust: a header's origin must be the request's own, in `origin` /
+  `DROPLETS_ORIGIN` (new: our own public locations, origin plus optional
+  prefix) or in `trustedOrigins` / `DROPLETS_TRUSTED_ORIGINS`. Earlier the
+  forwarded headers were not read for the location at all, because proxies
+  rewrite them hop by hop; with the allow-list, reading them is safe and a
+  plain reverse proxy needs no custom header.
+- `"*"` in either list trusts any location: the owner's call, documented
+  ("Trusting any location") and warned about once at start, never refused.
+  The general rule: give the owner the knobs and the advice, don't enforce.
+- A prefix starts with `/`, has no `//`, `\`, `..`, `?`, `#` or control
+  characters, is at most 256 characters, and keeps the origin when joined;
+  otherwise it is dropped (URL hygiene, applied with `"*"` too).
+- `event.host` no longer reads the forwarded headers: body `host`, `Origin`,
+  then the location's origin.
+- `Vary` lists the location headers, but CDNs ignore `Vary` on custom
+  headers: the allow-list is the guard.
+- The header's old name is not honoured; a request with it gets one
+  warning per process, until 1.0.
+
 ## `dev.strategy: "hmr"`: the framework's own HMR, never a reload (built 2026-11-11)
 
 The host's page is not ours, so a dev edit must never reload it. `hmr` is
@@ -78,9 +107,9 @@ the new default; `remount`, `reload` and `manual` stay as they were, and
 Two words, two things:
 
 - **location**: where the droplet *lives*, the droplets server as the
-  browser reaches it. `x-host` on the server (validated, prefix kept, and
-  since tighten 2 honoured only from the server's own origin or one in
-  `trustedOrigins`), the
+  browser reaches it. On the server the resolved location (see "The
+  droplet location" above: `x-droplet-location`, the forwarded headers,
+  `origin`, all against an allow-list), the
   URL `/index.js` was loaded from in the browser, `droplet.url()` from
   `$droplets/drop`. (`data-droplet-location` is gone since the tighten step:
   markup never says where to load code from.)
@@ -176,7 +205,7 @@ decides:
 ### Where the form posts: `actionUrl()` (built in steps 3–4)
 
 - One neutral URL: `${location}/droplets/<id>?/name&<props>` (`location` as
-  `$droplets/drop` has it: `x-host` on the server, `/index.js`'s URL in the
+  `$droplets/drop` has it: the resolved location on the server, `/index.js`'s URL in the
   browser). The same string on the server, in the browser and in a
   prerendered render, where `location` is a token
   (`__$DROPLET_LOCATION_<nonce>$__`) replaced per request in the same step
@@ -269,7 +298,7 @@ several droplets' forms on one page each get theirs:
   `POST`/`PUT`/`PATCH`/`DELETE` (they are simple requests, no preflight) to
   `/droplets/*` and `/api/*`, against a configurable `trustedOrigins` option
   (plus `DROPLETS_TRUSTED_ORIGINS` at runtime since the tighten step);
-  the request's own origin and `x-host`'s are always allowed, anything else,
+  the request's own origin and its location's are always allowed, anything else,
   or no `Origin`, answers `403`, as Kit's `csrf.checkOrigin`. An unsafe
   request with no content type is refused too when it has an untrusted
   `Origin`. The same list validates the redirect target after an action (no
@@ -406,9 +435,10 @@ must satisfy each rule below, and test it:
   credentials (the default, same-origin); `include` waits for those docs.
   Unit tests: cross-origin, a `javascript:` `formaction`, a look-alike
   prefix, the slot and nested droplets.
-- [x] **`x-host` poisoning of `actionUrl()`.** A negative test: an
-  untrusted `x-host` never reaches an action URL (it is ignored since
-  tighten 2); a cacheable fragment with an action URL varies on `x-host`.
+- [x] **Location poisoning of `actionUrl()`.** A negative test: an
+  untrusted location header never reaches an action URL (it is ignored
+  since tighten 2); a cacheable fragment with an action URL varies on the
+  location headers.
   (Built in step 3: the conformance kit and `app.test.ts`, prerendered and
   live.)
 
@@ -416,7 +446,7 @@ must satisfy each rule below, and test it:
 
 1. Built: `trustedOrigins`, the `Origin` check, body size limits,
    `event.cookies`.
-   - Tighten (built): validated `x-host` and `host` (http/https only),
+   - Tighten (built): validated location header and `host` (http/https only),
      `/index.js` as the browser's location (no `data-droplet-location`),
      `private, no-store` fragments (`fragmentCacheControl`),
      `DROPLETS_TRUSTED_ORIGINS`, read-only cookies in loads, a generic

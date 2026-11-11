@@ -37,7 +37,7 @@ if ($path === '/' && in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD
     $ids = ['client', 'ssr-hydrate', 'ssr-nohydrate'];
     $responses = http_all(array_map(static fn(string $id) => [
         'url' => $droplets_internal . '/droplets/' . rawurlencode($id) . '?' . http_build_query(['who' => $who]),
-        'headers' => ['x-host' => $droplets_public],
+        'headers' => ['x-droplet-location' => $droplets_public],
     ], $ids), 5);
     $fragments = [];
     foreach ($ids as $index => $id) {

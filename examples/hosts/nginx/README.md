@@ -7,9 +7,10 @@ The host is a static `index.html`. nginx does two things:
   server-rendered markup.
 - **Reverse proxy.** `/index.js`, `/droplets/*`, `/assets/*` and `/api/*`
   are proxied to the droplets server. The browser only ever
-  talks to nginx, so the droplets server needs no CORS, and `x-host` (nginx's
-  public URL, written out in `nginx.conf`) tells it to write the fragments'
-  URLs on nginx's origin. Droplets build their API calls
+  talks to nginx, so the droplets server needs no CORS. It has nginx's public
+  URL in `DROPLETS_ORIGIN` (`docker-compose.yml`) and writes the fragments'
+  URLs on that origin; nginx sends no location header, and clears the ones a
+  client could send. Droplets build their API calls
   from that origin (`$droplets/drop`), so `/api/*` has to go through too.
 
 ```bash
@@ -25,8 +26,8 @@ would collide with the basic server's on 8080). Same two tools, no code:
 
 - `/gallery`, `/product/<slug>`, `/login` and `/admin` are SSI pages in
   `shop/`, with one header and footer under `shop/_layout/`. Each include
-  goes through the internal `/_fragment/` location, which sets `x-host`
-  (written out), sends the page itself as `Referer` and keeps the browser's
+  goes through the internal `/_fragment/` location, which sends the page
+  itself as `Referer` and keeps the browser's
   `Cookie` (subrequests carry it), so the cart badge and the admin render for
   the visitor. The page's query (`$args`) goes to the droplets that take it.
 - Only a fragment is pasted: other error answers are replaced with a fixed
@@ -36,7 +37,8 @@ would collide with the basic server's on 8080). Same two tools, no code:
   out with named captures; an `auth_request` to the same read answers 404
   for an unknown product.
 - `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` are proxied with the
-  `Forwarded`/`X-Forwarded-*` headers cleared, so the login's `Set-Cookie`
+  `x-droplet-location`, `Forwarded` and `X-Forwarded-*` headers cleared (the
+  shop has its public URL in `DROPLETS_ORIGIN`), so the login's `Set-Cookie`
   and 303, the cart cookie and the form posts pass through untouched.
 
 ```bash

@@ -15,7 +15,7 @@ export default config({
 
   /**
    * WordPress's public origin comes from `DROPLETS_TRUSTED_ORIGINS` at
-   * runtime: its `x-host`, and the pages whose forms post here.
+   * runtime: its `x-droplet-location`, and the pages whose forms post here.
    */
   trustedOrigins: [],
 

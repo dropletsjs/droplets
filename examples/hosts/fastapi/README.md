@@ -1,7 +1,7 @@
 # Python (FastAPI)
 
 `main.py` fetches `GET /droplets/<id>` from the droplets server with `httpx`,
-sends `x-host` so the fragments point at the browser-facing origin, and hands
+sends `x-droplet-location` so the fragments point at the browser-facing origin, and hands
 the HTML to a Jinja template. The template loads `/index.js` once.
 
 ```bash
@@ -28,7 +28,7 @@ server with `httpx` (concurrently, `asyncio.gather`) into Jinja templates under 
 to the shop under this host's own origin, so its cookies (the cart, the admin
 session) are first-party and nothing is cross-origin.
 
-- `x-host` is `SHOP_PUBLIC_URL`, written out in the environment: never the
+- `x-droplet-location` is `SHOP_PUBLIC_URL`, written out in the environment: never the
   request's Host. The shop lists that origin in `DROPLETS_TRUSTED_ORIGINS`.
 - Fragment fetches forward the browser's `Cookie`, send the page URL as
   `Referer`, never follow redirects, and insert only `text/html` answers;

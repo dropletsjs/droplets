@@ -63,7 +63,7 @@ function droplets_shortcode(array|string $atts): string
 
     $response = wp_remote_get($url, [
         'timeout' => 5,
-        'headers' => ['x-host' => droplets_public_url()],
+        'headers' => ['x-droplet-location' => droplets_public_url()],
     ]);
 
     if (is_wp_error($response)) {

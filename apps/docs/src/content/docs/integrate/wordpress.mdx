@@ -87,7 +87,7 @@ function droplets_shortcode(array|string $atts): string
 
     $response = wp_remote_get($url, [
         'timeout' => 5,
-        'headers' => ['x-host' => droplets_public_url()],
+        'headers' => ['x-droplet-location' => droplets_public_url()],
     ]);
     // a WP_Error or a status other than 200: an error paragraph instead
 
@@ -145,7 +145,7 @@ footer template parts and fetches all their fragments at once with
 $origin = droplets_shop_public_origin();
 $headers = [
     'accept' => 'text/html',
-    'x-host' => $origin,
+    'x-droplet-location' => $origin,
     'referer' => $origin . (string) ($_SERVER['REQUEST_URI'] ?? '/'),
 ];
 $cookie = droplets_shop_cookie_header();   // cart_id only, never WordPress's login cookies
@@ -166,7 +166,7 @@ foreach ($wanted as $key => [$id, $pairs]) {
 $responses = WpOrg\Requests\Requests::request_multiple($requests);
 ```
 
-- `x-host` is this site's origin, from `SHOP_PUBLIC_URL`, never the
+- `x-droplet-location` is this site's origin, from `SHOP_PUBLIC_URL`, never the
   client's `Host`.
 - `referer` is the page's path and query: the droplet's
   [`host`](/integrate/http-contract/#host-where-the-droplet-renders).
@@ -211,7 +211,7 @@ if (preg_match('#^/(?:index\.js$|droplets/|assets/|api/)#', (string) strtok($req
 }
 ```
 
-It writes `x-host` out, forwards a short list of request headers and, of
+It writes `x-droplet-location` out, forwards a short list of request headers and, of
 the cookies, only `cart_id`; it never passes on an `x-wp-shop-user` the
 browser sends, and adds its own for a logged-in admin on `/droplets/*` and
 `/api/*` ([step 4](#4-the-login-is-wordpresss)). It follows no redirect and
@@ -483,7 +483,7 @@ page, **Shop**, for users who can `manage_options`
 (`shop-admin.php`). On `load-<hook>`, before wp-admin prints anything, the
 plugin fetches the fragment the way the public pages do: the admin's
 assertion for that one `GET`, the screen's URL as `Referer`, the fixed
-`x-host`. The menu page's callback prints it. `/index.js` and the screen's
+`x-droplet-location`. The menu page's callback prints it. `/index.js` and the screen's
 stylesheet are enqueued on that screen only:
 
 ```php
@@ -629,7 +629,7 @@ starts five services:
 | On `wordpress` | Value | Used for |
 | --- | --- | --- |
 | `SHOP_INTERNAL_URL` | `http://wp-shop:8310` | internal: fragment fetches and the proxy |
-| `SHOP_PUBLIC_URL` | `http://localhost:8008` | public: this site's own origin, sent as `x-host` |
+| `SHOP_PUBLIC_URL` | `http://localhost:8008` | public: this site's own origin, sent as `x-droplet-location` |
 | `WP_SHOP_HOST_SECRET` | 32+ bytes, the same on `wp-shop` | signs `x-wp-shop-user` for a logged-in admin |
 | `WP_SHOP_SERVICE_SECRET` | 32+ bytes, the same on `wp-shop`, not the host secret | checks wp-shop's writes back (`x-wp-shop-service`), on the product write route only |
 | `DROPLETS_INTERNAL_URL`, `DROPLETS_PUBLIC_URL` | `http://droplets:8000`, `http://localhost:8000` | the same pair, for `[droplet]` |
@@ -640,7 +640,7 @@ starts five services:
 | `WP_PUBLIC_URL` | WordPress's public origin, `http://localhost:8008`: images must be on it |
 | `WP_SHOP_HOST_SECRET` | verifies `x-wp-shop-user` (32+ bytes; the same value on WordPress) |
 | `WP_SHOP_SERVICE_SECRET` | signs `x-wp-shop-service`, the writes back (32+ bytes; the same value on WordPress; never `WP_SHOP_HOST_SECRET`'s) |
-| `DROPLETS_TRUSTED_ORIGINS` | `http://localhost:8008`, the only origin whose [`x-host`](/integrate/http-contract/#x-host-the-public-location) and [form posts](/integrate/http-contract/#form-posts-the-origin-check) it accepts |
+| `DROPLETS_TRUSTED_ORIGINS` | `http://localhost:8008`, the only origin whose [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location) and [form posts](/integrate/http-contract/#form-posts-the-origin-check) it accepts |
 | `DROPLETS_SECRET` | signs a form's result on the redirect back to the page when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)) |
 | `WP_SHOP_DATABASE` | the carts' SQLite file (default `wp-shop.db`) |
 

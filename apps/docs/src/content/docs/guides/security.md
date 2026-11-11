@@ -1,6 +1,6 @@
 ---
 title: Security model
-description: "What a droplets server trusts, who sees what, and the rules for x-host, caching, CSRF, CORS, cookies, limits, server-only code, signed form results and request input."
+description: "What a droplets server trusts, who sees what, and the rules for the droplet location, caching, CSRF, CORS, cookies, limits, server-only code, signed form results and request input."
 ---
 
 This page gathers the rules spread over the guides, in one place. Each
@@ -12,7 +12,7 @@ A droplet renders inside pages its server does not own, and those pages
 call it with whatever they like. Two things follow:
 
 - **The droplets server trusts the host page's operator, not the request.**
-  Everything a request carries is input: `host`, `x-host`, the props, the
+  Everything a request carries is input: `host`, the location headers, the props, the
   form body, the cookies. Render with it; never decide from it who may see
   or do what. That is the job of a session cookie or a token checked in
   `handle` and the actions.
@@ -40,31 +40,72 @@ What does not cross:
 - a private environment variable never reaches the browser unless a load
   returns it (see [Server-only code](#server-only-code)).
 
-## `x-host` and `host`
+## The location and `host`
 
-`x-host` is where the browser reaches the droplets server; it decides the
-URLs a fragment writes about itself (its stylesheet, its `Link` preloads,
-its action URLs). Anyone can send the header, so:
+The location is where the browser reaches the droplets server; it decides
+the URLs a fragment writes about itself (its stylesheet, its `Link`
+preloads, its action URLs) and the origins its form posts may come from.
+It comes from `x-droplet-location`, else `Forwarded`, else
+`X-Forwarded-Proto` with `X-Forwarded-Host` (and `X-Forwarded-Prefix`).
+Anyone can send those headers, so:
 
-- it is honoured only when its origin is the request's own or listed in
-  `trustedOrigins` / `DROPLETS_TRUSTED_ORIGINS`; `"*"` does not count. An
-  untrusted one is ignored with a warning, and never reaches an action URL;
+- a header's location is used only when its origin is the request's own,
+  in `origin` / `DROPLETS_ORIGIN`, or in `trustedOrigins` /
+  `DROPLETS_TRUSTED_ORIGINS`. An untrusted one is skipped with a warning,
+  and never reaches an action URL. Without a list, forwarded headers count
+  only when they name the request's own origin;
 - it must be an `http:` or `https:` URL; credentials, query and hash are
-  dropped;
-- the proxy or host that sends it **overwrites** it with a fixed value,
-  written out in its configuration, never built from the request's `Host`;
-  and the droplets server is not reachable around that proxy.
+  dropped, and a path prefix with `//`, `\`, `..`, `?`, `#` or control
+  characters, or over 256 characters, is dropped too;
+- of a forwarded header only the first value counts, the one the first
+  proxy wrote;
+- the proxy or host in front **overwrites** these headers with fixed
+  values, or clears them, never passing on a client's; and the droplets
+  server is not reachable around that proxy.
+
+With no header, `origin` gives the location when it has one entry, else the
+request's own origin. See
+[`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location).
 
 `host` (where the droplet renders) is taken from the request too: a render
-body, `Forwarded`, `X-Forwarded-*`, `Origin`. With `trustedOrigins` set, a
-`host` outside it (and not this server) becomes the server's own origin.
+body, then `Origin`, then the location's origin. With `trustedOrigins` set,
+a `host` outside it (and not this server) becomes the location's origin.
 `hostFrom()` checks a candidate the same way for a `handle` that reads
-`Referer`. See [`x-host`](/integrate/http-contract/#x-host-the-public-location)
-and [`host`](/guides/writing-droplets/#host).
+`Referer`. See [`host`](/guides/writing-droplets/#host).
 
 The browser does not take its location from the markup at all: the
 elements load JavaScript, CSS and data from the URL the page loaded
 `/index.js` from.
+
+### Trusting any location
+
+`"*"` in `origin` (or `DROPLETS_ORIGIN`) or in `trustedOrigins` (or
+`DROPLETS_TRUSTED_ORIGINS`) trusts any location a request's headers name.
+The server allows it, and warns once when it starts:
+
+```
+origin: "*" trusts any forwarded location; see https://dropletsjs.dev/guides/security/#trusting-any-location
+```
+
+What it opens up:
+
+- **Cache poisoning.** One request with
+  `X-Forwarded-Host: evil.example` gets a fragment whose stylesheet, `Link`
+  preloads, `droplet.url()` and action URLs point at `evil.example`. Any
+  cache in front that keeps it (a CDN ignores `Vary` on these headers)
+  serves it to everyone: their forms post to the attacker, their pages load
+  the attacker's CSS.
+- **CSRF.** The location's origin counts as the server's own in the
+  [`Origin` check](#csrf-the-origin-check) and as a redirect target. A page
+  on `evil.example` that also sends `X-Forwarded-Host: evil.example` posts
+  forms that pass the check.
+
+It may be acceptable when no client can set these headers: a server on a
+private network that only your own services reach, or behind a proxy that
+strips every one of them and sets them itself, with the droplets server
+reachable through nothing else. Even then, prefer listing the exact
+locations in `origin`. With `"*"`, a header's location is still checked
+for a web URL and a clean prefix, nothing more.
 
 ## Caching
 
@@ -118,12 +159,14 @@ last word: a `Cache-Control` it sets on the response stands.
 droplet, or `false` sends none.
 
 Every fragment and `_data` answer carries
-`Vary: x-host, forwarded, x-forwarded-host, x-forwarded-proto, origin`,
+`Vary: x-droplet-location, forwarded, x-forwarded-host, x-forwarded-proto, x-forwarded-port, x-forwarded-prefix, origin`,
 after any `Vary` the load set. A cache keys the answers it keeps by URL;
 `Vary` adds these headers to the key. They are what the answer's URLs and
-`host` come from, so a request with a spoofed one lands in a cache entry of
-its own: it can poison only the answer it gets itself, never the one
-everybody else is served.
+`host` come from, so in a cache that honours `Vary` a request with a
+spoofed one lands in an entry of its own. CDNs mostly ignore `Vary` on
+custom headers, though: what keeps a spoofed location out of a shared cache
+is that the server ignores it unless it is on the
+[allow-list](#the-location-and-host).
 
 The import map is not cached by the server. Cache fragments in your host if
 their content allows it.
@@ -137,7 +180,7 @@ A page on another site can make a browser post a form to your server with
 the user's cookies. A `POST`, `PUT`, `PATCH` or `DELETE` to `/droplets/*`
 or `/api/*` whose body is form-urlencoded, multipart or `text/plain`, or
 that has no content type, answers `403` before `handle` runs unless its
-`Origin` is the server's own (or a trusted `x-host`'s) or in
+`Origin` is the server's own (or its location's) or in
 `trustedOrigins`:
 
 - a form post without an `Origin`, or with `Origin: null` (a page with

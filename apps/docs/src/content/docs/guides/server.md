@@ -48,7 +48,7 @@ The event:
 ```ts
 type RequestEvent = {
   request: Request;
-  url: URL;                       // on the public origin when a proxy sent x-host
+  url: URL;                       // the request's URL on the server's public location
   host: URL;                      // where the droplet renders: the host page; handle may replace it
   params: Record<string, string>; // API route parameters
   locals: Locals;
@@ -123,10 +123,10 @@ password, in anything real.
 may reach the browser through a host, under the host's URLs. Defaults:
 `httpOnly: true`, `sameSite: "lax"`, and `secure: true` except over plain
 HTTP to `localhost` or a loopback address (the dev server), judged by the
-server's public location (`x-host`, else the request). `sameSite: "none"`
-without `secure: true` throws: browsers drop such a cookie. Values are
-`encodeURIComponent`ed unless you pass `encode`. Setting the same name,
-domain and path twice sends the last one.
+server's public [location](/integrate/http-contract/#x-droplet-location-the-public-location).
+`sameSite: "none"` without `secure: true` throws: browsers drop such a
+cookie. Values are `encodeURIComponent`ed unless you pass `encode`. Setting
+the same name, domain and path twice sends the last one.
 
 Whatever answers the request carries the cookies: the fragment, `_data`,
 the endpoint's response (even one with immutable headers, such as

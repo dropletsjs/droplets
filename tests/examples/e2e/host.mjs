@@ -16,7 +16,7 @@ const dropletsOf = (example) => `http://localhost:${8400 + EXAMPLES.indexOf(exam
 async function fragment(droplets, id, props) {
   const url = new URL(`/droplets/${id}`, droplets);
   for (const [key, value] of Object.entries(props)) url.searchParams.set(key, value);
-  const response = await fetch(url, { headers: { "x-host": droplets } });
+  const response = await fetch(url, { headers: { "x-droplet-location": droplets } });
   // A 500 with HTML is the droplet's error page: embedded like any fragment.
   const isHtml = (response.headers.get("content-type") ?? "").includes("text/html");
   if (!response.ok && !isHtml) return `<p class="error">${id}: HTTP ${response.status}</p>`;

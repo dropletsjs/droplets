@@ -56,6 +56,7 @@ describe("resolveConfig", () => {
       importMap: { path: "/importmap", auto: true },
       warnImportMap: true,
       element: "djs-droplet",
+      origin: [],
       trustedOrigins: [],
       fragmentCacheControl: "private, no-store",
       csrf: { checkOrigin: true },
@@ -64,6 +65,16 @@ describe("resolveConfig", () => {
     });
     // `dev` apart, for the Vite plugin: a production server never resolves it.
     expect(resolveDevConfig({})).toEqual({ server: { port: DEFAULTS.devPort }, strategy: "hmr", injectTool: false });
+  });
+
+  it("normalizes origin to locations, a prefix allowed, and refuses anything else", () => {
+    expect(resolveConfig({ origin: "https://shop.example/" }).origin).toEqual(["https://shop.example"]);
+    expect(resolveConfig({ origin: ["https://shop.example/mfe/", "http://localhost:3000", "*"] }).origin)
+      .toEqual(["https://shop.example/mfe", "http://localhost:3000", "*"]);
+    for (const bad of ["shop.example", "ftp://shop.example", "https://u:p@shop.example", "https://shop.example/a?x=1", "https://shop.example/#x", "https://shop.example//x", "https://shop.example/a\\b", `https://shop.example/${"a".repeat(300)}`, "https://*.example", "", 42]) {
+      expect(() => resolveConfig({ origin: [bad as string] }), String(bad)).toThrow("origin takes this server's public URL");
+    }
+    expect(() => resolveConfig({ origin: { url: "https://a.example" } as never })).toThrow("origin takes");
   });
 
   it("normalizes trustedOrigins and refuses what is not an origin", () => {

@@ -97,7 +97,7 @@ async function renderWith(
     throw new Error(`${droplet}: the ${kind} component has no renderer; the server registry is stale`);
   }
   const renderId = createRenderId();
-  // The request's public location: a trusted `x-host`, never an untrusted one; a token at build.
+  // The request's public location, never an untrusted header's; a token at build.
   const info = requestInfo();
   const actionUrl = actionUrlFor(info?.origin ?? "", droplet, dropletProps, info?.page);
   const context = { droplet, kind, renderId, actionUrl };

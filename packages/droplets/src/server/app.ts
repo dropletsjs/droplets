@@ -124,6 +124,7 @@ export function createServerApp({ ssr, assets, config }: ServerAppOptions) {
     loadIndex: () => assets.loadIndex(),
     buildHash: assets.buildHash,
     cors: config.cors,
+    origin: config.origin,
     trustedOrigins: config.trustedOrigins,
     fragmentCacheControl: config.fragmentCacheControl,
     csrf: config.csrf,

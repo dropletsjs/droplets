@@ -5,7 +5,7 @@
  */
 import type { Context, MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { normalizeTrustedOrigins, type BodyLimits } from "../core/config.ts";
+import { normalizeOrigin, normalizeTrustedOrigins, type BodyLimits } from "../core/config.ts";
 import { logger } from "../core/logger.ts";
 
 /** Methods a cross-site form, or a fetch without preflight, can send with a body. */
@@ -38,6 +38,14 @@ export function isUntyped(request: Request): boolean {
   return UNSAFE_METHODS.has(request.method.toUpperCase()) && mediaType(request) === "";
 }
 
+/** Where "Trusting any location" is explained, for the warning `"*"` gets. */
+const ANY_LOCATION_DOCS = "https://dropletsjs.dev/guides/security/#trusting-any-location";
+
+/** The warning for a `"*"` in `option`, which trusts any location a request's headers name. */
+export function warnAnyLocation(option: string): void {
+  logger.warn("framework", `${option}: "*" trusts any forwarded location; see ${ANY_LOCATION_DOCS}`);
+}
+
 /** The origins of `DROPLETS_TRUSTED_ORIGINS`, by raw value: parsed once, a bad entry warned about once. */
 const fromEnv = new Map<string, string[]>();
 
@@ -58,7 +66,34 @@ export function trustedOriginsWith(configured: readonly string[], raw: string | 
         logger.warn("framework", `DROPLETS_TRUSTED_ORIGINS: ignoring ${JSON.stringify(entry)}, not an origin such as https://shop.example`);
       }
     }
+    if (parsed.includes("*")) warnAnyLocation("DROPLETS_TRUSTED_ORIGINS");
     fromEnv.set(raw, parsed);
+  }
+  return [...new Set([...configured, ...parsed])];
+}
+
+/** The locations of `DROPLETS_ORIGIN`, by raw value, as `fromEnv` keeps them. */
+const originFromEnv = new Map<string, string[]>();
+
+/**
+ * `origin` from the config with `DROPLETS_ORIGIN`, a comma-separated list
+ * of locations read at runtime, added. An entry that is not a location is
+ * skipped, with a warning.
+ */
+export function originWith(configured: readonly string[], raw: string | undefined): readonly string[] {
+  if (!raw?.trim()) return configured;
+  let parsed = originFromEnv.get(raw);
+  if (!parsed) {
+    parsed = [];
+    for (const entry of raw.split(",").map((value) => value.trim()).filter(Boolean)) {
+      try {
+        parsed.push(...normalizeOrigin(entry));
+      } catch {
+        logger.warn("framework", `DROPLETS_ORIGIN: ignoring ${JSON.stringify(entry)}, not a location such as https://shop.example or https://shop.example/mfe`);
+      }
+    }
+    if (parsed.includes("*")) warnAnyLocation("DROPLETS_ORIGIN");
+    originFromEnv.set(raw, parsed);
   }
   return [...new Set([...configured, ...parsed])];
 }
@@ -83,7 +118,7 @@ function refuse(c: Context, status: 403 | 413 | 431, message: string): Response 
 export type OriginCheck = {
   /** Origins allowed besides the server's own, for this request; `"*"` allows all. */
   trustedOrigins: () => readonly string[];
-  /** The origins the browser reaches this server at: the request's and a trusted `x-host`'s. */
+  /** The origins the browser reaches this server at: the request's and its resolved location's. */
   ownOrigins: (c: Context) => string[];
   /** Exact paths checked besides the droplet and `/api` routes. */
   extraPaths?: readonly string[];

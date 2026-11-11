@@ -13,11 +13,11 @@
 const STORE = Symbol.for("droplets.request");
 
 export type RequestInfo = {
-  /** The droplets server's origin as the browser sees it: a trusted `x-host`, or the request's. */
+  /** The droplets server as the browser reaches it: the request's resolved location, prefix included. */
   origin: string;
   /** `trustedOrigins` and `DROPLETS_TRUSTED_ORIGINS` for this request; empty when none is set. */
   trustedOrigins?: readonly string[];
-  /** The origins this server is reached at: the request's own and a trusted `x-host`'s. */
+  /** The origins this server is reached at: the request's own and its location's. */
   ownOrigins?: readonly string[];
   /**
    * The page a droplet renders on, `origin + pathname` of `event.host` (at

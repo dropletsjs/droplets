@@ -163,8 +163,8 @@ docs need goes in `apps/demo/src/droplets/`, with its tests in
   ```
 
   If you add one, follow the pattern of the existing ones (fetch the fragment
-  server-side with `x-host`, load `/index.js` once), add a README and a
-  `docker-compose.yml`, a row to `examples/hosts/README.md`, and an entry to
+  server-side with `x-droplet-location`, load `/index.js` once), add a README
+  and a `docker-compose.yml`, a row to `examples/hosts/README.md`, and an entry to
   `tests/hosts/run.mjs`.
 
 ## Reporting issues

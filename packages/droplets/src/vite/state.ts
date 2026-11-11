@@ -104,6 +104,7 @@ export function createInitialState(): PluginState {
       importMap: { path: "/importmap", auto: true },
       warnImportMap: true,
       element: "djs-droplet",
+      origin: [],
       trustedOrigins: [],
       fragmentCacheControl: DEFAULTS.fragmentCacheControl,
       csrf: { checkOrigin: true },

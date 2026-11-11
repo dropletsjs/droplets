@@ -27,7 +27,7 @@ server runs with `cors: true`.
 
 - `src/pages/index.js.ts` and `src/pages/{droplets,assets,api}/[...path].ts`
   proxy the shop's routes under this origin (`ALL`, bodies streamed), with a
-  fixed `x-host` (`SHOP_PUBLIC_URL`), so its cookies are first-party;
+  fixed `x-droplet-location` (`SHOP_PUBLIC_URL`), so its cookies are first-party;
 - each page's frontmatter fetches its fragments with the browser's `Cookie`
   and the page's URL as `Referer`, passes their `Set-Cookie` on through
   `Astro.response`, answers a droplet's redirect as it is, and

@@ -56,7 +56,7 @@ type Init = RequestInit & { cookie?: string };
 const call = (path: string, { cookie, headers, ...init }: Init = {}) =>
   server.fetch(new Request(`${ORIGIN}${path}`, {
     ...init,
-    headers: { "x-host": HOST, ...(cookie ? { cookie } : {}), ...(headers as Record<string, string>) },
+    headers: { "x-droplet-location": HOST, ...(cookie ? { cookie } : {}), ...(headers as Record<string, string>) },
   }));
 
 /** As the plugin would sign it for this request. */

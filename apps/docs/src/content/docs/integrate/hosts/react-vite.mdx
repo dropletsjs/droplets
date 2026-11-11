@@ -53,7 +53,7 @@ target.replaceChildren(element);
 # nginx.conf
 location ~ ^/(index\.js$|droplets/|assets/|api/) {
   proxy_pass http://shop:8300;
-  proxy_set_header x-host ${SHOP_PUBLIC_URL};
+  proxy_set_header x-droplet-location ${SHOP_PUBLIC_URL};
 }
 location / {
   try_files $uri /index.html;
@@ -63,8 +63,8 @@ location / {
 - `ShopFragment` fetches `GET /droplets/<id>?<query>` from the browser with
   `accept: text/html`. It is a same-origin request, so the browser sends the
   shop's cookies and the page's URL as `Referer` itself, and nginx adds
-  `x-host` on the way to the shop. `redirect: "manual"` turns a 3xx into an
-  `opaqueredirect`, which the page handles (`onRedirect`).
+  `x-droplet-location` on the way to the shop. `redirect: "manual"` turns a
+  3xx into an `opaqueredirect`, which the page handles (`onRedirect`).
 - Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
   page) is inserted, through a `<template>`; anything else shows as unavailable.
 - `ShopClientDroplet` writes `<djs-shop data-droplet="…" data-params="…">`
@@ -99,7 +99,7 @@ The code is in `examples/hosts/react-vite`: `src/shop/` (the pages and
 
 There is no server code. `nginx.conf` writes out the shop's internal address
 (`proxy_pass http://shop:8300`); it is a template (the nginx image's
-`/etc/nginx/templates/`), so the public one, `x-host ${SHOP_PUBLIC_URL}`,
+`/etc/nginx/templates/`), so the public one, `x-droplet-location ${SHOP_PUBLIC_URL}`,
 comes from `SHOP_PUBLIC_URL` (`http://localhost:8004`) at start. Under `vite dev` and `vite preview`,
 `server.proxy` does the same from `SHOP_INTERNAL_URL` and `SHOP_PUBLIC_URL`.
 
@@ -126,16 +126,17 @@ before any droplet starts (the shop's `src/hooks.client.ts`):
 
 `location ~ ^/(index\.js$|droplets/|assets/|api/)` in `nginx.conf` passes
 `/index.js`, `/droplets/*` (fragments, `_data`, form actions), `/assets/*`
-and `/api/*` to the shop with `x-host` written out and `Forwarded`/`X-Forwarded-*`
-cleared. Every request the page makes is same-origin: no CORS, and the
-shop's cookies are the app's own. Login and the other forms are full-page
-posts through the proxy, so the shop's `303` and `Set-Cookie` reach the
-browser as they are.
+and `/api/*` to the shop with `x-droplet-location` written out and
+`Forwarded`/`X-Forwarded-*` cleared (the shop reads them only as a fallback
+for its location, and trusts them only against its allow-list). Every
+request the page makes is same-origin: no CORS, and the shop's cookies are
+the app's own. Login and the other forms are full-page posts through the
+proxy, so the shop's `303` and `Set-Cookie` reach the browser as they are.
 
 ### The shop's environment
 
 - `DROPLETS_TRUSTED_ORIGINS: http://localhost:8004`: the only origin whose
-  [`x-host`](/integrate/http-contract/#x-host-the-public-location) and
+  [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location) and
   [form posts](/integrate/http-contract/#form-posts-the-origin-check) the shop accepts.
 - `DROPLETS_SECRET`: signs a form's result on the redirect back to the page
   when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget));

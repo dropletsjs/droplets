@@ -21,8 +21,8 @@ a folder of them and answers, for each one:
 | --- | --- |
 | **fragment** | The HTML a droplets server answers for `GET /droplets/<id>`: the droplet element with its data and server-rendered markup, ready to paste into a page. |
 | **host** | The page that embeds a droplet, and the server or app that renders that page (nginx, Express, WordPress, a single-page app). In a load, `host` is that page's URL. |
-| **`x-host`** | The request header a host sends with a fragment fetch: the droplets server's public location, as the browser sees it. See [`x-host`](/integrate/http-contract/#x-host-the-public-location). |
-| **location** | Where the browser reaches the droplets server: the origin, and path prefix, that `/index.js` was loaded from. A trusted `x-host` tells the server the same thing. |
+| **`x-droplet-location`** | The request header a host sends with a fragment fetch: the droplets server's public location, as the browser sees it. See [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location). |
+| **location** | Where the browser reaches the droplets server: the origin, and path prefix, that `/index.js` was loaded from. A trusted `x-droplet-location` tells the server the same thing. |
 | **context** | What a droplet renders with: `{ host, props }`, carried in the fragment (`data-droplet-context`) so the browser can ask for the same data again. |
 | **renderer** | The package that renders one framework's components: `@dropletsjs/renderer-svelte`, `-vue`, `-react` and the others. See [Renderers](/renderers/). |
 | **element** | The custom element every droplet renders in, `<djs-droplet>` by default, named per server with the `element` option. `/index.js` defines it. |

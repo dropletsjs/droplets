@@ -5,7 +5,7 @@ Two ways to combine Express with droplets.
 ## 1. Express as a host (`src/server.js`)
 
 The droplets server runs as its own process. Express fetches `GET /droplets/<id>`
-for each droplet, with `x-host` set to the browser-facing origin, and renders
+for each droplet, with `x-droplet-location` set to the browser-facing origin, and renders
 the fragments into its page. This is the same pattern every non-Node example
 uses.
 
@@ -23,7 +23,7 @@ The same app also hosts the [shop example](../../shop) at
 - a same-origin proxy for `/index.js`, `/droplets/*`, `/assets/*` and
   `/api/*` (bodies streamed, `Set-Cookie` and redirects passed back
   untouched), so the cart and admin cookies are this origin's own;
-- the pages fetch their fragments on the server with `x-host` (the
+- the pages fetch their fragments on the server with `x-droplet-location` (the
   configured `SHOP_PUBLIC_URL`, never the request's Host), the browser's
   `Cookie`, the page as `Referer` and `redirect: "manual"`; only an HTML
   answer is pasted, the fragments' `Set-Cookie` go out with the page and
@@ -57,7 +57,7 @@ flow there and checks that `cart_id` and `shop_admin` arrive `Secure` and
 
 `vite build` emits `dist/server.js`, which exports `{ fetch }` and does not
 listen on its own when imported. Express mounts it as a request listener, so
-droplet routes and Express routes share one origin: no CORS, no `x-host`, and
+droplet routes and Express routes share one origin: no CORS, no `x-droplet-location`, and
 the page can even call `fetch()` in-process to render fragments without an
 HTTP round trip.
 

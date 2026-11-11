@@ -2,8 +2,9 @@
  * The only code a host needs: fetch a droplet as an HTML fragment.
  *
  * `internalUrl` is how this process reaches the droplets server; `publicUrl`
- * is how the browser will. The second travels in `x-host`, so the fragment
- * is stamped with the origin the browser can actually load scripts from.
+ * is how the browser will. The second travels in `x-droplet-location`, so the
+ * fragment is stamped with the origin the browser can actually load scripts
+ * from.
  */
 export function createDropletClient({ internalUrl, publicUrl }) {
   async function fragment(droplet, props = {}) {
@@ -11,7 +12,7 @@ export function createDropletClient({ internalUrl, publicUrl }) {
     for (const [key, value] of Object.entries(props)) url.searchParams.set(key, String(value));
 
     try {
-      const response = await fetch(url, { headers: { "x-host": publicUrl } });
+      const response = await fetch(url, { headers: { "x-droplet-location": publicUrl } });
       if (!response.ok) {
         return `<p class="error">droplet "${droplet}" unavailable: HTTP ${response.status}</p>`;
       }

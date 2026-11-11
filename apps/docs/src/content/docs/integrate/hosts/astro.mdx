@@ -14,7 +14,7 @@ on the server, and `set:html` renders it into the page.
 // src/lib/shop.ts, fragment() (trimmed)
 async function fragment(page: PageRequest, id: string, params = new URLSearchParams()): Promise<Fragment> {
   const url = `${internal}/droplets/${encodeURIComponent(id)}?${params}`;
-  const headers: Record<string, string> = { accept: "text/html", "x-host": origin, referer: origin + page.path };
+  const headers: Record<string, string> = { accept: "text/html", "x-droplet-location": origin, referer: origin + page.path };
   if (page.cookie) headers["cookie"] = page.cookie;
   const result: Fragment = { html: "", status: 502, location: null, cookies: [], link: null };
   const response = await fetch(url, { headers, redirect: "manual", cache: "no-store" });
@@ -44,7 +44,7 @@ async function fragment(page: PageRequest, id: string, params = new URLSearchPar
 - `shopPage()` in `src/lib/shop-page.ts` takes `page` from `Astro.request`:
   its path and query, and the browser's `Cookie`. `fragment()` sends
   `GET /droplets/<id>?<params>` to `SHOP_INTERNAL_URL` with
-  `accept: text/html`, `x-host` set to this host's public origin
+  `accept: text/html`, `x-droplet-location` set to this host's public origin
   (`SHOP_PUBLIC_URL`), that `Cookie`, and the page's URL as `referer`.
 - `redirect: "manual"` keeps a droplet's 3xx: `finish()` returns it as the
   page's `Response`, and otherwise appends the fragments' `Set-Cookie` to
@@ -79,7 +79,7 @@ Astro side) and `lib/shop.ts` (the framework-free fetches and proxy).
 | On `web` | Value | Used for |
 | --- | --- | --- |
 | `SHOP_INTERNAL_URL` | `http://shop:8300` | internal: fragment fetches and the proxy |
-| `SHOP_PUBLIC_URL` | `http://localhost:8005` | public: this host's own origin, sent as `x-host` |
+| `SHOP_PUBLIC_URL` | `http://localhost:8005` | public: this host's own origin, sent as `x-droplet-location` |
 | `DROPLETS_INTERNAL_URL`, `DROPLETS_PUBLIC_URL` | `http://droplets:8000`, `http://localhost:8000` | the same pair, for the basic page |
 
 ### How a page gets a droplet
@@ -103,7 +103,7 @@ const [filter, library] = page.fragments;
 ```
 
 `shopPage` fetches each fragment (and the toasts and the header's cart badge) in parallel
-from `SHOP_INTERNAL_URL` with `x-host`, the browser's `Cookie`, the page's
+from `SHOP_INTERNAL_URL` with `x-droplet-location`, the browser's `Cookie`, the page's
 URL as `Referer` (the droplet's
 [`host`](/integrate/http-contract/#host-where-the-droplet-renders), query
 included) and `redirect: "manual"`, and pastes only `text/html` answers.
@@ -124,14 +124,14 @@ The `toast-center` fragment comes first in its body; `/index.js` installs
 Endpoints that export `ALL` forward `/index.js` (`src/pages/index.js.ts`),
 `/droplets/*` (fragments, `_data`, form actions), `/assets/*` and `/api/*`
 (`src/pages/{droplets,assets,api}/[...path].ts`) to `shop.proxy(request)`:
-bodies streamed, `x-host` written out, `Set-Cookie` and redirects passed back
+bodies streamed, `x-droplet-location` written out, `Set-Cookie` and redirects passed back
 untouched. The shop's cookies are first-party, and nothing is cross-origin;
 the shop sets them only from form actions and `/api`, which come through here.
 
 ### The shop's environment
 
 - `DROPLETS_TRUSTED_ORIGINS: http://localhost:8005`: the only origin whose
-  [`x-host`](/integrate/http-contract/#x-host-the-public-location) and
+  [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location) and
   [form posts](/integrate/http-contract/#form-posts-the-origin-check) the shop accepts.
 - `DROPLETS_SECRET`: signs a form's result on the redirect back to the page
   when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)).
@@ -185,13 +185,13 @@ const fragments = await Promise.all(ids.map((id) => fragment(id, { who })));
 
 `is:inline` tells Astro to leave the external module script alone instead of
 bundling it. `fragment()` is the usual helper: `GET /droplets/<id>` on the
-internal address with `x-host` set to the public one.
+internal address with `x-droplet-location` set to the public one.
 
 ```ts
 export async function fragment(droplet: string, props: Record<string, string> = {}) {
   const url = new URL(`/droplets/${encodeURIComponent(droplet)}`, DROPLETS_INTERNAL_URL);
   for (const [key, value] of Object.entries(props)) url.searchParams.set(key, value);
-  const response = await fetch(url, { headers: { "x-host": DROPLETS_PUBLIC_URL } });
+  const response = await fetch(url, { headers: { "x-droplet-location": DROPLETS_PUBLIC_URL } });
   return response.ok ? response.text() : `<p class="error">droplet "${droplet}" unavailable</p>`;
 }
 ```

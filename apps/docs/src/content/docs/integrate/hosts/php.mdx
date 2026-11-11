@@ -14,7 +14,7 @@ curl and prints them into the template.
 // app/shop.php (trimmed)
 function shop_fragments(array $wanted): array
 {
-    $headers = ['accept' => 'text/html', 'x-host' => shop_origin(), 'referer' => shop_origin() . shop_raw_target()];
+    $headers = ['accept' => 'text/html', 'x-droplet-location' => shop_origin(), 'referer' => shop_origin() . shop_raw_target()];
     $cookie = shop_request_header('cookie');
     if ($cookie !== null) {
         $headers['cookie'] = $cookie;
@@ -53,7 +53,7 @@ function shop_fragments(array $wanted): array
 ```
 
 - `shop_fragments()` sends `GET /droplets/<id>?<params>` for every fragment
-  at once to `SHOP_INTERNAL_URL`, with `accept: text/html`, `x-host` set to
+  at once to `SHOP_INTERNAL_URL`, with `accept: text/html`, `x-droplet-location` set to
   this host's public origin (`shop_origin()`, from `SHOP_PUBLIC_URL`), the
   browser's `Cookie` as it came, and the page's path and query as `referer`
   (`shop_raw_target()` is `$_SERVER['REQUEST_URI']`).
@@ -93,7 +93,7 @@ the templates `app/views/shop/`.
 | On `web` | Value | Used for |
 | --- | --- | --- |
 | `SHOP_INTERNAL_URL` | `http://shop:8300` | internal: fragment fetches and the proxy |
-| `SHOP_PUBLIC_URL` | `http://localhost:8009` | public: this host's own origin, sent as `x-host` |
+| `SHOP_PUBLIC_URL` | `http://localhost:8009` | public: this host's own origin, sent as `x-droplet-location` |
 | `DROPLETS_INTERNAL_URL`, `DROPLETS_PUBLIC_URL` | `http://droplets:8000`, `http://localhost:8000` | the same pair, for the basic page |
 
 The official image passes the container's environment to PHP, so
@@ -135,7 +135,7 @@ link has it), `/cart` (the cart as `variant=inline`), `/login` and `/admin`.
 `shop_is_proxied()` matches `/index.js`, `/droplets/*` (fragments, `_data`,
 form actions), `/assets/*` and `/api/*`, for every method, before any page
 route. `shop_proxy()` passes the request on with an allowlist of the
-browser's headers and `x-host` written out, and the body from
+browser's headers and `x-droplet-location` written out, and the body from
 `php://input` as it came. The answer comes back with its status, every
 `Set-Cookie` and any redirect untouched, and without the per-hop headers
 (`Connection` and what it names, `Keep-Alive`, `Transfer-Encoding`,
@@ -147,7 +147,7 @@ actions and `/api`, which come through here.
 ### The shop's environment
 
 - `DROPLETS_TRUSTED_ORIGINS: http://localhost:8009`: the only origin whose
-  [`x-host`](/integrate/http-contract/#x-host-the-public-location) and
+  [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location) and
   [form posts](/integrate/http-contract/#form-posts-the-origin-check) the shop accepts.
 - `DROPLETS_SECRET`: signs a form's result on the redirect back to the page
   when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)).
@@ -194,7 +194,7 @@ $droplets_public = rtrim(getenv('DROPLETS_PUBLIC_URL') ?: 'http://localhost:8000
 $ids = array_map(fn($framework) => "{$framework}-ssr-hydrate", ['svelte', 'vue', 'react', 'solid', 'handlebars']);
 $responses = http_all(array_map(fn($id) => [
     'url' => $droplets_internal . '/droplets/' . rawurlencode($id) . '?' . http_build_query(['who' => $who]),
-    'headers' => ['x-host' => $droplets_public],
+    'headers' => ['x-droplet-location' => $droplets_public],
 ], $ids), 5);
 ```
 

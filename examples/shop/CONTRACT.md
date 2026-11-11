@@ -2,9 +2,10 @@
 
 The shop is a droplets server (`pnpm build && pnpm start`, port 8300; the
 image in `Dockerfile`). A host page embeds its droplets the usual way: fetch
-`GET /droplets/<id>?<props>` on its server with `x-host`, paste the fragment,
-load `/index.js` once. The element is `<djs-shop>`. A client-only host
-writes `<djs-shop data-droplet="<id>" data-params='{…}'>` instead.
+`GET /droplets/<id>?<props>` on its server with `x-droplet-location`, paste
+the fragment, load `/index.js` once. The element is `<djs-shop>`. A
+client-only host writes `<djs-shop data-droplet="<id>" data-params='{…}'>`
+instead.
 
 Every prop arrives as a query parameter (or a `data-params` key). Unknown
 keys are dropped, so a host may forward its whole page query to each
@@ -171,8 +172,11 @@ the shop, unchanged:
 
 For each proxied request and each server-side fragment fetch:
 
-- Send `x-host: <the public origin>` and list that origin (and the host's own)
-  in `DROPLETS_TRUSTED_ORIGINS` on the shop. Without it, `x-host` is ignored.
+- Send `x-droplet-location: <the public origin>` and list that origin (and
+  the host's own) in `DROPLETS_TRUSTED_ORIGINS` on the shop. The shop
+  honours `x-droplet-location` only when its origin is trusted (its own, in
+  `DROPLETS_ORIGIN` or in `DROPLETS_TRUSTED_ORIGINS`); otherwise it is
+  ignored.
 - Forward the browser's `Cookie` header on fragment fetches (`cart_id`,
   `shop_admin`): the cart, the admin list and the login state render from it.
 - Pass `Set-Cookie` back untouched. The shop never sets `Domain`, so the
@@ -203,7 +207,7 @@ read `.env`). Never use them anywhere else.
 | `SHOP_SECRET` | signs `shop_admin` (≥ 32 characters; without it login answers 503) |
 | `SHOP_DATABASE` | the SQLite file (default `shop.db`; seeded by `pnpm seed`) |
 | `SHOP_IMAGES`, `SHOP_UPLOADS` | image directories (default `images`, `.uploads`) |
-| `DROPLETS_TRUSTED_ORIGINS` | the origins whose `x-host` and form posts are trusted, and the pages a post may be sent back to |
+| `DROPLETS_TRUSTED_ORIGINS` | the origins whose `x-droplet-location` and form posts are trusted, and the pages a post may be sent back to |
 | `DROPLETS_SECRET` | signs the result of a form posted without JavaScript (≥ 32 bytes; without it such a post answers the fragment instead of a redirect back) |
 | `PORT` | default 8300 |
 

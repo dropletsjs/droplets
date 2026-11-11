@@ -16,8 +16,8 @@ export type ShopConfig = {
   /** How this process reaches the shop (`http://shop:8300` in Docker). */
   internalUrl: string;
   /**
-   * This host's own public origin. It goes out as `x-host` on every
-   * request, written out in the config: never the client's Host.
+   * This host's own public origin. It goes out as `x-droplet-location` on
+   * every request, written out in the config: never the client's Host.
    */
   publicUrl: string;
 };
@@ -94,7 +94,7 @@ export function createShop({ internalUrl, publicUrl }: ShopConfig) {
   /** Passes one browser request on to the shop, and its answer back untouched. */
   async function proxy(request: Request): Promise<Response> {
     const url = new URL(request.url);
-    const headers = new Headers({ "x-host": origin });
+    const headers = new Headers({ "x-droplet-location": origin });
     for (const name of FORWARDED_REQUEST_HEADERS) {
       const value = request.headers.get(name);
       if (value) headers.set(name, value);
@@ -132,7 +132,7 @@ export function createShop({ internalUrl, publicUrl }: ShopConfig) {
    */
   async function fragment(page: PageRequest, id: string, params = new URLSearchParams()): Promise<Fragment> {
     const url = `${internal}/droplets/${encodeURIComponent(id)}?${params}`;
-    const headers: Record<string, string> = { accept: "text/html", "x-host": origin, referer: origin + page.path };
+    const headers: Record<string, string> = { accept: "text/html", "x-droplet-location": origin, referer: origin + page.path };
     if (page.cookie) headers["cookie"] = page.cookie;
     const result: Fragment = { html: "", status: 502, location: null, cookies: [], link: null };
     try {
@@ -165,7 +165,7 @@ export function createShop({ internalUrl, publicUrl }: ShopConfig) {
     const url = `${internal}/droplets/product-page/_data?${new URLSearchParams({ slug })}`;
     try {
       const response = await fetch(url, {
-        headers: { "x-host": origin, accept: "application/json" },
+        headers: { "x-droplet-location": origin, accept: "application/json" },
         redirect: "manual",
         cache: "no-store",
       });

@@ -821,9 +821,9 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
         // Answered before the body is read.
         expect(request.bodyUsed, referer).toBe(false);
       }
-      // Under the prefix a trusted x-host serves this server at, too.
+      // Under the prefix a trusted x-droplet-location serves this server at, too.
       const proxied = await app.request(
-        submit("/droplets/guestbook", "", { accept: "text/html", "x-host": `${ORIGIN}/mfe`, referer: `${ORIGIN}/mfe/droplets/guestbook?/default` }),
+        submit("/droplets/guestbook", "", { accept: "text/html", "x-droplet-location": `${ORIGIN}/mfe`, referer: `${ORIGIN}/mfe/droplets/guestbook?/default` }),
       );
       expect(proxied.status).toBe(400);
       expect(ran).not.toHaveBeenCalled();

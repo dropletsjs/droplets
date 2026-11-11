@@ -69,8 +69,9 @@ function droplets_shop_internal_url(): string
 }
 
 /**
- * This site's public origin. It goes out as `x-host` on every request to the
- * shop, written out in the environment: never the client's Host.
+ * This site's public origin. It goes out as `x-droplet-location` on every
+ * request to the shop, written out in the environment: never the client's
+ * Host.
  */
 function droplets_shop_public_origin(): string
 {
@@ -197,7 +198,7 @@ function droplets_shop_proxy(string $request_uri): void
     if ($cookie !== null) {
         $headers['cookie'] = $cookie;
     }
-    $headers['x-host'] = droplets_shop_public_origin();
+    $headers['x-droplet-location'] = droplets_shop_public_origin();
     // A logged-in admin's fragments, `_data`, actions and `/api`: the
     // assertion, for this method and this path (shop-identity.php).
     if (preg_match('#^/(?:droplets|api)/#', $request_uri)) {
@@ -282,7 +283,7 @@ function droplets_shop_fragments(array $wanted): array
     $origin = droplets_shop_public_origin();
     $headers = [
         'accept' => 'text/html',
-        'x-host' => $origin,
+        'x-droplet-location' => $origin,
         'referer' => $origin . (string) ($_SERVER['REQUEST_URI'] ?? '/'),
     ];
     $cookie = droplets_shop_cookie_header();
@@ -337,7 +338,7 @@ function droplets_shop_product(string $slug): ?array
     $response = wp_remote_get(droplets_shop_internal_url() . '/droplets/product-page/_data?' . droplets_shop_build_query([['slug', $slug]]), [
         'timeout' => 5,
         'redirection' => 0,
-        'headers' => ['x-host' => droplets_shop_public_origin(), 'accept' => 'application/json'],
+        'headers' => ['x-droplet-location' => droplets_shop_public_origin(), 'accept' => 'application/json'],
     ]);
     if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
         return null;

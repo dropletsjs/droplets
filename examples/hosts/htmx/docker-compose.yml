@@ -31,7 +31,7 @@ services:
       SHOP_SECRET: demo-only-secret-change-me-0123456789abcdef
       # Signs a form result on the redirect back to the page (Post/Redirect/Get).
       DROPLETS_SECRET: demo-only-droplets-secret-change-me-0123456789
-      # The public URL nginx sends as x-host, and the pages' form posts.
+      # The public URL nginx sends as x-droplet-location, and the pages' form posts.
       DROPLETS_TRUSTED_ORIGINS: ${WEB_URL:-http://localhost:8010}
 
   # nginx.conf, html/ and htmx baked in (Dockerfile).

@@ -24,6 +24,8 @@ export default config({
   // Pages on other origins embed these droplets: let their browsers in.
   cors: true,                       // or Hono cors() options: { origin: [...] }
 
+  // Where browsers reach this server, behind a proxy: see "The public location" below.
+  origin: "https://shop.example/mfe",
   // Hosts whose pages post forms to these droplets: see "Form posts" below.
   trustedOrigins: ["https://shop.example"],
   csrf: { checkOrigin: true },      // the default
@@ -53,7 +55,8 @@ export default config({
 | `apiFolder` | `"src/api"` | Folder scanned for `**/+server.ts`, served under `/api/`. |
 | `element` | `"djs-droplet"` | Tag name of the element that hosts every droplet. Lowercase with a hyphen. See [The element name](#the-element-name). |
 | `cors` | off | `true` sends `Access-Control-Allow-Origin: *` on every route (`/api/*`, `_data`, `/index.js` included), and warns once in production; an object is passed to Hono's `cors()`. Needed whenever a page on another origin embeds your droplets. Prefer an origin list (`{ origin: ["https://shop.example"] }`) for anything not public: with `*`, any page can read what an employee's browser can reach on an intranet server. |
-| `trustedOrigins` | `[]` | Origins, besides the server's own, allowed to send form submissions: the hosts whose pages post to your droplets. `"*"` trusts every origin. The `DROPLETS_TRUSTED_ORIGINS` environment variable (comma-separated, read at runtime on every adapter) adds to it. When set (without `"*"`), it also bounds `host`: a host on another origin becomes the server's own. An `x-host` is honoured only when its origin is the server's own or listed here (`"*"` does not count). The same list (without `"*"`) says where a form posted without JavaScript may be sent back to. See [Form posts](/integrate/http-contract/#form-posts-the-origin-check) and [Security model](/guides/security/). |
+| `origin` | `[]` | Where browsers reach this server: its public origin, with the path prefix a proxy serves it under (`"https://shop.example/mfe"`), or a list of them. No query, hash or credentials. The `DROPLETS_ORIGIN` environment variable (comma-separated, read at runtime on every adapter) adds to it. See [The public location](#the-public-location). |
+| `trustedOrigins` | `[]` | Origins, besides the server's own, allowed to send form submissions: the hosts whose pages post to your droplets. `"*"` trusts every origin. The `DROPLETS_TRUSTED_ORIGINS` environment variable (comma-separated, read at runtime on every adapter) adds to it. When set (without `"*"`), it also bounds `host`: a host on another origin becomes the location's origin. A location header naming one of these origins is trusted too, and `"*"` trusts any ([Trusting any location](/guides/security/#trusting-any-location)). The same list (without `"*"`) says where a form posted without JavaScript may be sent back to. See [Form posts](/integrate/http-contract/#form-posts-the-origin-check) and [Security model](/guides/security/). |
 | `csrf.checkOrigin` | `true` | Answer `403` to a cross-site form submission (form-urlencoded, multipart or `text/plain` body, or none at all with an `Origin`) to `/droplets/*` or `/api/*` from an origin that is not trusted. `false` turns the check off. |
 | `fragmentCacheControl` | `"private, no-store"` | The default `Cache-Control` of fragments and `_data`, when neither the droplet's load ([`setHeaders`](/guides/writing-droplets/#setheaders)) nor `handle` set one. `false` sends none. See [Caching](/guides/security/#caching). |
 | `limits.json` | 1 MB | Largest JSON body, in bytes: render requests and `+server.ts`. Bigger answers `413`. |
@@ -71,6 +74,32 @@ export default config({
 
 `health` and `importMap` must be paths the framework does not own: outside
 `/`, `/index.js`, `/index.css`, `/droplets/`, `/assets/` and `/api/`.
+
+### The public location
+
+The URLs a fragment writes about the server (its stylesheet, `Link`
+preloads, action URLs, `droplet.origin`) are on its public location: where
+the browser reaches `/index.js`. Behind a proxy that is not the address the
+request arrived at, so the server reads it from the request, in this order
+([details](/integrate/http-contract/#where-it-comes-from)):
+`x-droplet-location`, then `Forwarded`, then `X-Forwarded-Proto` with
+`X-Forwarded-Host` (both with `X-Forwarded-Prefix` for a path). A header's
+location counts only when its origin is the request's own, in `origin` or
+in `trustedOrigins`; with no header that counts, a single `origin` entry is
+the location, else the request's own origin.
+
+```ts
+// One public URL, under a path: no header needed.
+export default config({ origin: "https://shop.example/mfe" });
+```
+
+```bash
+# Or at runtime, several of them: the proxy's forwarded headers pick one.
+DROPLETS_ORIGIN=https://shop.example,https://www.shop.example node dist/server.js
+```
+
+`"*"` trusts any location a header names, and warns once at start; read
+[Trusting any location](/guides/security/#trusting-any-location) first.
 
 ### The element name
 
@@ -176,6 +205,7 @@ Client externals are declared in
 | --- | --- |
 | `PORT` | Overrides both ports, so a container can relocate the server without a rebuild. |
 | `DROPLETS_LOG` | Log verbosity: `error`, `warn`, `info` (default) or `debug`. |
+| `DROPLETS_ORIGIN` | Comma-separated locations added to `origin`, read at runtime (per request, so Workers bindings work). |
 | `DROPLETS_TRUSTED_ORIGINS` | Comma-separated origins added to `trustedOrigins`, read at runtime. |
 | `DROPLETS_SECRET` | 32 or more random bytes, read at runtime: signs the result of a form posted without JavaScript, carried back to the page on the redirect ([Post/Redirect/Get](/guides/actions/#without-javascript-postredirectget)). Without it, or shorter, such a post answers the fragment instead, with a warning in the log. |
 

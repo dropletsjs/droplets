@@ -27,7 +27,7 @@ group) embed the shop (`examples/shop`, see its `CONTRACT.md`), beside the
 basic page at `/`:
 
 - `src/hooks.server.ts` proxies `/index.js`, `/droplets/*`, `/assets/*` and
-  `/api/*` to the shop before routing, with a fixed `x-host`
+  `/api/*` to the shop before routing, with a fixed `x-droplet-location`
   (`SHOP_PUBLIC_URL`), so its cookies are first-party;
 - the `(shop)` loads fetch fragments with the browser's `Cookie` and the
   page's URL as `Referer` (`src/lib/shop-page.server.ts`); their

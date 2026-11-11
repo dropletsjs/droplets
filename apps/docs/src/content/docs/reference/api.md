@@ -71,9 +71,9 @@ const response = await fetch(droplet.url("/api/counter"));
 
 A droplet runs inside someone else's page, so `fetch("/api/counter")` would
 hit the host. In the browser, `origin` is where the page loaded `/index.js`
-from (the page's own origin if it did not); on the server it is the
-[`x-host`](/integrate/http-contract/#x-host-the-public-location) location when it
-is trusted, or the request's own origin. It works in components and in plain `.ts` files.
+from (the page's own origin if it did not); on the server it is the request's
+[public location](/integrate/http-contract/#x-droplet-location-the-public-location):
+a trusted location header, else the single `origin` entry, else the request's own origin. It works in components and in plain `.ts` files.
 
 ## `$droplets/form`
 

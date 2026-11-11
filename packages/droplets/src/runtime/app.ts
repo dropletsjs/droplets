@@ -7,10 +7,10 @@ import { readRuntimeEnv } from "./env-store.ts";
 import { backUrl, formResultKey, isReservedQueryKey, RETURN_KEY, splitFormResults } from "./form.ts";
 import { formSecret, mintFormResult, readFormResult } from "./form-token.server.ts";
 import {
+  headerLocations,
   hostFromHeaders,
   hostTokens,
   parseHost,
-  parseLocation,
   withinTrusted,
   prerenderHost,
   replaceHostTokens,
@@ -22,7 +22,7 @@ import { dropletElement } from "./element.ts";
 import { prerenderKey, propsKey } from "./props.ts";
 import { requestInfo, withRequestInfo } from "./request-store.ts";
 import { loadHeaders, storedHeaders } from "./load-headers.ts";
-import { mediaType, originCheck, sizeLimits, trustedOriginsWith } from "./security.ts";
+import { mediaType, originCheck, originWith, sizeLimits, trustedOriginsWith, warnAnyLocation } from "./security.ts";
 import { locationScript, publicEnvScript, serverKey } from "./server-records.ts";
 import { allowedMethods, API_METHODS, type ApiMatch, type ApiMethod } from "./routes.ts";
 import {
@@ -195,6 +195,11 @@ export type DropletsAppOptions = {
   /** Enables cross-origin access to every route; see `DropletsConfig.cors`. */
   cors?: DropletsCorsOptions | undefined;
   /**
+   * This server's public locations, `"*"` for any a header names;
+   * `DROPLETS_ORIGIN` adds to them per request. See `DropletsConfig.origin`.
+   */
+  origin?: readonly string[] | undefined;
+  /**
    * Origins allowed to send form submissions besides this server's, also
    * bounding `event.host`; `DROPLETS_TRUSTED_ORIGINS` adds to them per
    * request. See `DropletsConfig.trustedOrigins`.
@@ -240,7 +245,7 @@ type AppEnv = {
     cookieJar?: { cookies: RequestEvent["cookies"]; setCookies(): string[] };
     /** While prerendering: a use of `cookies`, which stops the build. */
     prerenderViolation?: Error;
-    /** Where the browser reaches this server: a trusted `x-host`, else the request's origin. */
+    /** Where the browser reaches this server, resolved once per request (see `resolveLocation`). */
     location?: string;
     /**
      * The `__droplet_form_*` values `host` carried, by key, taken out of it
@@ -350,18 +355,24 @@ function serializeBase64(data: unknown): string {
 }
 
 /**
- * Where the browser reaches this server: `x-host` when a trusted proxy sent
- * one, as a web URL with its path prefix (`https://shop.example/mfe`), else
- * the request's origin. Resolved once per request (see `trustedLocation`).
+ * Where the browser reaches this server: its origin and the path prefix it
+ * is served under (`https://shop.example/mfe`). Resolved once per request
+ * (see `resolveLocation`).
  */
 function publicLocation(c: Context): string {
   return (c.get("location") as string | undefined) ?? new URL(c.req.url).origin;
 }
 
-let ignoredXHost = false;
-
 /** The request headers a fragment's URLs and `host` come from: what a cacheable fragment varies on. */
-const VARY_HEADERS = ["x-host", "forwarded", "x-forwarded-host", "x-forwarded-proto", "origin"];
+const VARY_HEADERS = [
+  "x-droplet-location",
+  "forwarded",
+  "x-forwarded-host",
+  "x-forwarded-proto",
+  "x-forwarded-port",
+  "x-forwarded-prefix",
+  "origin",
+];
 
 /**
  * `vary` with `names` added, each once (any case), after what it had;
@@ -385,29 +396,43 @@ function applyHeaders(c: AppContext, headers: Iterable<[string, string]>): void 
   for (const [name, value] of headers) c.header(name, value);
 }
 
+/** The location headers already warned about, once each per process. */
+const warnedSources = new Set<string>();
+
+/** For the tests: warn again. */
+export function resetLocationWarnings(): void {
+  warnedSources.clear();
+}
+
 /**
- * `x-host`, honoured only when its origin is the request's own or listed in
- * `trustedOrigins`: anyone can send the header, and it decides the URLs the
+ * Where this request reaches the server. The first location the headers
+ * name (see `headerLocations`) whose origin is trusted: the request's own,
+ * one in `origin`, or one in `trustedOrigins` (`"*"` in either trusts any).
+ * Anyone can send these headers, and the location decides the URLs the
  * server writes about itself (stylesheet, `Link`, `droplet.url()`, action
- * URLs). `"*"` does not count. Anything else (another origin, `data:`,
- * `javascript:`, not a URL) is ignored.
+ * URLs) and the origins it takes form posts from. Then the one `origin`
+ * entry, when there is exactly one; then the request's own origin.
  */
-function trustedLocation(c: Context, trusted: readonly string[]): string {
+function resolveLocation(c: Context, origin: readonly string[], trusted: readonly string[]): string {
   const own = new URL(c.req.url).origin;
-  const sent = c.req.header("x-host");
-  const location = parseLocation(sent);
-  if (location) {
-    const origin = new URL(location).origin;
-    if (origin === own || trusted.includes(origin)) return location;
+  // The header's old name, never honoured; the warning can go at 1.0.
+  if (c.req.header("x-host") !== undefined && !warnedSources.has("old")) {
+    warnedSources.add("old");
+    logger.warn("framework", "x-host is now x-droplet-location");
   }
-  if (sent !== undefined && !ignoredXHost) {
-    ignoredXHost = true;
+  const locations = origin.filter((entry) => entry !== "*");
+  const any = origin.includes("*") || trusted.includes("*");
+  const allowed = new Set([own, ...locations.map((entry) => new URL(entry).origin), ...trusted]);
+  for (const { source, location } of headerLocations(c.req.raw.headers, new URL(c.req.url))) {
+    if (any || allowed.has(new URL(location).origin)) return location;
+    if (warnedSources.has(source)) continue;
+    warnedSources.add(source);
     logger.warn(
       "framework",
-      `ignoring x-host ${JSON.stringify(sent.slice(0, 200))}: its origin must be this server's or listed in trustedOrigins (or DROPLETS_TRUSTED_ORIGINS)`,
+      `ignoring the location ${JSON.stringify(location.slice(0, 200))} from ${source}: its origin must be this server's or listed in origin or trustedOrigins (or DROPLETS_ORIGIN, DROPLETS_TRUSTED_ORIGINS)`,
     );
   }
-  return own;
+  return locations.length === 1 ? locations[0]! : own;
 }
 
 /** The origin of `publicLocation`. */
@@ -477,7 +502,7 @@ function platformOf(c: Context): RequestEvent["platform"] {
   return { env: c.env, ...(context === undefined ? {} : { context }) };
 }
 
-/** The origins the browser may reach this server at: the request's own, and `x-host`'s. */
+/** The origins the browser may reach this server at: the request's own, and its location's. */
 function ownOrigins(c: Context): string[] {
   return [new URL(c.req.url).origin, publicOrigin(c)];
 }
@@ -558,12 +583,11 @@ function withFormResult(page: URL, key: string, value: string): string {
 }
 
 function createRequestEvent(c: Context, host?: URL, cookies?: RequestEvent["cookies"]): RequestEvent {
-  const url = new URL(c.req.url);
-  const publicUrl = urlOn(publicOrigin(c), url);
+  const publicUrl = urlOn(publicOrigin(c), new URL(c.req.url));
   return {
     request: c.req.raw,
     url: publicUrl,
-    host: host ?? hostFromHeaders(c.req.raw.headers, url),
+    host: host ?? hostFromHeaders(c.req.raw.headers, publicUrl),
     params: {},
     locals: {} as Locals,
     platform: platformOf(c),
@@ -737,6 +761,11 @@ export function createDropletsApp(options: DropletsAppOptions) {
   const configuredOrigins = options.trustedOrigins ?? [];
   /** `trustedOrigins` and `DROPLETS_TRUSTED_ORIGINS`, now: the env may change per request (Workers). */
   const trustedOrigins = () => trustedOriginsWith(configuredOrigins, readRuntimeEnv("DROPLETS_TRUSTED_ORIGINS"));
+  const configuredLocations = options.origin ?? [];
+  /** `origin` and `DROPLETS_ORIGIN`, now, as `trustedOrigins`. */
+  const locations = () => originWith(configuredLocations, readRuntimeEnv("DROPLETS_ORIGIN"));
+  if (configuredLocations.includes("*")) warnAnyLocation("origin");
+  if (configuredOrigins.includes("*")) warnAnyLocation("trustedOrigins");
   // One per build: what host-agnostic renders hold for `host`, never sent.
   const buildNonce = options.building ? tokenNonce() : "";
   const buildTokens = options.building ? hostTokens(buildNonce) : undefined;
@@ -800,10 +829,10 @@ export function createDropletsApp(options: DropletsAppOptions) {
     c.header("cache-control", `public, max-age=${ONE_MONTH_SECONDS}, immutable`);
   };
 
-  // Where this server is reached, from a trusted `x-host` only: before
-  // anything that writes a URL or checks an origin.
+  // Where this server is reached: before anything that writes a URL or
+  // checks an origin.
   app.use("*", (c, next) => {
-    c.set("location", trustedLocation(c, trustedOrigins()));
+    c.set("location", resolveLocation(c, locations(), trustedOrigins()));
     c.set("referer", c.req.header("referer"));
     return next();
   });
@@ -881,7 +910,7 @@ export function createDropletsApp(options: DropletsAppOptions) {
       const jar = createCookies(c.req.raw, urlOn(publicLocation(c), new URL(c.req.url)));
       c.set("cookieJar", jar);
       cookies = jar.cookies;
-      host = boundedHost(c, host ?? hostFromHeaders(c.req.raw.headers, new URL(c.req.url)));
+      host = boundedHost(c, host ?? hostFromHeaders(c.req.raw.headers, new URL(publicOrigin(c))));
       // A no-JavaScript action's result rides on the page's URL: taken out
       // here, before `handle`, so no code of the app ever sees it in `host`.
       const split = splitFormResults(host);

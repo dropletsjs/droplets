@@ -42,8 +42,8 @@ declare module "$droplets/drop" {
   export const droplet: {
     /**
      * Where the page loads the droplets from (the URL it loaded `/index.js`
-     * from), or on the server the request's public location (`x-host`, an
-     * `http(s)` URL). May carry a path when a proxy serves the droplets
+     * from), or on the server the request's public location (a trusted
+     * `x-droplet-location` or forwarded header, an `http(s)` URL). May carry a path when a proxy serves the droplets
      * under one. `""` on the server outside a request.
      */
     readonly origin: string;
@@ -88,7 +88,7 @@ declare module "$droplets/form" {
   /**
    * `${location}/droplets/<id>?/<name>`: the action `name` (`default`
    * without one) of the droplet rendering now, on the droplets server's
-   * location (a trusted `x-host` or the request's origin on the server, the
+   * location (the request's resolved location on the server, the
    * URL `/index.js` came from in the browser); the same string on the
    * server, at build and in the browser. With `DropletActions` of
    * `./$types` it takes only the names `actions` exports. Throws outside a

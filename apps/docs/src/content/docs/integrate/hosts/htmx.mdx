@@ -29,10 +29,11 @@ from the browser, and `/index.js` makes it live.
 # nginx.conf
 location ~ ^/(index\.js|droplets/|assets/|api/) {
   proxy_pass http://shop;
-  proxy_set_header x-host ${SHOP_PUBLIC_URL};
+  proxy_set_header x-droplet-location ${SHOP_PUBLIC_URL};
   proxy_set_header Forwarded "";
   proxy_set_header X-Forwarded-Host "";
   proxy_set_header X-Forwarded-Proto "";
+  proxy_set_header X-Forwarded-Prefix "";
 }
 ```
 
@@ -40,7 +41,8 @@ location ~ ^/(index\.js|droplets/|assets/|api/) {
   `GET /droplets/product-page?slug=clay-cylinder-mug` from the browser and
   puts the answer inside the `<section>`, in place of its placeholder.
 - The request is same-origin, through nginx: the browser sends the shop's
-  cookies and the page's URL as `Referer` itself, and nginx adds `x-host`.
+  cookies and the page's URL as `Referer` itself, and nginx adds
+  `x-droplet-location`.
   `nginx.conf` is a template; the nginx image fills in `${SHOP_PUBLIC_URL}`
   (`http://localhost:8010`) when it starts.
 - `/index.js`, loaded once, defines the shop's droplet element, so each

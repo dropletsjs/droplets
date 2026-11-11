@@ -54,7 +54,7 @@ function build(narrow: boolean): Scene {
 <Diagram
   id="wordpress-flow"
   title="WordPress renders, wp-shop reads WordPress"
-  desc="One, the browser asks WordPress for a page, /gallery. Two, the plugin fetches the page's fragments from wp-shop on the server, all at once, with x-host, the cart cookie and, for a logged-in admin, a signed x-wp-shop-user. Three, each droplet's load asks WordPress's REST API for its data: the products, their images, their comments. Four, WordPress answers JSON, which wp-shop checks field by field. Five, wp-shop answers the fragments. Six, WordPress sends the page with the fragments pasted in. Seven, the browser asks for /index.js, /droplets and /api on WordPress's own origin. Eight, the plugin's proxy passes them on to wp-shop."
+  desc="One, the browser asks WordPress for a page, /gallery. Two, the plugin fetches the page's fragments from wp-shop on the server, all at once, with x-droplet-location, the cart cookie and, for a logged-in admin, a signed x-wp-shop-user. Three, each droplet's load asks WordPress's REST API for its data: the products, their images, their comments. Four, WordPress answers JSON, which wp-shop checks field by field. Five, wp-shop answers the fragments. Six, WordPress sends the page with the fragments pasted in. Seven, the browser asks for /index.js, /droplets and /api on WordPress's own origin. Eight, the plugin's proxy passes them on to wp-shop."
   caption="WordPress renders the page and asks wp-shop for fragments; wp-shop reads its data back from WordPress."
   wide={build(false)}
   narrow={build(true)}

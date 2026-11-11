@@ -16,7 +16,8 @@ export default config({
   /**
    * The host origins whose pages post forms here come from
    * `DROPLETS_TRUSTED_ORIGINS` at runtime (comma-separated), so a new host
-   * needs no rebuild. A proxied host's `x-host` is its own origin.
+   * needs no rebuild. A proxied host's `x-droplet-location` is its own
+   * origin, so the same list trusts it.
    */
   trustedOrigins: [],
 

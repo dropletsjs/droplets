@@ -10,7 +10,7 @@ services:
     ports:
       - "127.0.0.1:${DROPLETS_PORT:-8000}:8000"
     environment:
-      # The URL the host sends as x-host, and the host's own pages.
+      # The URL the host sends as x-droplet-location, and the host's own pages.
       DROPLETS_TRUSTED_ORIGINS: ${DROPLETS_URL:-http://localhost:8000},${WEB_URL:-http://localhost:8008}
 
   # The shop (examples/wp-shop): the shop's droplets, backed by this
@@ -33,7 +33,7 @@ services:
       WP_SHOP_SERVICE_SECRET: demo-only-service-secret-change-me-0123456789ab
       # Signs a form result on the redirect back to the page (posts without JavaScript).
       DROPLETS_SECRET: demo-only-droplets-secret-change-me-0123456789
-      # The site's public origin: the x-host it sends, its pages' form posts.
+      # The site's public origin: the x-droplet-location it sends, its pages' form posts.
       DROPLETS_TRUSTED_ORIGINS: ${WEB_URL:-http://localhost:8008}
     depends_on:
       - wordpress

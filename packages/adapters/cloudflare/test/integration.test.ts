@@ -213,6 +213,23 @@ describe("cloudflare adapter", () => {
     expect((await post("https://shop.test", { DROPLETS_TRUSTED_ORIGINS: "https://shop.test,https://two.test" })).status).toBe(405);
   });
 
+  it("ignores a client's X-Forwarded-Host unless a DROPLETS_ORIGIN binding lists it", async () => {
+    const render = async (bindings: Record<string, unknown>) =>
+      (await worker.default.fetch(
+        new Request("http://drops.test/droplets/hello?who=W", {
+          headers: { "x-forwarded-host": "shop.test", "x-forwarded-proto": "https", "x-forwarded-prefix": "/mfe" },
+        }),
+        { ...env, ...bindings },
+        {},
+      )).text();
+    const forged = await render({});
+    expect(forged).not.toContain("shop.test");
+    expect(forged).toContain("http://drops.test/droplets/hello/");
+    const listed = await render({ DROPLETS_ORIGIN: "https://shop.test" });
+    expect(listed).toContain("https://shop.test/mfe/droplets/hello/");
+    expect(listed).not.toContain("http://drops.test/droplets/hello/");
+  });
+
   it("applies the bundled config", async () => {
     const res = await call("/", { headers: { origin: "http://other.test" } });
     expect(res.headers.get("access-control-allow-origin")).toBe("*");

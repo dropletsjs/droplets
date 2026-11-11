@@ -9,8 +9,8 @@
  *   (scripts/with-demo.mjs) starts a local one and sets it; `pnpm docs:dev`
  *   points it at the demo's dev server.
  * - `DEMO_PUBLIC_URL`: where browsers reach it. Default
- *   https://demo.dropletsjs.dev. Sent as `x-host`, so the URLs a fragment
- *   writes (its stylesheet, its form actions) are on that origin.
+ *   https://demo.dropletsjs.dev. Sent as `x-droplet-location`, so the URLs a
+ *   fragment writes (its stylesheet, its form actions) are on that origin.
  */
 
 /** The element apps/demo renders in (its droplets.config.ts). */
@@ -59,7 +59,7 @@ export async function fetchFragment(id: string, props: Record<string, unknown>, 
   try {
     response = await fetch(url, {
       method: "POST",
-      headers: { "content-type": "application/json", accept: "text/html", "x-host": demoPublicUrl() },
+      headers: { "content-type": "application/json", accept: "text/html", "x-droplet-location": demoPublicUrl() },
       body: JSON.stringify({ host: page, props }),
       // A redirect is the droplet's answer for a page, never followed by a host.
       redirect: "manual",

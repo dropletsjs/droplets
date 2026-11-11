@@ -59,8 +59,9 @@ function shop_internal_url(): string
 }
 
 /**
- * This host's own public origin. It goes out as `x-host` on every request to
- * the shop, written out in the environment: never the client's Host.
+ * This host's own public origin. It goes out as `x-droplet-location` on every
+ * request to the shop, written out in the environment: never the client's
+ * Host.
  */
 function shop_origin(): string
 {
@@ -147,7 +148,7 @@ function shop_is_proxied(string $path): bool
 function shop_proxy(): void
 {
     $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
-    $headers = ['x-host' => shop_origin()];
+    $headers = ['x-droplet-location' => shop_origin()];
     foreach (SHOP_REQUEST_HEADERS as $name) {
         $value = shop_request_header($name);
         if ($value !== null) {
@@ -197,7 +198,7 @@ function shop_proxy(): void
  */
 function shop_fragments(array $wanted): array
 {
-    $headers = ['accept' => 'text/html', 'x-host' => shop_origin(), 'referer' => shop_origin() . shop_raw_target()];
+    $headers = ['accept' => 'text/html', 'x-droplet-location' => shop_origin(), 'referer' => shop_origin() . shop_raw_target()];
     $cookie = shop_request_header('cookie');
     if ($cookie !== null) {
         $headers['cookie'] = $cookie;
@@ -240,7 +241,7 @@ function shop_product(string $slug): ?array
 {
     $response = http_one([
         'url' => shop_internal_url() . '/droplets/product-page/_data?' . shop_build_query([['slug', $slug]]),
-        'headers' => ['x-host' => shop_origin(), 'accept' => 'application/json'],
+        'headers' => ['x-droplet-location' => shop_origin(), 'accept' => 'application/json'],
     ], 5);
     if ($response['status'] !== 200) {
         return null;

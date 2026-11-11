@@ -405,11 +405,17 @@ describe("CORS", () => {
   });
 });
 
-describe("x-host", () => {
-  it("is ignored unless trusted: a fragment's URLs stay on the server's own origin", async () => {
-    const html = await (await call("/droplets/hello", { headers: { "x-host": "https://evil.example" } })).text();
-    expect(html).not.toContain("evil.example");
-    expect(html).toContain(`${ORIGIN}/droplets/hello/style.css`);
+describe("the droplet location", () => {
+  it("ignores a location header unless trusted: a fragment's URLs stay on the server's own origin", async () => {
+    for (const headers of <Record<string, string>[]>[
+      { "x-droplet-location": "https://evil.example" },
+      { "x-forwarded-host": "evil.example", "x-forwarded-proto": "https" },
+      { forwarded: "proto=https;host=evil.example" },
+    ]) {
+      const html = await (await call("/droplets/hello", { headers })).text();
+      expect(html).not.toContain("evil.example");
+      expect(html).toContain(`${ORIGIN}/droplets/hello/style.css`);
+    }
   });
 });
 

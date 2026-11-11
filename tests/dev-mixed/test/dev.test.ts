@@ -53,7 +53,7 @@ let output = "";
 let host: Server | undefined;
 let browser: Browser | undefined;
 
-const get = (path: string) => fetch(`${ORIGIN}${path}`, { headers: { "x-host": HOST } });
+const get = (path: string) => fetch(`${ORIGIN}${path}`, { headers: { "x-droplet-location": HOST } });
 const file = (path: string) => `${project}/${path}`;
 const edit = (path: string, from: string, to: string) => {
   const source = readFileSync(file(path), "utf8");

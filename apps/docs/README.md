@@ -21,12 +21,12 @@ Some pages embed real droplets from [apps/demo](../demo) with
 
 - **At build**, each one's fragment is fetched from the demo server
   (`POST /droplets/<id>` with the page as `host` and the props, and
-  `x-host` set to the demo's public origin) and inlined, as a server-side
-  include. A page view never asks the demo to render. `pnpm docs:build`
-  runs `scripts/with-demo.mjs`: it builds apps/demo for Node, starts it on a
-  free port with a DROPLETS_SECRET of its own, builds the site with
-  `DEMO_URL` pointing at it, and stops it. Without a demo server the build
-  fails.
+  `x-droplet-location` set to the demo's public origin) and inlined, as a
+  server-side include. A page view never asks the demo to render.
+  `pnpm docs:build` runs `scripts/with-demo.mjs`: it builds apps/demo for
+  Node, starts it on a free port with a DROPLETS_SECRET of its own, builds
+  the site with `DEMO_URL` pointing at it, and stops it. Without a demo
+  server the build fails.
 - **In the browser**, the page loads `/index.js` from the demo's public
   origin (`DEMO_PUBLIC_URL`, default https://demo.dropletsjs.dev), which
   hydrates the fragments with the inline data and loads their bundles and
@@ -53,7 +53,7 @@ the `<Code>` those components render gets them too.
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `DEMO_URL` | set by `scripts/with-demo.mjs` | Where the build fetches fragments. Set it to use a running demo instead (nothing is built or started). |
-| `DEMO_PUBLIC_URL` | `https://demo.dropletsjs.dev` | Where browsers load the demo from: `/index.js`, and the `x-host` of the fragments. |
+| `DEMO_PUBLIC_URL` | `https://demo.dropletsjs.dev` | Where browsers load the demo from: `/index.js`, and the `x-droplet-location` of the fragments. |
 
 `public/_headers` allows the demo origin in `script-src`, `style-src`,
 `connect-src` and `form-action`, and nowhere else; `docs:check-csp` fails

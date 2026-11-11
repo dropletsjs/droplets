@@ -1,4 +1,5 @@
 import type { cors } from "hono/cors";
+import { isLocationPrefix } from "../runtime/web-url.ts";
 
 /** Options accepted by Hono's `cors()` middleware. */
 export type DropletsCorsOptions = NonNullable<Parameters<typeof cors>[0]>;
@@ -53,12 +54,26 @@ export type DropletsConfig = {
    */
   cors?: boolean | DropletsCorsOptions;
   /**
+   * Where browsers reach this server: its public origin, with the path
+   * prefix a proxy serves it under when there is one (`"https://shop.example"`,
+   * `"https://shop.example/mfe"`), or a list of them. A location that the
+   * request's headers name (`x-droplet-location`, `Forwarded`,
+   * `X-Forwarded-*`) is used only when its origin is listed here, in
+   * `trustedOrigins`, or is the request's own. With a single entry, that
+   * entry is the location when no header names one. `"*"` trusts any
+   * location a header names (see "Trusting any location" in the security
+   * guide). `DROPLETS_ORIGIN`, a comma-separated list read at runtime, adds
+   * to it without a build.
+   */
+  origin?: string | string[];
+  /**
    * Origins, besides this server's own, allowed to send form submissions:
    * the hosts whose pages post to droplets (`https://shop.example`). `"*"`
    * trusts every origin. See `csrf`. `DROPLETS_TRUSTED_ORIGINS`, a
    * comma-separated list read at runtime, adds to it without a build. When
    * the list is set, it also bounds `event.host`: a host outside it becomes
-   * this server's origin.
+   * this server's origin. A location header naming one of them is trusted
+   * too (see `origin`).
    */
   trustedOrigins?: string[];
   /**
@@ -144,6 +159,8 @@ export type ResolvedDropletsConfig = {
   importMap: { path: string; auto: boolean } | false;
   warnImportMap: boolean;
   cors?: DropletsCorsOptions;
+  /** Locations (origin and optional prefix, see `normalizeOrigin`), `"*"` for any. */
+  origin: string[];
   /** Origins, `"*"` for all; this server's own is always trusted. */
   trustedOrigins: string[];
   fragmentCacheControl: string | false;
@@ -254,6 +271,37 @@ export function normalizeTrustedOrigins(origins: unknown): string[] {
   });
 }
 
+/** `value` as a location, `scheme://host[:port][/prefix]`; `null` unless it is exactly that. */
+function locationOf(value: unknown): string | null {
+  if (typeof value !== "string" || /[\\#?]/.test(value)) return null;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+  // No wildcards: `https://*.example` parses, as a host named `*.example`.
+  if (url.username !== "" || url.password !== "" || url.hostname.includes("*")) return null;
+  if (url.pathname === "/") return url.origin;
+  return isLocationPrefix(url.pathname) ? `${url.origin}${url.pathname.replace(/\/+$/, "")}` : null;
+}
+
+/** `origin` as a list of locations, `"*"` kept; throws for anything else. */
+export function normalizeOrigin(value: unknown): string[] {
+  if (value === undefined) return [];
+  const entries: unknown[] = typeof value === "string" ? [value] : Array.isArray(value) ? value : [null];
+  return entries.map((entry) => {
+    const location = entry === "*" ? entry : locationOf(entry);
+    if (location === null) {
+      throw new Error(
+        `droplets: origin takes this server's public URL, an origin with an optional path prefix such as "https://shop.example" or "https://shop.example/mfe" (or "*"), got ${JSON.stringify(entry)}`,
+      );
+    }
+    return location;
+  });
+}
+
 function resolveCacheControl(value: unknown): string | false {
   if (value === undefined) return DEFAULTS.fragmentCacheControl;
   if (value === false) return false;
@@ -323,6 +371,7 @@ export function resolveConfig(
     importMap,
     warnImportMap: user.warnImportMap ?? true,
     ...(cors ? { cors } : {}),
+    origin: normalizeOrigin(user.origin),
     trustedOrigins: normalizeTrustedOrigins(user.trustedOrigins),
     fragmentCacheControl: resolveCacheControl(user.fragmentCacheControl),
     csrf: { checkOrigin: user.csrf?.checkOrigin ?? true },

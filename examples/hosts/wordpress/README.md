@@ -9,7 +9,7 @@
 ```
 
 The shortcode fetches `GET /droplets/<id>` with `wp_remote_get`, forwards every
-other attribute as a prop, sends `x-host` so the fragment points at the
+other attribute as a prop, sends `x-droplet-location` so the fragment points at the
 browser-facing origin, and enqueues `/index.js` once as a module script.
 
 ```bash
@@ -78,7 +78,7 @@ for users who can `manage_options`. `plugin/droplets-embed/shop-admin.php`:
 - adds the top-level menu page (`add_menu_page`) and fetches the
   droplet's fragment on `load-<hook>`, before wp-admin prints anything, as
   the public pages do (the admin's assertion for that one GET, the
-  screen's URL as `Referer`, the fixed `x-host`); the page's callback
+  screen's URL as `Referer`, the fixed `x-droplet-location`); the page's callback
   prints it inside the screen's wrap, and its `Link` preloads go into the
   screen's head;
 - enqueues `/index.js` (through the proxy) and `shop-admin.css` on that
@@ -101,7 +101,7 @@ pass on, `*` for all) and any other attribute as a fixed prop.
 - on `template_redirect`, finds the shop shortcodes in the page and in the
   header and footer parts and fetches all their fragments on the server, in
   parallel (`Requests::request_multiple`), with the shop's `cart_id` cookie
-  only, the admin's assertion, the page URL as `Referer` and a fixed `x-host` (`SHOP_PUBLIC_URL`, never the
+  only, the admin's assertion, the page URL as `Referer` and a fixed `x-droplet-location` (`SHOP_PUBLIC_URL`, never the
   client's Host). Redirects are not followed but passed on, only HTML
   answers are inserted, the fragments' `Set-Cookie` goes back to the browser
   untouched and their `Link` preloads go into the page's head. The

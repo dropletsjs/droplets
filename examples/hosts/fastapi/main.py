@@ -1,8 +1,8 @@
 """Droplets embedded from FastAPI.
 
 The handler fetches each droplet as an HTML fragment from the droplets server,
-with `x-host` set to the origin browsers will use, and pastes the fragments
-into a Jinja template. The page loads `/index.js` once; the elements
+with `x-droplet-location` set to the origin browsers will use, and pastes the
+fragments into a Jinja template. The page loads `/index.js` once; the elements
 then hydrate themselves.
 """
 
@@ -40,7 +40,7 @@ async def fetch_droplet(client: httpx.AsyncClient, droplet: str, **props: str) -
     try:
         response = await client.get(
             f"{DROPLETS_INTERNAL_URL}/droplets/{droplet}{query}",
-            headers={"x-host": DROPLETS_PUBLIC_URL},
+            headers={"x-droplet-location": DROPLETS_PUBLIC_URL},
             timeout=5.0,
         )
         response.raise_for_status()

@@ -15,8 +15,9 @@ export default config({
 
   /**
    * The pages whose forms may post here, and where Post/Redirect/Get may
-   * send the browser back to. The origin the docs build reaches the demo
-   * through (`x-host`) is added at runtime with `DROPLETS_TRUSTED_ORIGINS`.
+   * send the browser back to. The public URL the docs build sends as
+   * `x-droplet-location` is trusted at runtime with `DROPLETS_ORIGIN`
+   * (apps/docs/scripts/with-demo.mjs).
    */
   trustedOrigins: docsOrigins(),
 

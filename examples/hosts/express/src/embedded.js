@@ -1,7 +1,7 @@
 /**
  * Pattern 2: one process. The built droplets server (`dist/server.js`) exports
  * a `fetch` handler, so Express can mount it under the same origin and serve
- * its own pages next to it. No second server, no CORS, no x-host.
+ * its own pages next to it. No second server, no CORS, no x-droplet-location.
  *
  * Run from this folder after building examples/frameworks/svelte:
  *   DROPLETS_DIST=../../frameworks/svelte/dist node src/embedded.js

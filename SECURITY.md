@@ -44,8 +44,9 @@ welcome:
 - **The server-only files guard.** `*.server.*` files and anything under
   `server/` must never reach a client bundle, in `vite build` or in `vite dev`.
   Any way to get their code or their values to the browser is in scope.
-- **The embedding and proxy contract.** How a host fetches a fragment (`x-host`
-  and the other request headers), how `/index.js` and the assets are served
-  across origins, and what a host has to trust about the fragment it pastes in.
+- **The embedding and proxy contract.** How a host fetches a fragment
+  (`x-droplet-location` and the other request headers), how `/index.js` and
+  the assets are served across origins, and what a host has to trust about
+  the fragment it pastes in.
 
 Example host stacks under `examples/hosts` are demos, not hardened deployments.

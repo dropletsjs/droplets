@@ -94,7 +94,7 @@ pnpm docs:check-csp   # after docs:build: every inline script hash is in apps/do
 
 - Astro backgrounds `astro dev` when it detects a coding agent from the environment. Run `pnpm docs:dev` with the agent's variables unset
   (`env -u AI_AGENT -u <your tool's own> pnpm docs:dev`).
-- `x-host` is deliberate, not `X-Forwarded-Host`: proxies, CDNs and load balancers overwrite the forwarded headers hop by hop. Don't "fix" it.
+- The droplet location (public origin + prefix of `index.js`) is resolved once per request in `runtime/app.ts` (`resolveLocation`): `x-droplet-location`, then `Forwarded`, then `X-Forwarded-Proto` + `X-Forwarded-Host` (prefix from `X-Forwarded-Prefix`), then the single `origin` entry, then the request's origin. `X-Forwarded-*` is read as a fallback only and trusted only against the allow-list (`origin`/`DROPLETS_ORIGIN`, `trustedOrigins`/`DROPLETS_TRUSTED_ORIGINS`, the request's own origin): never widen that, since `Vary` doesn't protect a CDN. `"*"` is the owner's choice; it warns, never refuses. Request headers are `x-droplet-*`, response headers `x-droplets-*`.
 - `vite build` resolves `vite.config` again per environment: each environment gets a fresh `droplets()` instance with its own random build hash. Never put per-instance random state into names decided in the `config` hook; use rolldown `[hash]` or shared hooks. Check output naming with a real `vite build` of a project with a config file, not only `configFile: false` tests.
 - Preact's Prefresh is compiled in the renderer's own transform, never through Vite's shared `oxc` options.
 - The Svelte renderer never turns on `experimental.async`; it detects it from vite-plugin-svelte's options.

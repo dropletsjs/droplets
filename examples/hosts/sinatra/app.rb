@@ -1,8 +1,8 @@
 # Droplets embedded from Sinatra.
 #
 # The route fetches each droplet as an HTML fragment from the droplets server,
-# with `x-host` set to the origin browsers will use, and pastes the fragments
-# into an ERB view. The view loads `/index.js` once.
+# with `x-droplet-location` set to the origin browsers will use, and pastes the
+# fragments into an ERB view. The view loads `/index.js` once.
 
 require "sinatra"
 require "net/http"
@@ -28,7 +28,7 @@ def fetch_droplet(droplet, props = {})
   uri.query = URI.encode_www_form(props) unless props.empty?
 
   response = Net::HTTP.start(uri.host, uri.port, read_timeout: 5) do |http|
-    http.get(uri.request_uri, { "x-host" => DROPLETS_PUBLIC_URL })
+    http.get(uri.request_uri, { "x-droplet-location" => DROPLETS_PUBLIC_URL })
   end
   return response.body if response.is_a?(Net::HTTPSuccess)
 

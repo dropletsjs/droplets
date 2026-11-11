@@ -10,7 +10,7 @@ services:
     ports:
       - "127.0.0.1:${DROPLETS_PORT:-8000}:8000"
     environment:
-      # The URL the host sends as x-host, and the host's own pages.
+      # The URL the host sends as x-droplet-location, and the host's own pages.
       DROPLETS_TRUSTED_ORIGINS: ${DROPLETS_URL:-http://localhost:8000},${WEB_URL:-http://localhost:8002}
 
   # The shop demo (/gallery). Only the host reaches it: the browser goes
@@ -28,7 +28,7 @@ services:
       SHOP_SECRET: demo-only-secret-change-me-0123456789abcdef
       # Signs a form result on the redirect back to the page (posts without JavaScript).
       DROPLETS_SECRET: demo-only-droplets-secret-change-me-0123456789
-      # The host's public origin: the x-host it sends, its pages' form posts.
+      # The host's public origin: the x-droplet-location it sends, its pages' form posts.
       DROPLETS_TRUSTED_ORIGINS: ${WEB_URL:-http://localhost:8002}
 
   web:

@@ -14,7 +14,7 @@ export async function fragment(
   const url = new URL(`/droplets/${encodeURIComponent(droplet)}`, DROPLETS_INTERNAL_URL);
   for (const [key, value] of Object.entries(props)) url.searchParams.set(key, value);
   try {
-    const response = await fetchFn(url, { headers: { "x-host": DROPLETS_PUBLIC_URL } });
+    const response = await fetchFn(url, { headers: { "x-droplet-location": DROPLETS_PUBLIC_URL } });
     if (!response.ok) return `<p class="error">droplet "${droplet}" unavailable: HTTP ${response.status}</p>`;
     return await response.text();
   } catch (error) {

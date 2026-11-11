@@ -14,7 +14,7 @@ and `{@html}` renders it into the page.
 // src/lib/shop.server.ts, fragment() (trimmed)
 async function fragment(page: PageRequest, id: string, params = new URLSearchParams()): Promise<Fragment> {
   const url = `${internal}/droplets/${encodeURIComponent(id)}?${params}`;
-  const headers: Record<string, string> = { accept: "text/html", "x-host": origin, referer: origin + page.path };
+  const headers: Record<string, string> = { accept: "text/html", "x-droplet-location": origin, referer: origin + page.path };
   if (page.cookie) headers["cookie"] = page.cookie;
   const result: Fragment = { html: "", status: 502, location: null, cookies: [], link: null };
   const response = await fetch(url, { headers, redirect: "manual", cache: "no-store" });
@@ -44,7 +44,7 @@ async function fragment(page: PageRequest, id: string, params = new URLSearchPar
 - `shopFragments()` in `src/lib/shop-page.server.ts` takes `page` from the
   load's `event`: `event.url`'s path and query, and the browser's `Cookie`.
   `fragment()` sends `GET /droplets/<id>?<params>` to `SHOP_INTERNAL_URL`
-  with `accept: text/html`, `x-host` set to this host's public origin
+  with `accept: text/html`, `x-droplet-location` set to this host's public origin
   (`SHOP_PUBLIC_URL`), that `Cookie`, and the page's URL as `referer`.
 - `redirect: "manual"` keeps a droplet's 3xx, which `shopFragments()` answers
   with SvelteKit's `redirect()`; the fragments' `Set-Cookie` go to
@@ -79,7 +79,7 @@ route group, `lib/shop-page.server.ts` (the SvelteKit side) and
 | On `web` | Value | Used for |
 | --- | --- | --- |
 | `SHOP_INTERNAL_URL` | `http://shop:8300` | internal: fragment fetches and the proxy |
-| `SHOP_PUBLIC_URL` | `http://localhost:8006` | public: this host's own origin, sent as `x-host` |
+| `SHOP_PUBLIC_URL` | `http://localhost:8006` | public: this host's own origin, sent as `x-droplet-location` |
 | `ORIGIN` | `http://localhost:8006` | adapter-node's origin, which SvelteKit checks form posts against |
 | `BODY_SIZE_LIMIT` | `4M` | above the 512 KB default, for the admin's image uploads |
 | `DROPLETS_INTERNAL_URL`, `DROPLETS_PUBLIC_URL` | `http://droplets:8000`, `http://localhost:8000` | the same pair, for the basic page |
@@ -105,7 +105,7 @@ export async function shopFragments(event: RequestEvent, wanted: [id: string, pa
 <aside>{@html data.filter}</aside>
 ```
 
-`shop.fragment` sends `x-host`, the browser's `Cookie` and the page's URL
+`shop.fragment` sends `x-droplet-location`, the browser's `Cookie` and the page's URL
 as `Referer` (the droplet's
 [`host`](/integrate/http-contract/#host-where-the-droplet-renders), query
 included), never follows redirects, and returns only `text/html` answers.
@@ -126,7 +126,7 @@ The `(shop)` layout puts the `Link` preloads in `<svelte:head>` and loads
 
 `handle` in `src/hooks.server.ts` sends `/index.js`, `/droplets/*`
 (fragments, `_data`, form actions), `/assets/*` and `/api/*` to
-`shop.proxy` before any routing: bodies streamed, `x-host` written out,
+`shop.proxy` before any routing: bodies streamed, `x-droplet-location` written out,
 `Set-Cookie` and redirects passed back untouched. The shop's cookies are
 first-party, and nothing is cross-origin; the shop sets them only from form
 actions and `/api`, which come through here.
@@ -134,7 +134,7 @@ actions and `/api`, which come through here.
 ### The shop's environment
 
 - `DROPLETS_TRUSTED_ORIGINS: http://localhost:8006`: the only origin whose
-  [`x-host`](/integrate/http-contract/#x-host-the-public-location) and
+  [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location) and
   [form posts](/integrate/http-contract/#form-posts-the-origin-check) the shop accepts.
 - `DROPLETS_SECRET`: signs a form's result on the redirect back to the page
   when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)).

@@ -17,7 +17,7 @@ export async function fragment(
   try {
     // Fragments are per-request content; never let Next cache them.
     const response = await fetch(url, {
-      headers: { "x-host": DROPLETS_PUBLIC_URL },
+      headers: { "x-droplet-location": DROPLETS_PUBLIC_URL },
       cache: "no-store",
     });
     if (!response.ok) return `<p class="error">droplet "${droplet}" unavailable: HTTP ${response.status}</p>`;

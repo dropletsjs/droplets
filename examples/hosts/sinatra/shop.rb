@@ -19,8 +19,8 @@ SHOP_STACK = "Sinatra 4"
 # How this process reaches the shop (`http://shop:8300` in Docker).
 SHOP_INTERNAL_URL = ENV.fetch("SHOP_INTERNAL_URL", "http://localhost:8300").sub(%r{/+\z}, "")
 SHOP_INTERNAL = URI(SHOP_INTERNAL_URL)
-# This host's own public origin. It goes out as `x-host` on every request,
-# written out here: never the client's Host.
+# This host's own public origin. It goes out as `x-droplet-location` on every
+# request, written out here: never the client's Host.
 SHOP_ORIGIN = URI(ENV.fetch("SHOP_PUBLIC_URL", "http://localhost:#{ENV.fetch('PORT', 8002)}")).then do |uri|
   "#{uri.scheme}://#{uri.host}#{":#{uri.port}" unless uri.port == uri.default_port}"
 end
@@ -73,7 +73,7 @@ helpers do
   end
 
   def shop_proxy
-    headers = { "x-host" => SHOP_ORIGIN }
+    headers = { "x-droplet-location" => SHOP_ORIGIN }
     SHOP_FORWARDED_REQUEST_HEADERS.each do |name|
       value = shop_request_header(name)
       headers[name] = value if value
@@ -99,7 +99,7 @@ helpers do
   # page); anything else may echo the props, so it is never inserted.
   def shop_fragment(id, params = [])
     # The browser's request, as the shop should see it: its cookies, this page as the host.
-    headers = { "accept" => "text/html", "x-host" => SHOP_ORIGIN, "referer" => SHOP_ORIGIN + shop_raw_target }
+    headers = { "accept" => "text/html", "x-droplet-location" => SHOP_ORIGIN, "referer" => SHOP_ORIGIN + shop_raw_target }
     cookie = shop_request_header("cookie")
     headers["cookie"] = cookie if cookie
     target = "/droplets/#{URI.encode_www_form_component(id)}?#{URI.encode_www_form(params)}"
@@ -126,7 +126,7 @@ helpers do
   # A product's name, category and id, from the product page's public `_data` read.
   def shop_product(slug)
     target = "/droplets/product-page/_data?#{URI.encode_www_form(slug: slug)}"
-    response = shop_request("GET", target, { "x-host" => SHOP_ORIGIN, "accept" => "application/json" })
+    response = shop_request("GET", target, { "x-droplet-location" => SHOP_ORIGIN, "accept" => "application/json" })
     return nil unless response.is_a?(Net::HTTPSuccess)
 
     found = JSON.parse(response.body.to_s).dig("data", "product")

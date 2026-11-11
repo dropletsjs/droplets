@@ -4,8 +4,8 @@
  * bundle and every browser bundle share it, and give the same string.
  *
  * The location is the droplets server's, never the host page's: on the
- * server the request's public location (a trusted `x-host`, else the
- * request's origin), at build a token replaced per request, in the browser
+ * server the request's public location (a trusted location header,
+ * else the request's origin), at build a token replaced per request, in the browser
  * the location `/index.js` was loaded from.
  */
 

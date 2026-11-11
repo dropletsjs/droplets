@@ -96,7 +96,7 @@ export type SetHeaders = (headers: Record<string, string>) => void;
 /** What `handle`, `+server.ts` handlers and droplet loads receive. */
 export type RequestEvent<Params extends Record<string, string> = Record<string, string>> = {
   request: Request;
-  /** The request URL, on the public origin when a proxy sent `x-host`. */
+  /** The request URL, on the public origin a trusted proxy named (see `origin` in the config). */
   url: URL;
   /**
    * Where the droplet renders: the host page. Taken the classic way: the
@@ -240,7 +240,7 @@ export type ImportMap = {
 /** What `importmap` in `src/importmap.server.ts` receives. */
 export type ImportMapEvent = {
   request: Request;
-  /** The request URL, on the public origin when a proxy sent `x-host`. */
+  /** The request URL, on the public origin a trusted proxy named (see `origin` in the config). */
   url: URL;
   /**
    * The bare imports the client build leaves external, from the Vite config

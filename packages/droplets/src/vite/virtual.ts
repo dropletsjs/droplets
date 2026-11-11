@@ -332,7 +332,7 @@ export function buildFormClientCode(key: string, formModule: string, enhanceModu
 
 /**
  * `$droplets/form` on the server: the droplet the current request renders,
- * on its public location (a trusted `x-host`, else the request's origin;
+ * on its public location (a trusted location header, else the request's origin;
  * a token at build), for the page of `event.host` (tokens at build).
  */
 export function buildFormServerCode(requestStore: string, formModule: string, enhanceModule: string = enhanceModulePath): string {

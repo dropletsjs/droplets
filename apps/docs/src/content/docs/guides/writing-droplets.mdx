@@ -141,22 +141,22 @@ load throws goes to the [error page](/guides/errors/).
 ### `host`
 
 `host` in load events is where the droplet renders: the host page, as a
-`URL`. Where the droplet itself lives is its location (`x-host` on the
-server, the URL `/index.js` came from in the browser, `droplet.url()` from
-`$droplets/drop`); the fragment's own URL is `request.url`.
+`URL`. Where the droplet itself lives is its
+[location](/integrate/http-contract/#x-droplet-location-the-public-location)
+(`x-droplet-location` on the server, the URL `/index.js` came from in the
+browser, `droplet.url()` from `$droplets/drop`); the fragment's own URL is
+`request.url`.
 
-On the server it is taken the classic way, first match wins:
+On the server, first match wins:
 
 1. `host` in a render request's JSON body: `{ "host": "https://shop.example/product/mug", "props": { … } }`;
-2. `Forwarded` (RFC 7239), its `host` and `proto`;
-3. `X-Forwarded-Host`, with `X-Forwarded-Proto`;
-4. `Origin`;
-5. the request's own origin.
+2. `Origin`;
+3. the origin of the droplets server's location.
 
 Only `http:` and `https:` URLs count; a value that is not one is skipped for
 the next source. With `trustedOrigins` set, a host outside it (and not this
-server) becomes this server's origin. Headers carry an origin only, so the
-path is `/` unless the body gave one.
+server) becomes the location's origin. `Origin` carries an origin only, so
+the path is `/` unless the body gave one.
 `handle` in `src/hooks.server.ts` sees it first and may replace it; loads,
 `transform` and the context sent to the browser get what `handle` left. A
 host that sends its page as `Referer` (or `X-Forwarded-Uri`) gets the path too:

@@ -28,8 +28,8 @@ STACK = "FastAPI"
 
 # How this process reaches the shop (`http://shop:8300` in Docker).
 SHOP_INTERNAL_URL = os.environ.get("SHOP_INTERNAL_URL", "http://localhost:8300").rstrip("/")
-# This host's own public origin. It goes out as `x-host` on every request,
-# written out here: never the client's Host.
+# This host's own public origin. It goes out as `x-droplet-location` on every
+# request, written out here: never the client's Host.
 _public = urlsplit(os.environ.get("SHOP_PUBLIC_URL", "http://localhost:8001"))
 SHOP_ORIGIN = f"{_public.scheme}://{_public.netloc}"
 
@@ -94,7 +94,7 @@ METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 @router.api_route("/assets/{rest:path}", methods=METHODS, include_in_schema=False)
 @router.api_route("/api/{rest:path}", methods=METHODS, include_in_schema=False)
 async def proxy(request: Request) -> Response:
-    headers = {"x-host": SHOP_ORIGIN}
+    headers = {"x-droplet-location": SHOP_ORIGIN}
     for name in FORWARDED_REQUEST_HEADERS:
         value = request.headers.get(name)
         if value:
@@ -136,7 +136,7 @@ async def fragment(request: Request, droplet: str, params: list[tuple[str, str]]
     """
     url = f"{SHOP_INTERNAL_URL}/droplets/{quote(droplet, safe='')}?{urlencode(params or [])}"
     # The browser's request, as the shop should see it: its cookies, this page as the host.
-    headers = {"accept": "text/html", "x-host": SHOP_ORIGIN, "referer": SHOP_ORIGIN + _raw_target(request)}
+    headers = {"accept": "text/html", "x-droplet-location": SHOP_ORIGIN, "referer": SHOP_ORIGIN + _raw_target(request)}
     cookie = request.headers.get("cookie")
     if cookie:
         headers["cookie"] = cookie
@@ -166,7 +166,7 @@ async def product(slug: str) -> dict | None:
     """A product's name, category and id, from the product page's public `_data` read."""
     url = f"{SHOP_INTERNAL_URL}/droplets/product-page/_data?{urlencode({'slug': slug})}"
     try:
-        response = await client.get(url, headers={"x-host": SHOP_ORIGIN, "accept": "application/json"})
+        response = await client.get(url, headers={"x-droplet-location": SHOP_ORIGIN, "accept": "application/json"})
         if not response.is_success:
             return None
         found = (response.json().get("data") or {}).get("product") or {}

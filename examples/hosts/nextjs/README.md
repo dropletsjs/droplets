@@ -28,7 +28,7 @@ group, with its own root layout) embed the shop (`examples/shop`, see its
 
 - route handlers (`app/index.js`, `app/droplets/[[...path]]`,
   `app/assets/[...path]`, `app/api/[...path]`) proxy the shop's routes under
-  this origin, bodies streamed, with a fixed `x-host` (`SHOP_PUBLIC_URL`), so
+  this origin, bodies streamed, with a fixed `x-droplet-location` (`SHOP_PUBLIC_URL`), so
   its cookies are first-party;
 - the pages are server components: they fetch fragments with the browser's
   `Cookie` and the page's URL as `Referer` (`lib/shop-page.tsx`) and render

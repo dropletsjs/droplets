@@ -12,8 +12,8 @@
  *
  * The fragment is fetched on the server, as on the public pages
  * (droplets_shop_fragments(): the admin's signed `x-wp-shop-user` for this
- * one GET, this screen's URL as `Referer`, the fixed `x-host`), before
- * wp-admin prints anything, and printed by the menu page's callback.
+ * one GET, this screen's URL as `Referer`, the fixed `x-droplet-location`),
+ * before wp-admin prints anything, and printed by the menu page's callback.
  * `/index.js` and the screen's stylesheet are enqueued on this screen only.
  * The droplet's own requests (its `?/save` posts) go to `/droplets/…`
  * through the same-origin proxy, which signs them as it does everywhere:

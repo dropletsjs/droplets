@@ -143,8 +143,8 @@ export const load = ({ props }: LoadEvent) => {
 | `GET /health` | `ok` |
 
 A host fetching fragments through an internal address sends the public
-location in `x-host`, listed in `trustedOrigins` (or
-`DROPLETS_TRUSTED_ORIGINS`). Pages on other origins need `cors: true`.
+location in `x-droplet-location`, with its origin listed in `origin` (or
+`DROPLETS_ORIGIN`). Pages on other origins need `cors: true`.
 
 ## Also in the box
 

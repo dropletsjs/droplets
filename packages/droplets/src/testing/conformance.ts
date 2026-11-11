@@ -397,7 +397,7 @@ export function rendererConformance(options: ConformanceOptions): void {
         expect(stored2.headers).toEqual({ "cache-control": "public, max-age=60" });
         const answer = await post("/droplets/docs", { host: "https://host.test/docs", props: { page: "2" } });
         expect(answer.headers.get("cache-control")).toBe("public, max-age=60");
-        expect(answer.headers.get("vary")).toContain("x-host");
+        expect(answer.headers.get("vary")).toContain("x-droplet-location");
         const html = await answer.text();
         expect(html).toContain("<h1>Page 2</h1>");
         expect(html).toContain("<p>host.test</p>");
@@ -407,10 +407,10 @@ export function rendererConformance(options: ConformanceOptions): void {
         });
         expect(html).not.toContain("DROPLET_");
 
-        // Live, host the classic way: the forwarded headers.
-        const liveAnswer = await get("/droplets/docs?page=3", {
-          headers: { "x-forwarded-host": "shop.test", "x-forwarded-proto": "https" },
-        });
+        // Live, host from the page's Origin (set after: happy-dom drops it from the init).
+        const liveRequest = new Request(`${origin}/droplets/docs?page=3`);
+        liveRequest.headers.set("origin", "https://shop.test");
+        const liveAnswer = await app.fetch(liveRequest);
         // A load that sets nothing: kept out of shared caches.
         expect(liveAnswer.headers.get("cache-control")).toBe("private, no-store");
         const live = await liveAnswer.text();
@@ -604,7 +604,7 @@ export function rendererConformance(options: ConformanceOptions): void {
         }
       });
 
-      it("puts action URLs on the droplets server's location, never on an untrusted x-host", async () => {
+      it("puts action URLs on the droplets server's location, never on an untrusted x-droplet-location", async () => {
         // Prerendered: the build's location token, replaced per request before transform.
         const index = JSON.parse((await readRendered("guestbook/index.json")) ?? "{}") as Record<string, string>;
         const stored = JSON.parse((await readRendered(index["{}"] ?? "")) ?? "null") as { html: string; nonce: string } | null;
@@ -614,13 +614,13 @@ export function rendererConformance(options: ConformanceOptions): void {
           `__$DROPLET_LOCATION_${stored!.nonce}$__/droplets/guestbook?__droplet_return=${encodeURIComponent(tokens)}`,
         );
 
-        // A trusted x-host (this server's own origin, under a prefix) moves them.
-        const proxied = await (await get("/droplets/guestbook", { headers: { "x-host": `${origin}/mfe` } })).text();
+        // A trusted x-droplet-location (this server's own origin, under a prefix) moves them.
+        const proxied = await (await get("/droplets/guestbook", { headers: { "x-droplet-location": `${origin}/mfe` } })).text();
         expect(actionOf(proxied, "sign")).toBe(`${origin}/mfe/droplets/guestbook?__droplet_return=${encodeURIComponent(HOME)}`);
         expect(proxied).not.toContain("DROPLET_");
 
         // An untrusted one never reaches them: prerendered, live, or after an action.
-        const evil = { "x-host": "https://evil.example/x" };
+        const evil = { "x-droplet-location": "https://evil.example/x", "x-forwarded-host": "evil.example" };
         const served = await (await get("/droplets/guestbook", { headers: evil })).text();
         expect(actionOf(served, "sign")).toBe(actionOn("/droplets/guestbook"));
         const live = await (await submit("/droplets/guestbook", { name: "Ana" }, evil)).text();

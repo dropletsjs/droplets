@@ -29,3 +29,13 @@ export function withinTrusted(host: URL, trusted: readonly string[], own: readon
   if (trusted.length === 0 || trusted.includes("*")) return true;
   return trusted.includes(host.origin) || own.includes(host.origin);
 }
+
+/**
+ * Whether `prefix` may be the path a droplets server is served under: it
+ * starts with `/`, has no `//`, `\`, `..`, `?`, `#` or control characters,
+ * and is at most 256 characters. A proxy's header can name it, so nothing
+ * that could turn into another path, origin or query passes.
+ */
+export function isLocationPrefix(prefix: string): boolean {
+  return prefix.startsWith("/") && prefix.length <= 256 && !/\/\/|\\|\.\.|[?#\u0000-\u001f\u007f]/.test(prefix);
+}

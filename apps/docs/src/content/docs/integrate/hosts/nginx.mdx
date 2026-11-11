@@ -20,7 +20,11 @@ location = /gallery {
 # What the browser asks the shop for.
 location ~ ^/(index\.js|droplets/|assets/|api/) {
   proxy_pass http://shop;
-  proxy_set_header x-host ${SHOP_PUBLIC_URL};
+  proxy_set_header x-droplet-location "";
+  proxy_set_header Forwarded "";
+  proxy_set_header X-Forwarded-Host "";
+  proxy_set_header X-Forwarded-Proto "";
+  proxy_set_header X-Forwarded-Prefix "";
 }
 
 # The fragments the pages include.
@@ -28,7 +32,6 @@ location ^~ /_fragment/ {
   internal;
   rewrite ^/_fragment(/.*)$ $1 break;
   proxy_pass http://shop;
-  proxy_set_header x-host ${SHOP_PUBLIC_URL};
   proxy_set_header Referer ${SHOP_PUBLIC_URL}$request_uri;
   proxy_set_header Accept text/html;
   proxy_intercept_errors on;
@@ -46,8 +49,7 @@ location ^~ /_fragment/ {
 - `ssi on` makes nginx run the page's `include virtual` while it serves
   `/gallery`. The include is a subrequest to `/_fragment/droplets/product-filter`,
   which `/_fragment/` rewrites to `GET /droplets/product-filter?<the page's query>`
-  on the shop, with `Accept: text/html`, `x-host` set to this server's public
-  URL, the page's URL as `Referer`, and the browser's `Cookie`, which a
+  on the shop, with `Accept: text/html`, the page's URL as `Referer`, and the browser's `Cookie`, which a
   subrequest carries. nginx does not follow the answer's redirect.
 - The answer's body goes into the page where the include was. The error
   statuses listed in `error_page` become a fixed note
@@ -57,6 +59,11 @@ location ^~ /_fragment/ {
   (`http://localhost:8081`) when it starts.
 - The `location ~` block passes `/index.js`, `/droplets/*`, `/assets/*` and
   `/api/*` to the shop, so the browser only talks to nginx.
+- nginx sends no location header. The shop knows its public URL from
+  `DROPLETS_ORIGIN=http://localhost:8081` and writes every fragment's URLs on
+  it. The headers a client could name another location with
+  (`x-droplet-location`, `Forwarded`, `X-Forwarded-*`) are cleared: the shop
+  would trust them only against that list anyway.
 
 ## The shop demo, recorded
 
@@ -80,10 +87,11 @@ SSI pages in `examples/hosts/nginx/shop/`.
 | `droplets` | 8000, internal only | the Svelte example's droplets server, behind port 8080 |
 
 The internal addresses are `upstream` blocks (`server shop:8300;`). The
-public ones come from `web`'s environment: `nginx.conf` is a template (the
-nginx image's `/etc/nginx/templates/`), and at start `SHOP_PUBLIC_URL`
-(`http://localhost:8081`) and `DROPLETS_PUBLIC_URL` (`http://localhost:8080`)
-fill in each `proxy_set_header x-host ${SHOP_PUBLIC_URL};`. The shop has its own
+public ones are in two places: each droplets server's `DROPLETS_ORIGIN`
+(`http://localhost:8081` for `shop`, `http://localhost:8080` for `droplets`),
+and `web`'s `SHOP_PUBLIC_URL`, which fills in the `Referer` of
+`/_fragment/` (`nginx.conf` is a template, the nginx image's
+`/etc/nginx/templates/`). The shop has its own
 port because its `/index.js` and `/droplets/*` would collide with the basic
 server's on 8080.
 
@@ -111,16 +119,17 @@ any droplet starts (the shop's `src/hooks.client.ts`):
 
 `location ~ ^/(index\.js|droplets/|assets/|api/)` passes `/index.js`,
 `/droplets/*` (fragments, `_data`, form actions), `/assets/*` and `/api/*`
-to the shop with `x-host` written out and `Forwarded`/`X-Forwarded-*`
+to the shop with `x-droplet-location`, `Forwarded` and `X-Forwarded-*`
 cleared. Bodies, `Set-Cookie` and `303`s pass through as they are, so the
 cart and the login cookies are first-party, and nothing is cross-origin.
 `client_max_body_size 4m` lets the admin's image uploads through.
 
 ### The shop's environment
 
-- `DROPLETS_TRUSTED_ORIGINS: http://localhost:8081`: the only origin whose
-  [`x-host`](/integrate/http-contract/#x-host-the-public-location) and
-  [form posts](/integrate/http-contract/#form-posts-the-origin-check) the shop accepts.
+- `DROPLETS_ORIGIN: http://localhost:8081`: the shop's
+  [public location](/integrate/http-contract/#x-droplet-location-the-public-location),
+  where it writes its URLs and the only origin whose
+  [form posts](/integrate/http-contract/#form-posts-the-origin-check) it accepts.
 - `DROPLETS_SECRET`: signs a form's result on the redirect back to the page
   when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)).
 - `ADMIN_USER`, `ADMIN_PASSWORD`, `SHOP_SECRET`: the demo login
@@ -160,7 +169,7 @@ The host is a static `index.html`. nginx does two things:
   receives server-rendered markup.
 - **Reverse proxy.** The droplets routes are proxied under nginx's own origin.
   The browser only ever talks to nginx, so the droplets server needs no CORS,
-  and `x-host` tells it to write the fragments' URLs on nginx's origin. Droplets build
+  and `DROPLETS_ORIGIN` tells it to write the fragments' URLs on nginx's origin. Droplets build
   their API calls from that origin ([`$droplets/drop`](/reference/api/#dropletsdrop)),
   so `/api/*` goes through the proxy too.
 
@@ -204,21 +213,51 @@ server {
   # endpoints.
   location ~ ^/(index\.js|droplets/|assets/|api/) {
     proxy_pass http://droplets;
-    # This site's public URL, written out.
-    proxy_set_header x-host http://localhost:8080;
+    proxy_set_header x-droplet-location "";
+    proxy_set_header Forwarded "";
+    proxy_set_header X-Forwarded-Host "";
+    proxy_set_header X-Forwarded-Proto "";
+    proxy_set_header X-Forwarded-Prefix "";
   }
 }
 ```
 
-`x-host` is the site's public URL as you write it in the configuration, not
-`$scheme://$http_host`: the `Host` header comes from the client, and the
-droplets server would write its URLs on whatever it says. `proxy_set_header`
-replaces any `x-host` the client sent. Behind a path (`location /mfe/`),
-include it: `x-host https://shop.example/mfe`.
+nginx says nothing about where it is: the droplets server has the site's
+public URL in its environment, and with that one entry it needs no header.
 
-The droplets server honours `x-host` only from origins it trusts: give it
-`DROPLETS_TRUSTED_ORIGINS=http://localhost:8080` (the example's compose file
-does), or `trustedOrigins` in `droplets.config.ts`.
+```yaml
+# docker-compose.yml
+droplets:
+  environment:
+    DROPLETS_ORIGIN: http://localhost:8080
+```
+
+The `proxy_set_header` lines clear what a client may have sent. The
+droplets server would only trust a location header whose origin is in
+`DROPLETS_ORIGIN` (or `trustedOrigins`) anyway; clearing them keeps the
+warnings out of its log.
+
+Behind a path (`location /mfe/`), put the path in it:
+`DROPLETS_ORIGIN=https://shop.example/mfe`. With several public URLs (one
+server for `shop.example` and `www.shop.example`), list them all and let
+nginx say which one the request came through, with the path:
+
+```nginx
+location /mfe/ {
+  proxy_pass http://droplets/;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_set_header X-Forwarded-Host $host;
+  proxy_set_header X-Forwarded-Prefix /mfe;
+}
+```
+
+```bash
+DROPLETS_ORIGIN=https://shop.example,https://www.shop.example
+```
+
+`$host` comes from the client's `Host` header, so it is only used when it
+is one of the listed origins; any other falls back to the request's own
+origin, with a warning.
 
 Run it from the repository: `cd examples/hosts/nginx && docker compose up --build`,
 then open `http://localhost:8080`.
