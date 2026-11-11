@@ -7,6 +7,8 @@ import { env } from "$droplets/env/public";
 import { bumpCounter, privateFacts, readCounter, serverTime } from "./api.ts";
 import { MODES } from "./modes.ts";
 import type { Facts, Mode, PrivateFacts } from "./types.ts";
+// A file the droplet imports: its URL is on the droplets server, wherever the page is.
+import logo from "./droplet.png";
 
 /** The styles of every card and error page, in their shadow roots: page stylesheets do not reach them. */
 export const cardStyles = css`
@@ -153,6 +155,7 @@ export abstract class Card extends DropletElement<{ data: Facts | undefined }> {
     return html`
       <article class="card" data-testid="card" data-framework="lit" data-mode=${this.mode}>
         <header class="card-head">
+          <img class="card-logo" data-testid="logo" src=${logo} alt="" width="24" height="24" />
           <span class="card-framework">Lit</span>
           <h2 class="card-title">${MODES[this.mode].title}</h2>
         </header>

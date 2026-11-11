@@ -1,6 +1,7 @@
 {{!-- The card. Templates have no client behaviour: the counter shows what the load saw. --}}
 <article class="card" data-testid="card" data-framework="handlebars" data-mode="{{data.mode}}">
   <header class="card-head">
+    <img class="card-logo" data-testid="logo" src="{{data.logo}}" alt="" width="24" height="24">
     <span class="card-framework">Handlebars</span>
     <h2 class="card-title">{{data.title}}</h2>
   </header>

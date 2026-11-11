@@ -6,6 +6,8 @@
   import { MODES } from "./modes.ts";
   import type { Facts, Mode, PrivateFacts } from "./types.ts";
   import Badge from "./Badge.svelte";
+  // A file the droplet imports: its URL is on the droplets server, wherever the page is.
+  import logo from "./droplet.png";
 
   let { mode, data }: { mode: Mode; data?: Facts | undefined } = $props();
 
@@ -33,6 +35,7 @@
 
 <article class="card" data-testid="card" data-framework="svelte" data-mode={mode}>
   <header class="card-head">
+    <img class="card-logo" data-testid="logo" src={logo} alt="" width="24" height="24" />
     <Badge label="Svelte" />
     <h2 class="card-title">{MODES[mode].title}</h2>
   </header>

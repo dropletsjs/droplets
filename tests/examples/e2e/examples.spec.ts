@@ -208,6 +208,51 @@ test.describe("a script droplet: +droplet.script.ts, a page-view tracker", () =>
   });
 });
 
+test.describe("the droplet's own files, on the droplets server's location", () => {
+  /** Every card's imported image, loaded, from `base`; nothing on the page failed to load. */
+  async function filesFrom(page: Page, path: string, base: string) {
+    const failed: string[] = [];
+    page.on("response", (response) => {
+      if (response.status() >= 400) failed.push(`${response.status()} ${response.url()}`);
+    });
+    const watch = await open(page, path);
+    for (const mode of MODES) {
+      const logo = card(page, mode).getByTestId("logo");
+      await expect(logo, mode).toHaveAttribute("src", new RegExp(`^${base.replace(/[.]/g, "\\.")}/assets/droplet-[\\w-]+\\.png$`));
+      await expect.poll(() => logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth), { message: mode }).toBeGreaterThan(0);
+    }
+    if (interactive(exampleOf())) {
+      await expect(card(page, "client").getByTestId("hydrated")).toHaveText("yes");
+      await expect(card(page, "ssr-hydrate").getByTestId("hydrated")).toHaveText("yes");
+    }
+    await page.waitForLoadState("networkidle");
+    expect(failed).toEqual([]);
+    expect(watch.errors).toEqual([]);
+    return watch;
+  }
+
+  test("a page on another origin loads them from the droplets server, rendered, hydrated or mounted", async ({ page }) => {
+    const droplets = dropletsOf(exampleOf());
+    const watch = await filesFrom(page, "", droplets);
+    expect(watch.requests.filter((url) => /\/(assets|droplets)\//.test(url) && !url.startsWith(`${droplets}/`))).toEqual([]);
+  });
+
+  test("behind a proxy's path prefix, every file, chunk, stylesheet and API call keeps the prefix", async ({ page, baseURL }) => {
+    const prefix = new URL("mfe", baseURL).href;
+    const watch = await filesFrom(page, "prefixed", prefix);
+    const own = watch.requests.filter((url) => /\/(assets|droplets|api)\/|\/index\.js$/.test(url));
+    expect(own.length).toBeGreaterThan(0);
+    expect(own.filter((url) => !url.startsWith(`${prefix}/`))).toEqual([]);
+    if (interactive(exampleOf())) {
+      const it = card(page, "client");
+      await expect(it.getByTestId("time")).toHaveText(/^\d{4}-\d\d-\d\dT/);
+      const answer = page.waitForResponse((r) => r.url() === `${prefix}/api/counter` && r.request().method() === "POST");
+      await it.getByTestId("bump").click();
+      expect((await answer).status()).toBe(200);
+    }
+  });
+});
+
 test("a droplet the host writes itself mounts in the browser, data and all", async ({ page }) => {
   const watch = await open(page, "written");
   const it = card(page, "ssr-hydrate");

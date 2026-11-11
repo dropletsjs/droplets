@@ -6,6 +6,9 @@
 // `/svelte/script` embeds the Svelte example's script droplet twice.
 // `/<example>/inserted` fetches a fragment in the browser and inserts it with
 // innerHTML; `/<example>/one/<id>?props` embeds one droplet.
+// `/<example>/mfe/*` is a proxy to that example's server under a path
+// prefix, on this origin, as a host's reverse proxy is; `/<example>/prefixed`
+// embeds the three droplets through it.
 import { createServer } from "node:http";
 
 const EXAMPLES = ["svelte", "vue", "react", "solid", "hono-jsx", "handlebars", "preact", "lit"];
@@ -13,10 +16,10 @@ const PORT = Number(process.env["HOST_PORT"] ?? 8100);
 const MODES = ["client", "ssr-hydrate", "ssr-nohydrate"];
 const dropletsOf = (example) => `http://localhost:${8400 + EXAMPLES.indexOf(example)}`;
 
-async function fragment(droplets, id, props) {
+async function fragment(droplets, id, props, location = droplets) {
   const url = new URL(`/droplets/${id}`, droplets);
   for (const [key, value] of Object.entries(props)) url.searchParams.set(key, value);
-  const response = await fetch(url, { headers: { "x-droplet-location": droplets } });
+  const response = await fetch(url, { headers: { "x-droplet-location": location } });
   // A 500 with HTML is the droplet's error page: embedded like any fragment.
   const isHtml = (response.headers.get("content-type") ?? "").includes("text/html");
   if (!response.ok && !isHtml) return `<p class="error">${id}: HTTP ${response.status}</p>`;
@@ -39,6 +42,27 @@ ${body}
 
 const html = (response, text) => response.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(text);
 
+const PASSED = ["content-type", "cache-control", "etag", "location", "vary", "link", "set-cookie"];
+
+/** `/<example>/mfe/<path>` to `<droplets>/<path>`, telling the server where it is reached. */
+async function proxy(request, response, droplets, prefix, path) {
+  const chunks = [];
+  for await (const chunk of request) chunks.push(chunk);
+  const body = request.method === "GET" || request.method === "HEAD" ? undefined : Buffer.concat(chunks);
+  const headers = { "x-droplet-location": prefix };
+  for (const name of ["content-type", "accept", "origin", "referer", "if-none-match", "cookie"]) {
+    const value = request.headers[name];
+    if (typeof value === "string") headers[name] = value;
+  }
+  const answer = await fetch(`${droplets}/${path}`, { method: request.method, headers, body, redirect: "manual" });
+  const out = {};
+  for (const name of PASSED) {
+    const value = answer.headers.get(name);
+    if (value !== null) out[name] = value;
+  }
+  response.writeHead(answer.status, out).end(Buffer.from(await answer.arrayBuffer()));
+}
+
 createServer(async (request, response) => {
   const { pathname } = new URL(request.url ?? "/", "http://host");
   if (pathname === "/health") {
@@ -51,6 +75,17 @@ createServer(async (request, response) => {
     return;
   }
   const droplets = dropletsOf(example);
+  const prefix = `http://localhost:${PORT}/${example}/mfe`;
+  if (rest?.startsWith("mfe/")) {
+    const { search } = new URL(request.url ?? "/", "http://host");
+    await proxy(request, response, droplets, prefix, rest.slice("mfe/".length) + search);
+    return;
+  }
+  if (rest === "prefixed") {
+    const fragments = await Promise.all(MODES.map((id) => fragment(droplets, id, { who: "Prefix" }, prefix)));
+    html(response, page(prefix, `Every ${example} droplet, behind a prefix`, fragments.join("\n")));
+    return;
+  }
   if (rest === "") {
     const fragments = await Promise.all(MODES.map((id) => fragment(droplets, id, { who: "Host" })));
     html(response, page(droplets, `Every ${example} droplet`, fragments.join("\n")));

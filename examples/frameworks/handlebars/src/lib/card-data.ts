@@ -1,6 +1,8 @@
 import { env } from "$droplets/env/public";
 import { MODES } from "./modes.ts";
 import type { Facts, Mode } from "./types.ts";
+// A file the droplet imports: its URL is on the droplets server, wherever the page is.
+import logo from "./droplet.png";
 
 /**
  * What a Handlebars card shows, worked out in `+droplet.ts`: a template
@@ -10,6 +12,7 @@ import type { Facts, Mode } from "./types.ts";
 export const cardData = (mode: Mode, data: Facts) => ({
   ...data,
   mode,
+  logo,
   title: MODES[mode].title,
   summary: MODES[mode].summary,
   site: env.PUBLIC_SITE_NAME,

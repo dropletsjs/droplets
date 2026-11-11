@@ -6,6 +6,8 @@ import { env } from "$droplets/env/public";
 import { bumpCounter, privateFacts, readCounter, serverTime } from "./api.ts";
 import { MODES } from "./modes.ts";
 import type { Facts, Mode, PrivateFacts } from "./types.ts";
+// A file the droplet imports: its URL is on the droplets server, wherever the page is.
+import logo from "./droplet.png";
 
 export function Card(props: { mode: Mode; data?: Facts | undefined }) {
   const [hydrated, setHydrated] = createSignal(false);
@@ -28,6 +30,7 @@ export function Card(props: { mode: Mode; data?: Facts | undefined }) {
   return (
     <article class="card" data-testid="card" data-framework="solid" data-mode={props.mode}>
       <header class="card-head">
+        <img class="card-logo" data-testid="logo" src={logo} alt="" width={24} height={24} />
         <span class="card-framework">Solid</span>
         <h2 class="card-title">{MODES[props.mode].title}</h2>
       </header>
