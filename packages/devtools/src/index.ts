@@ -10,9 +10,9 @@ export { renderDevtoolsPage, type DevtoolsPageInput, type ServerRender } from ".
 // `src/` and `dist/` both sit directly under the package root.
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 /** The compiled browser script; Vite serves and transforms it. */
-const clientFile = resolve(packageRoot, "dist/client/devtools.js");
+const clientFile = resolve(packageRoot, "dist/client/devtools-page.js");
 /** The floating dev tool, which `index.js` imports on any page that asks for it. */
-const toolFile = resolve(packageRoot, "dist/tool/tool.js");
+const toolFile = resolve(packageRoot, "dist/tool/panel.js");
 /** The droplets and their flags, for the dev tool on any page. */
 const TOOL_INFO = "/__droplets/devtools.json";
 

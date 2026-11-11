@@ -10,7 +10,7 @@
  */
 import type { DevElementInfo, DevNotification, DevToolSource, DropletsDevTools } from "@dropletsjs/droplets";
 import { describeMode, type DropletInfo } from "../shared.ts";
-import STYLES from "./tool.css?inline";
+import STYLES from "./panel.css?inline";
 
 /** What `/__droplets/devtools.json` answers: the server's droplets with their flags. */
 type ServerInfo = { element: string; droplets: DropletInfo[] };

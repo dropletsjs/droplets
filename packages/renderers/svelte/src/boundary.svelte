@@ -19,13 +19,13 @@
   let {
     component: Droplet,
     props,
-    page: ErrorPage,
+    errorComponent: ErrorComponent,
     handle,
     children,
   }: {
     component: Component<Record<string, unknown>>;
     props: Record<string, unknown>;
-    page: Component<Record<string, unknown>>;
+    errorComponent: Component<Record<string, unknown>>;
     handle: (error: unknown) => Promise<unknown>;
     children: Snippet;
   } = $props();
@@ -41,6 +41,6 @@
 <svelte:boundary>
   <Droplet {...props} />
   {#snippet failed(error)}
-    {#await handle(error) then shown}<ErrorPage error={shown} {children} />{:catch}{/await}
+    {#await handle(error) then shown}<ErrorComponent error={shown} {children} />{:catch}{/await}
   {/snippet}
 </svelte:boundary>

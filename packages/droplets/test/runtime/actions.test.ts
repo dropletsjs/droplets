@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { logger } from "../../src/core/logger.ts";
-import { backTarget, createApp, redirectTarget, type AppOptions, type FindAction, type RenderDroplet } from "../../src/runtime/app.ts";
+import { backTarget, createDropletsApp, redirectTarget, type DropletsAppOptions, type FindAction, type RenderDroplet } from "../../src/runtime/app.ts";
 import { mintFormResult, resetFormSecretWarnings } from "../../src/runtime/form-token.server.ts";
 import { requestInfo } from "../../src/runtime/request-store.ts";
 import {
@@ -30,7 +30,7 @@ const sign: Action = async ({ request }) => {
   return { message: `Thanks, ${name}` };
 };
 
-function actionsApp(actions: Record<string, Action> | null, overrides: Partial<AppOptions> = {}) {
+function actionsApp(actions: Record<string, Action> | null, overrides: Partial<DropletsAppOptions> = {}) {
   const renderDroplet = vi.fn<RenderDroplet>(async (name: string, event: LoadEvent, options) => ({
     html: `<p>${name}:${JSON.stringify(event.props)}:${JSON.stringify(options?.form ?? null)}</p>`,
     serverData: { count: 1 },
@@ -39,14 +39,14 @@ function actionsApp(actions: Record<string, Action> | null, overrides: Partial<A
     if (!actions) return "none";
     return Object.hasOwn(actions, name) ? actions[name]! : "missing";
   });
-  const options: AppOptions = {
+  const options: DropletsAppOptions = {
     renderDroplet,
     findAction,
     getDropletMeta: (name) => ({ exists: name !== "missing", ssr: true, hydrate: true }),
     buildHash: "abc123",
     ...overrides,
   };
-  return { app: createApp(options), renderDroplet, findAction };
+  return { app: createDropletsApp(options), renderDroplet, findAction };
 }
 
 /** A same-origin form submit, as a browser sends it. */
@@ -740,7 +740,7 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
       if (referer !== null) headers["referer"] = referer;
       return headers;
     };
-    const shopApp = (actions: Record<string, Action> = { default: sign }, overrides: Partial<AppOptions> = {}) =>
+    const shopApp = (actions: Record<string, Action> = { default: sign }, overrides: Partial<DropletsAppOptions> = {}) =>
       actionsApp(actions, { trustedOrigins: ["https://shop.test"], ...overrides });
 
     it("lands a cross-origin page whose Referer is its origin alone back on its path", async () => {

@@ -9,7 +9,7 @@ import {
   dropletsStylesById,
   elementName,
 } from "virtual:droplets";
-import { serverKey, serverRecord } from "./servers.ts";
+import { serverKey, serverRecord } from "./server-records.ts";
 import {
   contractChanges,
   contractNotice,
@@ -77,7 +77,7 @@ const strategyKey = () => `droplets:strategy:${new URL(import.meta.url).origin}`
  * else `dev.strategy` of the config. Only `index.js` reads it; nothing
  * changes in what the server sends.
  */
-function pageStrategy(): DevStrategy {
+function activeDevStrategy(): DevStrategy {
   let chosen: string | null = null;
   try {
     chosen = sessionStorage.getItem(strategyKey());
@@ -130,7 +130,7 @@ export type DropletUpdatePayload = {
 };
 
 /** Sent when the page itself is out of date: `src/hooks.client.ts` changed, and its `init` runs once per page. */
-export type DropletPagePayload = { reason: "hooks.client"; timestamp: number };
+export type DropletHooksPayload = { reason: "hooks.client"; timestamp: number };
 
 const KINDS: ReadonlySet<string> = new Set(["component", "load", "contract"]);
 const isHydrateMode = (value: unknown): value is HydrateMode =>
@@ -201,7 +201,7 @@ export const STALE_EVENT = "droplets:stale";
 declare module "vite/types/customEvent.d.ts" {
   interface CustomEventMap {
     "droplets:update": DropletUpdatePayload;
-    "droplets:page": DropletPagePayload;
+    "droplets:hooks-client": DropletHooksPayload;
   }
 }
 
@@ -1382,7 +1382,7 @@ export class DjsDropletElement extends HTMLElement {
     this.#hmrListener = (raw) => {
       const payload = readUpdate(raw);
       if (!payload || payload.droplet !== droplet) return;
-      const strategy = pageStrategy();
+      const strategy = activeDevStrategy();
       if (strategy === "reload") {
         if (!reloading) globalThis.location.reload();
         reloading = true;
@@ -1765,7 +1765,7 @@ function devToolSource(): DevToolSource {
     // Where /index.js came from, as the elements load from it.
     origin: serverRecord(serverKey(elementName, buildHash)).origin ?? new URL(import.meta.url).origin,
     element: elementName,
-    strategy: pageStrategy,
+    strategy: activeDevStrategy,
     setStrategy: (strategy) => {
       try {
         sessionStorage.setItem(strategyKey(), strategy);
@@ -1823,7 +1823,7 @@ function followHotUpdates(hot: NonNullable<ImportMeta["hot"]>): void {
   hot.on("droplets:update", (raw) => {
     const payload = readUpdate(raw);
     if (!payload || payload.timestamp === undefined) return;
-    if (pageStrategy() !== "hmr") {
+    if (activeDevStrategy() !== "hmr") {
       held.add(payload.timestamp);
       return;
     }
@@ -1845,9 +1845,9 @@ function followHotUpdates(hot: NonNullable<ImportMeta["hot"]>): void {
     update.updates.splice(0, update.updates.length, ...kept);
   });
 
-  hot.on("droplets:page", (raw) => {
+  hot.on("droplets:hooks-client", (raw) => {
     if (!isObject(raw) || raw["reason"] !== "hooks.client") return;
-    const strategy = pageStrategy();
+    const strategy = activeDevStrategy();
     if (strategy === "manual") return console.info("[droplets] src/hooks.client.ts changed; reload the page to run its init again");
     if (strategy !== "hmr") return reloadPage();
     notify({
@@ -1863,7 +1863,7 @@ function followHotUpdates(hot: NonNullable<ImportMeta["hot"]>): void {
     if (!isObject(detail) || !Object.hasOwn(detail, "droplet") || !Object.hasOwn(detail, "origin")) return;
     const { droplet, origin } = detail;
     if (typeof droplet !== "string" || !dropletRegistry.has(droplet) || origin !== own) return;
-    if (pageStrategy() !== "hmr") return;
+    if (activeDevStrategy() !== "hmr") return;
     if ((devRemountLive?.(droplet) ?? 0) > 0) {
       console.info(`[droplets] ${droplet}: no HMR of its framework took this edit; remounted in place`);
     }

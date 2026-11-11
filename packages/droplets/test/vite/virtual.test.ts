@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DropletEntry } from "../../src/core/discover.ts";
 import type { DropletRenderer } from "../../src/renderer.ts";
-import { locationScript, serverKey } from "../../src/runtime/servers.ts";
+import { locationScript, serverKey } from "../../src/runtime/server-records.ts";
 import { createInitialState } from "../../src/vite/state.ts";
 import {
   buildClientCode,
@@ -227,12 +227,12 @@ describe("createClientModuleCode", () => {
     expect(code).toContain('import * as renderer from "/r/svelte/client.js";');
     expect(code).not.toContain("errorRenderer");
     expect(code).toContain('import * as component from "/src/droplets/Hello/+droplet.svelte";');
-    expect(code).toContain('import * as errorPage from "/src/droplets/Hello/+error.svelte";');
+    expect(code).toContain('import * as errorComponent from "/src/droplets/Hello/+error.svelte";');
     expect(code).toContain('import.meta.glob("/src/droplets/Hello/+droplet.ts")');
     expect(code).toContain("renderer.hydrate(module, target, props, context)");
     expect(code).toContain("renderer.mount(module, target, props, context)");
     // A droplet mounted with data still to come gets its error page for the boundary.
-    expect(code).toContain("error: { module: errorPage, handle: info.handleError }");
+    expect(code).toContain("error: { module: errorComponent, handle: info.handleError }");
     expect(code).toContain("export async function handleError(error)");
     expect(code).toContain("export async function load(event)");
     expect(code).toContain("export function unmount(handle)");
@@ -244,7 +244,7 @@ describe("createClientModuleCode", () => {
   it("leaves the error page out when the droplet has none", () => {
     const code = createClientModuleCode("/src/droplets", entry({ name: "Hello" }), renderers);
     expect(code).not.toContain("+error.");
-    expect(code).toContain("const errorPage = undefined;");
+    expect(code).toContain("const errorComponent = undefined;");
   });
 
   it("marks the component with its renderer when another renderer shares its extension", () => {
@@ -259,7 +259,7 @@ describe("createClientModuleCode", () => {
     const droplet = entry({ name: "s", file: "+droplet.tsx", renderer: "solid", hasError: true, errorFile: "+error.tsx" });
     const code = createClientModuleCode("/src/droplets", droplet, both);
     expect(code).toContain('import * as component from "/src/droplets/s/+droplet.tsx?droplets-renderer=solid";');
-    expect(code).toContain('import * as errorPage from "/src/droplets/s/+error.tsx?droplets-renderer=solid";');
+    expect(code).toContain('import * as errorComponent from "/src/droplets/s/+error.tsx?droplets-renderer=solid";');
     const server = buildServerCode([droplet], "/src/droplets", { renderers: both });
     expect(server).toContain('from "/src/droplets/s/+droplet.tsx?droplets-renderer=solid";');
     expect(createClientModuleCode("/src/droplets", droplet, [both[1]!])).toContain(

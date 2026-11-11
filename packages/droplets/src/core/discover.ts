@@ -45,9 +45,6 @@ export function dropletId(folderName: string): string {
   return kebabCase(folderName);
 }
 
-/** Kept for compatibility: `readExportedFlag` from the renderer contract. */
-export { readExportedFlag as readModuleFlag } from "../renderer.ts";
-
 /** The flags a component's source declares, with their defaults, through the default reader. */
 export function readRenderFlags(source: string, droplet: string): RenderFlags {
   return withFlagDefaults(readExportedFlags(source, droplet));

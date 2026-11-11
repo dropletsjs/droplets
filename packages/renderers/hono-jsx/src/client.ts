@@ -60,12 +60,12 @@ function childrenOf(host: DropletChildrenHost): Child {
 }
 
 /** The error page with what `handle` made of `error`; nothing while it runs, or when it rejects. */
-function errorPageOf(page: FC<Record<string, unknown>>, context: ClientRenderContext, handle: (error: unknown) => Promise<unknown>) {
+function errorComponentOf(errorComponent: FC<Record<string, unknown>>, context: ClientRenderContext, handle: (error: unknown) => Promise<unknown>) {
   const shown = new Map<unknown, Promise<{ error: unknown } | null>>();
   function HandledError({ error }: { error: unknown }) {
     if (!shown.has(error)) shown.set(error, handle(error).then((handled) => ({ error: handled }), () => null));
     const result = use(shown.get(error)!);
-    return result ? jsx(page, { error: result.error, children: childrenOf(context.children) }) : null;
+    return result ? jsx(errorComponent, { error: result.error, children: childrenOf(context.children) }) : null;
   }
   return (error: unknown) => jsx(Suspense, { fallback: nothing(), children: jsx(HandledError, { error }) });
 }
@@ -94,8 +94,8 @@ function tree(component: FC<Record<string, unknown>>, props: RenderProps, contex
     children: jsx(component, { ...props, ...data, children: childrenOf(context.children) }),
   });
   if (!context.error) return node;
-  const page = componentOf(context.error.module, { ...context, kind: "error" });
-  return jsx(ErrorBoundary, { fallbackRender: errorPageOf(page, context, context.error.handle), children: node });
+  const errorComponent = componentOf(context.error.module, { ...context, kind: "error" });
+  return jsx(ErrorBoundary, { fallbackRender: errorComponentOf(errorComponent, context, context.error.handle), children: node });
 }
 
 /** What a root renders, for `update`: the same component and context, with new props. */

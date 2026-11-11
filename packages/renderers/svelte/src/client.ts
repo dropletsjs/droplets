@@ -83,10 +83,10 @@ export function mount(
   }
   const live = liveProps(props, { children: marker });
   if (context.error) {
-    const page = componentOf(context.error.module, { ...context, kind: "error" });
+    const errorComponent = componentOf(context.error.module, { ...context, kind: "error" });
     return keep(svelteMount(Boundary, {
       target,
-      props: { component, props: live.props, page, handle: context.error.handle, children: marker },
+      props: { component, props: live.props, errorComponent, handle: context.error.handle, children: marker },
       context: contextOf(context),
     }), live.set);
   }
@@ -119,9 +119,9 @@ async function mountSettled(
     } catch {
       return null;
     }
-    const page = componentOf(context.error.module, { ...context, kind: "error" });
+    const errorComponent = componentOf(context.error.module, { ...context, kind: "error" });
     return rendering(context, () =>
-      svelteMount(page, { target, props: { error: shown, children: marker }, context: contextOf(context) })
+      svelteMount(errorComponent, { target, props: { error: shown, children: marker }, context: contextOf(context) })
     );
   }
   const live = liveProps({ ...props, data } as RenderProps, { children: marker });

@@ -21,9 +21,9 @@ import { isUnhandled } from "./load.ts";
 import { dropletElement } from "./element.ts";
 import { prerenderKey, propsKey } from "./props.ts";
 import { requestInfo, withRequestInfo } from "./request-store.ts";
-import { loadHeaders, storedHeaders } from "./set-headers.ts";
+import { loadHeaders, storedHeaders } from "./load-headers.ts";
 import { mediaType, originCheck, sizeLimits, trustedOriginsWith } from "./security.ts";
-import { locationScript, publicEnvScript, serverKey } from "./servers.ts";
+import { locationScript, publicEnvScript, serverKey } from "./server-records.ts";
 import { allowedMethods, API_METHODS, type ApiMatch, type ApiMethod } from "./routes.ts";
 import {
   HttpError,
@@ -127,7 +127,7 @@ export type LoadPrerendered = (
   event: LoadEvent,
 ) => MaybePromise<PrerenderedDroplet | null>;
 
-export type AppOptions = {
+export type DropletsAppOptions = {
   /** Tag name of the host element. Default: `djs-droplet`. */
   element?: string | undefined;
   /** Health check path, answered before `handle`. `false` turns it off. Default: `/health`. */
@@ -595,7 +595,7 @@ const INTERNAL_ERROR = "Internal Server Error";
  */
 async function unexpectedMessage(
   c: Context,
-  options: AppOptions,
+  options: DropletsAppOptions,
   error: unknown,
 ): Promise<string> {
   let handleError: HandleServerError | undefined;
@@ -624,7 +624,7 @@ async function unexpectedMessage(
  */
 async function failure(
   c: Context,
-  appOptions: AppOptions,
+  appOptions: DropletsAppOptions,
   error: unknown,
   options: FailureOptions,
 ): Promise<Response> {
@@ -674,11 +674,11 @@ function routeDroplet(path: string): string {
   }
 }
 
-async function dropletMeta(options: AppOptions, droplet: string): Promise<DropletMeta> {
+async function dropletMeta(options: DropletsAppOptions, droplet: string): Promise<DropletMeta> {
   return options.getDropletMeta ? await options.getDropletMeta(droplet) : { exists: true, ssr: true };
 }
 
-function createDropletMiddleware(options: AppOptions): MiddlewareHandler<AppEnv> {
+function createDropletMiddleware(options: DropletsAppOptions): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
     const droplet = c.req.param("droplet") as string;
     const meta = await dropletMeta(options, droplet);
@@ -728,7 +728,8 @@ function createDropletMiddleware(options: AppOptions): MiddlewareHandler<AppEnv>
   };
 }
 
-export function createApp(options: AppOptions) {
+/** The core Hono app over render and asset callbacks: `createServerApp`, `createNodeServerApp` and `createDevApp` build one for production, Node and `vite dev`. */
+export function createDropletsApp(options: DropletsAppOptions) {
   const app = new Hono<AppEnv>();
   const dropletMiddleware = createDropletMiddleware(options);
   const element = options.element ?? "djs-droplet";

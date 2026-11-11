@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { createApp, type AppOptions } from "../../src/runtime/app.ts";
+import { createDropletsApp, type DropletsAppOptions } from "../../src/runtime/app.ts";
 import { UnhandledDropletError } from "../../src/runtime/load.ts";
 import type { ApiModule, ApiRoute } from "../../src/runtime/routes.ts";
 import { matchRoute } from "../../src/runtime/routes.ts";
 import { error, json, redirect, type Handle, type LoadEvent, type TransformEvent } from "../../src/runtime/server.ts";
-import { locationScript } from "../../src/runtime/servers.ts";
+import { locationScript } from "../../src/runtime/server-records.ts";
 
 const decode = (b64: string) =>
   JSON.parse(Buffer.from(b64, "base64").toString("utf8")) as unknown;
@@ -17,7 +17,7 @@ const payload = (html: string, attribute: string): unknown => {
   return match?.[1] ? decode(match[1]) : undefined;
 };
 
-function fakeApp(overrides: Partial<AppOptions> = {}) {
+function fakeApp(overrides: Partial<DropletsAppOptions> = {}) {
   const renderDroplet = vi.fn(async (name: string, event: LoadEvent) => ({
     html: `<p>${name}:${JSON.stringify(event.props)}</p>`,
     head: `<title>${name}</title>`,
@@ -26,7 +26,7 @@ function fakeApp(overrides: Partial<AppOptions> = {}) {
   const loadDropletData = vi.fn(async (name: string, event: LoadEvent) => ({
     data: { name, props: event.props } as unknown,
   }));
-  const options: AppOptions = {
+  const options: DropletsAppOptions = {
     renderDroplet,
     loadDropletData,
     getDropletMeta: (name) =>
@@ -43,16 +43,16 @@ function fakeApp(overrides: Partial<AppOptions> = {}) {
     buildHash: "abc123",
     ...overrides,
   };
-  return { app: createApp(options), renderDroplet, loadDropletData };
+  return { app: createDropletsApp(options), renderDroplet, loadDropletData };
 }
 
 /** A route table for `matchApi`, from `[path, module]` pairs. */
-function apiOf(routes: Array<[ApiRoute["segments"], ApiModule]>): AppOptions["matchApi"] {
+function apiOf(routes: Array<[ApiRoute["segments"], ApiModule]>): DropletsAppOptions["matchApi"] {
   const table = routes.map(([segments, module], i) => ({ id: `route-${i}`, segments, module }));
   return (pathname) => matchRoute(table, pathname);
 }
 
-describe("createApp: health and index", () => {
+describe("createDropletsApp: health and index", () => {
   it("answers ok on /health by default", async () => {
     const { app } = fakeApp();
     const res = await app.request("/health");
@@ -86,7 +86,7 @@ describe("createApp: health and index", () => {
   });
 });
 
-describe("createApp: assets", () => {
+describe("createDropletsApp: assets", () => {
   it("serves the entry client uncached", async () => {
     const { app } = fakeApp();
     const res = await app.request("/index.js");
@@ -220,7 +220,7 @@ describe("createApp: assets", () => {
   });
 });
 
-describe("createApp: props and the load event", () => {
+describe("createDropletsApp: props and the load event", () => {
   it("reads props from the query string, skipping reserved keys", async () => {
     const { app, renderDroplet } = fakeApp();
     const res = await app.request("/droplets/hello?who=Ana&c=1&t=2&__cb=3&noSSR_=x");
@@ -351,7 +351,7 @@ describe("createApp: props and the load event", () => {
   });
 });
 
-describe("createApp: fragment", () => {
+describe("createDropletsApp: fragment", () => {
   it("renders the bare element with inlined context and data", async () => {
     const { app } = fakeApp();
     const res = await app.request("http://drops.test/droplets/hello?who=Ana");
@@ -617,7 +617,7 @@ describe("createApp: fragment", () => {
   });
 });
 
-describe("createApp: _data", () => {
+describe("createDropletsApp: _data", () => {
   it("serves the server load alone, for any method, without rendering", async () => {
     const { app, renderDroplet } = fakeApp();
     const get = await app.request("/droplets/hello/_data?who=D");
@@ -655,7 +655,7 @@ describe("createApp: _data", () => {
   });
 });
 
-describe("createApp: handle", () => {
+describe("createDropletsApp: handle", () => {
   it("fills locals for droplet loads", async () => {
     const { app, renderDroplet } = fakeApp({
       getHandle: () => async ({ event, resolve }) => {
@@ -726,7 +726,7 @@ describe("createApp: handle", () => {
   });
 });
 
-describe("createApp: /api", () => {
+describe("createDropletsApp: /api", () => {
   const users: ApiModule = {
     GET: ({ params, locals }) => json({ id: params["id"], user: locals["user"] ?? null }),
     POST: async ({ request }) => json(await request.json(), { status: 201 }),
@@ -824,11 +824,11 @@ describe("createApp: /api", () => {
   });
 });
 
-describe("createApp: import map", () => {
+describe("createDropletsApp: import map", () => {
   const importmap = vi.fn(({ externals }: { externals: string[] }) => ({
     imports: Object.fromEntries(externals.map((name) => [name, `https://cdn.test/${name}.js`])),
   }));
-  const withMap = (over: Partial<AppOptions> = {}) =>
+  const withMap = (over: Partial<DropletsAppOptions> = {}) =>
     fakeApp({
       importMap: { path: "/importmap", auto: true },
       getImportMap: () => importmap,
@@ -911,8 +911,8 @@ describe("createApp: import map", () => {
   });
 });
 
-describe("createApp: fragment styles and preloads", () => {
-  const withEntry = (overrides: Partial<AppOptions> = {}) =>
+describe("createDropletsApp: fragment styles and preloads", () => {
+  const withEntry = (overrides: Partial<DropletsAppOptions> = {}) =>
     fakeApp({ entryModule: () => "assets/index.abc123.js", ...overrides });
 
   it("links the droplet's style.css inside the element, before the markup", async () => {
@@ -1002,7 +1002,7 @@ describe("createApp: fragment styles and preloads", () => {
   });
 });
 
-describe("createApp: Cache-Control of fragments and _data", () => {
+describe("createDropletsApp: Cache-Control of fragments and _data", () => {
   it("keeps them out of shared caches by default", async () => {
     const { app } = fakeApp();
     for (const path of ["/droplets/hello", "/droplets/hello/_data"]) {
@@ -1032,7 +1032,7 @@ describe("createApp: Cache-Control of fragments and _data", () => {
   });
 });
 
-describe("createApp: setHeaders in a droplet's load", () => {
+describe("createDropletsApp: setHeaders in a droplet's load", () => {
   const HOST_VARY = "x-host, forwarded, x-forwarded-host, x-forwarded-proto, origin";
   const publicLoad = (event: LoadEvent) => {
     event.setHeaders({ "Cache-Control": "public, max-age=60", vary: "Accept-Language" });
@@ -1154,7 +1154,7 @@ describe("createApp: setHeaders in a droplet's load", () => {
   });
 });
 
-describe("createApp: where props come from", () => {
+describe("createDropletsApp: where props come from", () => {
   it("takes a GET's props from the query, a POST's from the body only", async () => {
     const { app } = fakeApp();
     const get = await app.request("/droplets/hello/_data?who=Query");
@@ -1172,7 +1172,7 @@ describe("createApp: where props come from", () => {
   });
 });
 
-describe("createApp: no noJS", () => {
+describe("createDropletsApp: no noJS", () => {
   it("hands every event the request as it came, the query untouched", async () => {
     const seen: string[] = [];
     let request: Request | undefined;
@@ -1203,7 +1203,7 @@ describe("createApp: no noJS", () => {
   });
 });
 
-describe("createApp: CORS", () => {
+describe("createDropletsApp: CORS", () => {
   it("exposes the Link header and the build header to cross-origin hosts", async () => {
     const { app } = fakeApp({ cors: { origin: "*", exposeHeaders: ["x-custom"] } });
     const res = await app.request("/droplets/hello", { headers: { origin: "http://other.test" } });
@@ -1235,8 +1235,8 @@ describe("createApp: CORS", () => {
   });
 });
 
-describe("createApp: props schema", () => {
-  const validateProps: AppOptions["validateProps"] = (_name, props) => {
+describe("createDropletsApp: props schema", () => {
+  const validateProps: DropletsAppOptions["validateProps"] = (_name, props) => {
     if (typeof props["page"] !== "string" || !/^\d+$/.test(props["page"])) {
       error(400, "Invalid props: page: Expected number");
     }
@@ -1273,7 +1273,7 @@ describe("createApp: props schema", () => {
   });
 });
 
-describe("createApp: inline data", () => {
+describe("createDropletsApp: inline data", () => {
   it("inlines an envelope even when there is no server data", async () => {
     const { app } = fakeApp({
       renderDroplet: async () => ({ html: "<p>x</p>", serverData: undefined }),
@@ -1284,8 +1284,8 @@ describe("createApp: inline data", () => {
   });
 });
 
-describe("createApp: prerendered droplets", () => {
-  const meta: AppOptions["getDropletMeta"] = (name) =>
+describe("createDropletsApp: prerendered droplets", () => {
+  const meta: DropletsAppOptions["getDropletMeta"] = (name) =>
     name === "docs"
       ? { exists: true, ssr: true, prerender: true }
       : name === "spa-docs"
@@ -1455,7 +1455,7 @@ describe("createApp: prerendered droplets", () => {
   });
 });
 
-describe("createApp: building", () => {
+describe("createDropletsApp: building", () => {
   it("answers the render as JSON for the build, keyed by the props", async () => {
     const { app } = fakeApp({ building: true });
     const res = await app.request("http://droplets.build/droplets/hello", {
@@ -1588,7 +1588,7 @@ describe("createApp: building", () => {
   });
 });
 
-describe("createApp: handleError", () => {
+describe("createDropletsApp: handleError", () => {
   it("chooses the message of unexpected errors", async () => {
     const handleError = vi.fn(() => ({ message: "Oops, ref 7" }));
     const { app } = fakeApp({

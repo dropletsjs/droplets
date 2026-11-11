@@ -1,6 +1,7 @@
 /**
- * Logic shared by the devtools page and its tests. No DOM, no Node: plain
- * functions over plain data.
+ * Logic shared by the plugin (`index.ts`, in Node) and the browser scripts:
+ * the devtools page (`client/devtools-page.ts`) and the floating panel
+ * (`tool/panel.ts`). No DOM, no Node: plain functions over plain data.
  */
 
 /** One droplet, as the core plugin describes it. */

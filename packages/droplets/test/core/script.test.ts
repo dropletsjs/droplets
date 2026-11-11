@@ -13,7 +13,7 @@ import { setLogLevel } from "../../src/core/logger.ts";
 import { validateRenderers, type DropletRenderer } from "../../src/renderer.ts";
 import { readScriptFlags, scriptRenderer, userRenderers, withScriptRenderer } from "../../src/script/index.ts";
 import { buildServerCode, createClientModuleCode } from "../../src/vite/virtual.ts";
-import { dropletTypesCode } from "../../src/vite/types.ts";
+import { dropletTypesCode } from "../../src/vite/sync-types.ts";
 
 const svelte: DropletRenderer = {
   name: "svelte",

@@ -58,7 +58,7 @@ export function dropletFiles(spec: DropletSpec): Record<string, string> {
   const files: Record<string, string> = { [`+droplet${extension}`]: component(context) };
   if (spec.files.has("server")) files["+droplet.server.ts"] = serverModule(context);
   if (spec.files.has("universal")) files["+droplet.ts"] = universalModule(context);
-  if (spec.files.has("error")) files[`+error${extension}`] = errorPage(context);
+  if (spec.files.has("error")) files[`+error${extension}`] = errorComponent(context);
   // Svelte, Vue and Handlebars take a <style> block, Lit `static styles`; the JSX ones and scripts import a file.
   if (spec.files.has("css") && (spec.framework.jsxImportSource || script)) files[CSS_FILE] = stylesheet(context);
   return files;
@@ -147,7 +147,7 @@ function component(context: Context): string {
   }
 }
 
-function errorPage(context: Context): string {
+function errorComponent(context: Context): string {
   switch (context.framework.name) {
     case "script":
       throw new Error("a script droplet has no error page");

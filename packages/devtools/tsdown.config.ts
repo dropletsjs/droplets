@@ -3,12 +3,12 @@ import { base, bareImport, cssInline, graphCheck } from "@dropletsjs/config/tsdo
 
 export default defineConfig({
   ...base,
-  entry: ["./src/index.ts", "./src/client/devtools.ts", "./src/tool/tool.ts"],
+  entry: ["./src/index.ts", "./src/client/devtools-page.ts", "./src/tool/panel.ts"],
   deps: { neverBundle: [bareImport] },
   plugins: [
     cssInline(),
     graphCheck({
-      client: ["client/devtools", "tool/tool"],
+      client: ["client/devtools-page", "tool/panel"],
       server: ["index", "page"],
     }),
   ],

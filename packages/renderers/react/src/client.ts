@@ -45,7 +45,7 @@ function componentOf(module: ComponentModule, context: ClientRenderContext): Com
 }
 
 type BoundaryProps = {
-  page: ComponentType<Record<string, unknown>>;
+  errorComponent: ComponentType<Record<string, unknown>>;
   handle: (error: unknown) => Promise<unknown>;
   children?: ReactNode;
 };
@@ -73,7 +73,7 @@ class DropletBoundary extends Component<BoundaryProps, BoundaryState> {
   override render(): ReactNode {
     if (!this.state.failed) return this.props.children;
     if (!this.state.shown) return null;
-    return createElement(this.props.page, { error: this.state.shown.error, children: childrenElement() });
+    return createElement(this.props.errorComponent, { error: this.state.shown.error, children: childrenElement() });
   }
 }
 
@@ -81,10 +81,10 @@ class DropletBoundary extends Component<BoundaryProps, BoundaryState> {
 function tree(component: ComponentType<Record<string, unknown>>, props: RenderProps, context: ClientRenderContext): ReactElement {
   let node: ReactElement = createElement(component, { ...props, children: childrenElement() });
   if (context.error) {
-    const page = componentOf(context.error.module, { ...context, kind: "error" });
+    const errorComponent = componentOf(context.error.module, { ...context, kind: "error" });
     node = createElement(
       DropletBoundary,
-      { page, handle: context.error.handle },
+      { errorComponent, handle: context.error.handle },
       createElement(Suspense, { fallback: null }, node),
     );
   }

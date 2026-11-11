@@ -3,7 +3,7 @@ import { loadConfigFromFile } from "vite";
 import type { ConfigEnv } from "vite";
 import { resolveConfig } from "./config.ts";
 import type { DropletsConfig, ResolvedDropletsConfig } from "./config.ts";
-import { ensureTypesTsconfig } from "../vite/types.ts";
+import { ensureTypesTsconfig } from "../vite/sync-types.ts";
 import { fileExists } from "./fs.ts";
 
 /** Looked up in this order when no `configFile` is given. */

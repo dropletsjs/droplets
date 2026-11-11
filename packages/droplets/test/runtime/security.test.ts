@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createApp, type AppOptions } from "../../src/runtime/app.ts";
+import { createDropletsApp, type DropletsAppOptions } from "../../src/runtime/app.ts";
 import { encodeBase64 } from "../../src/runtime/base64.ts";
 import type { ApiModule } from "../../src/runtime/routes.ts";
 import { matchRoute } from "../../src/runtime/routes.ts";
@@ -13,13 +13,13 @@ const echo: ApiModule = {
   DELETE: () => json({ ok: true }),
 };
 
-function fakeApp(overrides: Partial<AppOptions> = {}) {
+function fakeApp(overrides: Partial<DropletsAppOptions> = {}) {
   const renderDroplet = vi.fn(async (name: string, event: LoadEvent) => ({
     html: `<p>${name}:${JSON.stringify(event.props)}</p>`,
     serverData: { props: event.props },
   }));
   const handled = vi.fn();
-  const options: AppOptions = {
+  const options: DropletsAppOptions = {
     renderDroplet,
     loadDropletData: async (_name, event) => ({ data: { props: event.props } }),
     getDropletMeta: (name) => ({ exists: name !== "missing", ssr: true, hydrate: true }),
@@ -31,7 +31,7 @@ function fakeApp(overrides: Partial<AppOptions> = {}) {
       matchRoute([{ id: "echo", segments: [{ type: "static", value: "api" }, { type: "static", value: "echo" }], module: echo }], pathname),
     ...overrides,
   };
-  return { app: createApp(options), renderDroplet, handled };
+  return { app: createDropletsApp(options), renderDroplet, handled };
 }
 
 const form = (origin?: string, type = "application/x-www-form-urlencoded", method = "POST") => ({

@@ -5,7 +5,7 @@ import ts from "typescript";
 import { afterEach, describe, expect, it } from "vitest";
 import type { DropletEntry } from "../../src/core/discover.ts";
 import type { DropletRenderer } from "../../src/renderer.ts";
-import { dropletTypesCode, syncDropletTypes } from "../../src/vite/types.ts";
+import { dropletTypesCode, syncDropletTypes } from "../../src/vite/sync-types.ts";
 
 const entry = (name: string, extra: Partial<DropletEntry> = {}): DropletEntry => ({
   id: name,

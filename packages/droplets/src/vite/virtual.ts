@@ -1,6 +1,6 @@
 import type { Plugin } from "vite";
 import { resolve } from "node:path";
-import { discoverApiRoutes, type ApiRouteEntry } from "../core/api.ts";
+import { discoverApiRoutes, type ApiRouteEntry } from "../core/api-routes.ts";
 import { discoverDroplets, type DropletEntry } from "../core/discover.ts";
 import { buildPrivateEnvCode, buildPublicEnvCode, dynamicPublicNames } from "../core/env.ts";
 import { fileExists } from "../core/fs.ts";
@@ -21,8 +21,8 @@ import { sharingRenderers, type DropletRenderer } from "../renderer.ts";
 import { isScriptDroplet } from "../script/index.ts";
 import { tailwindActive } from "./css.ts";
 import { isServerPath, projectPath } from "./server-only.ts";
-import { componentSpecifier } from "./frameworks.ts";
-import { locationScript, publicEnvScript, serverKey } from "../runtime/servers.ts";
+import { componentSpecifier } from "./renderer-graphs.ts";
+import { locationScript, publicEnvScript, serverKey } from "../runtime/server-records.ts";
 import { CLIENT_HOOKS_FILES, HOOKS_FILES, IMPORTMAP_FILES, rendererNamed, type PluginState } from "./state.ts";
 
 /** Registry of droplets. Resolves to different code per environment. */
@@ -453,7 +453,7 @@ export function createClientModuleCode(
     ...(renderer.clientSetup ? [`import ${modulePath(renderer.clientSetup)};`] : []),
     `import * as renderer from ${modulePath(renderer.client)};`,
     `import * as component from ${componentModule};`,
-    ...(errorModule ? [`import * as errorPage from ${errorModule};`] : ["const errorPage = undefined;"]),
+    ...(errorModule ? [`import * as errorComponent from ${errorModule};`] : ["const errorComponent = undefined;"]),
   ];
 
   return `${imports.join("\n")}
@@ -499,7 +499,7 @@ function freshRenderId() {
  */
 async function show(module, kind, target, props, host, info) {
   const hydrating = target.childNodes.length > 0;
-  const boundary = kind === "droplet" && !hydrating && errorPage && info?.handleError;
+  const boundary = kind === "droplet" && !hydrating && errorComponent && info?.handleError;
   const location = info?.location ?? "";
   const context = {
     droplet: ${id},
@@ -511,7 +511,7 @@ async function show(module, kind, target, props, host, info) {
     actionUrl: actionUrlFor(location, ${id}, info?.props, browserPage()),
     // For an engine that renders after an await: the render in progress again.
     rendering: (render) => withRender(rendering, render),
-    ...(boundary ? { error: { module: errorPage, handle: info.handleError } } : {}),
+    ...(boundary ? { error: { module: errorComponent, handle: info.handleError } } : {}),
   };
   // For \`actionUrl()\` of \`$droplets/form\` while the component renders.
   const rendering = { droplet: ${id}, location, props: info?.props };
@@ -529,7 +529,7 @@ export default function render(target, data, host, info) {
 
 /** Shows the error page; \`null\` when the droplet has none. */
 export function renderError(target, error, host, info) {
-  return errorPage ? show(errorPage, "error", target, { error }, host, info) : null;
+  return errorComponent ? show(errorComponent, "error", target, { error }, host, info) : null;
 }
 
 export function unmount(handle) {

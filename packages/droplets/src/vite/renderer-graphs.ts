@@ -254,12 +254,12 @@ function reachingRenderers(
 }
 
 /** The core plugin that marks modules and checks cross-framework imports. */
-export function frameworksPlugin(state: PluginState): Plugin {
+export function rendererGraphsPlugin(state: PluginState): Plugin {
   let shared = new Set<string>();
   let command: "serve" | "build" = "serve";
 
   return {
-    name: "droplets:frameworks",
+    name: "droplets:renderer-graphs",
     enforce: "pre",
     sharedDuringBuild: true,
 

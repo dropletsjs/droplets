@@ -73,17 +73,17 @@ describe("render()", () => {
   });
 
   it("returns an error page's inlined styles as head", async () => {
-    const ErrorPage = defineComponent({
+    const ErrorComponent = defineComponent({
       styles: [".oops{color:crimson}"],
       props: { error: { type: Object, required: true } },
       setup(props: { error: { message: string } }) {
         return () => h("p", { class: "oops" }, props.error.message);
       },
     });
-    const out = await render({ default: ErrorPage }, { error: { message: "no" } }, serverContext("error"));
+    const out = await render({ default: ErrorComponent }, { error: { message: "no" } }, serverContext("error"));
     expect(out).toEqual({ html: `<p class="oops">no</p>`, head: `<style>.oops{color:crimson}</style>` });
     // A droplet never gets a head.
-    expect(await render({ default: ErrorPage }, { error: { message: "no" } }, serverContext())).toBe(`<p class="oops">no</p>`);
+    expect(await render({ default: ErrorComponent }, { error: { message: "no" } }, serverContext())).toBe(`<p class="oops">no</p>`);
   });
 
   it("rejects a module without a component", async () => {
@@ -176,7 +176,7 @@ describe("DropletChildren in the browser", () => {
   });
 
   it("moves an error page's server <style> into the document head before hydrating, once", async () => {
-    const ErrorPage = defineComponent({
+    const ErrorComponent = defineComponent({
       styles: [".oops{color:crimson}"],
       props: { error: { type: Object, required: true } },
       setup(props: { error: { message: string } }) {
@@ -184,14 +184,14 @@ describe("DropletChildren in the browser", () => {
       },
     });
     const before = document.head.querySelectorAll("style[data-droplets-vue]").length;
-    const out = await render({ default: ErrorPage }, { error: { message: "no" } }, serverContext("error"));
+    const out = await render({ default: ErrorComponent }, { error: { message: "no" } }, serverContext("error"));
     const page = typeof out === "string" ? out : `${out.head}${out.html}`;
     for (const _ of [1, 2]) {
       const target = document.createElement("div");
       target.innerHTML = page;
       document.body.appendChild(target);
       const p = target.querySelector("p");
-      const app = hydrate({ default: ErrorPage }, target, { error: { message: "no" } }, clientContext(fakeHost(), [], "error"));
+      const app = hydrate({ default: ErrorComponent }, target, { error: { message: "no" } }, clientContext(fakeHost(), [], "error"));
       expect(target.querySelector("style")).toBeNull();
       expect(target.querySelector("p")).toBe(p);
       unmount(app);
@@ -199,7 +199,7 @@ describe("DropletChildren in the browser", () => {
     // Mounting in the browser injects the same CSS: still once.
     const target = document.createElement("div");
     document.body.appendChild(target);
-    unmount(mount({ default: ErrorPage }, target, { error: { message: "no" } }, clientContext(fakeHost(), [], "error")));
+    unmount(mount({ default: ErrorComponent }, target, { error: { message: "no" } }, clientContext(fakeHost(), [], "error")));
     const styles = Array.from(document.head.querySelectorAll("style[data-droplets-vue]"));
     expect(styles.length - before).toBe(1);
     expect(styles.at(-1)?.textContent).toBe(".oops{color:crimson}");

@@ -70,7 +70,7 @@ export function dynamicPublicNames(state: EnvState): string[] {
  * `$droplets/env/public`: static variables inlined, the rest read at
  * runtime. On the server they come from the environment, like private
  * ones; in the browser from what `/index.js` handed this server's record
- * (see `runtime/servers.ts`), so `serverKey` names the record.
+ * (see `runtime/server-records.ts`), so `serverKey` names the record.
  */
 export function buildPublicEnvCode(
   state: EnvState,

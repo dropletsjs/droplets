@@ -50,7 +50,7 @@ describe("in vite dev", () => {
   let origin: string;
 
   beforeAll(async () => {
-    if (!existsSync(fileURLToPath(new URL("../dist/client/devtools.js", import.meta.url)))) {
+    if (!existsSync(fileURLToPath(new URL("../dist/client/devtools-page.js", import.meta.url)))) {
       throw new Error("Build @dropletsjs/devtools first (pnpm build).");
     }
     server = await createServer({
@@ -85,7 +85,7 @@ describe("in vite dev", () => {
 
   it("serves its browser script through Vite", async () => {
     const html = await (await fetch(`${origin}/`)).text();
-    const src = html.match(/src="(\/@fs[^"]+devtools\.js)"/)?.[1];
+    const src = html.match(/src="(\/@fs[^"]+devtools-page\.js)"/)?.[1];
     expect(src).toBeTruthy();
     const script = await fetch(`${origin}${src}`);
     expect(script.status).toBe(200);

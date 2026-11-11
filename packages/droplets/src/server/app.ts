@@ -1,6 +1,6 @@
 import type { Handler } from "hono";
 import {
-  createApp,
+  createDropletsApp,
   type FindAction,
   type GetDropletMeta,
   type GetHandle,
@@ -96,7 +96,7 @@ export function createServerApp({ ssr, assets, config }: ServerAppOptions) {
     );
   }
 
-  const app = createApp({
+  const app = createDropletsApp({
     element: config.element,
     health: config.health,
     renderDroplet,

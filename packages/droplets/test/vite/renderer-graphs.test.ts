@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { DropletEntry } from "../../src/core/discover.ts";
 import type { DropletRenderer } from "../../src/renderer.ts";
 import { withScriptRenderer } from "../../src/script/index.ts";
-import { checkDropletGraphs, componentSpecifier, isStylesheet, markOf, ownersOf, ownersOfImport } from "../../src/vite/frameworks.ts";
+import { checkDropletGraphs, componentSpecifier, isStylesheet, markOf, ownersOf, ownersOfImport } from "../../src/vite/renderer-graphs.ts";
 import { createInitialState } from "../../src/vite/state.ts";
 
 const renderer = (name: string, extra: Partial<DropletRenderer>): DropletRenderer => ({

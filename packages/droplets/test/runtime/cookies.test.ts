@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createApp, type AppOptions } from "../../src/runtime/app.ts";
+import { createDropletsApp, type DropletsAppOptions } from "../../src/runtime/app.ts";
 import { createCookies, parseCookies, serializeCookie } from "../../src/runtime/cookies.ts";
 import { matchRoute } from "../../src/runtime/routes.ts";
 import { json, redirect, type Cookies, type Handle, type LoadEvent } from "../../src/runtime/server.ts";
@@ -125,11 +125,11 @@ describe("cookies: on the response", () => {
     },
   ];
 
-  function fakeApp(overrides: Partial<AppOptions> = {}) {
+  function fakeApp(overrides: Partial<DropletsAppOptions> = {}) {
     const renderDroplet = vi.fn(async (_name: string, event: LoadEvent) => {
       return { html: `<p>${event.cookies.get("cart") ?? "none"}</p>`, serverData: {} };
     });
-    const options: AppOptions = {
+    const options: DropletsAppOptions = {
       renderDroplet,
       loadDropletData: async (_name, event) => {
         return { data: { cart: event.cookies.get("cart") ?? null, all: event.cookies.getAll().length } };
@@ -138,7 +138,7 @@ describe("cookies: on the response", () => {
       matchApi: (pathname) => matchRoute(routes, pathname),
       ...overrides,
     };
-    return { app: createApp(options), renderDroplet };
+    return { app: createDropletsApp(options), renderDroplet };
   }
 
   it("hands a droplet's load and render its cookies to read, never to set", async () => {
@@ -234,7 +234,7 @@ describe("cookies: on the response", () => {
   });
 
   it("stops the build when a render uses cookies, caught or not, also from handle", async () => {
-    const build = (overrides: Partial<AppOptions>) =>
+    const build = (overrides: Partial<DropletsAppOptions>) =>
       fakeApp({ building: true, ...overrides }).app.request("http://droplets.build/droplets/cart", {
         method: "POST",
         headers: { "content-type": "application/json" },

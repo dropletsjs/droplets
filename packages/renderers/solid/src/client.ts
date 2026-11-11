@@ -113,7 +113,7 @@ function withBoundary(
   children: () => JSX.Element,
   context: ClientRenderContext,
 ): () => JSX.Element {
-  const page = componentOf(error.module, { ...context, kind: "error" });
+  const errorComponent = componentOf(error.module, { ...context, kind: "error" });
   return () =>
     createComponent(ErrorBoundary, {
       fallback: (caught: unknown) => {
@@ -124,7 +124,7 @@ function withBoundary(
             return shown();
           },
           keyed: true,
-          children: ((value: { error: unknown }) => createComponent(page, { error: value.error, children })) as (
+          children: ((value: { error: unknown }) => createComponent(errorComponent, { error: value.error, children })) as (
             item: unknown,
           ) => JSX.Element,
         });

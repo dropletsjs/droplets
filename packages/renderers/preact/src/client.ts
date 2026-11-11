@@ -46,7 +46,7 @@ function componentOf(module: ComponentModule, context: ClientRenderContext): Any
 }
 
 type BoundaryProps = {
-  page: AnyComponent;
+  errorComponent: AnyComponent;
   handle: (error: unknown) => Promise<unknown>;
   children?: ComponentChildren;
 };
@@ -74,7 +74,7 @@ class DropletBoundary extends Component<BoundaryProps, BoundaryState> {
   override render(): ComponentChildren {
     if (!this.state.failed) return this.props.children;
     if (!this.state.shown) return null;
-    return h(this.props.page, { error: this.state.shown.error, children: childrenElement() });
+    return h(this.props.errorComponent, { error: this.state.shown.error, children: childrenElement() });
   }
 }
 
@@ -82,8 +82,8 @@ class DropletBoundary extends Component<BoundaryProps, BoundaryState> {
 function tree(component: AnyComponent, props: RenderProps, context: ClientRenderContext): VNode<any> {
   let node: VNode<any> = h(component, { ...props, children: childrenElement() });
   if (context.error) {
-    const page = componentOf(context.error.module, { ...context, kind: "error" });
-    node = h(DropletBoundary, { page, handle: context.error.handle }, node);
+    const errorComponent = componentOf(context.error.module, { ...context, kind: "error" });
+    node = h(DropletBoundary, { errorComponent, handle: context.error.handle }, node);
   }
   return h(ChildrenHostContext.Provider, { value: context.children }, node);
 }
@@ -101,11 +101,11 @@ async function settled(
     return { component, props: { ...props, data: await props.data }, context };
   } catch (error) {
     if (!context.error) throw error;
-    const page = componentOf(context.error.module, { ...context, kind: "error" });
+    const errorComponent = componentOf(context.error.module, { ...context, kind: "error" });
     // The error page is the boundary's: it gets none of its own.
     const { error: _boundary, ...rest } = context;
     try {
-      return { component: page, props: { error: await context.error.handle(error) }, context: { ...rest, kind: "error" } };
+      return { component: errorComponent, props: { error: await context.error.handle(error) }, context: { ...rest, kind: "error" } };
     } catch {
       return null;
     }

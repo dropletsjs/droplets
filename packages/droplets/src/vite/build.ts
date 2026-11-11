@@ -9,7 +9,7 @@ import { entryClientPath, entryServerPath } from "../core/paths.ts";
 import type { HydrateMode } from "../renderer.ts";
 import type { DropletManifestEntry, DropletsManifest } from "../server/manifest.ts";
 import { externalsList, type PluginState } from "./state.ts";
-import { readIndexHtml } from "./index-page.ts";
+import { readIndexHtml } from "./index-html.ts";
 import { clientEntryId, STYLES_PLACEHOLDER, VIRTUAL_CSS } from "./virtual.ts";
 
 /** Named inputs, so the manifest can be read back by name rather than path. */

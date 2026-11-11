@@ -95,7 +95,7 @@ function suspended(component: Component, state: Live): Component {
  * goes through `handle` (the droplet's `handleError`) into the error page,
  * rendered in its place; nothing while `handle` runs, or when it rejects.
  */
-function withBoundary(root: Component, error: NonNullable<ClientRenderContext["error"]>, page: Component): Component {
+function withBoundary(root: Component, error: NonNullable<ClientRenderContext["error"]>, errorComponent: Component): Component {
   return defineComponent({
     name: "DropletBoundary",
     setup() {
@@ -109,7 +109,7 @@ function withBoundary(root: Component, error: NonNullable<ClientRenderContext["e
       });
       return () => {
         if (!failed.value) return h(root);
-        return shown.value ? h(page, { error: shown.value.error }) : null;
+        return shown.value ? h(errorComponent, { error: shown.value.error }) : null;
       };
     },
   });
@@ -127,9 +127,9 @@ export function mount(
   let root = suspended(component, current);
   if (context.error) {
     const errorContext = { ...context, kind: "error" as const };
-    const page = componentOf(context.error.module, errorContext);
-    injectComponentStyles(page, errorContext);
-    root = withBoundary(root, context.error, page);
+    const errorComponent = componentOf(context.error.module, errorContext);
+    injectComponentStyles(errorComponent, errorContext);
+    root = withBoundary(root, context.error, errorComponent);
   }
   const app = createApp(root);
   app.provide(CHILDREN_KEY, context.children);

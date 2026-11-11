@@ -52,15 +52,15 @@ export type VueRendererOptions = {
 // `src/` and `dist/` both sit directly under the package root.
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-const ERROR_PAGE = /[\\/]\+[Ee]rror\.vue$/;
+const ERROR_COMPONENT = /[\\/]\+[Ee]rror\.vue$/;
 
 type CustomElement = NonNullable<Options["features"]>["customElement"];
 
 /** The error page pattern plus whatever the user matches. */
-function withErrorPages(user: CustomElement): CustomElement {
-  if (user === undefined || user === false) return ERROR_PAGE;
+function withErrorComponents(user: CustomElement): CustomElement {
+  if (user === undefined || user === false) return ERROR_COMPONENT;
   if (user === true) return true;
-  return [ERROR_PAGE, ...(Array.isArray(user) ? user : [user])];
+  return [ERROR_COMPONENT, ...(Array.isArray(user) ? user : [user])];
 }
 
 /** The Vue renderer, for `droplets({ renderers: [vue()] })`. */
@@ -74,7 +74,7 @@ export function vue(options: VueRendererOptions = {}): DropletRenderer {
       // the browser injected when mounted, since a failed droplet's
       // stylesheet may not be the one they need. Custom-element mode is how
       // plugin-vue inlines a component's styles (`styles` on the component).
-      customElement: withErrorPages(user.features?.customElement ?? user.customElement),
+      customElement: withErrorComponents(user.features?.customElement ?? user.customElement),
     },
   };
   delete pluginOptions.customElement;

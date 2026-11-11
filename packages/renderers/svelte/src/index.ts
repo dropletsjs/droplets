@@ -54,7 +54,7 @@ export type SvelteRendererOptions = {
 // `src/` and `dist/` both sit directly under the package root.
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-const ERROR_PAGE = /[\\/]\+[Ee]rror\.svelte$/;
+const ERROR_COMPONENT = /[\\/]\+[Ee]rror\.svelte$/;
 
 /** What the browser side reads to know whether the components were compiled in async mode. */
 const OPTIONS_ID = "virtual:droplets-renderer-svelte/options";
@@ -97,7 +97,7 @@ export function svelte(options: SvelteRendererOptions = {}): DropletRenderer {
     // the browser injected when mounted, since a failed droplet's stylesheet
     // may not be the one they need.
     dynamicCompileOptions: async (data) => ({
-      ...(ERROR_PAGE.test(data.filename) ? { css: "injected" as const } : {}),
+      ...(ERROR_COMPONENT.test(data.filename) ? { css: "injected" as const } : {}),
       ...(await userDynamic?.(data)),
     }),
   };

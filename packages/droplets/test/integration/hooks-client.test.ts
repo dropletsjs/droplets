@@ -197,7 +197,7 @@ describe("in vite dev", () => {
       expect(await hotUpdate.call({ environment: server.environments.ssr }, options)).toEqual([]);
       expect(send).not.toHaveBeenCalled();
       expect(await hotUpdate.call({ environment: server.environments.client }, options)).toEqual([]);
-      expect(send).toHaveBeenCalledExactlyOnceWith("droplets:page", { reason: "hooks.client", timestamp: options.timestamp });
+      expect(send).toHaveBeenCalledExactlyOnceWith("droplets:hooks-client", { reason: "hooks.client", timestamp: options.timestamp });
     }
   });
 

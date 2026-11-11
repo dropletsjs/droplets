@@ -6,7 +6,7 @@ import { logger } from "../core/logger.ts";
 import { entryServerPath, toViteFsPath } from "../core/paths.ts";
 import { CORE_SUFFIXES } from "../renderer.ts";
 import {
-  createApp,
+  createDropletsApp,
   type GetDropletMeta,
   type LoadClientModule,
   type LoadDropletData,
@@ -15,9 +15,9 @@ import {
 import type { SsrModule } from "../server/app.ts";
 import { withViteIdAliases } from "./externalize.ts";
 import { checkImportMap } from "./importmap-check.ts";
-import { readIndexHtml } from "./index-page.ts";
+import { readIndexHtml } from "./index-html.ts";
 import { externalsList, fallbackPrerenderHost, type PluginState } from "./state.ts";
-import { syncTypes } from "./types.ts";
+import { syncTypes } from "./sync-types.ts";
 import { clientEntryId, RESOLVED_VIRTUAL_DROPLETS } from "./virtual.ts";
 
 function normalizePath(value: string): string {
@@ -294,7 +294,7 @@ export function createDevApp(
   /** Warnings already printed, so an unchanged map does not repeat them. */
   const warned = new Set<string>();
 
-  return createApp({
+  return createDropletsApp({
     element: config.element,
     health: config.health,
     importMap: config.importMap,

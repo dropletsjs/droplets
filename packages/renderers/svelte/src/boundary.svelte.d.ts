@@ -4,7 +4,7 @@ import type { Component, Snippet } from "svelte";
 declare const Boundary: Component<{
   component: Component<Record<string, unknown>>;
   props: Record<string, unknown>;
-  page: Component<Record<string, unknown>>;
+  errorComponent: Component<Record<string, unknown>>;
   handle: (error: unknown) => Promise<unknown>;
   children: Snippet;
 }>;

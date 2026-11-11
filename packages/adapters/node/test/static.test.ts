@@ -3,9 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createAssetHandler } from "../src/static.ts";
+import { createStaticHandler } from "../src/static.ts";
 
-describe("createAssetHandler", () => {
+describe("createStaticHandler", () => {
   let root: string;
   let app: Hono;
 
@@ -18,7 +18,7 @@ describe("createAssetHandler", () => {
     await writeFile(join(root, "assets/blob.unknown"), "?");
     await writeFile(join(root, "droplets.json"), "{}");
     app = new Hono();
-    app.get("/assets/*", createAssetHandler(root));
+    app.get("/assets/*", createStaticHandler(root));
   });
   afterAll(async () => {
     await rm(root, { recursive: true, force: true });

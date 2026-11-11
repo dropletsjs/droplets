@@ -5,12 +5,12 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import {
   discoverDroplets,
   dropletId,
-  readModuleFlag,
 } from "../../src/core/discover.ts";
 import { setLogLevel } from "../../src/core/logger.ts";
 import {
   importsPackage,
   pickRenderer,
+  readExportedFlag,
   readExportedFlags,
   sharingRenderers,
   validateRenderers,
@@ -41,15 +41,15 @@ describe("dropletId", () => {
   });
 });
 
-describe("readModuleFlag", () => {
+describe("readExportedFlag", () => {
   beforeAll(() => setLogLevel("warn"));
   afterAll(() => setLogLevel("error"));
   afterEach(() => vi.restoreAllMocks());
 
   it("reads literal booleans", () => {
     const source = `<script module>\n  export const ssr = true;\n  export const hydrate=false\n</script>`;
-    expect(readModuleFlag(source, "ssr", "x")).toBe(true);
-    expect(readModuleFlag(source, "hydrate", "x")).toBe(false);
+    expect(readExportedFlag(source, "ssr", "x")).toBe(true);
+    expect(readExportedFlag(source, "hydrate", "x")).toBe(false);
     expect(readExportedFlags(source, "x")).toEqual({ ssr: true, hydrate: false });
   });
 
@@ -66,19 +66,19 @@ describe("readModuleFlag", () => {
   });
 
   it("returns undefined when the flag is absent", () => {
-    expect(readModuleFlag("<script>let a = 1</script>", "ssr", "x")).toBeUndefined();
+    expect(readExportedFlag("<script>let a = 1</script>", "ssr", "x")).toBeUndefined();
     expect(readExportedFlags("", "x")).toEqual({});
   });
 
   it("warns and ignores non-literal values", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    expect(readModuleFlag("export const ssr = !dev;", "ssr", "x")).toBeUndefined();
+    expect(readExportedFlag("export const ssr = !dev;", "ssr", "x")).toBeUndefined();
     expect(warn).toHaveBeenCalledOnce();
     expect(warn.mock.calls[0]?.[0]).toContain("literal true or false");
   });
 
   it("does not confuse a flag with a longer name", () => {
-    expect(readModuleFlag("export const ssrMode = true;", "ssr", "x")).toBeUndefined();
+    expect(readExportedFlag("export const ssrMode = true;", "ssr", "x")).toBeUndefined();
   });
 });
 

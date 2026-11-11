@@ -2,7 +2,7 @@ import { dirname, resolve } from "node:path";
 import { getRequestListener } from "@hono/node-server";
 import { isCSSRequest, searchForWorkspaceRoot, type EnvironmentModuleNode, type Plugin, type PluginOption, type UserConfig, type ViteDevServer } from "vite";
 import { discoverDroplets } from "../core/discover.ts";
-import { syncTypes } from "./types.ts";
+import { syncTypes } from "./sync-types.ts";
 import { loadEnvState, missingStatic } from "../core/env.ts";
 import { setRuntimeEnv } from "../runtime/env-store.ts";
 import { loadDropletsConfig } from "../core/load-config.ts";
@@ -33,12 +33,12 @@ import {
   type DevRuntime,
   type DropletChange,
 } from "./dev.ts";
-import { frameworksPlugin } from "./frameworks.ts";
+import { rendererGraphsPlugin } from "./renderer-graphs.ts";
 import { userRenderers, withScriptRenderer } from "../script/index.ts";
 import { isServerOnlyFile, serverOnlyPlugin } from "./server-only.ts";
 import type { DropletEntry } from "../core/discover.ts";
 import type { RenderContract } from "../runtime/dev-contract.ts";
-import type { DropletPagePayload, DropletUpdatePayload } from "../runtime/entry-client.ts";
+import type { DropletHooksPayload, DropletUpdatePayload } from "../runtime/entry-client.ts";
 import { createCssConfig, resolveCss, tailwindPlugins, type DropletsCssOptions } from "./css.ts";
 import { externalizePlugin } from "./externalize.ts";
 import { createExternalMatcher, namedExternals, readClientExternal } from "./client-external.ts";
@@ -449,8 +449,8 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
         if (this.environment.name !== "client") return [];
         if (structural) invalidateRegistry(server);
         for (const mod of modules) this.environment.moduleGraph.invalidateModule(mod, new Set(), timestamp, true);
-        const hooks: DropletPagePayload = { reason: "hooks.client", timestamp };
-        server.hot.send("droplets:page", hooks);
+        const hooks: DropletHooksPayload = { reason: "hooks.client", timestamp };
+        server.hot.send("droplets:hooks-client", hooks);
         return [];
       }
 
@@ -572,7 +572,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
     externalizePlugin(state),
     core,
   ];
-  plugins.push(tailwindPlugins(state), serverOnlyPlugin(state), frameworksPlugin(state));
+  plugins.push(tailwindPlugins(state), serverOnlyPlugin(state), rendererGraphsPlugin(state));
   // Each renderer compiles its own component files; when another renderer
   // shares an extension, only the modules marked for it.
   const shared = sharingRenderers(state.renderers);

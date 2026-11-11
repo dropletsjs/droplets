@@ -32,7 +32,7 @@ function contentTypeFor(path: string): string {
  * Serves the shared chunks and assets Vite emits alongside the droplet
  * bundles. Everything here is content-hashed, hence the immutable caching.
  */
-export function createAssetHandler(clientRoot: string) {
+export function createStaticHandler(clientRoot: string) {
   const assetsRoot = resolve(clientRoot, "assets");
   const assetsPrefix = assetsRoot + sep;
 

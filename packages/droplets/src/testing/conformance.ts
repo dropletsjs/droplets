@@ -111,7 +111,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { DropletsAdapter } from "../adapters.ts";
 import { packageDist } from "../core/paths.ts";
 import type { DropletRenderer } from "../renderer.ts";
-import { createApp } from "../runtime/app.ts";
+import { createDropletsApp } from "../runtime/app.ts";
 import { createServerApp, type SsrModule } from "../server/app.ts";
 import type { DropletsManifest } from "../server/manifest.ts";
 import { createPrerenderedLoader, PRERENDER_DIR } from "../server/prerendered.ts";
@@ -445,7 +445,7 @@ export function rendererConformance(options: ConformanceOptions): void {
       it("stops prerendering a render that reads more of host than the build knows", async () => {
         const renderDroplet = ssr.renderDroplet ?? ssr.default;
         if (!renderDroplet) throw new Error("the SSR bundle exports no renderDroplet");
-        const building = createApp({
+        const building = createDropletsApp({
           element,
           health: false,
           renderDroplet,

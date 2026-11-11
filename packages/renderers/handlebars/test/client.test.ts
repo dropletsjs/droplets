@@ -47,8 +47,8 @@ describe("mount", () => {
 
   it("renders an error page with { error }", async () => {
     const target = document.createElement("div");
-    const page = compile('<p data-testid="error">{{error.message}}</p>');
-    await mount(page, target, { error: { message: "Oops" } }, context("error"));
+    const errorComponent = compile('<p data-testid="error">{{error.message}}</p>');
+    await mount(errorComponent, target, { error: { message: "Oops" } }, context("error"));
     expect(target.innerHTML).toBe('<p data-testid="error">Oops</p>');
   });
 
@@ -62,15 +62,15 @@ describe("mount", () => {
 
   it("renders the error page in place when data rejects, through handle", async () => {
     const target = document.createElement("div");
-    const page = compile('<p data-testid="error">{{error.message}} ({{@kind}})</p>');
+    const errorComponent = compile('<p data-testid="error">{{error.message}} ({{@kind}})</p>');
     const handle = vi.fn(async (error: unknown) => ({ message: `handled ${(error as Error).message}` }));
-    const ctx = { ...context(), error: { module: page, handle } };
+    const ctx = { ...context(), error: { module: errorComponent, handle } };
     await mount(hello, target, { data: Promise.reject(new Error("boom")) }, ctx);
     expect(target.innerHTML).toBe('<p data-testid="error">handled boom (error)</p>');
 
     // handle rejects: nothing to show.
     const nothing = document.createElement("div");
-    const refusing = { ...context(), error: { module: page, handle: vi.fn(async () => Promise.reject(new Error("no"))) } };
+    const refusing = { ...context(), error: { module: errorComponent, handle: vi.fn(async () => Promise.reject(new Error("no"))) } };
     await mount(hello, nothing, { data: Promise.reject(new Error("boom")) }, refusing);
     expect(nothing.innerHTML).toBe("");
     // No error page: the rejection is the caller's.

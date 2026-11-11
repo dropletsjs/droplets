@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadHeaders, storedHeaders } from "../../src/runtime/set-headers.ts";
+import { loadHeaders, storedHeaders } from "../../src/runtime/load-headers.ts";
 
 describe("setHeaders", () => {
   it("collects headers, lowercased, in order", () => {

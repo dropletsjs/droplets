@@ -4,7 +4,7 @@ import {
   type SsrModule,
 } from "@dropletsjs/droplets";
 import { createAssetLoaders } from "./assets.ts";
-import { createAssetHandler } from "./static.ts";
+import { createStaticHandler } from "./static.ts";
 
 export type NodeServerPaths = {
   /** Directory holding `droplets.json`, the bundles and the assets. */
@@ -44,7 +44,7 @@ export async function createNodeServerApp(
       loadIndex: loaders.loadIndex,
       loadPrerendered: loaders.loadPrerendered,
       externals: manifest.__externals ?? [],
-      assetHandler: createAssetHandler(paths.clientRoot),
+      assetHandler: createStaticHandler(paths.clientRoot),
     },
   });
 }

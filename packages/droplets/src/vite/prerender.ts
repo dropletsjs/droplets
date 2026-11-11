@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readJsonFile, writeTextFile } from "../core/fs.ts";
 import { logger } from "../core/logger.ts";
-import { createApp } from "../runtime/app.ts";
+import { createDropletsApp } from "../runtime/app.ts";
 import { setRuntimeEnv } from "../runtime/env-store.ts";
 import type { SsrModule } from "../server/app.ts";
 import type { DropletsManifest } from "../server/manifest.ts";
@@ -89,7 +89,7 @@ export async function prerender(state: PluginState, ssrEntry: string): Promise<n
     if (!renderDroplet || !ssr.getEntries) {
       throw new Error("droplets: the SSR bundle cannot prerender (no renderDroplet or getEntries)");
     }
-    const app = createApp({
+    const app = createDropletsApp({
       element: state.config.element,
       health: false,
       renderDroplet,
