@@ -34,7 +34,9 @@ it inlines ([apps/docs/README.md](../docs/README.md)).
 `droplets.config.ts` allows exactly the docs' origins
 (`src/lib/origins.ts`: https://dropletsjs.dev and the docs' local dev server
 on port 4321), for CORS and for form posts (`trustedOrigins`). Every other
-origin gets no CORS answer and a `403` for a form post.
+origin gets no CORS answer and a `403` for a form post. `pnpm docs:dev --port
+4400` starts this dev server with `DOCS_PORT=4400`, which adds that port's
+`localhost` and `127.0.0.1` origins; nothing else sets it.
 
 The poll's action reads one field as a string of at most ten characters and
 looks it up in a `Map`; the framework resolves the droplet and the action

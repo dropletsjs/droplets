@@ -92,8 +92,8 @@ src/droplets/<name>/
 </script>
 
 <script lang="ts">
-  import type { DropletProps } from "@dropletsjs/renderer-svelte";
-  let { data, children }: DropletProps<{ who: string }> = $props();
+  import type { DropletProps } from "./$types";
+  let { data, children }: DropletProps = $props(); // data: { who: string }, from the load
 </script>
 
 <h1>Hello {data.who}!</h1>
@@ -102,7 +102,8 @@ src/droplets/<name>/
 
 ```ts
 // src/droplets/hello/+droplet.server.ts
-import { error, type LoadEvent } from "$droplets/server";
+import { error } from "$droplets/server";
+import type { LoadEvent } from "./$types";
 
 export const load = ({ props }: LoadEvent) => {
   const who = typeof props.who === "string" ? props.who : "world";

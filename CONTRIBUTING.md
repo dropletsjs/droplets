@@ -20,7 +20,8 @@ examples/frameworks/*/         one example per framework, the same three droplet
 examples/frameworks/Dockerfile the image of one of them (EXAMPLE=svelte for the hosts)
 examples/shop/                 the shop demo, in six frameworks, on SQLite
 examples/wp-shop/              the shop's droplets backed by WordPress
-examples/hosts/*/              host stacks embedding the Svelte example and the shop
+examples/hosts/*/              the eleven host examples, each named by its id (folder = docs page = test:hosts key)
+tests/                         end-to-end tests across packages; a package's own tests are in its test/
 tests/examples/                the framework examples in a browser (Playwright)
 tests/hosts/                   the shop flow on every host's compose stack, recorded
 tests/create-droplets/         npm create droplets end to end
@@ -38,6 +39,14 @@ its own toolchain (npm, Python, Ruby, PHP…) and runs with Docker Compose or
 on its own. The tool ranges the examples and tests use (Vite, TypeScript,
 Tailwind, Playwright…) are the pnpm `catalog:` in `pnpm-workspace.yaml`;
 create-droplets writes the same ranges into new projects.
+Bumping a tool's version means editing that catalog in `pnpm-workspace.yaml`
+only: every `package.json` that uses it says `"catalog:"`, so none of them
+changes (run `pnpm install` to update the lockfile), and create-droplets
+reads the new range when it is next built.
+
+`apps/demo` is not under `examples/`: it is deployed with the docs
+(demo.dropletsjs.dev) and its config trusts only the docs' origins
+(`src/lib/origins.ts`), so it is part of the docs site, not a project to copy.
 
 ## Prerequisites
 
@@ -73,7 +82,12 @@ pnpm test:e2e                   # tests/examples: the framework examples in Chro
 pnpm test:hosts [host…]         # tests/hosts: the shop on each host stack (Docker)
 ```
 
-Tests live in each package's `test/`. Unit tests import from `src/`
+Tests live in each package's `test/`. Top-level `tests/<what>/` is for
+end-to-end tests that cross packages: they build or start real projects
+(the framework examples, the host stacks, `npm create droplets`, `djs add`,
+a mixed `vite dev`) and check them from outside, in a browser or a shell. A
+test of one package's behaviour goes in that package's `test/`, even when
+it builds a fixture. Unit tests import from `src/`
 directly; the integration tests need `dist/` to exist, so run `pnpm build`
 first (`pnpm check` does). Every renderer runs `rendererConformance()` from
 `@dropletsjs/droplets/testing` on a fixture app in its `test/fixtures/app`: a

@@ -76,8 +76,8 @@ export default defineConfig({
 ```svelte
 <!-- src/droplets/hello/+droplet.svelte -->
 <script lang="ts">
-  import type { DropletProps } from "@dropletsjs/renderer-svelte";
-  let { data }: DropletProps<{ who: string }> = $props();
+  import type { DropletProps } from "./$types";
+  let { data }: DropletProps = $props();
 </script>
 
 <h1>Hello {data.who}!</h1>
@@ -85,7 +85,7 @@ export default defineConfig({
 
 ```ts
 // src/droplets/hello/+droplet.server.ts
-import type { LoadEvent } from "$droplets/server";
+import type { LoadEvent } from "./$types";
 
 export const load = ({ props }: LoadEvent) => ({
   who: typeof props.who === "string" ? props.who : "world",
@@ -95,8 +95,9 @@ export const load = ({ props }: LoadEvent) => ({
 `vite` to develop, `vite build` to build, `node dist/server.js` to run. Swap
 the adapter for `cloudflare()` from `@dropletsjs/adapter-cloudflare`
 and the same build becomes a Worker; `bun()` and `deno()` serve it on those
-runtimes. [Manual setup](https://dropletsjs.dev/start/manual-setup/) has the
-tsconfig, the typings and the scripts.
+runtimes. `./$types` is each droplet's generated types (`data` is what the
+load returns); [Manual setup](https://dropletsjs.dev/start/manual-setup/) has
+the tsconfig that maps it, the typings and the scripts.
 
 ## Embed from any stack
 
@@ -119,8 +120,10 @@ location in `x-host`, so the URLs a fragment writes agree with it; the
 droplets server honours it only from an origin in `trustedOrigins`. See the
 [HTTP contract](https://dropletsjs.dev/integrate/http-contract/) and
 [Known hosts](https://dropletsjs.dev/integrate/hosts/overview/): nginx,
-Express, React, Astro, SvelteKit, Next.js, FastAPI, Sinatra, PHP and htmx,
-each a working example in [`examples/hosts`](./examples/hosts). The
+Express, React, Astro, SvelteKit, Next.js, FastAPI, Sinatra, PHP, WordPress
+and htmx, each a working example in [`examples/hosts`](./examples/hosts).
+[Any other stack](https://dropletsjs.dev/integrate/any-stack/) has the two
+steps and the exact headers for a stack that is not listed. The
 [WordPress tutorial](https://dropletsjs.dev/integrate/wordpress/) puts the
 same shop into a WordPress site that owns the data and the login.
 
@@ -188,9 +191,9 @@ All 14 share one version (1.0.0-alpha.*) and the `alpha` dist-tag.
   [`CONTRACT.md`](./examples/shop/CONTRACT.md) says what a host passes each.
 - **[`examples/wp-shop`](./examples/wp-shop)**: the shop's droplets backed by
   WordPress: products and reviews over the REST API, the WordPress login.
-- **[`examples/hosts/<stack>`](./examples/hosts)**: ten host stacks, each a
-  Docker Compose project that embeds the Svelte example on `/` and the shop
-  on `/gallery`:
+- **[`examples/hosts/<stack>`](./examples/hosts)**: eleven host examples,
+  each a Docker Compose project; nine run the shop demo (on `/gallery`, the
+  Svelte example on `/`), WordPress and htmx have flows of their own:
 
 | Host | Stack | Pattern |
 | ---- | ----- | ------- |
@@ -200,13 +203,14 @@ All 14 share one version (1.0.0-alpha.*) and the `alpha` dist-tag.
 | [astro](./examples/hosts/astro) | Astro | Fetch in the frontmatter, `set:html` |
 | [sveltekit](./examples/hosts/sveltekit) | SvelteKit | Fetch in `+page.server.ts`, `{@html}` |
 | [nextjs](./examples/hosts/nextjs) | Next.js App Router | Fetch in a server component |
-| [python-fastapi](./examples/hosts/python-fastapi) | Python, FastAPI, Jinja2 | Fetch with `httpx` |
-| [ruby-sinatra](./examples/hosts/ruby-sinatra) | Ruby, Sinatra, ERB | Fetch with `Net::HTTP` |
+| [fastapi](./examples/hosts/fastapi) | Python, FastAPI, Jinja2 | Fetch with `httpx` |
+| [sinatra](./examples/hosts/sinatra) | Ruby, Sinatra, ERB | Fetch with `Net::HTTP` |
 | [php](./examples/hosts/php) | PHP 8.3, Apache | `curl_multi`, no framework, no Composer |
 | [wordpress](./examples/hosts/wordpress) | WordPress 6 | A `[droplet]` shortcode plugin; serves wp-shop |
+| [htmx](./examples/hosts/htmx) | htmx 2, static pages on nginx | `hx-get` swaps the fragment in, cross-origin or proxied |
 
-The [Shop demo on 9 hosts](https://dropletsjs.dev/integrate/hosts/shop-demo/) page
-shows each one recorded end to end.
+The [shop demo](https://dropletsjs.dev/integrate/hosts/shop-demo/) page shows
+the nine that run it, each recorded end to end.
 
 ## Repository map
 
@@ -219,14 +223,16 @@ packages/create-droplets/ npm create droplets
 examples/frameworks/*/    one example per framework (+ the Dockerfile the hosts build)
 examples/shop/            the shop, in six frameworks
 examples/wp-shop/         the shop's droplets on WordPress
-examples/hosts/*/         ten host stacks (not in the pnpm workspace)
+examples/hosts/*/         eleven host examples (not in the pnpm workspace)
+tests/                    end-to-end tests across packages (tests/README.md); each package's own are in its test/
 tests/examples/           the eight framework examples in a browser (Playwright)
 tests/hosts/              the shop flow on every host's compose stack, recorded
 tests/create-droplets/    npm create droplets end to end
 tests/djs-add/            djs add end to end
 tests/dev-mixed/          React, Vue and Solid under vite dev, HMR in a browser
 apps/docs/                dropletsjs.dev (Astro Starlight), a host of live droplets
-apps/demo/                the droplets the docs embed live (demo.dropletsjs.dev)
+apps/demo/                the droplets the docs embed live (demo.dropletsjs.dev); not under examples/:
+                          it is deployed with the docs and trusts only the docs' origins
 DESIGN.md                 design decisions, as they were taken
 ```
 

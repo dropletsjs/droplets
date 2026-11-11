@@ -48,3 +48,6 @@ tests/create-droplets/.tmp/
 
 # The hosts' end-to-end videos and screenshots (tests/hosts): local only.
 tests/hosts/recordings/
+
+# Claude Code's local state (worktrees, settings).
+.claude/

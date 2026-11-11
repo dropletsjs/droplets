@@ -28,10 +28,10 @@ export const hydrate = true; // flags: ssr, hydrate, prerender
 
 <script setup lang="ts">
 import { ref } from "vue";
-import type { DropletProps } from "@dropletsjs/renderer-vue";
+import type { DropletProps } from "./$types"; // data: what +droplet.server.ts's load returns
 import { DropletChildren } from "@dropletsjs/renderer-vue/children";
 
-const props = defineProps<DropletProps<{ greeting: string }>>();
+const props = defineProps<DropletProps>();
 // A value when hydrating, a promise when mounted from scratch.
 const { greeting } = await props.data;
 const clicks = ref(0);
@@ -72,7 +72,7 @@ defineProps<{ error: { message: string } }>();
   The composable `useEnhanceDropletForm(formRef, options?)` from
   `@dropletsjs/renderer-vue/form` opts it in to progressive
   enhancement: the submit goes by `fetch` and the droplet shows the result
-  in place. See [Actions](https://dropletsjs.dev/guides/writing-droplets/#actions).
+  in place. See [Actions](https://dropletsjs.dev/guides/actions/).
 
 ## Options
 

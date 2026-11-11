@@ -23,11 +23,11 @@ export default defineConfig({
 ```tsx
 // src/droplets/hello/+droplet.tsx
 import { createResource, createSignal } from "solid-js";
-import type { DropletProps } from "@dropletsjs/renderer-solid";
+import type { DropletProps } from "./$types"; // data: what +droplet.server.ts's load returns
 
 export const hydrate = true; // flags: ssr, hydrate, prerender
 
-export default function Hello(props: DropletProps<{ greeting: string }>) {
+export default function Hello(props: DropletProps) {
   const [clicks, setClicks] = createSignal(0);
   // A value when hydrating, a promise when mounted from scratch.
   const data = props.data;
@@ -65,7 +65,7 @@ export default (props: DropletErrorProps<{ message: string }>) => (
   The directive `use:enhanceDropletForm` from
   `@dropletsjs/renderer-solid/form` opts it in to progressive
   enhancement: the submit goes by `fetch` and the droplet shows the result
-  in place. See [Actions](https://dropletsjs.dev/guides/writing-droplets/#actions).
+  in place. See [Actions](https://dropletsjs.dev/guides/actions/).
 - **Hydration** is keyed by the droplet's render id, so several Solid droplets
   on a page hydrate independently. The renderer sets up Solid's hydration
   state itself; hosts need no script.

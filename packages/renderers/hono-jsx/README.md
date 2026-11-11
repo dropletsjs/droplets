@@ -24,11 +24,11 @@ export default defineConfig({
 ```tsx
 // src/droplets/hello/+droplet.tsx
 import { use, useState } from "hono/jsx";
-import type { DropletProps } from "@dropletsjs/renderer-hono-jsx";
+import type { DropletProps } from "./$types"; // data: what +droplet.server.ts's load returns
 
 export const hydrate = true; // flags: ssr, hydrate, prerender
 
-export default function Hello({ data, children }: DropletProps<{ greeting: string }>) {
+export default function Hello({ data, children }: DropletProps) {
   const [clicks, setClicks] = useState(0);
   // A value when hydrating, a promise when mounted from scratch.
   const { greeting } = data instanceof Promise ? use(data) : data;
@@ -78,7 +78,7 @@ export default function HelloError({ error, children }: DropletErrorProps<{ mess
   `useEnhanceDropletForm(formRef, options?)` from
   `@dropletsjs/renderer-hono-jsx/form` opts it in to progressive
   enhancement: the submit goes by `fetch` and the droplet shows the result
-  in place. See [Actions](https://dropletsjs.dev/guides/writing-droplets/#actions).
+  in place. See [Actions](https://dropletsjs.dev/guides/actions/).
 - **No HMR of its own:** under `vite dev` an edit remounts the droplet in
   place, without a page reload (`dev.strategy: "hmr"`, the default).
 - React, Preact and Solid claim `.tsx` and `.jsx` too, and all four can share

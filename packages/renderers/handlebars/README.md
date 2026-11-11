@@ -62,7 +62,7 @@ export const upper = (value: unknown) => String(value).toUpperCase();
   to progressive enhancement, which `/index.js` applies: the submit goes by
   `fetch` and the droplet shows the result in place (a `hydrate = false`
   droplet gets its fragment rendered again by the server). See
-  [Actions](https://dropletsjs.dev/guides/writing-droplets/#actions).
+  [Actions](https://dropletsjs.dev/guides/actions/).
 - **Partials** come from `src/partials/**/*.hbs`, registered by path without
   the extension. **Helpers** come from the exports of `src/handlebars.ts`. Both
   go into the renderer's own Handlebars environment, never the global one.

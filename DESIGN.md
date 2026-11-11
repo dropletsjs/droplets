@@ -1,5 +1,7 @@
 # Design notes
 
+**This is a log of decisions, not a spec: what ships is what the guides describe, and an item marked pending is not a promise for 1.0.**
+
 How to read this: each section is one design decision, recorded as it was taken, with its reasons and how much of it is built.
 What ships is described by the guides at https://dropletsjs.dev; where the two differ, the guides are right.
 

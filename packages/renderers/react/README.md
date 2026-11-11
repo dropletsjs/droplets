@@ -23,11 +23,11 @@ export default defineConfig({
 ```tsx
 // src/droplets/hello/+droplet.tsx
 import { use, useState } from "react";
-import type { DropletProps } from "@dropletsjs/renderer-react";
+import type { DropletProps } from "./$types"; // data: what +droplet.server.ts's load returns
 
 export const hydrate = true; // flags: ssr, hydrate, prerender
 
-export default function Hello({ data, children }: DropletProps<{ greeting: string }>) {
+export default function Hello({ data, children }: DropletProps) {
   const [clicks, setClicks] = useState(0);
   // A value when hydrating, a promise when mounted from scratch.
   const { greeting } = data instanceof Promise ? use(data) : data;
@@ -68,7 +68,7 @@ export default function HelloError({ error, children }: DropletErrorProps<{ mess
   `useEnhanceDropletForm(formRef, options?)` from
   `@dropletsjs/renderer-react/form` opts it in to progressive
   enhancement: the submit goes by `fetch` and the droplet shows the result
-  in place. See [Actions](https://dropletsjs.dev/guides/writing-droplets/#actions).
+  in place. See [Actions](https://dropletsjs.dev/guides/actions/).
 - **Fast Refresh** works on any host page under `vite dev`
   (`dev.strategy: "hmr"`, the default), keeping component state; the
   renderer installs the preamble itself, and compiles it into React's

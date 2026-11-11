@@ -50,9 +50,12 @@ in to WordPress. It runs next to the WordPress host
 
 ## [`hosts/`](./hosts)
 
-Ten host stacks, each a Docker Compose project that starts the Svelte
+Eleven host examples; nine run the shop demo; WordPress and htmx have flows
+of their own. Each is a Docker Compose project that starts the Svelte
 example's server and the shop next to the host: the Svelte example's three
-droplets on `/`, the shop's pages on `/gallery`. Not in the pnpm workspace.
+droplets on `/`, the shop's pages on `/gallery` (htmx: its own two pages).
+Not in the pnpm workspace. The folder name is the host's id everywhere: its
+docs page, its recordings and `pnpm test:hosts <id>`.
 [`hosts/README.md`](./hosts/README.md) has the patterns, the ports and the
 end-to-end recordings ([`tests/hosts`](../tests/hosts)).
 
@@ -64,7 +67,8 @@ end-to-end recordings ([`tests/hosts`](../tests/hosts)).
 | [`astro`](./hosts/astro) | Fetch in the frontmatter, `set:html` |
 | [`sveltekit`](./hosts/sveltekit) | Fetch in `+page.server.ts`, `{@html}` |
 | [`nextjs`](./hosts/nextjs) | Fetch in a server component |
-| [`python-fastapi`](./hosts/python-fastapi) | `httpx` and Jinja2 |
-| [`ruby-sinatra`](./hosts/ruby-sinatra) | `Net::HTTP` and ERB |
+| [`fastapi`](./hosts/fastapi) | `httpx` and Jinja2 |
+| [`sinatra`](./hosts/sinatra) | `Net::HTTP` and ERB |
 | [`php`](./hosts/php) | `curl_multi`, plain PHP on Apache |
 | [`wordpress`](./hosts/wordpress) | A `[droplet]` shortcode plugin; serves wp-shop |
+| [`htmx`](./hosts/htmx) | `hx-get` swaps the fragments into static pages, cross-origin or proxied |

@@ -27,9 +27,9 @@ export default defineConfig({
 </script>
 
 <script lang="ts">
-  import type { DropletProps } from "@dropletsjs/renderer-svelte";
+  import type { DropletProps } from "./$types"; // data: what +droplet.server.ts's load returns
 
-  let { data, children }: DropletProps<{ greeting: string }> = $props();
+  let { data, children }: DropletProps = $props();
   let clicks = $state(0);
 </script>
 
@@ -65,7 +65,7 @@ export default defineConfig({
   The action `use:enhanceDropletForm` from
   `@dropletsjs/renderer-svelte/form` opts it in to progressive
   enhancement: the submit goes by `fetch` and the droplet shows the result
-  in place. See [Actions](https://dropletsjs.dev/guides/writing-droplets/#actions).
+  in place. See [Actions](https://dropletsjs.dev/guides/actions/).
 
 ## Options
 

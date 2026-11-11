@@ -23,11 +23,11 @@ export default defineConfig({
 ```tsx
 // src/droplets/hello/+droplet.tsx
 import { useState } from "preact/hooks";
-import type { DropletProps } from "@dropletsjs/renderer-preact";
+import type { DropletProps } from "./$types"; // data: what +droplet.server.ts's load returns
 
 export const hydrate = true; // flags: ssr, hydrate, prerender
 
-export default function Hello({ data, children }: DropletProps<{ greeting: string }>) {
+export default function Hello({ data, children }: DropletProps) {
   const [clicks, setClicks] = useState(0);
   // Always the value: when the element mounts a droplet fresh, the renderer
   // awaits its data first.
@@ -71,7 +71,7 @@ export default function HelloError({ error, children }: DropletErrorProps<{ mess
   `<form method="post" action={add}>`. Such a form posts as any form does.
   `useEnhanceDropletForm(formRef, options?)` from
   `@dropletsjs/renderer-preact/form` opts it in to progressive enhancement.
-  See [Actions](https://dropletsjs.dev/guides/writing-droplets/#actions).
+  See [Actions](https://dropletsjs.dev/guides/actions/).
 - **JSX:** the renderer compiles its modules with Preact's automatic runtime
   (`preact/jsx-runtime`) itself; there is no `@preact/preset-vite`, and
   nothing aliases `react` to `preact/compat`.
