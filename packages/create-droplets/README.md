@@ -54,6 +54,10 @@ npm create droplets@alpha my-widgets -- --frameworks svelte,react --adapters nod
   a droplet imports only its own framework.
 - `.gitignore`, `README.md`, `svelte.config.js` with Svelte (for editor
   tooling), and `wrangler.jsonc` with Cloudflare.
+- The package manager's settings, installing only versions published at
+  least 7 days ago (`@dropletsjs/*` exempt, so a project made on the day of a
+  release installs): `.npmrc` (npm), `pnpm-workspace.yaml` (pnpm),
+  `.yarnrc.yml` (Yarn), `bunfig.toml` (Bun) or `deno.json` (Deno).
 
 The guide walks through a new project, from the first droplet to a plain
 HTML page that embeds it:

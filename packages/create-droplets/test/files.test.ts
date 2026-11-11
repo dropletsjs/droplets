@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { agentsMd } from "../src/agents.ts";
 import type { Adapter, Choices } from "../src/choices.ts";
-import { dropletsConfig, packageJson, projectFiles, scripts, tsconfig, viteConfig } from "../src/files.ts";
+import { dropletsConfig, packageJson, packageManagerFiles, projectFiles, scripts, tsconfig, viteConfig } from "../src/files.ts";
 import { FRAMEWORKS, frameworkNamed } from "../src/shared.ts";
 
 const choices = (overrides: Partial<Omit<Choices, "frameworks">> & { frameworks?: string[] } = {}): Choices => {
@@ -34,6 +34,7 @@ describe("the project files", () => {
     const plain = projectFiles(choices({ frameworks: ["react"] }));
     expect(Object.keys(plain).toSorted()).toEqual([
       ".gitignore",
+      ".npmrc",
       "AGENTS.md",
       "README.md",
       "droplets.config.ts",
@@ -47,6 +48,22 @@ describe("the project files", () => {
     const all = projectFiles(choices({ claude: true, adapters: ["node", "cloudflare"] }));
     expect(all["CLAUDE.md"]).toBe("@AGENTS.md\n");
     expect(JSON.parse(all["wrangler.jsonc"]!)).toMatchObject({ name: "acme-widgets", main: "dist/worker.js" });
+  });
+
+  it("has the package manager install only versions 7 days old, Droplets' own exempt", () => {
+    expect(packageManagerFiles("npm")[".npmrc"]).toMatch(/^min-release-age=7\nmin-release-age-exclude=@dropletsjs\/\*\n$/m);
+    expect(packageManagerFiles("pnpm")["pnpm-workspace.yaml"]).toMatch(/^minimumReleaseAge: 10080\nminimumReleaseAgeExclude:\n  - "@dropletsjs\/\*"\n$/m);
+    expect(packageManagerFiles("yarn")[".yarnrc.yml"]).toMatch(/^npmMinimalAgeGate: 10080\nnpmPreapprovedPackages:\n  - "@dropletsjs\/\*"\n$/m);
+    const bun = packageManagerFiles("bun")["bunfig.toml"]!;
+    expect(bun).toMatch(/^\[install\]\n/);
+    expect(bun).toContain("\nminimumReleaseAge = 604800\n");
+    expect(bun).toMatch(/^minimumReleaseAgeExcludes = \[.*"@dropletsjs\/droplets".*"@dropletsjs\/renderer-lit".*\]$/m);
+    const deno = JSON.parse(packageManagerFiles("deno")["deno.json"]!) as { minimumDependencyAge: { age: string; exclude: string[] } };
+    expect(deno.minimumDependencyAge.age).toBe("P7D");
+    expect(deno.minimumDependencyAge.exclude).toHaveLength(14);
+    expect(deno.minimumDependencyAge.exclude).toContain("npm:@dropletsjs/adapter-deno");
+    expect(Object.keys(projectFiles(choices({ pm: "bun" })))).toContain("bunfig.toml");
+    expect(Object.keys(projectFiles(choices({ pm: "bun" })))).not.toContain(".npmrc");
   });
 
   it("asks for the packages each choice needs, at versions baked in", () => {

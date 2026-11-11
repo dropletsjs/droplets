@@ -64,7 +64,16 @@ my-widgets/
   AGENTS.md             the conventions, for coding agents
   README.md
   .gitignore            node_modules/, dist/, .droplets/, …
+  .npmrc                min-release-age=7 (the package manager's own file, below)
 ```
+
+The package manager's settings install only versions published at least 7
+days ago, with Droplets' own packages exempt so a project made on the day of
+a release installs: `.npmrc` for npm (`min-release-age`, npm 11.10 and
+later), `pnpm-workspace.yaml` for pnpm (`minimumReleaseAge`),
+`.yarnrc.yml` for Yarn (`npmMinimalAgeGate`, Yarn 4.10 and later),
+`bunfig.toml` for Bun (`minimumReleaseAge`) and `deno.json` for Deno
+(`minimumDependencyAge`).
 
 There is one starter droplet per framework you picked, `hello-<framework>`
 (`hello-hono` for Hono JSX). `.droplets/` holds each droplet's generated

@@ -6,7 +6,7 @@
  */
 import { agentsMd } from "./agents.ts";
 import { ADAPTERS, commands, defaultAdapter, starterName, type Adapter, type Choices } from "./choices.ts";
-import { dropletFiles, flagsFor, packageName, versionOf } from "./shared.ts";
+import { dropletFiles, flagsFor, packageName, VERSIONS, versionOf, type PackageManager } from "./shared.ts";
 
 const START: Record<Adapter, string> = {
   node: "node dist/server.js",
@@ -217,6 +217,72 @@ function readme(choices: Choices): string {
   ].join("\n");
 }
 
+const RELEASE_AGE_NOTE = "Droplets' own packages are exempt, so a project made on the day of a release installs.";
+const DROPLETS_PACKAGES = Object.keys(VERSIONS).filter((name) => name.startsWith("@dropletsjs/")).sort();
+
+/**
+ * The package manager's own settings: install only versions published at
+ * least 7 days ago. Bun and Deno document no name pattern for the
+ * exemption, so they list every `@dropletsjs/*` package, `djs add`'s too.
+ */
+export function packageManagerFiles(pm: PackageManager): Record<string, string> {
+  switch (pm) {
+    case "pnpm":
+      return {
+        "pnpm-workspace.yaml": [
+          "# pnpm's settings (pnpm 10 reads them here).",
+          "# Install only versions published at least 7 days ago (minutes).",
+          `# ${RELEASE_AGE_NOTE}`,
+          "minimumReleaseAge: 10080",
+          "minimumReleaseAgeExclude:",
+          '  - "@dropletsjs/*"',
+          "",
+        ].join("\n"),
+      };
+    case "npm":
+      return {
+        ".npmrc": [
+          "# Install only versions published at least 7 days ago (npm 11.10 and later;",
+          "# the exemption, npm 11.17 and later).",
+          `# ${RELEASE_AGE_NOTE}`,
+          "min-release-age=7",
+          "min-release-age-exclude=@dropletsjs/*",
+          "",
+        ].join("\n"),
+      };
+    case "yarn":
+      return {
+        ".yarnrc.yml": [
+          "# Install only versions published at least 7 days ago (minutes; Yarn 4.10 and later).",
+          `# ${RELEASE_AGE_NOTE}`,
+          "npmMinimalAgeGate: 10080",
+          "npmPreapprovedPackages:",
+          '  - "@dropletsjs/*"',
+          "",
+        ].join("\n"),
+      };
+    case "bun":
+      return {
+        "bunfig.toml": [
+          "[install]",
+          "# Install only versions published at least 7 days ago (seconds).",
+          `# ${RELEASE_AGE_NOTE}`,
+          "minimumReleaseAge = 604800",
+          `minimumReleaseAgeExcludes = [${DROPLETS_PACKAGES.map((name) => JSON.stringify(name)).join(", ")}]`,
+          "",
+        ].join("\n"),
+      };
+    case "deno":
+      return {
+        "deno.json": `${JSON.stringify(
+          { minimumDependencyAge: { age: "P7D", exclude: DROPLETS_PACKAGES.map((name) => `npm:${name}`) } },
+          null,
+          2,
+        )}\n`,
+      };
+  }
+}
+
 export function projectFiles(choices: Choices): Record<string, string> {
   const files: Record<string, string> = {
     "package.json": packageJson(choices),
@@ -227,6 +293,7 @@ export function projectFiles(choices: Choices): Record<string, string> {
     ".gitignore": GITIGNORE,
     "AGENTS.md": agentsMd(choices),
     "README.md": readme(choices),
+    ...packageManagerFiles(choices.pm),
   };
   if (choices.claude) files["CLAUDE.md"] = "@AGENTS.md\n";
   if (choices.adapters.includes("cloudflare")) files["wrangler.jsonc"] = wrangler(choices);
