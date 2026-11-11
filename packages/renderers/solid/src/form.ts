@@ -19,7 +19,7 @@
  * Without it the form posts as any form does; on the server Solid does
  * not run directives.
  */
-import { enhanceDropletForm as enhance, type AnyEnhanceOptions, type EnhanceOptions } from "@dropletsjs/droplets/enhance";
+import { enhanceDropletForm as enhance, type EnhanceOptions } from "@dropletsjs/droplets/enhance";
 import { onCleanup, type Accessor } from "solid-js";
 
 export function enhanceDropletForm(form: HTMLFormElement, value?: Accessor<EnhanceOptions | true | undefined>): void {
@@ -37,7 +37,7 @@ export function enhanceDropletForm(form: HTMLFormElement, value?: Accessor<Enhan
         const onResult = current()?.onResult;
         return onResult ? onResult(result) : result.update();
       },
-    } as EnhanceOptions as AnyEnhanceOptions),
+    }),
   );
 }
 

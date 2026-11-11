@@ -62,7 +62,7 @@ export function useEnhanceDropletForm(
             const onResult = current()?.onResult;
             return onResult ? onResult(result) : result.update();
           },
-        } as EnhanceOptions as AnyEnhanceOptions),
+        }),
       );
     },
     { immediate: true, flush: "post" },

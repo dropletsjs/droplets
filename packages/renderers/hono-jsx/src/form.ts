@@ -54,6 +54,6 @@ export function useEnhanceDropletForm(formRef: RefObject<HTMLFormElement | null>
       },
       onSubmit: (submit) => latest.current?.onSubmit?.(submit),
       onResult: (result) => (latest.current?.onResult ? latest.current.onResult(result) : result.update()),
-    } as EnhanceOptions as AnyEnhanceOptions);
+    });
   }, [formRef]);
 }

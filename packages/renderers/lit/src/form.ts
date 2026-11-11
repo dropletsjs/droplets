@@ -73,7 +73,7 @@ class EnhanceDirective extends AsyncDirective {
         const onResult = latest()?.onResult;
         return onResult ? onResult(result) : result.update();
       },
-    } as EnhanceOptions as AnyEnhanceOptions);
+    });
   }
 
   protected override disconnected(): void {
