@@ -351,7 +351,7 @@ in fragments' `Link` header), and `dropletStyles(id)` the droplet's
 stylesheets (`css`, paths under `assets/`, shared chunks' first), which
 `style.css` imports and fragments link and preload. `assetHandler` serves
 `/assets/*`: `public, max-age=2592000, immutable`, except `/assets/public/*`,
-the project's `public/`, sent `no-cache` with an `ETag` and answered `304`
+the project's `public/`, sent `publicCacheControl` (`no-cache` by default) with an `ETag` and answered `304`
 when `If-None-Match` matches. `handle` never runs for it.
 
 An adapter entry imports `virtual:droplets-config` (the config),

@@ -19,7 +19,7 @@ interface; anything that can make a request can host a droplet.
 | `GET /env.js` | The [public variables read at runtime](/guides/server/#environment-variables), as a script `/index.js` imports; `public, max-age=600` (`DROPLETS_ENV_MAX_AGE`); `404` when `src/env.ts` declares none |
 | `GET /index.css` | The shared stylesheet, for pages that want to link it themselves; `404` when there is none or it is empty |
 | `GET /assets/*` | The entry client, shared chunks, stylesheets and imported files, cached for good |
-| `GET /assets/public/*` | The project's `public/` folder, `no-cache` with an `ETag` (`304` when `If-None-Match` matches) |
+| `GET /assets/public/*` | The project's `public/` folder, `no-cache` (`publicCacheControl`) with an `ETag` (`304` when `If-None-Match` matches) |
 | `ALL /api/*` | Your [`+server.ts`](/guides/server/#api-routes) endpoints |
 | `GET /health` | `ok`, for health checks (`health` option) |
 | `GET /importmap`, `/importmap.js` | The [import map](/guides/server/#import-maps), when there are externals |

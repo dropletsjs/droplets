@@ -241,7 +241,7 @@ When a reverse proxy fronts the droplets server:
   droplets server unreachable except through the proxy;
 - keep the `cache-control` headers it sends; they are safe to honour: `/index.js`
   is `no-store`, fragments and `_data` are `private, no-store`
-  (`fragmentCacheControl`), `/assets/public/*` is `no-cache` with an `ETag`,
+  (`fragmentCacheControl`), `/assets/public/*` is `no-cache` (`publicCacheControl`) with an `ETag`,
   everything else it serves for the browser is immutable.
 
 ### `/index.js` and CDNs

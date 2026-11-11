@@ -117,6 +117,7 @@ export function createInitialState(): PluginState {
       origin: [],
       trustedOrigins: [],
       fragmentCacheControl: DEFAULTS.fragmentCacheControl,
+      publicCacheControl: DEFAULTS.publicCacheControl,
       csrf: { checkOrigin: true },
       limits: { ...DEFAULTS.limits },
       server: { port: 8000 },

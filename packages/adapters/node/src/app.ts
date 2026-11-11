@@ -38,7 +38,7 @@ export async function createNodeServerApp(paths: NodeServerPaths, config: Resolv
       loadIndex: loaders.loadIndex,
       loadPrerendered: loaders.loadPrerendered,
       externals: manifest.__externals ?? [],
-      assetHandler: createStaticHandler({ clientRoot }),
+      assetHandler: createStaticHandler({ clientRoot, publicCacheControl: config.publicCacheControl }),
     },
   });
 }

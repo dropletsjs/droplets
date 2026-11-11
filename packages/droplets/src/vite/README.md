@@ -171,9 +171,9 @@ restarts the server.
 - `tokenNonce` is created per `droplets()` instance; each server bundle exports its own. `state.ts:104`, `virtual.ts:268`
 - Prerender host fallback: `prerender.host`, else `PUBLIC_URL` from the mode's env, else none (host-agnostic renders). `state.ts:85`
 - `PUBLIC_URL` that is not an absolute URL throws. `state.ts:92`
-- `hooks.server` files looked up: `src/hooks.server.ts`, `src/hooks.server.js`. `state.ts:177`
-- `hooks.client` files looked up: `src/hooks.client.ts`, `.mts`, `.js`, `.mjs`. `state.ts:182`
-- `importmap.server` files looked up: `src/importmap.server.ts`, `src/importmap.server.js`. `state.ts:184`
+- `hooks.server` files looked up: `src/hooks.server.ts`, `src/hooks.server.js`. `state.ts:178`
+- `hooks.client` files looked up: `src/hooks.client.ts`, `.mts`, `.js`, `.mjs`. `state.ts:183`
+- `importmap.server` files looked up: `src/importmap.server.ts`, `src/importmap.server.js`. `state.ts:185`
 - Virtual ids: `virtual:droplets`, `virtual:droplets-dev`, `virtual:droplet-client?name=<folder>`, `virtual:droplets-css`, `virtual:droplets-config`, `virtual:droplets-ssr`, `virtual:droplets-manifest`. `virtual.ts:31`, `virtual.ts:33`, `virtual.ts:65`, `virtual.ts:67`, `virtual.ts:69`, `virtual.ts:71`, `virtual.ts:73`
 - `$droplets/*` modules: `$droplets/env`, `$droplets/env/public`, `$droplets/env/private`, `$droplets/server`, `$droplets/drop`, `$droplets/form`. `virtual.ts:35`, `virtual.ts:37`, `virtual.ts:39`, `virtual.ts:41`, `virtual.ts:43`, `virtual.ts:45`
 - `$droplets/server` and `$droplets/env/private` are refused in the client environment and to any project file that is not a server file, on the server too. `virtual.ts:48`, `virtual.ts:721`

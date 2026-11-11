@@ -588,9 +588,10 @@ stylesheet is on the droplet location.
 
 **`public/`** is copied to `dist/client/assets/public/` and served at
 `/assets/public/<file>` by every adapter and by `vite dev`, with
-`cache-control: no-cache` and an `ETag`: browsers ask again each time and get
-a `304` while the file is the same, since its name does not change between
-builds. Nothing of `public/` is served at the root (`/robots.txt` is a 404).
+`cache-control: no-cache` (the default of
+[`publicCacheControl`](/guides/configuration/#options)) and an `ETag`: browsers
+ask again each time and get a `304` while the file is the same, since its name
+does not change between builds. Nothing of `public/` is served at the root (`/robots.txt` is a 404).
 Name a public file with `droplet.url()`:
 
 ```ts

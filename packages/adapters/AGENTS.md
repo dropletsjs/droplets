@@ -8,7 +8,7 @@
   Checked by: `tests/packages/test/packed.test.ts`.
 - What `vite build` writes for an adapter holds no dev or HMR code, Cloudflare's single `worker.js` included.
   Checked by: `tests/dev-mixed/test/production.test.ts`.
-- `/assets/*` serves only the client build's `assets/` folder: hashed files `public, max-age=2592000, immutable`, `public/` under `/assets/public/` revalidated (`no-cache`, an `ETag`, 304); a path outside answers 404.
+- `/assets/*` serves only the client build's `assets/` folder: hashed files `public, max-age=2592000, immutable`, `public/` under `/assets/public/` with `publicCacheControl` (`no-cache` by default), an `ETag` and 304; a path outside answers 404.
   Checked by: `node/test/static.test.ts`, `node/test/app.test.ts`, `cloudflare/test/worker.test.ts`.
 - A droplet name from the URL reaches a manifest only through `Object.hasOwn`.
   Checked by: `node/test/assets.test.ts`, `cloudflare/test/worker.test.ts`.

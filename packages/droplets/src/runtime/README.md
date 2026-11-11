@@ -117,7 +117,7 @@ Then the route.
 - The origin check lets an untyped request without `Origin` through. `security.ts:157`
 - The origin check lets every request through when `trustedOrigins` has `"*"`. `security.ts:155`
 - The origin check guards `/api`, `/api/`, `/droplets/` and the import map paths. `security.ts:116`
-- Body limits default to 1 MB JSON, 1 MB form, 10 MB multipart and 8 KB `x-droplet-props`. `../core/config.ts:188`
+- Body limits default to 1 MB JSON, 1 MB form, 10 MB multipart and 8 KB `x-droplet-props`. `../core/config.ts:197`
 - A body over its type's limit answers 413 `Payload Too Large`. `security.ts:180`
 - An `x-droplet-props` header over its limit answers 431 `x-droplet-props is too large; send the props in a POST body`. `security.ts:186`
 - A limit of `Infinity` turns that check off. `security.ts:189`
@@ -147,7 +147,7 @@ Then the route.
 - `data-render-id` is written only when there is server HTML. `app.ts:1474`
 - A failed render answers 500 with the error component, else the action's status, else 200. `app.ts:1483`
 - A response carrying a form result gets `cache-control: private, no-store`. `app.ts:1466`
-- `fragmentCacheControl` defaults to `private, no-store` and is set only when the response has none. `../core/config.ts:189`
+- `fragmentCacheControl` defaults to `private, no-store` and is set only when the response has none. `../core/config.ts:198`
 - The `Link` header preloads `style.css` (only with styles), each CSS file and the entry, and modulepreloads `client.js` only when `hydrate === true`. `app.ts:1310`
 - `linkHeader: false` drops the `Link` header. `app.ts:1315`
 - `client.js` and `style.css` URLs in a fragment carry `?c=<build>`. `app.ts:1298`

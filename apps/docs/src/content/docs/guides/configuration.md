@@ -33,6 +33,8 @@ export default config({
 
   // Fragments and _data: "private, no-store" by default; false sends none.
   fragmentCacheControl: "private, no-store",
+  // public/ at /assets/public/*: "no-cache" (revalidated, ETag) by default; false sends none.
+  publicCacheControl: "no-cache",
 
   health: "/health",                // false: no health check
   index: "public/index.html",       // what / serves in production; false: 404
@@ -59,6 +61,7 @@ export default config({
 | `trustedOrigins` | `[]` | Origins, besides the server's own, allowed to send form submissions: the hosts whose pages post to your droplets. `"*"` trusts every origin. The `DROPLETS_TRUSTED_ORIGINS` environment variable (comma-separated, read at runtime on every adapter) adds to it. When set (without `"*"`), it also bounds `host`: a host on another origin becomes the location's origin. A location header naming one of these origins is trusted too, and `"*"` trusts any ([Trusting any location](/guides/security/#trusting-any-location)). The same list (without `"*"`) says where a form posted without JavaScript may be sent back to. See [Form posts](/integrate/http-contract/#form-posts-the-origin-check) and [Security model](/guides/security/). |
 | `csrf.checkOrigin` | `true` | Answer `403` to a cross-site form submission (form-urlencoded, multipart or `text/plain` body, or none at all with an `Origin`) to `/droplets/*` or `/api/*` from an origin that is not trusted. `false` turns the check off. |
 | `fragmentCacheControl` | `"private, no-store"` | The default `Cache-Control` of fragments and `_data`, when neither the droplet's load ([`setHeaders`](/guides/writing-droplets/#setheaders)) nor `handle` set one. `false` sends none. See [Caching](/guides/security/#caching). |
+| `publicCacheControl` | `"no-cache"` | The `Cache-Control` of `public/`, served at `/assets/public/*` in a build, on every adapter. Its files keep their names, so by default the browser revalidates them each time (an `ETag`, `304`). A string replaces it (`"public, max-age=3600"`), `false` sends none; the `ETag` and `304` stay. Hashed files, `/index.js` and `/env.js` keep their own. See [Caching](/guides/security/#caching). |
 | `limits.json` | 1 MB | Largest JSON body, in bytes: render requests and `+server.ts`. Bigger answers `413`. |
 | `limits.form` | 1 MB | Largest form-urlencoded or `text/plain` body. |
 | `limits.multipart` | 10 MB | Largest multipart body, and body of any other type (uploads). A body without a `content-length` is held in memory while it is counted, up to the limit, so mind it times your concurrency. |

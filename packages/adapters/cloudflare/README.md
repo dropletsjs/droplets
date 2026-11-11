@@ -92,7 +92,7 @@ that overlap share one request store: the last one to start wins.
 - Every file Vite emits there is content-hashed: `cache-control: public,
   max-age=2592000, immutable` on a successful answer.
 - `/assets/public/*` keeps its names, so it is revalidated:
-  `cache-control: no-cache` with the binding's own `ETag` and `304`; when the
+  `cache-control: no-cache` (`publicCacheControl`) with the binding's own `ETag` and `304`; when the
   binding sends no `ETag`, one is made from the SHA-1 of the content and
   `If-None-Match` is answered with `304`.
 - Nothing else in `dist/client` is a Worker route: `/robots.txt` answers 404.
@@ -147,9 +147,9 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - `run_worker_first` warning names the file and the value and links `https://dropletsjs.dev/guides/deployment/#run_worker_first`. `src/index.ts:62`, `src/index.ts:184`
 - Config in the Worker is `resolveConfig(userConfig)` with no environment: `PORT` is never read. `src/worker.ts:23`
 - Manifest is inlined into the Worker through `virtual:droplets-manifest`, the build's `droplets.json`. `src/worker.ts:2`, `../../droplets/src/vite/virtual.ts:670`
-- Assets binding missing from `env`: the request throws `droplets: no "<name>" binding`. `src/worker.ts:108`, `test/worker.test.ts:261`
-- App is created once per assets binding object and kept in a `WeakMap`. `src/worker.ts:27`, `src/worker.ts:113`
-- Bindings are the runtime env: every request calls `setRuntimeEnv(env)` before it is answered. `src/worker.ts:124`
+- Assets binding missing from `env`: the request throws `droplets: no "<name>" binding`. `src/worker.ts:109`, `test/worker.test.ts:261`
+- App is created once per assets binding object and kept in a `WeakMap`. `src/worker.ts:27`, `src/worker.ts:114`
+- Bindings are the runtime env: every request calls `setRuntimeEnv(env)` before it is answered. `src/worker.ts:125`
 - `platform.env` is the Worker's `env`, every binding included. `../../droplets/src/runtime/app.ts:517`, `test/worker.test.ts:87`
 - `platform.context` is the Worker's execution context when the runtime has one. `../../droplets/src/runtime/app.ts:553`
 - `.env` values are not in `dist/worker.js`; runtime secrets come from the bindings. `test/worker.test.ts:103`
@@ -165,8 +165,8 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - Prerendered renders, `droplets.json` and `/.vite/manifest.json` answer 404 from the Worker. `test/worker.test.ts:137`, `test/worker.test.ts:144`
 - `/assets/*` forwards the original request to the binding. `src/worker.ts:74`
 - `/assets/*` hashed file answered 2xx gets `cache-control: public, max-age=2592000, immutable`; any other status passes through untouched. `src/worker.ts:76`, `src/worker.ts:78`
-- `/assets/public/*` gets `cache-control: no-cache`; a 304 or a binding `ETag` is passed on. `src/worker.ts:90`, `src/worker.ts:91`
-- `/assets/public/*` without a binding `ETag` gets one from the SHA-1 of the body in base64url, and `304` with no body when `If-None-Match` lists it. `src/worker.ts:93`, `src/worker.ts:99`
+- `/assets/public/*` answered by the Worker gets `publicCacheControl` from the config (`no-cache` by default; `false` removes the binding's); a 304 or a binding `ETag` is passed on. `src/worker.ts:83`, `src/worker.ts:91`, `src/worker.ts:92`
+- `/assets/public/*` without a binding `ETag` gets one from the SHA-1 of the body in base64url, and `304` with no body when `If-None-Match` lists it. `src/worker.ts:94`, `src/worker.ts:100`
 - `/assets/public/*` error status other than 304 passes through untouched. `src/worker.ts:81`
 - `/robots.txt` answers 404: `public/` is served only under `/assets/public/`. `test/worker.test.ts:187`
 - `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:892`, `test/worker.test.ts:206`

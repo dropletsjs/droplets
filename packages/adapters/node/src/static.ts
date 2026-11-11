@@ -23,7 +23,11 @@ const CONTENT_TYPES = new Map([
   [".otf", "font/otf"],
 ]);
 
-export type StaticHandlerOptions = { clientRoot: string };
+export type StaticHandlerOptions = {
+  clientRoot: string;
+  /** `Cache-Control` of `/assets/public/*`, `false` for none (`publicCacheControl`). Default: `no-cache`. */
+  publicCacheControl?: string | false;
+};
 
 type ContentTypeOfInput = { path: string };
 
@@ -36,10 +40,11 @@ function contentTypeOf({ path }: ContentTypeOfInput): string {
 /**
  * Serves the shared chunks and assets Vite emits alongside the droplet
  * bundles, content-hashed and so cached for good, and the project's
- * `public/` under `/assets/public/`, whose names stay: revalidated on every
- * use (`no-cache`, an `ETag`, 304 when it matches).
+ * `public/` under `/assets/public/`, whose names stay: `publicCacheControl`,
+ * by default revalidated on every use (`no-cache`), with an `ETag` and 304
+ * when it matches.
  */
-export function createStaticHandler({ clientRoot }: StaticHandlerOptions): Handler {
+export function createStaticHandler({ clientRoot, publicCacheControl = "no-cache" }: StaticHandlerOptions): Handler {
   const assetsRoot = resolve(clientRoot, "assets");
   const assetsPrefix = assetsRoot + sep;
   const publicPrefix = resolve(assetsRoot, "public") + sep;
@@ -66,7 +71,7 @@ export function createStaticHandler({ clientRoot }: StaticHandlerOptions): Handl
       return c.body(new Uint8Array(body));
     }
     const etag = `"${createHash("sha1").update(body).digest("base64url")}"`;
-    c.header("cache-control", "no-cache");
+    if (publicCacheControl !== false) c.header("cache-control", publicCacheControl);
     c.header("etag", etag);
     if (
       c.req

@@ -52,6 +52,7 @@ describe("resolveConfig", () => {
       origin: [],
       trustedOrigins: [],
       fragmentCacheControl: "private, no-store",
+      publicCacheControl: "no-cache",
       csrf: { checkOrigin: true },
       limits: DEFAULTS.limits,
       server: { port: DEFAULTS.serverPort },
@@ -103,6 +104,16 @@ describe("resolveConfig", () => {
     expect(resolveConfig({ fragmentCacheControl: false }).fragmentCacheControl).toBe(false);
     for (const bad of ["", "a\r\nset-cookie: x=1", 60]) {
       expect(() => resolveConfig({ fragmentCacheControl: bad as never }), String(bad)).toThrow("fragmentCacheControl must be");
+    }
+  });
+
+  it("takes a Cache-Control for public/, or false for none, checked as the fragments' one", () => {
+    expect(resolveConfig({ publicCacheControl: " public, max-age=3600 " }).publicCacheControl).toBe("public, max-age=3600");
+    expect(resolveConfig({ publicCacheControl: false }).publicCacheControl).toBe(false);
+    for (const bad of ["", "a\r\nset-cookie: x=1", 60, true]) {
+      expect(() => resolveConfig({ publicCacheControl: bad as never }), String(bad)).toThrow(
+        /publicCacheControl must be a Cache-Control value such as "no-cache", or false/,
+      );
     }
   });
 

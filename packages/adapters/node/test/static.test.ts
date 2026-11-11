@@ -61,6 +61,24 @@ describe("createStaticHandler", () => {
     expect((await app.request("/assets/style-abc.css")).headers.get("etag")).toBeNull();
   });
 
+  it("sends publicCacheControl for public/ only, or none for false, keeping the ETag and 304", async () => {
+    const hour = new Hono();
+    hour.get("/assets/*", createStaticHandler({ clientRoot: root, publicCacheControl: "public, max-age=3600" }));
+    const res = await hour.request("/assets/public/img/logo.svg");
+    expect(res.headers.get("cache-control")).toBe("public, max-age=3600");
+    const etag = res.headers.get("etag") ?? expect.unreachable("an etag");
+    expect((await hour.request("/assets/public/img/logo.svg", { headers: { "if-none-match": etag } })).status).toBe(304);
+    expect((await hour.request("/assets/style-abc.css")).headers.get("cache-control")).toBe("public, max-age=2592000, immutable");
+
+    const none = new Hono();
+    none.get("/assets/*", createStaticHandler({ clientRoot: root, publicCacheControl: false }));
+    const bare = await none.request("/assets/public/img/logo.svg");
+    expect(bare.status).toBe(200);
+    expect(bare.headers.get("cache-control")).toBeNull();
+    expect(bare.headers.get("etag")).toBe(etag);
+    expect((await none.request("/assets/style-abc.css")).headers.get("cache-control")).toBe("public, max-age=2592000, immutable");
+  });
+
   it("404s missing files", async () => {
     expect((await app.request("/assets/nope.js")).status).toBe(404);
   });

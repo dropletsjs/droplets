@@ -83,6 +83,14 @@ export type DropletsConfig = {
    * none; a `Cache-Control` that `handle` sets wins.
    */
   fragmentCacheControl?: string | false;
+  /**
+   * The `Cache-Control` of `public/`, served at `/assets/public/*` in a
+   * build. Its files keep their names from build to build, so by default
+   * the browser revalidates them each time: `no-cache`, with an `ETag` and
+   * `304`. A string replaces it, `false` sends none. Hashed files,
+   * `/index.js` and `/env.js` keep their own.
+   */
+  publicCacheControl?: string | false;
   csrf?: {
     /**
      * Answer `403` to a `POST`, `PUT`, `PATCH` or `DELETE` that a page on
@@ -165,6 +173,7 @@ export type ResolvedDropletsConfig = {
   /** Origins, `"*"` for all; this server's own is always trusted. */
   trustedOrigins: string[];
   fragmentCacheControl: string | false;
+  publicCacheControl: string | false;
   csrf: { checkOrigin: boolean };
   limits: BodyLimits;
   server: { port: number };
@@ -187,6 +196,7 @@ export const DEFAULTS = {
   serverPort: 8000,
   limits: { json: 1024 * 1024, form: 1024 * 1024, multipart: 10 * 1024 * 1024, props: 8 * 1024 },
   fragmentCacheControl: "private, no-store",
+  publicCacheControl: "no-cache",
 } as const;
 
 /**
@@ -207,7 +217,7 @@ type LocationOfInput = { value: unknown };
 
 export type NormalizeOriginInput = { value: unknown };
 
-type ResolveCacheControlInput = { value: unknown };
+type ResolveCacheControlInput = { option: "fragmentCacheControl" | "publicCacheControl"; value: unknown; fallback: string };
 
 type ResolveLimitsInput = { limits: Partial<BodyLimits> | undefined };
 
@@ -310,13 +320,11 @@ export function normalizeOrigin({ value }: NormalizeOriginInput): string[] {
   });
 }
 
-function resolveCacheControl({ value }: ResolveCacheControlInput): string | false {
-  if (value === undefined) return DEFAULTS.fragmentCacheControl;
+function resolveCacheControl({ option, value, fallback }: ResolveCacheControlInput): string | false {
+  if (value === undefined) return fallback;
   if (value === false) return false;
   if (typeof value !== "string" || !value.trim() || /[\r\n]/.test(value)) {
-    throw new Error(
-      `droplets: fragmentCacheControl must be a Cache-Control value such as "private, no-store", or false; got ${JSON.stringify(value)}`,
-    );
+    throw new Error(`droplets: ${option} must be a Cache-Control value such as "${fallback}", or false; got ${JSON.stringify(value)}`);
   }
   return value.trim();
 }
@@ -374,7 +382,16 @@ export function resolveConfig(user: DropletsConfig, env: ResolveConfigEnv = {}):
     ...(cors ? { cors } : {}),
     origin: normalizeOrigin({ value: user.origin }),
     trustedOrigins: normalizeTrustedOrigins({ origins: user.trustedOrigins }),
-    fragmentCacheControl: resolveCacheControl({ value: user.fragmentCacheControl }),
+    fragmentCacheControl: resolveCacheControl({
+      option: "fragmentCacheControl",
+      value: user.fragmentCacheControl,
+      fallback: DEFAULTS.fragmentCacheControl,
+    }),
+    publicCacheControl: resolveCacheControl({
+      option: "publicCacheControl",
+      value: user.publicCacheControl,
+      fallback: DEFAULTS.publicCacheControl,
+    }),
     csrf: { checkOrigin: user.csrf?.checkOrigin ?? true },
     limits: resolveLimits({ limits: user.limits }),
     server: { port: envPort || user.server?.port || DEFAULTS.serverPort },

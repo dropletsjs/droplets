@@ -87,7 +87,7 @@ that resolves outside that folder, a missing file and a directory all answer
   max-age=2592000, immutable`.
 - Your `public/` folder is copied to `dist/client/assets/public/` and served
   at `/assets/public/<file>`. Those names do not change between builds, so
-  they are revalidated on every use: `cache-control: no-cache`, an `ETag`
+  they are revalidated on every use by default: `cache-control: no-cache` (`publicCacheControl`), an `ETag`
   (SHA-1 of the file), and `304` when `If-None-Match` matches.
 - Nothing else in `dist/client` is a file route: `/robots.txt` answers 404,
   even when `public/robots.txt` exists.
@@ -124,9 +124,9 @@ by path.
 - `vite preview` calls `node().preview`, which serves `dist/client` and `dist/server/entry-server.js` through `createNodeServerApp`. `src/index.ts:30`, `../../droplets/src/vite/plugin.ts:550`
 - `dist/server.js` resolves `client/` and `server/entry-server.js` relative to its own file, not the working directory. `src/entry.ts:10`
 - `droplets.config.ts` is bundled into `dist/server.js` through `virtual:droplets-config`; it is not read at runtime. `src/entry.ts:4`, `test/index.test.ts:27`
-- `PORT` is read once at startup and overrides `server.port` from the config. `src/entry.ts:17`, `../../droplets/src/core/config.ts:365`
-- `PORT` is converted with `Number()`; empty, `0` or not a number falls back to `server.port`, then 8000. `../../droplets/src/core/config.ts:334`
-- `server.port` defaults to 8000. `../../droplets/src/core/config.ts:186`
+- `PORT` is read once at startup and overrides `server.port` from the config. `src/entry.ts:17`, `../../droplets/src/core/config.ts:375`
+- `PORT` is converted with `Number()`; empty, `0` or not a number falls back to `server.port`, then 8000. `../../droplets/src/core/config.ts:344`
+- `server.port` defaults to 8000. `../../droplets/src/core/config.ts:195`
 - Listening starts only when `process.argv[1]` is this file's own URL: `node dist/server.js` listens. `src/entry.ts:43`
 - Listening does not start through a symlink or for `node dist/server` without the extension. `src/entry.ts:43`
 - Importing `dist/server.js` does not listen; the default export is `{ fetch }`. `src/entry.ts:35`
@@ -148,19 +148,19 @@ by path.
 - File read errors other than ENOENT are thrown, not turned into null. `src/fs.ts:19`
 - `/assets/*` is the only route that serves files from `dist/client`. `../../droplets/src/server/app.ts:120`
 - `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:330`, `../../droplets/src/runtime/app.ts:892`
-- `/assets/*` serves from `dist/client/assets`. `src/static.ts:43`
-- `/assets/*` path resolving outside `dist/client/assets` answers `404 Not Found` before any read. `src/static.ts:52`
-- `/assets/*` missing file or directory answers `404 Not Found`. `src/static.ts:61`
-- `/assets/*` cache-control for hashed files is `public, max-age=2592000, immutable` (30 days). `src/static.ts:65`
-- `/assets/*` content type comes from a fixed extension table, case-insensitive; any other extension is `application/octet-stream`. `src/static.ts:6`, `src/static.ts:30`
-- `/assets/*` reads the whole file into memory per request: no streaming, no range requests. `src/static.ts:58`
+- `/assets/*` serves from `dist/client/assets`. `src/static.ts:48`
+- `/assets/*` path resolving outside `dist/client/assets` answers `404 Not Found` before any read. `src/static.ts:57`
+- `/assets/*` missing file or directory answers `404 Not Found`. `src/static.ts:66`
+- `/assets/*` cache-control for hashed files is `public, max-age=2592000, immutable` (30 days). `src/static.ts:70`
+- `/assets/*` content type comes from a fixed extension table, case-insensitive; any other extension is `application/octet-stream`. `src/static.ts:6`, `src/static.ts:34`
+- `/assets/*` reads the whole file into memory per request: no streaming, no range requests. `src/static.ts:63`
 - `public/` is copied into `dist/client/assets/public/` only; Vite's own `copyPublicDir` is off. `../../droplets/src/vite/build.ts:137`, `../../droplets/src/vite/assets.ts:95`
-- `/assets/public/*` cache-control is `no-cache`, with an `ETag` of the file's SHA-1 in base64url. `src/static.ts:68`, `src/static.ts:69`
-- `/assets/public/*` answers `304` with no body when any `If-None-Match` tag equals the `ETag`. `src/static.ts:71`
-- `/assets/public/*` is the only path with an `ETag`; hashed files never revalidate. `src/static.ts:64`, `test/static.test.ts:61`
+- `/assets/public/*` cache-control is `publicCacheControl` from the config (`no-cache` by default, none for `false`), with an `ETag` of the file's SHA-1 in base64url. `src/app.ts:41`, `src/static.ts:73`, `src/static.ts:74`
+- `/assets/public/*` answers `304` with no body when any `If-None-Match` tag equals the `ETag`. `src/static.ts:76`
+- `/assets/public/*` is the only path with an `ETag`; hashed files never revalidate. `src/static.ts:69`, `test/static.test.ts:61`
 - `public/robots.txt` is not served at `/robots.txt`: it answers 404. `test/app.test.ts:126`
 - Runtime env comes from `process.env`: `DROPLETS_SECRET`, `DROPLETS_TRUSTED_ORIGINS`, `DROPLETS_ORIGIN` and private variables, per read. `../../droplets/src/runtime/env-store.ts:26`
 - Node engine is `>=22`. `package.json:35`
 - Build script runs the tests before tsdown. `package.json:38`
 - Tests build the framework's fixture app and fail when `@dropletsjs/droplets` is not built. `test/build-fixture.ts:19`
-- A droplet without stylesheets has no `style.css` (404), and `/index.css` answers 404 without a shared stylesheet: the empty file is not in the build. `../../droplets/src/runtime/app.ts:1148`, `test/app.test.ts:181`
+- A droplet without stylesheets has no `style.css` (404), and `/index.css` answers 404 without a shared stylesheet: the empty file is not in the build. `../../droplets/src/runtime/app.ts:1148`, `test/app.test.ts:187`

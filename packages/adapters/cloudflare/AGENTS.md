@@ -10,7 +10,7 @@
   Checked by: `tests/dev-mixed/test/production.test.ts`.
 - Prerendered renders are never in the bundle and never at a URL one could guess: a folder named anew every build, only in the inlined manifest; `droplets.json` and `.vite/` are never uploaded.
   Checked by: `test/worker.test.ts`, `test/index.test.ts`.
-- Hashed files under `/assets/*` are `public, max-age=2592000, immutable`; `public/` under `/assets/public/*` is revalidated (`no-cache`, an `ETag`, 304).
+- Hashed files under `/assets/*` are `public, max-age=2592000, immutable`; `public/` under `/assets/public/*` gets `publicCacheControl` (`no-cache` by default), an `ETag` and 304.
   Checked by: `test/worker.test.ts`.
 - The user's wrangler config is read, never written; a `run_worker_first` that leaves the Worker's routes to static assets warns once and never fails the build.
   Checked by: `test/index.test.ts`.

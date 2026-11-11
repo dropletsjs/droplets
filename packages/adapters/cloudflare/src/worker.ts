@@ -33,7 +33,7 @@ type AssetLoadersOptions = { assets: AssetsFetcher };
 
 type LoadFileInput = { path: string };
 
-type RevalidatedInput = { response: Response; ifNoneMatch: string | undefined };
+type RevalidatedInput = { response: Response; ifNoneMatch: string | undefined; cacheControl: string | false };
 
 type AppOfInput = { env: Env };
 
@@ -70,7 +70,7 @@ function createAssetLoaders({ assets }: AssetLoadersOptions): AssetLoaders {
     dropletStyles: (droplet) => Promise.resolve(dropletEntry({ droplet })?.css ?? []),
     // The entry, shared chunks and assets, from the binding, named by
     // their content and cached for good; `public/` under `/assets/public/`
-    // keeps its names, so it is revalidated (the binding's ETag, its 304).
+    // keeps its names: `publicCacheControl`, with the binding's ETag and 304.
     assetHandler: async (c) => {
       const response = await assets.fetch(c.req.raw);
       if (!c.req.path.startsWith("/assets/public/")) {
@@ -80,15 +80,16 @@ function createAssetLoaders({ assets }: AssetLoadersOptions): AssetLoaders {
         return cached;
       }
       if (!response.ok && response.status !== 304) return response;
-      return revalidated({ response, ifNoneMatch: c.req.header("if-none-match") });
+      return revalidated({ response, ifNoneMatch: c.req.header("if-none-match"), cacheControl: config.publicCacheControl });
     },
   };
 }
 
-/** `no-cache` with an `ETag`: the binding's, else one from the content, answered 304 when it matches. */
-async function revalidated({ response, ifNoneMatch }: RevalidatedInput): Promise<Response> {
+/** `cacheControl` (none for `false`) with an `ETag`: the binding's, else one from the content, answered 304 when it matches. */
+async function revalidated({ response, ifNoneMatch, cacheControl }: RevalidatedInput): Promise<Response> {
   const headers = new Headers(response.headers);
-  headers.set("cache-control", "no-cache");
+  if (cacheControl === false) headers.delete("cache-control");
+  else headers.set("cache-control", cacheControl);
   if (response.status === 304 || headers.has("etag")) return new Response(response.body, { status: response.status, headers });
   const body = await response.arrayBuffer();
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-1", body));

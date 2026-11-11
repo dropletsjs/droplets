@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { readdir, readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -290,4 +290,45 @@ describe("worker without a shared stylesheet", () => {
     expect(fragment.headers.get("link") ?? "").not.toContain(".css");
     expect(await (await call({ path: "/droplets/docs?page=2" })).text()).not.toContain("style.css");
   });
+});
+
+describe("worker with publicCacheControl", () => {
+  for (const [name, value, expected] of [
+    ["an hour", '"public, max-age=3600"', "public, max-age=3600"],
+    ["false", "false", null],
+  ] as const) {
+    describe(name, () => {
+      const dir = resolve(FIXTURE_ROOT, `dist-cloudflare-worker-public-${name.replace(/\W/g, "")}`);
+      const configFile = resolve(FIXTURE_ROOT, `droplets.public-${name.replace(/\W/g, "")}.config.ts`);
+      let worker: Worker;
+      const env = { ASSETS: fakeAssets({ clientRoot: resolve(dir, "client") }) };
+      const call = ({ path, init }: CallInput) => worker.default.fetch(new Request(`http://drops.test${path}`, init), env, {});
+
+      beforeAll(async () => {
+        await writeFile(configFile, `export default { element: "test-droplet", publicCacheControl: ${value} };\n`);
+        try {
+          await buildFixture({ outDir: dir, configFile });
+        } finally {
+          await rm(configFile, { force: true });
+        }
+        worker = (await import(pathToFileURL(resolve(dir, "worker.js")).href)) as Worker;
+      });
+
+      afterAll(async () => {
+        await rm(dir, { recursive: true, force: true });
+      });
+
+      it("sends it for /assets/public/* when the Worker answers, keeping the ETag and 304", async () => {
+        const res = await call({ path: "/assets/public/robots.txt" });
+        expect(res.status).toBe(200);
+        expect(res.headers.get("cache-control")).toBe(expected);
+        const etag = res.headers.get("etag") ?? expect.unreachable("an etag");
+        expect((await call({ path: "/assets/public/robots.txt", init: { headers: { "if-none-match": etag } } })).status).toBe(304);
+        const manifest = JSON.parse(await readFile(resolve(dir, "client/droplets.json"), "utf8"));
+        expect((await call({ path: `/${manifest.__entryModule}` })).headers.get("cache-control")).toBe(
+          "public, max-age=2592000, immutable",
+        );
+      });
+    });
+  }
 });

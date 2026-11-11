@@ -153,6 +153,12 @@ describe("createNodeServerApp", () => {
     expect(page).toMatch(/color: crimson/);
   });
 
+  it("serves public/ with publicCacheControl from the config, and nothing else with it", async () => {
+    const app = await createNodeServerApp(paths, resolveConfig({ element: "test-droplet", publicCacheControl: "public, max-age=60" }));
+    expect((await app.request("/assets/public/robots.txt")).headers.get("cache-control")).toBe("public, max-age=60");
+    expect((await app.request("/index.js")).headers.get("cache-control")).toBe("no-store");
+  });
+
   it("reads runtime secrets from process.env", async () => {
     process.env["FIXTURE_SECRET"] = "from-process";
     try {

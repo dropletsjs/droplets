@@ -121,7 +121,7 @@ droplet lists of both tests.
 - Render contract toasts: never more than three at once; a newer notice for the same flag replaces the older. `test/dev.test.ts:425`, `test/dev.test.ts:437`
 - Render contract notice goes to the dev tool, not a toast, with `?injectTool=true`. `test/dev.test.ts:449`
 - `index.js?strategy=remount` remounts React from a fresh fragment. `test/dev.test.ts:463`
-- `dev.strategy` defaults to `"hmr"`. `../../packages/droplets/src/core/config.ts:371`
+- `dev.strategy` defaults to `"hmr"`. `../../packages/droplets/src/core/config.ts:381`
 - Test timeout 60 s, hook timeout 120 s. `vitest.config.ts:7`
 - Test script is `vitest run`. `package.json:9`
 - `.tmp/` is gitignored. `../../.gitignore:44`
