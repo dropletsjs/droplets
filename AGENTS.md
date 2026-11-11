@@ -73,6 +73,7 @@ pnpm typecheck:hosts  # npm ci + npm run typecheck in each Node host (examples/h
 
 ## Conventions
 
+- Code style for TypeScript in `packages/*`: `docs/style/code.md`.
 - Markup attributes are `data-droplet-*` (`entry`, `context`, `data`, `slot`, `style`, `children`, …). No `data-app-*`.
 - Name things for what they are: `errorComponent`, not `errorPage`; `createDropletsApp`, not `createApp`.
 - Droplets live in `src/droplets/<id>/+droplet.*`; routes under `/droplets/:id` (`/_data`, `/client.js`, `/style.css`); `/api/` is reserved.
