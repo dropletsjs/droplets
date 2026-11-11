@@ -149,9 +149,15 @@ export type ResolvedDropletsConfig = {
   fragmentCacheControl: string | false;
   csrf: { checkOrigin: boolean };
   limits: BodyLimits;
-  dev: { server: { port: number }; strategy: DevStrategy; injectTool: boolean };
   server: { port: number };
 };
+
+/**
+ * `dev` of the config, with defaults: what the Vite plugin reads under
+ * `vite dev`, apart from `resolveConfig`, so a production server never
+ * carries it.
+ */
+export type ResolvedDevConfig = { server: { port: number }; strategy: DevStrategy; injectTool: boolean };
 
 export const DEFAULTS = {
   dropletsFolder: "src/droplets",
@@ -302,12 +308,6 @@ export function resolveConfig(
     path: validateOwnPath("importMap", user.importMap ?? DEFAULTS.importMap, "/importmap"),
     auto: user.importMap === undefined,
   };
-  const strategy = user.dev?.strategy ?? "hmr";
-  if (!DEV_STRATEGIES.includes(strategy)) {
-    throw new Error(
-      `droplets: dev.strategy is "${String(strategy)}"; use ${DEV_STRATEGIES.map((s) => `"${s}"`).join(", ")}`,
-    );
-  }
   if (importMap && health && (health === importMap.path || health === `${importMap.path}.js`)) {
     throw new Error(
       `droplets: health (${health}) and importMap (${importMap.path}, ${importMap.path}.js) answer the same path; move one of them`,
@@ -327,11 +327,21 @@ export function resolveConfig(
     fragmentCacheControl: resolveCacheControl(user.fragmentCacheControl),
     csrf: { checkOrigin: user.csrf?.checkOrigin ?? true },
     limits: resolveLimits(user.limits),
-    dev: {
-      server: { port: envPort || user.dev?.server?.port || DEFAULTS.devPort },
-      strategy,
-      injectTool: user.dev?.injectTool ?? false,
-    },
     server: { port: envPort || user.server?.port || DEFAULTS.serverPort },
+  };
+}
+
+/** `dev` of the config, with defaults; `PORT` wins over `dev.server.port`. */
+export function resolveDevConfig(user: DropletsConfig, env: ResolveConfigEnv = {}): ResolvedDevConfig {
+  const strategy = user.dev?.strategy ?? "hmr";
+  if (!DEV_STRATEGIES.includes(strategy)) {
+    throw new Error(
+      `droplets: dev.strategy is "${String(strategy)}"; use ${DEV_STRATEGIES.map((s) => `"${s}"`).join(", ")}`,
+    );
+  }
+  return {
+    server: { port: Number(env.port) || user.dev?.server?.port || DEFAULTS.devPort },
+    strategy,
+    injectTool: user.dev?.injectTool ?? false,
   };
 }

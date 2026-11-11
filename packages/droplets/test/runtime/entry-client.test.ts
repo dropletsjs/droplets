@@ -91,7 +91,9 @@ const json = (body: unknown, init: ResponseInit = {}) =>
     headers: { "content-type": "application/json", ...(init.headers as Record<string, string>) },
   });
 
-type Droplet = InstanceType<EntryClient["DjsDropletElement"]>;
+type Droplet = import("../../src/runtime/dev-element.ts").DevDropletElement;
+/** The element class as `installDevElement` leaves it under vitest, where `import.meta.env.DEV` is true. */
+const devClass = () => mod.DjsDropletElement as import("../../src/runtime/dev-element.ts").DevDropletElementClass;
 
 function mount(html: string): Droplet {
   const wrapper = document.createElement("div");
@@ -1789,7 +1791,7 @@ describe("lazy hydrate", () => {
 });
 
 describe("what the dev tool sees", () => {
-  const stateOf = (el: HTMLElement) => mod.DjsDropletElement.devElements().find((info) => info.element === el);
+  const stateOf = (el: HTMLElement) => devClass().devElements().find((info) => info.element === el);
 
   it("lists the connected elements in document order, with where each one is", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json({ data: {} })));
@@ -1801,7 +1803,7 @@ describe("what the dev tool sees", () => {
     await tick();
     await tick();
 
-    expect(mod.DjsDropletElement.devElements().map((info) => info.element)).toEqual([waiting, hydrated, fixed, mounted]);
+    expect(devClass().devElements().map((info) => info.element)).toEqual([waiting, hydrated, fixed, mounted]);
     expect(stateOf(waiting)).toMatchObject({ droplet: "plain", state: "waiting", hydrate: "interactive", changed: false });
     expect(stateOf(hydrated)).toMatchObject({ state: "hydrated", hydrate: true });
     expect(stateOf(fixed)).toMatchObject({ state: "static", hydrate: false });

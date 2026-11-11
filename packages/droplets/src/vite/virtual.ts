@@ -27,6 +27,8 @@ import { CLIENT_HOOKS_FILES, HOOKS_FILES, IMPORTMAP_FILES, rendererNamed, type P
 
 /** Registry of droplets. Resolves to different code per environment. */
 export const VIRTUAL_DROPLETS = "virtual:droplets";
+/** What `index.js` reads under `vite dev` only: `dev.strategy`, `dev.injectTool`, the dev tool's URL. */
+export const VIRTUAL_DROPLETS_DEV = "virtual:droplets-dev";
 /** `browser` and `dev`, for droplet authors. Anywhere. */
 export const VIRTUAL_ENV = "$droplets/env";
 /** Events, `handle`, `json()`, `error()`: server code only. */
@@ -85,6 +87,7 @@ const LOADER_URL = "/index.js";
 const resolved = (id: string) => `\0${id}`;
 
 export const RESOLVED_VIRTUAL_DROPLETS = resolved(VIRTUAL_DROPLETS);
+const RESOLVED_DROPLETS_DEV = resolved(VIRTUAL_DROPLETS_DEV);
 
 const RESOLVED_ENV = resolved(VIRTUAL_ENV);
 const RESOLVED_ENV_PUBLIC = resolved(VIRTUAL_ENV_PUBLIC);
@@ -343,6 +346,16 @@ export function buildFormServerCode(requestStore: string, formModule: string, en
 /** What `index.js` reads under `vite dev` only: see `DropletsConfig["dev"]`. */
 export type ClientDevOptions = { strategy: DevStrategy; injectTool: boolean; toolUrl: string | null };
 
+/** `virtual:droplets-dev`, imported by the entry's dev module alone, which a production build drops. */
+export function buildClientDevCode(dev: ClientDevOptions): string {
+  return [
+    `export const strategy = ${JSON.stringify(dev.strategy)};`,
+    `export const injectTool = ${JSON.stringify(dev.injectTool)};`,
+    `export const toolUrl = ${JSON.stringify(dev.toolUrl)};`,
+    "",
+  ].join("\n");
+}
+
 /**
  * `init` of `src/hooks.client.ts`, called as the registry evaluates: the
  * entry client imports the registry first, so `init` has run before the
@@ -367,7 +380,6 @@ export function buildClientCode(
   entries: DropletEntry[],
   buildHash: string,
   elementName = "djs-droplet",
-  dev: ClientDevOptions = { strategy: "hmr", injectTool: false, toolUrl: null },
   building = false,
   clientHooksFile: string | null = null,
 ): string {
@@ -388,10 +400,6 @@ export function buildClientCode(
     "export default droplets;",
     `export const buildHash = ${JSON.stringify(buildHash)};`,
     `export const elementName = ${JSON.stringify(elementName)};`,
-    // Read only under `vite dev`; a build drops the code that reads them.
-    `export const devStrategy = ${JSON.stringify(dev.strategy)};`,
-    `export const devInjectTool = ${JSON.stringify(dev.injectTool)};`,
-    `export const devToolUrl = ${JSON.stringify(dev.toolUrl)};`,
     "export const dropletsById = {",
     ...ids,
     "};",
@@ -437,8 +445,10 @@ export type ClientModuleInput = Pick<
  * Exports, as the custom element (`entry-client`) calls them:
  * `default(target, data, host, info)` mounts or hydrates the droplet,
  * `renderError(target, error, host, info)` the error page, `unmount(handle)`
- * tears either down. With `dev` and a renderer that has a `clientDev`
- * module, `update(handle, data, info)` too, for a load edit. `host` is the
+ * tears either down. With `dev`, the module also dispatches
+ * `droplets:hot-fallback` for an edit no framework HMR took, and with a
+ * renderer that has a `clientDev` module exports `update(handle, data,
+ * info)`, for a load edit. `host` is the
  * children host, `info` carries the server's `renderId`, the
  * server-rendered markers, the `form` a form action's result rendered
  * with, and, for a droplet
@@ -553,12 +563,18 @@ export function renderError(target, error, host, info) {
 export function unmount(handle) {
   return handle?.engine?.unmount(handle.instance);
 }
-${devModule ? UPDATE_EXPORT : ""}
-// Dev only: an edit that no HMR of the framework takes (an engine without
-// one, an export the framework cannot swap) stops here rather than
-// reloading the host's page, and the element remounts the droplet in place.
+${devModule ? UPDATE_EXPORT : ""}${dev ? hotFallback([componentModule, ...(errorModule ? [errorModule] : [])], id) : ""}`;
+}
+
+/**
+ * An edit that no HMR of the framework takes (an engine without one, an
+ * export the framework cannot swap) stops here rather than reloading the
+ * host's page, and the element remounts the droplet in place.
+ */
+function hotFallback(modules: string[], id: string): string {
+  return `
 if (import.meta.hot) {
-  import.meta.hot.accept([${[componentModule, ...(errorModule ? [errorModule] : [])].join(", ")}], () => {
+  import.meta.hot.accept([${modules.join(", ")}], () => {
     globalThis.dispatchEvent(new CustomEvent("droplets:hot-fallback", {
       detail: { droplet: ${id}, origin: new URL(import.meta.url).origin },
     }));
@@ -580,7 +596,9 @@ export function buildConfigCode(configPath: string | null): string {
  */
 export function virtualModulesPlugin(state: PluginState): Plugin {
   let command: "build" | "serve" = "build";
-  // `update` for a load edit: `vite dev`, and builds Vite does not call production (`import.meta.env.DEV`).
+  // The client modules' dev parts (`update` for a load edit, the HMR
+  // fallback): `vite dev`, and builds Vite does not call production
+  // (`import.meta.env.DEV`).
   let devHooks = false;
   let cached: Promise<DropletEntry[]> | null = null;
 
@@ -612,6 +630,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
 
     resolveId(id, importer) {
       if (id === VIRTUAL_DROPLETS) return RESOLVED_VIRTUAL_DROPLETS;
+      if (id === VIRTUAL_DROPLETS_DEV) return RESOLVED_DROPLETS_DEV;
       if (id === VIRTUAL_ENV) return RESOLVED_ENV;
       if (
         SERVER_ONLY.has(id) &&
@@ -644,11 +663,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
       if (id === RESOLVED_VIRTUAL_DROPLETS) {
         const entries = await getEntries();
         if (this.environment.config.consumer !== "server") {
-          return buildClientCode(entries, state.buildHash, state.config.element, {
-            strategy: state.config.dev.strategy,
-            injectTool: state.config.dev.injectTool,
-            toolUrl: state.devToolUrl,
-          }, command === "build", await findFile(CLIENT_HOOKS_FILES));
+          return buildClientCode(entries, state.buildHash, state.config.element, command === "build", await findFile(CLIENT_HOOKS_FILES));
         }
         return buildServerCode(entries, state.globRoot, {
           apiRoutes: await discoverApiRoutes(state.apiRoot),
@@ -657,6 +672,14 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
           importMapFile: await findFile(IMPORTMAP_FILES),
           renderers: state.renderers,
           publicEnvNames: dynamicPublicNames(state.env),
+        });
+      }
+
+      if (id === RESOLVED_DROPLETS_DEV) {
+        return buildClientDevCode({
+          strategy: state.dev.strategy,
+          injectTool: state.dev.injectTool,
+          toolUrl: state.devToolUrl,
         });
       }
 

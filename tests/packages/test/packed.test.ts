@@ -195,7 +195,11 @@ describe.each(PACKAGES)("%s, packed", (path) => {
   });
 
   it.runIf(path === "droplets")("keeps the @vite-ignore of the runtime's dynamic imports", () => {
-    const code = readFileSync(at("dist/runtime/entry-client.js"), "utf8");
-    expect(code.match(/import\(\s*\/\* @vite-ignore \*\//g)?.length).toBe(2);
+    const ignored = (file: string) => readFileSync(at(file), "utf8").match(/import\(\s*\/\* @vite-ignore \*\//g)?.length;
+    // A droplet's bundle, from the entry; the dev tool, from the entry's dev module.
+    expect(ignored("dist/runtime/entry-client.js")).toBe(1);
+    const dev = files.filter((file) => /^dist\/chunks\/dev-element-[\w-]+\.js$/.test(file));
+    expect(dev).toHaveLength(1);
+    expect(ignored(dev[0]!)).toBe(1);
   });
 });

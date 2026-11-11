@@ -9,6 +9,9 @@
       "virtual:droplets": [
         "./src/types/virtual-droplets.ts"
       ],
+      "virtual:droplets-dev": [
+        "./src/types/virtual-droplets-dev.ts"
+      ],
       "virtual:droplets-config": [
         "./src/types/virtual-config.ts"
       ],

@@ -39,4 +39,5 @@ export function ignoreFlagExports(): void {
   };
 }
 
-ignoreFlagExports();
+// Fast Refresh runs under `vite dev` only; a production build drops the call and the function.
+if (import.meta.env.DEV) ignoreFlagExports();

@@ -9,6 +9,7 @@
     "test": "vitest run"
   },
   "devDependencies": {
+    "@dropletsjs/adapter-node": "workspace:*",
     "@dropletsjs/devtools": "workspace:*",
     "@dropletsjs/droplets": "workspace:*",
     "@dropletsjs/renderer-handlebars": "workspace:*",

@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "virtual:droplets": stub("./test/stubs/virtual-droplets.ts"),
+      "virtual:droplets-dev": stub("./test/stubs/virtual-droplets-dev.ts"),
       "virtual:droplets-config": stub("./test/stubs/virtual-config.ts"),
       "$droplets/env": stub("./src/types/env.ts"),
       "$droplets/server": stub("./src/runtime/server.ts"),

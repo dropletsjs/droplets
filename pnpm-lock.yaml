@@ -1386,6 +1386,9 @@ importers:
 
   tests/dev-mixed:
     devDependencies:
+      '@dropletsjs/adapter-node':
+        specifier: workspace:*
+        version: link:../../packages/adapters/node
       '@dropletsjs/devtools':
         specifier: workspace:*
         version: link:../../packages/devtools

@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { resolve } from "node:path";
-import type { ResolvedDropletsConfig } from "../core/config.ts";
+import type { ResolvedDevConfig, ResolvedDropletsConfig } from "../core/config.ts";
 import { DEFAULTS, normalizeDropletsFolder } from "../core/config.ts";
 import type { DropletEntry } from "../core/discover.ts";
 import { entryClientPath } from "../core/paths.ts";
@@ -25,6 +25,8 @@ export type PluginState = {
   /** Files `droplets.config.ts` imports; a change to any restarts the dev server. */
   configDependencies: string[];
   config: ResolvedDropletsConfig;
+  /** `dev` of the config: what `vite dev` reads. */
+  dev: ResolvedDevConfig;
   /** The plugin's `css` option, with defaults. */
   css: ResolvedCss;
   /**
@@ -106,9 +108,9 @@ export function createInitialState(): PluginState {
       fragmentCacheControl: DEFAULTS.fragmentCacheControl,
       csrf: { checkOrigin: true },
       limits: { ...DEFAULTS.limits },
-      dev: { server: { port: 5173 }, strategy: "hmr", injectTool: false },
       server: { port: 8000 },
     },
+    dev: { server: { port: 5173 }, strategy: "hmr", injectTool: false },
     css: { scoped: true, tailwind: false, twPreflight: true },
     tailwind: { user: false, ours: false },
     dropletsRoot: resolve(process.cwd(), "src/droplets"),

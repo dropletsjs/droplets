@@ -54,11 +54,21 @@ the new default; `remount`, `reload` and `manual` stay as they were, and
 - **Other strategies** keep working by dropping Vite's module updates for
   a held edit in `vite:beforeUpdate` (stylesheets aside). The element then
   follows `droplets:update` as before.
-- **Kept out of a build:** every piece is behind `import.meta.env.DEV` or
-  `import.meta.hot`. That covers the dev-only static helpers of the element
-  class, which live in a `static {}` block under that condition, since a
-  class's public members are never tree-shaken. A built example's
-  `/index.js` and client assets carry none of the notice strings.
+- **Kept out of a build:** all of it lives in `runtime/dev-element.ts`. The
+  entry installs it on the element's prototype with one
+  `if (import.meta.env.DEV) installDevElement(…)`: it adds `update` (the
+  remount) and `devElements`, and wraps the element's steps (`_start`,
+  `_waitFor`, `_importModule`, …) for the strategies, the notices, the dev
+  tool and the dev-only warnings. The class body carries none of it; the
+  members it reaches are `_…` rather than `#private`, which a prototype
+  cannot reach. The module does nothing at its top level, so a production
+  build drops the call, the module and what it imports (`dev-contract`,
+  `dev-notify`, `virtual:droplets-dev`). The client modules' HMR fallback
+  and `update` are generated for dev only, React's Fast Refresh export hook
+  is under `import.meta.env.DEV`, and `dev` of the config resolves apart
+  (`resolveDevConfig`), so a production server never carries it.
+  `tests/dev-mixed/test/production.test.ts` builds every renderer for
+  production and fails on any dev marker or dev module in the output.
 - **Limits:** Svelte 5 and solid-refresh create the component again, so
   its local state starts over. A Vue `<script>` edit does the same. A
   `prerender` change shows only in a build.

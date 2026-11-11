@@ -1,8 +1,8 @@
 import { resolve } from "node:path";
 import { loadConfigFromFile } from "vite";
 import type { ConfigEnv } from "vite";
-import { resolveConfig } from "./config.ts";
-import type { DropletsConfig, ResolvedDropletsConfig } from "./config.ts";
+import { resolveConfig, resolveDevConfig } from "./config.ts";
+import type { DropletsConfig, ResolvedDevConfig, ResolvedDropletsConfig } from "./config.ts";
 import { ensureTypesTsconfig } from "../vite/sync-types.ts";
 import { fileExists } from "./fs.ts";
 
@@ -16,6 +16,7 @@ export const CONFIG_FILE_CANDIDATES = [
 
 export type LoadedDropletsConfig = {
   config: ResolvedDropletsConfig;
+  dev: ResolvedDevConfig;
   /** Absolute path of the file that was loaded, or `null` for defaults. */
   path: string | null;
   /** Files the config imports, so the dev server can restart on change. */
@@ -62,7 +63,6 @@ export async function loadDropletsConfig(
     }
   }
 
-  const config = resolveConfig(user, { port: process.env["PORT"] });
-
-  return { config, path, dependencies };
+  const env = { port: process.env["PORT"] };
+  return { config: resolveConfig(user, env), dev: resolveDevConfig(user, env), path, dependencies };
 }

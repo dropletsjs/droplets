@@ -7,4 +7,4 @@ or starts real projects and checks them from outside, in a browser or a
 shell. [`examples`](./examples) (the framework examples), [`hosts`](./hosts)
 (every host stack, with Docker), [`create-droplets`](./create-droplets),
 [`djs-add`](./djs-add) and [`dev-mixed`](./dev-mixed) (`vite dev` with
-several renderers).
+several renderers, and their production build without a trace of it).

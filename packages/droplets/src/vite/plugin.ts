@@ -38,7 +38,7 @@ import { userRenderers, withScriptRenderer } from "../script/index.ts";
 import { isServerOnlyFile, serverOnlyPlugin } from "./server-only.ts";
 import type { DropletEntry } from "../core/discover.ts";
 import type { RenderContract } from "../runtime/dev-contract.ts";
-import type { DropletHooksPayload, DropletUpdatePayload } from "../runtime/entry-client.ts";
+import type { DropletHooksPayload, DropletUpdatePayload } from "../runtime/dev-element.ts";
 import { createCssConfig, resolveCss, tailwindPlugins, type DropletsCssOptions } from "./css.ts";
 import { externalizePlugin } from "./externalize.ts";
 import { createExternalMatcher, namedExternals, readClientExternal } from "./client-external.ts";
@@ -311,7 +311,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
 
   const api: DropletsPluginApi = {
     element: () => state.config.element,
-    strategy: () => state.config.dev.strategy,
+    strategy: () => state.dev.strategy,
     droplets: () => summarize(state),
     renderers: () => userRenderers(state.renderers).map((renderer) => renderer.name),
     dropletsRoot: () => state.dropletsRoot,
@@ -337,6 +337,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
       const root = resolve(userConfig.root ?? process.cwd());
       const loaded = await loadDropletsConfig(root, env, options.configFile);
       applyConfig(state, root, loaded.config);
+      state.dev = loaded.dev;
       state.css = await resolveCss(options.css, root);
       state.configPath = loaded.path;
       state.env = await loadEnvState(
@@ -372,7 +373,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
           // project's own files answer 403 when a stylesheet @imports them.
           fs: { allow: [searchForWorkspaceRoot(root), packageRoot, ...rendererDirs(state.renderers)] },
           ...(userConfig.server?.port === undefined
-            ? { port: state.config.dev.server.port }
+            ? { port: state.dev.server.port }
             : {}),
         },
         ...(external.length ? { optimizeDeps: { exclude: external } } : {}),

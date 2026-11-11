@@ -5,6 +5,7 @@ import { locationScript, serverKey } from "../../src/runtime/server-records.ts";
 import { createInitialState } from "../../src/vite/state.ts";
 import {
   buildClientCode,
+  buildClientDevCode,
   buildConfigCode,
   clientInitCode,
   buildDropClientCode,
@@ -143,6 +144,15 @@ describe("buildServerCode", () => {
   });
 });
 
+describe("buildClientDevCode", () => {
+  it("exports the config's dev strategy, injectTool and the dev tool's URL", () => {
+    expect(buildClientDevCode({ strategy: "reload", injectTool: true, toolUrl: "/@fs/tool.js" })).toBe(
+      ['export const strategy = "reload";', "export const injectTool = true;", 'export const toolUrl = "/@fs/tool.js";', ""].join("\n"),
+    );
+    expect(buildClientDevCode({ strategy: "hmr", injectTool: false, toolUrl: null })).toContain("export const toolUrl = null;");
+  });
+});
+
 describe("buildClientCode", () => {
   it("lists ids and hydration flags with the build hash", () => {
     const code = buildClientCode(
@@ -154,12 +164,8 @@ describe("buildClientCode", () => {
     expect(buildClientCode([], "x", "acme-widget")).toContain(
       'export const elementName = "acme-widget";',
     );
-    expect(code).toContain('export const devStrategy = "hmr";');
-    const dev = buildClientCode([], "x", "acme-widget", { strategy: "reload", injectTool: true, toolUrl: "/@fs/tool.js" });
-    expect(dev).toContain('export const devStrategy = "reload";');
-    expect(dev).toContain("export const devInjectTool = true;");
-    expect(dev).toContain('export const devToolUrl = "/@fs/tool.js";');
-    expect(code).toContain("export const devToolUrl = null;");
+    // What only `vite dev` reads is in `virtual:droplets-dev`, which nothing but the dev module imports.
+    expect(code).not.toMatch(/strategy|injectTool|toolUrl/i);
     expect(code).toContain('export const dropletsById = {\n  "a": true,\n  "b": true,\n};');
     expect(code).toContain('export const dropletsHydrateById = {\n  "a": true,\n};');
     expect(buildClientCode([entry({ id: "v", hydrate: "visible" }), entry({ id: "i", hydrate: "interactive" })], "h")).toContain(
@@ -167,7 +173,7 @@ describe("buildClientCode", () => {
     );
     // Dev: Vite injects the shared stylesheet with the registry. A build lists it per droplet.
     expect(code).toMatch(/^import "virtual:droplets-css";\n/);
-    const built = buildClientCode([entry({ id: "a" })], "h", "djs-droplet", undefined, true);
+    const built = buildClientCode([entry({ id: "a" })], "h", "djs-droplet", true);
     expect(built).not.toContain("import ");
     expect(code).not.toContain("clientHooks");
   });
@@ -178,9 +184,6 @@ describe("buildClientCode", () => {
       "export default droplets;",
       'export const buildHash = "h";',
       'export const elementName = "djs-droplet";',
-      'export const devStrategy = "hmr";',
-      "export const devInjectTool = false;",
-      "export const devToolUrl = null;",
       "export const dropletsById = {",
       '  "a": true,',
       "};",
@@ -192,13 +195,13 @@ describe("buildClientCode", () => {
       'export const dropletsStylesById = JSON.parse("__DROPLETS_STYLES__");',
       "",
     ].join("\n");
-    expect(buildClientCode([entry({ id: "a" })], "h", "djs-droplet", undefined, true)).toBe(built);
-    expect(buildClientCode([entry({ id: "a" })], "h", "djs-droplet", undefined, true, null)).toBe(built);
+    expect(buildClientCode([entry({ id: "a" })], "h", "djs-droplet", true)).toBe(built);
+    expect(buildClientCode([entry({ id: "a" })], "h", "djs-droplet", true, null)).toBe(built);
   });
 
   it("imports src/hooks.client.ts and calls its init, last, when there is one", () => {
-    const plain = buildClientCode([entry({ id: "a" })], "h", "djs-droplet", undefined, true);
-    const code = buildClientCode([entry({ id: "a" })], "h", "djs-droplet", undefined, true, "/src/hooks.client.ts");
+    const plain = buildClientCode([entry({ id: "a" })], "h", "djs-droplet", true);
+    const code = buildClientCode([entry({ id: "a" })], "h", "djs-droplet", true, "/src/hooks.client.ts");
     expect(code.startsWith(plain)).toBe(true);
     expect(code.slice(plain.length)).toBe(clientInitCode("/src/hooks.client.ts"));
     expect(clientInitCode("/src/hooks.client.mjs", "/pkg/client-init.js")).toBe(
@@ -281,6 +284,14 @@ describe("createClientModuleCode", () => {
       expect(code).not.toContain("client-dev");
       expect(code).not.toContain("function update(");
     }
+  });
+
+  it("accepts its component's HMR update with dev only, for the remount in place", () => {
+    const hello = entry({ name: "Hello" });
+    expect(createClientModuleCode("/src/droplets", hello, renderers, true)).toContain('new CustomEvent("droplets:hot-fallback"');
+    const built = createClientModuleCode("/src/droplets", hello, renderers);
+    expect(built).not.toContain("import.meta.hot");
+    expect(built).not.toContain("droplets:hot-fallback");
   });
 });
 

@@ -5,6 +5,7 @@ import {
   isValidElementName,
   normalizeDropletsFolder,
   resolveConfig,
+  resolveDevConfig,
 } from "../../src/core/config.ts";
 
 describe("config()", () => {
@@ -59,9 +60,10 @@ describe("resolveConfig", () => {
       fragmentCacheControl: "private, no-store",
       csrf: { checkOrigin: true },
       limits: DEFAULTS.limits,
-      dev: { server: { port: DEFAULTS.devPort }, strategy: "hmr", injectTool: false },
       server: { port: DEFAULTS.serverPort },
     });
+    // `dev` apart, for the Vite plugin: a production server never resolves it.
+    expect(resolveDevConfig({})).toEqual({ server: { port: DEFAULTS.devPort }, strategy: "hmr", injectTool: false });
   });
 
   it("normalizes trustedOrigins and refuses what is not an origin", () => {
@@ -89,9 +91,9 @@ describe("resolveConfig", () => {
   });
 
   it("takes a dev strategy and refuses an unknown one", () => {
-    expect(resolveConfig({ dev: { strategy: "reload" } }).dev.strategy).toBe("reload");
-    expect(resolveConfig({ dev: { strategy: "manual" } }).dev.strategy).toBe("manual");
-    expect(() => resolveConfig({ dev: { strategy: "hot" as never } })).toThrow(
+    expect(resolveDevConfig({ dev: { strategy: "reload" } }).strategy).toBe("reload");
+    expect(resolveDevConfig({ dev: { strategy: "manual" } }).strategy).toBe("manual");
+    expect(() => resolveDevConfig({ dev: { strategy: "hot" as never } })).toThrow(
       'droplets: dev.strategy is "hot"; use "hmr", "remount", "reload", "manual"',
     );
   });
@@ -107,12 +109,9 @@ describe("resolveConfig", () => {
   });
 
   it("lets PORT override both ports", () => {
-    const resolved = resolveConfig(
-      { dev: { server: { port: 3000 } }, server: { port: 4000 } },
-      { port: "9000" },
-    );
-    expect(resolved.dev.server.port).toBe(9000);
-    expect(resolved.server.port).toBe(9000);
+    const user = { dev: { server: { port: 3000 } }, server: { port: 4000 } };
+    expect(resolveDevConfig(user, { port: "9000" }).server.port).toBe(9000);
+    expect(resolveConfig(user, { port: "9000" }).server.port).toBe(9000);
   });
 
   it("ignores a non-numeric PORT", () => {

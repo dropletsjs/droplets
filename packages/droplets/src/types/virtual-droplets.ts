@@ -45,12 +45,6 @@ export const publicEnvNames: string[] = [];
 /** Client build: build identity + which droplets exist / hydrate. */
 export const buildHash = "";
 export const elementName = "djs-droplet";
-/** Client build: `dev.strategy` of the config; read only under `vite dev`. */
-export const devStrategy = "hmr" as "hmr" | "remount" | "reload" | "manual";
-/** Client build: `dev.injectTool` of the config; read only under `vite dev`. */
-export const devInjectTool = false as boolean;
-/** Client build: the dev tool's module under `vite dev` when `dropletsDevtools()` is installed, else `null`. */
-export const devToolUrl = null as string | null;
 export const dropletsById: Record<string, boolean> = {};
 /** Client build: the droplets that hydrate, and when (`true`, `"visible"`, `"interactive"`). */
 export const dropletsHydrateById: Record<string, true | "visible" | "interactive"> = {};

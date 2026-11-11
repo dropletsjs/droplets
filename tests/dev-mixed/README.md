@@ -21,6 +21,14 @@ marker on `window` that a reload would lose:
   in core's toast or in the dev tool.
 - `index.js?strategy=remount` still remounts.
 
+`test/production.test.ts` builds the same project with `vite build` (copied
+to `.tmp/production`) and checks that nothing of the above is in it: none of
+a list of dev markers (HMR event names, `import.meta.hot`, the notices, the
+dev tool's hooks, dev-only warnings, Fast Refresh and Prefresh globals) in
+any emitted JavaScript, no `update` export in a droplet's client module, and
+no code of a dev module (`dev-element`, `dev-notify`, `dev-contract`,
+`client-dev`, the devtools) in any chunk, nor a file of one in `dist/`.
+
 ```bash
 pnpm build                                          # the packages first
 pnpm --filter @dropletsjs/tests-dev-mixed test      # or: pnpm test, with everything else
