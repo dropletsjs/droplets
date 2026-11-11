@@ -7,9 +7,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // The Worker build under `wrangler dev` (workerd, local, no account), with
 // the assets config of wrangler.jsonc as it is deployed: `run_worker_first`
-// lists only /index.js and /droplets/*, so every other file is served as a
-// static asset without invoking the Worker. Built into dist-worker/ so the
-// Node build in dist/ stays as it is.
+// is true, so every request, files included, reaches the Worker. Built into
+// dist-worker/ so the Node build in dist/ stays as it is.
 const root = fileURLToPath(new URL("..", import.meta.url));
 const out = join(root, "dist-worker");
 const DOCS = "https://dropletsjs.dev";
@@ -103,12 +102,11 @@ describe("the Worker, behind run_worker_first", () => {
     expect(code.endsWith(`import("./${manifest.__entryModule}");\n`)).toBe(true);
   });
 
-  it("serves /assets/* as static assets, with public/_headers and no Worker", async () => {
+  it("serves /assets/* itself, through the binding, with CORS and cached for good", async () => {
     for (const path of [manifest.__entryModule, manifest.__globalCss]) {
       const response = await call(`/${path}`);
       expect(response.status, path).toBe(200);
-      // The Worker's own answer would say max-age=2592000: this is _headers'.
-      expect(response.headers.get("cache-control"), path).toBe("public, max-age=31536000, immutable");
+      expect(response.headers.get("cache-control"), path).toBe("public, max-age=2592000, immutable");
       expect(response.headers.get("access-control-allow-origin"), path).toBe(DOCS);
     }
   });

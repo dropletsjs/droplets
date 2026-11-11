@@ -17,6 +17,8 @@ describe("createStaticHandler", () => {
     await writeFile(join(root, "assets/font.woff2"), "font");
     await writeFile(join(root, "assets/blob.unknown"), "?");
     await writeFile(join(root, "droplets.json"), "{}");
+    await mkdir(join(root, "assets/public/img"), { recursive: true });
+    await writeFile(join(root, "assets/public/img/logo.svg"), "<svg/>");
     app = new Hono();
     app.get("/assets/*", createStaticHandler(root));
   });
@@ -39,6 +41,24 @@ describe("createStaticHandler", () => {
 
     const other = await app.request("/assets/blob.unknown");
     expect(other.headers.get("content-type")).toBe("application/octet-stream");
+  });
+
+  it("revalidates public/ under /assets/public/: no-cache, an ETag, 304 when it matches", async () => {
+    const res = await app.request("/assets/public/img/logo.svg");
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("<svg/>");
+    expect(res.headers.get("content-type")).toBe("image/svg+xml");
+    expect(res.headers.get("cache-control")).toBe("no-cache");
+    const etag = res.headers.get("etag")!;
+    expect(etag).toMatch(/^"[\w-]+"$/);
+
+    const again = await app.request("/assets/public/img/logo.svg", { headers: { "if-none-match": `"x", ${etag}` } });
+    expect(again.status).toBe(304);
+    expect(await again.text()).toBe("");
+    const changed = await app.request("/assets/public/img/logo.svg", { headers: { "if-none-match": '"x"' } });
+    expect(changed.status).toBe(200);
+    // Hashed files never revalidate.
+    expect((await app.request("/assets/style-abc.css")).headers.get("etag")).toBeNull();
   });
 
   it("404s missing files", async () => {

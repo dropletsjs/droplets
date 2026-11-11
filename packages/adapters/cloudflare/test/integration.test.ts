@@ -190,6 +190,41 @@ describe("cloudflare adapter", () => {
     expect(asset.headers.get("x-served-by")).toBe("assets-binding");
   });
 
+  it("serves public/ at /assets/public/, revalidated: no-cache, an ETag, 304 when it matches", async () => {
+    const res = await call("/assets/public/robots.txt");
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("User-agent: *\n");
+    expect(res.headers.get("cache-control")).toBe("no-cache");
+    const etag = res.headers.get("etag")!;
+    expect(etag).toMatch(/^"[\w-]+"$/);
+    const again = await call("/assets/public/robots.txt", { headers: { "if-none-match": etag } });
+    expect(again.status).toBe(304);
+    expect(await again.text()).toBe("");
+    expect((await call("/robots.txt")).status).toBe(404);
+
+    // The binding's own ETag and 304 when it has them.
+    const binding = {
+      fetch: async (input: Request) =>
+        input.headers.get("if-none-match") === '"cf"'
+          ? new Response(null, { status: 304, headers: { etag: '"cf"' } })
+          : new Response("file", { headers: { etag: '"cf"', "cache-control": "public, max-age=14400" } }),
+    };
+    const own = (init?: RequestInit) =>
+      worker.default.fetch(new Request("http://drops.test/assets/public/a.txt", init), { ...env, ASSETS: binding }, {});
+    const first = await own();
+    expect(first.headers.get("etag")).toBe('"cf"');
+    expect(first.headers.get("cache-control")).toBe("no-cache");
+    const matched = await own({ headers: { "if-none-match": '"cf"' } });
+    expect(matched.status).toBe(304);
+    expect(matched.headers.get("cache-control")).toBe("no-cache");
+  });
+
+  it("never runs handle for /index.js or /assets/*, and runs it for /droplets/*", async () => {
+    expect((await call("/index.js")).headers.get("x-fixture-hook")).toBeNull();
+    expect((await call("/assets/public/robots.txt")).headers.get("x-fixture-hook")).toBeNull();
+    expect((await call("/droplets/hello")).headers.get("x-fixture-hook")).toBe("1");
+  });
+
   it("finds only droplets in the manifest, never prototype members", async () => {
     for (const id of ["__proto__", "constructor", "toString"]) {
       expect((await call(`/droplets/${id}/client.js`)).status, id).toBe(404);

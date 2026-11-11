@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { resolve, sep } from "node:path";
 import { readFile } from "node:fs/promises";
 import type { Context } from "hono";
@@ -30,11 +31,14 @@ function contentTypeFor(path: string): string {
 
 /**
  * Serves the shared chunks and assets Vite emits alongside the droplet
- * bundles. Everything here is content-hashed, hence the immutable caching.
+ * bundles, content-hashed and so cached for good, and the project's
+ * `public/` under `/assets/public/`, whose names stay: revalidated on every
+ * use (`no-cache`, an `ETag`, 304 when it matches).
  */
 export function createStaticHandler(clientRoot: string) {
   const assetsRoot = resolve(clientRoot, "assets");
   const assetsPrefix = assetsRoot + sep;
+  const publicPrefix = resolve(assetsRoot, "public") + sep;
 
   return async (c: Context): Promise<Response> => {
     const relativePath = c.req.path.replace(/^\/assets\//, "");
@@ -45,13 +49,21 @@ export function createStaticHandler(clientRoot: string) {
       return c.text("Not Found", 404);
     }
 
+    let body: Buffer;
     try {
-      const body = await readFile(filePath);
-      c.header("content-type", contentTypeFor(filePath));
-      c.header("cache-control", "public, max-age=2592000, immutable");
-      return c.body(new Uint8Array(body));
+      body = await readFile(filePath);
     } catch {
       return c.text("Not Found", 404);
     }
+    c.header("content-type", contentTypeFor(filePath));
+    if (!filePath.startsWith(publicPrefix)) {
+      c.header("cache-control", "public, max-age=2592000, immutable");
+      return c.body(new Uint8Array(body));
+    }
+    const etag = `"${createHash("sha1").update(body).digest("base64url")}"`;
+    c.header("cache-control", "no-cache");
+    c.header("etag", etag);
+    if (c.req.header("if-none-match")?.split(",").some((tag) => tag.trim() === etag)) return c.body(null, 304);
+    return c.body(new Uint8Array(body));
   };
 }

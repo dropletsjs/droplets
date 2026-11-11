@@ -12,16 +12,11 @@
   "assets": {
     "directory": "dist/client",
     "binding": "ASSETS",
-    // Only the routes whose path is also a file in dist/client go to the
-    // Worker first: /index.js (the file there is the bare entry import; the
-    // Worker serves the stub that records where it was loaded from) and
-    // /droplets/* (fragments, _data, actions, style.css, and client.js with
-    // CORS). Every other file, /assets/* above all, is served as a static
-    // asset without invoking the Worker, with public/_headers' headers. A
-    // path that is no file (/health, /droplets.json, /.vite/…, which
-    // .assetsignore keeps out of the upload) still reaches the Worker,
-    // which answers it or 404s.
-    "run_worker_first": ["/index.js", "/droplets/*"]
+    // Every request reaches the Worker first, files included: /index.js is
+    // the stub that records where it was loaded from, and /droplets/* and
+    // /assets/* get CORS and their cache headers. The Worker reads the files
+    // through the binding. The adapter's build stops unless this is true.
+    "run_worker_first": true
   },
   // Served only on the custom domain; no *.workers.dev or preview copies.
   "workers_dev": false,

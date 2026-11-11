@@ -56,16 +56,40 @@ function createLoaders(assets: AssetsFetcher): AssetLoaders {
       : {}),
     externals: manifest.__externals ?? [],
     dropletStyles: (droplet) => Promise.resolve(dropletEntry(droplet)?.css ?? []),
-    // The entry, shared chunks and assets, from the binding. Every name
-    // under `/assets/` is unique to its build, so it is cached for good.
+    // The entry, shared chunks and assets, from the binding, named by
+    // their content and cached for good; `public/` under `/assets/public/`
+    // keeps its names, so it is revalidated (the binding's ETag, its 304).
     assetHandler: async (c) => {
       const response = await assets.fetch(c.req.raw);
-      if (!response.ok) return response;
-      const cached = new Response(response.body, response);
-      cached.headers.set("cache-control", "public, max-age=2592000, immutable");
-      return cached;
+      if (!c.req.path.startsWith("/assets/public/")) {
+        if (!response.ok) return response;
+        const cached = new Response(response.body, response);
+        cached.headers.set("cache-control", "public, max-age=2592000, immutable");
+        return cached;
+      }
+      if (!response.ok && response.status !== 304) return response;
+      return revalidated({ response, ifNoneMatch: c.req.header("if-none-match") });
     },
   };
+}
+
+/** A `public/` file from the binding, for `revalidated`. */
+type PublicAnswer = { response: Response; ifNoneMatch: string | undefined };
+
+/** `no-cache` with an `ETag`: the binding's, else one from the content, answered 304 when it matches. */
+async function revalidated({ response, ifNoneMatch }: PublicAnswer): Promise<Response> {
+  const headers = new Headers(response.headers);
+  headers.set("cache-control", "no-cache");
+  if (response.status === 304 || headers.has("etag")) return new Response(response.body, { status: response.status, headers });
+  const body = await response.arrayBuffer();
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-1", body));
+  const etag = `"${btoa(String.fromCharCode(...digest)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")}"`;
+  headers.set("etag", etag);
+  if (ifNoneMatch?.split(",").some((tag) => tag.trim() === etag)) {
+    headers.delete("content-length");
+    return new Response(null, { status: 304, headers });
+  }
+  return new Response(body, { status: response.status, headers });
 }
 
 function getApp(env: Env) {

@@ -65,13 +65,12 @@ npx wrangler secret put DROPLETS_SECRET   # once: openssl rand -base64 32
 npx wrangler deploy
 ```
 
-`run_worker_first` lists only `/index.js` and `/droplets/*`: the two kinds
-of paths that are also files in `dist/client` but must be answered by the
-Worker. Everything else under `dist/client`, `/assets/*` above all, is
-served as a static asset without invoking the Worker, with the headers of
-`public/_headers` (CORS for https://dropletsjs.dev, cached for a year). A
-path that is no file (`/health`, `/droplets.json`, which `.assetsignore`
-keeps out of the upload) still reaches the Worker. `test/worker.test.ts`
+`run_worker_first` is `true`, as the Cloudflare adapter requires: every
+request reaches the Worker, which answers `/index.js` with the stub that
+records where it was loaded from and reads `/droplets/*` and `/assets/*`
+through the assets binding, with CORS for https://dropletsjs.dev and their
+cache headers. A path that is no file (`/health`) is the Worker's too, and
+`/droplets.json` is never uploaded (`.assetsignore`). `test/worker.test.ts`
 runs the Worker build under `wrangler dev` with this config and checks that
 nothing server-only is reachable.
 

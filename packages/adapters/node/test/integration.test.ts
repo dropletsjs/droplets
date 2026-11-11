@@ -117,6 +117,31 @@ describe("node adapter", () => {
     expect(await (await app.request("/")).text()).toContain("Powering Microfrontends");
   });
 
+  it("serves public/ at /assets/public/ alone, revalidated, and never through handle", async () => {
+    const app = await createNodeServerApp(
+      {
+        clientRoot: resolve(outDir, "client"),
+        ssrEntryUrl: pathToFileURL(resolve(outDir, "server/entry-server.js")).href,
+      },
+      resolveConfig({ element: "test-droplet" }),
+    );
+    expect(existsSync(resolve(outDir, "client/assets/public/robots.txt"))).toBe(true);
+    expect(existsSync(resolve(outDir, "client/robots.txt"))).toBe(false);
+    expect(existsSync(resolve(outDir, "robots.txt"))).toBe(false);
+    expect(existsSync(resolve(outDir, "server/robots.txt"))).toBe(false);
+
+    const res = await app.request("http://drops.test/assets/public/robots.txt");
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("User-agent: *\n");
+    expect(res.headers.get("cache-control")).toBe("no-cache");
+    expect(res.headers.get("x-fixture-hook")).toBeNull();
+    const etag = res.headers.get("etag")!;
+    expect((await app.request("http://drops.test/assets/public/robots.txt", { headers: { "if-none-match": etag } })).status).toBe(304);
+    expect((await app.request("http://drops.test/robots.txt")).status).toBe(404);
+    expect((await app.request("http://drops.test/index.js")).headers.get("x-fixture-hook")).toBeNull();
+    expect((await app.request("http://drops.test/droplets/hello")).headers.get("x-fixture-hook")).toBe("1");
+  });
+
   it("runs hooks and API routes from the SSR bundle", async () => {
     const app = await createNodeServerApp(
       {
