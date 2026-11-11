@@ -102,8 +102,13 @@ export function dropletTypesCode(
  * resolve. It is also the nearest tsconfig of the generated files, which
  * Vue's compiler reads to resolve the packages they import
  * (`defineProps<DropletProps>()`): Vite's resolution, so `exports` count.
+ *
+ * `shadowed` (`+droplet.tsx` next to `+droplet.ts`) go in `files`: an
+ * `include` glob keeps only the `.ts` of a pair. `files` alone would empty a
+ * project's default `include`, so the default comes along: a project's own
+ * `include` replaces it.
  */
-export function typesTsconfig(root: string, typesRoot: string): string {
+export function typesTsconfig(root: string, typesRoot: string, shadowed: string[] = []): string {
   const dir = resolve(root, TYPES_DIR);
   return `${JSON.stringify(
     {
@@ -112,10 +117,23 @@ export function typesTsconfig(root: string, typesRoot: string): string {
         moduleResolution: "bundler",
         rootDirs: [specifier(dir, root), specifier(dir, typesRoot)],
       },
+      ...(shadowed.length > 0 && {
+        include: ["${configDir}/**/*"],
+        files: shadowed.map((file) => specifier(dir, file)),
+      }),
     },
     null,
     2,
   )}\n`;
+}
+
+/** The `x.tsx` files of `folder` with an `x.ts` beside them. */
+async function shadowedFiles(folder: string): Promise<string[]> {
+  const names = new Set(await readdir(folder).catch(() => []));
+  return [...names]
+    .filter((name) => name.endsWith(".tsx") && names.has(name.slice(0, -1)))
+    .sort()
+    .map((name) => join(folder, name));
 }
 
 /**
@@ -167,9 +185,11 @@ export async function syncDropletTypes(input: SyncInput): Promise<{ written: str
   const byName = new Map(input.renderers.map((renderer) => [renderer.name, renderer]));
   const written: string[] = [];
   const wanted = new Set<string>();
+  const shadowed: string[] = [];
 
   for (const entry of input.entries) {
     const folder = resolve(input.dropletsRoot, entry.name);
+    shadowed.push(...(await shadowedFiles(folder)));
     const file = resolve(typesRoot, relative(input.root, folder), TYPES_FILE);
     wanted.add(file);
     const code = dropletTypesCode(entry, byName.get(entry.renderer), file, folder, posix(relative(input.root, folder)));
@@ -178,7 +198,7 @@ export async function syncDropletTypes(input: SyncInput): Promise<{ written: str
     }
   }
   const tsconfig = resolve(input.root, TYPES_DIR, "tsconfig.json");
-  if (await writeIfChanged(tsconfig, typesTsconfig(input.root, typesRoot))) written.push(tsconfig);
+  if (await writeIfChanged(tsconfig, typesTsconfig(input.root, typesRoot, shadowed))) written.push(tsconfig);
 
   for (const stale of await listGenerated(typesRoot)) {
     if (!wanted.has(stale)) await rm(stale);

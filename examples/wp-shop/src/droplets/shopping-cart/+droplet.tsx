@@ -64,7 +64,7 @@ export default function ShoppingCart({ data, form }: DropletProps) {
     emit("shop:cart-changed", { count: result.count, cart: result });
     return true;
   }, [show]);
-  useEffect(() => void applied(isRecord(form) ? form["cart"] : undefined), [form, applied]);
+  useEffect(() => void applied(form && "cart" in form ? form.cart : undefined), [form, applied]);
 
   useEffect(() => {
     const stops = [
@@ -234,7 +234,7 @@ function CartForm({ action, className, applied, children }: {
   const ref = useRef<HTMLFormElement>(null);
   useEnhanceDropletForm<DropletActions>(ref, {
     onResult: ({ type, data, update }) =>
-      type === "success" && isRecord(data) && applied(data["cart"]) ? undefined : update(),
+      type === "success" && data && "cart" in data && applied(data.cart) ? undefined : update(),
   });
   return <form method="post" action={action} className={className} ref={ref}>{children}</form>;
 }

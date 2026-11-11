@@ -389,7 +389,11 @@ for `handleError` (`satisfies HandleDropletError`).
 
 The files live in `.droplets/types/`, mirroring the droplet folders, and
 `.droplets/tsconfig.json` maps them next to the droplets with `rootDirs`:
-extend it from your `tsconfig.json`. `vite dev` rewrites them as droplets
+extend it from your `tsconfig.json`. It also lists, under `files`, each
+`+droplet.tsx` that sits next to a `+droplet.ts`: TypeScript's `include`
+globs keep only the `.ts` of two files with the same name, so without it the
+component would never be checked. Your own `files` replaces that list, so
+leave `files` out of your `tsconfig.json`. `vite dev` rewrites them as droplets
 come and go, `vite build` writes them too, and `djs sync` writes them without
 either, for a type check on a fresh checkout (`"prepare": "djs sync"`).
 

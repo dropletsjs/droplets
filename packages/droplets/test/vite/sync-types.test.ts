@@ -78,6 +78,25 @@ describe("syncDropletTypes", () => {
       "export type Data",
     );
   });
+  it("lists a +droplet.tsx that a +droplet.ts shadows, and only then", async () => {
+    const root = await mkdtemp(join(tmpdir(), "droplets-types-"));
+    temps.push(root);
+    for (const file of ["pair/+droplet.ts", "pair/+droplet.tsx", "pair/+error.tsx", "alone/+droplet.tsx"]) {
+      await mkdir(dirname(resolve(root, "src/droplets", file)), { recursive: true });
+      await writeFile(resolve(root, "src/droplets", file), "");
+    }
+    const input = { root, dropletsRoot: resolve(root, "src/droplets"), renderers: [] };
+    const tsconfig = async () => JSON.parse(await readFile(resolve(root, ".droplets/tsconfig.json"), "utf8"));
+
+    await syncDropletTypes({ ...input, entries: [entry("alone", { file: "+droplet.tsx", renderer: "react" })] });
+    expect(await tsconfig()).not.toHaveProperty("files");
+
+    await syncDropletTypes({ ...input, entries: [entry("pair", { file: "+droplet.tsx", renderer: "react", hasLoad: true })] });
+    expect(await tsconfig()).toMatchObject({
+      include: ["${configDir}/**/*"],
+      files: ["../src/droplets/pair/+droplet.tsx"],
+    });
+  });
 });
 
 describe("./$types, as TypeScript reads them", () => {
@@ -264,5 +283,53 @@ describe("./$types, as TypeScript reads them", () => {
       entries: [entry("tracker", { file: "+droplet.script.ts", renderer: "script", hasServerLoad: true })],
     });
     expect(diagnostics(root, ["src/droplets/tracker/+droplet.script.ts"])).toEqual([]);
+  });
+
+  it("checks +droplet.tsx next to +droplet.ts through the project's tsconfig, with or without its own include", async () => {
+    const droplet = {
+      "src/droplets/card/+droplet.ts": "export const load = () => ({ label: \"hi\" });",
+      "src/droplets/card/+droplet.tsx": [
+        'import type { Data } from "./$types";',
+        "export const ok: Data = { label: \"hi\" };",
+        "export const wrong: Data = { label: 1 };",
+      ].join("\n"),
+      "src/other.ts": "export const other = 1;",
+    };
+    const options = {
+      strict: true,
+      noEmit: true,
+      jsx: "preserve",
+      module: "esnext",
+      moduleResolution: "bundler",
+      allowImportingTsExtensions: true,
+      skipLibCheck: true,
+    };
+    for (const include of [["src/**/*.ts", "src/**/*.tsx"], undefined]) {
+      const root = await project({
+        ...droplet,
+        "tsconfig.json": JSON.stringify({ extends: "./.droplets/tsconfig.json", compilerOptions: options, include }),
+      });
+      await syncDropletTypes({
+        root,
+        dropletsRoot: resolve(root, "src/droplets"),
+        renderers: [],
+        entries: [entry("card", { file: "+droplet.tsx", renderer: "react", hasLoad: true })],
+      });
+      const parsed = ts.getParsedCommandLineOfConfigFile(resolve(root, "tsconfig.json"), {}, {
+        ...ts.sys,
+        onUnRecoverableConfigFileDiagnostic: (d) => {
+          throw new Error(ts.flattenDiagnosticMessageText(d.messageText, "\n"));
+        },
+      });
+      if (!parsed) throw new Error("no tsconfig");
+      expect(parsed.errors).toEqual([]);
+      const names = parsed.fileNames.map((file) => file.slice(root.length));
+      expect(names).toEqual(expect.arrayContaining(["/src/droplets/card/+droplet.ts", "/src/droplets/card/+droplet.tsx", "/src/other.ts"]));
+      const program = ts.createProgram(parsed.fileNames, parsed.options);
+      const found = ts
+        .getPreEmitDiagnostics(program)
+        .map((d) => `${d.file?.fileName.slice(root.length)}:${d.file?.getLineAndCharacterOfPosition(d.start ?? 0).line} ${ts.flattenDiagnosticMessageText(d.messageText, "\n")}`);
+      expect(found).toEqual(["/src/droplets/card/+droplet.tsx:2 Type 'number' is not assignable to type 'string'."]);
+    }
   });
 });

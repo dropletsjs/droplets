@@ -5,6 +5,8 @@
     "jsx": "react-jsx",
     "jsxImportSource": "preact"
   },
+  // Each sits next to a +droplet.ts, which an include glob keeps in its place.
+  "files": ["test/fixtures/app/src/droplets/docs/+droplet.tsx", "test/fixtures/app/src/droplets/hello/+droplet.tsx"],
   "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx", "vitest.config.ts", "tsdown.config.ts"],
   // A build fixture: its shared JSX is compiled for two frameworks, typed for neither.
   "exclude": ["test/fixtures/mixed"]
