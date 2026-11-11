@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { fakeRenderer } from "@dropletsjs/droplets/testing";
 import { droplets } from "@dropletsjs/droplets/vite";
-import { createServer, type ConfigEnv, type ViteDevServer } from "vite";
+import { createLogger, createServer, type ConfigEnv, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { dropletsDevtools, renderDevtoolsPage } from "../src/index.ts";
 
@@ -36,7 +36,7 @@ describe("renderDevtoolsPage", () => {
     expect(html).toContain('<script type="importmap">{"imports":{"lib":"https://cdn.test/lib.js"}}</script>');
     expect(html).toContain("&lt;acme-widget&gt;");
     expect(html).not.toContain("x</script>");
-    expect(html).toContain('<script type="module" src="/index.js?injectTool=true"></script>');
+    expect(html).toContain('<script type="module" vite-ignore="true" src="/index.js?injectTool=true"></script>');
   });
 
   it("leaves the import map out when there is none", () => {
@@ -48,6 +48,9 @@ describe("renderDevtoolsPage", () => {
 describe("in vite dev", () => {
   let server: ViteDevServer;
   let origin: string;
+  const errors: string[] = [];
+  const logger = createLogger("silent");
+  logger.error = (message) => void errors.push(message);
 
   beforeAll(async () => {
     if (!existsSync(fileURLToPath(new URL("../dist/client/devtools-page.js", import.meta.url)))) {
@@ -56,7 +59,7 @@ describe("in vite dev", () => {
     server = await createServer({
       root,
       configFile: false,
-      logLevel: "silent",
+      customLogger: logger,
       plugins: [droplets({ renderers: [fakeRenderer()] }), dropletsDevtools()],
       // The fixture has importmap.server.ts; an external turns the map on.
       environments: { client: { build: { rolldownOptions: { external: ["case-anything"] } } } },
@@ -90,6 +93,26 @@ describe("in vite dev", () => {
     const script = await fetch(`${origin}${src}`);
     expect(script.status).toBe(200);
     expect(await script.text()).toContain("droplets:registry");
+  });
+
+  it("leaves the loader to the droplets app: no pre-transform of index.js", async () => {
+    errors.length = 0;
+    const html = await (await fetch(`${origin}/`)).text();
+    expect(html).toMatch(/<script type="module"\s+src="\/index\.js\?injectTool=true"><\/script>/);
+    expect(html).not.toContain("vite-ignore");
+    // Vite warms the page's module scripts in the background, unawaited.
+    await new Promise((done) => setTimeout(done, 500));
+    expect(errors.filter((message) => message.includes("Pre-transform error"))).toEqual([]);
+    const loader = await fetch(`${origin}/index.js?injectTool=true`);
+    expect(loader.headers.get("content-type")).toContain("javascript");
+  });
+
+  it("keeps the page's own styles out of the droplet scoping", async () => {
+    const html = await (await fetch(`${origin}/`)).text();
+    const style = html.match(/<style>([^<]*)<\/style>/)?.[1] ?? "";
+    expect(style.startsWith(":root {")).toBe(true);
+    expect(style).toContain(".dt-panel, .dt-pill {");
+    expect(style).not.toContain("test-droplet");
   });
 
   const pageData = (html: string) =>

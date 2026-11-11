@@ -2,7 +2,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Connect, Plugin } from "vite";
 import type { DropletsPluginApi } from "@dropletsjs/droplets/vite";
-import { renderDevtoolsPage, type ServerRender } from "./page.tsx";
+import { renderDevtoolsPage, withPageStyles, type ServerRender } from "./page.tsx";
 import { fragmentRequest, readToolState } from "./shared.ts";
 
 export { renderDevtoolsPage, type DevtoolsPageInput, type ServerRender } from "./page.tsx";
@@ -121,7 +121,9 @@ export function dropletsDevtools(): Plugin {
           const origin = originOf(req);
           const search = query ? `?${query}` : "";
           const serverMode = new URLSearchParams(search).has("droplet");
-          const html = await server.transformIndexHtml(
+          // Added after Vite: it runs inline `<style>` through PostCSS, where
+          // the droplets scoping would nest the page's CSS under the element.
+          const transformed = await server.transformIndexHtml(
             req.url ?? "/",
             renderDevtoolsPage({
               element: api.element(),
@@ -131,9 +133,11 @@ export function dropletsDevtools(): Plugin {
               clientUrl: fsUrl(clientFile),
               server: serverMode ? await renderOnServer(api, origin, search) : undefined,
               strategy: api.strategy(),
+              pageStyles: false,
             }),
             req.originalUrl,
           );
+          const html = withPageStyles(transformed);
           res.statusCode = 200;
           res.setHeader("content-type", "text/html; charset=utf-8");
           res.setHeader("cache-control", "no-store");

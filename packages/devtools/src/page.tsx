@@ -30,7 +30,14 @@ export type DevtoolsPageInput = {
   server?: ServerRender | undefined;
   /** `dev.strategy` of the config: under `hmr` the page leaves edits to the element. */
   strategy?: string;
+  /** `false` leaves the page's own `<style>` out, for `withPageStyles` to add. */
+  pageStyles?: boolean;
 };
+
+/** The page's own `<style>`, last in `<head>`, as `renderDevtoolsPage` puts it. */
+export function withPageStyles(html: string): string {
+  return html.replace("</head>", () => `<style>${STYLES}</style></head>`);
+}
 
 /** JSON that cannot close the `<script>` it sits in. */
 function jsonForScript(value: unknown): string {
@@ -135,7 +142,7 @@ export function renderDevtoolsPage(input: DevtoolsPageInput): string {
         <title>Droplets devtools</title>
         {raw(input.importMap ?? "")}
         {(input.server?.styles ?? []).map((href) => <link rel="stylesheet" href={href} />)}
-        <style>{raw(STYLES)}</style>
+        {input.pageStyles === false ? "" : <style>{raw(STYLES)}</style>}
       </head>
       <body>
         <div id="dt-stage">{raw(input.server?.html ?? "")}</div>
@@ -146,8 +153,10 @@ export function renderDevtoolsPage(input: DevtoolsPageInput): string {
         </button>
         <Panel element={input.element} />
         <script type="application/json" id="dt-data">{raw(jsonForScript(data))}</script>
-        {/* The dev tool is always on here: the page is a host like any other. */}
-        <script type="module" src={`${input.loaderUrl}?injectTool=true`}></script>
+        {/* The dev tool is always on here: the page is a host like any other.
+            vite-ignore: the droplets app serves index.js, not Vite's module
+            graph, so Vite's pre-transform of it would only log an error. */}
+        <script type="module" vite-ignore src={`${input.loaderUrl}?injectTool=true`}></script>
         <script type="module" src={input.clientUrl}></script>
       </body>
     </html>
