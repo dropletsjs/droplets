@@ -99,11 +99,10 @@ export type RequestEvent<Params extends Record<string, string> = Record<string, 
   /** The request URL, on the public origin a trusted proxy named (see `origin` in the config). */
   url: URL;
   /**
-   * Where the droplet renders: the host page. Taken the classic way: the
-   * `host` a render request sends in its JSON body, else `Forwarded`, else
-   * `X-Forwarded-Proto` + `X-Forwarded-Host`, else `Origin`, else the
-   * request's own origin. Headers carry no path, so it is `/` unless the
-   * body gave one. Only `http:` and `https:` URLs count, without
+   * Where the droplet renders: the host page. The `host` a render request
+   * sends in its JSON body, else `Origin`, else the origin of this server's
+   * location. Headers carry no path, so it is `/` unless the body gave one.
+   * `Referer` counts only through `hostFrom` in `handle`. Only `http:` and `https:` URLs count, without
    * credentials or hash. With `trustedOrigins` set, a host outside it (and
    * not this server) is replaced by this server's origin. `handle` may
    * replace it (`event.host = new URL(…)`); droplets see it as `handle` left

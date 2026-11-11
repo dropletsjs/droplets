@@ -11,7 +11,7 @@ interface; anything that can make a request can host a droplet.
 | Route | Returns |
 | --- | --- |
 | `GET /droplets/:id` | The droplet as an HTML fragment, props from the query string (or `x-droplet-props`) |
-| `POST /droplets/:id` | With a JSON body: the same fragment, props from `{ "host": "…", "props": { … } }` (`host` optional); the query string is never props here. With a form body: a [form action](#form-actions) |
+| `POST /droplets/:id` | With a JSON body: the same fragment, props from `{ "host": "…", "props": { … } }` (`host` optional: the page the droplet renders on, for a server-to-server request that has no browser `Origin` or `Referer`); the query string is never props here. With a form body: a [form action](#form-actions) |
 | `GET`, `POST /droplets/:id/_data` | `{ "data": … }`: the server load only, no rendering; other methods answer `405` |
 | `GET /droplets/:id/client.js` | That droplet's bundle; `404` when it never hydrates |
 | `GET /droplets/:id/style.css` | That droplet's stylesheets, the shared one first, as `@import`s; empty when it has none |
