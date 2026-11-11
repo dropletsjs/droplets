@@ -3,7 +3,7 @@
   "name": "droplets-example-handlebars",
   "main": "dist/worker.js",
   "compatibility_date": "2025-10-01",
-  // Svelte's server renderer uses AsyncLocalStorage from node:async_hooks.
+  // The request store uses AsyncLocalStorage from node:async_hooks.
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "dist/client",

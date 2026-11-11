@@ -176,7 +176,7 @@ export type CloudflareAdapterOptions = {
  * {
  *   "main": "dist/worker.js",
  *   "compatibility_date": "2025-10-01",
- *   "compatibility_flags": ["nodejs_compat"],   // Svelte's SSR uses AsyncLocalStorage
+ *   "compatibility_flags": ["nodejs_compat"],   // the request store uses AsyncLocalStorage
  *   "assets": { "directory": "dist/client", "binding": "ASSETS" }
  * }
  * ```

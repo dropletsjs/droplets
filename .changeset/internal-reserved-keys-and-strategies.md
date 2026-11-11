@@ -3,4 +3,4 @@
 "@dropletsjs/devtools": patch
 ---
 
-`@dropletsjs/droplets` no longer exports `DEV_STRATEGIES` (the `DevStrategy` type stays), and `@dropletsjs/droplets/enhance` no longer exports `isReservedQueryKey`. The devtools checks the reserved query keys with its own copy of the list.
+`DEV_STRATEGIES` and `isReservedQueryKey` are internal: `@dropletsjs/droplets` exports the `DevStrategy` type alone, `@dropletsjs/droplets/enhance` does not export the reserved query keys, and the devtools checks them with its own copy of the list.
