@@ -52,3 +52,4 @@ tests/hosts/recordings/
 
 # Claude Code's local state (worktrees, settings).
 .claude/
+CLAUDE.local.md
