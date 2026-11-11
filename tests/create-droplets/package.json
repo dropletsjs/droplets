@@ -30,7 +30,7 @@
     "create-droplets": "workspace:*",
     "hono": "^4.13.16",
     "lit": "^3.3.3",
-    "preact": "^11.2.0",
+    "preact": "^11.1.1",
     "preact-render-to-string": "^6.8.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
@@ -40,6 +40,6 @@
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",
-    "vue": "^3.5.45"
+    "vue": "^3.5.44"
   }
 }

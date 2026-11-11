@@ -74,13 +74,13 @@
     "@types/react-dom": "^19.3.0",
     "happy-dom": "^21.0.4",
     "hono": "^4.13.16",
-    "preact": "^11.2.0",
+    "preact": "^11.1.1",
     "preact-render-to-string": "^6.8.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "tsdown": "catalog:",
     "typescript": "^5.9.3",
-    "vite": "^8.3.6",
+    "vite": "^8.3.5",
     "vitest": "^5.1.0"
   }
 }

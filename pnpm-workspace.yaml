@@ -20,14 +20,17 @@ catalog:
   "@types/react-dom": ^19.3.0
   tailwindcss: ^4.3.4
   # Builds the published packages (packages/config).
-  tsdown: 0.23.7
+  tsdown: 0.23.5
   typescript: ^5.9.3
-  vite: ^8.3.6
+  vite: ^8.3.5
   vitest: ^5.1.0
-  wrangler: ^4.158.0
+  wrangler: ^4.157.0
 
 # pnpm's settings (pnpm 10 reads them here, npm never sees them).
 # Hoist nothing by default; keep resolution explicit.
 shamefullyHoist: false
 # The framework resolves its own source files, so link workspace deps.
 linkWorkspacePackages: true
+
+# Resolve only versions published at least 7 days ago (minutes).
+minimumReleaseAge: 10080
