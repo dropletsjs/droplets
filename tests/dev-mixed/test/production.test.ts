@@ -43,6 +43,7 @@ const DEV_MARKERS: (string | RegExp)[] = [
   "changed its render contract",
   "takes its children in one <div data-droplet-slot>",
   "use true, false, visible or interactive",
+  "a script droplet only runs in the browser",
   "updateInstance",
   "$RefreshReg$",
   "$RefreshSig$",

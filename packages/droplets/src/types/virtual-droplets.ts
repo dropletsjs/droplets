@@ -52,6 +52,8 @@ export const dropletsById: Record<string, boolean> = {};
 export const dropletsHydrateById: Record<string, true | "visible" | "interactive"> = {};
 /** Client build: droplets with `+droplet.server.ts`, the only ones with `_data`. */
 export const dropletsServerLoadById: Record<string, boolean> = {};
+/** Client build: script droplets (`+droplet.script.ts`), which only ever run in the browser. */
+export const dropletsScriptById: Record<string, boolean> = {};
 /**
  * Client build: every stylesheet of each droplet that has any, relative to
  * the server (`assets/…`), its shared chunks' first. Empty under `vite dev`.

@@ -428,6 +428,7 @@ export function buildClientCode(
     .map((e) => `  ${JSON.stringify(e.id)}: ${JSON.stringify(e.hydrate)},`);
   // Only these have server data to fetch from `_data`.
   const serverLoading = entries.filter((e) => e.hasServerLoad).map(flag);
+  const scripts = entries.filter((e) => isScriptDroplet(e)).map(flag);
 
   return [
     // Dev only: Vite injects the shared stylesheet and keeps it updated. A
@@ -445,6 +446,9 @@ export function buildClientCode(
     "};",
     "export const dropletsServerLoadById = {",
     ...serverLoading,
+    "};",
+    "export const dropletsScriptById = {",
+    ...scripts,
     "};",
     // Stylesheets per droplet, relative to the server: filled in once the
     // build is written. In dev, component styles come with the JavaScript.

@@ -81,6 +81,8 @@ export type DevElementEnv = {
   droplets: ReadonlySet<string>;
   hydration: Map<string, HydrateMode>;
   serverLoad: Set<string>;
+  /** Script droplets: the element ignores `data-hydrate="false"` on them. */
+  scripts: ReadonlySet<string>;
   /** Selector of what may be a direct child of the element. */
   allowedChildren: string;
   /** Errors the element logs as "nothing to render", the stale build one not even that. */
@@ -316,6 +318,9 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
     const asked = this.dataset["hydrate"];
     if (flag !== false && asked !== undefined && !["", "true", "false", "visible", "interactive"].includes(asked)) {
       console.warn(`[droplets] data-hydrate="${asked}": use true, false, visible or interactive; using the droplet's own`);
+    }
+    if (asked === "false" && env.scripts.has(this.dataset["droplet"] ?? "")) {
+      console.warn(`[droplets] data-hydrate="false" on the script droplet "${this.dataset["droplet"]}" is ignored: a script droplet only runs in the browser`);
     }
     return original.modeOf.call(this, flag, hasMarkup);
   };

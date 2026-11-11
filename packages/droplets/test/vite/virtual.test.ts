@@ -192,6 +192,8 @@ describe("buildClientCode", () => {
       "};",
       "export const dropletsServerLoadById = {",
       "};",
+      "export const dropletsScriptById = {",
+      "};",
       'export const dropletsStylesById = JSON.parse("__DROPLETS_STYLES__");',
       "",
     ].join("\n");

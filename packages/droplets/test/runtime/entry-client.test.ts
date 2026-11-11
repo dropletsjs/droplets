@@ -1792,6 +1792,27 @@ describe("lazy hydrate", () => {
     expect(String(warn.mock.calls[0]?.[0])).toContain('data-hydrate="idle": use true, false, visible or interactive');
     expect(fake.default).toHaveBeenCalledOnce();
   });
+
+  it("runs a script droplet whatever data-hydrate=\"false\" says, warning in dev; other values still apply", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => json({ data: {} })));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fake = fakeModule();
+    mount('<djs-droplet data-droplet="beacon" data-hydrate="false"></djs-droplet>');
+    await tick();
+    expect(mod.DjsDropletElement.importModule).toHaveBeenCalledWith(expect.stringContaining("/droplets/beacon/client.js"));
+    expect(fake.default).toHaveBeenCalledOnce();
+    expect(warn.mock.calls.map((call) => String(call[0]))).toContainEqual(
+      '[droplets] data-hydrate="false" on the script droplet "beacon" is ignored: a script droplet only runs in the browser',
+    );
+
+    const observers = fakeObserver();
+    mount('<djs-droplet data-droplet="beacon" data-hydrate="visible"></djs-droplet>');
+    await tick();
+    expect(fake.default).toHaveBeenCalledOnce();
+    observers[0]!.enter();
+    await tick();
+    expect(fake.default).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("what the dev tool sees", () => {

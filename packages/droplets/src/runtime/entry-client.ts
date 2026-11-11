@@ -2,6 +2,7 @@ import {
   buildHash,
   dropletsById,
   dropletsHydrateById,
+  dropletsScriptById,
   dropletsServerLoadById,
   dropletsStylesById,
   elementName,
@@ -15,6 +16,8 @@ const dropletRegistry = new Set(Object.keys(dropletsById));
 const hydrationRegistry = new Map(Object.entries(dropletsHydrateById));
 /** Droplets with `+droplet.server.ts`: only they have `_data` to fetch. */
 const serverLoadRegistry = new Set(Object.keys(dropletsServerLoadById));
+/** Script droplets: browser code alone, so `data-hydrate="false"` never stops one. */
+const scriptRegistry = new Set(Object.keys(dropletsScriptById));
 /** Every stylesheet of each droplet that has any, relative to its server. Empty in dev. */
 const styleRegistry = new Map(Object.entries(dropletsStylesById));
 
@@ -1085,7 +1088,7 @@ export class DjsDropletElement extends HTMLElement {
     const asked = this.dataset["hydrate"];
     if (asked !== undefined) {
       const parsed = asked === "" || asked === "true" ? true
-        : asked === "false" ? false
+        : asked === "false" ? (scriptRegistry.has(this.dataset["droplet"] ?? "") ? undefined : false)
         : asked === "visible" || asked === "interactive" ? asked
         : undefined;
       if (parsed !== undefined) mode = parsed;
@@ -1355,6 +1358,7 @@ if (import.meta.env.DEV) {
     droplets: dropletRegistry,
     hydration: hydrationRegistry,
     serverLoad: serverLoadRegistry,
+    scripts: scriptRegistry,
     allowedChildren: ALLOWED_CHILDREN,
     nothingToRender: NothingToRender,
     staleBuild: StaleBuildError,
