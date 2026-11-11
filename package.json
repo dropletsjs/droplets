@@ -36,7 +36,8 @@
     "test:hosts": "pnpm --filter @dropletsjs/tests-hosts e2e"
   },
   "devDependencies": {
-    "@changesets/cli": "^3.0.3"
+    "@changesets/cli": "^3.0.3",
+    "tsdown": "catalog:"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

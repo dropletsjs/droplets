@@ -5,7 +5,7 @@
     "jsx": "react-jsx",
     "jsxImportSource": "preact"
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx", "vitest.config.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx", "vitest.config.ts", "tsdown.config.ts"],
   // A build fixture: its shared JSX is compiled for two frameworks, typed for neither.
   "exclude": ["test/fixtures/mixed"]
 }

@@ -16,6 +16,7 @@ packages/adapters/bun/         @dropletsjs/adapter-bun: dist/server.js for bun
 packages/adapters/deno/        @dropletsjs/adapter-deno: dist/server.js for deno serve
 packages/renderers/*/          @dropletsjs/renderer-{svelte,vue,react,preact,solid,hono-jsx,handlebars,lit}
 packages/create-droplets/      create-droplets: npm create droplets
+packages/tsdown.config.base.ts the build every other package shares (tsdown)
 examples/frameworks/*/         one example per framework, the same three droplets each
 examples/frameworks/Dockerfile the image of one of them (EXAMPLE=svelte for the hosts)
 examples/shop/                 the shop demo, in six frameworks, on SQLite
@@ -27,6 +28,7 @@ tests/hosts/                   the shop flow on every host's compose stack, reco
 tests/create-droplets/         npm create droplets end to end
 tests/djs-add/                 djs add end to end
 tests/dev-mixed/               React, Vue and Solid under vite dev, HMR in a browser
+tests/packages/                the published packages as npm packs them
 apps/docs/                     the guide (dropletsjs.dev), an Astro Starlight site
 apps/demo/                     the live droplets the guide embeds (demo.dropletsjs.dev)
 DESIGN.md                      design decisions, as they were taken
@@ -34,7 +36,9 @@ DESIGN.md                      design decisions, as they were taken
 
 `packages/**`, `examples/*`, `examples/frameworks/*`, `tests/*` and `apps/*`
 form a pnpm workspace; `pnpm build` compiles every package in dependency
-order. `examples/hosts/*` are deliberately **not** in the workspace: each has
+order, each with tsdown: its `tsdown.config.ts` lists the entries and calls
+`packageConfig` of `packages/tsdown.config.base.ts`, the one config they all
+share (minified ESM, `.d.ts`, nothing from `node_modules` bundled). `examples/hosts/*` are deliberately **not** in the workspace: each has
 its own toolchain (npm, Python, Ruby, PHP…) and runs with Docker Compose or
 on its own. The tool ranges the examples and tests use (Vite, TypeScript,
 Tailwind, Playwright…) are the pnpm `catalog:` in `pnpm-workspace.yaml`;
@@ -100,6 +104,12 @@ change to the renderer contract shows up there for all of them.
 - A behaviour change needs a test. A fix needs a test that failed before it.
 - Nothing from a `*.server.*` file or a `server/` folder may reach a client
   bundle; the build and `vite dev` both refuse it, and so should your change.
+  The same holds for the packages' own output: a package's `client` entries
+  (its `tsdown.config.ts`) never reach its `server` modules, and its build
+  fails when they do.
+- A file the code finds by path in `dist/` (`new URL(…, import.meta.url)`,
+  `resolve(packageRoot, "dist/…")`) must be an `entry` of the package's
+  `tsdown.config.ts`, so its name and place stay fixed.
 - Treat what a request carries as plain data: no prototype keys, checked with
   `Object.hasOwn`, the code resolved before any body is parsed.
 - Public API changes (config options, routes, the element contract, the

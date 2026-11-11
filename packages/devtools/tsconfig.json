@@ -12,6 +12,7 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "test/**/*.ts",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    "tsdown.config.ts"
   ]
 }

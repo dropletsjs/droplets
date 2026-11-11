@@ -72,8 +72,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
     "clean": "rm -rf dist",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
@@ -98,6 +98,7 @@
     "@types/node": "^24.9.0",
     "happy-dom": "^21.0.4",
     "tailwindcss": "^4.3.4",
+    "tsdown": "catalog:",
     "typescript": "^5.9.3",
     "vite": "^8.3.6",
     "vitest": "^5.1.0"

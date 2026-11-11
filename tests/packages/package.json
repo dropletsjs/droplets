@@ -1,0 +1,33 @@
+{
+  "name": "@dropletsjs/tests-packages",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "The published packages as npm packs them: entries at their fixed paths, server code out of the client graphs, no source maps.",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@dropletsjs/adapter-bun": "workspace:*",
+    "@dropletsjs/adapter-cloudflare": "workspace:*",
+    "@dropletsjs/adapter-deno": "workspace:*",
+    "@dropletsjs/adapter-node": "workspace:*",
+    "@dropletsjs/devtools": "workspace:*",
+    "@dropletsjs/droplets": "workspace:*",
+    "@dropletsjs/renderer-handlebars": "workspace:*",
+    "@dropletsjs/renderer-hono-jsx": "workspace:*",
+    "@dropletsjs/renderer-lit": "workspace:*",
+    "@dropletsjs/renderer-preact": "workspace:*",
+    "@dropletsjs/renderer-react": "workspace:*",
+    "@dropletsjs/renderer-solid": "workspace:*",
+    "@dropletsjs/renderer-svelte": "workspace:*",
+    "@dropletsjs/renderer-vue": "workspace:*",
+    "@types/node": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}
