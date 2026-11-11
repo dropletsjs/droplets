@@ -1,0 +1,7 @@
+{
+  "extends": "@dropletsjs/shared/tsconfig",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["test/*.ts", "vitest.config.ts"]
+}

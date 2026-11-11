@@ -130,6 +130,13 @@ host, the same file everywhere.
 | `php` | http://localhost:8009/gallery |
 | `wordpress` | http://localhost:8008/gallery (once `wordpress-init` has installed WordPress and activated the plugin, about a minute) |
 
+### Type-checked
+
+Each Node host (`astro`, `express`, `nextjs`, `react-vite`, `sveltekit`)
+declares its own types and checks them with `npm run typecheck`. From the
+repository root, `pnpm typecheck:hosts [host…]` runs `npm ci` and that
+script in each.
+
 ### End to end, recorded
 
 [`tests/hosts`](../../tests/hosts) runs one flow in a browser against each

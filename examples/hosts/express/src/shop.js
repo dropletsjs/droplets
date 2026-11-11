@@ -117,6 +117,7 @@ export function shop({ internalUrl, publicUrl }) {
    */
   async function fragment(req, id, params = new URLSearchParams()) {
     const url = `${internal}/droplets/${encodeURIComponent(id)}?${params}`;
+    /** @type {{ html: string, status: number, location: string | null, cookies: string[], link: string | null }} */
     const result = { html: "", status: 502, location: null, cookies: [], link: null };
     try {
       const response = await fetch(url, { headers: fragmentHeaders(req), redirect: "manual" });
@@ -146,7 +147,7 @@ export function shop({ internalUrl, publicUrl }) {
     try {
       const response = await fetch(url, { headers: { "x-droplet-location": origin, accept: "application/json" }, redirect: "manual" });
       if (!response.ok) return null;
-      const body = await response.json();
+      const body = /** @type {any} */ (await response.json());
       const found = body?.data?.product;
       return typeof found?.id === "string" && typeof found?.name === "string" ? found : null;
     } catch {
@@ -277,6 +278,7 @@ ${body}
     if (!found) {
       return render(req, res, {
         title: "Not found",
+        current: null,
         status: 404,
         fragments: [],
         body: () => `<div class="shop-narrow shop-notice"><h1>Not found</h1><p>This product does not exist.</p><p><a href="/gallery">Back to the gallery</a></p></div>`,

@@ -6,7 +6,8 @@
   "type": "module",
   "description": "djs add, end to end: a droplet in every framework and target, added to a project, typed, built and served.",
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
   },
   "devDependencies": {
     "@dropletsjs/adapter-node": "workspace:*",

@@ -5,15 +5,17 @@
   "scripts": {
     "dev": "next dev --port 8007",
     "build": "next build",
-    "start": "next start --port 8007"
+    "start": "next start --port 8007",
+    "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
     "next": "^16.0.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@types/node": "^24.9.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "typescript": "^5.9.3"

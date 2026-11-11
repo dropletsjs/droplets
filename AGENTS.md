@@ -35,6 +35,7 @@ pnpm check            # build, typecheck, tests/*, framework examples (Node + Cl
 pnpm test:e2e         # builds examples/frameworks/*, runs tests/examples in Chromium
 pnpm docs:build       # builds and starts apps/demo, then astro build (fails without the demo)
 pnpm docs:check-csp   # after docs:build: every inline script hash is in apps/docs/public/_headers
+pnpm typecheck:hosts  # npm ci + npm run typecheck in each Node host (examples/hosts/*, outside the workspace)
 ```
 
 - Every package runs its unit tests in `build`, so a failing suite stops `pnpm build` and `pnpm release`.
@@ -45,7 +46,8 @@ pnpm docs:check-csp   # after docs:build: every inline script hash is in apps/do
 - Every renderer runs `rendererConformance()` from `@dropletsjs/droplets/testing`; a renderer contract change shows up there.
 - `pnpm test:hosts [host…]` needs Docker. Local overrides go in the gitignored `.env.local` (see `.env.example`).
 - Bun and Deno adapter suites are skipped when the binary is missing.
-- CI (`.github/workflows/ci.yml`) runs `check`, `docs:build`, `docs:check-csp`, `test:e2e` and a Docker smoke test.
+- Every workspace project has a `typecheck` script and declares each package, `@types/*` and tool its own files use; nothing resolves through hoisting or a parent `node_modules`.
+- CI (`.github/workflows/ci.yml`) runs `check`, `docs:build`, `docs:check-csp`, `test:e2e`, `typecheck:hosts` and a Docker smoke test.
 - A behaviour change needs a test. A fix needs a test that failed before it.
 
 ## Hard rules

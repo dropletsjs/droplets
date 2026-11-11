@@ -5,11 +5,14 @@
   "type": "module",
   "description": "The shop demo on every host in examples/hosts/, end to end: each compose stack started, the same flow in a browser, recorded.",
   "scripts": {
-    "e2e": "node run.mjs"
+    "e2e": "node run.mjs",
+    "typecheck:hosts": "node typecheck.mjs",
+    "typecheck": "tsc -p tsconfig.json"
   },
   "devDependencies": {
     "@dropletsjs/shared": "workspace:*",
     "@playwright/test": "catalog:",
-    "@types/node": "catalog:"
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
   }
 }

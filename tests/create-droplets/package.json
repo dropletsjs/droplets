@@ -6,7 +6,8 @@
   "type": "module",
   "description": "create-droplets, end to end: new projects for every framework and the adapters, synced, typed, built and served.",
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
   },
   "devDependencies": {
     "@dropletsjs/adapter-bun": "workspace:*",
@@ -23,6 +24,7 @@
     "@dropletsjs/renderer-solid": "workspace:*",
     "@dropletsjs/renderer-svelte": "workspace:*",
     "@dropletsjs/renderer-vue": "workspace:*",
+    "@dropletsjs/shared": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",

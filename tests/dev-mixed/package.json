@@ -6,7 +6,8 @@
   "type": "module",
   "description": "Every renderer in one project under vite dev: each droplet renders and hydrates, and under dev.strategy hmr an edit reaches the page through the framework's own HMR, a load edit as new data, a new render contract as a notice, never a reload.",
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
   },
   "devDependencies": {
     "@dropletsjs/adapter-cloudflare": "workspace:*",
@@ -21,6 +22,7 @@
     "@dropletsjs/renderer-solid": "workspace:*",
     "@dropletsjs/renderer-svelte": "workspace:*",
     "@dropletsjs/renderer-vue": "workspace:*",
+    "@dropletsjs/shared": "workspace:*",
     "@playwright/test": "catalog:",
     "@types/node": "catalog:",
     "hono": "^4.13.16",
@@ -31,6 +33,7 @@
     "react-dom": "^19.3.1",
     "solid-js": "^1.9.18",
     "svelte": "^5.57.3",
+    "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",
     "vue": "^3.5.44"

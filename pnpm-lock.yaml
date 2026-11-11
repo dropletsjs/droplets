@@ -171,6 +171,9 @@ importers:
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.61.1
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.2
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1343,6 +1346,9 @@ importers:
       '@dropletsjs/renderer-vue':
         specifier: workspace:*
         version: link:../../packages/renderers/vue
+      '@dropletsjs/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@tailwindcss/vite':
         specifier: 'catalog:'
         version: 4.3.4(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
@@ -1436,6 +1442,9 @@ importers:
       '@dropletsjs/renderer-vue':
         specifier: workspace:*
         version: link:../../packages/renderers/vue
+      '@dropletsjs/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.61.1
@@ -1466,6 +1475,9 @@ importers:
       svelte:
         specifier: ^5.57.3
         version: 5.57.3
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
       vite:
         specifier: 'catalog:'
         version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
@@ -1583,6 +1595,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
 
   tests/packages:
     devDependencies:

@@ -35,7 +35,8 @@
     "test:example:wp-shop": "pnpm --filter @dropletsjs/example-wp-shop test",
     "build:demo": "pnpm --filter @dropletsjs/demo build",
     "test:demo": "pnpm --filter @dropletsjs/demo test",
-    "test:hosts": "pnpm --filter @dropletsjs/tests-hosts e2e"
+    "test:hosts": "pnpm --filter @dropletsjs/tests-hosts e2e",
+    "typecheck:hosts": "pnpm --filter @dropletsjs/tests-hosts typecheck:hosts"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",

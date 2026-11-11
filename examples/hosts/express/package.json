@@ -5,10 +5,16 @@
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
-    "start:embedded": "node src/embedded.js"
+    "start:embedded": "node src/embedded.js",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.6",
     "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.9.0",
+    "typescript": "^5.9.3"
   }
 }

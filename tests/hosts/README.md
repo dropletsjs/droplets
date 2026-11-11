@@ -36,3 +36,6 @@ removed with `down -v` after its run. The repository's `.env.local`, when
 there is one, is read first (variables already set win;
 [`.env.example`](../../.env.example) lists them). Docker and Playwright's
 Chromium are all it needs.
+
+`typecheck.mjs` (`pnpm typecheck:hosts [host…]`, in CI too) needs no Docker:
+in each Node host, `npm ci` from its own lockfile, then `npm run typecheck`.
