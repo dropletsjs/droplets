@@ -30,9 +30,7 @@ export function readClientExternal(config: UserConfig): ExternalOption[] {
 }
 
 /** Answers whether `id` is external, the way Rolldown would for a bare import. */
-export function createExternalMatcher(
-  options: ExternalOption[],
-): ((id: string, importer?: string) => boolean) | null {
+export function createExternalMatcher(options: ExternalOption[]): ((id: string, importer?: string) => boolean) | null {
   if (options.length === 0) return null;
   return (id, importer) =>
     options.some((option) => {
@@ -48,7 +46,7 @@ export function namedExternals(options: ExternalOption[]): string[] {
     typeof option === "string"
       ? [option]
       : Array.isArray(option)
-      ? option.filter((entry): entry is string => typeof entry === "string")
-      : []
+        ? option.filter((entry): entry is string => typeof entry === "string")
+        : [],
   );
 }

@@ -13,5 +13,7 @@ export default ({ form, actionUrl }) =>
 // Mounted: `sign` and `leave` are enhanced.
 export function attach(target) {
   const stops = ["sign", "leave"].map((id) => enhanceDropletForm(target.querySelector(`[data-testid=${id}]`)));
-  return () => stops.forEach((stop) => stop());
+  return () => {
+    for (const stop of stops) stop();
+  };
 }

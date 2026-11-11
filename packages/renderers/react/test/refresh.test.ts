@@ -38,7 +38,7 @@ async function serve(scope: { include?: RegExp } = {}) {
 }
 
 const code = async (url: string, environment: "client" | "ssr") =>
-  (await server!.environments[environment].transformRequest(url))?.code ?? "";
+  (await (server ?? expect.unreachable("the dev server")).environments[environment].transformRequest(url))?.code ?? "";
 
 describe("React Fast Refresh, in vite dev", () => {
   it("is off in the options other compilers share", async () => {

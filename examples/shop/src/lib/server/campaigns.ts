@@ -16,9 +16,10 @@ export async function currentCampaign(at = now()): Promise<Campaign | null> {
     .orderBy("starts_at", "desc")
     .executeTakeFirst();
   if (!row) return null;
-  const products = row.scope === "selected"
-    ? await db().selectFrom("campaign_products").select("product_id").where("campaign_id", "=", row.id).execute()
-    : [];
+  const products =
+    row.scope === "selected"
+      ? await db().selectFrom("campaign_products").select("product_id").where("campaign_id", "=", row.id).execute()
+      : [];
   return {
     id: row.id,
     name: row.name,
@@ -54,29 +55,39 @@ export type CampaignInput = {
 export async function startCampaign(input: CampaignInput): Promise<string> {
   const id = `c_${randomBytes(6).toString("hex")}`;
   const at = now();
-  await db().transaction().execute(async (tx) => {
-    await tx.updateTable("campaigns").set({ stopped_at: at }).where("stopped_at", "is", null).execute();
-    await tx.insertInto("campaigns").values({
-      id,
-      name: input.name,
-      pct: input.pct,
-      scope: input.scope,
-      starts_at: input.startsAt,
-      ends_at: input.endsAt,
-      stopped_at: null,
-      created_at: at,
-    }).execute();
-    if (input.scope === "selected" && input.productIds.length) {
-      await tx.insertInto("campaign_products")
-        .values(input.productIds.map((product_id) => ({ campaign_id: id, product_id })))
+  await db()
+    .transaction()
+    .execute(async (tx) => {
+      await tx.updateTable("campaigns").set({ stopped_at: at }).where("stopped_at", "is", null).execute();
+      await tx
+        .insertInto("campaigns")
+        .values({
+          id,
+          name: input.name,
+          pct: input.pct,
+          scope: input.scope,
+          starts_at: input.startsAt,
+          ends_at: input.endsAt,
+          stopped_at: null,
+          created_at: at,
+        })
         .execute();
-    }
-  });
+      if (input.scope === "selected" && input.productIds.length) {
+        await tx
+          .insertInto("campaign_products")
+          .values(input.productIds.map((product_id) => ({ campaign_id: id, product_id })))
+          .execute();
+      }
+    });
   return id;
 }
 
 export async function stopCampaign(id: string): Promise<boolean> {
-  const result = await db().updateTable("campaigns").set({ stopped_at: now() })
-    .where("id", "=", id).where("stopped_at", "is", null).executeTakeFirst();
+  const result = await db()
+    .updateTable("campaigns")
+    .set({ stopped_at: now() })
+    .where("id", "=", id)
+    .where("stopped_at", "is", null)
+    .executeTakeFirst();
   return Number(result.numUpdatedRows) > 0;
 }

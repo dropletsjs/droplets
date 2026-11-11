@@ -6,7 +6,10 @@ describe("setHeaders", () => {
     const { setHeaders, headers } = loadHeaders("card");
     setHeaders({ "Cache-Control": "public, max-age=60" });
     setHeaders({ ETag: '"v1"' });
-    expect([...headers]).toEqual([["cache-control", "public, max-age=60"], ["etag", '"v1"']]);
+    expect([...headers]).toEqual([
+      ["cache-control", "public, max-age=60"],
+      ["etag", '"v1"'],
+    ]);
   });
 
   it("refuses a header set twice, in any case", () => {
@@ -50,9 +53,9 @@ describe("setHeaders", () => {
 
 describe("storedHeaders", () => {
   it("keeps valid string headers only, never set-cookie", () => {
-    expect(
-      storedHeaders({ "Cache-Control": "public", "set-cookie": "a=1", "x-bad": "a\r\nb", "bad name": "v", n: 1 }),
-    ).toEqual([["cache-control", "public"]]);
+    expect(storedHeaders({ "Cache-Control": "public", "set-cookie": "a=1", "x-bad": "a\r\nb", "bad name": "v", n: 1 })).toEqual([
+      ["cache-control", "public"],
+    ]);
     for (const value of [undefined, null, "x", ["a"]]) expect(storedHeaders(value)).toEqual([]);
   });
 });

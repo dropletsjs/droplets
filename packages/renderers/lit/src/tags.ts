@@ -17,8 +17,8 @@ import type { ComponentKind, ComponentModule } from "@dropletsjs/droplets";
 /** What the renderer needs of a `CustomElementRegistry`: the page's, or Lit's server shim. */
 export type Registry = {
   get(name: string): CustomElementConstructor | undefined;
-  define(name: string, constructor: CustomElementConstructor): void;
-  getName?(constructor: CustomElementConstructor): string | null;
+  define(name: string, element: CustomElementConstructor): void;
+  getName?(element: CustomElementConstructor): string | null;
 };
 
 /** A valid custom element name, as far as droplet ids and element names go: lowercase, a hyphen, no spaces. */

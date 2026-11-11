@@ -34,10 +34,12 @@ const config = (root: string): InlineConfig => ({
 
 const buildConfig = (root: string): InlineConfig => ({
   ...config(root),
-  plugins: [droplets({
-    adapter: { name: "fake", serverEntry: join(root, "fake-entry.js"), serverFile: "server.js", separateSsrBundle: true },
-    renderers: [handlebars()],
-  })],
+  plugins: [
+    droplets({
+      adapter: { name: "fake", serverEntry: join(root, "fake-entry.js"), serverFile: "server.js", separateSsrBundle: true },
+      renderers: [handlebars()],
+    }),
+  ],
 });
 
 const api = (plugins: readonly Plugin[]): DropletsPluginApi =>
@@ -47,7 +49,7 @@ describe("flags of a Handlebars droplet", () => {
   it("come from the comment the template opens with", async () => {
     const root = await project({
       "src/droplets/card/+droplet.hbs": "{{!-- export hydrate = false; export prerender = true --}}\n<p>{{data.title}}</p>\n",
-      "src/droplets/card/+droplet.ts": "export const load = () => ({ title: \"Hi\" });\n",
+      "src/droplets/card/+droplet.ts": 'export const load = () => ({ title: "Hi" });\n',
     });
     const server = await createServer(config(root));
     try {
@@ -58,7 +60,8 @@ describe("flags of a Handlebars droplet", () => {
   });
 
   it.each(["+droplet.ts", "+droplet.server.ts"])("are ignored in %s, in a build and in vite dev", async (file) => {
-    const load = "export const ssr = false;\nexport const hydrate = true;\nexport const prerender = true;\nexport const load = () => ({ title: \"Hi\" });\n";
+    const load =
+      'export const ssr = false;\nexport const hydrate = true;\nexport const prerender = true;\nexport const load = () => ({ title: "Hi" });\n';
     const root = await project({
       "src/droplets/card/+droplet.hbs": "{{!-- export hydrate = false --}}\n<p>{{data.title}}</p>\n",
       [`src/droplets/card/${file}`]: load,

@@ -200,7 +200,14 @@ test.describe("a script droplet: +droplet.script.ts, a page-view tracker", () =>
     const url = `${dropletsOf(exampleOf())}/api/page-views`;
     const post = (data: string, type = "application/json") => request.post(url, { data, headers: { "content-type": type } });
     expect((await post('{"page":"pricing"}')).status()).toBe(200);
-    for (const body of ['["pricing"]', '{"__proto__":{"page":"pricing"}}', '{"page":"../etc"}', '{"page":1}', "nope", `{"page":"${"a".repeat(300)}"}`]) {
+    for (const body of [
+      '["pricing"]',
+      '{"__proto__":{"page":"pricing"}}',
+      '{"page":"../etc"}',
+      '{"page":1}',
+      "nope",
+      `{"page":"${"a".repeat(300)}"}`,
+    ]) {
       expect((await post(body)).status(), body).toBeGreaterThanOrEqual(400);
     }
     // A form-like content type: the framework's origin check refuses it before the handler would (415).
@@ -219,7 +226,9 @@ test.describe("the droplet's own files, on the droplets server's location", () =
     for (const mode of MODES) {
       const logo = card(page, mode).getByTestId("logo");
       await expect(logo, mode).toHaveAttribute("src", new RegExp(`^${base.replace(/[.]/g, "\\.")}/assets/droplet-[\\w-]+\\.png$`));
-      await expect.poll(() => logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth), { message: mode }).toBeGreaterThan(0);
+      await expect
+        .poll(() => logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth), { message: mode })
+        .toBeGreaterThan(0);
     }
     if (interactive(exampleOf())) {
       await expect(card(page, "client").getByTestId("hydrated")).toHaveText("yes");

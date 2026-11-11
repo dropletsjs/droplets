@@ -10,11 +10,7 @@ import {
   type RenderDroplet,
   type RenderError,
 } from "../runtime/app.ts";
-import type {
-  HandleServerError,
-  ImportMapHandler,
-  TransformEvent,
-} from "../runtime/server.ts";
+import type { HandleServerError, ImportMapHandler, TransformEvent } from "../runtime/server.ts";
 import type { ResolvedDropletsConfig } from "../core/config.ts";
 import { logger } from "../core/logger.ts";
 
@@ -29,10 +25,7 @@ export type SsrModule = {
   renderError?: RenderError;
   getImportMap?: () => ImportMapHandler | undefined;
   getHandleError?: () => HandleServerError | undefined;
-  validateDropletProps?: (
-    name: string,
-    props: Record<string, unknown>,
-  ) => Promise<Record<string, unknown>>;
+  validateDropletProps?: (name: string, props: Record<string, unknown>) => Promise<Record<string, unknown>>;
   transformDroplet?: (name: string, event: TransformEvent) => Promise<string>;
   getEntries?: (name: string) => Promise<Array<{ props: Record<string, unknown>; host?: string }>>;
   prerenderKeys?: (name: string, fallbackHost?: string) => Promise<string[]>;
@@ -113,7 +106,7 @@ export function createServerApp({ ssr, assets, config }: ServerAppOptions) {
     ...(ssr.transformDroplet ? { transformDroplet: ssr.transformDroplet } : {}),
     ...(ssr.findAction ? { findAction: ssr.findAction } : {}),
     ...(assets.loadPrerendered
-      ? { loadPrerendered: (name: string, key: string) => assets.loadPrerendered!(name, key) }
+      ? { loadPrerendered: (name: string, key: string) => assets.loadPrerendered?.(name, key) ?? Promise.resolve(null) }
       : {}),
     importMap: config.importMap,
     externals: () => assets.externals,

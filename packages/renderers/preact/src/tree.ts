@@ -3,7 +3,7 @@
  * the component with its props, under the error boundary when it has one.
  */
 import type { ClientRenderContext, ComponentModule, RenderProps } from "@dropletsjs/droplets";
-import { Component, h, type ComponentChildren, type ComponentType, type VNode } from "preact";
+import { Component, type ComponentChild, type ComponentChildren, type ComponentType, h } from "preact";
 import { childrenElement, ChildrenHostContext } from "./children.ts";
 
 export type AnyComponent = ComponentType<Record<string, unknown>>;
@@ -50,8 +50,8 @@ class DropletBoundary extends Component<BoundaryProps, BoundaryState> {
 }
 
 /** The component with its props, under the provider that gives `children` the element's host. */
-export function tree(component: AnyComponent, props: RenderProps, context: ClientRenderContext): VNode<any> {
-  let node: VNode<any> = h(component, { ...props, children: childrenElement() });
+export function tree(component: AnyComponent, props: RenderProps, context: ClientRenderContext): ComponentChild {
+  let node: ComponentChild = h(component, { ...props, children: childrenElement() });
   if (context.error) {
     const errorComponent = componentOf(context.error.module, { ...context, kind: "error" });
     node = h(DropletBoundary, { errorComponent, handle: context.error.handle }, node);

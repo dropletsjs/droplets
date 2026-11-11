@@ -62,7 +62,10 @@ function componentSuffix(fileName: string, kind: ComponentKind): string | null {
 async function listFiles(dir: string): Promise<string[]> {
   try {
     const entries = await readdir(dir, { withFileTypes: true });
-    return entries.filter((e) => e.isFile()).map((e) => e.name).sort();
+    return entries
+      .filter((e) => e.isFile())
+      .map((e) => e.name)
+      .sort();
   } catch {
     return [];
   }
@@ -103,33 +106,37 @@ async function findComponent(
   options: DiscoverOptions,
   framework?: DropletRenderer,
 ): Promise<Found | null> {
-  const handlers = (f: string) => byExtension.get(componentSuffix(f, kind)!) ?? [];
+  const handlers = (f: string) => {
+    const suffix = componentSuffix(f, kind);
+    return suffix === null ? [] : (byExtension.get(suffix) ?? []);
+  };
   let candidates = files.filter((f) => componentSuffix(f, kind) !== null);
   if (framework) {
-    const other = (f: string) => `${folderName}/${f} is not a ${framework.name} component like the droplet; ignored, ` +
+    const other = (f: string) =>
+      `${folderName}/${f} is not a ${framework.name} component like the droplet; ignored, ` +
       "the error page is written in the droplet's framework";
     for (const f of candidates.filter((f) => !handlers(f).includes(framework))) {
       report(options, `${folder}/${f}:framework`, other(f));
     }
     candidates = candidates.filter((f) => handlers(f).includes(framework));
-    if (candidates.length === 1 && handlers(candidates[0]!).length > 1) {
+    const [only] = candidates;
+    if (only !== undefined && candidates.length === 1 && handlers(only).length > 1) {
       // A suffix another renderer shares: the error page's imports decide.
-      const source = (await readTextFile(resolve(folder, candidates[0]!))) ?? "";
-      const picked = pickRenderer(handlers(candidates[0]!), source, `${folderName}/${candidates[0]}`, framework);
+      const source = (await readTextFile(resolve(folder, only))) ?? "";
+      const picked = pickRenderer(handlers(only), source, `${folderName}/${only}`, framework);
       if (picked !== framework) {
-        report(options, `${folder}/${candidates[0]}:framework`, other(candidates[0]!));
+        report(options, `${folder}/${only}:framework`, other(only));
         return null;
       }
     }
   }
-  if (candidates.length === 0) return null;
+  const [file] = candidates;
+  if (file === undefined) return null;
   if (candidates.length > 1) {
-    throw new Error(
-      `droplets: ${folderName}/ has ${candidates.length} ${kind} components (${candidates.join(", ")}); keep one`,
-    );
+    throw new Error(`droplets: ${folderName}/ has ${candidates.length} ${kind} components (${candidates.join(", ")}); keep one`);
   }
-  const file = candidates[0]!;
-  const suffix = componentSuffix(file, kind)!;
+  const suffix = componentSuffix(file, kind);
+  if (suffix === null) throw new Error(`droplets: ${folderName}/${file} is not a ${kind} component`);
   const group = byExtension.get(suffix);
   if (!group) throw new Error(`droplets: ${noRendererMessage(`${folderName}/${file}`, suffix)}`);
 
@@ -138,12 +145,12 @@ async function findComponent(
   const where = kind === "droplet" ? droplet : `${droplet}/${file}`;
   const declared = renderer.readFlags
     ? await renderer.readFlags({
-      kind,
-      source,
-      file,
-      folder,
-      droplet,
-    })
+        kind,
+        source,
+        file,
+        folder,
+        droplet,
+      })
     : readExportedFlags(source, where, langOfFile(file));
   if (kind === "error") {
     const own = Object.keys(declared ?? {});
@@ -196,9 +203,7 @@ export async function discoverDroplets(
         report(options, `${folder}/${f}:script`, `${name}/${f} is ignored: a script droplet has no error page`);
       }
     }
-    const error = script
-      ? null
-      : await findComponent("error", name, folder, files, byExtension, id, options, component.renderer);
+    const error = script ? null : await findComponent("error", name, folder, files, byExtension, id, options, component.renderer);
     entries.push({
       id,
       name,

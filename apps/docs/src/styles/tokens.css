@@ -44,8 +44,7 @@
   --djs-radius-md: 8px;
 
   --djs-font-sans: "Instrument Sans Variable", "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
-  --djs-font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo,
-    monospace;
+  --djs-font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 :root[data-theme="light"],

@@ -39,19 +39,21 @@ export async function readCart(cartId: string | null): Promise<Cart> {
     const sale = salePrice(product);
     const unit = sale ?? product.priceCents;
     const v = versions.get(product.slug);
-    return [{
-      productId: product.id,
-      slug: product.slug,
-      name: product.name,
-      image: product.image,
-      qty: line.qty,
-      unitCents: unit,
-      wasCents: sale === null ? null : product.priceCents,
-      lineCents: unit * line.qty,
-      stock: product.stock,
-      stockState: stockState(product.stock),
-      ...(v ? { v } : {}),
-    }];
+    return [
+      {
+        productId: product.id,
+        slug: product.slug,
+        name: product.name,
+        image: product.image,
+        qty: line.qty,
+        unitCents: unit,
+        wasCents: sale === null ? null : product.priceCents,
+        lineCents: unit * line.qty,
+        stock: product.stock,
+        stockState: stockState(product.stock),
+        ...(v ? { v } : {}),
+      },
+    ];
   });
   return {
     count: items.reduce((n, line) => n + line.qty, 0),
@@ -61,9 +63,7 @@ export async function readCart(cartId: string | null): Promise<Cart> {
   };
 }
 
-export type AddResult =
-  | { ok: true; cartId: string; created: boolean; cart: Cart }
-  | { ok: false; reason: "missing" | "out" };
+export type AddResult = { ok: true; cartId: string; created: boolean; cart: Cart } | { ok: false; reason: "missing" | "out" };
 
 /**
  * Adds `qty` of a product, creating the cart when `cartId` is `null` (the
@@ -78,12 +78,16 @@ export async function addToCart(cartId: string | null, productId: string, qty: n
   const known = cartId && (db().prepare("SELECT id FROM carts WHERE id = ?").get(cartId) as { id: string } | undefined)?.id;
   const id = known || randomUUID();
   if (!known) db().prepare("INSERT INTO carts (id, created_at, updated_at) VALUES (?, ?, ?)").run(id, at, at);
-  const line = db().prepare("SELECT qty FROM cart_items WHERE cart_id = ? AND product_id = ?").get(id, productId) as { qty: number } | undefined;
+  const line = db().prepare("SELECT qty FROM cart_items WHERE cart_id = ? AND product_id = ?").get(id, productId) as
+    | { qty: number }
+    | undefined;
   const want = Math.min((line?.qty ?? 0) + qty, product.stock, MAX_QTY);
-  db().prepare(
-    `INSERT INTO cart_items (cart_id, product_id, qty, added_at) VALUES (?, ?, ?, ?)
+  db()
+    .prepare(
+      `INSERT INTO cart_items (cart_id, product_id, qty, added_at) VALUES (?, ?, ?, ?)
      ON CONFLICT (cart_id, product_id) DO UPDATE SET qty = excluded.qty`,
-  ).run(id, productId, want, at);
+    )
+    .run(id, productId, want, at);
   db().prepare("UPDATE carts SET updated_at = ? WHERE id = ?").run(at, id);
   return { ok: true, cartId: id, created: !known, cart: await readCart(id) };
 }

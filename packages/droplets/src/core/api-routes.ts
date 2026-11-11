@@ -1,3 +1,4 @@
+import type { Dirent } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { compareRoutes, type RouteSegment } from "../runtime/routes.ts";
@@ -61,7 +62,7 @@ export function routeFromFolders(folders: string[], file: string): ApiRouteEntry
 }
 
 async function walk(dir: string, found: string[]): Promise<void> {
-  let entries;
+  let entries: Dirent[];
   try {
     entries = await readdir(dir, { withFileTypes: true });
   } catch {
@@ -90,9 +91,7 @@ export async function discoverApiRoutes(apiRoot: string): Promise<ApiRouteEntry[
     const route = routeFromFolders(folders, file);
 
     // `[id]` and `[slug]` at the same place match the same URLs.
-    const shape = route.segments
-      .map((s) => (s.type === "static" ? s.value : s.type === "param" ? "[]" : "[...]"))
-      .join("/");
+    const shape = route.segments.map((s) => (s.type === "static" ? s.value : s.type === "param" ? "[]" : "[...]")).join("/");
     const clash = byShape.get(shape);
     if (clash) {
       throw new Error(`droplets: ${clash} and ${file} both answer ${route.id}`);

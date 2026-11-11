@@ -21,13 +21,13 @@ export function installedVersion(root: string, name: string): string | null {
   }
 }
 
-function escape(value: string): string {
+function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /** `https://cdn.jsdelivr.net/npm/ag-grid-community@34.1.0/+esm` -> `34.1.0`. */
 export function versionInUrl(url: string, name: string): string | null {
-  const match = url.match(new RegExp(`${escape(name)}@(\\d+\\.\\d+\\.\\d+[\\w.+-]*)`));
+  const match = url.match(new RegExp(`${escapeRegExp(name)}@(\\d+\\.\\d+\\.\\d+[\\w.+-]*)`));
   return match?.[1] ?? null;
 }
 
@@ -35,11 +35,7 @@ export function versionInUrl(url: string, name: string): string | null {
  * What is likely wrong with an import map, as sentences. Checks the plain
  * `imports`; scopes are the author's own business.
  */
-export function checkImportMap(
-  map: ImportMap,
-  externals: string[],
-  root: string,
-): string[] {
+export function checkImportMap(map: ImportMap, externals: string[], root: string): string[] {
   const imports = map.imports ?? {};
   const warnings: string[] = [];
 

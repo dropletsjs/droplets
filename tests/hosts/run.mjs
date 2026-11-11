@@ -179,9 +179,21 @@ const MAX_VIDEO_BYTES = 1_000_000;
 function docsVideo(from, to) {
   for (let crf = 28; crf <= 34; crf++) {
     const ok = ffmpeg([
-      "-i", from,
-      "-vf", "scale=-2:720", "-c:v", "libx264", "-crf", String(crf), "-preset", "slow",
-      "-pix_fmt", "yuv420p", "-an", "-movflags", "+faststart",
+      "-i",
+      from,
+      "-vf",
+      "scale=-2:720",
+      "-c:v",
+      "libx264",
+      "-crf",
+      String(crf),
+      "-preset",
+      "slow",
+      "-pix_fmt",
+      "yuv420p",
+      "-an",
+      "-movflags",
+      "+faststart",
       to,
     ]);
     if (!ok) return false;
@@ -255,17 +267,19 @@ for (const name of names) {
     console.warn(`${name}: no droplet tour, its flow is ${HOSTS[name].spec}`);
   } else if (ok && flags.has("--tour")) {
     // First, while the shop is as seeded.
-    ok = run("pnpm", ["exec", "playwright", "test"], {
-      cwd: here,
-      env: { ...env, ...pace, TOUR: "1", HOST_NAME: recording, HOST_URL: url },
-    }).status === 0;
+    ok =
+      run("pnpm", ["exec", "playwright", "test"], {
+        cwd: here,
+        env: { ...env, ...pace, TOUR: "1", HOST_NAME: recording, HOST_URL: url },
+      }).status === 0;
     if (ok && flags.has("--docs") && !https) ok = docsTour(name);
   }
   if (ok) {
-    ok = run("pnpm", ["exec", "playwright", "test", ...specs], {
-      cwd: here,
-      env: { ...env, ...ports.env, ...pace, HOST_NAME: recording, HOST_URL: url },
-    }).status === 0;
+    ok =
+      run("pnpm", ["exec", "playwright", "test", ...specs], {
+        cwd: here,
+        env: { ...env, ...ports.env, ...pace, HOST_NAME: recording, HOST_URL: url },
+      }).status === 0;
     if (ok && flags.has("--docs") && !https) ok = docsCopies(name);
   } else {
     compose(name, files, ["logs", "--tail", "40"]);

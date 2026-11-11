@@ -19,11 +19,7 @@
  * (for `use(data)`) inside an error boundary, which shows `+error.tsx` in
  * place of whatever throws while rendering, a rejected `use(data)` included.
  */
-import type {
-  ClientRenderContext,
-  ComponentModule,
-  RenderProps,
-} from "@dropletsjs/droplets";
+import type { ClientRenderContext, ComponentModule, RenderProps } from "@dropletsjs/droplets";
 import type { ComponentType } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, hydrateRoot, type Root, type RootOptions } from "react-dom/client";
@@ -49,33 +45,20 @@ function rootOptions(context: ClientRenderContext): RootOptions {
 /** What `mount` and `hydrate` return: the root, and what it renders for `update` in dev. */
 export type ReactInstance = { root: Root; component: ComponentType<Record<string, unknown>>; context: ClientRenderContext };
 
-export function mount(
-  module: ComponentModule,
-  target: HTMLElement,
-  props: RenderProps,
-  context: ClientRenderContext,
-): ReactInstance {
+export function mount(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): ReactInstance {
   const component = componentOf(module, context);
   const root = createRoot(target, rootOptions(context));
   flushSync(() => root.render(tree(component, props, context)));
   return { root, component, context };
 }
 
-export function hydrate(
-  module: ComponentModule,
-  target: HTMLElement,
-  props: RenderProps,
-  context: ClientRenderContext,
-): ReactInstance {
+export function hydrate(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): ReactInstance {
   const component = componentOf(module, context);
   // React compares the DOM with its element tree; the element emptied the
   // server-rendered marker before this call, and the container returns
   // through `fill` once the adopted marker is committed.
-  let root: Root | undefined;
-  flushSync(() => {
-    root = hydrateRoot(target, tree(component, props, context), rootOptions(context));
-  });
-  return { root: root!, component, context };
+  const root = flushSync(() => hydrateRoot(target, tree(component, props, context), rootOptions(context)));
+  return { root, component, context };
 }
 
 export function unmount(instance: unknown): void {

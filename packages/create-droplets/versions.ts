@@ -48,7 +48,9 @@ export function catalogRanges(yaml: string): Record<string, string> {
     if (!inCatalog || /^\s*(#|$)/.test(line)) continue;
     if (!/^\s/.test(line)) break;
     const entry = /^\s+(?:"([^"]+)"|'([^']+)'|([^\s:]+)):\s*["']?([^"'\s#]+)["']?/.exec(line);
-    if (entry) ranges[entry[1] ?? entry[2] ?? entry[3]!] = entry[4]!;
+    const name = entry?.[1] ?? entry?.[2] ?? entry?.[3];
+    const range = entry?.[4];
+    if (name !== undefined && range !== undefined) ranges[name] = range;
   }
   return ranges;
 }

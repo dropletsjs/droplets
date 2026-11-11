@@ -21,7 +21,7 @@ describe("lit()", () => {
     expect(renderer.clientSetup).toMatch(/[\\/]dist[\\/]client-setup\.js$/);
     expect(existsSync(renderer.server), "build the package first").toBe(true);
     expect(existsSync(renderer.client)).toBe(true);
-    expect(existsSync(renderer.clientSetup!)).toBe(true);
+    expect(existsSync(renderer.clientSetup ?? expect.unreachable("clientSetup"))).toBe(true);
     expect(renderer.packages).toContain("lit");
     expect(renderer.packages).toContain("@dropletsjs/renderer-lit");
     expect(renderer.componentTypes).toBe("@dropletsjs/renderer-lit");
@@ -58,12 +58,12 @@ describe("tags", () => {
     return {
       names,
       get: (name) => names.get(name),
-      define(name, constructor) {
+      define(name, element) {
         if (names.has(name)) throw new Error(`"${name}" has already been used with this registry`);
-        if ([...names.values()].includes(constructor)) throw new Error("this constructor has already been used with this registry");
-        names.set(name, constructor);
+        if ([...names.values()].includes(element)) throw new Error("this constructor has already been used with this registry");
+        names.set(name, element);
       },
-      getName: (constructor) => [...names].find(([, c]) => c === constructor)?.[0] ?? null,
+      getName: (element) => [...names].find(([, c]) => c === element)?.[0] ?? null,
     };
   }
   const element = () => class extends LitElement {} as unknown as CustomElementConstructor;
@@ -132,7 +132,9 @@ describe("the server render", () => {
 
   it("prints a deferred element with its shadow root as a declarative template, the marker in light DOM", async () => {
     const out = await renderComponent({ default: Hello }, { data: { greeting: "Hi <b>Ana</b>" } }, context(), "test-lit");
-    expect(out).toMatch(/^<!--lit-part [^>]+--><!--lit-node 0--><test-lit-hello\s+defer-hydration><template shadowroot="open" shadowrootmode="open">/);
+    expect(out).toMatch(
+      /^<!--lit-part [^>]+--><!--lit-node 0--><test-lit-hello\s+defer-hydration><template shadowroot="open" shadowrootmode="open">/,
+    );
     // Styles travel inside the shadow root.
     expect(out).toContain("<style>h1 { color: teal; }</style>");
     // Data is escaped, never markup.

@@ -22,7 +22,6 @@ import {
   type Row,
 } from "../shared.ts";
 
-
 type PageData = {
   element: string;
   droplets: DropletInfo[];
@@ -34,6 +33,7 @@ type PageData = {
 };
 
 declare module "vite/types/customEvent.d.ts" {
+  // biome-ignore lint/style/useConsistentTypeDefinitions: an augmentation of Vite's map; `type` cannot merge.
   interface CustomEventMap {
     "droplets:registry": { droplets: DropletInfo[] };
   }
@@ -131,9 +131,7 @@ function scheduleRender(delay = 250): void {
 // --- Droplet picker -------------------------------------------------------
 
 function renderSelect(): void {
-  ui.select.replaceChildren(
-    ...droplets.map((d) => el("option", { value: d.id, textContent: d.id, selected: d.id === state.droplet })),
-  );
+  ui.select.replaceChildren(...droplets.map((d) => el("option", { value: d.id, textContent: d.id, selected: d.id === state.droplet })));
   ui.select.disabled = droplets.length === 0;
   if (!droplets.length) ui.select.append(el("option", { textContent: "No droplets found" }));
 }
@@ -151,9 +149,7 @@ function renderMethod(): void {
   for (const button of ui.method.querySelectorAll("button")) {
     button.setAttribute("aria-pressed", String(button.dataset["value"] === state.method));
   }
-  ui.methodHint.textContent = state.method === "GET"
-    ? "Props go in the query string."
-    : "Props go in a JSON body: { props }.";
+  ui.methodHint.textContent = state.method === "GET" ? "Props go in the query string." : "Props go in a JSON body: { props }.";
 }
 
 ui.method.addEventListener("click", (event) => {
@@ -279,13 +275,20 @@ function renderInfo(): void {
   const mode = describeMode(droplet);
   ui.modeText.replaceChildren(el("strong", { textContent: mode.label }), mode.detail);
   ui.info.replaceChildren(
-    el("dt", { textContent: "ssr" }), el("dd", {}, [flag(droplet.ssr)]),
-    el("dt", { textContent: "hydrate" }), el("dd", {}, [flag(droplet.hydrate)]),
-    el("dt", { textContent: "prerender" }), el("dd", {}, [flag(droplet.prerender === true)]),
-    el("dt", { textContent: "+droplet.server.ts" }), el("dd", {}, [flag(droplet.hasServerLoad)]),
-    el("dt", { textContent: "+droplet.ts" }), el("dd", {}, [flag(droplet.hasLoad)]),
-    el("dt", { textContent: droplet.errorFile ?? "+error.*" }), el("dd", {}, [flag(droplet.hasError === true)]),
-    el("dt", { textContent: "folder" }), el("dd", { textContent: droplet.folder }),
+    el("dt", { textContent: "ssr" }),
+    el("dd", {}, [flag(droplet.ssr)]),
+    el("dt", { textContent: "hydrate" }),
+    el("dd", {}, [flag(droplet.hydrate)]),
+    el("dt", { textContent: "prerender" }),
+    el("dd", {}, [flag(droplet.prerender === true)]),
+    el("dt", { textContent: "+droplet.server.ts" }),
+    el("dd", {}, [flag(droplet.hasServerLoad)]),
+    el("dt", { textContent: "+droplet.ts" }),
+    el("dd", {}, [flag(droplet.hasLoad)]),
+    el("dt", { textContent: droplet.errorFile ?? "+error.*" }),
+    el("dd", {}, [flag(droplet.hasError === true)]),
+    el("dt", { textContent: "folder" }),
+    el("dd", { textContent: droplet.folder }),
     ...(droplet.renderer
       ? [el("dt", { textContent: "renderer" }), el("dd", { textContent: `${droplet.renderer} (${droplet.file ?? ""})` })]
       : []),
@@ -327,7 +330,9 @@ async function render(): Promise<void> {
   const droplet = current();
   if (!droplet) {
     ui.stage.replaceChildren(
-      placeholder(droplets.length ? "Pick a droplet." : "No droplets yet: add src/droplets/<name>/+droplet.<ext> for a configured renderer."),
+      placeholder(
+        droplets.length ? "Pick a droplet." : "No droplets yet: add src/droplets/<name>/+droplet.<ext> for a configured renderer.",
+      ),
     );
     setStatus("—", null);
     return;
@@ -351,17 +356,12 @@ async function render(): Promise<void> {
   if (seq !== renderSeq) return;
 
   const ms = Math.round(performance.now() - started);
-  setStatus(
-    `${init.method} ${response.status} · ${ms} ms · ${formatBytes(new TextEncoder().encode(body).length)}`,
-    response.ok,
-  );
+  setStatus(`${init.method} ${response.status} · ${ms} ms · ${formatBytes(new TextEncoder().encode(body).length)}`, response.ok);
 
   // A failing droplet with an error page still answers its element: show it.
   const isHtml = (response.headers.get("content-type") ?? "").includes("text/html");
   if (!response.ok && !isHtml) {
-    ui.stage.replaceChildren(
-      el("pre", { className: "dt-failure", textContent: `${response.status} ${response.statusText}\n\n${body}` }),
-    );
+    ui.stage.replaceChildren(el("pre", { className: "dt-failure", textContent: `${response.status} ${response.statusText}\n\n${body}` }));
     return;
   }
   // The loader picks the element up as soon as it is in the document.
@@ -460,11 +460,13 @@ function readPanel(): PanelState {
     // Storage can be unavailable; the default position is fine.
   }
   // On a phone the open panel would cover the droplet: start folded.
-  return stored ?? {
-    x: innerWidth - Math.min(360, innerWidth - 24) - 12,
-    y: 12,
-    collapsed: innerWidth < 640,
-  };
+  return (
+    stored ?? {
+      x: innerWidth - Math.min(360, innerWidth - 24) - 12,
+      y: 12,
+      collapsed: innerWidth < 640,
+    }
+  );
 }
 
 let panel = readPanel();

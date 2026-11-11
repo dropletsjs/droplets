@@ -63,9 +63,7 @@ export type RenderResult = {
 };
 
 /** What the server load produced: `{ data }`, or the error for the error page. */
-export type DropletPayload =
-  | { data: unknown; failed?: undefined }
-  | { failed: true; error: unknown };
+export type DropletPayload = { data: unknown; failed?: undefined } | { failed: true; error: unknown };
 
 export type DropletMeta = {
   exists: boolean;
@@ -78,11 +76,7 @@ export type DropletMeta = {
 type MaybePromise<T> = T | Promise<T>;
 
 /** A render may carry an action's result: the component's `form`. */
-export type RenderDroplet = (
-  name: string,
-  event: LoadEvent,
-  options?: { form?: unknown },
-) => MaybePromise<RenderResult | null>;
+export type RenderDroplet = (name: string, event: LoadEvent, options?: { form?: unknown }) => MaybePromise<RenderResult | null>;
 export type LoadDropletData = (name: string, event: LoadEvent) => MaybePromise<DropletPayload>;
 export type LoadClientModule = (name: string) => MaybePromise<string | null>;
 export type GetDropletMeta = (name: string) => MaybePromise<DropletMeta>;
@@ -94,11 +88,7 @@ export type GetHandle = () => MaybePromise<Handle | undefined>;
 export type FindAction = (droplet: string, name: string) => MaybePromise<Action | "none" | "missing">;
 export type MatchApi = (pathname: string) => MaybePromise<ApiMatch | null>;
 /** Renders `+error.*` for an error as it left the server; `null` without one. */
-export type RenderError = (
-  name: string,
-  error: unknown,
-  props?: Record<string, unknown>,
-) => MaybePromise<RenderResult | null>;
+export type RenderError = (name: string, error: unknown, props?: Record<string, unknown>) => MaybePromise<RenderResult | null>;
 
 /**
  * A render made at build: the droplet's HTML and its server data, or, when
@@ -121,11 +111,7 @@ export type PrerenderedDroplet = {
  * Finds the build-time render for a prop set, by `propsKey`. `null` when
  * `entries` did not list those props.
  */
-export type LoadPrerendered = (
-  name: string,
-  key: string,
-  event: LoadEvent,
-) => MaybePromise<PrerenderedDroplet | null>;
+export type LoadPrerendered = (name: string, key: string, event: LoadEvent) => MaybePromise<PrerenderedDroplet | null>;
 
 export type DropletsAppOptions = {
   /** Tag name of the host element. Default: `djs-droplet`. */
@@ -396,7 +382,10 @@ const VARY_HEADERS = [
  * `null` when there is nothing to send. `*` already varies on everything.
  */
 export function withVary(vary: string | null, names: readonly string[]): string | null {
-  const listed = (vary ?? "").split(",").map((name) => name.trim()).filter(Boolean);
+  const listed = (vary ?? "")
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean);
   if (listed.includes("*")) return "*";
   const seen = new Set(listed.map((name) => name.toLowerCase()));
   for (const raw of names) {
@@ -444,7 +433,8 @@ function resolveLocation(c: Context, origin: readonly string[], trusted: readonl
       `ignoring the location ${JSON.stringify(location.slice(0, 200))} from ${source}: its origin must be this server's or listed in origin or trustedOrigins (or DROPLETS_ORIGIN, DROPLETS_TRUSTED_ORIGINS)`,
     );
   }
-  return locations.length === 1 ? locations[0]! : own;
+  const [only] = locations;
+  return only !== undefined && locations.length === 1 ? only : own;
 }
 
 /** The origin of `publicLocation`. */
@@ -629,11 +619,7 @@ const INTERNAL_ERROR = "Internal Server Error";
  * `hooks.server.ts` returns, else "Internal Server Error". The details
  * stay in the log.
  */
-async function unexpectedMessage(
-  c: Context,
-  options: DropletsAppOptions,
-  error: unknown,
-): Promise<string> {
+async function unexpectedMessage(c: Context, options: DropletsAppOptions, error: unknown): Promise<string> {
   let handleError: HandleServerError | undefined;
   try {
     handleError = options.getHandleError ? await options.getHandleError() : undefined;
@@ -644,9 +630,7 @@ async function unexpectedMessage(
   const event = (c.get("event") as RequestEvent | undefined) ?? createRequestEvent(c);
   try {
     const result: unknown = await handleError({ error, event, status: 500, message: INTERNAL_ERROR });
-    return isObject(result) && typeof result["message"] === "string"
-      ? result["message"]
-      : INTERNAL_ERROR;
+    return isObject(result) && typeof result["message"] === "string" ? result["message"] : INTERNAL_ERROR;
   } catch (hookError) {
     logger.error("framework", "handleError failed", { error: hookError });
     return INTERNAL_ERROR;
@@ -658,12 +642,7 @@ async function unexpectedMessage(
  * `error()` with its status and message, `redirect()` as itself, anything
  * else as 500 through `handleError` in `hooks.server.ts`.
  */
-async function failure(
-  c: Context,
-  appOptions: DropletsAppOptions,
-  error: unknown,
-  options: FailureOptions,
-): Promise<Response> {
+async function failure(c: Context, appOptions: DropletsAppOptions, error: unknown, options: FailureOptions): Promise<Response> {
   if (isHttpError(error)) {
     const status = error.status as 400;
     if (options.as === "text") return c.text(error.body.message, status);
@@ -783,9 +762,7 @@ export function createDropletsApp(options: DropletsAppOptions) {
   const buildTokens = options.building ? hostTokens(buildNonce) : undefined;
   const liveTokens = !options.building && options.tokenNonce !== undefined ? hostTokens(options.tokenNonce) : undefined;
   const importMapPaths = options.importMap ? [options.importMap.path, `${options.importMap.path}.js`] : [];
-  const cacheControl = options.fragmentCacheControl === undefined
-    ? DEFAULTS.fragmentCacheControl
-    : options.fragmentCacheControl;
+  const cacheControl = options.fragmentCacheControl === undefined ? DEFAULTS.fragmentCacheControl : options.fragmentCacheControl;
 
   /**
    * `host` within `trustedOrigins` when the list is set: a host outside it,
@@ -860,11 +837,14 @@ export function createDropletsApp(options: DropletsAppOptions) {
   // rest of the request. At build the location is a token of this build,
   // replaced per request by the location the render is served from.
   app.use("*", (c, next) =>
-    withRequestInfo({
-      origin: buildTokens ? buildTokens.location : publicLocation(c),
-      trustedOrigins: trustedOrigins(),
-      ownOrigins: ownOrigins(c),
-    }, next)
+    withRequestInfo(
+      {
+        origin: buildTokens ? buildTokens.location : publicLocation(c),
+        trustedOrigins: trustedOrigins(),
+        ownOrigins: ownOrigins(c),
+      },
+      next,
+    ),
   );
 
   // Before `handle`, as SvelteKit does: a cross-site form post, or a body
@@ -915,9 +895,7 @@ export function createDropletsApp(options: DropletsAppOptions) {
     }
     let cookies: RequestEvent["cookies"] | undefined;
     if (options.building) {
-      const where = renderRoute
-        ? `${droplet} (entry ${JSON.stringify(contextFromBody(body).props ?? {})})`
-        : c.req.path;
+      const where = renderRoute ? `${droplet} (entry ${JSON.stringify(contextFromBody(body).props ?? {})})` : c.req.path;
       cookies = prerenderCookies(where, (error) => {
         if (!c.get("prerenderViolation")) c.set("prerenderViolation", error);
       });
@@ -1056,9 +1034,7 @@ export function createDropletsApp(options: DropletsAppOptions) {
 
   app.get("/droplets/:droplet/style.css", async (c) => {
     const droplet = c.req.param("droplet");
-    const meta = options.getDropletMeta
-      ? await options.getDropletMeta(droplet)
-      : { exists: true, ssr: true };
+    const meta = options.getDropletMeta ? await options.getDropletMeta(droplet) : { exists: true, ssr: true };
     if (!meta.exists) return c.text("Not Found", 404);
 
     c.header("content-type", "text/css; charset=utf-8");
@@ -1073,9 +1049,7 @@ export function createDropletsApp(options: DropletsAppOptions) {
 
   app.get("/droplets/:droplet/client.js", async (c) => {
     const droplet = c.req.param("droplet");
-    const meta = options.getDropletMeta
-      ? await options.getDropletMeta(droplet)
-      : { exists: true, ssr: true };
+    const meta = options.getDropletMeta ? await options.getDropletMeta(droplet) : { exists: true, ssr: true };
     // No JavaScript unless the droplet hydrates; styles are still served.
     if (!meta.exists || meta.hydrate === false || !options.loadClientModule) {
       return c.text("Not Found", 404);
@@ -1130,7 +1104,8 @@ export function createDropletsApp(options: DropletsAppOptions) {
     if (!ctx.meta.prerender || !options.loadPrerendered || options.building) return null;
     const key = propsKey(ctx.event.props);
     const host = ctx.event.host;
-    const found = (await options.loadPrerendered(ctx.droplet, prerenderKey(key, host), ctx.event)) ??
+    const found =
+      (await options.loadPrerendered(ctx.droplet, prerenderKey(key, host), ctx.event)) ??
       (await options.loadPrerendered(ctx.droplet, key, ctx.event));
     if (!found && !ctx.meta.ssr) throw new HttpError(404);
     if (!found) return null;
@@ -1159,9 +1134,7 @@ export function createDropletsApp(options: DropletsAppOptions) {
 
   /** The server load alone, or a payload without load: `{ data: undefined }`. */
   const loadPayload = async (ctx: DropletContext): Promise<DropletPayload> =>
-    options.loadDropletData
-      ? await options.loadDropletData(ctx.droplet, ctx.event)
-      : { data: undefined };
+    options.loadDropletData ? await options.loadDropletData(ctx.droplet, ctx.event) : { data: undefined };
 
   /**
    * Server data only: used by client-only droplets and by HMR refreshes.
@@ -1171,7 +1144,7 @@ export function createDropletsApp(options: DropletsAppOptions) {
   // GET and POST only (the browser POSTs its context; a GET with the query
   // is for people and tools). Anything else is no read of the load.
   app.on(["PUT", "PATCH", "DELETE"], "/droplets/:droplet/_data", (c) =>
-    c.json({ message: "Method Not Allowed" }, 405, { allow: "GET, POST" })
+    c.json({ message: "Method Not Allowed" }, 405, { allow: "GET, POST" }),
   );
   app.on(["GET", "POST"], "/droplets/:droplet/_data", dropletMiddleware, async (c) => {
     const ctx = dropletContext(c);
@@ -1183,7 +1156,9 @@ export function createDropletsApp(options: DropletsAppOptions) {
       const carried = await formFromHost(c, ctx);
       const found = carried ? null : await prerendered(ctx);
       const payload: DropletPayload = found
-        ? found.failed ? { failed: true, error: found.error } : { data: found.data }
+        ? found.failed
+          ? { failed: true, error: found.error }
+          : { data: found.data }
         : await loadPayload(ctx);
       if (payload.failed) return c.json(liveData({ ctx, data: { error: payload.error ?? null } }), 500);
       applyHeaders(c, found ? storedHeaders(found.headers) : ctx.headers);
@@ -1198,8 +1173,7 @@ export function createDropletsApp(options: DropletsAppOptions) {
   });
 
   /** `url` with the build hash as `?c=`, as the element asks for it. */
-  const withBuild = (url: string) =>
-    options.buildHash ? `${url}?c=${encodeURIComponent(options.buildHash)}` : url;
+  const withBuild = (url: string) => (options.buildHash ? `${url}?c=${encodeURIComponent(options.buildHash)}` : url);
 
   /**
    * The droplet's stylesheet for the element, and the `Link` header: its
@@ -1225,14 +1199,9 @@ export function createDropletsApp(options: DropletsAppOptions) {
   };
 
   /** The error page's HTML with its `head` (styles), or `""` when there is none. */
-  const errorHtml = async (
-    ctx: DropletContext,
-    error: unknown,
-  ): Promise<{ html: string; renderId?: string | undefined }> => {
+  const errorHtml = async (ctx: DropletContext, error: unknown): Promise<{ html: string; renderId?: string | undefined }> => {
     const page = options.renderError ? await options.renderError(ctx.droplet, error, ctx.event.props) : null;
-    return page
-      ? { html: `${page.head ?? ""}${page.html ?? page.body ?? ""}`, renderId: page.renderId }
-      : { html: "" };
+    return page ? { html: `${page.head ?? ""}${page.html ?? page.body ?? ""}`, renderId: page.renderId } : { html: "" };
   };
 
   // The fragment: the droplet without a page shell, for embedding. GET takes
@@ -1270,9 +1239,7 @@ export function createDropletsApp(options: DropletsAppOptions) {
         if (probe?.violation) return hostInPrerender(c, probe.violation);
         if (!result) return c.text("Not Found", 404);
         // A render for a known host is stored for that host only.
-        const key = probe?.host === ctx.event.host
-          ? propsKey(ctx.event.props)
-          : prerenderKey(propsKey(ctx.event.props), ctx.event.host);
+        const key = probe?.host === ctx.event.host ? propsKey(ctx.event.props) : prerenderKey(propsKey(ctx.event.props), ctx.event.host);
         // The tokens' nonce goes to the build with the render, and stays on
         // the server. Every render has one: its location is a token too.
         const nonce = { nonce: buildNonce };
@@ -1316,9 +1283,10 @@ export function createDropletsApp(options: DropletsAppOptions) {
           renderId = found.renderId;
           rendered = true;
         } else if (ctx.meta.ssr && !ctx.noSSR) {
-          const result = action?.form === undefined
-            ? await options.renderDroplet(ctx.droplet, ctx.event)
-            : await options.renderDroplet(ctx.droplet, ctx.event, { form: action.form });
+          const result =
+            action?.form === undefined
+              ? await options.renderDroplet(ctx.droplet, ctx.event)
+              : await options.renderDroplet(ctx.droplet, ctx.event, { form: action.form });
           if (!result) return c.text("Not Found", 404);
           if (result.failed) {
             payload = { failed: true, error: result.error };
@@ -1400,9 +1368,8 @@ export function createDropletsApp(options: DropletsAppOptions) {
     const referer = backTarget(c.get("referer"), allowed, servers);
     const named = new URL(c.req.url).searchParams.getAll(RETURN_KEY);
     // Once, and a page's origin and path only: its own query or hash is no part of it.
-    const target = named.length === 1 && named[0]!.length <= RETURN_MAX_LENGTH
-      ? backTarget(named[0], allowed, servers)
-      : null;
+    const [name] = named;
+    const target = name !== undefined && named.length === 1 && name.length <= RETURN_MAX_LENGTH ? backTarget(name, allowed, servers) : null;
     const page = target ? new URL(`${target.origin}${target.pathname}`) : null;
     if (referer && page && pageOf(referer) === pageOf(page)) return referer;
     return page ?? referer;
@@ -1509,11 +1476,17 @@ export function createDropletsApp(options: DropletsAppOptions) {
       // The render that follows applies what the action and its load set.
       return fragment(c, { form: outcome.data, status: outcome.status });
     }
-    const minted = await mintFormResult(secret, { droplet: ctx.droplet, build, page: pageOf(back)! }, {
-      action: name,
-      status: outcome.status,
-      ...(outcome.data === undefined ? {} : { data: liveData({ ctx, data: outcome.data }) }),
-    });
+    const page = pageOf(back);
+    if (page === undefined) throw new Error("droplets: the page a form goes back to has no origin");
+    const minted = await mintFormResult(
+      secret,
+      { droplet: ctx.droplet, build, page },
+      {
+        action: name,
+        status: outcome.status,
+        ...(outcome.data === undefined ? {} : { data: liveData({ ctx, data: outcome.data }) }),
+      },
+    );
     if (minted.dropped) {
       logger.warn(
         "framework",
@@ -1568,7 +1541,7 @@ export function createDropletsApp(options: DropletsAppOptions) {
     const method = (API_METHODS as readonly string[]).includes(upper) ? (upper as ApiMethod) : undefined;
     const isHead = method === "HEAD" && typeof module.HEAD !== "function";
     const handler = method
-      ? (isHead ? module.GET : Object.hasOwn(module, method) ? module[method] : undefined) ?? module.fallback
+      ? ((isHead ? module.GET : Object.hasOwn(module, method) ? module[method] : undefined) ?? module.fallback)
       : undefined;
     if (typeof handler !== "function") {
       return c.json({ message: "Method Not Allowed" }, 405, {

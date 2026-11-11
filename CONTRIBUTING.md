@@ -87,7 +87,7 @@ pnpm test                       # vitest: unit tests plus real `vite build` / `v
 pnpm test:integration           # only tests/*, the cross-package suites
 pnpm build:examples             # the eight framework examples for Node
 pnpm build:examples:cloudflare  # and for Cloudflare Workers
-pnpm check                      # build (with the unit tests), typecheck, tests/*, the above, the shops' and apps/demo's build and tests
+pnpm check                      # biome ci, build (with the unit tests), typecheck, tests/*, the above, the shops' and apps/demo's build and tests
 pnpm test:e2e                   # tests/examples: the framework examples in Chromium
 pnpm test:hosts [host…]         # tests/hosts: the shop on each host stack (Docker)
 pnpm typecheck:hosts [host…]    # npm ci + npm run typecheck in each Node host (no Docker)

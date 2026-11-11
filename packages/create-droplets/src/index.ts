@@ -71,7 +71,8 @@ async function choose(flags: Flags, interactive: boolean): Promise<Choices> {
         )
       : suggestElement(folder));
 
-  if (flags.frameworks === undefined && !interactive) throw needs(`pick the frameworks: --frameworks ${FRAMEWORKS.map((f) => f.name).join(",")}`);
+  if (flags.frameworks === undefined && !interactive)
+    throw needs(`pick the frameworks: --frameworks ${FRAMEWORKS.map((f) => f.name).join(",")}`);
   const frameworks =
     flags.frameworks ??
     answer(
@@ -80,7 +81,11 @@ async function choose(flags: Flags, interactive: boolean): Promise<Choices> {
         options: FRAMEWORKS.map((f) => ({ value: f.name, label: f.label })),
         required: true,
       }),
-    ).map((name) => frameworkNamed(name)!);
+    ).map((name) => {
+      const framework = frameworkNamed(name);
+      if (framework === undefined) throw new Error(`create-droplets: no framework named ${name}`);
+      return framework;
+    });
 
   const adapters: Adapter[] =
     flags.adapters ??
@@ -99,11 +104,10 @@ async function choose(flags: Flags, interactive: boolean): Promise<Choices> {
     flags.tailwind ?? (interactive ? answer(await prompts.confirm({ message: "Tailwind CSS?", initialValue: false })) : false);
   const injectTool =
     flags.injectTool ??
-    (interactive
-      ? answer(await prompts.confirm({ message: "Inject the dev tool in external hosts?", initialValue: false }))
-      : false);
+    (interactive ? answer(await prompts.confirm({ message: "Inject the dev tool in external hosts?", initialValue: false })) : false);
   const claude =
-    flags.claude ?? (interactive ? answer(await prompts.confirm({ message: "Using Claude? (adds CLAUDE.md)", initialValue: false })) : false);
+    flags.claude ??
+    (interactive ? answer(await prompts.confirm({ message: "Using Claude? (adds CLAUDE.md)", initialValue: false })) : false);
 
   const detected = detectPackageManager(process.cwd());
   const pm: PackageManager =
@@ -147,7 +151,11 @@ function initGit(root: string): string | undefined {
   const inside = git("rev-parse", "--is-inside-work-tree");
   if (inside.error) return "git is not installed: no repository created";
   if (inside.status === 0 && inside.stdout.trim() === "true") return "already inside a git repository: no new one created";
-  for (const args of [["init", "-q"], ["add", "-A"], ["commit", "-q", "-m", "Initial commit from create-droplets"]]) {
+  for (const args of [
+    ["init", "-q"],
+    ["add", "-A"],
+    ["commit", "-q", "-m", "Initial commit from create-droplets"],
+  ]) {
     const result = git(...args);
     if (result.status !== 0) return `git ${args[0]} failed: ${(result.stderr || result.stdout).trim().split("\n")[0]}`;
   }
@@ -181,7 +189,9 @@ async function main(argv: string[]): Promise<void> {
       const [runner, ...rest] = runScript.split(" ") as [string, ...string[]];
       await run([runner, ...rest, "sync"], root);
     } catch (error) {
-      prompts.log.warn(`${error instanceof Error ? error.message : String(error)}; run \`${installed ? `${runScript} sync` : install}\` yourself`);
+      prompts.log.warn(
+        `${error instanceof Error ? error.message : String(error)}; run \`${installed ? `${runScript} sync` : install}\` yourself`,
+      );
     }
   }
   if (flags.git) {

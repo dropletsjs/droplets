@@ -56,9 +56,10 @@ export const DEFAULT_CSS_PATH = "./src/app.css";
 
 /** Fills in the `css` defaults; `./src/app.css` only when it exists. */
 export async function resolveCss(options: DropletsCssOptions = {}, root: string): Promise<ResolvedCss> {
-  const path = options.path === false
-    ? undefined
-    : options.path ?? ((await fileExists(resolve(root, DEFAULT_CSS_PATH))) ? DEFAULT_CSS_PATH : undefined);
+  const path =
+    options.path === false
+      ? undefined
+      : (options.path ?? ((await fileExists(resolve(root, DEFAULT_CSS_PATH))) ? DEFAULT_CSS_PATH : undefined));
   return {
     ...(path ? { path } : {}),
     scoped: options.scoped ?? true,
@@ -85,11 +86,13 @@ export function withoutPreflight(code: string): string | null {
   if (!code.includes("tailwindcss")) return null;
   const result = code
     .replace(PREFLIGHT_IMPORT, "")
-    .replace(TAILWIND_IMPORT, (_match, _quote: string, options: string) => [
-      "@layer theme, base, components, utilities;",
-      `@import "tailwindcss/theme.css" layer(theme)${options};`,
-      `@import "tailwindcss/utilities.css" layer(utilities)${options};`,
-    ].join("\n"));
+    .replace(TAILWIND_IMPORT, (_match, _quote: string, options: string) =>
+      [
+        "@layer theme, base, components, utilities;",
+        `@import "tailwindcss/theme.css" layer(theme)${options};`,
+        `@import "tailwindcss/utilities.css" layer(utilities)${options};`,
+      ].join("\n"),
+    );
   return result === code ? null : result;
 }
 
@@ -144,10 +147,7 @@ export function createCssConfig(userConfig: UserConfig, state: PluginState): Use
 
   const existing = userConfig.css?.postcss;
   if (typeof existing === "string") {
-    logger.warn(
-      "framework",
-      "css.postcss points at a config file; add scopeStylesPlugin from @dropletsjs/droplets/postcss to it yourself",
-    );
+    logger.warn("framework", "css.postcss points at a config file; add scopeStylesPlugin from @dropletsjs/droplets/postcss to it yourself");
     return undefined;
   }
   return { postcss: { ...existing, plugins: [...(existing?.plugins ?? []), ...plugins] } };
@@ -207,9 +207,7 @@ export async function tailwindPlugins(state: PluginState): Promise<Plugin[]> {
       state.tailwind.user = config.plugins.some((plugin) => plugin.name.startsWith(TAILWIND_PLUGIN));
       state.tailwind.ours = state.css.tailwind && !state.tailwind.user;
       if (state.tailwind.ours && !plugins) {
-        throw new Error(
-          "droplets: css.tailwind needs Tailwind installed: pnpm add -D tailwindcss @tailwindcss/vite (or npm install -D …)",
-        );
+        throw new Error("droplets: css.tailwind needs Tailwind installed: pnpm add -D tailwindcss @tailwindcss/vite (or npm install -D …)");
       }
     },
     // Ahead of Tailwind's compile, whoever added Tailwind: once compiled and

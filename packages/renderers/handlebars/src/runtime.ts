@@ -54,8 +54,7 @@ export function templateOf(module: { default?: unknown }, where: { droplet: stri
   return template as Template;
 }
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
+const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
 /**
  * Registers the helpers a user module exports: every named export that is a

@@ -20,7 +20,10 @@ describe("cookies: parse and serialize", () => {
   it("does not let a cookie named __proto__ reach any prototype", () => {
     const { cookies } = jar("__proto__=x; constructor=y");
     expect(cookies.get("__proto__")).toBe("x");
-    expect(cookies.getAll()).toEqual([{ name: "__proto__", value: "x" }, { name: "constructor", value: "y" }]);
+    expect(cookies.getAll()).toEqual([
+      { name: "__proto__", value: "x" },
+      { name: "constructor", value: "y" },
+    ]);
     expect(({} as Record<string, unknown>)["x"]).toBeUndefined();
   });
 
@@ -37,7 +40,9 @@ describe("cookies: parse and serialize", () => {
         partitioned: true,
         priority: "high",
       }),
-    ).toBe("s=a%20b; Max-Age=60; Domain=shop.example; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure; Partitioned; Priority=High; SameSite=Strict");
+    ).toBe(
+      "s=a%20b; Max-Age=60; Domain=shop.example; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure; Partitioned; Priority=High; SameSite=Strict",
+    );
   });
 
   it("refuses what a Set-Cookie header cannot carry", () => {
@@ -110,7 +115,10 @@ describe("cookies: on the response", () => {
   const routes = [
     {
       id: "login",
-      segments: [{ type: "static" as const, value: "api" }, { type: "static" as const, value: "login" }],
+      segments: [
+        { type: "static" as const, value: "api" },
+        { type: "static" as const, value: "login" },
+      ],
       module: {
         POST: ({ cookies }) => {
           cookies.set("session", "s1", { path: "/" });
@@ -261,10 +269,12 @@ describe("cookies: on the response", () => {
 
     const fromHandle = await build({
       renderDroplet: async () => ({ html: "<p>x</p>" }),
-      getHandle: () => ({ event, resolve }) => {
-        event.locals["user"] = event.cookies.get("session");
-        return resolve(event);
-      },
+      getHandle:
+        () =>
+        ({ event, resolve }) => {
+          event.locals["user"] = event.cookies.get("session");
+          return resolve(event);
+        },
     });
     expect(fromHandle.headers.get("x-droplets-prerender-error")).toBe("cookies");
     expect(((await fromHandle.json()) as { message: string }).message).toContain("cookies.get()");

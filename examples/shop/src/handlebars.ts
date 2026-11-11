@@ -13,4 +13,8 @@ export const productHref = (slug: unknown) => `/product/${String(slug)}${version
 export const imageUrl = (key: unknown) => urlOf(String(key));
 
 /** `{{#each (paragraphs text)}}`: a text's paragraphs, split on blank lines. */
-export const paragraphs = (text: unknown) => String(text ?? "").split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+export const paragraphs = (text: unknown) =>
+  String(text ?? "")
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);

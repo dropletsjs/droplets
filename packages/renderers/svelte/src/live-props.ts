@@ -10,7 +10,10 @@ export const setters = new WeakMap<object, (props: RenderProps) => void>();
  * `data` and `form` through them, so `update` changes them in place, with
  * no new instance. `extra` (the `children` snippet) stays as it is.
  */
-export function liveProps(props: RenderProps, extra: Record<string, unknown>): { props: Record<string, unknown>; set: (props: RenderProps) => void } {
+export function liveProps(
+  props: RenderProps,
+  extra: Record<string, unknown>,
+): { props: Record<string, unknown>; set: (props: RenderProps) => void } {
   const values = new SvelteMap<string, unknown>(Object.entries(props));
   const live: Record<string, unknown> = { ...extra };
   for (const key of ["data", "form"]) {

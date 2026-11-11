@@ -8,17 +8,8 @@
  * the renderer never turns on). Without it, `mount` waits for the data and
  * shows `+error.svelte` itself when it rejects.
  */
-import type {
-  ClientRenderContext,
-  ComponentModule,
-  RenderProps,
-} from "@dropletsjs/droplets";
-import {
-  hydrate as svelteHydrate,
-  mount as svelteMount,
-  unmount as svelteUnmount,
-  type Component,
-} from "svelte";
+import type { ClientRenderContext, ComponentModule, RenderProps } from "@dropletsjs/droplets";
+import { hydrate as svelteHydrate, mount as svelteMount, unmount as svelteUnmount, type Component } from "svelte";
 import { asyncMode } from "virtual:droplets-renderer-svelte/options";
 import Boundary from "./boundary.svelte";
 import { marker } from "./children.svelte";
@@ -38,12 +29,7 @@ function componentOf(module: ComponentModule, context: ClientRenderContext): Com
   return component as Component<Record<string, unknown>>;
 }
 
-export function mount(
-  module: ComponentModule,
-  target: HTMLElement,
-  props: RenderProps,
-  context: ClientRenderContext,
-): unknown {
+export function mount(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): unknown {
   const component = componentOf(module, context);
   if (!asyncMode && "data" in props) return mountSettled(component, target, props, context);
   if (!("data" in props)) {
@@ -52,17 +38,23 @@ export function mount(
   const live = liveProps(props, { children: marker });
   if (context.error) {
     const errorComponent = componentOf(context.error.module, { ...context, kind: "error" });
-    return keep(svelteMount(Boundary, {
-      target,
-      props: { component, props: live.props, errorComponent, handle: context.error.handle, children: marker },
-      context: contextOf(context),
-    }), live.set);
+    return keep(
+      svelteMount(Boundary, {
+        target,
+        props: { component, props: live.props, errorComponent, handle: context.error.handle, children: marker },
+        context: contextOf(context),
+      }),
+      live.set,
+    );
   }
-  return keep(svelteMount(component, {
-    target,
-    props: live.props,
-    context: contextOf(context),
-  }), live.set);
+  return keep(
+    svelteMount(component, {
+      target,
+      props: live.props,
+      context: contextOf(context),
+    }),
+    live.set,
+  );
 }
 
 /**
@@ -89,13 +81,14 @@ async function mountSettled(
     }
     const errorComponent = componentOf(context.error.module, { ...context, kind: "error" });
     return rendering(context, () =>
-      svelteMount(errorComponent, { target, props: { error: shown, children: marker }, context: contextOf(context) })
+      svelteMount(errorComponent, { target, props: { error: shown, children: marker }, context: contextOf(context) }),
     );
   }
   const live = liveProps({ ...props, data } as RenderProps, { children: marker });
-  return keep(rendering(context, () =>
-    svelteMount(component, { target, props: live.props, context: contextOf(context) })
-  ), live.set);
+  return keep(
+    rendering(context, () => svelteMount(component, { target, props: live.props, context: contextOf(context) })),
+    live.set,
+  );
 }
 
 /** After the await, as the render again: `actionUrl()` of `$droplets/form` in the component knows it. */
@@ -103,23 +96,21 @@ function rendering<T>(context: ClientRenderContext, render: () => T): T {
   return context.rendering ? context.rendering(render) : render();
 }
 
-export function hydrate(
-  module: ComponentModule,
-  target: HTMLElement,
-  props: RenderProps,
-  context: ClientRenderContext,
-): unknown {
+export function hydrate(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): unknown {
   // The server rendered the marker and the element emptied it before this
   // call: the snippet adopts it, and `use:fill` puts the container back.
   if (!("data" in props)) {
     return svelteHydrate(componentOf(module, context), { target, props: { ...props, children: marker }, context: contextOf(context) });
   }
   const live = liveProps(props, { children: marker });
-  return keep(svelteHydrate(componentOf(module, context), {
-    target,
-    props: live.props,
-    context: contextOf(context),
-  }), live.set);
+  return keep(
+    svelteHydrate(componentOf(module, context), {
+      target,
+      props: live.props,
+      context: contextOf(context),
+    }),
+    live.set,
+  );
 }
 
 export async function unmount(instance: unknown): Promise<void> {

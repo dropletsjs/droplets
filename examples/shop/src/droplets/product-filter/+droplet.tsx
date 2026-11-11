@@ -17,7 +17,9 @@ const read = (form: HTMLFormElement, scope: string): Filter & { scope: string } 
   const fields = new FormData(form);
   const sort = String(fields.get("sort") ?? "new");
   return {
-    q: String(fields.get("q") ?? "").trim().slice(0, 80),
+    q: String(fields.get("q") ?? "")
+      .trim()
+      .slice(0, 80),
     category: String(fields.get("category") ?? ""),
     sort: sort === "price-asc" || sort === "price-desc" ? sort : "new",
     onSale: fields.get("onSale") !== null,
@@ -54,7 +56,7 @@ export default function ProductFilter({ data }: DropletProps) {
           <span>All</span> <small>{all}</small>
         </label>
         {categories.map((category) => (
-          <label>
+          <label key={category.slug}>
             <input type="radio" name="category" value={category.slug} checked={current.category === category.slug} />
             <span>{category.name}</span> <small>{category.count}</small>
           </label>
@@ -64,9 +66,15 @@ export default function ProductFilter({ data }: DropletProps) {
       <label class="sort">
         <span>Sort</span>
         <select class="field" name="sort" onChange={changed}>
-          <option value="new" selected={current.sort === "new"}>Newest</option>
-          <option value="price-asc" selected={current.sort === "price-asc"}>Price, low to high</option>
-          <option value="price-desc" selected={current.sort === "price-desc"}>Price, high to low</option>
+          <option value="new" selected={current.sort === "new"}>
+            Newest
+          </option>
+          <option value="price-asc" selected={current.sort === "price-asc"}>
+            Price, low to high
+          </option>
+          <option value="price-desc" selected={current.sort === "price-desc"}>
+            Price, high to low
+          </option>
         </select>
       </label>
 
@@ -77,7 +85,9 @@ export default function ProductFilter({ data }: DropletProps) {
 
       {current.scope !== "main" ? <input type="hidden" name="scope" value={current.scope} /> : null}
       {/* Without JavaScript this submits the form; hydrated, every change applies at once. */}
-      <button class={hydrated ? "button visually-hidden" : "button"}>Apply</button>
+      <button type="submit" class={hydrated ? "button visually-hidden" : "button"}>
+        Apply
+      </button>
     </form>
   );
 }

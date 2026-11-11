@@ -33,7 +33,14 @@ function service(method: string, uri: string, secret = SERVICE_SECRET): string {
   return `${payload}.${createHmac("sha256", secret).update(payload).digest("base64url")}`;
 }
 
-type Send = { method: string; uri: string; data?: unknown; form?: Record<string, string>; headers?: Record<string, string>; secret?: string };
+type Send = {
+  method: string;
+  uri: string;
+  data?: unknown;
+  form?: Record<string, string>;
+  headers?: Record<string, string>;
+  secret?: string;
+};
 
 /** One REST request carrying `x-wp-shop-service`, signed for exactly this method and URI. */
 const send = (request: APIRequestContext, { method, uri, data, form, headers = {}, secret }: Send) =>
@@ -75,7 +82,11 @@ test("x-wp-shop-service counts nowhere else", async ({ request }) => {
   // Other routes, each with a valid assertion for exactly that request.
   await refused({ method: "GET", uri: "/wp-json/wp/v2/users/me" });
   await refused({ method: "GET", uri: "/wp-json/wp/v2/users?context=edit" });
-  await refused({ method: "POST", uri: "/wp-json/wp/v2/users", data: { username: "intruder", email: "intruder@example.com", password: "intruder-password-0123" } });
+  await refused({
+    method: "POST",
+    uri: "/wp-json/wp/v2/users",
+    data: { username: "intruder", email: "intruder@example.com", password: "intruder-password-0123" },
+  });
   await refused({ method: "GET", uri: "/wp-json/wp/v2/settings" });
   await refused({ method: "GET", uri: "/wp-json/wp/v2/plugins" });
   await refused({ method: "GET", uri: `/wp-json/wp/v2/products/${id}?context=edit` });
@@ -89,7 +100,12 @@ test("x-wp-shop-service counts nowhere else", async ({ request }) => {
   await refused({ method: "POST", uri: `/wp-json/wp/v2/products/${id}`, form: { "meta[shop_stock]": String(stock) } });
   await refused({ method: "POST", uri: `/wp-json/wp/v2/products/0${id}`, data: { meta: { shop_stock: stock } } });
   // The right write, signed with the other direction's secret.
-  await refused({ method: "POST", uri: `/wp-json/wp/v2/products/${id}?_fields=id,meta`, data: { meta: { shop_stock: stock } }, secret: HOST_SECRET });
+  await refused({
+    method: "POST",
+    uri: `/wp-json/wp/v2/products/${id}?_fields=id,meta`,
+    data: { meta: { shop_stock: stock } },
+    secret: HOST_SECRET,
+  });
 
   // Nothing came of them: the product as it was.
   const still = await request.get(`/wp-json/wp/v2/products/${id}?_fields=id,meta`);

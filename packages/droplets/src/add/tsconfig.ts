@@ -13,7 +13,7 @@ import { dirname, resolve } from "node:path";
 export function stripJsonc(text: string): string {
   let out = "";
   for (let i = 0; i < text.length; i++) {
-    const char = text[i]!;
+    const char = text.charAt(i);
     if (char === '"') {
       let end = i + 1;
       while (end < text.length && text[end] !== '"') end += text[end] === "\\" ? 2 : 1;

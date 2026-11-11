@@ -30,10 +30,7 @@ export const DEFAULT_INDEX_HTML = `<!doctype html>
  * The HTML for `/` under `index`: the named file, else `index.html` in the
  * root, else the placeholder. `false` means no page at all (`null`).
  */
-export async function readIndexHtml(
-  root: string,
-  index: string | false | undefined,
-): Promise<string | null> {
+export async function readIndexHtml(root: string, index: string | false | undefined): Promise<string | null> {
   if (index === false) return null;
   if (typeof index === "string") {
     const html = await readTextFile(resolve(root, index));

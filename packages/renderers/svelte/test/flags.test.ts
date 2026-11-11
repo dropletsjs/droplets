@@ -35,10 +35,12 @@ const config = (root: string): InlineConfig => ({
 
 const buildConfig = (root: string): InlineConfig => ({
   ...config(root),
-  plugins: [droplets({
-    adapter: { name: "fake", serverEntry: join(root, "fake-entry.js"), serverFile: "server.js", separateSsrBundle: true },
-    renderers: [svelte()],
-  })],
+  plugins: [
+    droplets({
+      adapter: { name: "fake", serverEntry: join(root, "fake-entry.js"), serverFile: "server.js", separateSsrBundle: true },
+      renderers: [svelte()],
+    }),
+  ],
 });
 
 const api = (plugins: readonly Plugin[]): DropletsPluginApi =>
@@ -64,7 +66,8 @@ describe("flags of a Svelte droplet", () => {
   });
 
   it.each(["+droplet.ts", "+droplet.server.ts"])("are ignored in %s, in a build and in vite dev", async (file) => {
-    const load = "export const ssr = false;\nexport const hydrate = true;\nexport const prerender = true;\nexport const load = () => ({});\n";
+    const load =
+      "export const ssr = false;\nexport const hydrate = true;\nexport const prerender = true;\nexport const load = () => ({});\n";
     const root = await project({
       "src/droplets/card/+droplet.svelte": "<script module>export const hydrate = false;</script>\n<p>card</p>\n",
       [`src/droplets/card/${file}`]: load,

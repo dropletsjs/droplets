@@ -45,8 +45,7 @@ type Worker = {
 describe("cloudflare adapter", () => {
   let worker: Worker;
   const env = { ASSETS: fakeAssets(resolve(outDir, "client")), FIXTURE_SECRET: "from-binding" };
-  const call = (path: string, init?: RequestInit) =>
-    worker.default.fetch(new Request(`http://drops.test${path}`, init), env, {});
+  const call = (path: string, init?: RequestInit) => worker.default.fetch(new Request(`http://drops.test${path}`, init), env, {});
 
   beforeAll(async () => {
     if (!existsSync(resolve(root, "../../../dist/vite.js"))) {
@@ -195,7 +194,7 @@ describe("cloudflare adapter", () => {
     expect(res.status).toBe(200);
     expect(await res.text()).toBe("User-agent: *\n");
     expect(res.headers.get("cache-control")).toBe("no-cache");
-    const etag = res.headers.get("etag")!;
+    const etag = res.headers.get("etag") ?? expect.unreachable("an etag");
     expect(etag).toMatch(/^"[\w-]+"$/);
     const again = await call("/assets/public/robots.txt", { headers: { "if-none-match": etag } });
     expect(again.status).toBe(304);
@@ -250,13 +249,15 @@ describe("cloudflare adapter", () => {
 
   it("ignores a client's X-Forwarded-Host unless a DROPLETS_ORIGIN binding lists it", async () => {
     const render = async (bindings: Record<string, unknown>) =>
-      (await worker.default.fetch(
-        new Request("http://drops.test/droplets/hello?who=W", {
-          headers: { "x-forwarded-host": "shop.test", "x-forwarded-proto": "https", "x-forwarded-prefix": "/mfe" },
-        }),
-        { ...env, ...bindings },
-        {},
-      )).text();
+      (
+        await worker.default.fetch(
+          new Request("http://drops.test/droplets/hello?who=W", {
+            headers: { "x-forwarded-host": "shop.test", "x-forwarded-proto": "https", "x-forwarded-prefix": "/mfe" },
+          }),
+          { ...env, ...bindings },
+          {},
+        )
+      ).text();
     const forged = await render({});
     expect(forged).not.toContain("shop.test");
     expect(forged).toContain("http://drops.test/droplets/hello/");
@@ -271,10 +272,8 @@ describe("cloudflare adapter", () => {
   });
 
   it("fails clearly without the assets binding", async () => {
-    await expect(
-      Promise.resolve().then(() =>
-        worker.default.fetch(new Request("http://drops.test/"), {}, {}),
-      ),
-    ).rejects.toThrow(/no "ASSETS" binding/);
+    await expect(Promise.resolve().then(() => worker.default.fetch(new Request("http://drops.test/"), {}, {}))).rejects.toThrow(
+      /no "ASSETS" binding/,
+    );
   });
 });

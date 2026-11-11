@@ -40,7 +40,11 @@ async function ask(prompt, schema) {
       body: JSON.stringify({
         model: MODEL,
         messages: [
-          { role: "system", content: "You write copy for a small, cheerful online design shop. Plain, friendly English for shoppers. No emoji, no superlatives, no marketing clichés." },
+          {
+            role: "system",
+            content:
+              "You write copy for a small, cheerful online design shop. Plain, friendly English for shoppers. No emoji, no superlatives, no marketing clichés.",
+          },
           { role: "user", content: prompt },
         ],
         temperature: 0.8,
@@ -116,21 +120,112 @@ const commentSchema = (count) => ({
 
 /** Comments per product: five popular ones with 30 to 50, the rest under 15, several under 10. */
 const COMMENT_COUNTS = {
-  "clay-cylinder-mug": 43, "speckled-temple-cup": 6, "double-wall-tumbler": 2, "matte-black-travel-cup": 14,
-  "ocean-wave-mug": 34, "linen-notebook": 5, "brass-pen-holder": 31, "minimalist-desk-lamp": 3,
-  "bamboo-organizer": 8, "concrete-tray": 1, "canvas-urban-tote": 38, "navy-nylon-backpack": 9,
-  "olive-leather-pouch": 0, "denim-bifold-wallet": 7, "linen-market-bag": 12, "soy-vanilla-candle": 50,
-  "ceramic-blue-vase": 4, "linen-square-cushion": 2, "terracotta-plant-pot": 6, "wax-dipped-tealight": 3,
+  "clay-cylinder-mug": 43,
+  "speckled-temple-cup": 6,
+  "double-wall-tumbler": 2,
+  "matte-black-travel-cup": 14,
+  "ocean-wave-mug": 34,
+  "linen-notebook": 5,
+  "brass-pen-holder": 31,
+  "minimalist-desk-lamp": 3,
+  "bamboo-organizer": 8,
+  "concrete-tray": 1,
+  "canvas-urban-tote": 38,
+  "navy-nylon-backpack": 9,
+  "olive-leather-pouch": 0,
+  "denim-bifold-wallet": 7,
+  "linen-market-bag": 12,
+  "soy-vanilla-candle": 50,
+  "ceramic-blue-vase": 4,
+  "linen-square-cushion": 2,
+  "terracotta-plant-pot": 6,
+  "wax-dipped-tealight": 3,
 };
 
 const AUTHORS = [
-  "Elena", "Kai", "Sofia M.", "Raj", "Mina", "Liam", "Anika", "Luca", "Chloe", "Mateo", "Yuki", "Amara", "Jonas",
-  "Priya", "Oskar", "Fatima", "Noah B.", "Ines", "Tomasz", "Leila", "Hugo", "Sana", "Ewan", "Marta", "Kofi",
-  "Ingrid", "Diego", "Aiko", "Bram", "Zara", "Felix", "Nadia", "Theo", "Camille", "Arjun", "Greta", "Rafael",
-  "Hana", "Malik", "Freya", "Sven", "Lucia", "Omar", "Bea", "Dmitri", "Ava", "Kenji", "Rosa", "Emil", "Tara",
-  "mugcollector", "Jo from Leeds", "plantmum_k", "deskgeek", "Annie R.", "Paolo", "Siobhan", "Viktor", "Lena",
-  "Mohammed", "Clara", "Pieter", "Ngozi", "Ruth", "Andrei", "Mei", "Gabriel", "Astrid", "Tomás", "Ola", "Yara",
-  "Niko", "Helen W.", "Ben", "Isla", "Farid", "Julia", "Sam K.", "Ewa", "Ali", "cozy_corner", "Daniel", "Maya",
+  "Elena",
+  "Kai",
+  "Sofia M.",
+  "Raj",
+  "Mina",
+  "Liam",
+  "Anika",
+  "Luca",
+  "Chloe",
+  "Mateo",
+  "Yuki",
+  "Amara",
+  "Jonas",
+  "Priya",
+  "Oskar",
+  "Fatima",
+  "Noah B.",
+  "Ines",
+  "Tomasz",
+  "Leila",
+  "Hugo",
+  "Sana",
+  "Ewan",
+  "Marta",
+  "Kofi",
+  "Ingrid",
+  "Diego",
+  "Aiko",
+  "Bram",
+  "Zara",
+  "Felix",
+  "Nadia",
+  "Theo",
+  "Camille",
+  "Arjun",
+  "Greta",
+  "Rafael",
+  "Hana",
+  "Malik",
+  "Freya",
+  "Sven",
+  "Lucia",
+  "Omar",
+  "Bea",
+  "Dmitri",
+  "Ava",
+  "Kenji",
+  "Rosa",
+  "Emil",
+  "Tara",
+  "mugcollector",
+  "Jo from Leeds",
+  "plantmum_k",
+  "deskgeek",
+  "Annie R.",
+  "Paolo",
+  "Siobhan",
+  "Viktor",
+  "Lena",
+  "Mohammed",
+  "Clara",
+  "Pieter",
+  "Ngozi",
+  "Ruth",
+  "Andrei",
+  "Mei",
+  "Gabriel",
+  "Astrid",
+  "Tomás",
+  "Ola",
+  "Yara",
+  "Niko",
+  "Helen W.",
+  "Ben",
+  "Isla",
+  "Farid",
+  "Julia",
+  "Sam K.",
+  "Ewa",
+  "Ali",
+  "cozy_corner",
+  "Daniel",
+  "Maya",
 ];
 
 /** Praise most of the time, some mixed, a little mild critique. */
@@ -190,7 +285,7 @@ for (const [i, product] of products.entries()) {
   const pool = [...AUTHORS].sort(() => r() - 0.5);
   // New products: comments in their first days. Older ones: up to seven months, more in recent weeks.
   const span = i % 5 === 2 ? ageOf(i) - 0.5 : Math.min(210, Math.max(ageOf(i), 40 + count * 3.5));
-  const days = Array.from({ length: count }, () => 0.2 + span * Math.pow(r(), 1.3)).sort((a, b) => b - a);
+  const days = Array.from({ length: count }, () => 0.2 + span * r() ** 1.3).sort((a, b) => b - a);
   const plan = days.map((daysAgo, k) => ({ author: pool[k % pool.length], tone: toneOf(r), daysAgo: Math.round(daysAgo * 1000) / 1000 }));
   const written = [];
   for (let done = 0; done < count; done += 10) {
@@ -204,7 +299,14 @@ Facts: ${product.details}
 
 One comment per line below, in this order; each is written by that customer, in the given tone:
 ${chunk.map((c, k) => `${k + 1}. ${c.author}, ${Math.round(c.daysAgo)} days ago: ${c.tone.hint}`).join("\n")}
-${written.length ? `\nEarlier comments already say these things, so bring up other details (use, gifts, packaging, how it ages, colour in real light, size against expectations):\n${written.slice(-12).map((b) => `- ${b.slice(0, 90)}`).join("\n")}\n` : ""}
+${
+  written.length
+    ? `\nEarlier comments already say these things, so bring up other details (use, gifts, packaging, how it ages, colour in real light, size against expectations):\n${written
+        .slice(-12)
+        .map((b) => `- ${b.slice(0, 90)}`)
+        .join("\n")}\n`
+    : ""
+}
 Each body is 1 to 3 sentences, 40 to 280 characters, sounds like a real customer, mentions something specific to this product. Vary length and openings; do not start with the author's name; no emoji, no exclamation marks in more than one comment, no star ratings.`,
       commentSchema(chunk.length),
     );
@@ -216,8 +318,10 @@ Each body is 1 to 3 sentences, 40 to 280 characters, sounds like a real customer
   }
 }
 
-await writeFile(new URL("products.json", out), JSON.stringify(data, null, 2) + "\n");
-await writeFile(new URL("comments.json", out), JSON.stringify(comments, null, 2) + "\n");
+await writeFile(new URL("products.json", out), `${JSON.stringify(data, null, 2)}\n`);
+await writeFile(new URL("comments.json", out), `${JSON.stringify(comments, null, 2)}\n`);
 const sum = (xs) => xs.reduce((a, b) => a + b, 0);
-console.log(`text: ${textTimes.length} requests, ${sum(textTimes).toFixed(0)} s; comments: ${commentTimes.length} requests, ${sum(commentTimes).toFixed(0)} s`);
+console.log(
+  `text: ${textTimes.length} requests, ${sum(textTimes).toFixed(0)} s; comments: ${commentTimes.length} requests, ${sum(commentTimes).toFixed(0)} s`,
+);
 console.log(`${products.length} products, ${comments.length} comments in ${((Date.now() - started) / 1000).toFixed(0)} s`);

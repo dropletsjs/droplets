@@ -38,11 +38,7 @@ async function importMapBlock(api: DropletsPluginApi, origin: string): Promise<s
  * Server mode: fetch the fragment the way a host's server would, through the
  * droplets app and its hooks, then hand it to the page with its styles.
  */
-async function renderOnServer(
-  api: DropletsPluginApi,
-  origin: string,
-  search: string,
-): Promise<ServerRender | undefined> {
+async function renderOnServer(api: DropletsPluginApi, origin: string, search: string): Promise<ServerRender | undefined> {
   const state = readToolState(search, api.droplets());
   if (!state.droplet) return undefined;
   const { url, init } = fragmentRequest(state.droplet, state.method, state.props);
@@ -93,9 +89,7 @@ export function dropletsDevtools(): Plugin {
       const core = config.plugins.find((plugin) => plugin.name === "droplets");
       api = core?.api as DropletsPluginApi | undefined;
       if (!api) {
-        throw new Error(
-          "@dropletsjs/devtools: add droplets() from @dropletsjs/droplets/vite to the plugins too",
-        );
+        throw new Error("@dropletsjs/devtools: add droplets() from @dropletsjs/droplets/vite to the plugins too");
       }
       api.setDevTool(fsUrl(toolFile));
     },

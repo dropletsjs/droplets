@@ -11,7 +11,9 @@ export default function CrashError(props: DropletErrorProps) {
       <p class="demo-row">
         <span class="demo-tag">crash · Solid · +error.tsx</span>
       </p>
-      <p class="demo-error" role="alert">{props.error.message}</p>
+      <p class="demo-error" role="alert">
+        {props.error.message}
+      </p>
     </section>
   );
 }

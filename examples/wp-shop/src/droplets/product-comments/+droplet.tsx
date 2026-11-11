@@ -31,11 +31,7 @@ export default function ProductComments(props: DropletProps) {
   const post = actionUrl<DropletActions>("post");
   const data = props.data;
   const page = data instanceof Promise ? createResource(() => data)[0] : () => data;
-  return (
-    <Show when={page()}>
-      {(first) => <Comments first={first()} form={props.form as FormResult} post={post} />}
-    </Show>
-  );
+  return <Show when={page()}>{(first) => <Comments first={first()} form={props.form as FormResult} post={post} />}</Show>;
 }
 
 function Comments(props: { first: Page; form: FormResult; post: string }) {
@@ -55,8 +51,7 @@ function Comments(props: { first: Page; form: FormResult; post: string }) {
   };
 
   /** Page `n` of the current order and size, through the droplet's own GET `_data`. */
-  const fetchPage = (n: number) =>
-    readData<Page>("product-comments", { productId, order: order(), page: n, showing: showing() });
+  const fetchPage = (n: number) => readData<Page>("product-comments", { productId, order: order(), page: n, showing: showing() });
 
   const loadMore = async () => {
     setBusy(true);
@@ -88,7 +83,13 @@ function Comments(props: { first: Page; form: FormResult; post: string }) {
     void refreshTotal().catch(() => {});
   });
   // After a post (the enhanced form renders the droplet again with `form`): the new total.
-  createEffect(on(() => props.form?.posted, (posted) => posted && void refreshTotal().catch(() => {}), { defer: true }));
+  createEffect(
+    on(
+      () => props.form?.posted,
+      (posted) => posted && void refreshTotal().catch(() => {}),
+      { defer: true },
+    ),
+  );
 
   // Pages 1 to loaded() are behind or on screen; anything past them is more.
   const hasMore = () => total() !== null && total()! > loaded() * showing();
@@ -110,26 +111,46 @@ function Comments(props: { first: Page; form: FormResult; post: string }) {
     <section class="comments" id="comments" aria-busy={busy()}>
       <header>
         <h2>
-          Comments <Show when={total() !== null}><small>({total()})</small></Show>
+          Comments{" "}
+          <Show when={total() !== null}>
+            <small>({total()})</small>
+          </Show>
         </h2>
         <nav class="order" aria-label="Order">
-          <a href={link({ order: "oldest", page: 1 })} aria-current={order() === "oldest" ? "true" : undefined}
-            onClick={(e) => switchOrder(e, "oldest")}>Oldest first</a>
-          <a href={link({ order: "newest", page: 1 })} aria-current={order() === "newest" ? "true" : undefined}
-            onClick={(e) => switchOrder(e, "newest")}>Newest first</a>
+          <a
+            href={link({ order: "oldest", page: 1 })}
+            aria-current={order() === "oldest" ? "true" : undefined}
+            onClick={(e) => switchOrder(e, "oldest")}
+          >
+            Oldest first
+          </a>
+          <a
+            href={link({ order: "newest", page: 1 })}
+            aria-current={order() === "newest" ? "true" : undefined}
+            onClick={(e) => switchOrder(e, "newest")}
+          >
+            Newest first
+          </a>
         </nav>
         <form method="get" class="showing" action="#comments">
           <input type="hidden" name="order" value={order()} />
           <label>
             Showing
-            <select class="field" name="showing"
-              onChange={(e) => mounted() && void restart(order(), Number(e.currentTarget.value))}>
+            <select class="field" name="showing" onChange={(e) => mounted() && void restart(order(), Number(e.currentTarget.value))}>
               <For each={COMMENT_PAGE_SIZES}>
-                {(size) => <option value={size} selected={size === showing()}>{size}</option>}
+                {(size) => (
+                  <option value={size} selected={size === showing()}>
+                    {size}
+                  </option>
+                )}
               </For>
             </select>
           </label>
-          <Show when={!mounted()}><button class="button">Show</button></Show>
+          <Show when={!mounted()}>
+            <button type="submit" class="button">
+              Show
+            </button>
+          </Show>
         </form>
       </header>
 
@@ -138,7 +159,9 @@ function Comments(props: { first: Page; form: FormResult; post: string }) {
           <For each={list()}>
             {(comment) => (
               <li>
-                <p class="meta"><b>{comment.author}</b> · <time datetime={comment.createdAt}>{formatDate(comment.createdAt)}</time></p>
+                <p class="meta">
+                  <b>{comment.author}</b> · <time datetime={comment.createdAt}>{formatDate(comment.createdAt)}</time>
+                </p>
                 <p class="body">{comment.body}</p>
               </li>
             )}
@@ -150,35 +173,57 @@ function Comments(props: { first: Page; form: FormResult; post: string }) {
         when={mounted()}
         fallback={
           <nav class="pager" aria-label="Comment pages">
-            <Show when={props.first.page > 1}><a class="button" href={link({ page: props.first.page - 1 })}>‹ Previous</a></Show>
+            <Show when={props.first.page > 1}>
+              <a class="button" href={link({ page: props.first.page - 1 })}>
+                ‹ Previous
+              </a>
+            </Show>
             <Show when={props.first.comments.length === props.first.showing}>
-              <a class="button" href={link({ page: props.first.page + 1 })}>Next ›</a>
+              <a class="button" href={link({ page: props.first.page + 1 })}>
+                Next ›
+              </a>
             </Show>
           </nav>
         }
       >
         <Show when={hasMore()}>
-          <button type="button" class="button more" disabled={busy()} onClick={() => void loadMore()}>Load more</button>
+          <button type="button" class="button more" disabled={busy()} onClick={() => void loadMore()}>
+            Load more
+          </button>
         </Show>
       </Show>
 
       <form method="post" action={post} class="post" use:enhanceDropletForm={{ action: "post" }}>
         <h3>Add a comment</h3>
-        <Show when={props.form?.posted}><p class="notice ok" role="status">{props.form?.held ? "Thanks, your comment waits for moderation." : "Thanks, your comment is posted."}</p></Show>
+        <Show when={props.form?.posted}>
+          <p class="notice ok" role="status">
+            {props.form?.held ? "Thanks, your comment waits for moderation." : "Thanks, your comment is posted."}
+          </p>
+        </Show>
         <label>
           Name
           <input class="field" name="author" required minlength={2} maxlength={40} autocomplete="nickname" />
         </label>
-        <Show when={props.form?.errors?.author}><p class="notice error" role="alert">{props.form?.errors?.author}</p></Show>
+        <Show when={props.form?.errors?.author}>
+          <p class="notice error" role="alert">
+            {props.form?.errors?.author}
+          </p>
+        </Show>
         <label>
           Your comment
           <textarea class="field" name="body" required minlength={3} maxlength={1000} rows={4} />
         </label>
-        <Show when={props.form?.errors?.body}><p class="notice error" role="alert">{props.form?.errors?.body}</p></Show>
+        <Show when={props.form?.errors?.body}>
+          <p class="notice error" role="alert">
+            {props.form?.errors?.body}
+          </p>
+        </Show>
         <label class="trap" aria-hidden="true">
           Website <input name="website" tabindex={-1} autocomplete="off" />
         </label>
-        <button class="button primary">Post comment</button>
+        <button type="submit" class="button primary">
+          Post comment
+        </button>
       </form>
     </section>
   );

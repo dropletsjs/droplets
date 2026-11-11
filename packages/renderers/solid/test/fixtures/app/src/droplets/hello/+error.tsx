@@ -5,7 +5,9 @@ export default function HelloError(props: DropletErrorProps<{ message: string }>
   const [tries, setTries] = createSignal(0);
   return (
     <>
-      <p class="oops" data-testid="error">{props.error.message}</p>
+      <p class="oops" data-testid="error">
+        {props.error.message}
+      </p>
       <button data-testid="retry" onClick={() => setTries(tries() + 1)}>
         {tries()}
       </button>

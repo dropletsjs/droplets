@@ -71,8 +71,7 @@ async function files(dir: string): Promise<string[]> {
   return out;
 }
 
-const attr = (html: string, id: string, name: "src" | "href") =>
-  new RegExp(`id="${id}" ${name}="([^"]+)"`).exec(html)?.[1];
+const attr = (html: string, id: string, name: "src" | "href") => new RegExp(`id="${id}" ${name}="([^"]+)"`).exec(html)?.[1];
 
 const roots: string[] = [];
 afterAll(async () => {
@@ -163,7 +162,10 @@ describe("file URLs in a build", () => {
     const chunks = (await files(client)).filter((file) => file.endsWith(".js")).map((file) => join(client, file));
     const all = (await Promise.all(chunks.map((file) => readFile(file, "utf8")))).join("\n");
     const listed = JSON.parse(/m\.f=(\[[^\]]*\])/.exec(all)?.[1] ?? "[]") as string[];
-    expect(listed.some((dep) => /lazy-[\w-]+\.css$/.test(dep)), all.slice(0, 400)).toBe(true);
+    expect(
+      listed.some((dep) => /lazy-[\w-]+\.css$/.test(dep)),
+      all.slice(0, 400),
+    ).toBe(true);
     for (const dep of listed) expect(dep).not.toMatch(/^\//);
     expect(all).not.toContain("__DROPLETS_BUILD_ROOT__");
 
@@ -222,7 +224,7 @@ describe("file URLs in vite dev", () => {
     expect(attr(other, "robots", "href")).toBe(`${origin}/assets/public/robots.txt`);
     expect(html).not.toContain("file://");
     expect(html).not.toContain("DROPLET_");
-    expect((await fetch(imported!.replace("localhost", "127.0.0.1"))).status).toBe(200);
+    expect((await fetch((imported ?? expect.unreachable("#imported src")).replace("localhost", "127.0.0.1"))).status).toBe(200);
   });
 
   it("serves public/ at /assets/public/, no-cache with an ETag, 304 when it matches", async () => {
@@ -230,7 +232,7 @@ describe("file URLs in vite dev", () => {
     expect(res.status).toBe(200);
     expect(await res.text()).toBe("User-agent: *\n");
     expect(res.headers.get("cache-control")).toBe("no-cache");
-    const etag = res.headers.get("etag")!;
+    const etag = res.headers.get("etag") ?? expect.unreachable("an etag");
     expect(etag).toBeTruthy();
     expect((await fetch(`${origin}/assets/public/robots.txt`, { headers: { "if-none-match": etag } })).status).toBe(304);
   });

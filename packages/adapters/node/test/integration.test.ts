@@ -13,8 +13,7 @@ import { createNodeServerApp, node } from "../src/index.ts";
 const root = fileURLToPath(new URL("../../../droplets/test/fixtures/app/", import.meta.url));
 const outDir = resolve(root, "dist-node");
 
-const decode = (b64: string) =>
-  JSON.parse(Buffer.from(b64, "base64").toString("utf8")) as Record<string, unknown>;
+const decode = (b64: string) => JSON.parse(Buffer.from(b64, "base64").toString("utf8")) as Record<string, unknown>;
 
 describe("node adapter", () => {
   beforeAll(async () => {
@@ -135,7 +134,7 @@ describe("node adapter", () => {
     expect(await res.text()).toBe("User-agent: *\n");
     expect(res.headers.get("cache-control")).toBe("no-cache");
     expect(res.headers.get("x-fixture-hook")).toBeNull();
-    const etag = res.headers.get("etag")!;
+    const etag = res.headers.get("etag") ?? expect.unreachable("an etag");
     expect((await app.request("http://drops.test/assets/public/robots.txt", { headers: { "if-none-match": etag } })).status).toBe(304);
     expect((await app.request("http://drops.test/robots.txt")).status).toBe(404);
     expect((await app.request("http://drops.test/index.js")).headers.get("x-fixture-hook")).toBeNull();
@@ -203,7 +202,9 @@ describe("node adapter", () => {
   });
 
   it("previews the build the same way", async () => {
-    const app = await node().preview!({
+    const adapter = node();
+    if (adapter.preview === undefined) expect.unreachable("node().preview");
+    const app = await adapter.preview({
       root,
       outDir,
       config: resolveConfig({ element: "test-droplet" }),

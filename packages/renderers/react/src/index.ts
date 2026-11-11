@@ -84,15 +84,15 @@ export function react(options: ReactRendererOptions = {}): DropletRenderer {
     ...(options.plugin === false
       ? {}
       : {
-        plugins: (scope) => [
-          reactPlugin({
-            ...(scope.include ? { jsxImportSource: "react" } : {}),
-            ...options.vitePlugin,
-            ...(scope.include ? { include: scope.include } : {}),
-          }),
-          reactRefreshPlugin(options.vitePlugin, scope.include),
-        ],
-      }),
+          plugins: (scope) => [
+            reactPlugin({
+              ...(scope.include ? { jsxImportSource: "react" } : {}),
+              ...options.vitePlugin,
+              ...(scope.include ? { include: scope.include } : {}),
+            }),
+            reactRefreshPlugin(options.vitePlugin, scope.include),
+          ],
+        }),
     server: resolve(packageRoot, "dist/server.js"),
     client: resolve(packageRoot, "dist/client.js"),
     clientDev: resolve(packageRoot, "dist/client-dev.js"),

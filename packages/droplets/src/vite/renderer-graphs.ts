@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 import type { Plugin } from "vite";
 import type { DropletEntry } from "../core/discover.ts";
-import { RENDERER_QUERY, sharingRenderers, type DropletRenderer } from "../renderer.ts";
+import { RENDERER_QUERY, type DropletRenderer } from "../renderer.ts";
 import { isScriptDroplet, userRenderers } from "../script/index.ts";
 import type { PluginState } from "./state.ts";
 
@@ -57,9 +57,10 @@ export function componentSpecifier(path: string, renderer: string, shared: Set<s
 export function ownersOf(id: string, renderers: DropletRenderer[]): string[] {
   const file = clean(id);
   return renderers
-    .filter((renderer) =>
-      [...renderer.extensions, ...(renderer.suffixes ?? [])].some((suffix) => file.endsWith(suffix)) ||
-      (renderer.packages ?? []).some((pkg) => inPackage(file, pkg))
+    .filter(
+      (renderer) =>
+        [...renderer.extensions, ...(renderer.suffixes ?? [])].some((suffix) => file.endsWith(suffix)) ||
+        (renderer.packages ?? []).some((pkg) => inPackage(file, pkg)),
     )
     .map((renderer) => renderer.name);
 }
@@ -73,16 +74,17 @@ function inPackage(file: string, pkg: string): boolean {
   const name = packageOf(pkg);
   if (!name || name === pkg) return file.includes(`/node_modules/${pkg}/`);
   const sub = pkg.slice(name.length + 1);
-  return new RegExp(`/node_modules/${escape(name)}/(?:[^/]+/)*${escape(sub)}/`).test(file);
+  return new RegExp(`/node_modules/${escapeRegExp(name)}/(?:[^/]+/)*${escapeRegExp(sub)}/`).test(file);
 }
 
-const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** The package a bare specifier names: `solid-js/web` -> `solid-js`, `@scope/pkg/x` -> `@scope/pkg`. */
 function packageOf(specifier: string): string | null {
   if (/^[./\\]|^[a-z]+:/i.test(specifier) || specifier.startsWith("$")) return null;
   const parts = specifier.split("/");
-  return specifier.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0]!;
+  const [first = ""] = parts;
+  return specifier.startsWith("@") ? parts.slice(0, 2).join("/") : first;
 }
 
 /**
@@ -93,8 +95,8 @@ function packageOf(specifier: string): string | null {
 export function ownersOfImport(source: string, resolved: string, renderers: DropletRenderer[]): string[] {
   const byPackage = packageOf(source)
     ? renderers
-      .filter((renderer) => renderer.packages?.some((pkg) => source === pkg || source.startsWith(`${pkg}/`)))
-      .map((renderer) => renderer.name)
+        .filter((renderer) => renderer.packages?.some((pkg) => source === pkg || source.startsWith(`${pkg}/`)))
+        .map((renderer) => renderer.name)
     : [];
   return [...new Set([...ownersOf(resolved, renderers), ...byPackage])];
 }
@@ -148,10 +150,10 @@ function loadModules(state: PluginState): Map<string, string> {
   return map;
 }
 
-function loadCssError(state: PluginState, chain: string[]): Error {
+function loadCssError(state: PluginState, chain: [string, ...string[]]): Error {
   const path = chain.map((id) => short(state, id)).join(" -> ");
   return new Error(
-    `droplets: ${short(state, chain[0]!)} imports CSS: ${path}. ` +
+    `droplets: ${short(state, chain[0])} imports CSS: ${path}. ` +
       `Styles belong to the component: import them from +droplet.<ext> or +error.<ext> (or a <style> block).`,
   );
 }
@@ -163,14 +165,15 @@ function findInGraph(
   start: string,
   getModule: (id: string) => GraphModule | null,
   found: (id: string) => boolean,
-): string[] | null {
+): [string, ...string[]] | null {
   const parent = new Map<string, string | null>([[start, null]]);
   const queue = [start];
   while (queue.length > 0) {
-    const current = queue.shift()!;
+    const current = queue.shift();
+    if (current === undefined) break;
     if (found(current)) {
-      const chain: string[] = [];
-      for (let at: string | null = current; at; at = parent.get(at) ?? null) chain.unshift(at);
+      const chain: [string, ...string[]] = [current];
+      for (let at = parent.get(current) ?? null; at; at = parent.get(at) ?? null) chain.unshift(at);
       return chain;
     }
     const info = getModule(current);
@@ -188,11 +191,7 @@ function findInGraph(
  * Walks every droplet's module graph after a build and fails on the first
  * module another renderer owns, naming the import chain.
  */
-export function checkDropletGraphs(
-  state: PluginState,
-  moduleIds: Iterable<string>,
-  getModule: (id: string) => GraphModule | null,
-): void {
+export function checkDropletGraphs(state: PluginState, moduleIds: Iterable<string>, getModule: (id: string) => GraphModule | null): void {
   const components = componentRenderers(state);
   const loads = loadModules(state);
   for (const id of moduleIds) {
@@ -203,7 +202,8 @@ export function checkDropletGraphs(
         return owners.length > 0 && !owners.includes(renderer);
       };
       const chain = findInGraph(id, getModule, foreign);
-      if (chain) throw crossImportError(state, renderer, chain, ownersOf(chain.at(-1)!, checked(state)));
+      const last = chain?.at(-1);
+      if (chain && last !== undefined) throw crossImportError(state, renderer, chain, ownersOf(last, checked(state)));
     }
     if (loads.has(clean(id))) {
       const chain = findInGraph(id, getModule, isStylesheet);
@@ -220,7 +220,8 @@ function reachingLoad(loads: Map<string, string>, start: DevModule | undefined, 
   const seen = new Set<DevModule>();
   const queue = start ? [start] : [];
   while (queue.length > 0) {
-    const module = queue.shift()!;
+    const module = queue.shift();
+    if (module === undefined) break;
     if (seen.has(module)) continue;
     seen.add(module);
     if (module.id && loads.has(clean(module.id))) return module.id;
@@ -230,11 +231,7 @@ function reachingLoad(loads: Map<string, string>, start: DevModule | undefined, 
 }
 
 /** The renderers of the droplets that reach `id`, through the dev module graph. */
-function reachingRenderers(
-  components: Map<string, string>,
-  start: DevModule | undefined,
-  id: string,
-): Set<string> {
+function reachingRenderers(components: Map<string, string>, start: DevModule | undefined, id: string): Set<string> {
   const found = new Set<string>();
   const direct = components.get(clean(id));
   if (direct) found.add(direct);
@@ -243,7 +240,8 @@ function reachingRenderers(
   const seen = new Set<DevModule>();
   const queue = start ? [start] : [];
   while (queue.length > 0) {
-    const module = queue.shift()!;
+    const module = queue.shift();
+    if (module === undefined) break;
     if (seen.has(module)) continue;
     seen.add(module);
     const renderer = module.id ? components.get(clean(module.id)) : undefined;
@@ -255,7 +253,6 @@ function reachingRenderers(
 
 /** The core plugin that marks modules and checks cross-framework imports. */
 export function rendererGraphsPlugin(state: PluginState): Plugin {
-  let shared = new Set<string>();
   let command: "serve" | "build" = "serve";
 
   return {
@@ -264,7 +261,6 @@ export function rendererGraphsPlugin(state: PluginState): Plugin {
     sharedDuringBuild: true,
 
     configResolved(config) {
-      shared = sharingRenderers(state.renderers);
       command = config.command;
     },
 
@@ -310,12 +306,10 @@ export function rendererGraphsPlugin(state: PluginState): Plugin {
         // built code and must stay one module: `/form` shares a context with
         // the renderer's server module. In a workspace they resolve outside
         // node_modules, so the path alone does not tell.
-        const rendererPackage = packageOf(source) !== null &&
+        const rendererPackage =
+          packageOf(source) !== null &&
           state.renderers.some((r) => r.packages?.some((pkg) => source === pkg || source.startsWith(`${pkg}/`)));
-        if (
-          !mark || rendererPackage || resolved.id.includes("?") || !SCRIPT.test(resolved.id) ||
-          resolved.id.includes("/node_modules/")
-        ) {
+        if (!mark || rendererPackage || resolved.id.includes("?") || !SCRIPT.test(resolved.id) || resolved.id.includes("/node_modules/")) {
           return resolved;
         }
         return { ...resolved, id: `${resolved.id}?${RENDERER_QUERY}=${mark}` };

@@ -20,7 +20,9 @@ export type StandardSchema = {
 export type InferSchemaOutput<Schema> = Schema extends {
   readonly "~standard": { readonly types?: infer Types };
 }
-  ? NonNullable<Types> extends { readonly output: infer Output } ? Output : Record<string, unknown>
+  ? NonNullable<Types> extends { readonly output: infer Output }
+    ? Output
+    : Record<string, unknown>
   : Record<string, unknown>;
 
 type StandardIssue = {
@@ -28,9 +30,7 @@ type StandardIssue = {
   readonly path?: ReadonlyArray<PropertyKey | { readonly key: PropertyKey }> | undefined;
 };
 
-type StandardResult =
-  | { readonly value: unknown; readonly issues?: undefined }
-  | { readonly issues: ReadonlyArray<StandardIssue> };
+type StandardResult = { readonly value: unknown; readonly issues?: undefined } | { readonly issues: ReadonlyArray<StandardIssue> };
 
 /** Thrown when props do not match the droplet's schema. Answered as a 400. */
 export class PropsError extends Error {
@@ -53,9 +53,7 @@ export function isStandardSchema(value: unknown): value is StandardSchema {
 
 function formatIssues(issues: ReadonlyArray<StandardIssue>): string {
   const parts = issues.map((issue) => {
-    const path = (issue.path ?? [])
-      .map((segment) => String(typeof segment === "object" ? segment.key : segment))
-      .join(".");
+    const path = (issue.path ?? []).map((segment) => String(typeof segment === "object" ? segment.key : segment)).join(".");
     return path ? `${path}: ${issue.message}` : issue.message;
   });
   return `Invalid props${parts.length ? `: ${parts.join("; ")}` : ""}`;
@@ -66,16 +64,10 @@ function formatIssues(issues: ReadonlyArray<StandardIssue>): string {
  * output replaces the props, so coercions and defaults apply. Without a
  * schema the props pass through unchanged.
  */
-export async function validateProps(
-  droplet: string,
-  schema: unknown,
-  props: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
+export async function validateProps(droplet: string, schema: unknown, props: Record<string, unknown>): Promise<Record<string, unknown>> {
   if (schema === undefined) return props;
   if (!isStandardSchema(schema)) {
-    throw new Error(
-      `${droplet}: \`props\` in +droplet.ts must be a Standard Schema (zod, valibot, arktype…)`,
-    );
+    throw new Error(`${droplet}: \`props\` in +droplet.ts must be a Standard Schema (zod, valibot, arktype…)`);
   }
   const result = await schema["~standard"].validate(props);
   if (result.issues) throw new PropsError(result.issues);

@@ -297,8 +297,7 @@ export class DjsDropletElement extends HTMLElement {
   }
 
   /** Imports a droplet's browser entry. Replaceable, for tests. */
-  static importModule = (url: string): Promise<DropletClientModule> =>
-    import(/* @vite-ignore */ url) as Promise<DropletClientModule>;
+  static importModule = (url: string): Promise<DropletClientModule> => import(/* @vite-ignore */ url) as Promise<DropletClientModule>;
 
   /** The content root is a direct child: a nested droplet has its own. */
   _contentRoot(): HTMLElement {
@@ -455,9 +454,7 @@ export class DjsDropletElement extends HTMLElement {
    * content root that belong to no nested droplet element.
    */
   #serverMarkers(contentRoot: HTMLElement): Element[] {
-    return Array.from(contentRoot.querySelectorAll(MARKER)).filter(
-      (marker) => marker.closest("[data-droplet]") === this,
-    );
+    return Array.from(contentRoot.querySelectorAll(MARKER)).filter((marker) => marker.closest("[data-droplet]") === this);
   }
 
   /**
@@ -578,8 +575,7 @@ export class DjsDropletElement extends HTMLElement {
       const node = hit instanceof Element ? hit : target;
       const click = this.#queuedClick(node, event as MouseEvent);
       const last = this.#clickQueue.at(-1);
-      const retry = last?.node === node && last.detail === 1 && click.detail === 1 &&
-        click.time - last.time > CLICK_RETRY_GAP;
+      const retry = last?.node === node && last.detail === 1 && click.detail === 1 && click.time - last.time > CLICK_RETRY_GAP;
       if (retry) this.#clickQueue[this.#clickQueue.length - 1] = click;
       else this.#clickQueue.push(click);
     };
@@ -775,9 +771,7 @@ export class DjsDropletElement extends HTMLElement {
     try {
       const context = this._context;
       let props = context.props;
-      const inline = options.refresh
-        ? { found: false, data: undefined }
-        : this._readInline<unknown>("[data-droplet-data]");
+      const inline = options.refresh ? { found: false, data: undefined } : this._readInline<unknown>("[data-droplet-data]");
       const inlinePayload = (): Payload =>
         isObject(inline.data) && "error" in inline.data
           ? { failed: true, error: inline.data["error"] }
@@ -786,8 +780,8 @@ export class DjsDropletElement extends HTMLElement {
       let form: { form?: unknown } = options.form
         ? { form: options.form.value }
         : inline.found && isObject(inline.data) && inline.data["form"] !== undefined
-        ? { form: inline.data["form"] }
-        : {};
+          ? { form: inline.data["form"] }
+          : {};
       if (!inline.found && mod.validate) {
         try {
           props = await mod.validate(props);
@@ -834,10 +828,9 @@ export class DjsDropletElement extends HTMLElement {
       const payload: Promise<Payload> = inline.found
         ? Promise.resolve(inlinePayload())
         : serverLoadRegistry.has(droplet)
-        ? this._serverData(droplet, { host: dataHost, props }, options.refresh)
-        : Promise.resolve({ data: undefined });
-      const carried = !options.form && !inline.found && serverLoadRegistry.has(droplet) &&
-        carriesFormResult(dataHost, droplet);
+          ? this._serverData(droplet, { host: dataHost, props }, options.refresh)
+          : Promise.resolve({ data: undefined });
+      const carried = !options.form && !inline.found && serverLoadRegistry.has(droplet) && carriesFormResult(dataHost, droplet);
       let data: unknown;
       if (options.form || carried) {
         // After a form action: the loads first, then the component, in one
@@ -919,12 +912,7 @@ export class DjsDropletElement extends HTMLElement {
    * or `handleError` threw): taken down once its mount is through, the
    * host's children back as they were.
    */
-  async #giveUp(
-    contentRoot: HTMLElement,
-    mod: DropletClientModule,
-    run: number,
-    mounted: () => Promise<unknown>,
-  ): Promise<void> {
+  async #giveUp(contentRoot: HTMLElement, mod: DropletClientModule, run: number, mounted: () => Promise<unknown>): Promise<void> {
     await mounted().catch(() => undefined);
     // After `#render` took the handle, which waits on the same promise.
     await Promise.resolve();
@@ -986,12 +974,7 @@ export class DjsDropletElement extends HTMLElement {
    * The server rendered (or, with `ssr = false`, left room for) the
    * droplet's `+error.*`: hydrate or mount it from the inline error.
    */
-  async #renderServerError(
-    droplet: string,
-    contentRoot: HTMLElement,
-    run: number,
-    cacheBust: boolean,
-  ): Promise<boolean> {
+  async #renderServerError(droplet: string, contentRoot: HTMLElement, run: number, cacheBust: boolean): Promise<boolean> {
     const inline = this._readInline<unknown>("[data-droplet-data]");
     if (!inline.found || !isObject(inline.data) || !("error" in inline.data)) return false;
     const mod = await this._importModule(droplet, cacheBust);
@@ -1015,9 +998,7 @@ export class DjsDropletElement extends HTMLElement {
   }
 
   /** Unmounts the component, with the host's container out of its markers first. */
-  async #destroyInstance(
-    fallbackUnmount?: DropletClientModule["unmount"],
-  ): Promise<void> {
+  async #destroyInstance(fallbackUnmount?: DropletClientModule["unmount"]): Promise<void> {
     this.#emptyMarkers();
     if (!this._instance) return;
     const unmount = this.#unmount ?? fallbackUnmount;
@@ -1087,10 +1068,16 @@ export class DjsDropletElement extends HTMLElement {
     let mode: HydrateMode = flag;
     const asked = this.dataset["hydrate"];
     if (asked !== undefined) {
-      const parsed = asked === "" || asked === "true" ? true
-        : asked === "false" ? (scriptRegistry.has(this.dataset["droplet"] ?? "") ? undefined : false)
-        : asked === "visible" || asked === "interactive" ? asked
-        : undefined;
+      const parsed =
+        asked === "" || asked === "true"
+          ? true
+          : asked === "false"
+            ? scriptRegistry.has(this.dataset["droplet"] ?? "")
+              ? undefined
+              : false
+            : asked === "visible" || asked === "interactive"
+              ? asked
+              : undefined;
       if (parsed !== undefined) mode = parsed;
     }
     return mode === "interactive" && !hasMarkup ? true : mode;
@@ -1315,7 +1302,7 @@ export class DjsDropletElement extends HTMLElement {
     }
     // Preloads this element added for a stylesheet it linked itself: the
     // answer brings its own link, or the element links one again after.
-    this.querySelectorAll(":scope > link[data-droplet-preload]").forEach((preload) => preload.remove());
+    for (const preload of this.querySelectorAll(":scope > link[data-droplet-preload]")) preload.remove();
     for (const selector of ["[data-droplet-context]", "[data-droplet-data]", STYLE_LINK]) {
       this.querySelector(`:scope > ${selector}`)?.remove();
       const node = fresh.querySelector(`:scope > ${selector}`);

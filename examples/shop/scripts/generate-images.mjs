@@ -38,8 +38,16 @@ const graph = (prompt, seed) => ({
   sampler: {
     class_type: "KSampler",
     inputs: {
-      model: ["sampling", 0], positive: ["positive", 0], negative: ["negative", 0], latent_image: ["latent", 0],
-      seed, steps: 8, cfg: 1, sampler_name: "res_multistep", scheduler: "simple", denoise: 1,
+      model: ["sampling", 0],
+      positive: ["positive", 0],
+      negative: ["negative", 0],
+      latent_image: ["latent", 0],
+      seed,
+      steps: 8,
+      cfg: 1,
+      sampler_name: "res_multistep",
+      scheduler: "simple",
+      denoise: 1,
     },
   },
   decode: { class_type: "VAEDecode", inputs: { samples: ["sampler", 0], vae: ["vae", 0] } },

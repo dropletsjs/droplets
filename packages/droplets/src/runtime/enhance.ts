@@ -127,11 +127,7 @@ function attribute(element: Element | null, name: string): string | null {
  * The submit's effective action, method, encoding and target. An empty or
  * missing action is the document's URL, as in the browser.
  */
-export function submission(
-  form: HTMLFormElement,
-  submitter: HTMLButtonElement | HTMLInputElement | null,
-  base: string,
-): Submission {
+export function submission(form: HTMLFormElement, submitter: HTMLButtonElement | HTMLInputElement | null, base: string): Submission {
   const pick = (own: string, inherited: string) => attribute(submitter, own) ?? attribute(form, inherited);
   const raw = pick("formaction", "action");
   let action: URL | null = null;
@@ -152,8 +148,7 @@ export function submission(
 
 /** What can be enhanced: a `POST` with a body an action takes, into the page itself. */
 export function interceptable(submit: Submission): boolean {
-  return submit.method === "post" && ENCTYPES.has(submit.enctype) &&
-    (submit.target === "" || submit.target.toLowerCase() === "_self");
+  return submit.method === "post" && ENCTYPES.has(submit.enctype) && (submit.target === "" || submit.target.toLowerCase() === "_self");
 }
 
 /** An action the form posts to: the URL without a hash, and the action's name. */
@@ -367,14 +362,8 @@ async function send(
  * submit, and every submit once the returned function ran, is the
  * browser's. See the module documentation.
  */
-export function enhanceDropletForm<A extends ActionMap = ActionMap>(
-  form: HTMLFormElement,
-  options?: AnyEnhanceOptions<A>,
-): () => void;
-export function enhanceDropletForm<A extends ActionMap = ActionMap>(
-  form: HTMLFormElement,
-  options: ActionEnhanceOptions<A>,
-): () => void;
+export function enhanceDropletForm<A extends ActionMap = ActionMap>(form: HTMLFormElement, options?: AnyEnhanceOptions<A>): () => void;
+export function enhanceDropletForm<A extends ActionMap = ActionMap>(form: HTMLFormElement, options: ActionEnhanceOptions<A>): () => void;
 export function enhanceDropletForm(form: HTMLFormElement, options?: EnhanceOptions): () => void {
   const listener = (event: Event) => enhanceSubmit(event, form, options);
   form.addEventListener("submit", listener);

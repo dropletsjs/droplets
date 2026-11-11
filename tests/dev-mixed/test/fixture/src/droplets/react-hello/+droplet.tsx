@@ -17,7 +17,9 @@ export default function Hello({ data }: { data: { word: string } }) {
     <section data-testid="react" data-hydrated={hydrated}>
       <p data-text>React greets the host</p>
       <p data-word>{data.word}</p>
-      <button type="button" onClick={() => setCount((n) => n + 1)}>{count}</button>
+      <button type="button" onClick={() => setCount((n) => n + 1)}>
+        {count}
+      </button>
     </section>
   );
 }

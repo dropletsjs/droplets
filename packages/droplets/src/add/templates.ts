@@ -92,7 +92,7 @@ function serverModule(context: Context): string {
   if (context.flags.prerender) {
     lines.push("", "/** The renders made at build time, one per event: `{ props, host }`. */", "export const entries = () => [{}];");
   }
-  return lines.join("\n") + "\n";
+  return `${lines.join("\n")}\n`;
 }
 
 function universalModule(context: Context): string {
@@ -114,7 +114,7 @@ function universalModule(context: Context): string {
       "};",
     );
   }
-  return lines.join("\n") + "\n";
+  return `${lines.join("\n")}\n`;
 }
 
 /** `export const ssr = true;` lines, `prerender` only when on. */
@@ -178,7 +178,15 @@ function stylesheet(context: Context): string {
 /** A `<style>` block for the formats that have one: Svelte, Vue, Handlebars. */
 function styleBlock(context: Context, tag: string): string[] {
   if (!context.files.has("css")) return [];
-  return ["", `<${tag}>`, ...stylesheet(context).trimEnd().split("\n").map((line) => `  ${line}`), "</style>"];
+  return [
+    "",
+    `<${tag}>`,
+    ...stylesheet(context)
+      .trimEnd()
+      .split("\n")
+      .map((line) => `  ${line}`),
+    "</style>",
+  ];
 }
 
 function svelteComponent(context: Context): string {
@@ -194,9 +202,7 @@ function svelteComponent(context: Context): string {
     "</script>",
     "",
     `<section class="${context.className}">`,
-    ...(context.hasData
-      ? ["  {#await data then { greeting }}", "    <h1>{greeting}</h1>", "  {/await}"]
-      : [`  <h1>${context.name}</h1>`]),
+    ...(context.hasData ? ["  {#await data then { greeting }}", "    <h1>{greeting}</h1>", "  {/await}"] : [`  <h1>${context.name}</h1>`]),
     "  {@render children?.()}",
     "</section>",
     ...styleBlock(context, "style"),
@@ -271,7 +277,8 @@ function vueError(context: Context): string {
  * renderer awaits it before it renders, so `data` is always the value.
  */
 function hooksComponent(context: Context): string {
-  const source = context.framework.jsxImportSource!;
+  const source = context.framework.jsxImportSource;
+  if (source === undefined) throw new Error(`droplets: ${context.framework.name} has no jsxImportSource`);
   const classAttribute = context.framework.name === "react" ? "className" : "class";
   const waits = context.hasData && context.framework.name !== "preact";
   return [
@@ -289,8 +296,8 @@ function hooksComponent(context: Context): string {
           "  const { greeting } = data instanceof Promise ? use(data) : data;",
         ]
       : context.hasData
-      ? ["  // Always the value: when the element mounts it fresh, the renderer waits for it first.", "  const { greeting } = data;"]
-      : []),
+        ? ["  // Always the value: when the element mounts it fresh, the renderer waits for it first.", "  const { greeting } = data;"]
+        : []),
     "  return (",
     `    <section ${classAttribute}="${context.className}">`,
     `      <h1>${heading(context, "{greeting}")}</h1>`,
@@ -303,9 +310,11 @@ function hooksComponent(context: Context): string {
 }
 
 function hooksError(context: Context): string {
+  const source = context.framework.jsxImportSource;
+  if (source === undefined) throw new Error(`droplets: ${context.framework.name} has no jsxImportSource`);
   const classAttribute = context.framework.name === "react" ? "className" : "class";
   return [
-    `/** @jsxImportSource ${context.framework.jsxImportSource!} */`,
+    `/** @jsxImportSource ${source} */`,
     'import type { DropletErrorProps } from "./$types";',
     "",
     `export default function ${context.component}Error({ ${context.hasMessage ? "error, " : ""}children }: DropletErrorProps) {`,
@@ -395,7 +404,7 @@ function scriptComponent(context: Context): string {
     " * returned, `el` the droplet's element; add anything under it. The cleanup",
     " * it returns (optional) runs when the element leaves the page.",
     " */",
-    "const run: DropletScript = (" + (context.hasData ? "data" : "_data") + ", el) => {",
+    `const run: DropletScript = (${context.hasData ? "data" : "_data"}, el) => {`,
     '  const heading = document.createElement("h1");',
     `  heading.className = ${JSON.stringify(context.className)};`,
     `  heading.textContent = ${context.hasData ? "data.greeting" : JSON.stringify(context.name)};`,
@@ -428,7 +437,15 @@ function litComponent(context: Context): string {
     "",
     `export default class ${context.component} extends DropletElement<DropletProps> {`,
     ...(styled
-      ? ["  static override styles = css`", ...stylesheet(context).trimEnd().split("\n").map((line) => `    ${line}`), "  `;", ""]
+      ? [
+          "  static override styles = css`",
+          ...stylesheet(context)
+            .trimEnd()
+            .split("\n")
+            .map((line) => `    ${line}`),
+          "  `;",
+          "",
+        ]
       : []),
     "  override render() {",
     "    return html`",

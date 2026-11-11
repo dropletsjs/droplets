@@ -38,10 +38,10 @@ export function dropletTypesCode(
   const script = entry.renderer === SCRIPT_RENDERER;
   const scriptTypes = script
     ? [
-      "/** The default export of `+droplet.script.ts`: `(data, el)`, run in the browser; it may return a cleanup. */",
-      "export type DropletScript = BaseDropletScript<Data>;",
-      "",
-    ]
+        "/** The default export of `+droplet.script.ts`: `(data, el)`, run in the browser; it may return a cleanup. */",
+        "export type DropletScript = BaseDropletScript<Data>;",
+        "",
+      ]
     : [];
   return [
     HEADER,
@@ -54,30 +54,30 @@ export function dropletTypesCode(
     `type Universal = ${entry.hasLoad ? module("+droplet.ts") : "{}"};`,
     `type Server = ${entry.hasServerLoad ? module("+droplet.server.ts") : "{}"};`,
     "type Returned<M, K extends string> = M extends { [key in K]: (...args: any[]) => infer R } ? Awaited<R> : never;",
-    "type Handled<M, R = Returned<M, \"handleError\">> = [R] extends [never] ? never : R extends { error: infer E } ? E : never;",
+    'type Handled<M, R = Returned<M, "handleError">> = [R] extends [never] ? never : R extends { error: infer E } ? E : never;',
     "type ActionsOf<M> = M extends { actions: infer A } ? A : never;",
     "type Outcome<R> = R extends ActionFailure<infer D> ? D : R extends void ? undefined : R;",
     "",
     "/** The caller's props, after the `props` schema in `+droplet.ts`. */",
     "export type Props = Universal extends { props: infer Schema } ? InferSchemaOutput<Schema> : Record<string, unknown>;",
     "/** What `load` in `+droplet.server.ts` returns; `undefined` without one. */",
-    "export type ServerData = [Returned<Server, \"load\">] extends [never] ? undefined : Returned<Server, \"load\">;",
+    'export type ServerData = [Returned<Server, "load">] extends [never] ? undefined : Returned<Server, "load">;',
     "/** What the component gets as `data`: the universal load's result, else the server load's. */",
-    "export type Data = [Returned<Universal, \"load\">] extends [never] ? ServerData : Returned<Universal, \"load\">;",
+    'export type Data = [Returned<Universal, "load">] extends [never] ? ServerData : Returned<Universal, "load">;',
     "/** What the error page gets as `error`: `handleError`'s, else whatever was thrown. */",
     "export type ErrorData = [Handled<Server> | Handled<Universal>] extends [never] ? unknown : Handled<Server> | Handled<Universal>;",
     "",
     "/** The event of `load` in `+droplet.server.ts`. */",
-    "export type LoadEvent = Omit<BaseLoadEvent, \"props\"> & { props: Props };",
+    'export type LoadEvent = Omit<BaseLoadEvent, "props"> & { props: Props };',
     "/** The event of `load` in `+droplet.ts`. */",
-    "export type DropletLoadEvent = Omit<BaseDropletLoadEvent, \"props\" | \"data\"> & { props: Props; data: ServerData };",
+    'export type DropletLoadEvent = Omit<BaseDropletLoadEvent, "props" | "data"> & { props: Props; data: ServerData };',
     "/** For `satisfies ServerLoad`; annotate the parameter instead (`(event: LoadEvent)`) to keep `Data` exact. */",
     "export type ServerLoad<Out = unknown> = (event: LoadEvent) => Out | Promise<Out>;",
     "/** For `satisfies Load`, as `ServerLoad`. */",
     "export type Load<Out = unknown> = (event: DropletLoadEvent) => Out | Promise<Out>;",
     "",
     "/** The event of a form action in `+droplet.server.ts`. */",
-    "export type ActionEvent = Omit<BaseActionEvent, \"props\"> & { props: Props };",
+    'export type ActionEvent = Omit<BaseActionEvent, "props"> & { props: Props };',
     "/** For `export const actions = { … } satisfies Actions`. */",
     "export type Actions = Record<string, (event: ActionEvent) => unknown>;",
     "/**",
@@ -144,7 +144,13 @@ async function shadowedFiles(folder: string): Promise<string[]> {
  */
 export async function ensureTypesTsconfig(root: string): Promise<void> {
   const path = resolve(root, TYPES_DIR, "tsconfig.json");
-  if (await readFile(path).then(() => true, () => false)) return;
+  if (
+    await readFile(path).then(
+      () => true,
+      () => false,
+    )
+  )
+    return;
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, typesTsconfig(root, resolve(root, TYPES_DIR, "types")));
 }

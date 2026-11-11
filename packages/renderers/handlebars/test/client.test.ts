@@ -30,7 +30,9 @@ describe("mount", () => {
     document.body.appendChild(target);
     const ctx = context();
     const instance = await mount(hello, target, { data: { greeting: "Hi" } }, ctx);
-    expect(target.innerHTML).toBe('<h1>Hi</h1><div data-testid="children"><div data-droplet-children="" style="display: contents"></div></div><i>r1</i>');
+    expect(target.innerHTML).toBe(
+      '<h1>Hi</h1><div data-testid="children"><div data-droplet-children="" style="display: contents"></div></div><i>r1</i>',
+    );
     const marker = target.querySelector("[data-droplet-children]");
     expect(ctx.children.fill).toHaveBeenCalledWith(marker);
     expect(ctx.children.fill).toHaveBeenCalledTimes(1);
@@ -74,8 +76,9 @@ describe("mount", () => {
     await mount(hello, nothing, { data: Promise.reject(new Error("boom")) }, refusing);
     expect(nothing.innerHTML).toBe("");
     // No error page: the rejection is the caller's.
-    await expect(mount(hello, document.createElement("div"), { data: Promise.reject(new Error("boom")) }, context()))
-      .rejects.toThrow("boom");
+    await expect(mount(hello, document.createElement("div"), { data: Promise.reject(new Error("boom")) }, context())).rejects.toThrow(
+      "boom",
+    );
   });
 
   it("throws a clear error for a module without a template", async () => {
@@ -90,7 +93,7 @@ describe("hydrate", () => {
     const target = document.createElement("div");
     target.innerHTML = '<h1>Hi</h1><div data-testid="children"><div data-droplet-children style="display: contents"></div></div>';
     const h1 = target.querySelector("h1");
-    const marker = target.querySelector("[data-droplet-children]")!;
+    const marker = target.querySelector("[data-droplet-children]") ?? expect.unreachable("the children marker");
     const ctx = context("droplet", [marker]);
 
     const instance = hydrate(hello, target, { data: { greeting: "Other" } }, ctx);
@@ -119,7 +122,8 @@ describe("markersIn", () => {
     host.setAttribute("data-droplet", "outer");
     const target = document.createElement("div");
     host.appendChild(target);
-    target.innerHTML = '<div data-droplet-children id="mine"></div><test-droplet data-droplet="inner"><div data-droplet-children id="theirs"></div></test-droplet>';
+    target.innerHTML =
+      '<div data-droplet-children id="mine"></div><test-droplet data-droplet="inner"><div data-droplet-children id="theirs"></div></test-droplet>';
     expect(markersIn(target).map((s) => s.id)).toEqual(["mine"]);
   });
 });

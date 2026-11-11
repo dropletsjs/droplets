@@ -66,13 +66,7 @@ describe("discoverApiRoutes", () => {
     const routes = await discoverApiRoutes(root);
     // Routes that can answer the same URL are ordered most specific first;
     // the rest only need a stable order.
-    expect(routes.map((r) => r.id)).toEqual([
-      "/api/users/me",
-      "/api/users/[id]",
-      "/api/files/[...path]",
-      "/api/stats",
-      "/api",
-    ]);
+    expect(routes.map((r) => r.id)).toEqual(["/api/users/me", "/api/users/[id]", "/api/files/[...path]", "/api/stats", "/api"]);
     expect(routes.find((r) => r.id === "/api/users/me")?.file).toBe("users/me/+server.js");
   });
 

@@ -3,7 +3,14 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { commentEntries } from "../src/lib/comment-entries.ts";
 import { fillLive, liveToken, type LiveValues } from "../src/lib/live.ts";
 import { PRODUCT_ID } from "../src/lib/schemas.ts";
-import { type Claims, MAX_ASSERTION_BYTES, SAME_SECRETS, secretPair, signAssertion, verifyAssertion } from "../src/lib/server/host-identity.ts";
+import {
+  type Claims,
+  MAX_ASSERTION_BYTES,
+  SAME_SECRETS,
+  secretPair,
+  signAssertion,
+  verifyAssertion,
+} from "../src/lib/server/host-identity.ts";
 import { plainLine, plainText } from "../src/lib/server/text.ts";
 import { countComments, fetchComments, fetchProducts, mediaUrl, updateProduct, type WpConfig } from "../src/lib/server/wp.ts";
 import { startMockWordPress, type MockWordPress } from "./mock-wordpress.ts";
@@ -77,7 +84,10 @@ describe("x-wp-shop-user, the host-asserted identity", () => {
   });
 
   it("refuses an oversize header before looking at it", async () => {
-    const header = await signAssertion(claims({ sub: "admin", path: `/droplets/product-admin?x=${"a".repeat(MAX_ASSERTION_BYTES)}` }), SECRET);
+    const header = await signAssertion(
+      claims({ sub: "admin", path: `/droplets/product-admin?x=${"a".repeat(MAX_ASSERTION_BYTES)}` }),
+      SECRET,
+    );
     expect(header.length).toBeGreaterThan(MAX_ASSERTION_BYTES);
     expect(await verifyAssertion(header, SECRET, { ...expected, path: claims().path })).toBeNull();
   });
@@ -107,8 +117,15 @@ describe("x-wp-shop-user, the host-asserted identity", () => {
     for (const header of [null, "", "abc", "a.b.c", `${b64("{}")}.!!`, "x".repeat(50)]) {
       expect(await verifyAssertion(header, SECRET, expected)).toBeNull();
     }
-    for (const json of ["not json", "[1,2]", "null", '"admin"', JSON.stringify({ ...claims(), exp: "9999999999" }),
-      JSON.stringify({ ...claims(), role: "editor" }), JSON.stringify({ ...claims(), sub: "<script>" })]) {
+    for (const json of [
+      "not json",
+      "[1,2]",
+      "null",
+      '"admin"',
+      JSON.stringify({ ...claims(), exp: "9999999999" }),
+      JSON.stringify({ ...claims(), role: "editor" }),
+      JSON.stringify({ ...claims(), sub: "<script>" }),
+    ]) {
       expect(await verifyAssertion(signRaw(json), SECRET, expected)).toBeNull();
     }
   });
@@ -126,7 +143,8 @@ describe("WordPress's REST answers", () => {
   afterEach(() => wp.reset());
   afterAll(() => wp.close());
 
-  const answer = (body: string, status = 200, headers: Record<string, string> = { "content-type": "application/json" }) =>
+  const answer =
+    (body: string, status = 200, headers: Record<string, string> = { "content-type": "application/json" }) =>
     (_request: unknown, response: import("node:http").ServerResponse) => {
       response.writeHead(status, headers);
       response.end(body);
@@ -136,7 +154,15 @@ describe("WordPress's REST answers", () => {
     const products = await fetchProducts(config);
     expect(products).toHaveLength(6);
     const mug = products.find((p) => p.slug === "clay-cylinder-mug")!;
-    expect(mug).toMatchObject({ id: "p_10", postId: 10, name: "Clay Cylinder Mug", priceCents: 1200, salePct: 20, category: "mugs", stock: 12 });
+    expect(mug).toMatchObject({
+      id: "p_10",
+      postId: 10,
+      name: "Clay Cylinder Mug",
+      priceCents: 1200,
+      salePct: 20,
+      category: "mugs",
+      stock: 12,
+    });
     expect(mug.description).toBe("The clay cylinder mug you’ll keep.\n\nSecond paragraph & more.");
     expect(mug.details).toEqual(["300 ml", "Stoneware"]);
     expect(mug.image).toBe(`${wp.url}/wp-content/uploads/2026/11/m-100.webp`);
@@ -145,8 +171,13 @@ describe("WordPress's REST answers", () => {
 
   it("leaves out a product out of shape, and keeps only the fields it names", async () => {
     const good = (id: number, meta: Record<string, unknown> = {}) => ({
-      id, slug: `p-${id}`, status: "publish", date_gmt: "2026-11-01T10:00:00", title: { rendered: `Product ${id}` },
-      content: { rendered: "<p>Text.</p>" }, featured_media: id,
+      id,
+      slug: `p-${id}`,
+      status: "publish",
+      date_gmt: "2026-11-01T10:00:00",
+      title: { rendered: `Product ${id}` },
+      content: { rendered: "<p>Text.</p>" },
+      featured_media: id,
       meta: { shop_price_cents: 1000, shop_stock: 1, shop_sale_pct: 0, shop_category: "desk", shop_details: "", ...meta },
     });
     const items = [
@@ -164,9 +195,20 @@ describe("WordPress's REST answers", () => {
     wp.override("/wp-json/wp/v2/products", answer(body));
     const products = await fetchProducts(config);
     expect(products.map((p) => p.id)).toEqual(["p_1"]);
-    expect(Object.keys(products[0]!).sort()).toEqual(
-      ["category", "createdAt", "description", "details", "id", "image", "name", "postId", "priceCents", "salePct", "slug", "stock"],
-    );
+    expect(Object.keys(products[0]!).sort()).toEqual([
+      "category",
+      "createdAt",
+      "description",
+      "details",
+      "id",
+      "image",
+      "name",
+      "postId",
+      "priceCents",
+      "salePct",
+      "slug",
+      "stock",
+    ]);
     expect(({} as Record<string, unknown>)["isAdmin"]).toBeUndefined();
     expect(({} as Record<string, unknown>)["polluted"]).toBeUndefined();
   });
@@ -182,7 +224,8 @@ describe("WordPress's REST answers", () => {
       `${base}/wp-content/uploads/a.webp?x=1`,
       "javascript:alert(1)//wp-content/uploads/a.webp",
       `http://user:pass@localhost:8008/wp-content/uploads/a.webp`,
-    ]) expect(mediaUrl(url, base), url).toBeNull();
+    ])
+      expect(mediaUrl(url, base), url).toBeNull();
   });
 
   it("leaves out a product whose image is on another origin", async () => {
@@ -213,11 +256,24 @@ describe("WordPress's REST answers", () => {
     expect(await fetchComments(config, 10, { order: "oldest", page: 9, showing: 10 })).toEqual([]);
     expect(await countComments(config, 10)).toBe(23);
 
-    wp.override("/wp-json/wp/v2/comments", answer(JSON.stringify([
-      { id: 1, post: 99, author_name: "Elsewhere", date_gmt: "2026-11-01T10:00:00", content: { rendered: "<p>Not this post.</p>" } },
-      { id: 2, post: 10, author_name: "<b>Ana</b>", date_gmt: "2026-11-01T10:00:00", content: { rendered: "<p>&lt;script&gt;x&lt;/script&gt; fine</p>" } },
-      { id: 3, post: 10, author_name: 7, date_gmt: "yesterday", content: "plain" },
-    ]), 200, { "content-type": "application/json" }));
+    wp.override(
+      "/wp-json/wp/v2/comments",
+      answer(
+        JSON.stringify([
+          { id: 1, post: 99, author_name: "Elsewhere", date_gmt: "2026-11-01T10:00:00", content: { rendered: "<p>Not this post.</p>" } },
+          {
+            id: 2,
+            post: 10,
+            author_name: "<b>Ana</b>",
+            date_gmt: "2026-11-01T10:00:00",
+            content: { rendered: "<p>&lt;script&gt;x&lt;/script&gt; fine</p>" },
+          },
+          { id: 3, post: 10, author_name: 7, date_gmt: "yesterday", content: "plain" },
+        ]),
+        200,
+        { "content-type": "application/json" },
+      ),
+    );
     const odd = await fetchComments(config, 10, { order: "oldest", page: 1, showing: 10 });
     // Text, which the droplet escapes; never HTML pasted.
     expect(odd).toEqual([{ id: "c_2", author: "Ana", body: "<script>x</script> fine", createdAt: "2026-11-01T10:00:00.000Z" }]);
@@ -231,20 +287,30 @@ describe("WordPress's REST answers", () => {
     expect(wp.writes.at(-1)).toEqual({ user: "admin", post: 11, meta: { shop_stock: 0, shop_price_cents: 999 } });
     // Another secret, the host's among them: WordPress refuses, and so the write throws.
     for (const serviceSecret of [`${SERVICE_SECRET}-other`, SECRET]) {
-      await expect(updateProduct({ ...config, hostSecret: undefined, serviceSecret }, admin, 11, { shop_stock: 1, shop_price_cents: 999 }))
-        .rejects.toThrow(/401/);
+      await expect(
+        updateProduct({ ...config, hostSecret: undefined, serviceSecret }, admin, 11, { shop_stock: 1, shop_price_cents: 999 }),
+      ).rejects.toThrow(/401/);
     }
-    await expect(updateProduct({ ...config, serviceSecret: undefined }, admin, 11, { shop_stock: 1, shop_price_cents: 999 }))
-      .rejects.toThrow(/WP_SHOP_SERVICE_SECRET is not set/);
+    await expect(
+      updateProduct({ ...config, serviceSecret: undefined }, admin, 11, { shop_stock: 1, shop_price_cents: 999 }),
+    ).rejects.toThrow(/WP_SHOP_SERVICE_SECRET is not set/);
     // The host secret alone is not a service secret.
-    await expect(updateProduct({ ...config, serviceSecret: undefined, hostSecret: SERVICE_SECRET }, admin, 11, { shop_stock: 1, shop_price_cents: 999 }))
-      .rejects.toThrow(/WP_SHOP_SERVICE_SECRET is not set/);
+    await expect(
+      updateProduct({ ...config, serviceSecret: undefined, hostSecret: SERVICE_SECRET }, admin, 11, {
+        shop_stock: 1,
+        shop_price_cents: 999,
+      }),
+    ).rejects.toThrow(/WP_SHOP_SERVICE_SECRET is not set/);
   });
 
   it("refuses to sign a write when both secrets are the same value", async () => {
     const writes = wp.writes.length;
-    await expect(updateProduct({ ...config, hostSecret: SERVICE_SECRET }, { name: "admin", role: "administrator" }, 11, { shop_stock: 1, shop_price_cents: 999 }))
-      .rejects.toThrow(SAME_SECRETS);
+    await expect(
+      updateProduct({ ...config, hostSecret: SERVICE_SECRET }, { name: "admin", role: "administrator" }, 11, {
+        shop_stock: 1,
+        shop_price_cents: 999,
+      }),
+    ).rejects.toThrow(SAME_SECRETS);
     expect(wp.writes.length).toBe(writes);
   });
 });
@@ -285,8 +351,10 @@ describe("the product page's live fields and the comments' entries", () => {
   it("fills placeholders escaped, and prerenders only full oldest-first pages", () => {
     const values = { price: `"><script>` } as LiveValues;
     expect(fillLive(`<b>${liveToken("price")}</b>`, values)).toBe("<b>&#34;&#62;&#60;script&#62;</b>");
-    const keys = commentEntries([{ productId: "p_10", count: 23 }, { productId: "p_11", count: 3 }])
-      .map(({ props }) => `${props.productId}:${props.showing}:${props.page}`);
+    const keys = commentEntries([
+      { productId: "p_10", count: 23 },
+      { productId: "p_11", count: 3 },
+    ]).map(({ props }) => `${props.productId}:${props.showing}:${props.page}`);
     expect(keys).toEqual(["p_10:10:1", "p_10:10:2", "p_10:20:1"]);
   });
 });

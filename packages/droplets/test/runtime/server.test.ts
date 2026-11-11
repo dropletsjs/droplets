@@ -71,7 +71,10 @@ describe("redirect()", () => {
 
   it("takes http(s) URLs and paths on the site, nothing else", () => {
     for (const ok of ["/next", "/a?b=1#c", "./x", "?q=1", "next", "https://x.test/next", "http://x.test"]) {
-      expect(thrown(() => redirect(303, ok)), ok).toMatchObject({ location: ok });
+      expect(
+        thrown(() => redirect(303, ok)),
+        ok,
+      ).toMatchObject({ location: ok });
     }
     for (const bad of [
       "javascript:alert(1)",
@@ -101,8 +104,9 @@ describe("hostFrom()", () => {
 
   it("keeps within trustedOrigins and this server, when the request has a list", () => {
     const within = (value: string, trustedOrigins: string[]) =>
-      withRequestInfo({ origin: "https://drops.test", trustedOrigins, ownOrigins: ["https://drops.test"] }, () =>
-        hostFrom(value)?.href ?? null
+      withRequestInfo(
+        { origin: "https://drops.test", trustedOrigins, ownOrigins: ["https://drops.test"] },
+        () => hostFrom(value)?.href ?? null,
       );
     expect(within("https://shop.test/p", ["https://shop.test"])).toBe("https://shop.test/p");
     expect(within("https://drops.test/p", ["https://shop.test"])).toBe("https://drops.test/p");
@@ -149,14 +153,16 @@ describe("sequence()", () => {
 
   it("runs handles in order, each resolving into the next", async () => {
     const order: string[] = [];
-    const step = (name: string): Handle => async ({ event, resolve }) => {
-      order.push(`${name}:in`);
-      event.locals[name] = true;
-      const response = await resolve(event);
-      order.push(`${name}:out`);
-      response.headers.append("x-steps", name);
-      return response;
-    };
+    const step =
+      (name: string): Handle =>
+      async ({ event, resolve }) => {
+        order.push(`${name}:in`);
+        event.locals[name] = true;
+        const response = await resolve(event);
+        order.push(`${name}:out`);
+        response.headers.append("x-steps", name);
+        return response;
+      };
     const handle = sequence(step("a"), step("b"));
     const response = await handle({
       event,

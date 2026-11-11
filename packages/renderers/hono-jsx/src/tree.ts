@@ -44,11 +44,22 @@ function childrenOf(host: DropletChildrenHost): Child {
 }
 
 /** The error page with what `handle` made of `error`; nothing while it runs, or when it rejects. */
-function errorComponentOf(errorComponent: FC<Record<string, unknown>>, context: ClientRenderContext, handle: (error: unknown) => Promise<unknown>) {
+function errorComponentOf(
+  errorComponent: FC<Record<string, unknown>>,
+  context: ClientRenderContext,
+  handle: (error: unknown) => Promise<unknown>,
+) {
   const shown = new Map<unknown, Promise<{ error: unknown } | null>>();
   function HandledError({ error }: { error: unknown }) {
-    if (!shown.has(error)) shown.set(error, handle(error).then((handled) => ({ error: handled }), () => null));
-    const result = use(shown.get(error)!);
+    let pending = shown.get(error);
+    if (!pending) {
+      pending = handle(error).then(
+        (handled) => ({ error: handled }),
+        () => null,
+      );
+      shown.set(error, pending);
+    }
+    const result = use(pending);
     return result ? jsx(errorComponent, { error: result.error, children: childrenOf(context.children) }) : null;
   }
   return (error: unknown) => jsx(Suspense, { fallback: nothing(), children: jsx(HandledError, { error }) });

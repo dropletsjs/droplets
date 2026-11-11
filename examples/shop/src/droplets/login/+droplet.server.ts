@@ -16,7 +16,7 @@ export const actions = {
   login: async ({ request, props, cookies }) => {
     const form = await readForm(request);
     const user = form && text(form, "user", 100);
-    const password = form && form.get("password");
+    const password = form?.get("password");
     if (!user || typeof password !== "string" || password.length > 200 || !verifyLogin(user, password)) {
       return fail(401, { message: "Wrong user or password." });
     }

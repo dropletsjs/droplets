@@ -1,18 +1,9 @@
 {
   "extends": "@dropletsjs/shared/tsconfig.base.json",
   "compilerOptions": {
-    "types": [
-      "node",
-      "vite/client"
-    ],
+    "types": ["node", "vite/client"],
     "jsx": "react-jsx",
     "jsxImportSource": "hono/jsx"
   },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "test/**/*.ts",
-    "vitest.config.ts",
-    "tsdown.config.ts"
-  ]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "vitest.config.ts", "tsdown.config.ts"]
 }

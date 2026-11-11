@@ -43,7 +43,10 @@ const failed = [];
 for (const id of ids) {
   console.log(`\n=== ${id}: npm ci && npm run typecheck`);
   const cwd = join(hostsDir, id);
-  for (const command of [["ci", "--no-audit", "--no-fund"], ["run", "typecheck"]]) {
+  for (const command of [
+    ["ci", "--no-audit", "--no-fund"],
+    ["run", "typecheck"],
+  ]) {
     const { status } = spawnSync("npm", command, { cwd, env, stdio: "inherit" });
     if (status !== 0) {
       failed.push(id);

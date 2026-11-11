@@ -51,7 +51,7 @@
   border-radius: 999px;
   background: var(--demo-sunken);
   color: var(--demo-muted);
-  font: 500 0.75rem/1.4 var(--demo-mono);
+  font: 500 0.75rem / 1.4 var(--demo-mono);
 }
 
 .demo-title {

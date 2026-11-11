@@ -32,8 +32,7 @@ export function liveToken(name: string): string {
   return `%live:${name}%`;
 }
 
-const escapeHtml = (text: string) =>
-  text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+const escapeHtml = (text: string) => text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 const TOKEN = /%live:([a-z-]+)%/g;
 
@@ -43,8 +42,7 @@ const TOKEN = /%live:([a-z-]+)%/g;
  * left out, never left in.
  */
 export function fillLive(html: string, values: LiveValues): string {
-  return html.replace(TOKEN, (_, name: string) =>
-    KNOWN.has(name) ? escapeHtml(values[name as LiveField]) : "");
+  return html.replace(TOKEN, (_, name: string) => (KNOWN.has(name) ? escapeHtml(values[name as LiveField]) : ""));
 }
 
 // Links to other product pages (the related products) carry their page's

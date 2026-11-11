@@ -91,7 +91,10 @@ export async function addDroplet(project: Project, choices: AddChoices, steps: A
 
   if (!framework.builtIn && !api.renderers().includes(framework.name)) {
     const { dependencies, devDependencies } = missingPackages(root, framework);
-    for (const [specs, dev] of [[dependencies, false], [devDependencies, true]] as const) {
+    for (const [specs, dev] of [
+      [dependencies, false],
+      [devDependencies, true],
+    ] as const) {
       if (specs.length === 0) continue;
       const command = installCommand(steps.pm, specs, dev);
       log(`$ ${command.join(" ")}`);
@@ -99,9 +102,7 @@ export async function addDroplet(project: Project, choices: AddChoices, steps: A
       result.installed.push(...specs);
     }
     const configFile = project.configFile;
-    const edit = configFile
-      ? addRenderer(await readFile(configFile, "utf8"), configFile, framework)
-      : { manual: manualSteps(framework) };
+    const edit = configFile ? addRenderer(await readFile(configFile, "utf8"), configFile, framework) : { manual: manualSteps(framework) };
     if ("code" in edit && configFile) {
       await writeFile(configFile, edit.code);
       result.edited.push(relative(root, configFile));
@@ -166,9 +167,20 @@ export async function runAdd(name: string | undefined, flags: AddFlags): Promise
   const project = await loadProject(flags);
   const configured = new Set(project.api.renderers());
   const pm = oneOf(flags.pm, PACKAGE_MANAGERS, "pm") ?? detectPackageManager(project.root);
-  const target = oneOf(flags.target, TARGETS.map((t) => t.value), "target");
+  const target = oneOf(
+    flags.target,
+    TARGETS.map((t) => t.value),
+    "target",
+  );
   const hydrate = oneOf(flags.hydrate, HYDRATE_CHOICES, "hydrate");
-  const files = flags.with?.split(",").map((file) => oneOf(file.trim(), DROPLET_FILES.map((f) => f.value), "with")!);
+  const files = flags.with?.split(",").flatMap(
+    (file) =>
+      oneOf(
+        file.trim(),
+        DROPLET_FILES.map((f) => f.value),
+        "with",
+      ) ?? [],
+  );
   const needsAnswer = (what: string) => new Error(`${what} (or run djs add in a terminal to be asked)`);
 
   /** A warning: confirmed when interactive, accepted with --yes, an error otherwise. */
@@ -203,7 +215,8 @@ export async function runAdd(name: string | undefined, flags: AddFlags): Promise
     if (!framework) throw new Error(`--framework ${flags.framework}: expected ${ADD_KINDS.map((f) => f.name).join(", ")}`);
   } else if (!interactive) {
     if (configured.size !== 1) throw needsAnswer(`pick a framework: --framework ${ADD_KINDS.map((f) => f.name).join("|")}`);
-    framework = frameworkNamed([...configured][0]!);
+    const [only] = configured;
+    if (only !== undefined) framework = frameworkNamed(only);
   } else {
     const ordered = [...FRAMEWORKS].sort((a, b) => Number(configured.has(b.name)) - Number(configured.has(a.name)));
     const picked = answer(
@@ -224,10 +237,18 @@ export async function runAdd(name: string | undefined, flags: AddFlags): Promise
   if (!framework) throw new Error("no framework");
   if (framework.builtIn) {
     // A script droplet: no target, no renderer to install, `always` or `visible`.
-    if (target !== undefined) throw new Error("--target does not apply to a script droplet: it renders nothing on the server and always runs in the browser");
-    const chosen = hydrate ??
+    if (target !== undefined)
+      throw new Error("--target does not apply to a script droplet: it renders nothing on the server and always runs in the browser");
+    const chosen =
+      hydrate ??
       (interactive
-        ? answer(await prompts.select({ message: "Runs", options: SCRIPT_HYDRATE.map((h) => ({ ...h })), initialValue: "always" as HydrateChoice }))
+        ? answer(
+            await prompts.select({
+              message: "Runs",
+              options: SCRIPT_HYDRATE.map((h) => ({ ...h })),
+              initialValue: "always" as HydrateChoice,
+            }),
+          )
         : "always");
     const flags = scriptFlags(chosen);
     if (files?.includes("error")) throw new Error("--with error: a script droplet has no error page; it renders nothing");

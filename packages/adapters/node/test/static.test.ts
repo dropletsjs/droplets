@@ -49,7 +49,7 @@ describe("createStaticHandler", () => {
     expect(await res.text()).toBe("<svg/>");
     expect(res.headers.get("content-type")).toBe("image/svg+xml");
     expect(res.headers.get("cache-control")).toBe("no-cache");
-    const etag = res.headers.get("etag")!;
+    const etag = res.headers.get("etag") ?? expect.unreachable("an etag");
     expect(etag).toMatch(/^"[\w-]+"$/);
 
     const again = await app.request("/assets/public/img/logo.svg", { headers: { "if-none-match": `"x", ${etag}` } });

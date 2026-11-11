@@ -22,8 +22,7 @@ import "./cart.css";
 export const ssr = false;
 export const hydrate = true;
 
-const isCart = (value: unknown): value is Cart =>
-  isRecord(value) && typeof value["count"] === "number" && Array.isArray(value["items"]);
+const isCart = (value: unknown): value is Cart => isRecord(value) && typeof value["count"] === "number" && Array.isArray(value["items"]);
 
 export default function ShoppingCart({ data, form }: DropletProps) {
   const initial = data instanceof Promise ? use(data) : data;
@@ -52,18 +51,27 @@ export default function ShoppingCart({ data, form }: DropletProps) {
       return next;
     });
   }, []);
-  const refetch = useCallback(() => void getCart().then(show).catch(() => {}), [show]);
+  const refetch = useCallback(
+    () =>
+      void getCart()
+        .then(show)
+        .catch(() => {}),
+    [show],
+  );
 
   // A load that ran again after one of this droplet's actions.
   useEffect(() => show(initial.cart), [initial, show]);
 
   // This droplet's own action result: show it, and tell other carts on the page.
-  const applied = useCallback((result: unknown) => {
-    if (!isCart(result)) return false;
-    show(result);
-    emit("shop:cart-changed", { count: result.count, cart: result });
-    return true;
-  }, [show]);
+  const applied = useCallback(
+    (result: unknown) => {
+      if (!isCart(result)) return false;
+      show(result);
+      emit("shop:cart-changed", { count: result.count, cart: result });
+      return true;
+    },
+    [show],
+  );
   useEffect(() => void applied(form && "cart" in form ? form.cart : undefined), [form, applied]);
 
   useEffect(() => {
@@ -78,10 +86,13 @@ export default function ShoppingCart({ data, form }: DropletProps) {
       on("shop:product-changed", refetch),
       on("shop:cart-open", () => setOpen(true)),
     ];
-    return () => stops.forEach((stop) => stop());
+    return () => {
+      for (const stop of stops) stop();
+    };
   }, [refetch, show]);
 
   // On open: the stock right now, so a line that sold out says so.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the check runs when the cart opens, not on every change to it.
   useEffect(() => {
     if (!open && !inline) return;
     if (!inline) close.current?.focus();
@@ -104,7 +115,6 @@ export default function ShoppingCart({ data, form }: DropletProps) {
       setChecking(false);
       window.removeEventListener("keydown", onKey);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, inline]);
 
   const availability = cartAvailability(cart.items, checked);
@@ -112,8 +122,7 @@ export default function ShoppingCart({ data, form }: DropletProps) {
 
   const panel = (
     <>
-    {cart.items.length
-      ? (
+      {cart.items.length ? (
         <ul className="cart-lines" aria-busy={checking}>
           {cart.items.map((line) => {
             const now = availability.lines.get(line.productId) ?? { stock: line.stock, state: line.stockState };
@@ -126,58 +135,68 @@ export default function ShoppingCart({ data, form }: DropletProps) {
                     {formatMoney(line.unitCents, cart.currency)}
                     {line.wasCents !== null ? <s> {formatMoney(line.wasCents, cart.currency)}</s> : null}
                   </p>
-                  {checking
-                    ? <p className="stock stock-checking">Checking availability…</p>
-                    : now.state !== "in"
-                    ? <p className={`stock stock-${now.state}`}>{stockLabel(now.state, now.stock)}</p>
-                    : null}
+                  {checking ? (
+                    <p className="stock stock-checking">Checking availability…</p>
+                  ) : now.state !== "in" ? (
+                    <p className={`stock stock-${now.state}`}>{stockLabel(now.state, now.stock)}</p>
+                  ) : null}
                 </div>
                 <CartForm action={urls.setQty} className="cart-qty" applied={applied}>
                   <input type="hidden" name="productId" value={line.productId} />
-                  <button className="button" name="qty" value={line.qty - 1} aria-label="One less">−</button>
+                  <button type="submit" className="button" name="qty" value={line.qty - 1} aria-label="One less">
+                    −
+                  </button>
                   <span aria-label="Quantity">{line.qty}</span>
-                  <button className="button" name="qty" value={line.qty + 1} aria-label="One more" disabled={now.state === "out" || line.qty >= now.stock}>
+                  <button
+                    type="submit"
+                    className="button"
+                    name="qty"
+                    value={line.qty + 1}
+                    aria-label="One more"
+                    disabled={now.state === "out" || line.qty >= now.stock}
+                  >
                     +
                   </button>
                 </CartForm>
                 <CartForm action={urls.remove} applied={applied}>
                   <input type="hidden" name="productId" value={line.productId} />
-                  <button className="cart-remove">Remove</button>
+                  <button type="submit" className="cart-remove">
+                    Remove
+                  </button>
                 </CartForm>
               </li>
             );
           })}
         </ul>
-      )
-      : (
+      ) : (
         <div className="cart-empty">
           <p>Your cart is empty.</p>
-          <a className="button" href="/gallery">Browse the gallery</a>
+          <a className="button" href="/gallery">
+            Browse the gallery
+          </a>
         </div>
       )}
 
-    {cart.items.length
-      ? (
+      {cart.items.length ? (
         <footer>
           <p className="cart-total">
             <span>Subtotal</span> <b>{formatMoney(cart.totalCents, cart.currency)}</b>
           </p>
-          {!checking && outCount
-            ? (
-              <p className="cart-warning" role="alert">
-                {outCount === 1 ? "1 item is" : `${outCount} items are`} out of stock: remove {outCount === 1 ? "it" : "them"} to check out.
-              </p>
-            )
-            : null}
+          {!checking && outCount ? (
+            <p className="cart-warning" role="alert">
+              {outCount === 1 ? "1 item is" : `${outCount} items are`} out of stock: remove {outCount === 1 ? "it" : "them"} to check out.
+            </p>
+          ) : null}
           <button type="button" className="button primary" disabled title="A demo shop: no checkout">
             Checkout (demo)
           </button>
           <CartForm action={urls.clear} applied={applied}>
-            <button className="cart-remove">Empty the cart</button>
+            <button type="submit" className="cart-remove">
+              Empty the cart
+            </button>
           </CartForm>
         </footer>
-      )
-      : null}
+      ) : null}
     </>
   );
 
@@ -200,32 +219,39 @@ export default function ShoppingCart({ data, form }: DropletProps) {
         onClick={() => setOpen(true)}
       >
         <span aria-hidden="true">🛒</span> Cart
-        {cart.count ? <span key={pulse} className="cart-count">{cart.count}</span> : null}
+        {cart.count ? (
+          <span key={pulse} className="cart-count">
+            {cart.count}
+          </span>
+        ) : null}
       </button>
 
-      {open
-        ? (
-          <div className="cart-layer">
-            <div className="cart-backdrop" onClick={() => setOpen(false)} />
-            <aside className="cart-drawer" role="dialog" aria-modal="true" aria-label="Your cart">
-              <header>
-                <h2>Your cart {cart.count ? `(${cart.count})` : ""}</h2>
-                <button ref={close} type="button" className="cart-close" aria-label="Close" onClick={() => setOpen(false)}>
-                  ×
-                </button>
-              </header>
+      {open ? (
+        <div className="cart-layer">
+          <div className="cart-backdrop" onClick={() => setOpen(false)} />
+          <aside className="cart-drawer" role="dialog" aria-modal="true" aria-label="Your cart">
+            <header>
+              <h2>Your cart {cart.count ? `(${cart.count})` : ""}</h2>
+              <button ref={close} type="button" className="cart-close" aria-label="Close" onClick={() => setOpen(false)}>
+                ×
+              </button>
+            </header>
 
-              {panel}
-            </aside>
-          </div>
-        )
-        : null}
+            {panel}
+          </aside>
+        </div>
+      ) : null}
     </div>
   );
 }
 
 /** One of the cart's forms, enhanced: a result that carries the cart is `applied` in place. */
-function CartForm({ action, className, applied, children }: {
+function CartForm({
+  action,
+  className,
+  applied,
+  children,
+}: {
   action: string;
   className?: string;
   applied: (cart: unknown) => boolean;
@@ -233,8 +259,11 @@ function CartForm({ action, className, applied, children }: {
 }) {
   const ref = useRef<HTMLFormElement>(null);
   useEnhanceDropletForm<DropletActions>(ref, {
-    onResult: ({ type, data, update }) =>
-      type === "success" && data && "cart" in data && applied(data.cart) ? undefined : update(),
+    onResult: ({ type, data, update }) => (type === "success" && data && "cart" in data && applied(data.cart) ? undefined : update()),
   });
-  return <form method="post" action={action} className={className} ref={ref}>{children}</form>;
+  return (
+    <form method="post" action={action} className={className} ref={ref}>
+      {children}
+    </form>
+  );
 }

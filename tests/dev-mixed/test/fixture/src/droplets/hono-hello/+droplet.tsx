@@ -12,7 +12,9 @@ export default function Hello({ data }: { data: { word: string } }) {
     <section data-testid="hono" data-hydrated={String(hydrated)}>
       <p data-text>Hono greets the host</p>
       <p data-word>{data.word}</p>
-      <button type="button" onClick={() => setCount((n) => n + 1)}>{count}</button>
+      <button type="button" onClick={() => setCount((n) => n + 1)}>
+        {count}
+      </button>
     </section>
   );
 }

@@ -38,35 +38,41 @@ export function Card({ mode, data }: { mode: Mode; data?: Facts }) {
       {data ? <p class="card-greeting">Hello {data.who}!</p> : null}
 
       <dl class="card-facts">
-        <dt>Site<small>public, static</small></dt>
+        <dt>
+          Site<small>public, static</small>
+        </dt>
         <dd data-testid="site">{env.PUBLIC_SITE_NAME}</dd>
-        <dt>Banner<small>public, runtime</small></dt>
+        <dt>
+          Banner<small>public, runtime</small>
+        </dt>
         <dd data-testid="banner">{env.PUBLIC_BANNER ?? "not set"}</dd>
-        <dt>API token<small>private</small></dt>
+        <dt>
+          API token<small>private</small>
+        </dt>
         <dd data-testid="private">{facts ? `${facts.apiToken}, channel ${facts.channel}` : "…"}</dd>
         <dt>Rendered</dt>
         <dd data-testid="rendered">{data ? `on the server, ${data.renderedAt}` : "in the browser"}</dd>
-        {mode === "client"
-          ? (
-            <>
-              <dt>Server time<small>/api/time</small></dt>
-              <dd data-testid="time">{time ?? "…"}</dd>
-            </>
-          )
-          : null}
+        {mode === "client" ? (
+          <>
+            <dt>
+              Server time<small>/api/time</small>
+            </dt>
+            <dd data-testid="time">{time ?? "…"}</dd>
+          </>
+        ) : null}
         <dt>Hydrated</dt>
         <dd data-testid="hydrated">{hydrated ? "yes" : "no"}</dd>
       </dl>
 
       <div class="card-counter">
-        <span class="card-count" data-testid="count">{shown ?? "…"}</span>
-        {mode !== "ssr-nohydrate"
-          ? (
-            <button type="button" data-testid="bump" onClick={() => void bumpCounter().then(setCount)}>
-              +1
-            </button>
-          )
-          : null}
+        <span class="card-count" data-testid="count">
+          {shown ?? "…"}
+        </span>
+        {mode !== "ssr-nohydrate" ? (
+          <button type="button" data-testid="bump" onClick={() => void bumpCounter().then(setCount)}>
+            +1
+          </button>
+        ) : null}
         <small>one counter for every droplet: /api/counter</small>
       </div>
     </article>

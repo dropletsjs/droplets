@@ -25,7 +25,7 @@ export function baseLinks() {
         for (const file of await htmlFiles(fileURLToPath(dir))) {
           const html = await readFile(file, "utf8");
           const fixed = html.replace(link, (whole, start, href) =>
-            href === prefix || href.startsWith(`${prefix}/`) ? whole : `${start}${prefix}${href}"`
+            href === prefix || href.startsWith(`${prefix}/`) ? whole : `${start}${prefix}${href}"`,
           );
           if (fixed !== html) await writeFile(file, fixed);
         }

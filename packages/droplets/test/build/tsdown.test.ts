@@ -82,7 +82,10 @@ describe("a client entry", () => {
 
   const entries = async (client: string) => {
     await writeFile(join(dir, "src/client.ts"), client);
-    await writeFile(join(dir, "src/server.ts"), `import { shared } from "./shared.ts";\nimport { app } from "./app.ts";\nexport const render = () => shared() + app();\n`);
+    await writeFile(
+      join(dir, "src/server.ts"),
+      `import { shared } from "./shared.ts";\nimport { app } from "./app.ts";\nexport const render = () => shared() + app();\n`,
+    );
   };
   it("builds when it shares only client-safe code with the server", async () => {
     await entries(`import { shared } from "./shared.ts";\nexport const hydrate = () => shared();\n`);
@@ -91,9 +94,17 @@ describe("a client entry", () => {
   });
 
   it.each([
-    ["a *.server.* module", `import { secret } from "./db.server.ts";\nexport const hydrate = () => secret();\n`, /reaches server code db\.server\.ts/],
+    [
+      "a *.server.* module",
+      `import { secret } from "./db.server.ts";\nexport const hydrate = () => secret();\n`,
+      /reaches server code db\.server\.ts/,
+    ],
     ["a module under server/", `export const hydrate = () => import("./server/keys.ts");\n`, /reaches server code server\/keys\.ts/],
-    ["a module named server code", `import { app } from "./app.ts";\nexport const hydrate = () => app();\n`, /reaches server code (app|db\.server)\.ts/],
+    [
+      "a module named server code",
+      `import { app } from "./app.ts";\nexport const hydrate = () => app();\n`,
+      /reaches server code (app|db\.server)\.ts/,
+    ],
     ["a Node built-in", `import { join } from "node:path";\nexport const hydrate = () => join("a", "b");\n`, /imports a Node built-in/],
   ])("fails the build when it reaches %s", async (_, client, message) => {
     await entries(client);

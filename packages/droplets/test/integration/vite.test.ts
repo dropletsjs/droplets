@@ -26,9 +26,7 @@ const fakeAdapter: DropletsAdapter = {
 
 beforeAll(() => {
   if (!existsSync(entryClientPath)) {
-    throw new Error(
-      `Run \`pnpm build\` in packages/droplets first: ${entryClientPath} is missing.`,
-    );
+    throw new Error(`Run \`pnpm build\` in packages/droplets first: ${entryClientPath} is missing.`);
   }
 });
 
@@ -81,26 +79,20 @@ describe("vite build", () => {
     expect(existsSync(resolve(outDir, "client/droplets/static-note"))).toBe(false);
     // Bundles sit as deep as their URLs, so relative imports resolve when served:
     // /droplets/hello/client.js -> /assets/chunks/…, /assets/index.<hash>.js -> /assets/chunks/….
-    const relative = (code: string) => [...code.matchAll(/(?:from|import)\s*\(?\s*["'](\.[^"']+)["']/g)].map((m) => m[1]);
+    const relative = (code: string) =>
+      [...code.matchAll(/(?:from|import)\s*\(?\s*["'](\.[^"']+)["']/g)].map((m) => m[1] ?? expect.unreachable("an import path"));
     const helloImports = relative(await readFile(resolve(outDir, "client/droplets/hello/client.js"), "utf8"));
     expect(helloImports.length).toBeGreaterThan(0);
-    for (const path of helloImports) expect(new URL(path!, "http://x/droplets/hello/client.js").pathname).toMatch(/^\/assets\//);
-    for (const path of relative(entry)) expect(new URL(path!, `http://x/${manifest.__entryModule}`).pathname).toMatch(/^\/assets\//);
+    for (const path of helloImports) expect(new URL(path, "http://x/droplets/hello/client.js").pathname).toMatch(/^\/assets\//);
+    for (const path of relative(entry)) expect(new URL(path, `http://x/${manifest.__entryModule}`).pathname).toMatch(/^\/assets\//);
   });
 
   it("prerenders entries after the schema, through handle, with building on", async () => {
-    const index = JSON.parse(
-      await readFile(resolve(outDir, "server/_prerendered/docs/index.json"), "utf8"),
-    ) as Record<string, string>;
+    const index = JSON.parse(await readFile(resolve(outDir, "server/_prerendered/docs/index.json"), "utf8")) as Record<string, string>;
     // Two distinct pages once "1" became 1, and page 99 as its error page;
     // page 404 answered error() and is not stored. Page 5 is stored for its
     // host only.
-    expect(Object.keys(index).sort()).toEqual([
-      '{"page":1}',
-      '{"page":2}',
-      '{"page":5} https://fixed.test/docs',
-      '{"page":99}',
-    ]);
+    expect(Object.keys(index).sort()).toEqual(['{"page":1}', '{"page":2}', '{"page":5} https://fixed.test/docs', '{"page":99}']);
     const render = JSON.parse(await readFile(resolve(outDir, `server/_prerendered/${index['{"page":1}']}`), "utf8"));
     expect(render.html).toContain("<h1>Page 1</h1>");
     // transform runs per request, never at build.
@@ -130,9 +122,7 @@ describe("vite build", () => {
     // in: inline or in a shared chunk the droplet imports.
     const { readdir } = await import("node:fs/promises");
     const chunks = await Promise.all(
-      (await readdir(resolve(outDir, "client/assets/chunks"))).map((f) =>
-        readFile(resolve(outDir, "client/assets/chunks", f), "utf8")
-      ),
+      (await readdir(resolve(outDir, "client/assets/chunks"))).map((f) => readFile(resolve(outDir, "client/assets/chunks", f), "utf8")),
     );
     expect([hello, ...chunks].some((code) => code.includes('<div data-droplet-children style="display: contents"></div>'))).toBe(true);
     // The error page hydrates with its droplet: in the same bundle.
@@ -265,11 +255,7 @@ describe("vite build", () => {
     const { readdir } = await import("node:fs/promises");
     const clientFiles = await readdir(resolve(outDir, "client"), { recursive: true });
     const clientCode = (
-      await Promise.all(
-        clientFiles
-          .filter((f) => f.endsWith(".js"))
-          .map((f) => readFile(resolve(outDir, "client", f), "utf8")),
-      )
+      await Promise.all(clientFiles.filter((f) => f.endsWith(".js")).map((f) => readFile(resolve(outDir, "client", f), "utf8")))
     ).join("\n");
     expect(clientCode).toContain("Fixture");
     // Public but read at runtime: /index.js hands it over, the bundle never has it.
@@ -436,12 +422,15 @@ describe("vite dev", () => {
     expect(bare).toContain("bare ok");
     const inline = bare.match(/data-droplet-data>([^<]+)</)?.[1];
     expect(inline && JSON.parse(Buffer.from(inline, "base64").toString())).toEqual({ data: { ok: true } });
-    expect(await (await fetch(`${origin}/droplets/bare/_data`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: "{}",
-    })).json())
-      .toEqual({ data: { ok: true } });
+    expect(
+      await (
+        await fetch(`${origin}/droplets/bare/_data`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: "{}",
+        })
+      ).json(),
+    ).toEqual({ data: { ok: true } });
     // A field that rejects fails the load, as a throw does.
     for (const query of ["crash", "late"]) {
       const res = await fetch(`${origin}/droplets/bare?${query}`);
@@ -529,15 +518,14 @@ describe("vite dev", () => {
     try {
       vi.stubGlobal("location", new URL("https://host.example/page"));
       const meta = { url: `${origin}/index.js` };
-      new Function("meta", "load", code.replaceAll("import.meta", "meta").replace(/\bimport\(/g, "load("))(
-        meta,
-        (specifier: string) => imported.push(new URL(specifier, meta.url).href),
+      new Function("meta", "load", code.replaceAll("import.meta", "meta").replace(/\bimport\(/g, "load("))(meta, (specifier: string) =>
+        imported.push(new URL(specifier, meta.url).href),
       );
       const records = Object.values(global[servers] ?? {});
       expect(records.map((record) => record.origin)).toEqual([origin]);
       expect(imported.map((url) => new URL(url).origin)).toEqual([origin]);
       // Where the element then loads the droplet's JavaScript and data from: the dev server.
-      const location = records[0]!.origin!;
+      const location = records[0]?.origin ?? expect.unreachable("the dev server's record");
       expect((await fetch(`${location}/droplets/hello/client.js`)).status).toBe(200);
       expect((await fetch(`${location}/droplets/hello/_data?who=Host`)).status).toBe(200);
     } finally {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { escape, ssr, ssrHydrationKey } from "solid-js/web";
+import { escape as solidEscape, ssr, ssrHydrationKey } from "solid-js/web";
 import { render } from "../src/server.ts";
 
 // `+droplet.tsx` as `vite-plugin-solid` compiles it for the server:
@@ -9,16 +9,16 @@ const hello = {
     ssr(
       ["<section", '><h1 data-testid="greeting">', '</h1><div data-testid="children">', "</div></section>"],
       ssrHydrationKey(),
-      escape(props.data.greeting),
-      escape(props.children as string),
+      solidEscape(props.data.greeting),
+      solidEscape(props.children as string),
     ),
 };
 
 // `+error.tsx`, with two root elements: <p>{error.message}</p><div>{children}</div>
 const oops = {
   default: (props: { error: { message: string }; children?: unknown }) => [
-    ssr(["<p", ">", "</p>"], ssrHydrationKey(), escape(props.error.message)),
-    ssr(["<div", ">", "</div>"], ssrHydrationKey(), escape(props.children as string)),
+    ssr(["<p", ">", "</p>"], ssrHydrationKey(), solidEscape(props.error.message)),
+    ssr(["<div", ">", "</div>"], ssrHydrationKey(), solidEscape(props.children as string)),
   ],
 };
 

@@ -20,8 +20,8 @@ export default function Crash(props: DropletProps) {
       </p>
       <p class="demo-title">All fine: the load did not throw.</p>
       <p class="demo-muted">
-        Rendered at <time datetime={value()?.renderedAt}>{value()?.renderedAt.slice(0, 19).replace("T", " ")} UTC</time>. With
-        {" "}<code>fail</code> set, the load throws and the error page takes this place.
+        Rendered at <time datetime={value()?.renderedAt}>{value()?.renderedAt.slice(0, 19).replace("T", " ")} UTC</time>. With{" "}
+        <code>fail</code> set, the load throws and the error page takes this place.
       </p>
     </section>
   );

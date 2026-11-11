@@ -13,12 +13,7 @@
  * in the droplet's stylesheet, which the element links whenever the droplet
  * is on the page, error page or not.
  */
-import type {
-  ComponentModule,
-  RenderProps,
-  ServerRenderContext,
-  ServerRenderOutput,
-} from "@dropletsjs/droplets";
+import type { ComponentModule, RenderProps, ServerRenderContext, ServerRenderOutput } from "@dropletsjs/droplets";
 import { createElement, type ComponentType } from "react";
 import { renderToString } from "react-dom/server";
 import { childrenElement } from "./children.ts";
@@ -31,11 +26,7 @@ function componentOf(module: ComponentModule, context: ServerRenderContext): Com
   return component as ComponentType<Record<string, unknown>>;
 }
 
-export function render(
-  module: ComponentModule,
-  props: RenderProps,
-  context: ServerRenderContext,
-): ServerRenderOutput {
+export function render(module: ComponentModule, props: RenderProps, context: ServerRenderContext): ServerRenderOutput {
   const component = componentOf(module, context);
   return renderToString(createElement(component, { ...props, children: childrenElement() }));
 }

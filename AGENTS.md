@@ -31,7 +31,7 @@ Droplets: server-rendered components any stack can embed, as a Vite 8 plugin on 
 ```bash
 pnpm install --frozen-lockfile
 pnpm build            # every package with tsdown and its unit tests, in dependency order
-pnpm check            # build, typecheck, tests/*, framework examples (Node + Cloudflare), shop + wp-shop, apps/demo
+pnpm check            # biome ci, build, typecheck, tests/*, framework examples (Node + Cloudflare), shop + wp-shop, apps/demo
 pnpm test:e2e         # builds examples/frameworks/*, runs tests/examples in Chromium
 pnpm docs:build       # builds and starts apps/demo, then astro build (fails without the demo)
 pnpm docs:check-csp   # after docs:build: every inline script hash is in apps/docs/public/_headers

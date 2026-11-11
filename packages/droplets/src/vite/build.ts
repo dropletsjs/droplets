@@ -62,9 +62,7 @@ type ViteManifestEntry = {
 };
 
 /** One client entry per droplet: each becomes an independently fetched bundle. */
-export function createClientInputs(
-  entries: DropletEntry[],
-): Record<string, string> {
+export function createClientInputs(entries: DropletEntry[]): Record<string, string> {
   const inputs: Record<string, string> = {
     [ENTRY_CLIENT_NAME]: entryClientPath,
     [GLOBAL_CSS_NAME]: VIRTUAL_CSS,
@@ -94,8 +92,7 @@ export function requireAdapter(state: PluginState): DropletsAdapter {
 export function buildOrder(state: PluginState): Array<(typeof BUILD_ENVIRONMENTS)[number]> {
   // Prerendering runs the SSR bundle at build, whether or not the adapter
   // ships it.
-  const needsSsr = requireAdapter(state).separateSsrBundle ||
-    state.entries.some((entry) => entry.prerender);
+  const needsSsr = requireAdapter(state).separateSsrBundle || state.entries.some((entry) => entry.prerender);
   return needsSsr ? ["client", "ssr", "server"] : ["client", "server"];
 }
 
@@ -103,13 +100,9 @@ export function buildOrder(state: PluginState): Array<(typeof BUILD_ENVIRONMENTS
  * Three environments: the browser bundles, the SSR renderer and the HTTP
  * server. `vite build` builds them in that order via the `buildApp` hook.
  */
-export function createBuildEnvironments(
-  state: PluginState,
-): NonNullable<UserConfig["environments"]> {
+export function createBuildEnvironments(state: PluginState): NonNullable<UserConfig["environments"]> {
   const adapter = requireAdapter(state);
-  const serverNoExternal = adapter.noExternal === true
-    ? true
-    : [...SERVER_NO_EXTERNAL, ...(adapter.noExternal ?? [])];
+  const serverNoExternal = adapter.noExternal === true ? true : [...SERVER_NO_EXTERNAL, ...(adapter.noExternal ?? [])];
   const serverEnvironment: NonNullable<UserConfig["environments"]>[string] = {
     consumer: "server",
     resolve: { noExternal: serverNoExternal },
@@ -137,11 +130,7 @@ export function createBuildEnvironments(
           input: createClientInputs(state.entries),
           output: {
             entryFileNames: (chunk) =>
-              chunk.name === ENTRY_CLIENT_NAME
-                ? ENTRY_MODULE_FILE
-                : chunk.name.startsWith("droplets/")
-                ? "[name]/client.js"
-                : "[name].js",
+              chunk.name === ENTRY_CLIENT_NAME ? ENTRY_MODULE_FILE : chunk.name.startsWith("droplets/") ? "[name]/client.js" : "[name].js",
             chunkFileNames: "assets/chunks/[name]-[hash].js",
             assetFileNames: "assets/[name]-[hash][extname]",
           },
@@ -165,9 +154,7 @@ export function createBuildEnvironments(
     },
     // The server itself, as the adapter defines it, emitted next to the
     // bundles above. The adapter's own environment options win.
-    server: adapter.environment
-      ? (mergeConfig(serverEnvironment, adapter.environment) as typeof serverEnvironment)
-      : serverEnvironment,
+    server: adapter.environment ? (mergeConfig(serverEnvironment, adapter.environment) as typeof serverEnvironment) : serverEnvironment,
   };
 }
 
@@ -176,10 +163,7 @@ export function createBuildEnvironments(
  * first, then its own, each once. A component two droplets share has its
  * styles in its own chunk, which only shows up through `imports`.
  */
-export function collectCss(
-  viteManifest: Record<string, ViteManifestEntry>,
-  entry: ViteManifestEntry,
-): string[] {
+export function collectCss(viteManifest: Record<string, ViteManifestEntry>, entry: ViteManifestEntry): string[] {
   const found = new Set<string>();
   const seen = new Set<ViteManifestEntry>();
   const walk = (current: ViteManifestEntry) => {
@@ -214,8 +198,7 @@ export function translateManifest(
     if (entry?.name) byName.set(entry.name, entry);
   }
 
-  const lookup = (name: string, fallbackKey: string) =>
-    byName.get(name) ?? viteManifest?.[fallbackKey];
+  const lookup = (name: string, fallbackKey: string) => byName.get(name) ?? viteManifest?.[fallbackKey];
 
   const entryModule = byName.get(ENTRY_CLIENT_NAME)?.file;
   // The shared stylesheet, when the build produced one: first in every
@@ -223,18 +206,13 @@ export function translateManifest(
   const globalCss = lookup(GLOBAL_CSS_NAME, VIRTUAL_CSS)?.css?.[0];
   const droplets: Record<string, DropletManifestEntry> = {};
   for (const entry of entries) {
-    const manifestEntry = lookup(
-      `droplets/${entry.id}`,
-      clientEntryId(entry.name),
-    );
+    const manifestEntry = lookup(`droplets/${entry.id}`, clientEntryId(entry.name));
     const own = manifestEntry && viteManifest ? collectCss(viteManifest, manifestEntry) : [];
     const css = [...new Set([...(globalCss && sharedCss ? [globalCss] : []), ...own])];
     droplets[entry.id] = {
       // Built for its stylesheet only when the droplet does not hydrate;
       // the JavaScript is never shipped then.
-      ...(shipsClient({ hydrate: entry.hydrate !== false })
-        ? { client: dropletClientFile(entry.id) }
-        : {}),
+      ...(shipsClient({ hydrate: entry.hydrate !== false }) ? { client: dropletClientFile(entry.id) } : {}),
       ...(css.length ? { css } : {}),
     };
   }
@@ -276,9 +254,7 @@ export function fillStyles(code: string, droplets: DropletsManifest["droplets"])
  */
 export async function writeManifest(state: PluginState): Promise<string> {
   const clientRoot = resolve(state.outDir, "client");
-  const viteManifest = await readJsonFile<Record<string, ViteManifestEntry>>(
-    resolve(clientRoot, ".vite/manifest.json"),
-  );
+  const viteManifest = await readJsonFile<Record<string, ViteManifestEntry>>(resolve(clientRoot, ".vite/manifest.json"));
   if (!viteManifest) {
     logger.warn("framework", "vite manifest missing; CSS paths will fall back and /index.js has no entry");
   }

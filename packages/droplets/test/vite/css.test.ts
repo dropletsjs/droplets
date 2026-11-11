@@ -35,7 +35,7 @@ describe("resolveCss", () => {
 });
 
 describe("withoutPreflight", () => {
-  it("splits @import \"tailwindcss\" into theme and utilities, options kept", () => {
+  it('splits @import "tailwindcss" into theme and utilities, options kept', () => {
     expect(withoutPreflight('@import "tailwindcss";\n.x { color: red }')).toBe(
       '@layer theme, base, components, utilities;\n@import "tailwindcss/theme.css" layer(theme);\n@import "tailwindcss/utilities.css" layer(utilities);\n.x { color: red }',
     );
@@ -45,8 +45,11 @@ describe("withoutPreflight", () => {
   });
 
   it("drops an import of the preflight, and leaves the rest alone", () => {
-    const split = '@import "tailwindcss/theme.css" layer(theme);\n@import "tailwindcss/preflight.css" layer(base);\n@import "tailwindcss/utilities.css" layer(utilities);\n';
-    expect(withoutPreflight(split)).toBe('@import "tailwindcss/theme.css" layer(theme);\n@import "tailwindcss/utilities.css" layer(utilities);\n');
+    const split =
+      '@import "tailwindcss/theme.css" layer(theme);\n@import "tailwindcss/preflight.css" layer(base);\n@import "tailwindcss/utilities.css" layer(utilities);\n';
+    expect(withoutPreflight(split)).toBe(
+      '@import "tailwindcss/theme.css" layer(theme);\n@import "tailwindcss/utilities.css" layer(utilities);\n',
+    );
     expect(withoutPreflight('@import "tailwindcss/utilities.css";')).toBeNull();
     expect(withoutPreflight(".x { color: red }")).toBeNull();
   });
@@ -56,7 +59,9 @@ describe("hasPreflight", () => {
   const check = (css: string) => hasPreflight(postcss.parse(css));
 
   it("finds the preflight as Tailwind writes it, and as its optimizer leaves it", () => {
-    expect(check("@layer base { *, ::after, ::before, ::backdrop, ::file-selector-button { box-sizing: border-box; margin: 0 } }")).toBe(true);
+    expect(check("@layer base { *, ::after, ::before, ::backdrop, ::file-selector-button { box-sizing: border-box; margin: 0 } }")).toBe(
+      true,
+    );
     expect(check("@layer base{*,:after,:before,::backdrop{box-sizing:border-box;margin:0}:root{color:red}}")).toBe(true);
     expect(check("@layer base { :root { color: red } * { box-sizing: border-box } }")).toBe(false);
   });
@@ -71,8 +76,8 @@ describe("createCssConfig", () => {
   it("scopes every stylesheet, keeping the user's inline PostCSS plugins", () => {
     const state = createInitialState();
     const own = { postcssPlugin: "own" };
-    const config = createCssConfig({ css: { postcss: { plugins: [own] } } }, state);
-    const plugins = (config?.postcss as { plugins: unknown[] }).plugins;
+    const config = createCssConfig({ css: { postcss: { plugins: [own] } } }, state) ?? expect.unreachable("a css config");
+    const plugins = (config.postcss as { plugins: unknown[] }).plugins;
     expect(plugins[0]).toBe(own);
     expect(run(config, ".x { color: red }")).toBe("djs-droplet .x { color: red }");
   });
@@ -80,7 +85,9 @@ describe("createCssConfig", () => {
   it("checks for a stray preflight without twPreflight, and does nothing when there is nothing to do", () => {
     const state = createInitialState();
     state.css = { ...state.css, scoped: false, twPreflight: false };
-    const names = (createCssConfig({}, state)?.postcss as { plugins: Array<{ postcssPlugin: string }> }).plugins.map((p) => p.postcssPlugin);
+    const names = (
+      (createCssConfig({}, state) ?? expect.unreachable("a css config")).postcss as { plugins: Array<{ postcssPlugin: string }> }
+    ).plugins.map((p) => p.postcssPlugin);
     expect(names).toEqual(["droplets:preflight-check"]);
     state.css = { ...state.css, twPreflight: true };
     expect(createCssConfig({}, state)).toBeUndefined();
@@ -105,11 +112,12 @@ describe("tailwindPlugins", () => {
       "droplets:tailwind:generate:serve",
       "droplets:tailwind:generate:build",
     ]);
-    (plugins[0]!.configResolved as (config: ResolvedConfig) => void)(resolved(plugins));
+    const tailwind = plugins[0] ?? expect.unreachable("droplets:tailwind");
+    (tailwind.configResolved as (config: ResolvedConfig) => void)(resolved(plugins));
     expect(state.tailwind).toEqual({ user: false, ours: true });
 
     // twPreflight: false rewrites the imports ahead of Tailwind's compile.
-    const transform = plugins[0]!.transform as { order: string; handler: (code: string, id: string) => { code: string } | undefined };
+    const transform = tailwind.transform as { order: string; handler: (code: string, id: string) => { code: string } | undefined };
     expect(transform.order).toBe("pre");
     expect(transform.handler('@import "tailwindcss";', "/p/app.css")).toBeUndefined();
     state.css = { ...state.css, twPreflight: false };
@@ -121,18 +129,20 @@ describe("tailwindPlugins", () => {
     const state = createInitialState();
     state.css = { ...state.css, tailwind: true };
     const plugins = await tailwindPlugins(state);
-    const detect = plugins[0]!.configResolved as (config: ResolvedConfig) => void;
+    const detect = (plugins[0] ?? expect.unreachable("droplets:tailwind")).configResolved as (config: ResolvedConfig) => void;
     detect(resolved([named("@tailwindcss/vite:scan"), ...plugins]));
     expect(state.tailwind).toEqual({ user: true, ours: false });
     // Gated: Tailwind's transform answers nothing.
-    const transform = plugins.find((p) => p.name === "droplets:tailwind:generate:build")!.transform as {
+    const transform = (
+      plugins.find((p) => p.name === "droplets:tailwind:generate:build") ?? expect.unreachable("droplets:tailwind:generate:build")
+    ).transform as {
       handler: (code: string, id: string) => unknown;
     };
     expect(transform.handler.call({}, '@import "tailwindcss";', "/p/app.css")).toBeUndefined();
 
     const off = createInitialState();
     const offPlugins = await tailwindPlugins(off);
-    (offPlugins[0]!.configResolved as (config: ResolvedConfig) => void)(resolved(offPlugins));
+    ((offPlugins[0] ?? expect.unreachable("droplets:tailwind")).configResolved as (config: ResolvedConfig) => void)(resolved(offPlugins));
     expect(off.tailwind).toEqual({ user: false, ours: false });
   });
 });

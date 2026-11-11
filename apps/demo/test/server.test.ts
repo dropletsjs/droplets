@@ -59,10 +59,14 @@ async function postWatched(path: string) {
     .filter((method) => method in Request.prototype)
     .map((method) => vi.spyOn(Request.prototype, method));
   try {
-    const response = await vote(body, {
-      duplex: "half",
-      headers: { "content-type": "application/x-www-form-urlencoded", "content-length": String(text.length) },
-    } as RequestInit, path);
+    const response = await vote(
+      body,
+      {
+        duplex: "half",
+        headers: { "content-type": "application/x-www-form-urlencoded", "content-length": String(text.length) },
+      } as RequestInit,
+      path,
+    );
     return { response, parsed: parsers.some((spy) => spy.mock.calls.length > 0), pulled };
   } finally {
     for (const spy of parsers) spy.mockRestore();
@@ -83,7 +87,7 @@ describe("the droplets", () => {
     expect(html.startsWith('<djs-demo data-droplet="hello"')).toBe(true);
     expect(html).toContain("Hello Ana!");
     expect(payload(html, "data").data.greeting).toBe("Hello Ana!");
-    expect((await (await call("/droplets/hello")).text())).toContain("Hello world!");
+    expect(await (await call("/droplets/hello")).text()).toContain("Hello world!");
   });
 
   it("counter renders its start on the server and has no server load", async () => {
@@ -331,7 +335,10 @@ describe("the poll's action", () => {
           controller.close();
         },
       });
-      const streamed = await vote(stream, { duplex: "half", headers: { "content-type": "application/x-www-form-urlencoded" } } as RequestInit);
+      const streamed = await vote(stream, {
+        duplex: "half",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+      } as RequestInit);
       expect(streamed.status).toBe(413);
     });
 

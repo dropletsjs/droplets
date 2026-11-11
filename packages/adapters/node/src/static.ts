@@ -63,7 +63,13 @@ export function createStaticHandler(clientRoot: string) {
     const etag = `"${createHash("sha1").update(body).digest("base64url")}"`;
     c.header("cache-control", "no-cache");
     c.header("etag", etag);
-    if (c.req.header("if-none-match")?.split(",").some((tag) => tag.trim() === etag)) return c.body(null, 304);
+    if (
+      c.req
+        .header("if-none-match")
+        ?.split(",")
+        .some((tag) => tag.trim() === etag)
+    )
+      return c.body(null, 304);
     return c.body(new Uint8Array(body));
   };
 }

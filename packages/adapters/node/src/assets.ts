@@ -1,11 +1,5 @@
 import { resolve } from "node:path";
-import {
-  createPrerenderedLoader,
-  FALLBACK_MANIFEST,
-  logger,
-  PRERENDER_DIR,
-  type DropletsManifest,
-} from "@dropletsjs/droplets";
+import { createPrerenderedLoader, FALLBACK_MANIFEST, logger, PRERENDER_DIR, type DropletsManifest } from "@dropletsjs/droplets";
 import { readJsonFile, readTextFile } from "./fs.ts";
 
 /**
@@ -35,8 +29,7 @@ export function createAssetLoaders(clientRoot: string, serverRoot = resolve(clie
     return cached;
   };
 
-  const readRelative = async (relativePath: string): Promise<string | null> =>
-    readTextFile(resolve(clientRoot, relativePath));
+  const readRelative = async (relativePath: string): Promise<string | null> => readTextFile(resolve(clientRoot, relativePath));
 
   /** A droplet's manifest entry; a name from a URL never reaches `Object.prototype`. */
   const dropletEntry = (manifest: DropletsManifest, droplet: string) =>

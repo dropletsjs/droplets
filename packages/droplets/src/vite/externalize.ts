@@ -14,9 +14,7 @@ function isBareSpecifier(value: string): boolean {
  * Vite rewrites bare imports to `/@id/<pkg>` in dev, so externalised packages
  * need both spellings in the import map for the browser to resolve them.
  */
-export function withViteIdAliases(
-  importMap: Record<string, string> | undefined,
-): Record<string, string> | undefined {
+export function withViteIdAliases(importMap: Record<string, string> | undefined): Record<string, string> | undefined {
   if (!importMap) return undefined;
   const entries: Array<[string, string]> = [];
   for (const [key, value] of Object.entries(importMap)) {
@@ -37,11 +35,9 @@ export function withViteIdAliases(
 export function externalizePlugin(state: PluginState): Plugin {
   const dropletGraph = new Set<string>();
 
-  const cleanId = (id: string) =>
-    id.replace(/[#?].*$/, "").replace(/\\/g, "/");
+  const cleanId = (id: string) => id.replace(/[#?].*$/, "").replace(/\\/g, "/");
 
-  const isDropletEntry = (id: string) =>
-    normalizePath(id).includes(VIRTUAL_CLIENT);
+  const isDropletEntry = (id: string) => normalizePath(id).includes(VIRTUAL_CLIENT);
 
   const inDropletGraph = (importer?: string | undefined) => {
     if (!importer) return false;

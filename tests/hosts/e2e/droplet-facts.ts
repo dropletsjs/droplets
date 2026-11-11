@@ -67,14 +67,20 @@ export function renderersFromSync(source: string): Map<string, string> {
   for (const folder of readdirSync(root)) {
     let header = "";
     try {
-      header = readFileSync(join(root, folder, "$types.d.ts"), "utf8").split("\n").slice(0, 3).join("\n");
+      header = readFileSync(join(root, folder, "$types.d.ts"), "utf8")
+        .split("\n")
+        .slice(0, 3)
+        .join("\n");
     } catch {
       continue;
     }
     const match = /^\/\/ \S*\/([^/\s]+)\/ \(([^)]+)\)$/m.exec(header);
     if (!match) continue;
     // The id is the folder, kebab-cased (`HelloWorld` → `hello-world`).
-    const id = match[1]!.replace(/([a-z0-9])([A-Z])/g, "$1-$2").replace(/[\s_]+/g, "-").toLowerCase();
+    const id = match[1]!
+      .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+      .replace(/[\s_]+/g, "-")
+      .toLowerCase();
     found.set(id, match[2]!);
   }
   return found;
@@ -117,13 +123,14 @@ async function hydrationMap(page: Page, origin: string, ids: string[]): Promise<
   const code = entry ? await (await page.request.get(new URL(entry, `${origin}/index.js`).href)).text() : stub;
   const value = String.raw`(?:!0|!1|true|false|"[a-z]+"|'[a-z]+'|\x60[a-z]+\x60)`;
   // A key is quoted, or bare when it is an identifier (`login`, once minified).
-  const key = String.raw`(?:"[a-z0-9-]+"|[a-z][a-z0-9]*)`;
+  const key = `(?:"[a-z0-9-]+"|[a-z][a-z0-9]*)`;
   const objects = [...code.matchAll(new RegExp(String.raw`\{\s*((?:${key}\s*:\s*${value}\s*,?\s*)*)\}`, "g"))];
   const parse = (body: string) =>
     new Map(
       [...body.matchAll(new RegExp(String.raw`"?([a-z0-9-]+)"?\s*:\s*(${value})`, "g"))].map(([, id, raw]) => {
         const text = raw!.replace(/^["'`]|["'`]$/g, "");
-        const mode: HydrateMode = text === "!0" || text === "true" ? true : text === "!1" || text === "false" ? false : (text as HydrateMode);
+        const mode: HydrateMode =
+          text === "!0" || text === "true" ? true : text === "!1" || text === "false" ? false : (text as HydrateMode);
         return [id!, mode] as const;
       }),
     );
@@ -178,9 +185,11 @@ export async function readFacts(page: Page, renderers: Map<string, string>): Pro
     const text = await answer.text();
     actions.set(
       id,
-      answer.status() === 404 && text.startsWith("No action named") ? "yes"
-        : answer.status() === 405 ? "none"
-        : `unknown (HTTP ${answer.status()})`,
+      answer.status() === 404 && text.startsWith("No action named")
+        ? "yes"
+        : answer.status() === 405
+          ? "none"
+          : `unknown (HTTP ${answer.status()})`,
     );
   }
 
@@ -191,21 +200,30 @@ export async function readFacts(page: Page, renderers: Map<string, string>): Pro
     const later = renderIds.get(droplet)?.[nth];
     const renderer = renderers.get(droplet);
     const flag = hydration ? (hydration.get(droplet) ?? false) : undefined;
-    const asked = hydrateAttr === null ? undefined
-      : hydrateAttr === "" || hydrateAttr === "true" ? true
-      : hydrateAttr === "false" ? false
-      : hydrateAttr;
+    const asked =
+      hydrateAttr === null
+        ? undefined
+        : hydrateAttr === "" || hydrateAttr === "true"
+          ? true
+          : hydrateAttr === "false"
+            ? false
+            : hydrateAttr;
     const mode = asked ?? flag;
     return {
       droplet,
       framework: renderer ? (RENDERER_NAMES[renderer] ?? renderer) : "not exposed",
       ssr: renderId ? "on" : "off",
-      render: !renderId ? "in the browser"
-        : later === undefined ? "unknown"
-        : later === renderId ? "prerendered at build"
-        : "live, for this request",
-      hydrate: mode === undefined ? "unknown"
-        : `${HYDRATE_LABELS[String(mode)] ?? String(mode)}${asked !== undefined ? " (set by the host)" : ""}`,
+      render: !renderId
+        ? "in the browser"
+        : later === undefined
+          ? "unknown"
+          : later === renderId
+            ? "prerendered at build"
+            : "live, for this request",
+      hydrate:
+        mode === undefined
+          ? "unknown"
+          : `${HYDRATE_LABELS[String(mode)] ?? String(mode)}${asked !== undefined ? " (set by the host)" : ""}`,
       actions: actions.get(droplet) ?? "unknown",
     };
   });

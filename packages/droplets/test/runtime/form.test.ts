@@ -47,8 +47,9 @@ describe("actionHref", () => {
     expect(actionHref("https://drops.test", "cart", { __droplet_return: "https://evil.example/" }, "add", page)).toBe(
       "https://drops.test/droplets/cart?/add&__droplet_return=https%3A%2F%2Fshop.test%2Fp%2Fcaf%25C3%25A9",
     );
-    expect(new URL(actionHref("https://drops.test", "cart", { page: 2 }, undefined, page)).searchParams.getAll("__droplet_return"))
-      .toEqual([page]);
+    expect(new URL(actionHref("https://drops.test", "cart", { page: 2 }, undefined, page)).searchParams.getAll("__droplet_return")).toEqual(
+      [page],
+    );
     // Without a page, none.
     expect(actionHref("https://drops.test", "cart", {}, "add", "")).toBe("https://drops.test/droplets/cart?/add");
   });
@@ -81,7 +82,10 @@ describe("actionHref", () => {
         value: { protocol: "https:", origin: "https://shop.test", pathname: "/p/1", search: "?q=1", hash: "#x" },
       });
       expect(browserPage()).toBe("https://shop.test/p/1");
-      Object.defineProperty(globalThis, "location", { configurable: true, value: { protocol: "about:", origin: "null", pathname: "blank" } });
+      Object.defineProperty(globalThis, "location", {
+        configurable: true,
+        value: { protocol: "about:", origin: "null", pathname: "blank" },
+      });
       expect(browserPage()).toBeUndefined();
       Object.defineProperty(globalThis, "location", { configurable: true, value: undefined });
       expect(browserPage()).toBeUndefined();
@@ -110,7 +114,7 @@ describe("withRender", () => {
       expect(() =>
         withRender({ droplet: "b", location: "" }, () => {
           throw new Error("boom");
-        })
+        }),
       ).toThrow("boom");
       expect(currentRender()).toBe(outer);
     });
@@ -128,7 +132,10 @@ describe("no-JavaScript results in a URL", () => {
     const url = new URL("https://shop.test/p?a=1&__droplet_form_cart_b1=v.1&b=x%20y+z&%5F%5Fdroplet_form_page_b1=v.2&c#h");
     const { url: rest, results } = splitFormResults(url);
     expect(rest.href).toBe("https://shop.test/p?a=1&b=x%20y+z&c#h");
-    expect([...results]).toEqual([["__droplet_form_cart_b1", "v.1"], ["__droplet_form_page_b1", "v.2"]]);
+    expect([...results]).toEqual([
+      ["__droplet_form_cart_b1", "v.1"],
+      ["__droplet_form_page_b1", "v.2"],
+    ]);
     // A copy: the URL given is left alone.
     expect(url.search).toContain("__droplet_form_cart_b1");
     expect(withoutFormResults(new URL("https://shop.test/p?__droplet_form_x_1=y")).href).toBe("https://shop.test/p");

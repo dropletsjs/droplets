@@ -66,7 +66,9 @@ const isInside = (dir: string, file: string): boolean => {
 
 /** The partial name of a file under the partials folder. */
 export function partialName(dir: string, file: string): string {
-  return relative(dir, file).replace(/\\/g, "/").replace(/\.hbs$/, "");
+  return relative(dir, file)
+    .replace(/\\/g, "/")
+    .replace(/\.hbs$/, "");
 }
 
 /** Every `.hbs` under `dir`, sorted; `[]` when the folder does not exist. */
@@ -87,9 +89,7 @@ export function listPartials(dir: string | null): string[] {
 /** The imports of a template's `<style>` blocks, in order. */
 function styleImports(file: string, styles: StyleBlock[]): string[] {
   return styles.map((style, index) =>
-    style.kind === "src"
-      ? `import ${JSON.stringify(style.src)};`
-      : `import ${specifier(styleId(file, index, style.lang))};`,
+    style.kind === "src" ? `import ${JSON.stringify(style.src)};` : `import ${specifier(styleId(file, index, style.lang))};`,
   );
 }
 
@@ -130,9 +130,10 @@ export function setupModuleCode(input: {
     lines.push(`import partial_${i} from ${specifier(file)};`);
   });
   if (input.helpers) lines.push(`import * as helpers from ${specifier(input.helpers)};`);
-  input.partials.forEach((file, i) => {
-    lines.push(`env.registerPartial(${JSON.stringify(partialName(input.partialsDir!, file))}, partial_${i});`);
-  });
+  for (const [i, file] of input.partials.entries()) {
+    if (input.partialsDir === null) throw new Error("droplets: Handlebars partials without a partials folder");
+    lines.push(`env.registerPartial(${JSON.stringify(partialName(input.partialsDir, file))}, partial_${i});`);
+  }
   if (input.helpers) lines.push("registerHelpers(env, helpers);");
   lines.push("export { env };", "");
   return lines.join("\n");
@@ -198,7 +199,7 @@ export function handlebarsPlugin(options: HandlebarsRendererOptions = {}): Plugi
     },
 
     transform(code, id) {
-      const file = id.split("?")[0]!;
+      const [file = id] = id.split("?");
       if (!file.endsWith(".hbs") || parseStyleId(id)) return;
       const partial = partialsDir !== null && isInside(partialsDir, file);
       const where = relative(root, file);

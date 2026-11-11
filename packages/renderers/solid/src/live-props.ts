@@ -12,7 +12,10 @@ export const setters = new WeakMap<Handle, (props: RenderProps) => void>();
  * The component's props as getters over one signal: a component reading
  * `props.data` follows it, and `update` sets it without a new instance.
  */
-export function liveProps(props: RenderProps, children: () => JSX.Element): { props: Record<string, unknown>; set: (props: RenderProps) => void } {
+export function liveProps(
+  props: RenderProps,
+  children: () => JSX.Element,
+): { props: Record<string, unknown>; set: (props: RenderProps) => void } {
   const [current, setCurrent] = createSignal(props, { equals: false });
   const live: Record<string, unknown> = { children };
   for (const key of Object.keys(props)) {

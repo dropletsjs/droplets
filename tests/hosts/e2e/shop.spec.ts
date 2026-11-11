@@ -57,7 +57,10 @@ async function openAdmin(page: Page, rec: Pick<Recorder, "click" | "fill">, secu
   await wpLogIn(page, rec);
   await expect(page).toHaveURL(new RegExp(`${literal(SHOP_SCREEN)}$`));
   expect(await loginCookie(page), "WordPress's login cookie").toBeDefined();
-  expect((await page.context().cookies()).find((cookie) => cookie.name === "shop_admin"), "no shop session").toBeUndefined();
+  expect(
+    (await page.context().cookies()).find((cookie) => cookie.name === "shop_admin"),
+    "no shop session",
+  ).toBeUndefined();
 }
 
 /**
@@ -164,9 +167,13 @@ async function openAdmin(page: Page, rec: Pick<Recorder, "click" | "fill">, secu
   // Hydrated, the admin's forms post by fetch and render in place.
   await page.waitForLoadState("networkidle");
   await rec.fill(stock, "0");
-  await rec.click(admin.locator("form", { has: page.getByLabel(`Stock of ${chosen.name}`, { exact: true }) }).getByRole("button", { name: "Save" }));
+  await rec.click(
+    admin.locator("form", { has: page.getByLabel(`Stock of ${chosen.name}`, { exact: true }) }).getByRole("button", { name: "Save" }),
+  );
   await expect(admin.getByRole("status")).toContainText("Saved");
-  await expect(admin.locator("tr", { has: page.getByLabel(`Stock of ${chosen.name}`, { exact: true }) }).locator("p.stock")).toHaveText("Out of stock");
+  await expect(admin.locator("tr", { has: page.getByLabel(`Stock of ${chosen.name}`, { exact: true }) }).locator("p.stock")).toHaveText(
+    "Out of stock",
+  );
   await rec.beat();
   await rec.shot("3-admin");
 
@@ -238,7 +245,12 @@ test("the product page's add to cart shows a toast", async ({ browser, baseURL }
  */
 test("without JavaScript, add to cart lands back on the host page", async ({ browser, baseURL }) => {
   test.skip(HOST.startsWith("react"), "the SPA renders its pages in the browser: nothing to show without JavaScript");
-  const context = await browser.newContext({ baseURL, javaScriptEnabled: false, ignoreHTTPSErrors: true, viewport: { width: 1280, height: 800 } });
+  const context = await browser.newContext({
+    baseURL,
+    javaScriptEnabled: false,
+    ignoreHTTPSErrors: true,
+    viewport: { width: 1280, height: 800 },
+  });
   const page = await context.newPage();
 
   await page.goto("/gallery");
@@ -310,7 +322,10 @@ test("an edited product's page is never stale", async ({ browser, baseURL }) => 
   //    in wp-admin, where the row's Edit link opens the product's post.
   await openAdmin(page, plain, new URL(baseURL!).protocol === "https:");
   const admin = droplet("product-admin");
-  await admin.locator("tr", { has: page.getByLabel(`Stock of ${name}`, { exact: true }) }).getByRole("link", { name: "Edit" }).click();
+  await admin
+    .locator("tr", { has: page.getByLabel(`Stock of ${name}`, { exact: true }) })
+    .getByRole("link", { name: "Edit" })
+    .click();
   if (WORDPRESS) {
     await expect(page.locator("#title")).toHaveValue(name);
     await page.locator("#title").fill(renamed);

@@ -26,11 +26,18 @@ export const emptyCart = (): Cart => ({ count: 0, totalCents: 0, currency: "EUR"
 export async function readCart(cartId: string | null): Promise<Cart> {
   if (!cartId) return emptyCart();
   const [rows, campaign, versions] = await Promise.all([
-    db().selectFrom("cart_items")
+    db()
+      .selectFrom("cart_items")
       .innerJoin("products", "products.id", "cart_items.product_id")
       .select([
-        "products.id", "products.slug", "products.name", "products.image", "products.price_cents",
-        "products.stock", "products.status", "cart_items.qty",
+        "products.id",
+        "products.slug",
+        "products.name",
+        "products.image",
+        "products.price_cents",
+        "products.stock",
+        "products.status",
+        "cart_items.qty",
       ])
       .where("cart_items.cart_id", "=", cartId)
       .orderBy("cart_items.added_at")
@@ -65,17 +72,19 @@ export async function readCart(cartId: string | null): Promise<Cart> {
   };
 }
 
-export type AddResult =
-  | { ok: true; cartId: string; created: boolean; cart: Cart }
-  | { ok: false; reason: "missing" | "out" };
+export type AddResult = { ok: true; cartId: string; created: boolean; cart: Cart } | { ok: false; reason: "missing" | "out" };
 
 /**
  * Adds `qty` of a product, creating the cart when `cartId` is `null` (the
  * caller sets the cookie then). The line never exceeds the stock or MAX_QTY.
  */
 export async function addToCart(cartId: string | null, productId: string, qty: number): Promise<AddResult> {
-  const product = await db().selectFrom("products").select(["id", "stock"])
-    .where("id", "=", productId).where("status", "=", "active").executeTakeFirst();
+  const product = await db()
+    .selectFrom("products")
+    .select(["id", "stock"])
+    .where("id", "=", productId)
+    .where("status", "=", "active")
+    .executeTakeFirst();
   if (!product) return { ok: false, reason: "missing" };
   if (product.stock < 1) return { ok: false, reason: "out" };
 
@@ -86,12 +95,15 @@ export async function addToCart(cartId: string | null, productId: string, qty: n
     id = randomUUID();
     await db().insertInto("carts").values({ id, created_at: at, updated_at: at }).execute();
   }
-  const line = await db().selectFrom("cart_items").select("qty")
-    .where("cart_id", "=", id).where("product_id", "=", productId).executeTakeFirst();
+  const line = await db()
+    .selectFrom("cart_items")
+    .select("qty")
+    .where("cart_id", "=", id)
+    .where("product_id", "=", productId)
+    .executeTakeFirst();
   const want = Math.min((line?.qty ?? 0) + qty, product.stock, MAX_QTY);
   if (line) {
-    await db().updateTable("cart_items").set({ qty: want }).where("cart_id", "=", id).where("product_id", "=", productId)
-      .execute();
+    await db().updateTable("cart_items").set({ qty: want }).where("cart_id", "=", id).where("product_id", "=", productId).execute();
   } else {
     await db().insertInto("cart_items").values({ cart_id: id, product_id: productId, qty: want, added_at: at }).execute();
   }
@@ -105,8 +117,7 @@ export async function setQty(cartId: string, productId: string, qty: number): Pr
   const product = await db().selectFrom("products").select("stock").where("id", "=", productId).executeTakeFirst();
   const want = Math.max(1, Math.min(qty, product?.stock ?? 0, MAX_QTY));
   if (!product || product.stock < 1) return removeFromCart(cartId, productId);
-  await db().updateTable("cart_items").set({ qty: want })
-    .where("cart_id", "=", cartId).where("product_id", "=", productId).execute();
+  await db().updateTable("cart_items").set({ qty: want }).where("cart_id", "=", cartId).where("product_id", "=", productId).execute();
   return readCart(cartId);
 }
 

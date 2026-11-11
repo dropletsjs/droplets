@@ -1,6 +1,14 @@
 import { dirname, resolve } from "node:path";
 import { getRequestListener } from "@hono/node-server";
-import { isCSSRequest, searchForWorkspaceRoot, type EnvironmentModuleNode, type Plugin, type PluginOption, type UserConfig, type ViteDevServer } from "vite";
+import {
+  isCSSRequest,
+  searchForWorkspaceRoot,
+  type EnvironmentModuleNode,
+  type Plugin,
+  type PluginOption,
+  type UserConfig,
+  type ViteDevServer,
+} from "vite";
 import { discoverDroplets } from "../core/discover.ts";
 import { syncTypes } from "./sync-types.ts";
 import { loadEnvState, missingStatic } from "../core/env.ts";
@@ -10,20 +18,8 @@ import { logger } from "../core/logger.ts";
 import { packageRoot } from "../core/paths.ts";
 import type { DropletsAdapter } from "../adapters.ts";
 import type { DevStrategy } from "../core/config.ts";
-import {
-  rendererScopeFilter,
-  sharingRenderers,
-  validateRenderers,
-  type DropletRenderer,
-  type HydrateMode,
-} from "../renderer.ts";
-import {
-  buildOrder,
-  createBuildEnvironments,
-  requireAdapter,
-  SERVER_NO_EXTERNAL,
-  writeManifest,
-} from "./build.ts";
+import { rendererScopeFilter, sharingRenderers, validateRenderers, type DropletRenderer, type HydrateMode } from "../renderer.ts";
+import { buildOrder, createBuildEnvironments, requireAdapter, SERVER_NO_EXTERNAL, writeManifest } from "./build.ts";
 import {
   classifyChange,
   createDevApp,
@@ -45,14 +41,7 @@ import { createExternalMatcher, namedExternals, readClientExternal } from "./cli
 import { rm } from "node:fs/promises";
 import { prerender } from "./prerender.ts";
 import { assetUrlsPlugin, builtUrl, copyPublicDir } from "./assets.ts";
-import {
-  applyConfig,
-  createInitialState,
-  CLIENT_HOOKS_FILES,
-  HOOKS_FILES,
-  rendererExtensions,
-  type PluginState,
-} from "./state.ts";
+import { applyConfig, createInitialState, CLIENT_HOOKS_FILES, HOOKS_FILES, rendererExtensions, type PluginState } from "./state.ts";
 import { clientEntryId, virtualModulesPlugin } from "./virtual.ts";
 
 export type DropletsPluginOptions = {
@@ -265,12 +254,8 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
     const modules = Object.values(server.environments).flatMap((environment) => [
       ...(environment.moduleGraph.getModulesByFile(file) ?? []),
     ]);
-    plan.changes = classifyChange(
-      state.dropletsRoot,
-      file,
-      modules,
-      rendererExtensions(state),
-      (path) => isServerOnlyFile(state.root, path),
+    plan.changes = classifyChange(state.dropletsRoot, file, modules, rendererExtensions(state), (path) =>
+      isServerOnlyFile(state.root, path),
     );
 
     for (const [droplet, change] of plan.changes) {
@@ -341,11 +326,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
       state.dev = loaded.dev;
       state.css = await resolveCss(options.css, root);
       state.configPath = loaded.path;
-      state.env = await loadEnvState(
-        root,
-        env.mode,
-        userConfig.envDir ? resolve(root, userConfig.envDir) : root,
-      );
+      state.env = await loadEnvState(root, env.mode, userConfig.envDir ? resolve(root, userConfig.envDir) : root);
       state.configDependencies = [...loaded.dependencies, ...state.env.dependencies];
       const missing = missingStatic(state.env);
       if (missing.length) {
@@ -373,9 +354,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
           // default (the workspace root), so it has to be listed again or the
           // project's own files answer 403 when a stylesheet @imports them.
           fs: { allow: [searchForWorkspaceRoot(root), packageRoot, ...rendererDirs(state.renderers)] },
-          ...(userConfig.server?.port === undefined
-            ? { port: state.dev.server.port }
-            : {}),
+          ...(userConfig.server?.port === undefined ? { port: state.dev.server.port } : {}),
           // Asset URLs on the dev server itself, so a host page on another
           // origin loads them; corrected once it listens (another port).
           ...(env.command === "serve" && userConfig.server?.origin === undefined && !userConfig.server?.middlewareMode
@@ -455,9 +434,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
       if (!runtime) return;
 
       const structural = type !== "update";
-      const isHooks = HOOKS_FILES.some(
-        (hooks) => resolve(state.root, hooks) === file,
-      );
+      const isHooks = HOOKS_FILES.some((hooks) => resolve(state.root, hooks) === file);
       if (structural && (isHooks || isInside(state.apiRoot, file))) {
         // A route or the hooks file appeared or went away.
         invalidateRegistry(server);
@@ -570,7 +547,8 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
 
     configurePreviewServer(server) {
       const adapter = state.adapter;
-      if (!adapter?.preview) {
+      const preview = adapter?.preview?.bind(adapter);
+      if (!preview) {
         logger.warn(
           "framework",
           adapter
@@ -580,7 +558,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
         return;
       }
       return async () => {
-        const app = await adapter.preview!({
+        const app = await preview({
           root: state.root,
           outDir: state.outDir,
           config: state.config,
@@ -591,12 +569,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
     },
   };
 
-  const plugins: PluginOption[] = [
-    virtualModulesPlugin(state),
-    externalizePlugin(state),
-    core,
-    assetUrlsPlugin(state),
-  ];
+  const plugins: PluginOption[] = [virtualModulesPlugin(state), externalizePlugin(state), core, assetUrlsPlugin(state)];
   plugins.push(tailwindPlugins(state), serverOnlyPlugin(state), rendererGraphsPlugin(state));
   // Each renderer compiles its own component files; when another renderer
   // shares an extension, only the modules marked for it.

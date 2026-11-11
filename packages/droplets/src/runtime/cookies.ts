@@ -2,16 +2,10 @@
  * `event.cookies`, as in SvelteKit. Runtime-neutral: plain strings in, the
  * `Set-Cookie` values out, added to the response by the app.
  */
-import {
-  CookiesInPrerenderError,
-  type CookieParseOptions,
-  type Cookies,
-  type CookieSerializeOptions,
-  type ReadonlyCookies,
-} from "./server.ts";
+import { CookiesInPrerenderError, type Cookies, type CookieSerializeOptions, type ReadonlyCookies } from "./server.ts";
 
 /** RFC 6265 token: the characters a cookie name may have. */
-const COOKIE_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z\-]+$/;
+const COOKIE_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
 /** What a cookie value may hold once encoded. */
 const COOKIE_VALUE = /^[\x21\x23-\x2B\x2D-\x3A\x3C-\x5B\x5D-\x7E]*$/;
 /** Domain and path: no separators, no line breaks. */

@@ -29,7 +29,5 @@ export async function hostAdmin(request: Request, url: URL): Promise<HostAdmin |
 
 /** Every admin action starts here: `fail(401)` without a WordPress admin behind the request. */
 export function requireAdmin({ locals }: Pick<ActionEvent, "locals">) {
-  return locals.admin
-    ? null
-    : fail(401, { reason: "login" as const, message: "Your WordPress session has ended. Log in again." });
+  return locals.admin ? null : fail(401, { reason: "login" as const, message: "Your WordPress session has ended. Log in again." });
 }

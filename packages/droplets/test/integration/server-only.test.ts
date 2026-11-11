@@ -88,7 +88,8 @@ describe("server files in the client build", () => {
 
   it("fails when a component imports a file under a server/ folder", async () => {
     const root = await built({
-      "src/droplets/card/+droplet.fake.js": "import { secret } from '../../lib/server/keys.js';\nexport default () => `<p>${secret.length}</p>`;\n",
+      "src/droplets/card/+droplet.fake.js":
+        "import { secret } from '../../lib/server/keys.js';\nexport default () => `<p>${secret.length}</p>`;\n",
       "src/lib/server/keys.js": SECRET,
     });
     await expect(build(root)).rejects.toThrow(/src\/lib\/server\/keys\.js is server code/);
@@ -100,14 +101,13 @@ describe("server files in the client build", () => {
       "src/lib/util.ts": "import { secret } from './query.server.js';\nexport const n = secret.length;\n",
       "src/lib/query.server.js": SECRET,
     });
-    await expect(build(root)).rejects.toThrow(
-      /src\/droplets\/card\/\+droplet\.ts -> src\/lib\/util\.ts -> src\/lib\/query\.server\.js/,
-    );
+    await expect(build(root)).rejects.toThrow(/src\/droplets\/card\/\+droplet\.ts -> src\/lib\/util\.ts -> src\/lib\/query\.server\.js/);
   }, 90_000);
 
   it("builds when only server code imports them, and the secret stays out of the client", async () => {
     const root = await built({
-      "src/droplets/card/+droplet.server.ts": "import { secret } from './db.server.ts';\nimport { n } from '../../lib/server/count.ts';\nexport const load = () => ({ n: secret.length + n });\n",
+      "src/droplets/card/+droplet.server.ts":
+        "import { secret } from './db.server.ts';\nimport { n } from '../../lib/server/count.ts';\nexport const load = () => ({ n: secret.length + n });\n",
       "src/droplets/card/db.server.ts": SECRET,
       "src/lib/server/count.ts": "export const n = 1;\n",
     });
@@ -119,7 +119,8 @@ describe("server files in the client build", () => {
 
   it("fails when server code reaches $droplets/server through a name that only ends in server", async () => {
     const root = await built({
-      "src/droplets/card/+droplet.server.ts": "import { reply } from '../../lib/observer.ts';\nexport const load = () => ({ ok: typeof reply });\n",
+      "src/droplets/card/+droplet.server.ts":
+        "import { reply } from '../../lib/observer.ts';\nexport const load = () => ({ ok: typeof reply });\n",
       "src/lib/observer.ts": USES_SERVER,
     });
     await expect(build(root)).rejects.toThrow(/\$droplets\/server can only be imported by server files.*src\/lib\/observer\.ts/);
@@ -183,9 +184,7 @@ describe("server files in the client build", () => {
       "src/lib/util.js": "import { secret } from './server/keys.js';\nexport const n = secret.length;\n",
       "src/lib/server/keys.js": SECRET,
     });
-    await expect(build(root)).rejects.toThrow(
-      /src\/hooks\.client\.js -> src\/lib\/util\.js -> src\/lib\/server\/keys\.js/,
-    );
+    await expect(build(root)).rejects.toThrow(/src\/hooks\.client\.js -> src\/lib\/util\.js -> src\/lib\/server\/keys\.js/);
   }, 90_000);
 
   it("fails when src/hooks.client.ts imports $droplets/env/private", async () => {

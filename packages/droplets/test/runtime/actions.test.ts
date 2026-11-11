@@ -1,18 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { logger } from "../../src/core/logger.ts";
-import { backTarget, createDropletsApp, redirectTarget, type DropletsAppOptions, type FindAction, type RenderDroplet } from "../../src/runtime/app.ts";
+import {
+  backTarget,
+  createDropletsApp,
+  redirectTarget,
+  type DropletsAppOptions,
+  type FindAction,
+  type RenderDroplet,
+} from "../../src/runtime/app.ts";
 import { mintFormResult, resetFormSecretWarnings } from "../../src/runtime/form-token.server.ts";
 import { requestInfo } from "../../src/runtime/request-store.ts";
-import {
-  error,
-  fail,
-  hostFrom,
-  redirect,
-  type Action,
-  type ActionEvent,
-  type Handle,
-  type LoadEvent,
-} from "../../src/runtime/server.ts";
+import { error, fail, hostFrom, redirect, type Action, type ActionEvent, type Handle, type LoadEvent } from "../../src/runtime/server.ts";
 import { devHandleError } from "../../src/vite/dev.ts";
 
 const ORIGIN = "http://drops.test";
@@ -38,7 +36,8 @@ function actionsApp(actions: Record<string, Action> | null, overrides: Partial<D
   }));
   const findAction = vi.fn<FindAction>(async (_droplet, name) => {
     if (!actions) return "none";
-    return Object.hasOwn(actions, name) ? actions[name]! : "missing";
+    const action = Object.hasOwn(actions, name) ? actions[name] : undefined;
+    return action ?? "missing";
   });
   const options: DropletsAppOptions = {
     renderDroplet,
@@ -477,7 +476,7 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
     const ok = await app.request(submit("/droplets/guestbook", "name=Ana", native));
     expect(ok.status).toBe(303);
     expect(ok.headers.get("cache-control")).toBe("private, no-store");
-    const location = ok.headers.get("location")!;
+    const location = ok.headers.get("location") ?? expect.unreachable("a location header");
     // The page's own query as it was written, then the result.
     expect(location).toMatch(/^http:\/\/drops\.test\/book\?a=1&b=x%20y&__droplet_form_guestbook_abc123=[\w-]+\.[\w-]{43}$/);
     // Nothing rendered: the page's GET does.
@@ -485,7 +484,7 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
 
     const failed = await app.request(submit("/droplets/guestbook", "name=", native));
     expect(failed.status).toBe(303);
-    const back = failed.headers.get("location")!;
+    const back = failed.headers.get("location") ?? expect.unreachable("a location header");
     const page = await renderOn(app, back);
     expect(page.status).toBe(200);
     expect(page.headers.get("cache-control")).toBe("private, no-store");
@@ -496,11 +495,13 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
 
   it("replaces older results in the page's URL, and drops its hash", async () => {
     const { app } = actionsApp({ default: sign });
-    const res = await app.request(submit("/droplets/guestbook", "name=Ana", {
-      ...native,
-      referer: `http://drops.test/book?${KEY}=old&__droplet_form_cart_abc123=other&q=1#top`,
-    }));
-    const location = res.headers.get("location")!;
+    const res = await app.request(
+      submit("/droplets/guestbook", "name=Ana", {
+        ...native,
+        referer: `http://drops.test/book?${KEY}=old&__droplet_form_cart_abc123=other&q=1#top`,
+      }),
+    );
+    const location = res.headers.get("location") ?? expect.unreachable("a location header");
     expect(location).toMatch(/^http:\/\/drops\.test\/book\?q=1&__droplet_form_guestbook_abc123=[\w-]+\.[\w-]{43}$/);
   });
 
@@ -550,13 +551,17 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
     expect(ran).not.toHaveBeenCalled();
 
     // A listed origin is a page to go back to.
-    const trusted = await app.request(submit("/droplets/guestbook", "", { origin: "https://shop.test", accept: "text/html", referer: "https://shop.test/p/1" }));
+    const trusted = await app.request(
+      submit("/droplets/guestbook", "", { origin: "https://shop.test", accept: "text/html", referer: "https://shop.test/p/1" }),
+    );
     expect(trusted.status).toBe(303);
     expect(trusted.headers.get("location")).toMatch(/^https:\/\/shop\.test\/p\/1\?__droplet_form_guestbook_abc123=/);
 
     // "*" trusts every Origin for the CSRF check, never a page to go back to.
     const star = actionsApp({ default: ran }, { trustedOrigins: ["*"] }).app;
-    const res = await star.request(submit("/droplets/guestbook", "", { origin: "https://evil.example", accept: "text/html", referer: "https://evil.example/p" }));
+    const res = await star.request(
+      submit("/droplets/guestbook", "", { origin: "https://evil.example", accept: "text/html", referer: "https://evil.example/p" }),
+    );
     expect(res.status).toBe(400);
   });
 
@@ -625,11 +630,13 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
         },
       },
     );
-    const back = (await app.request(submit("/droplets/guestbook", "name=Ana", native))).headers.get("location")!;
+    const back =
+      (await app.request(submit("/droplets/guestbook", "name=Ana", native))).headers.get("location") ??
+      expect.unreachable("a location header");
     const html = await (await renderOn(app, back)).text();
     expect(html).toContain('{"message":"Thanks, Ana"}');
     expect(loadPrerendered).not.toHaveBeenCalled();
-    const event = renderDroplet.mock.calls.at(-1)![1];
+    const event = (renderDroplet.mock.calls.at(-1) ?? expect.unreachable("a render call"))[1];
     expect(event.host.href).toBe(PAGE);
 
     // `_data`, as the browser asks for a client-only droplet: the result with the data.
@@ -649,14 +656,19 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
       event.host = hostFrom(event.request.headers.get("referer")) ?? event.host;
       return resolve(event);
     };
-    const { app } = actionsApp({ default: sign }, {
-      getHandle: () => handle,
-      renderDroplet: async (_name, event, options) => {
-        seen.push(event.host.href);
-        return { html: `<p>${JSON.stringify(options?.form ?? null)}</p>`, serverData: {} };
+    const { app } = actionsApp(
+      { default: sign },
+      {
+        getHandle: () => handle,
+        renderDroplet: async (_name, event, options) => {
+          seen.push(event.host.href);
+          return { html: `<p>${JSON.stringify(options?.form ?? null)}</p>`, serverData: {} };
+        },
       },
-    });
-    const back = (await app.request(submit("/droplets/guestbook", "name=Ana", native))).headers.get("location")!;
+    );
+    const back =
+      (await app.request(submit("/droplets/guestbook", "name=Ana", native))).headers.get("location") ??
+      expect.unreachable("a location header");
     const res = await app.request(`${ORIGIN}/droplets/guestbook`, { headers: { referer: back } });
     expect(await res.text()).toContain('<p>{"message":"Thanks, Ana"}</p>');
     expect(seen).toEqual([PAGE]);
@@ -672,7 +684,9 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
     expect(await (await renderOn(app, `${PAGE}&${KEY}=${good}`)).text()).toContain('{"message":"Thanks, Ana"}');
 
     const [payload, mac] = good.split(".") as [string, string];
-    const forged = Buffer.from(JSON.stringify({ status: 200, data: { message: "Call 555" }, exp: Date.now() + 60_000, action: "default" })).toString("base64url");
+    const forged = Buffer.from(
+      JSON.stringify({ status: 200, data: { message: "Call 555" }, exp: Date.now() + 60_000, action: "default" }),
+    ).toString("base64url");
     const cases: Record<string, string> = {
       "tampered payload": `${forged}.${mac}`,
       "tampered MAC": `${payload}.${mac.slice(0, -2)}AA`,
@@ -697,7 +711,8 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
     const token = await mint({ action: "default", status: 422, data });
     const res = await renderOn(app, `${PAGE}&${KEY}=${token}`);
     expect(await res.text()).toContain('{"message":"hi"}');
-    const form = renderDroplet.mock.calls.at(-1)![2]!.form as Record<string, unknown>;
+    const options = renderDroplet.mock.calls.at(-1)?.[2] ?? expect.unreachable("render options");
+    const form = options.form as Record<string, unknown>;
     expect(Object.getPrototypeOf(form)).toBeNull();
     expect(({} as Record<string, unknown>)["polluted"]).toBeUndefined();
   });
@@ -707,13 +722,13 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
     const { app, renderDroplet } = actionsApp({ default: () => fail(409, { message: "x".repeat(3000) }) });
     const res = await app.request(submit("/droplets/guestbook", "", native));
     expect(res.status).toBe(303);
-    const location = res.headers.get("location")!;
-    expect(tokenOf(location)!.length).toBeLessThanOrEqual(2048);
+    const location = res.headers.get("location") ?? expect.unreachable("a location header");
+    expect((tokenOf(location) ?? expect.unreachable("a form token")).length).toBeLessThanOrEqual(2048);
     expect(warn.mock.calls.some((call) => String(call[1]).includes("over 2 KB"))).toBe(true);
     // Status and action only: the droplet renders, without form.
     await renderOn(app, location);
     expect(renderDroplet).toHaveBeenCalledTimes(1);
-    expect(renderDroplet.mock.calls[0]![2]).toBeUndefined();
+    expect((renderDroplet.mock.calls[0] ?? expect.unreachable("a render call"))[2]).toBeUndefined();
   });
 
   it("sets the action's cookies and headers on the redirect", async () => {
@@ -748,7 +763,7 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
       const { app } = shopApp();
       const res = await app.request(submit(on(SHOP), "name=Ana", crossOrigin()));
       expect(res.status).toBe(303);
-      const location = res.headers.get("location")!;
+      const location = res.headers.get("location") ?? expect.unreachable("a location header");
       expect(location).toMatch(/^https:\/\/shop\.test\/p\/caf%C3%A9\?__droplet_form_guestbook_abc123=[\w-]+\.[\w-]{43}$/);
       // The page renders it there, and only there.
       const html = await (await renderOn(app, location)).text();
@@ -766,7 +781,9 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
       const other = await app.request(submit(on(SHOP), "name=Ana", crossOrigin("https://shop.test/elsewhere?x=1")));
       expect(other.headers.get("location")).toMatch(/^https:\/\/shop\.test\/p\/caf%C3%A9\?__droplet_form_/);
       // The return URL's own query or hash is never part of it.
-      const queried = await app.request(submit(on("https://shop.test/p?/add&__droplet_form_guestbook_abc123=forged#x"), "name=Ana", crossOrigin()));
+      const queried = await app.request(
+        submit(on("https://shop.test/p?/add&__droplet_form_guestbook_abc123=forged#x"), "name=Ana", crossOrigin()),
+      );
       expect(queried.headers.get("location")).toMatch(/^https:\/\/shop\.test\/p\?__droplet_form_guestbook_abc123=[\w-]+\.[\w-]{43}$/);
     });
 
@@ -814,7 +831,11 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
     it("never goes back to an action URL or a fragment of this server, from a Referer either", async () => {
       const ran = vi.fn<Action>(() => ({ ok: true }));
       const { app } = actionsApp({ default: ran });
-      for (const referer of [`${ORIGIN}/droplets/guestbook?/default`, `${ORIGIN}/droplets/guestbook`, `${ORIGIN}/droplets/guestbook/_data`]) {
+      for (const referer of [
+        `${ORIGIN}/droplets/guestbook?/default`,
+        `${ORIGIN}/droplets/guestbook`,
+        `${ORIGIN}/droplets/guestbook/_data`,
+      ]) {
         const request = submit("/droplets/guestbook", "name=Ana", { accept: "text/html", referer, "content-length": "8" });
         const res = await app.request(request);
         expect(res.status, referer).toBe(400);
@@ -823,7 +844,11 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
       }
       // Under the prefix a trusted x-droplet-location serves this server at, too.
       const proxied = await app.request(
-        submit("/droplets/guestbook", "", { accept: "text/html", "x-droplet-location": `${ORIGIN}/mfe`, referer: `${ORIGIN}/mfe/droplets/guestbook?/default` }),
+        submit("/droplets/guestbook", "", {
+          accept: "text/html",
+          "x-droplet-location": `${ORIGIN}/mfe`,
+          referer: `${ORIGIN}/mfe/droplets/guestbook?/default`,
+        }),
       );
       expect(proxied.status).toBe(400);
       expect(ran).not.toHaveBeenCalled();
@@ -837,7 +862,13 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
       const servers = [ORIGIN, "https://shop.test/mfe"];
       expect(backTarget("https://shop.test/p?x=1", allowed, servers)?.href).toBe("https://shop.test/p?x=1");
       expect(backTarget("https://shop.test/droplets/x", allowed, servers)?.href).toBe("https://shop.test/droplets/x");
-      for (const bad of [`${ORIGIN}/droplets/x`, `${ORIGIN}/droplets`, "https://shop.test/mfe/droplets/x?/add", "https://evil.example/", "javascript:alert(1)"]) {
+      for (const bad of [
+        `${ORIGIN}/droplets/x`,
+        `${ORIGIN}/droplets`,
+        "https://shop.test/mfe/droplets/x?/add",
+        "https://evil.example/",
+        "javascript:alert(1)",
+      ]) {
         expect(backTarget(bad, allowed, servers), bad).toBeNull();
       }
     });
@@ -845,7 +876,7 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
     it("refuses a result minted for page A on page B of a trusted origin", async () => {
       const { app } = shopApp();
       const res = await app.request(submit(on("https://shop.test/a"), "name=Ana", crossOrigin()));
-      const token = tokenOf(res.headers.get("location"))!;
+      const token = tokenOf(res.headers.get("location")) ?? expect.unreachable("a form token");
       expect(await (await renderOn(app, `https://shop.test/a?${KEY}=${token}`)).text()).toContain('{"message":"Thanks, Ana"}');
       for (const page of ["https://shop.test/b", "https://shop.test/a/", `${ORIGIN}/a`]) {
         const html = await (await renderOn(app, `${page}?${KEY}=${token}`)).text();
@@ -886,12 +917,15 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
 
     it("gives the render the page of event.host, which its action URLs name", async () => {
       const pages: (string | undefined)[] = [];
-      const { app } = actionsApp({ default: sign }, {
-        renderDroplet: async () => {
-          pages.push(requestInfo()?.page);
-          return { html: "<p></p>", serverData: {} };
+      const { app } = actionsApp(
+        { default: sign },
+        {
+          renderDroplet: async () => {
+            pages.push(requestInfo()?.page);
+            return { html: "<p></p>", serverData: {} };
+          },
         },
-      });
+      );
       await renderOn(app, "http://drops.test/p/caf%C3%A9?x=1#h");
       await app.request(`${ORIGIN}/droplets/guestbook`);
       expect(pages).toEqual(["http://drops.test/p/caf%C3%A9", `${ORIGIN}/`]);

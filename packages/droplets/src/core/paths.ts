@@ -15,9 +15,7 @@ function findPackageRoot(start: string): string {
 }
 
 /** Root of the installed `@dropletsjs/droplets` package. */
-export const packageRoot = findPackageRoot(
-  dirname(fileURLToPath(import.meta.url)),
-);
+export const packageRoot = findPackageRoot(dirname(fileURLToPath(import.meta.url)));
 
 /**
  * The compiled package. Three of these files are not run by Node directly:

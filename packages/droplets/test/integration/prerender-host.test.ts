@@ -26,7 +26,7 @@ async function project(server: string, env?: string): Promise<string> {
   await mkdir(folder, { recursive: true });
   await writeFile(
     join(folder, "+droplet.fake.js"),
-    "export const prerender = true;\n\nexport default ({ data }) => `<a href=\"${data.home}\">${data.path}</a>`;\n",
+    'export const prerender = true;\n\nexport default ({ data }) => `<a href="${data.home}">${data.path}</a>`;\n',
   );
   await writeFile(join(folder, "+droplet.server.ts"), server);
   if (env) await writeFile(join(root, ".env"), env);
@@ -54,7 +54,7 @@ async function stored(root: string): Promise<Record<string, unknown>> {
   return renders;
 }
 
-const LOAD = 'export const load = ({ host }) => ({ home: `${host.origin}/home`, path: host.pathname });\n';
+const LOAD = "export const load = ({ host }) => ({ home: `${host.origin}/home`, path: host.pathname });\n";
 
 const roots: string[] = [];
 afterAll(async () => {
@@ -66,7 +66,7 @@ describe("host while prerendering", () => {
     const root = await project('export const load = ({ host }) => ({ q: host.searchParams.get("q") });\n');
     roots.push(root);
     await expect(build(root)).rejects.toThrow(
-      'droplets: page: host.searchParams is not known while prerendering entry {}; only host.origin, host.pathname and host.href are.',
+      "droplets: page: host.searchParams is not known while prerendering entry {}; only host.origin, host.pathname and host.href are.",
     );
   }, 90_000);
 

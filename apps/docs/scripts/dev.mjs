@@ -14,8 +14,7 @@ const DEMO = "http://localhost:5180";
 /** `--port 4400` or `--port=4400` among the arguments for astro dev, else Astro's 4321. */
 const astroArgs = process.argv.slice(2);
 const portArg = astroArgs.findIndex((arg) => arg === "--port" || arg.startsWith("--port="));
-const DOCS_PORT =
-  portArg === -1 ? "4321" : (astroArgs[portArg].split("=")[1] ?? astroArgs[portArg + 1] ?? "4321");
+const DOCS_PORT = portArg === -1 ? "4321" : (astroArgs[portArg].split("=")[1] ?? astroArgs[portArg + 1] ?? "4321");
 const demoDir = fileURLToPath(new URL("../../demo/", import.meta.url));
 const docsDir = fileURLToPath(new URL("..", import.meta.url));
 

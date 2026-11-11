@@ -21,24 +21,14 @@ import { componentOf, tree } from "./tree.ts";
 /** What `mount` and `hydrate` return: the root, and what it renders for `update` in dev. */
 export type HonoInstance = { root: Root; component: FC<Record<string, unknown>>; context: ClientRenderContext };
 
-export function mount(
-  module: ComponentModule,
-  target: HTMLElement,
-  props: RenderProps,
-  context: ClientRenderContext,
-): HonoInstance {
+export function mount(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): HonoInstance {
   const component = componentOf(module, context);
   const root = createRoot(target);
   root.render(tree(component, props, context));
   return { root, component, context };
 }
 
-export function hydrate(
-  module: ComponentModule,
-  target: HTMLElement,
-  props: RenderProps,
-  context: ClientRenderContext,
-): HonoInstance {
+export function hydrate(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): HonoInstance {
   // The server's markup goes; the same output takes its place in this task.
   target.replaceChildren();
   return mount(module, target, props, context);

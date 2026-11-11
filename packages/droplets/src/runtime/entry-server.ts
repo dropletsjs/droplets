@@ -1,23 +1,9 @@
 import droplets, { api, hooks, importMapModule, publicEnvNames, tokenNonce } from "virtual:droplets";
 import { readRuntimeEnv } from "./env-store.ts";
 import { logger } from "../core/logger.ts";
-import type {
-  ComponentKind,
-  ComponentModule,
-  HydrateMode,
-  RendererServerModule,
-  RenderProps,
-  ServerRenderOutput,
-} from "../renderer.ts";
+import type { ComponentKind, ComponentModule, HydrateMode, RendererServerModule, RenderProps, ServerRenderOutput } from "../renderer.ts";
 import type { DropletMeta, DropletPayload, RenderResult } from "./app.ts";
-import {
-  checkLoadResult,
-  DropletRenderError,
-  runHandleError,
-  settle,
-  toWireError,
-  UnhandledDropletError,
-} from "./load.ts";
+import { checkLoadResult, DropletRenderError, runHandleError, settle, toWireError, UnhandledDropletError } from "./load.ts";
 import { ACTION_NAME, actionUrlFor } from "./form.ts";
 import { parseHost } from "./host.ts";
 import { PropsError, prerenderKey, propsKey, validateProps } from "./props.ts";
@@ -103,8 +89,7 @@ async function renderWith(
   const context = { droplet, kind, renderId, actionUrl };
   // For `actionUrl()` of `$droplets/form`, anywhere the render calls it.
   const output: ServerRenderOutput = info
-    ? await withRequestInfo({ ...info, render: { droplet, props: dropletProps } }, () =>
-      renderer.render(module, props, context))
+    ? await withRequestInfo({ ...info, render: { droplet, props: dropletProps } }, () => renderer.render(module, props, context))
     : await renderer.render(module, props, context);
   if (typeof output === "string") return { html: output, head: undefined, renderId };
   if (typeof output?.html !== "string") {
@@ -144,10 +129,7 @@ export function getDropletMeta(name: string): DropletMeta {
  * Runs the `props` schema from `+droplet.ts` over the caller's props. Props
  * that do not match answer 400, before any load runs.
  */
-export async function validateDropletProps(
-  name: string,
-  props: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
+export async function validateDropletProps(name: string, props: Record<string, unknown>): Promise<Record<string, unknown>> {
   const mod = await getEntry(name)?.load?.();
   try {
     return await validateProps(name, mod?.props, props);
@@ -175,9 +157,10 @@ export async function getEntries(name: string): Promise<BuildEntry[]> {
     throw new Error(`${name}: entries() must return an array of events, e.g. [{ props: { page: 1 } }]`);
   }
   return entries.map((entry: unknown): BuildEntry => {
-    const shape = typeof entry === "object" && entry !== null && !Array.isArray(entry)
-      ? Object.keys(entry).filter((key) => !ENTRY_KEYS.has(key))
-      : null;
+    const shape =
+      typeof entry === "object" && entry !== null && !Array.isArray(entry)
+        ? Object.keys(entry).filter((key) => !ENTRY_KEYS.has(key))
+        : null;
     if (!shape || shape.length > 0) {
       throw new Error(
         `${name}: entries() returns events, { props?, host? }; got ${JSON.stringify(entry)}. Props go under props: [{ props: { page: 1 } }]`,
@@ -238,9 +221,10 @@ async function serverFailure(name: string, error: unknown): Promise<{ failed: tr
     const mod = await entry.serverLoad?.();
     // Without a handleError of its own, a production server shows no more
     // than "Internal Error": what a driver or a query said stays in the log.
-    const shown = typeof mod?.handleError !== "function" && !import.meta.env.DEV
-      ? new DropletRenderError()
-      : await runHandleError(name, "+droplet.server.ts", mod?.handleError, error);
+    const shown =
+      typeof mod?.handleError !== "function" && !import.meta.env.DEV
+        ? new DropletRenderError()
+        : await runHandleError(name, "+droplet.server.ts", mod?.handleError, error);
     return { failed: true, error: toWireError(shown) };
   } catch (handleError) {
     throw new UnhandledDropletError(name, "handleError in +droplet.server.ts threw", handleError);
@@ -325,11 +309,7 @@ export type RenderOptions = { form?: unknown };
  * renderer. A load or the render that throws gives `{ failed, error }`
  * instead, for the error page. Returns `null` for an unknown droplet.
  */
-export async function renderDroplet(
-  name: string,
-  event: LoadEvent,
-  options: RenderOptions = {},
-): Promise<RenderResult | null> {
+export async function renderDroplet(name: string, event: LoadEvent, options: RenderOptions = {}): Promise<RenderResult | null> {
   const entry = getEntry(name);
   if (!entry?.component) return null;
 
@@ -352,11 +332,7 @@ export async function renderDroplet(
  * `handleError` in `+droplet.ts` first, as the browser does. `props` are the
  * droplet's, for its `actionUrl()`. `null` when the droplet has no error page.
  */
-export async function renderError(
-  name: string,
-  error: unknown,
-  props: Record<string, unknown> = {},
-): Promise<RenderResult | null> {
+export async function renderError(name: string, error: unknown, props: Record<string, unknown> = {}): Promise<RenderResult | null> {
   const entry = getEntry(name);
   if (!entry?.error) return null;
   let shown: unknown;
@@ -366,14 +342,7 @@ export async function renderError(
   } catch (handleError) {
     throw new UnhandledDropletError(name, "handleError in +droplet.ts threw", handleError);
   }
-  const { html, head, renderId } = await renderWith(
-    entry.renderer,
-    entry.error,
-    { error: shown },
-    name,
-    "error",
-    props,
-  );
+  const { html, head, renderId } = await renderWith(entry.renderer, entry.error, { error: shown }, name, "error", props);
   return { body: html, html, renderId, ...(head === undefined ? {} : { head }) };
 }
 

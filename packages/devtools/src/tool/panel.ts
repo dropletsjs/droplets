@@ -120,7 +120,13 @@ function createTool(): DropletsDevTools {
   const highlight = (element: HTMLElement | null) => {
     const rect = element ? boxOf(element) : null;
     box.hidden = !rect;
-    if (rect) Object.assign(box.style, { left: `${rect.left - 2}px`, top: `${rect.top - 2}px`, width: `${rect.width + 4}px`, height: `${rect.height + 4}px` });
+    if (rect)
+      Object.assign(box.style, {
+        left: `${rect.left - 2}px`,
+        top: `${rect.top - 2}px`,
+        width: `${rect.width + 4}px`,
+        height: `${rect.height + 4}px`,
+      });
   };
 
   const row = (source: DevToolSource, info: DevElementInfo): HTMLLIElement => {
@@ -148,7 +154,11 @@ function createTool(): DropletsDevTools {
   };
 
   const group = (source: DevToolSource): HTMLElement => {
-    const select = el("select", {}, STRATEGIES.map((s) => el("option", { value: s, textContent: s, selected: s === source.strategy() })));
+    const select = el(
+      "select",
+      {},
+      STRATEGIES.map((s) => el("option", { value: s, textContent: s, selected: s === source.strategy() })),
+    );
     select.addEventListener("change", () => source.setStrategy(select.value as (typeof STRATEGIES)[number]));
     const reload = el("button", { className: "act", type: "button", textContent: "Reload page" });
     reload.addEventListener("click", () => source.reload());
@@ -160,7 +170,11 @@ function createTool(): DropletsDevTools {
         reload,
       ]),
       elements.length
-        ? el("ul", {}, elements.map((info) => row(source, info)))
+        ? el(
+            "ul",
+            {},
+            elements.map((info) => row(source, info)),
+          )
         : el("p", { className: "none", textContent: "No droplets from this server on the page." }),
     ]);
   };

@@ -39,9 +39,7 @@ export async function loadEnvState(root: string, mode: string, envDir = root): P
   });
   const declaration = module.variables;
   if (typeof declaration !== "object" || declaration === null) {
-    throw new Error(
-      `droplets: ${path} must export \`variables\`, e.g. export const variables = defineEnvVars({ ... })`,
-    );
+    throw new Error(`droplets: ${path} must export \`variables\`, e.g. export const variables = defineEnvVars({ ... })`);
   }
   validateEnvDeclaration(declaration as EnvDeclaration);
   return {
@@ -82,8 +80,8 @@ export function buildPublicEnvCode(
       options.static
         ? `  ${JSON.stringify(name)}: ${JSON.stringify(state.values[name])},`
         : target.browser
-        ? `  get ${JSON.stringify(name)}() { return runtime()?.[${JSON.stringify(name)}]; },`
-        : `  get ${JSON.stringify(name)}() { return readRuntimeEnv(${JSON.stringify(name)}); },`
+          ? `  get ${JSON.stringify(name)}() { return runtime()?.[${JSON.stringify(name)}]; },`
+          : `  get ${JSON.stringify(name)}() { return readRuntimeEnv(${JSON.stringify(name)}); },`,
     );
   const source = target.browser
     ? `const runtime = () => globalThis[Symbol.for("droplets.servers")]?.[${JSON.stringify(target.serverKey)}]?.env;`
@@ -101,7 +99,7 @@ export function buildPrivateEnvCode(state: EnvState, envStorePath: string): stri
     .map(([name, options]) =>
       options.static
         ? `  ${JSON.stringify(name)}: ${JSON.stringify(state.values[name])},`
-        : `  get ${JSON.stringify(name)}() { return readRuntimeEnv(${JSON.stringify(name)}); },`
+        : `  get ${JSON.stringify(name)}() { return readRuntimeEnv(${JSON.stringify(name)}); },`,
     );
   return [
     `import { readRuntimeEnv } from ${JSON.stringify(envStorePath)};`,

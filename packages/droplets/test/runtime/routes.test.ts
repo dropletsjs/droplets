@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  allowedMethods,
-  compareRoutes,
-  matchRoute,
-  type ApiRoute,
-  type RouteSegment,
-} from "../../src/runtime/routes.ts";
+import { allowedMethods, compareRoutes, matchRoute, type ApiRoute, type RouteSegment } from "../../src/runtime/routes.ts";
 
 const s = (value: string): RouteSegment => ({ type: "static", value });
 const p = (name: string): RouteSegment => ({ type: "param", name });
@@ -52,7 +46,9 @@ describe("compareRoutes", () => {
       route("static", [s("api"), s("x")]),
       route("short", [s("api")]),
       route("deep", [s("api"), s("x"), s("y")]),
-    ].sort(compareRoutes).map((x) => x.id);
+    ]
+      .sort(compareRoutes)
+      .map((x) => x.id);
     expect(sorted).toEqual(["deep", "static", "param", "rest", "short"]);
   });
 });

@@ -11,7 +11,7 @@ function files(entries: Record<string, string>) {
   const reads: string[] = [];
   const read = async (path: string) => {
     reads.push(path);
-    return Object.hasOwn(entries, path) ? entries[path]! : null;
+    return (Object.hasOwn(entries, path) ? entries[path] : undefined) ?? null;
   };
   return { read, reads };
 }

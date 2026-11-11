@@ -1,44 +1,18 @@
 {
   "extends": "@dropletsjs/shared/tsconfig.base.json",
   "compilerOptions": {
-    "types": [
-      "node",
-      "vite/client"
-    ],
+    "types": ["node", "vite/client"],
     "paths": {
-      "virtual:droplets": [
-        "./src/types/virtual-droplets.ts"
-      ],
-      "virtual:droplets-dev": [
-        "./src/types/virtual-droplets-dev.ts"
-      ],
-      "virtual:droplets-config": [
-        "./src/types/virtual-config.ts"
-      ],
-      "$droplets/env": [
-        "./src/types/env.ts"
-      ],
-      "$droplets/server": [
-        "./src/runtime/server.ts"
-      ],
-      "$droplets/env/public": [
-        "./src/types/env-public.ts"
-      ],
-      "$droplets/env/private": [
-        "./src/types/env-private.ts"
-      ],
-      "$droplets/drop": [
-        "./src/types/drop.ts"
-      ],
-      "$droplets/form": [
-        "./src/types/form.ts"
-      ]
+      "virtual:droplets": ["./src/types/virtual-droplets.ts"],
+      "virtual:droplets-dev": ["./src/types/virtual-droplets-dev.ts"],
+      "virtual:droplets-config": ["./src/types/virtual-config.ts"],
+      "$droplets/env": ["./src/types/env.ts"],
+      "$droplets/server": ["./src/runtime/server.ts"],
+      "$droplets/env/public": ["./src/types/env-public.ts"],
+      "$droplets/env/private": ["./src/types/env-private.ts"],
+      "$droplets/drop": ["./src/types/drop.ts"],
+      "$droplets/form": ["./src/types/form.ts"]
     }
   },
-  "include": [
-    "src/**/*.ts",
-    "test/**/*.ts",
-    "vitest.config.ts",
-    "tsdown.config.ts"
-  ]
+  "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts", "tsdown.config.ts"]
 }

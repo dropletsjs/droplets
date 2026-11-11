@@ -39,7 +39,13 @@ describe("ownAction: the droplet's own action, exactly", () => {
   });
 
   it("refuses a look-alike path: a prefix, a longer id, another prefix", () => {
-    for (const path of ["/mfe/droplets/guest", "/mfe/droplets/guestbook-evil", "/mfe/droplets/guestbook/_data", "/mfe-evil/droplets/guestbook", "/droplets/guestbook"]) {
+    for (const path of [
+      "/mfe/droplets/guest",
+      "/mfe/droplets/guestbook-evil",
+      "/mfe/droplets/guestbook/_data",
+      "/mfe-evil/droplets/guestbook",
+      "/droplets/guestbook",
+    ]) {
       expect(at(`https://drops.test${path}`), path).toBeNull();
     }
   });
@@ -54,7 +60,7 @@ describe("ownAction: the droplet's own action, exactly", () => {
 describe("submission", () => {
   it("takes the submitter's formaction, formmethod and formenctype over the form's", () => {
     document.body.innerHTML = `<form method="get" action="${OWN}"><button formaction="javascript:alert(1)" formmethod="POST" formenctype="multipart/form-data">x</button></form>`;
-    const form = document.querySelector("form")!;
+    const form = document.querySelector("form") ?? expect.unreachable("form");
     const submit = submission(form, form.querySelector("button"), document.baseURI);
     expect(submit.action?.protocol).toBe("javascript:");
     expect(submit.method).toBe("post");
@@ -64,7 +70,7 @@ describe("submission", () => {
 
   it("reads attributes, never a control that shadows form.action", () => {
     document.body.innerHTML = `<form method="post" action="${OWN}"><input name="action" value="x"><input name="method" value="get"></form>`;
-    const submit = submission(document.querySelector("form")!, null, document.baseURI);
+    const submit = submission(document.querySelector("form") ?? expect.unreachable("form"), null, document.baseURI);
     expect(submit.action?.href).toBe(OWN);
     expect(submit.method).toBe("post");
   });
@@ -74,7 +80,16 @@ describe("actionAnswer and redirectTarget", () => {
   it("takes a result by its shape, own keys only, and nothing else", () => {
     expect(actionAnswer('{"type":"success","status":200,"data":{"a":1}}')).toEqual({ type: "success", status: 200, data: { a: 1 } });
     expect(actionAnswer('{"type":"redirect","status":303,"location":"/bye"}')).toEqual({ type: "redirect", status: 303, location: "/bye" });
-    for (const body of ["", "nope", "[]", '{"message":"boom"}', '{"type":"error","status":500}', '{"type":"success","status":"200"}', '{"type":"redirect","status":303}', '{"__proto__":{"type":"success","status":200}}']) {
+    for (const body of [
+      "",
+      "nope",
+      "[]",
+      '{"message":"boom"}',
+      '{"type":"error","status":500}',
+      '{"type":"success","status":"200"}',
+      '{"type":"redirect","status":303}',
+      '{"__proto__":{"type":"success","status":200}}',
+    ]) {
       expect(actionAnswer(body), body).toBeNull();
     }
   });
@@ -129,18 +144,20 @@ describe("enhanceDropletForm", () => {
     document.body.innerHTML = `<enhance-host data-droplet="guestbook">${forms}</enhance-host>`;
     return document.querySelector("enhance-host") as Host;
   };
-  const form = (testid: string) => document.querySelector<HTMLFormElement>(`[data-testid=${testid}]`)!;
+  const form = (testid: string) => document.querySelector<HTMLFormElement>(`[data-testid=${testid}]`) ?? expect.unreachable(testid);
   const flush = () => new Promise((resolve) => setTimeout(resolve, 10));
 
   it("posts its own action as JSON and has the element render the result", async () => {
-    const host = mount(`<form data-testid="sign" method="post" action="${OWN}?page=2"><input name="name" value="Ana"><button name="go" value="1">Go</button></form>`);
+    const host = mount(
+      `<form data-testid="sign" method="post" action="${OWN}?page=2"><input name="name" value="Ana"><button name="go" value="1">Go</button></form>`,
+    );
     enhanceDropletForm(form("sign"));
-    form("sign").querySelector("button")!.click();
+    (form("sign").querySelector("button") ?? expect.unreachable("sign button")).click();
     await flush();
     expect(native).toEqual([]);
     expect(posted).toHaveLength(1);
     expect(posted[0]).toMatchObject({ url: `${OWN}?page=2`, accept: "application/json", redirect: "manual" });
-    expect(String(posted[0]!.body)).toBe("name=Ana&go=1");
+    expect(String(posted[0]?.body)).toBe("name=Ana&go=1");
     expect(host.forms).toEqual([{ message: "Thanks, Ana" }]);
     expect(events).toEqual([{ droplet: "guestbook", action: "default", type: "success", status: 200, data: { message: "Thanks, Ana" } }]);
   });
@@ -201,7 +218,7 @@ describe("enhanceDropletForm", () => {
     );
     for (const id of ["get", "other", "prefix", "script", "blank", "text"]) enhanceDropletForm(form(id));
     enhanceDropletForm(form("named"), { action: "default" });
-    form("script").querySelector("button")!.click();
+    (form("script").querySelector("button") ?? expect.unreachable("script button")).click();
     for (const id of ["get", "other", "prefix", "blank", "text", "named", "untouched"]) form(id).requestSubmit();
     await flush();
     expect(posted).toEqual([]);
@@ -210,9 +227,9 @@ describe("enhanceDropletForm", () => {
 
   it("finds its droplet element from a component's shadow root (Lit)", async () => {
     const host = mount(`<div data-droplet-entry><shadow-card></shadow-card></div>`);
-    const root = host.querySelector("shadow-card")!.attachShadow({ mode: "open" });
+    const root = (host.querySelector("shadow-card") ?? expect.unreachable("shadow-card")).attachShadow({ mode: "open" });
     root.innerHTML = `<form data-testid="sign" method="post" action="${OWN}"><input name="name" value="Ana"></form>`;
-    const inShadow = root.querySelector("form")!;
+    const inShadow = root.querySelector("form") ?? expect.unreachable("form in the shadow root");
     enhanceDropletForm(inShadow);
     inShadow.requestSubmit();
     await flush();

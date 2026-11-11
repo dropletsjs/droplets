@@ -55,7 +55,7 @@ describe("rewriteFileUrls", () => {
 
   it("imports a file new URL(…, import.meta.url) names and puts it on the location token", () => {
     const code = 'const a = new URL("./logo.png", import.meta.url).href;\nconst b = new URL("./missing.png", import.meta.url);';
-    const out = rewriteFileUrls({ code, file: join(dir, "card.js"), location })!;
+    const out = rewriteFileUrls({ code, file: join(dir, "card.js"), location }) ?? expect.unreachable("a rewrite");
     expect(out).toContain('import __droplets_file_0 from "./logo.png?url";');
     expect(out).toContain(`new URL(__droplets_file_0, ${JSON.stringify(`${location}/`)}).href`);
     // Not a file: left for the code to deal with.
@@ -111,7 +111,7 @@ describe("publicFileHandler", () => {
     expect(res.status).toBe(200);
     expect(await res.text()).toBe("png");
     expect(res.headers.get("cache-control")).toBe("no-cache");
-    const etag = res.headers.get("etag")!;
+    const etag = res.headers.get("etag") ?? expect.unreachable("an etag");
     expect(etag).toMatch(/^"[\w-]+"$/);
     const again = await app().request("/assets/public/img/a.png", { headers: { "if-none-match": etag } });
     expect(again.status).toBe(304);

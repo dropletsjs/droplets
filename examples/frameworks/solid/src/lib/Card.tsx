@@ -38,16 +38,24 @@ export function Card(props: { mode: Mode; data?: Facts | undefined }) {
       <Show when={props.data}>{(data) => <p class="card-greeting">Hello {data().who}!</p>}</Show>
 
       <dl class="card-facts">
-        <dt>Site<small>public, static</small></dt>
+        <dt>
+          Site<small>public, static</small>
+        </dt>
         <dd data-testid="site">{env.PUBLIC_SITE_NAME}</dd>
-        <dt>Banner<small>public, runtime</small></dt>
+        <dt>
+          Banner<small>public, runtime</small>
+        </dt>
         <dd data-testid="banner">{env.PUBLIC_BANNER ?? "not set"}</dd>
-        <dt>API token<small>private</small></dt>
+        <dt>
+          API token<small>private</small>
+        </dt>
         <dd data-testid="private">{facts() ? `${facts()!.apiToken}, channel ${facts()!.channel}` : "…"}</dd>
         <dt>Rendered</dt>
         <dd data-testid="rendered">{props.data ? `on the server, ${props.data.renderedAt}` : "in the browser"}</dd>
         <Show when={props.mode === "client"}>
-          <dt>Server time<small>/api/time</small></dt>
+          <dt>
+            Server time<small>/api/time</small>
+          </dt>
           <dd data-testid="time">{time() ?? "…"}</dd>
         </Show>
         <dt>Hydrated</dt>
@@ -55,7 +63,9 @@ export function Card(props: { mode: Mode; data?: Facts | undefined }) {
       </dl>
 
       <div class="card-counter">
-        <span class="card-count" data-testid="count">{shown() ?? "…"}</span>
+        <span class="card-count" data-testid="count">
+          {shown() ?? "…"}
+        </span>
         <Show when={props.mode !== "ssr-nohydrate"}>
           <button type="button" data-testid="bump" onClick={() => void bumpCounter().then(setCount)}>
             +1

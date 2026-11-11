@@ -23,8 +23,7 @@ export function setRuntimeEnv(values: Record<string, unknown> | undefined): void
 }
 
 export function readRuntimeEnv(name: string): string | undefined {
-  const values = store().values ??
-    (typeof process === "undefined" ? undefined : process.env);
+  const values = store().values ?? (typeof process === "undefined" ? undefined : process.env);
   const value = values?.[name];
   return typeof value === "string" ? value : undefined;
 }

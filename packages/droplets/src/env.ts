@@ -35,11 +35,11 @@ export type EnvVarOptions = {
 export type EnvDeclaration = Record<string, EnvVarOptions>;
 
 /** Register your declaration here to type `$droplets/env/*`. See above. */
+// biome-ignore lint/style/useConsistentTypeDefinitions: the user merges into it; `type` cannot merge.
+// biome-ignore lint/suspicious/noEmptyInterface: empty until the user merges into it.
 export interface Register {}
 
-type Declared = Register extends { variables: infer V extends EnvDeclaration }
-  ? V
-  : Record<string, EnvVarOptions>;
+type Declared = Register extends { variables: infer V extends EnvDeclaration } ? V : Record<string, EnvVarOptions>;
 
 type PublicKeys<V> = {
   [K in keyof V]: V[K] extends { public: true } ? K : never;

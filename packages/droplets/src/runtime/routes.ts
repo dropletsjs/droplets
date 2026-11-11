@@ -1,10 +1,7 @@
 import type { RequestHandler } from "./server.ts";
 
 /** One piece of an API route path. */
-export type RouteSegment =
-  | { type: "static"; value: string }
-  | { type: "param"; name: string }
-  | { type: "rest"; name: string };
+export type RouteSegment = { type: "static"; value: string } | { type: "param"; name: string } | { type: "rest"; name: string };
 
 export const API_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"] as const;
 export type ApiMethod = (typeof API_METHODS)[number];
@@ -52,13 +49,9 @@ function decode(segment: string): string {
   }
 }
 
-function matchSegments(
-  segments: RouteSegment[],
-  parts: string[],
-): Record<string, string> | null {
+function matchSegments(segments: RouteSegment[], parts: string[]): Record<string, string> | null {
   const params: Record<string, string> = {};
-  for (let i = 0; i < segments.length; i++) {
-    const segment = segments[i]!;
+  for (const [i, segment] of segments.entries()) {
     if (segment.type === "rest") {
       // Zero or more segments, like SvelteKit.
       params[segment.name] = parts.slice(i).join("/");

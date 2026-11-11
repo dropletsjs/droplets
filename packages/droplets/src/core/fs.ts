@@ -2,12 +2,7 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 function isNotFound(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: string }).code === "ENOENT"
-  );
+  return typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "ENOENT";
 }
 
 export async function fileExists(path: string): Promise<boolean> {
@@ -29,10 +24,7 @@ export async function readTextFile(path: string): Promise<string | null> {
 }
 
 /** Writes a UTF-8 file, creating parent directories as needed. */
-export async function writeTextFile(
-  path: string,
-  contents: string,
-): Promise<void> {
+export async function writeTextFile(path: string, contents: string): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, contents, "utf8");
 }

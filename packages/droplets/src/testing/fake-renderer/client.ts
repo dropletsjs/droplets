@@ -27,12 +27,7 @@ function html(module: ComponentModule, props: RenderProps, context: ClientRender
   return component({ ...props, children: () => MARKER, actionUrl: context.actionUrl });
 }
 
-function attach(
-  module: ComponentModule,
-  target: HTMLElement,
-  props: RenderProps,
-  context: ClientRenderContext,
-): Instance {
+function attach(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): Instance {
   // When hydrating, the server's marker; when mounting, the one just written.
   const marker = context.markers()[0] ?? target.querySelector("[data-droplet-children]");
   if (marker) context.children.fill(marker);
@@ -74,12 +69,7 @@ export async function mount(
   return attach(shown.module, target, shown.props, context);
 }
 
-export function hydrate(
-  module: ComponentModule,
-  target: HTMLElement,
-  props: RenderProps,
-  context: ClientRenderContext,
-): Instance {
+export function hydrate(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): Instance {
   // No virtual DOM to reconcile: the server markup stays as it is.
   return attach(module, target, props, context);
 }

@@ -18,8 +18,11 @@ describe("cloudflare adapter: run_worker_first", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  const afterBuild = () =>
-    cloudflare().afterBuild!({ root, outDir: join(root, "dist"), serverPath: "dist/worker.js" } as never);
+  const afterBuild = () => {
+    const adapter = cloudflare();
+    if (adapter.afterBuild === undefined) expect.unreachable("cloudflare().afterBuild");
+    return adapter.afterBuild({ root, outDir: join(root, "dist"), serverPath: "dist/worker.js" } as never);
+  };
 
   it("accepts true, in wrangler.jsonc (comments, trailing commas) and wrangler.toml, and a list that covers the Worker's routes", async () => {
     const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
@@ -34,7 +37,10 @@ describe("cloudflare adapter: run_worker_first", () => {
       await afterBuild();
     }
     await rm(join(root, "wrangler.json"));
-    await writeFile(join(root, "wrangler.toml"), 'main = "dist/worker.js"\n\n[assets]\ndirectory = "dist/client"\nrun_worker_first = true # always\n');
+    await writeFile(
+      join(root, "wrangler.toml"),
+      'main = "dist/worker.js"\n\n[assets]\ndirectory = "dist/client"\nrun_worker_first = true # always\n',
+    );
     await afterBuild();
     await writeFile(join(root, "wrangler.toml"), '[assets]\nrun_worker_first = ["/*"]\n');
     await afterBuild();
@@ -58,7 +64,9 @@ describe("cloudflare adapter: run_worker_first", () => {
       await expect(afterBuild(), assets).resolves.toBeUndefined();
       expect(warn, assets).toHaveBeenCalledTimes(1);
       const message = String(warn.mock.calls[0]?.[1]);
-      expect(message).toContain(`wrangler.json: assets.run_worker_first is ${value === undefined ? "not set" : JSON.stringify(JSON.parse(value))}`);
+      expect(message).toContain(
+        `wrangler.json: assets.run_worker_first is ${value === undefined ? "not set" : JSON.stringify(JSON.parse(value))}`,
+      );
       expect(message).toContain("without the Worker's CORS and no-store headers");
       expect(message).toContain("https://dropletsjs.dev/guides/deployment/#run_worker_first");
     }

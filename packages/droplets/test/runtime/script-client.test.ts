@@ -21,9 +21,11 @@ beforeAll(async () => {
   };
   // Two script droplets in the registry stub, both hydrating at once (the default).
   const registry = (await import("virtual:droplets")) as unknown as Record<string, Record<string, unknown>>;
+  const byId = registry["dropletsById"] ?? expect.unreachable("dropletsById");
+  const hydrateById = registry["dropletsHydrateById"] ?? expect.unreachable("dropletsHydrateById");
   for (const id of ["tracker", "broken"]) {
-    registry["dropletsById"]![id] = true;
-    registry["dropletsHydrateById"]![id] = true;
+    byId[id] = true;
+    hydrateById[id] = true;
   }
   mod = await import("../../src/runtime/entry-client.ts");
 });
@@ -70,7 +72,8 @@ function place(html: string): HTMLElement[] {
   return Array.from(wrapper.children) as HTMLElement[];
 }
 
-const entryOf = (element: Element) => element.querySelector<HTMLElement>(":scope > [data-droplet-entry]")!;
+const entryOf = (element: Element) =>
+  element.querySelector<HTMLElement>(":scope > [data-droplet-entry]") ?? expect.unreachable("the content root");
 
 describe("a script droplet in the browser", () => {
   it("runs the default export with the load's data and the element's content root", async () => {
@@ -78,13 +81,13 @@ describe("a script droplet in the browser", () => {
       el.innerHTML = `<p class="views">${data.views} views</p>`;
     });
     mod.DjsDropletElement.importModule = vi.fn(async () => clientModule({ default: run })) as never;
-    const [element] = place(fragment("tracker", { views: 3 }));
+    const [element = expect.unreachable("a droplet element")] = place(fragment("tracker", { views: 3 }));
     await tick();
 
     expect(run).toHaveBeenCalledTimes(1);
-    expect(run.mock.calls[0]![0]).toEqual({ views: 3 });
-    expect(run.mock.calls[0]![1]).toBe(entryOf(element!));
-    expect(element!.querySelector(".views")?.textContent).toBe("3 views");
+    expect(run.mock.calls[0]?.[0]).toEqual({ views: 3 });
+    expect(run.mock.calls[0]?.[1]).toBe(entryOf(element));
+    expect(element.querySelector(".views")?.textContent).toBe("3 views");
   });
 
   it("runs the cleanup it returned when the element leaves, then empties the element", async () => {
@@ -94,25 +97,25 @@ describe("a script droplet in the browser", () => {
       return cleanup;
     });
     mod.DjsDropletElement.importModule = vi.fn(async () => clientModule({ default: run })) as never;
-    const [element] = place(fragment("tracker", {}));
+    const [element = expect.unreachable("a droplet element")] = place(fragment("tracker", {}));
     await tick();
     expect(cleanup).not.toHaveBeenCalled();
-    expect(entryOf(element!).children).toHaveLength(1);
+    expect(entryOf(element).children).toHaveLength(1);
 
-    element!.remove();
+    element.remove();
     await tick();
     expect(cleanup).toHaveBeenCalledTimes(1);
-    expect(entryOf(element!).childNodes).toHaveLength(0);
+    expect(entryOf(element).childNodes).toHaveLength(0);
   });
 
   it("keeps running when the element only moves within one task", async () => {
     const cleanup = vi.fn();
     mod.DjsDropletElement.importModule = vi.fn(async () => clientModule({ default: () => cleanup })) as never;
-    const [element] = place(fragment("tracker", {}));
+    const [element = expect.unreachable("a droplet element")] = place(fragment("tracker", {}));
     await tick();
     const other = document.createElement("section");
     document.body.appendChild(other);
-    other.appendChild(element!);
+    other.appendChild(element);
     await tick();
     expect(cleanup).not.toHaveBeenCalled();
   });
@@ -126,19 +129,21 @@ describe("a script droplet in the browser", () => {
       return cleanups[data.n];
     });
     mod.DjsDropletElement.importModule = vi.fn(async () => clientModule({ default: run })) as never;
-    const [first, second] = place(fragment("tracker", { n: 0 }) + fragment("tracker", { n: 1 }));
+    const [first = expect.unreachable("the first element"), second = expect.unreachable("the second element")] = place(
+      fragment("tracker", { n: 0 }) + fragment("tracker", { n: 1 }),
+    );
     await tick();
 
     expect(run).toHaveBeenCalledTimes(2);
-    expect(seen).toEqual([entryOf(first!), entryOf(second!)]);
-    expect(entryOf(first!).textContent).toBe("instance 0");
-    expect(entryOf(second!).textContent).toBe("instance 1");
+    expect(seen).toEqual([entryOf(first), entryOf(second)]);
+    expect(entryOf(first).textContent).toBe("instance 0");
+    expect(entryOf(second).textContent).toBe("instance 1");
 
-    second!.remove();
+    second.remove();
     await tick();
     expect(cleanups[1]).toHaveBeenCalledTimes(1);
     expect(cleanups[0]).not.toHaveBeenCalled();
-    expect(entryOf(first!).textContent).toBe("instance 0");
+    expect(entryOf(first).textContent).toBe("instance 0");
   });
 
   it("logs a script that throws, and the other droplets on the page still run", async () => {
@@ -151,16 +156,18 @@ describe("a script droplet in the browser", () => {
       throw new Error("tracker exploded");
     });
     mod.DjsDropletElement.importModule = vi.fn(async (url: string) =>
-      clientModule({ default: url.includes("/broken/") ? bad : good })
+      clientModule({ default: url.includes("/broken/") ? bad : good }),
     ) as never;
-    const [broken, tracker] = place(fragment("broken", {}) + fragment("tracker", {}));
+    const [broken = expect.unreachable("broken"), tracker = expect.unreachable("tracker")] = place(
+      fragment("broken", {}) + fragment("tracker", {}),
+    );
     await tick();
 
     expect(bad).toHaveBeenCalledTimes(1);
     expect(good).toHaveBeenCalledTimes(1);
-    expect(entryOf(tracker!).textContent).toBe("fine");
+    expect(entryOf(tracker).textContent).toBe("fine");
     // What the failed run left behind goes; the failure is in the console.
-    expect(entryOf(broken!).childNodes).toHaveLength(0);
+    expect(entryOf(broken).childNodes).toHaveLength(0);
     expect(error).toHaveBeenCalledWith("[droplets] broken failed", expect.objectContaining({ message: "tracker exploded" }));
   });
 

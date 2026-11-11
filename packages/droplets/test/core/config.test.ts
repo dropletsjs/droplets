@@ -1,12 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  config,
-  DEFAULTS,
-  isValidElementName,
-  normalizeDropletsFolder,
-  resolveConfig,
-  resolveDevConfig,
-} from "../../src/core/config.ts";
+import { config, DEFAULTS, isValidElementName, normalizeDropletsFolder, resolveConfig, resolveDevConfig } from "../../src/core/config.ts";
 
 describe("config()", () => {
   it("is an identity helper", () => {
@@ -69,17 +62,35 @@ describe("resolveConfig", () => {
 
   it("normalizes origin to locations, a prefix allowed, and refuses anything else", () => {
     expect(resolveConfig({ origin: "https://shop.example/" }).origin).toEqual(["https://shop.example"]);
-    expect(resolveConfig({ origin: ["https://shop.example/mfe/", "http://localhost:3000", "*"] }).origin)
-      .toEqual(["https://shop.example/mfe", "http://localhost:3000", "*"]);
-    for (const bad of ["shop.example", "ftp://shop.example", "https://u:p@shop.example", "https://shop.example/a?x=1", "https://shop.example/#x", "https://shop.example//x", "https://shop.example/a\\b", `https://shop.example/${"a".repeat(300)}`, "https://*.example", "", 42]) {
+    expect(resolveConfig({ origin: ["https://shop.example/mfe/", "http://localhost:3000", "*"] }).origin).toEqual([
+      "https://shop.example/mfe",
+      "http://localhost:3000",
+      "*",
+    ]);
+    for (const bad of [
+      "shop.example",
+      "ftp://shop.example",
+      "https://u:p@shop.example",
+      "https://shop.example/a?x=1",
+      "https://shop.example/#x",
+      "https://shop.example//x",
+      "https://shop.example/a\\b",
+      `https://shop.example/${"a".repeat(300)}`,
+      "https://*.example",
+      "",
+      42,
+    ]) {
       expect(() => resolveConfig({ origin: [bad as string] }), String(bad)).toThrow("origin takes this server's public URL");
     }
     expect(() => resolveConfig({ origin: { url: "https://a.example" } as never })).toThrow("origin takes");
   });
 
   it("normalizes trustedOrigins and refuses what is not an origin", () => {
-    expect(resolveConfig({ trustedOrigins: ["https://shop.example/", "http://localhost:3000", "*"] }).trustedOrigins)
-      .toEqual(["https://shop.example", "http://localhost:3000", "*"]);
+    expect(resolveConfig({ trustedOrigins: ["https://shop.example/", "http://localhost:3000", "*"] }).trustedOrigins).toEqual([
+      "https://shop.example",
+      "http://localhost:3000",
+      "*",
+    ]);
     for (const bad of ["shop.example", "https://shop.example/cart", ""]) {
       expect(() => resolveConfig({ trustedOrigins: [bad] }), bad).toThrow("trustedOrigins takes origins");
     }
@@ -111,9 +122,7 @@ describe("resolveConfig", () => {
 
   it("accepts a custom element name and rejects invalid ones", () => {
     expect(resolveConfig({ element: "acme-widget" }).element).toBe("acme-widget");
-    expect(resolveConfig({ element: "djs-svelte" }).element).toBe(
-      "djs-svelte",
-    );
+    expect(resolveConfig({ element: "djs-svelte" }).element).toBe("djs-svelte");
     for (const bad of ["droplet", "Djs-Droplet", "1-x", "-x", "djs droplet", ""]) {
       expect(() => resolveConfig({ element: bad }), bad).toThrow(/not a valid custom element name/);
     }

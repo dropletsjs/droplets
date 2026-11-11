@@ -14,7 +14,7 @@ import type { DropletFacts } from "./droplet-facts.ts";
  * bottom-right corner unless another corner covers clearly less of the
  * droplet and its label, and never the cursor.
  */
-const OVERLAY = String.raw`
+const OVERLAY = `
 (() => {
   if (window.__dropletTour) return;
   const css = document.createElement("style");
@@ -258,7 +258,9 @@ export async function overlayLayout(page: Page): Promise<{ tagInside: boolean; c
     const cut = !!name && name.scrollWidth > name.clientWidth;
     const panel = document.querySelector(".dt-panel.dt-on")?.getBoundingClientRect();
     const tagInside = !tag || (tag.left >= 0 && tag.top >= 0 && tag.right <= w && tag.bottom <= h);
-    const clash = !!tag && !!panel &&
+    const clash =
+      !!tag &&
+      !!panel &&
       Math.min(tag.right, panel.right) > Math.max(tag.left, panel.left) &&
       Math.min(tag.bottom, panel.bottom) > Math.max(tag.top, panel.top);
     return { tagInside, cut, clash };

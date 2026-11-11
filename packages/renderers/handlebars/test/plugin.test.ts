@@ -6,15 +6,7 @@ import { fileURLToPath } from "node:url";
 import Handlebars from "handlebars";
 import { createServer, type RunnableDevEnvironment, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import {
-  compileTemplate,
-  handlebarsPlugin,
-  listPartials,
-  partialName,
-  runtimeModule,
-  SETUP_ID,
-  setupModuleCode,
-} from "../src/plugin.ts";
+import { compileTemplate, handlebarsPlugin, listPartials, partialName, runtimeModule, SETUP_ID, setupModuleCode } from "../src/plugin.ts";
 import type { env as Env } from "../src/runtime.ts";
 
 const fixture = resolve(dirname(fileURLToPath(import.meta.url)), "fixtures/app");
@@ -44,7 +36,9 @@ describe("compileTemplate", () => {
     expect(code).toMatch(/export default env\.template\(\{.*"main":function/s);
     expect(code).not.toContain("import.meta.hot");
     // The spec is what Handlebars' own runtime understands.
-    const spec = new Function(`return ${code.match(/env\.template\((\{.*\})\);/s)![1]}`)() as never;
+    const spec = new Function(
+      `return ${(code.match(/env\.template\((\{.*\})\);/s) ?? expect.unreachable("env.template(…)"))[1]}`,
+    )() as never;
     expect(Handlebars.template(spec)({ data: { title: "A <b>" } })).toBe("<p>A &lt;b&gt;</p>");
   });
 
@@ -56,7 +50,9 @@ describe("compileTemplate", () => {
 
   it("passes precompile options through", () => {
     const noEscape = compileTemplate("{{x}}", "/x.hbs", { setup: false, compile: { noEscape: true } });
-    const spec = new Function(`return ${noEscape.match(/env\.template\((\{.*\})\);/s)![1]}`)() as never;
+    const spec = new Function(
+      `return ${(noEscape.match(/env\.template\((\{.*\})\);/s) ?? expect.unreachable("env.template(…)"))[1]}`,
+    )() as never;
     expect(Handlebars.template(spec)({ x: "<b>" })).toBe("<b>");
   });
 });
@@ -154,7 +150,9 @@ describe("configurable partials and helpers", () => {
     const server = await devServer(root, { partials: "templates/parts", helpers: "lib/helpers.ts" });
     try {
       const mod = await load<{ default: Template }>(server, "/templates/page.hbs");
-      expect(mod.default({ data: { name: "new" } })).toBe('<b class="badge">new!</b><div data-droplet-children style="display: contents"></div>');
+      expect(mod.default({ data: { name: "new" } })).toBe(
+        '<b class="badge">new!</b><div data-droplet-children style="display: contents"></div>',
+      );
     } finally {
       await server.close();
     }

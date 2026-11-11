@@ -204,10 +204,31 @@ describe("every renderer under vite dev", () => {
   it("keeps the count through a component edit in React, Preact and Vue: their own HMR", async () => {
     const { page, errors, logs } = await open();
     const edits = [
-      { name: "react", path: "src/droplets/react-hello/+droplet.tsx", from: "React greets", to: "React waves to", field: "[data-text]", now: "React waves to the host" },
-      { name: "preact", path: "src/droplets/preact-hello/+droplet.tsx", from: "Preact greets", to: "Preact waves to", field: "[data-text]", now: "Preact waves to the host" },
+      {
+        name: "react",
+        path: "src/droplets/react-hello/+droplet.tsx",
+        from: "React greets",
+        to: "React waves to",
+        field: "[data-text]",
+        now: "React waves to the host",
+      },
+      {
+        name: "preact",
+        path: "src/droplets/preact-hello/+droplet.tsx",
+        from: "Preact greets",
+        to: "Preact waves to",
+        field: "[data-text]",
+        now: "Preact waves to the host",
+      },
       // A template edit: Vue re-renders, the component stays.
-      { name: "vue", path: "src/droplets/vue-hello/+droplet.vue", from: "Vue says hi", to: "Vue says hello", field: "[data-label]", now: "Vue says hello" },
+      {
+        name: "vue",
+        path: "src/droplets/vue-hello/+droplet.vue",
+        from: "Vue says hi",
+        to: "Vue says hello",
+        field: "[data-label]",
+        now: "Vue says hello",
+      },
     ];
     for (const { name, path, from, to, field, now } of edits) {
       await clickTo(page, name, 2);
@@ -224,8 +245,20 @@ describe("every renderer under vite dev", () => {
   it("swaps a Svelte and a Solid component with their own HMR, in place", async () => {
     const { page, errors, logs, posts } = await open();
     const edits = [
-      { name: "svelte", path: "src/droplets/svelte-hello/+droplet.svelte", from: "Svelte greets", to: "Svelte waves to", now: "Svelte waves to the host" },
-      { name: "solid", path: "src/droplets/solid-hello/+droplet.tsx", from: "Solid greets", to: "Solid waves to", now: "Solid waves to the host" },
+      {
+        name: "svelte",
+        path: "src/droplets/svelte-hello/+droplet.svelte",
+        from: "Svelte greets",
+        to: "Svelte waves to",
+        now: "Svelte waves to the host",
+      },
+      {
+        name: "solid",
+        path: "src/droplets/solid-hello/+droplet.tsx",
+        from: "Solid greets",
+        to: "Solid waves to",
+        now: "Solid waves to the host",
+      },
     ];
     for (const { name, path, from, to, now } of edits) {
       await clickTo(page, name, 2);
@@ -258,8 +291,22 @@ describe("every renderer under vite dev", () => {
   it("remounts Lit and Hono JSX in place, which have no HMR of their own", async () => {
     const { page, errors, logs } = await open();
     const edits = [
-      { name: "lit", path: "src/droplets/lit-hello/+droplet.lit.ts", from: "Lit greets", to: "Lit waves to", now: "Lit waves to the host", droplet: "lit-hello" },
-      { name: "hono", path: "src/droplets/hono-hello/+droplet.tsx", from: "Hono greets", to: "Hono waves to", now: "Hono waves to the host", droplet: "hono-hello" },
+      {
+        name: "lit",
+        path: "src/droplets/lit-hello/+droplet.lit.ts",
+        from: "Lit greets",
+        to: "Lit waves to",
+        now: "Lit waves to the host",
+        droplet: "lit-hello",
+      },
+      {
+        name: "hono",
+        path: "src/droplets/hono-hello/+droplet.tsx",
+        from: "Hono greets",
+        to: "Hono waves to",
+        now: "Hono waves to the host",
+        droplet: "hono-hello",
+      },
     ];
     for (const { name, path, from, to, now, droplet } of edits) {
       await clickTo(page, name, 2);
@@ -268,7 +315,9 @@ describe("every renderer under vite dev", () => {
       await page.locator(`[data-testid=${name}][data-hydrated=true]`).waitFor();
       // A fresh instance, from the fragment asked for again.
       expect(await count(page, name)).toBe("0");
-      await expect.poll(() => logs.some((line) => line.includes(`${droplet}: no HMR of its framework took this edit; remounted in place`))).toBe(true);
+      await expect
+        .poll(() => logs.some((line) => line.includes(`${droplet}: no HMR of its framework took this edit; remounted in place`)))
+        .toBe(true);
       await clickTo(page, name, 1);
     }
     await notReloaded(page);
@@ -291,7 +340,9 @@ describe("every renderer under vite dev", () => {
     const runs = () =>
       page.evaluate(() => {
         const runs = (window as { scriptRuns?: { els: HTMLElement[]; cleanups: number; texts: string[] } }).scriptRuns;
-        return runs ? { calls: runs.els.length, cleanups: runs.cleanups, same: runs.els.every((el) => el === runs.els[0]), texts: runs.texts } : null;
+        return runs
+          ? { calls: runs.els.length, cleanups: runs.cleanups, same: runs.els.every((el) => el === runs.els[0]), texts: runs.texts }
+          : null;
       });
     expect(await runs()).toMatchObject({ calls: 1, cleanups: 0 });
     edit("src/droplets/script-hello/+droplet.script.ts", "Script greets", "Script waves to");
@@ -347,7 +398,9 @@ describe("every renderer under vite dev", () => {
 
       // Between modes on a hydrated droplet: a console note, nothing else.
       edit(flags, "export const hydrate = true;", 'export const hydrate = "visible";');
-      await expect.poll(() => logs.some((line) => line.includes('contract changed its render contract: hydrate true → visible'))).toBe(true);
+      await expect
+        .poll(() => logs.some((line) => line.includes("contract changed its render contract: hydrate true → visible")))
+        .toBe(true);
       expect(await toasts(page).filter({ hasText: "hydrate true → visible" }).count()).toBe(0);
 
       // hydrate on → false: the running component stays; a reload shows it without.

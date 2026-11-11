@@ -11,21 +11,8 @@
  * which shows `+error.vue` in place of whatever throws while rendering, a
  * rejected `await data` included.
  */
-import type {
-  ClientRenderContext,
-  ComponentModule,
-  RenderProps,
-} from "@dropletsjs/droplets";
-import {
-  createApp,
-  createSSRApp,
-  defineComponent,
-  h,
-  onErrorCaptured,
-  shallowRef,
-  type App,
-  type Component,
-} from "vue";
+import type { ClientRenderContext, ComponentModule, RenderProps } from "@dropletsjs/droplets";
+import { createApp, createSSRApp, defineComponent, h, onErrorCaptured, shallowRef, type App, type Component } from "vue";
 import { CHILDREN_KEY } from "./children.ts";
 import { live, suspended, type Live } from "./live-props.ts";
 
@@ -84,7 +71,10 @@ function withBoundary(root: Component, error: NonNullable<ClientRenderContext["e
       onErrorCaptured((caught) => {
         if (failed.value) return false;
         failed.value = true;
-        error.handle(caught).then((value) => (shown.value = { error: value }), () => undefined);
+        error.handle(caught).then(
+          (value) => (shown.value = { error: value }),
+          () => undefined,
+        );
         return false;
       });
       return () => {
@@ -95,12 +85,7 @@ function withBoundary(root: Component, error: NonNullable<ClientRenderContext["e
   });
 }
 
-export function mount(
-  module: ComponentModule,
-  target: HTMLElement,
-  props: RenderProps,
-  context: ClientRenderContext,
-): App {
+export function mount(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): App {
   const component = componentOf(module, context);
   injectComponentStyles(component, context);
   const current: Live = { props: shallowRef(props) };
@@ -118,12 +103,7 @@ export function mount(
   return app;
 }
 
-export function hydrate(
-  module: ComponentModule,
-  target: HTMLElement,
-  props: RenderProps,
-  context: ClientRenderContext,
-): App {
+export function hydrate(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): App {
   const component = componentOf(module, context);
   // Vue compares the DOM with its virtual tree; the element took the host's
   // container out of the server-rendered marker before this call, and it

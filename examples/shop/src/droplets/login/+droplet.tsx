@@ -22,10 +22,18 @@ export default function Login({ data, form }: DropletProps) {
     return (
       <section class="login">
         <h1>Admin</h1>
-        <p>You are logged in as <b>{admin}</b>.</p>
+        <p>
+          You are logged in as <b>{admin}</b>.
+        </p>
         <div class="actions">
-          <a class="button primary" href={next}>Go to admin</a>
-          <form method="post" action={logout}><button class="button">Log out</button></form>
+          <a class="button primary" href={next}>
+            Go to admin
+          </a>
+          <form method="post" action={logout}>
+            <button type="submit" class="button">
+              Log out
+            </button>
+          </form>
         </div>
       </section>
     );
@@ -35,7 +43,11 @@ export default function Login({ data, form }: DropletProps) {
     <section class="login">
       <form method="post" action={login}>
         <h1>Admin login</h1>
-        {failed ? <p class="notice error" role="alert">⚠ {failed}</p> : null}
+        {failed ? (
+          <p class="notice error" role="alert">
+            ⚠ {failed}
+          </p>
+        ) : null}
         <label>
           User
           <input class="field" name="user" autocomplete="username" required maxlength={100} />
@@ -44,7 +56,9 @@ export default function Login({ data, form }: DropletProps) {
           Password
           <input class="field" name="password" type="password" autocomplete="current-password" required maxlength={200} />
         </label>
-        <button class="button primary">Log in</button>
+        <button type="submit" class="button primary">
+          Log in
+        </button>
         <p class="hint">Demo credentials: admin / droplets</p>
       </form>
     </section>

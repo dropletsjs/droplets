@@ -73,10 +73,7 @@ export const adminProps = z.object({
  * A path on the host, never a URL: starts with one `/`, no `//` or `/\`
  * (which browsers read as another origin), no control characters.
  */
-export const relativePath = z.string().check(
-  z.maxLength(200),
-  z.regex(/^\/(?![/\\])[\x21-\x7e]*$/),
-);
+export const relativePath = z.string().check(z.maxLength(200), z.regex(/^\/(?![/\\])[\x21-\x7e]*$/));
 
 export const loginProps = z.object({ next: z._default(relativePath, "/admin") });
 

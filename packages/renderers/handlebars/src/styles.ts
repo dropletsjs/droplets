@@ -22,9 +22,7 @@
  */
 import Handlebars from "handlebars";
 
-export type StyleBlock =
-  | { kind: "inline"; css: string; lang: string }
-  | { kind: "src"; src: string };
+export type StyleBlock = { kind: "inline"; css: string; lang: string } | { kind: "src"; src: string };
 
 const STYLE = /<style\b([^>]*)>([\s\S]*?)<\/style\s*>/gi;
 const OPEN = /<style\b/i;
@@ -76,7 +74,11 @@ export function extractStyles(source: string, where: string): { template: string
   }
 
   const starts = lineStarts(source);
-  const offset = (position: hbs.AST.Position) => starts[position.line - 1]! + position.column;
+  const offset = (position: hbs.AST.Position) => {
+    const start = starts[position.line - 1];
+    if (start === undefined) throw new Error(`droplets: ${where}: no line ${position.line}`);
+    return start + position.column;
+  };
   const topLevel = new Set(program.body.filter((node) => node.type === "ContentStatement"));
 
   // Anywhere but plain text at the top, a <style> cannot be taken out.

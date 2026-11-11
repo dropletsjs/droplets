@@ -101,10 +101,7 @@ let cachedKey: { secret: string; key: Promise<CryptoKey> } | undefined;
 
 function hmacKey(secret: string): Promise<CryptoKey> {
   if (cachedKey?.secret !== secret) {
-    const key = crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, [
-      "sign",
-      "verify",
-    ]);
+    const key = crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
     cachedKey = { secret, key };
   }
   return cachedKey.key;
@@ -195,10 +192,11 @@ export async function readFormResult(
 ): Promise<FormResult | null> {
   if (typeof value !== "string" || value.length > FORM_RESULT_MAX_LENGTH) return null;
   const match = SHAPE.exec(value);
-  if (!match) return null;
-  const payload = match[1]!;
-  const mac = fromBase64Url(match[2]!);
-  if (!mac || mac.length !== 32) return null;
+  const payload = match?.[1];
+  const encodedMac = match?.[2];
+  if (payload === undefined || encodedMac === undefined) return null;
+  const mac = fromBase64Url(encodedMac);
+  if (mac?.length !== 32) return null;
   // The MAC first: nothing of the payload is read before it verifies.
   const genuine = await crypto.subtle.verify("HMAC", await hmacKey(secret), mac, macInput(scope, payload));
   if (!genuine) return null;

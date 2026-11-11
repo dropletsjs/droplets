@@ -34,8 +34,12 @@
 }
 
 @keyframes cart-pulse {
-  0% { transform: scale(1.6); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1.6);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .cart-layer {
@@ -192,7 +196,9 @@
 }
 
 @keyframes cart-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

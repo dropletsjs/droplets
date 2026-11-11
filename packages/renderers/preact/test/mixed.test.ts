@@ -37,11 +37,11 @@ async function bundleOf(id: string): Promise<string> {
     seen.add(file);
     const text = await readFile(resolve(outDir, "client", file), "utf8");
     texts.push(text);
-    for (const [, path] of text.matchAll(/(?:from|import)\s*\(?\s*["'](\.{1,2}\/[^"']+\.js)["']/g)) {
-      await visit(resolve(dirname(resolve("/", file)), path!).slice(1));
+    for (const [, path = expect.unreachable("an import path")] of text.matchAll(/(?:from|import)\s*\(?\s*["'](\.{1,2}\/[^"']+\.js)["']/g)) {
+      await visit(resolve(dirname(resolve("/", file)), path).slice(1));
     }
   };
-  await visit(manifest.droplets[id]!.client!);
+  await visit(manifest.droplets[id]?.client ?? expect.unreachable(`a client bundle for ${id}`));
   return texts.join("\n");
 }
 
@@ -58,7 +58,13 @@ beforeAll(async () => {
   await builder.buildApp();
   server = spawn(process.execPath, ["dist-mixed/server.js"], { cwd: root, env: { ...process.env, PORT: String(PORT) }, stdio: "ignore" });
   for (let i = 0; i < 100; i++) {
-    if (await get("/health").then((r) => r.ok, () => false)) break;
+    if (
+      await get("/health").then(
+        (r) => r.ok,
+        () => false,
+      )
+    )
+      break;
     await new Promise((r) => setTimeout(r, 100));
   }
 }, 180_000);

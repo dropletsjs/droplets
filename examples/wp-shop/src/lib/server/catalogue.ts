@@ -52,9 +52,11 @@ export async function listProducts(filter: Filter, offset: number, limit: number
   const products = await allProducts();
   const versions = pageVersionsOf(products);
   const q = filter.q.toLowerCase();
-  let matching = products.filter((product) =>
-    (!filter.category || product.category === filter.category) &&
-    (!q || product.name.toLowerCase().includes(q) || product.description.toLowerCase().includes(q)));
+  let matching = products.filter(
+    (product) =>
+      (!filter.category || product.category === filter.category) &&
+      (!q || product.name.toLowerCase().includes(q) || product.description.toLowerCase().includes(q)),
+  );
   if (filter.onSale) matching = matching.filter((product) => product.salePct > 0);
   const cards = matching.map((product) => toCard(product, versions.get(product.slug)));
   const paid = (card: CardProduct) => card.salePriceCents ?? card.priceCents;
@@ -126,8 +128,7 @@ export async function pageData(slug: string): Promise<PageData | null> {
  * would do too, but it moves with every stock edit, and the stored page
  * would be passed over for nothing.
  */
-export const pageVersion = (data: PageData) =>
-  createHash("sha256").update(JSON.stringify(data)).digest("hex").slice(0, 10);
+export const pageVersion = (data: PageData) => createHash("sha256").update(JSON.stringify(data)).digest("hex").slice(0, 10);
 
 function pageVersionsOf(products: readonly WpProduct[]): Map<string, string> {
   return new Map(products.map((product) => [product.slug, pageVersion(pageDataOf(product, products))]));

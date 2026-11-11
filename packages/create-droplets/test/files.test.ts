@@ -16,14 +16,23 @@ const choices = (overrides: Partial<Omit<Choices, "frameworks">> & { frameworks?
     claude: false,
     pm: "npm",
     ...rest,
-    frameworks: frameworks.map((name) => frameworkNamed(name)!),
+    frameworks: frameworks.map((name) => frameworkNamed(name) ?? expect.unreachable(name)),
   };
 };
 
 describe("the project files", () => {
   it("writes a starter droplet per framework, with a server load", () => {
     const files = Object.keys(projectFiles(choices({ frameworks: FRAMEWORKS.map((f) => f.name) })));
-    for (const droplet of ["hello-svelte", "hello-vue", "hello-react", "hello-preact", "hello-solid", "hello-hono", "hello-handlebars", "hello-lit"]) {
+    for (const droplet of [
+      "hello-svelte",
+      "hello-vue",
+      "hello-react",
+      "hello-preact",
+      "hello-solid",
+      "hello-hono",
+      "hello-handlebars",
+      "hello-lit",
+    ]) {
       expect(files.filter((file) => file.startsWith(`src/droplets/${droplet}/`)).length, droplet).toBe(2);
       expect(files).toContain(`src/droplets/${droplet}/+droplet.server.ts`);
     }
@@ -47,18 +56,27 @@ describe("the project files", () => {
     ]);
     const all = projectFiles(choices({ claude: true, adapters: ["node", "cloudflare"] }));
     expect(all["CLAUDE.md"]).toBe("@AGENTS.md\n");
-    expect(JSON.parse(all["wrangler.jsonc"]!)).toMatchObject({ name: "acme-widgets", main: "dist/worker.js" });
+    expect(JSON.parse(all["wrangler.jsonc"] ?? expect.unreachable("wrangler.jsonc"))).toMatchObject({
+      name: "acme-widgets",
+      main: "dist/worker.js",
+    });
   });
 
   it("has the package manager install only versions 7 days old, Droplets' own exempt", () => {
     expect(packageManagerFiles("npm")[".npmrc"]).toMatch(/^min-release-age=7\nmin-release-age-exclude=@dropletsjs\/\*\n$/m);
-    expect(packageManagerFiles("pnpm")["pnpm-workspace.yaml"]).toMatch(/^minimumReleaseAge: 10080\nminimumReleaseAgeExclude:\n  - "@dropletsjs\/\*"\n$/m);
-    expect(packageManagerFiles("yarn")[".yarnrc.yml"]).toMatch(/^npmMinimalAgeGate: 10080\nnpmPreapprovedPackages:\n  - "@dropletsjs\/\*"\n$/m);
-    const bun = packageManagerFiles("bun")["bunfig.toml"]!;
+    expect(packageManagerFiles("pnpm")["pnpm-workspace.yaml"]).toMatch(
+      /^minimumReleaseAge: 10080\nminimumReleaseAgeExclude:\n {2}- "@dropletsjs\/\*"\n$/m,
+    );
+    expect(packageManagerFiles("yarn")[".yarnrc.yml"]).toMatch(
+      /^npmMinimalAgeGate: 10080\nnpmPreapprovedPackages:\n {2}- "@dropletsjs\/\*"\n$/m,
+    );
+    const bun = packageManagerFiles("bun")["bunfig.toml"] ?? expect.unreachable("bunfig.toml");
     expect(bun).toMatch(/^\[install\]\n/);
     expect(bun).toContain("\nminimumReleaseAge = 604800\n");
     expect(bun).toMatch(/^minimumReleaseAgeExcludes = \[.*"@dropletsjs\/droplets".*"@dropletsjs\/renderer-lit".*\]$/m);
-    const deno = JSON.parse(packageManagerFiles("deno")["deno.json"]!) as { minimumDependencyAge: { age: string; exclude: string[] } };
+    const deno = JSON.parse(packageManagerFiles("deno")["deno.json"] ?? expect.unreachable("deno.json")) as {
+      minimumDependencyAge: { age: string; exclude: string[] };
+    };
     expect(deno.minimumDependencyAge.age).toBe("P7D");
     expect(deno.minimumDependencyAge.exclude).toHaveLength(14);
     expect(deno.minimumDependencyAge.exclude).toContain("npm:@dropletsjs/adapter-deno");
@@ -142,7 +160,8 @@ describe("the project files", () => {
   });
 
   it("extends .droplets/ and turns JSX on for the first JSX framework", () => {
-    const parse = (text: string) => JSON.parse(text.replace(/^\s*\/\/.*$/gm, "")) as { extends: string; compilerOptions: Record<string, unknown>; include: string[] };
+    const parse = (text: string) =>
+      JSON.parse(text.replace(/^\s*\/\/.*$/gm, "")) as { extends: string; compilerOptions: Record<string, unknown>; include: string[] };
     const svelte = parse(tsconfig(choices()));
     expect(svelte.extends).toBe("./.droplets/tsconfig.json");
     expect(svelte.compilerOptions).not.toHaveProperty("jsx");
@@ -157,7 +176,9 @@ describe("AGENTS.md", () => {
   it("opens with the one-framework rule", () => {
     const text = agentsMd(choices({ frameworks: ["svelte", "react"] }));
     const first = text.indexOf("## ");
-    expect(text.slice(first)).toMatch(/^## The first rule: one framework per droplet\n\n\*\*Always import only the droplet's own framework in its code\.\*\*/);
+    expect(text.slice(first)).toMatch(
+      /^## The first rule: one framework per droplet\n\n\*\*Always import only the droplet's own framework in its code\.\*\*/,
+    );
     expect(text).toContain("src/lib/api.ts");
     expect(text).toContain("src/lib/react/Card.tsx");
   });

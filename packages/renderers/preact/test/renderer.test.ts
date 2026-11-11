@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { importsPackage, validateRenderers } from "@dropletsjs/droplets";
 import { readExportedFlags } from "@dropletsjs/droplets/vite";
 import type { ClientRenderContext, DropletChildrenHost, DropletRenderer, ServerRenderContext } from "@dropletsjs/droplets";
-import { Fragment, h, type ComponentChildren, type VNode } from "preact";
+import { type ComponentChild, Fragment, h, type ComponentChildren, type VNode } from "preact";
 import { useState } from "preact/hooks";
 import type { Plugin } from "vite";
 import { preact } from "../src/index.ts";
@@ -40,9 +40,15 @@ describe("preact()", () => {
   });
 
   it("shares .tsx with React: a component is Preact's when it imports preact or names it as its JSX source", () => {
-    const react = { name: "react", extensions: [".tsx", ".jsx"], packages: ["react", "react-dom"], server: "s", client: "c" } satisfies DropletRenderer;
+    const react = {
+      name: "react",
+      extensions: [".tsx", ".jsx"],
+      packages: ["react", "react-dom"],
+      server: "s",
+      client: "c",
+    } satisfies DropletRenderer;
     const renderer = preact();
-    const group = validateRenderers([react, renderer]).get(".tsx")!;
+    const group = validateRenderers([react, renderer]).get(".tsx") ?? expect.unreachable(".tsx");
     expect(group).toEqual([react, renderer]);
     // Core gives a shared-extension component to the renderer whose package it names.
     const owner = (source: string) => group.filter((r) => (r.packages ?? []).some((pkg) => importsPackage(source, pkg))).map((r) => r.name);
@@ -55,8 +61,7 @@ describe("preact()", () => {
 });
 
 type Hook = (this: unknown, ...args: unknown[]) => Promise<unknown>;
-const handlerOf = (hook: Plugin["transform"]): Hook =>
-  (typeof hook === "function" ? hook : (hook as { handler: Hook }).handler) as Hook;
+const handlerOf = (hook: Plugin["transform"]): Hook => (typeof hook === "function" ? hook : (hook as { handler: Hook }).handler) as Hook;
 const inEnvironment = (consumer: "client" | "server") => ({ environment: { config: { consumer } } });
 
 describe("the Vite plugin", () => {
@@ -106,12 +111,7 @@ function Hello({ data, children }: { data: { greeting: string }; children?: Comp
 
 /** `+error.tsx` with two roots. */
 function Oops({ error, children }: { error: { message: string }; children?: ComponentChildren }): VNode {
-  return h(
-    Fragment,
-    null,
-    h("p", { "data-testid": "error" }, error.message),
-    h("div", { "data-testid": "error-children" }, children),
-  );
+  return h(Fragment, null, h("p", { "data-testid": "error" }, error.message), h("div", { "data-testid": "error-children" }, children));
 }
 
 describe("render()", () => {
@@ -238,7 +238,12 @@ describe("mount()", () => {
     let release!: (value: { greeting: string }) => void;
     const data = new Promise<{ greeting: string }>((resolve) => (release = resolve));
     const rendering = vi.fn((run: () => unknown) => run());
-    const pending = mount({ default: Hello }, target, { data }, clientContext(host, [], "droplet", { rendering: rendering as ClientRenderContext["rendering"] }));
+    const pending = mount(
+      { default: Hello },
+      target,
+      { data },
+      clientContext(host, [], "droplet", { rendering: rendering as ClientRenderContext["rendering"] }),
+    );
     expect(pending).toBeInstanceOf(Promise);
     await flush();
     expect(target.innerHTML).toBe("");
@@ -272,13 +277,15 @@ describe("mount()", () => {
 
   it("rejects with a rejected data when there is no error page", async () => {
     const target = newTarget();
-    await expect(mount({ default: Hello }, target, { data: Promise.reject(new Error("down")) }, clientContext(fakeHost()))).rejects.toThrow("down");
+    await expect(mount({ default: Hello }, target, { data: Promise.reject(new Error("down")) }, clientContext(fakeHost()))).rejects.toThrow(
+      "down",
+    );
     expect(target.innerHTML).toBe("");
   });
 
   it("puts the droplet under an error boundary when it has an error page", async () => {
     let explode!: () => void;
-    function Fragile({ children }: { data: unknown; children?: ComponentChildren }): VNode<any> {
+    function Fragile({ children }: { data: unknown; children?: ComponentChildren }): ComponentChild {
       const [broken, setBroken] = useState(false);
       explode = () => setBroken(true);
       if (broken) throw new Error("render failed");
@@ -287,9 +294,14 @@ describe("mount()", () => {
     const target = newTarget();
     const handle = vi.fn(async () => ({ message: "Sorry" }));
     const host = fakeHost();
-    const instance = mount({ default: Fragile }, target, { data: {} }, clientContext(host, [], "droplet", {
-      error: { module: { default: Oops }, handle },
-    })) as PreactInstance;
+    const instance = mount(
+      { default: Fragile },
+      target,
+      { data: {} },
+      clientContext(host, [], "droplet", {
+        error: { module: { default: Oops }, handle },
+      }),
+    ) as PreactInstance;
     expect(q(target, "fragile")).not.toBeNull();
 
     explode();
@@ -313,7 +325,7 @@ describe("hydrate()", () => {
     const target = newTarget();
     target.innerHTML = String(render({ default: Hello }, { data: { greeting: "Hi" } }, serverContext()));
     // The element took the host's container out before hydrating: an empty marker.
-    const serverMarker = target.querySelector("[data-droplet-children]")!;
+    const serverMarker = target.querySelector("[data-droplet-children]") ?? expect.unreachable("the children marker");
     const order: string[] = [];
     const host: DropletChildrenHost = {
       fill: (marker) => order.push(`fill:${marker === serverMarker ? "same" : "other"}:${marker.isConnected}`),
@@ -346,7 +358,7 @@ describe("hydrate()", () => {
     const target = newTarget();
     target.innerHTML = String(render({ default: Oops }, { error: { message: "no" } }, serverContext("error")));
     const p = q(target, "error");
-    const marker = target.querySelector("[data-droplet-children]")!;
+    const marker = target.querySelector("[data-droplet-children]") ?? expect.unreachable("the children marker");
     const host = fakeHost();
     const instance = hydrate({ default: Oops }, target, { error: { message: "no" } }, clientContext(host, [marker], "error"));
     expect(q(target, "error")).toBe(p);

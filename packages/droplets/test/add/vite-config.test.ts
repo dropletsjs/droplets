@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { frameworkNamed } from "../../src/add/catalog.ts";
 import { addRenderer } from "../../src/add/vite-config.ts";
 
-const react = frameworkNamed("react")!;
-const hono = frameworkNamed("hono-jsx")!;
+const react = frameworkNamed("react") ?? expect.unreachable("react");
+const hono = frameworkNamed("hono-jsx") ?? expect.unreachable("hono-jsx");
 
 const config = (renderers: string, extra = "") => `import { defineConfig } from "vite";
 import { droplets } from "@dropletsjs/droplets/vite";
@@ -58,7 +58,7 @@ describe("addRenderer()", () => {
     manual(config("...shared"));
     manual(config("renderers: [svelte()]", `import { react } from "./my-react.ts";`));
     manual(config("renderers: [svelte()]").replace('from "@dropletsjs/droplets/vite"', 'from "./wrapped.ts"'));
-    manual(config("renderers: [svelte()]") + "export const other = droplets({});\n");
+    manual(`${config("renderers: [svelte()]")}export const other = droplets({});\n`);
     manual("export default {{{");
   });
 });

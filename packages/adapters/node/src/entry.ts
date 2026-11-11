@@ -16,8 +16,7 @@ const runtimeRoot = dirname(fileURLToPath(import.meta.url));
 
 const paths = {
   clientRoot: resolve(runtimeRoot, "client"),
-  ssrEntryUrl: pathToFileURL(resolve(runtimeRoot, "server/entry-server.js"))
-    .href,
+  ssrEntryUrl: pathToFileURL(resolve(runtimeRoot, "server/entry-server.js")).href,
 };
 
 const config = resolveConfig(userConfig ?? {}, { port: process.env["PORT"] });

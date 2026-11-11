@@ -102,35 +102,47 @@ describe("buildServerCode", () => {
   });
 
   it("refuses an entry whose renderer is not configured", () => {
-    expect(() => buildServerCode([entry({ renderer: "gone" })], "/src/droplets", { renderers })).toThrow(
-      /no renderer named "gone"/,
-    );
+    expect(() => buildServerCode([entry({ renderer: "gone" })], "/src/droplets", { renderers })).toThrow(/no renderer named "gone"/);
   });
 
   it("imports API routes and the hooks file", () => {
     const code = buildServerCode([], "/src/droplets", {
       apiGlobRoot: "/src/api",
       apiRoutes: [
-        { id: "/api/users/[id]", file: "users/[id]/+server.ts", segments: [{ type: "static", value: "api" }, { type: "static", value: "users" }, { type: "param", name: "id" }] },
+        {
+          id: "/api/users/[id]",
+          file: "users/[id]/+server.ts",
+          segments: [
+            { type: "static", value: "api" },
+            { type: "static", value: "users" },
+            { type: "param", name: "id" },
+          ],
+        },
       ],
       hooksFile: "/src/hooks.server.ts",
     });
     expect(code).toContain('import * as api_0 from "/src/api/users/[id]/+server.ts";');
-    expect(code).toContain('{ id: "/api/users/[id]", segments: [{"type":"static","value":"api"},{"type":"static","value":"users"},{"type":"param","name":"id"}], module: api_0 },');
+    expect(code).toContain(
+      '{ id: "/api/users/[id]", segments: [{"type":"static","value":"api"},{"type":"static","value":"users"},{"type":"param","name":"id"}], module: api_0 },',
+    );
     expect(code).toContain('import * as hooks from "/src/hooks.server.ts";');
     expect(code).toContain("export { hooks };");
     expect(code).not.toContain("errorComponent");
   });
 
   it("imports each droplet's own error page, rendered by the droplet's renderer", () => {
-    const code = buildServerCode([
-      entry({
-        id: "hello",
-        name: "hello",
-        hasError: true,
-        errorFile: "+error.svelte",
-      }),
-    ], "/src/droplets", { renderers });
+    const code = buildServerCode(
+      [
+        entry({
+          id: "hello",
+          name: "hello",
+          hasError: true,
+          errorFile: "+error.svelte",
+        }),
+      ],
+      "/src/droplets",
+      { renderers },
+    );
     expect(code).toContain('import * as error_0 from "/src/droplets/hello/+error.svelte";');
     expect(code).toContain("error: error_0,");
     expect(code).not.toContain("errorRenderer");
@@ -155,15 +167,10 @@ describe("buildClientDevCode", () => {
 
 describe("buildClientCode", () => {
   it("lists ids and hydration flags with the build hash", () => {
-    const code = buildClientCode(
-      [entry({ id: "a" }), entry({ id: "b", hydrate: false })],
-      "h4sh",
-    );
+    const code = buildClientCode([entry({ id: "a" }), entry({ id: "b", hydrate: false })], "h4sh");
     expect(code).toContain('export const buildHash = "h4sh";');
     expect(code).toContain('export const elementName = "djs-droplet";');
-    expect(buildClientCode([], "x", "acme-widget")).toContain(
-      'export const elementName = "acme-widget";',
-    );
+    expect(buildClientCode([], "x", "acme-widget")).toContain('export const elementName = "acme-widget";');
     // What only `vite dev` reads is in `virtual:droplets-dev`, which nothing but the dev module imports.
     expect(code).not.toMatch(/strategy|injectTool|toolUrl/i);
     expect(code).toContain('export const dropletsById = {\n  "a": true,\n  "b": true,\n};');
@@ -267,7 +274,7 @@ describe("createClientModuleCode", () => {
     expect(code).toContain('import * as errorComponent from "/src/droplets/s/+error.tsx?droplets-renderer=solid";');
     const server = buildServerCode([droplet], "/src/droplets", { renderers: both });
     expect(server).toContain('from "/src/droplets/s/+droplet.tsx?droplets-renderer=solid";');
-    expect(createClientModuleCode("/src/droplets", droplet, [both[1]!])).toContain(
+    expect(createClientModuleCode("/src/droplets", droplet, [both[1] ?? expect.unreachable("the solid renderer")])).toContain(
       'import * as component from "/src/droplets/s/+droplet.tsx";',
     );
   });
@@ -331,9 +338,7 @@ describe("mayImportServerOnly", () => {
 describe("buildConfigCode", () => {
   it("imports the user's config or exports an empty object", () => {
     expect(buildConfigCode(null)).toBe("export default {};\n");
-    expect(buildConfigCode("/p/droplets.config.ts")).toContain(
-      'import userConfig from "/p/droplets.config.ts";',
-    );
+    expect(buildConfigCode("/p/droplets.config.ts")).toContain('import userConfig from "/p/droplets.config.ts";');
   });
 });
 
@@ -354,10 +359,7 @@ describe("virtualModulesPlugin", () => {
     },
   });
   const resolveId = (id: string) => resolveIdIn.call(withConsumer("server"), id);
-  const load = plugin.load as (
-    this: { environment: { config: { consumer: string } } },
-    id: string,
-  ) => Promise<string | null>;
+  const load = plugin.load as (this: { environment: { config: { consumer: string } } }, id: string) => Promise<string | null>;
   const server = { environment: { config: { consumer: "server" } } };
   const client = { environment: { config: { consumer: "client" } } };
 
@@ -376,9 +378,9 @@ describe("virtualModulesPlugin", () => {
     expect(resolveId("$droplets/env/public")).toBe("\0$droplets/env/public");
     expect(resolveId("$droplets/env/private")).toBe("\0$droplets/env/private");
     expect(resolveIdIn.call(withConsumer("client"), "$droplets/env/public")).toBe("\0$droplets/env/public");
-    expect(() =>
-      resolveIdIn.call(withConsumer("client"), "$droplets/env/private", "/src/droplets/x/+droplet.ts"),
-    ).toThrow(/\$droplets\/env\/private can only be imported by server files/);
+    expect(() => resolveIdIn.call(withConsumer("client"), "$droplets/env/private", "/src/droplets/x/+droplet.ts")).toThrow(
+      /\$droplets\/env\/private can only be imported by server files/,
+    );
   });
 
   it("generates the env modules from the declaration", async () => {
@@ -403,9 +405,9 @@ describe("virtualModulesPlugin", () => {
 
   it("resolves $droplets/server for server code and refuses it in the browser", () => {
     expect(resolveId("$droplets/server")).toMatch(/runtime[\\/]server\.js$/);
-    expect(() =>
-      resolveIdIn.call(withConsumer("client"), "$droplets/server", "/src/droplets/x/+droplet.svelte"),
-    ).toThrow(/can only be imported by server files.*\+droplet\.svelte/);
+    expect(() => resolveIdIn.call(withConsumer("client"), "$droplets/server", "/src/droplets/x/+droplet.svelte")).toThrow(
+      /can only be imported by server files.*\+droplet\.svelte/,
+    );
   });
 
   it("refuses server-only modules to project files that are not server files, on the server too", () => {
@@ -430,9 +432,7 @@ describe("virtualModulesPlugin", () => {
     // Only the server reads the build flag; the browser never prerenders.
     expect(env).toContain('export const building = import.meta.env.SSR && globalThis[Symbol.for("droplets.building")] === true;');
     expect(await load.call(client, `\0${VIRTUAL_CSS}`)).toBe('import "./src/app.css";\n');
-    expect(await load.call(server, `\0${VIRTUAL_CONFIG}`)).toContain(
-      'import userConfig from "/proj/droplets.config.ts";',
-    );
+    expect(await load.call(server, `\0${VIRTUAL_CONFIG}`)).toContain('import userConfig from "/proj/droplets.config.ts";');
     // The dev loader carries where it was loaded from and the dynamic public env the way
     // the built /index.js route does: first, then the entry through a dynamic import.
     const loader = await load.call(client, "\0droplets:loader");
@@ -453,8 +453,16 @@ describe("virtualModulesPlugin", () => {
     // No Tailwind: no stylesheet to fall back to.
     expect(await sheet(() => {})).toBe("");
     // With scoping on, the full Tailwind (reset included) is confined to the element.
-    expect(await sheet((s) => { s.tailwind.ours = true; })).toBe('@import "tailwindcss";\n');
-    expect(await sheet((s) => { s.tailwind.user = true; })).toBe('@import "tailwindcss";\n');
+    expect(
+      await sheet((s) => {
+        s.tailwind.ours = true;
+      }),
+    ).toBe('@import "tailwindcss";\n');
+    expect(
+      await sheet((s) => {
+        s.tailwind.user = true;
+      }),
+    ).toBe('@import "tailwindcss";\n');
     // Without scoping, the reset would restyle the pages that embed droplets.
     const unscoped = await sheet((s) => {
       s.tailwind.ours = true;
@@ -463,10 +471,12 @@ describe("virtualModulesPlugin", () => {
     expect(unscoped).toContain('@import "tailwindcss/utilities"');
     expect(unscoped).not.toContain('@import "tailwindcss";');
     // Without preflight, by choice.
-    expect(await sheet((s) => {
-      s.tailwind.ours = true;
-      s.css = { ...s.css, twPreflight: false };
-    })).not.toContain('@import "tailwindcss";');
+    expect(
+      await sheet((s) => {
+        s.tailwind.ours = true;
+        s.css = { ...s.css, twPreflight: false };
+      }),
+    ).not.toContain('@import "tailwindcss";');
   });
 
   it("generates a client module per discovered droplet folder", async () => {
@@ -555,7 +565,11 @@ describe("$droplets/form", () => {
       expect(() => actionUrl("a&b")).toThrow(/is not an action name/);
     });
     // The page of `event.host` (tokens at build), last, as `__droplet_return`; a prop by that name never replaces it.
-    const onPage = { ...info, page: "https://shop.example/p/1", render: { droplet: "cart", props: { __droplet_return: "https://evil.example/" } } };
+    const onPage = {
+      ...info,
+      page: "https://shop.example/p/1",
+      render: { droplet: "cart", props: { __droplet_return: "https://evil.example/" } },
+    };
     withRequestInfo(onPage, () => {
       expect(actionUrl("add")).toBe("https://drops.example/mfe/droplets/cart?/add&__droplet_return=https%3A%2F%2Fshop.example%2Fp%2F1");
     });

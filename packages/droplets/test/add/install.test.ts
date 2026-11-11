@@ -50,23 +50,22 @@ describe("the package manager", () => {
     mkdirSync(join(top, "app"));
     expect(coreVersion(join(top, "app"))).toBe("1.0.0-alpha.3");
 
-    const react = frameworkNamed("react")!;
+    const react = frameworkNamed("react") ?? expect.unreachable("react");
     expect(missingPackages(join(top, "app"), react)).toEqual({
       dependencies: ["react@^19.0.0", "react-dom@^19.0.0"],
       devDependencies: ["@dropletsjs/renderer-react@1.0.0-alpha.3", "@types/react@^19.0.0", "@types/react-dom@^19.0.0"],
     });
-    expect(installCommand("npm", missingPackages(join(top, "app"), frameworkNamed("vue")!).devDependencies, true)).toEqual([
-      "npm",
-      "install",
-      "--save-dev",
-      "@dropletsjs/renderer-vue@1.0.0-alpha.3",
-    ]);
+    expect(
+      installCommand("npm", missingPackages(join(top, "app"), frameworkNamed("vue") ?? expect.unreachable("vue")).devDependencies, true),
+    ).toEqual(["npm", "install", "--save-dev", "@dropletsjs/renderer-vue@1.0.0-alpha.3"]);
   });
 
   it("falls back to the version of the core running djs", () => {
     const own = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version: string };
     const lone = mkdtempSync(join(tmpdir(), "djs-lone-"));
     expect(coreVersion(lone)).toBe(own.version);
-    expect(missingPackages(lone, frameworkNamed("svelte")!).devDependencies).toEqual([`@dropletsjs/renderer-svelte@${own.version}`]);
+    expect(missingPackages(lone, frameworkNamed("svelte") ?? expect.unreachable("svelte")).devDependencies).toEqual([
+      `@dropletsjs/renderer-svelte@${own.version}`,
+    ]);
   });
 });

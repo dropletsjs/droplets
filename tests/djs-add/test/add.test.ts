@@ -34,7 +34,8 @@ const CASES = {
   built: ["--target", "ssg", "--with", "server"],
 } as const;
 
-const djs = (args: string[]) => exec(bin("djs"), [...args, "--root", project], { cwd: project, env: { ...process.env, npm_config_user_agent: "pnpm/10" } });
+const djs = (args: string[]) =>
+  exec(bin("djs"), [...args, "--root", project], { cwd: project, env: { ...process.env, npm_config_user_agent: "pnpm/10" } });
 
 let server: ChildProcess | undefined;
 const PORT = 8251;
@@ -86,12 +87,19 @@ describe("djs add", () => {
   });
 
   it("writes a script droplet without a renderer, and refuses what cannot apply to one", async () => {
-    expect(readFileSync(`${project}/src/droplets/script-plain/+droplet.script.ts`, "utf8")).toContain("const run: DropletScript = (_data, el) => {");
+    expect(readFileSync(`${project}/src/droplets/script-plain/+droplet.script.ts`, "utf8")).toContain(
+      "const run: DropletScript = (_data, el) => {",
+    );
     const loaded = readFileSync(`${project}/src/droplets/script-loaded/+droplet.script.ts`, "utf8");
     expect(loaded).toContain('export const hydrate = "visible";');
     expect(loaded).toContain('import "./style.css";');
     expect(loaded).not.toContain("export const ssr");
-    for (const args of [["--target", "ssr"], ["--hydrate", "none"], ["--hydrate", "interactive"], ["--with", "error"]]) {
+    for (const args of [
+      ["--target", "ssr"],
+      ["--hydrate", "none"],
+      ["--hydrate", "interactive"],
+      ["--with", "error"],
+    ]) {
       await expect(djs(["add", "script-x", "--framework", "script", ...args, "--yes"]), args.join(" ")).rejects.toMatchObject({
         stderr: expect.stringMatching(/script droplet/),
       });
@@ -106,7 +114,13 @@ describe("djs add", () => {
     await exec(bin("vite"), ["build"], { cwd: project });
     server = spawn(process.execPath, ["dist/server.js"], { cwd: project, env: { ...process.env, PORT: String(PORT) }, stdio: "ignore" });
     for (let i = 0; i < 100; i++) {
-      if (await get("/health").then((r) => r.ok, () => false)) break;
+      if (
+        await get("/health").then(
+          (r) => r.ok,
+          () => false,
+        )
+      )
+        break;
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     for (const framework of FRAMEWORKS) {

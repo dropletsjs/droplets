@@ -50,14 +50,15 @@ describe("describeMode", () => {
 
 describe("props", () => {
   it("encode as a query string, non-strings as JSON", () => {
-    expect(propsToQuery({ who: "Ana B", n: 2, tags: ["a"], "": "skip" })).toBe(
-      "who=Ana+B&n=2&tags=%5B%22a%22%5D",
-    );
+    expect(propsToQuery({ who: "Ana B", n: 2, tags: ["a"], "": "skip" })).toBe("who=Ana+B&n=2&tags=%5B%22a%22%5D");
   });
 
   it("round-trip through builder rows", () => {
     const rows = rowsFromProps({ who: "Ana", n: 2 });
-    expect(rows).toEqual([{ key: "who", value: "Ana" }, { key: "n", value: "2" }]);
+    expect(rows).toEqual([
+      { key: "who", value: "Ana" },
+      { key: "n", value: "2" },
+    ]);
     expect(propsFromRows([...rows, { key: "  ", value: "x" }, { key: " who ", value: "Bo" }])).toEqual({
       who: "Bo",
       n: "2",

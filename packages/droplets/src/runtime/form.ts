@@ -159,12 +159,7 @@ export function actionHref(
 }
 
 /** The `actionUrl` of one render: `droplet` at `location`, with its props, on `page`. */
-export function actionUrlFor(
-  location: string,
-  droplet: string,
-  props: Record<string, unknown> | undefined,
-  page?: string,
-): ActionUrl {
+export function actionUrlFor(location: string, droplet: string, props: Record<string, unknown> | undefined, page?: string): ActionUrl {
   return (name) => actionHref(location, droplet, props, name, page);
 }
 

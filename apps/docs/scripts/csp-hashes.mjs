@@ -54,7 +54,11 @@ const NEEDS_DEMO = ["script-src", "style-src", "connect-src", "form-action"];
 const DATA_OK = ["img-src", "font-src"];
 const csp = /Content-Security-Policy:\s*(.+)/.exec(headers)?.[1] ?? "";
 const directives = new Map(
-  csp.split(";").map((part) => part.trim().split(/\s+/)).filter(([name]) => name).map(([name, ...values]) => [name, values]),
+  csp
+    .split(";")
+    .map((part) => part.trim().split(/\s+/))
+    .filter(([name]) => name)
+    .map(([name, ...values]) => [name, values]),
 );
 const problems = [];
 for (const name of NEEDS_DEMO) {

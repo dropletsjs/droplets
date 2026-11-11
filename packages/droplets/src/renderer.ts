@@ -653,9 +653,10 @@ export function validateRenderers(renderers: DropletRenderer[]): Map<string, Dro
       }
       const others = byExtension.get(extension) ?? [];
       const unpackaged = [...others, renderer].find((r) => !r.packages?.length);
-      if (others.length > 0 && unpackaged) {
+      const [other] = others;
+      if (other !== undefined && unpackaged) {
         throw new Error(
-          `droplets: renderers "${others[0]!.name}" and "${renderer.name}" both claim ${extension}, ` +
+          `droplets: renderers "${other.name}" and "${renderer.name}" both claim ${extension}, ` +
             `and "${unpackaged.name}" lists no packages to tell its components apart; keep one of them`,
         );
       }
@@ -691,8 +692,10 @@ function escapeRegExp(text: string): string {
 export function importsPackage(source: string, pkg: string): boolean {
   const name = escapeRegExp(pkg);
   const specifier = `(["'])${name}(?:/[^"']*)?\\1`;
-  return new RegExp(`(?:\\bfrom\\s*|\\bimport\\s*\\(?\\s*)${specifier}`).test(source) ||
-    new RegExp(`@jsxImportSource\\s+${name}(?:/\\S*)?(?=[\\s*]|$)`).test(source);
+  return (
+    new RegExp(`(?:\\bfrom\\s*|\\bimport\\s*\\(?\\s*)${specifier}`).test(source) ||
+    new RegExp(`@jsxImportSource\\s+${name}(?:/\\S*)?(?=[\\s*]|$)`).test(source)
+  );
 }
 
 /**
@@ -701,24 +704,39 @@ export function importsPackage(source: string, pkg: string): boolean {
  * error page) when none or several match and it is among them; else an
  * error that says what to add.
  */
-export function pickRenderer(
-  candidates: DropletRenderer[],
-  source: string,
-  file: string,
-  fallback?: DropletRenderer,
-): DropletRenderer {
-  if (candidates.length === 1) return candidates[0]!;
+export function pickRenderer(candidates: DropletRenderer[], source: string, file: string, fallback?: DropletRenderer): DropletRenderer {
+  const [only] = candidates;
+  if (only !== undefined && candidates.length === 1) return only;
   const matching = candidates.filter((r) => r.packages?.some((pkg) => importsPackage(source, pkg)));
-  if (matching.length === 1) return matching[0]!;
+  const [match] = matching;
+  if (match !== undefined && matching.length === 1) return match;
   if (fallback && candidates.includes(fallback) && (matching.length === 0 || matching.includes(fallback))) {
     return fallback;
   }
   const two = candidates.length === 2;
-  const names = listOf(candidates.map((r) => r.name), "and");
-  const hints = listOf(candidates.map((r) => r.packages![0]!), "or");
-  const imports = matching.length === 0
-    ? (two ? "imports neither" : "imports none of them")
-    : (two ? "imports from both" : `imports from ${listOf(matching.map((r) => r.name), "and")}`);
+  const names = listOf(
+    candidates.map((r) => r.name),
+    "and",
+  );
+  const hints = listOf(
+    candidates.map((r) => {
+      const pkg = r.packages?.[0];
+      if (pkg === undefined) throw new Error(`droplets: renderer "${r.name}" shares an extension and lists no packages`);
+      return pkg;
+    }),
+    "or",
+  );
+  const imports =
+    matching.length === 0
+      ? two
+        ? "imports neither"
+        : "imports none of them"
+      : two
+        ? "imports from both"
+        : `imports from ${listOf(
+            matching.map((r) => r.name),
+            "and",
+          )}`;
   throw new Error(
     `droplets: ${file}: ${names} ${two ? "both" : "all"} handle this file and it ${imports}; ` +
       `import from ${hints}, or add a /** @jsxImportSource <package> */ comment`,

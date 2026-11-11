@@ -19,11 +19,7 @@
  * Without it the form posts as any form does; on the server Solid does
  * not run directives.
  */
-import {
-  enhanceDropletForm as enhance,
-  type AnyEnhanceOptions,
-  type EnhanceOptions,
-} from "@dropletsjs/droplets/enhance";
+import { enhanceDropletForm as enhance, type AnyEnhanceOptions, type EnhanceOptions } from "@dropletsjs/droplets/enhance";
 import { onCleanup, type Accessor } from "solid-js";
 
 export function enhanceDropletForm(form: HTMLFormElement, value?: Accessor<EnhanceOptions | true | undefined>): void {
@@ -48,6 +44,7 @@ export function enhanceDropletForm(form: HTMLFormElement, value?: Accessor<Enhan
 declare module "solid-js" {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace JSX {
+    // biome-ignore lint/style/useConsistentTypeDefinitions: an augmentation of Solid's directives; `type` cannot merge.
     interface Directives {
       /** `use:enhanceDropletForm` or `use:enhanceDropletForm={{ action, onSubmit, onResult }}`. */
       enhanceDropletForm: EnhanceOptions | true;

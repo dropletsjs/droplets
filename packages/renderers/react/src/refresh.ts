@@ -86,12 +86,18 @@ export function reactRefreshPlugin(options: Options = {}, include?: RegExp): Plu
       // The shared options, as Vite's transform would apply them, minus its
       // own filter keys; refresh on for this module alone.
       const { include: _i, exclude: _e, jsxInject: _j, jsxRefreshInclude: _ri, jsxRefreshExclude: _re, ...oxc } = shared.oxc;
-      const result = await transformWithOxc(code, id, {
-        ...oxc,
-        lang: langOf(file),
-        jsx: { ...shared.jsx, refresh: true },
-        sourcemap: true,
-      }, undefined, shared.config);
+      const result = await transformWithOxc(
+        code,
+        id,
+        {
+          ...oxc,
+          lang: langOf(file),
+          jsx: { ...shared.jsx, refresh: true },
+          sourcemap: true,
+        },
+        undefined,
+        shared.config,
+      );
       return { code: result.code, map: result.map ?? null };
     },
   };

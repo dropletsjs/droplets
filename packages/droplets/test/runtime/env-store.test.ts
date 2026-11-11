@@ -22,9 +22,7 @@ describe("runtime env", () => {
 
   it("keeps its values on globalThis, so every copy of the module agrees", () => {
     setRuntimeEnv({ SHARED: "yes" });
-    const store = (globalThis as Record<symbol, { values?: Record<string, unknown> }>)[
-      Symbol.for("droplets.env")
-    ];
+    const store = (globalThis as Record<symbol, { values?: Record<string, unknown> }>)[Symbol.for("droplets.env")];
     expect(store?.values).toEqual({ SHARED: "yes" });
   });
 });

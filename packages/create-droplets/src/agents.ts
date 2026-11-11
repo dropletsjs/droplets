@@ -15,19 +15,19 @@ const FLAGS_WHERE: Record<Framework["name"], string> = {
   "hono-jsx": "named exports of the component file: `export const hydrate = true;`",
   handlebars: "the comment the template opens with: `{{!-- export hydrate = true --}}`",
   lit: "named exports of the component file: `export const hydrate = true;`",
-  script: "named exports of `+droplet.script.ts`: `export const hydrate = \"visible\";` (no `ssr`)",
+  script: 'named exports of `+droplet.script.ts`: `export const hydrate = "visible";` (no `ssr`)',
 };
 
 const STYLES_WHERE: Record<Framework["name"], string> = {
   svelte: "a `<style>` block",
   vue: "a `<style>` block (`scoped` works)",
-  react: "`import \"./style.css\"` in the component",
-  preact: "`import \"./style.css\"` in the component",
-  solid: "`import \"./style.css\"` in the component",
-  "hono-jsx": "`import \"./style.css\"` in the component",
-  handlebars: "a `<style>` block, inline or `<style src=\"./x.css\"></style>`, at the top of the template",
+  react: '`import "./style.css"` in the component',
+  preact: '`import "./style.css"` in the component',
+  solid: '`import "./style.css"` in the component',
+  "hono-jsx": '`import "./style.css"` in the component',
+  handlebars: 'a `<style>` block, inline or `<style src="./x.css"></style>`, at the top of the template',
   lit: "`static styles`, with Lit's `css` tag, in the class: the component renders in a shadow root, which page and droplet stylesheets never reach (CSS custom properties do)",
-  script: "`import \"./style.css\"` in the script",
+  script: '`import "./style.css"` in the script',
 };
 
 export function agentsMd(choices: Choices): string {
@@ -36,7 +36,8 @@ export function agentsMd(choices: Choices): string {
   const frameworks = choices.frameworks.map((f) => f.label).join(", ");
   const adapters = ADAPTERS.filter((a) => choices.adapters.includes(a.value)).map((a) => a.value);
   const jsx = choices.frameworks.filter((f) => f.jsxImportSource);
-  const example = choices.frameworks[0]!;
+  const [example] = choices.frameworks;
+  if (example === undefined) throw new Error("create-droplets: no framework chosen");
   const lines: string[] = [
     "# AGENTS.md",
     "",
@@ -113,7 +114,7 @@ export function agentsMd(choices: Choices): string {
     "| Flag | Default | Meaning |",
     "| --- | --- | --- |",
     "| `ssr` | `true` | `false`: nothing rendered on the server |",
-    "| `hydrate` | `true` | `false`: no JavaScript; `\"visible\"` or `\"interactive\"`: later |",
+    '| `hydrate` | `true` | `false`: no JavaScript; `"visible"` or `"interactive"`: later |',
     "| `prerender` | `false` | `true`: rendered at build for the events `entries` returns (`{ props, host }`) |",
     "",
     ...choices.frameworks.map((f) => `- ${f.label}: ${FLAGS_WHERE[f.name]}`),
@@ -133,12 +134,12 @@ export function agentsMd(choices: Choices): string {
     "",
     "- Types come from the generated `./$types`: `DropletProps` for the component,",
     "  `LoadEvent` for the server load, `DropletLoadEvent` for the universal one.",
-    "  Import them (`import type { DropletProps } from \"./$types\"`); never write",
+    '  Import them (`import type { DropletProps } from "./$types"`); never write',
     "  the shapes by hand.",
     "- `data` is a value when hydrating and a promise when the droplet mounts from",
     "  scratch in the browser (Lit's renderer waits for it: always a value there);",
     "  the starter droplets show the pattern for each framework.",
-    "- `error(404, \"…\")` from `$droplets/server` in a load shows `+error.<ext>`;",
+    '- `error(404, "…")` from `$droplets/server` in a load shows `+error.<ext>`;',
     "  `handleError` in `+droplet.server.ts` decides what the error page receives.",
     "- `host` is where the droplet renders (the host page, a `URL`); this server",
     "  is `droplet.url(…)`. While prerendering only `host.origin`, `host.pathname`",
@@ -150,10 +151,10 @@ export function agentsMd(choices: Choices): string {
     "- Props, `host` and form fields come from the request: check them (a schema,",
     "  `typeof`), look request-chosen keys up with `Object.hasOwn`, never use them",
     "  to decide who may see or do what.",
-    "- In the browser a relative `fetch(\"/api/…\")` reaches the host page, not this",
-    "  server: build URLs with `droplet.url(\"/api/…\")` from `$droplets/drop`.",
-    "- A `<form method=\"post\">` posts to the host page unless its `action` is",
-    "  `actionUrl(\"name\")` from `$droplets/form` (`{{action \"name\"}}` in Handlebars):",
+    '- In the browser a relative `fetch("/api/…")` reaches the host page, not this',
+    '  server: build URLs with `droplet.url("/api/…")` from `$droplets/drop`.',
+    '- A `<form method="post">` posts to the host page unless its `action` is',
+    '  `actionUrl("name")` from `$droplets/form` (`{{action "name"}}` in Handlebars):',
     "  the URL of `actions.name` in +droplet.server.ts on this server. In the browser",
     "  `actionUrl` knows the droplet only while it renders: call it as the component",
     "  sets up. Forms post natively; `enhanceDropletForm` (or the renderer's `/form`",

@@ -18,10 +18,12 @@ describe("settle", () => {
   it("rejects with the first rejection as thrown, after every field settled", async () => {
     const order: string[] = [];
     const answer = { status: 404 };
-    const late = new Promise((_, reject) => setTimeout(() => {
-      order.push("late");
-      reject(new Error("late"));
-    }, 5));
+    const late = new Promise((_, reject) =>
+      setTimeout(() => {
+        order.push("late");
+        reject(new Error("late"));
+      }, 5),
+    );
     await expect(settle({ first: Promise.reject(answer), late })).rejects.toBe(answer);
     // `late` was listened to: no unhandled rejection, and it was awaited.
     expect(order).toEqual(["late"]);

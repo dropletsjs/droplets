@@ -15,10 +15,9 @@ export type ConfigEdit = { code: string } | { manual: string };
 
 /** What to write by hand when the config is not one `djs add` can edit. */
 export function manualSteps(framework: Framework): string {
-  return [
-    `import { ${framework.factory} } from "${framework.package}";`,
-    `droplets({ renderers: [/* … */ ${framework.factory}()] })`,
-  ].join("\n");
+  return [`import { ${framework.factory} } from "${framework.package}";`, `droplets({ renderers: [/* … */ ${framework.factory}()] })`].join(
+    "\n",
+  );
 }
 
 function isNode(value: unknown): value is Node {
@@ -78,10 +77,11 @@ export function addRenderer(source: string, file: string, framework: Framework):
   if (taken !== undefined && taken !== framework.package) return manual;
 
   const calls = [...walk(program)].filter(
-    (node) => node.type === "CallExpression" && (node["callee"] as Node).type === "Identifier" && (node["callee"] as Node)["name"] === droplets,
+    (node) =>
+      node.type === "CallExpression" && (node["callee"] as Node).type === "Identifier" && (node["callee"] as Node)["name"] === droplets,
   );
-  if (calls.length !== 1) return manual;
-  const call = calls[0]!;
+  const [call] = calls;
+  if (call === undefined || calls.length !== 1) return manual;
   const args = call["arguments"] as Node[];
   const entry = `${framework.factory}()`;
 
@@ -90,8 +90,8 @@ export function addRenderer(source: string, file: string, framework: Framework):
   if (args.length === 0) {
     edits.push([call.end - 1, `{ renderers: [${entry}] }`]);
   } else {
-    const options = args[0]!;
-    if (options.type !== "ObjectExpression") return manual;
+    const [options] = args;
+    if (options === undefined || options.type !== "ObjectExpression") return manual;
     const properties = options["properties"] as Node[];
     const renderers = properties.find((property) => keyName(property) === "renderers");
     if (!renderers) {

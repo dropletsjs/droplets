@@ -5,9 +5,7 @@ export const props = {
     vendor: "fixture",
     validate(value: unknown) {
       const page = Number((value as { page?: unknown }).page ?? 1);
-      return Number.isInteger(page) && page > 0
-        ? { value: { page } }
-        : { issues: [{ message: "Expected a page number", path: ["page"] }] };
+      return Number.isInteger(page) && page > 0 ? { value: { page } } : { issues: [{ message: "Expected a page number", path: ["page"] }] };
     },
   },
 };

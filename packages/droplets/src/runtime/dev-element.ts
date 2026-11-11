@@ -56,6 +56,7 @@ export type DropletUpdatePayload = {
 export type DropletHooksPayload = { reason: "hooks.client"; timestamp: number };
 
 declare module "vite/types/customEvent.d.ts" {
+  // biome-ignore lint/style/useConsistentTypeDefinitions: an augmentation of Vite's map; `type` cannot merge.
   interface CustomEventMap {
     "droplets:update": DropletUpdatePayload;
     "droplets:hooks-client": DropletHooksPayload;
@@ -86,7 +87,9 @@ export type DevElementEnv = {
   /** Selector of what may be a direct child of the element. */
   allowedChildren: string;
   /** Errors the element logs as "nothing to render", the stale build one not even that. */
-  nothingToRender: abstract new (...args: never[]) => Error;
+  nothingToRender: abstract new (
+    ...args: never[]
+  ) => Error;
   staleBuild: abstract new (...args: never[]) => Error;
   pageUrl(): string;
   /** Where `index.js` came from, as the elements load from it. */
@@ -320,7 +323,9 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
       console.warn(`[droplets] data-hydrate="${asked}": use true, false, visible or interactive; using the droplet's own`);
     }
     if (asked === "false" && env.scripts.has(this.dataset["droplet"] ?? "")) {
-      console.warn(`[droplets] data-hydrate="false" on the script droplet "${this.dataset["droplet"]}" is ignored: a script droplet only runs in the browser`);
+      console.warn(
+        `[droplets] data-hydrate="false" on the script droplet "${this.dataset["droplet"]}" is ignored: a script droplet only runs in the browser`,
+      );
     }
     return original.modeOf.call(this, flag, hasMarkup);
   };
@@ -349,9 +354,7 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
     if (rendered !== undefined) {
       setState(
         this,
-        rendered
-          ? isError ? "error" : hasMarkup ? "hydrated" : "mounted"
-          : contentRoot.childNodes.length > 0 ? "static" : "empty",
+        rendered ? (isError ? "error" : hasMarkup ? "hydrated" : "mounted") : contentRoot.childNodes.length > 0 ? "static" : "empty",
       );
     }
     return rendered;
@@ -484,11 +487,7 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
     const contentRoot = element._contentRoot();
     const hasMarkup = contentRoot.childNodes.length > 0;
     const life: ElementLife = element._hydrated ? "live" : element._stopWaiting ? "waiting" : "static";
-    const action = hydrateAction(
-      original.modeOf.call(element, before.hydrate, hasMarkup),
-      element._modeOf(after.hydrate, hasMarkup),
-      life,
-    );
+    const action = hydrateAction(original.modeOf.call(element, before.hydrate, hasMarkup), element._modeOf(after.hydrate, hasMarkup), life);
     if (action === "hydrate" && !element._readInline("[data-droplet-data]").found) {
       // Markup that was never to hydrate came without its data: the server
       // renders it again with the data inline, and that hydrates.
@@ -604,8 +603,13 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
     }
     // A later change of the same flags replaces this notice (ssr off, then on
     // again: the newer one); a change of another flag shows next to it.
-    const flags = contractChanges(before, after).map((change) => change.flag).join(",");
-    notify({ key: `${own} ${droplet} contract ${flags}`, message: notice.message, detail: notice.detail, reload: notice.reload }, reloadPage);
+    const flags = contractChanges(before, after)
+      .map((change) => change.flag)
+      .join(",");
+    notify(
+      { key: `${own} ${droplet} contract ${flags}`, message: notice.message, detail: notice.detail, reload: notice.reload },
+      reloadPage,
+    );
   };
 
   /**
@@ -656,12 +660,15 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
       const strategy = activeStrategy();
       if (strategy === "manual") return console.info("[droplets] src/hooks.client.ts changed; reload the page to run its init again");
       if (strategy !== "hmr") return reloadPage();
-      notify({
-        key: `${own} hooks.client`,
-        message: "src/hooks.client.ts changed",
-        detail: "Its init runs once per page, before any droplet starts: reload the page to run it again.",
-        reload: true,
-      }, reloadPage);
+      notify(
+        {
+          key: `${own} hooks.client`,
+          message: "src/hooks.client.ts changed",
+          detail: "Its init runs once per page, before any droplet starts: reload the page to run it again.",
+          reload: true,
+        },
+        reloadPage,
+      );
     });
 
     globalThis.addEventListener("droplets:hot-fallback", (event) => {

@@ -131,9 +131,11 @@ describe("the message queue (an EventEmitter)", () => {
     const report = vi.spyOn(console, "error").mockImplementation(() => {});
     const queue = new MessageQueue();
     const after = vi.fn();
-    queue.on("toast", () => {
-      throw new Error("boom");
-    }).on("toast", after);
+    queue
+      .on("toast", () => {
+        throw new Error("boom");
+      })
+      .on("toast", after);
     expect(() => queue.emit("toast", toast)).not.toThrow();
     expect(after).toHaveBeenCalledWith(toast);
     expect(report).toHaveBeenCalledOnce();
@@ -188,7 +190,9 @@ describe("window.shopMessageQueue", () => {
     const hostQueue = {
       on: (_: string, listener: (data: unknown) => void) => void listeners.push(listener),
       off: () => {},
-      emit: (_: string, data: unknown) => listeners.forEach((listener) => listener(data)),
+      emit: (_: string, data: unknown) => {
+        for (const listener of listeners) listener(data);
+      },
     };
     page.shopMessageQueue = hostQueue;
     const shown = vi.fn();
@@ -202,7 +206,10 @@ describe("window.shopMessageQueue", () => {
 
 describe("add to cart, as a toast", () => {
   it("names the product when it is known", () => {
-    expect(addToast({ added: "p_abcd", count: 2 }, "Linen Notebook")).toEqual({ type: "success", label: "Linen Notebook added to your cart" });
+    expect(addToast({ added: "p_abcd", count: 2 }, "Linen Notebook")).toEqual({
+      type: "success",
+      label: "Linen Notebook added to your cart",
+    });
     expect(addToast({ added: "p_abcd", name: "Clay Mug", count: 1 })).toEqual({ type: "success", label: "Clay Mug added to your cart" });
     expect(addToast({ added: "p_abcd", count: 1 })).toEqual({ type: "success", label: "Added to your cart" });
     expect(addToast({ reason: "out", productId: "p_abcd" }, "Clay Mug")).toEqual({ type: "error", label: "Sorry, Clay Mug just sold out" });
@@ -233,9 +240,17 @@ describe("add to cart, as a toast", () => {
     init();
     const shown = vi.fn();
     onMessage(messageQueue()!, "toast", shown);
-    page.dispatchEvent(new CustomEvent("droplets:action", {
-      detail: { droplet: "product-page", action: "add", type: "success", status: 200, data: { added: "p_abcd", name: "Clay Mug", count: 1 } },
-    }));
+    page.dispatchEvent(
+      new CustomEvent("droplets:action", {
+        detail: {
+          droplet: "product-page",
+          action: "add",
+          type: "success",
+          status: 200,
+          data: { added: "p_abcd", name: "Clay Mug", count: 1 },
+        },
+      }),
+    );
     expect(shown).toHaveBeenCalledWith({ type: "success", label: "Clay Mug added to your cart" });
   });
 });

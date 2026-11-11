@@ -104,11 +104,10 @@ function readBoolean(source: string, exports: Map<string, FlagExport>, name: str
   if (!flag) return undefined;
   const value = literal(flag.init);
   if (typeof value === "boolean") return value;
-  logger.warn(
-    "framework",
-    `\`export const ${name}\` must be a literal true or false; ignoring it`,
-    { droplet: where, found: found(source, flag) },
-  );
+  logger.warn("framework", `\`export const ${name}\` must be a literal true or false; ignoring it`, {
+    droplet: where,
+    found: found(source, flag),
+  });
   return undefined;
 }
 
@@ -117,11 +116,10 @@ function readHydrate(source: string, exports: Map<string, FlagExport>, where: st
   if (!flag) return undefined;
   const value = literal(flag.init);
   if (typeof value === "boolean" || value === "visible" || value === "interactive") return value;
-  logger.warn(
-    "framework",
-    '`export const hydrate` must be true, false, "visible" or "interactive"; ignoring it',
-    { droplet: where, found: found(source, flag) },
-  );
+  logger.warn("framework", '`export const hydrate` must be true, false, "visible" or "interactive"; ignoring it', {
+    droplet: where,
+    found: found(source, flag),
+  });
   return undefined;
 }
 

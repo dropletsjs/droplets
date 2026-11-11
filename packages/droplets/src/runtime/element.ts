@@ -39,9 +39,7 @@ type Html = HtmlEscapedString | Promise<HtmlEscapedString>;
 function payloadScript(attribute: string, payload: string): Html | string {
   if (!payload) return "";
   // Payloads are base64, so there is nothing for HTML escaping to change.
-  return html`<script type="application/text" ${raw(attribute)}>${
-    raw(payload)
-  }</script>`;
+  return html`<script type="application/text" ${raw(attribute)}>${raw(payload)}</script>`;
 }
 
 /**
@@ -49,22 +47,17 @@ function payloadScript(attribute: string, payload: string): Html | string {
  * the client needs. Served as the fragment at `/droplets/<id>`.
  */
 export function dropletElement(props: DropletElementProps): Html {
-  const contextAttribute = props.contextAttr
-    ? html` data-context="${props.contextAttr}"`
-    : "";
+  const contextAttribute = props.contextAttr ? html` data-context="${props.contextAttr}"` : "";
   const buildAttribute = props.build ? html` data-build="${props.build}"` : "";
   const renderAttribute = props.renderId ? html` data-render-id="${props.renderId}"` : "";
   const errorAttribute = props.error ? raw(" data-droplet-error") : "";
 
   // The tag name is validated in resolveConfig; it is never user input.
   const tag = raw(props.element);
-  return html`<${tag} data-droplet="${props.droplet}"${buildAttribute}${renderAttribute}${contextAttribute}${errorAttribute}>${
-    payloadScript("data-droplet-context", props.dropletContext ?? "")
-  }${
-    payloadScript("data-droplet-data", props.dropletData)
-  }${
+  return html`<${tag} data-droplet="${props.droplet}"${buildAttribute}${renderAttribute}${contextAttribute}${errorAttribute}>${payloadScript(
+    "data-droplet-context",
+    props.dropletContext ?? "",
+  )}${payloadScript("data-droplet-data", props.dropletData)}${
     props.stylesheet ? html`<link rel="stylesheet" href="${props.stylesheet}" data-droplet-style>` : ""
-  }<div style="display: contents" data-droplet-entry>${
-    raw(props.html)
-  }</div></${tag}>`;
+  }<div style="display: contents" data-droplet-entry>${raw(props.html)}</div></${tag}>`;
 }

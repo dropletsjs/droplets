@@ -30,7 +30,9 @@ export default function Counter(props: DropletProps) {
         </button>
       </p>
       <p class="demo-muted">
-        {hydrated() ? `Hydrated: ${framework()} runs the button in this tab.` : `Server HTML: the button works once ${framework()} hydrates.`}
+        {hydrated()
+          ? `Hydrated: ${framework()} runs the button in this tab.`
+          : `Server HTML: the button works once ${framework()} hydrates.`}
       </p>
     </section>
   );

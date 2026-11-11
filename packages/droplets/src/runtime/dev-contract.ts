@@ -88,7 +88,11 @@ export function contractNotice(droplet: string, before: RenderContract, after: R
     } else if (change.flag === "hydrate") {
       if (change.from === false) {
         toast = true;
-        details.push(change.to === true ? "Hydrated in place." : `Hydrates in place, ${change.to === "visible" ? "once visible" : "on the first interaction"}.`);
+        details.push(
+          change.to === true
+            ? "Hydrated in place."
+            : `Hydrates in place, ${change.to === "visible" ? "once visible" : "on the first interaction"}.`,
+        );
       } else if (change.to === false) {
         toast = true;
         reload = true;

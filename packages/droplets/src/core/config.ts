@@ -201,10 +201,7 @@ export function config(options: DropletsConfig): DropletsConfig {
  * name. Written out rather than taken from `node:path` so this module runs
  * on any runtime.
  */
-export function normalizeDropletsFolder(
-  folder: string,
-  fallback: string = DEFAULTS.dropletsFolder,
-): string {
+export function normalizeDropletsFolder(folder: string, fallback: string = DEFAULTS.dropletsFolder): string {
   const segments: string[] = [];
   for (const segment of folder.replace(/\\/g, "/").trim().split("/")) {
     if (segment === "" || segment === ".") continue;
@@ -223,8 +220,7 @@ const RESERVED_PREFIXES = ["/droplets", "/assets", "/api"];
 
 /** A path the framework does not own, for `health` and `importMap`. */
 export function validateOwnPath(option: string, path: string, example: string): string {
-  const reserved = RESERVED_EXACT.has(path) ||
-    RESERVED_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+  const reserved = RESERVED_EXACT.has(path) || RESERVED_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
   if (!path.startsWith("/") || /[?#\s]/.test(path) || reserved) {
     throw new Error(
       `droplets: ${option} must be a path such as "${example}", outside /, /index.js, /index.css, /droplets/, /assets/ and /api/; got "${path}"`,
@@ -263,9 +259,7 @@ export function normalizeTrustedOrigins(origins: unknown): string[] {
       url = undefined;
     }
     if (!url || url.origin === "null" || url.href.replace(/\/$/, "") !== url.origin) {
-      throw new Error(
-        `droplets: trustedOrigins takes origins such as "https://shop.example" (no path), got ${JSON.stringify(origin)}`,
-      );
+      throw new Error(`droplets: trustedOrigins takes origins such as "https://shop.example" (no path), got ${JSON.stringify(origin)}`);
     }
     return url.origin;
   });
@@ -306,7 +300,9 @@ function resolveCacheControl(value: unknown): string | false {
   if (value === undefined) return DEFAULTS.fragmentCacheControl;
   if (value === false) return false;
   if (typeof value !== "string" || !value.trim() || /[\r\n]/.test(value)) {
-    throw new Error(`droplets: fragmentCacheControl must be a Cache-Control value such as "private, no-store", or false; got ${JSON.stringify(value)}`);
+    throw new Error(
+      `droplets: fragmentCacheControl must be a Cache-Control value such as "private, no-store", or false; got ${JSON.stringify(value)}`,
+    );
   }
   return value.trim();
 }
@@ -327,35 +323,25 @@ export type ResolveConfigEnv = {
 };
 
 /** Fills in defaults. Pure, so the same code runs at build time and at runtime. */
-export function resolveConfig(
-  user: DropletsConfig,
-  env: ResolveConfigEnv = {},
-): ResolvedDropletsConfig {
-  const dropletsFolder = normalizeDropletsFolder(
-    user.dropletsFolder ?? DEFAULTS.dropletsFolder,
-  );
+export function resolveConfig(user: DropletsConfig, env: ResolveConfigEnv = {}): ResolvedDropletsConfig {
+  const dropletsFolder = normalizeDropletsFolder(user.dropletsFolder ?? DEFAULTS.dropletsFolder);
 
   const element = user.element ?? DEFAULTS.element;
   if (!isValidElementName(element)) {
-    throw new Error(
-      `droplets: "${element}" is not a valid custom element name; use lowercase letters and a hyphen, e.g. "my-droplet"`,
-    );
+    throw new Error(`droplets: "${element}" is not a valid custom element name; use lowercase letters and a hyphen, e.g. "my-droplet"`);
   }
 
   const envPort = Number(env.port) || 0;
-  const cors = user.cors === true
-    ? { origin: "*" }
-    : user.cors && typeof user.cors === "object"
-    ? user.cors
-    : undefined;
+  const cors = user.cors === true ? { origin: "*" } : user.cors && typeof user.cors === "object" ? user.cors : undefined;
 
-  const health = user.health === false
-    ? false
-    : validateHealthPath(user.health ?? DEFAULTS.health);
-  const importMap = user.importMap === false ? false : {
-    path: validateOwnPath("importMap", user.importMap ?? DEFAULTS.importMap, "/importmap"),
-    auto: user.importMap === undefined,
-  };
+  const health = user.health === false ? false : validateHealthPath(user.health ?? DEFAULTS.health);
+  const importMap =
+    user.importMap === false
+      ? false
+      : {
+          path: validateOwnPath("importMap", user.importMap ?? DEFAULTS.importMap, "/importmap"),
+          auto: user.importMap === undefined,
+        };
   if (importMap && health && (health === importMap.path || health === `${importMap.path}.js`)) {
     throw new Error(
       `droplets: health (${health}) and importMap (${importMap.path}, ${importMap.path}.js) answer the same path; move one of them`,
@@ -384,9 +370,7 @@ export function resolveConfig(
 export function resolveDevConfig(user: DropletsConfig, env: ResolveConfigEnv = {}): ResolvedDevConfig {
   const strategy = user.dev?.strategy ?? "hmr";
   if (!DEV_STRATEGIES.includes(strategy)) {
-    throw new Error(
-      `droplets: dev.strategy is "${String(strategy)}"; use ${DEV_STRATEGIES.map((s) => `"${s}"`).join(", ")}`,
-    );
+    throw new Error(`droplets: dev.strategy is "${String(strategy)}"; use ${DEV_STRATEGIES.map((s) => `"${s}"`).join(", ")}`);
   }
   return {
     server: { port: Number(env.port) || user.dev?.server?.port || DEFAULTS.devPort },

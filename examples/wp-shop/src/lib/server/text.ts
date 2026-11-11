@@ -46,7 +46,12 @@ export function plainText(html: string, max: number): string {
     .slice(0, max * 4)
     .replace(/<\s*br\s*\/?>/gi, "\n")
     .split(/<\s*\/\s*p\s*>|\n\s*\n/i)
-    .map((part) => decodeEntities(part.replace(/<[^>]*>/g, "")).replace(CONTROL, "").replace(/[ \t\r\n]+/g, " ").trim())
+    .map((part) =>
+      decodeEntities(part.replace(/<[^>]*>/g, ""))
+        .replace(CONTROL, "")
+        .replace(/[ \t\r\n]+/g, " ")
+        .trim(),
+    )
     .filter(Boolean);
   return paragraphs.join("\n\n").slice(0, max).trim();
 }

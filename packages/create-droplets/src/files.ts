@@ -45,13 +45,10 @@ const spec = (name: string): [string, string] => [name, versionOf(name)];
 const fromCatalog = (entry: string): [string, string] => [packageName(entry), entry.slice(packageName(entry).length + 1)];
 
 export function packageJson(choices: Choices): string {
-  const dependencies = sorted([
-    spec("@dropletsjs/droplets"),
-    ...choices.frameworks.flatMap((f) => f.dependencies.map(fromCatalog)),
-  ]);
+  const dependencies = sorted([spec("@dropletsjs/droplets"), ...choices.frameworks.flatMap((f) => f.dependencies.map(fromCatalog))]);
   const devDependencies = sorted([
     spec("@dropletsjs/devtools"),
-    ...choices.adapters.map((a) => spec(ADAPTERS.find((adapter) => adapter.value === a)!.package)),
+    ...ADAPTERS.filter((a) => choices.adapters.includes(a.value)).map((a) => spec(a.package)),
     ...choices.frameworks.map((f) => spec(f.package)),
     // The catalog's types (`@types/react`) at the version the example is tested with.
     ...choices.frameworks.flatMap((f) => f.devDependencies.map((entry) => spec(packageName(entry)))),
@@ -68,6 +65,7 @@ export function packageJson(choices: Choices): string {
 export function viteConfig(choices: Choices): string {
   const adapters = ADAPTERS.filter((a) => choices.adapters.includes(a.value));
   const main = defaultAdapter(choices.adapters);
+  const [only] = adapters;
   const imports = [
     'import { defineConfig } from "vite";',
     'import { droplets } from "@dropletsjs/droplets/vite";',
@@ -85,7 +83,7 @@ export function viteConfig(choices: Choices): string {
           `const adapter = (adapters[process.env["DROPLETS_ADAPTER"] as keyof typeof adapters] ?? ${main})();`,
         ];
   const options = [
-    adapters.length === 1 ? `      adapter: ${adapters[0]!.factory}(),` : "      adapter,",
+    only !== undefined && adapters.length === 1 ? `      adapter: ${only.factory}(),` : "      adapter,",
     `      renderers: [${choices.frameworks.map((f) => `${f.factory}()`).join(", ")}],`,
     ...(choices.tailwind ? ["      // src/app.css is the shared stylesheet; Tailwind compiles it.", "      css: { tailwind: true },"] : []),
   ];
@@ -147,7 +145,10 @@ export function tsconfig(choices: Choices): string {
   const include = ["src/**/*.ts", ...(jsx ? ["src/**/*.tsx"] : []), "droplets.config.ts", "vite.config.ts"];
   const body = JSON.stringify({ extends: "./.droplets/tsconfig.json", compilerOptions: options, include }, null, 2);
   // A comment where the generated part comes in.
-  return body.replace('  "extends"', '  // .droplets/ is written by `vite` and `djs sync`: it maps each droplet\'s ./$types.\n  "extends"') + "\n";
+  return (
+    body.replace('  "extends"', '  // .droplets/ is written by `vite` and `djs sync`: it maps each droplet\'s ./$types.\n  "extends"') +
+    "\n"
+  );
 }
 
 export function appCss(choices: Choices): string {
@@ -169,7 +170,16 @@ export function appCss(choices: Choices): string {
   ].join("\n");
 }
 
-const GITIGNORE = ["node_modules/", "dist/", "# Written by vite and `djs sync`: each droplet's ./$types.", ".droplets/", ".wrangler/", ".env.local", ".env.*.local", ""].join("\n");
+const GITIGNORE = [
+  "node_modules/",
+  "dist/",
+  "# Written by vite and `djs sync`: each droplet's ./$types.",
+  ".droplets/",
+  ".wrangler/",
+  ".env.local",
+  ".env.*.local",
+  "",
+].join("\n");
 
 function wrangler(choices: Choices): string {
   return `${JSON.stringify(
@@ -218,7 +228,9 @@ function readme(choices: Choices): string {
 }
 
 const RELEASE_AGE_NOTE = "Droplets' own packages are exempt, so a project made on the day of a release installs.";
-const DROPLETS_PACKAGES = Object.keys(VERSIONS).filter((name) => name.startsWith("@dropletsjs/")).sort();
+const DROPLETS_PACKAGES = Object.keys(VERSIONS)
+  .filter((name) => name.startsWith("@dropletsjs/"))
+  .sort();
 
 /**
  * The package manager's own settings: install only versions published at

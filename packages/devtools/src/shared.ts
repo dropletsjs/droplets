@@ -51,11 +51,12 @@ export type RenderMode = {
 /** How `ssr` and `hydrate` combine for one droplet. */
 export function describeMode(droplet: DropletInfo): RenderMode {
   if (droplet.ssr && droplet.hydrate) {
-    const when = droplet.hydrate === "visible"
-      ? " as it is about to scroll into view"
-      : droplet.hydrate === "interactive"
-      ? " on the first interaction with it"
-      : "";
+    const when =
+      droplet.hydrate === "visible"
+        ? " as it is about to scroll into view"
+        : droplet.hydrate === "interactive"
+          ? " on the first interaction with it"
+          : "";
     return {
       label: droplet.hydrate === true ? "SSR + hydrate" : `SSR + hydrate (${droplet.hydrate})`,
       detail: `Rendered on the server, then hydrated in the browser${when}.`,
@@ -86,7 +87,7 @@ export function describeMode(droplet: DropletInfo): RenderMode {
 }
 
 function asText(value: unknown): string {
-  return typeof value === "string" ? value : JSON.stringify(value) ?? "";
+  return typeof value === "string" ? value : (JSON.stringify(value) ?? "");
 }
 
 /** Props as a query string. Non-string values travel as JSON text. */
@@ -125,7 +126,7 @@ export function parseJsonProps(text: string): JsonResult {
     return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return { ok: false, error: "Props must be a JSON object, like { \"who\": \"Ana\" }." };
+    return { ok: false, error: 'Props must be a JSON object, like { "who": "Ana" }.' };
   }
   return { ok: true, props: value as Props };
 }
@@ -135,7 +136,9 @@ export function propWarnings(props: Props, method: Method): string[] {
   const warnings: string[] = [];
   const reserved = Object.keys(props).filter((key) => RESERVED_KEYS.has(key));
   if (reserved.length) {
-    warnings.push(`${reserved.join(", ")} ${reserved.length === 1 ? "is" : "are"} reserved by droplets and never reach the droplet as props.`);
+    warnings.push(
+      `${reserved.join(", ")} ${reserved.length === 1 ? "is" : "are"} reserved by droplets and never reach the droplet as props.`,
+    );
   }
   if (method === "GET" && Object.values(props).some((value) => typeof value !== "string")) {
     warnings.push("GET sends every value as text. Use POST to send numbers, booleans or objects as they are.");
@@ -144,11 +147,7 @@ export function propWarnings(props: Props, method: Method): string[] {
 }
 
 /** The fragment request the page makes for the current state. */
-export function fragmentRequest(
-  droplet: string,
-  method: Method,
-  props: Props,
-): { url: string; init: RequestInit } {
+export function fragmentRequest(droplet: string, method: Method, props: Props): { url: string; init: RequestInit } {
   const path = `/droplets/${encodeURIComponent(droplet)}`;
   if (method === "POST") {
     return {

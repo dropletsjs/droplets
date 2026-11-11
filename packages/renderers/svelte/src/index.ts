@@ -35,13 +35,17 @@ export async function readFlags(input: ReadFlagsInput): Promise<Partial<RenderFl
   let module: string | undefined;
   // Svelte's own block split: it skips HTML comments and leaves the markup and
   // styles unparsed, so a stylesheet in another language does not get in the way.
-  await preprocess(input.source, {
-    script: ({ content, attributes }) => {
-      if (attributes["module"] === true || attributes["context"] === "module") {
-        module = content;
-      }
+  await preprocess(
+    input.source,
+    {
+      script: ({ content, attributes }) => {
+        if (attributes["module"] === true || attributes["context"] === "module") {
+          module = content;
+        }
+      },
     },
-  }, { filename: input.file });
+    { filename: input.file },
+  );
   if (module === undefined) return undefined;
   const where = input.kind === "droplet" ? input.droplet : `${input.droplet}/${input.file}`;
   // TypeScript parses plain JavaScript too, whatever the block's `lang`.
@@ -106,11 +110,12 @@ function optionsPlugin(): Plugin {
 /** The Svelte renderer, for `droplets({ renderers: [svelte()] })`. */
 export function svelte(options: SvelteRendererOptions = {}): DropletRenderer {
   const user = options.vitePlugin ?? {};
-  const preprocess = user.preprocess === undefined
-    ? vitePreprocess()
-    : Array.isArray(user.preprocess)
-    ? [vitePreprocess(), ...user.preprocess]
-    : [vitePreprocess(), user.preprocess];
+  const preprocess =
+    user.preprocess === undefined
+      ? vitePreprocess()
+      : Array.isArray(user.preprocess)
+        ? [vitePreprocess(), ...user.preprocess]
+        : [vitePreprocess(), user.preprocess];
   const userDynamic = user.dynamicCompileOptions;
   const pluginOptions: Options = {
     ...user,

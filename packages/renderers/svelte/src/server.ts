@@ -3,21 +3,12 @@
  * `children` as the marker snippet of `children.svelte`, the same one the
  * browser renders, so hydration finds what it expects.
  */
-import type {
-  ComponentModule,
-  RenderProps,
-  ServerRenderContext,
-  ServerRenderOutput,
-} from "@dropletsjs/droplets";
+import type { ComponentModule, RenderProps, ServerRenderContext, ServerRenderOutput } from "@dropletsjs/droplets";
 import type { Component } from "svelte";
 import { render as renderToString } from "svelte/server";
 import { marker as children } from "./children.svelte";
 
-export async function render(
-  module: ComponentModule,
-  props: RenderProps,
-  context: ServerRenderContext,
-): Promise<ServerRenderOutput> {
+export async function render(module: ComponentModule, props: RenderProps, context: ServerRenderContext): Promise<ServerRenderOutput> {
   const component = module.default as Component | undefined;
   if (typeof component !== "function") {
     throw new Error(`${context.droplet}: the ${context.kind} component is not a Svelte component`);

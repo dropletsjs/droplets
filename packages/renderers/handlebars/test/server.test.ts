@@ -13,12 +13,14 @@ const context = { droplet: "hello", kind: "droplet" as const, renderId: "abc123"
 
 describe("render", () => {
   it("renders a droplet with { data } as the context and the children marker", () => {
-    const template = compile('<h1>{{data.title}}</h1><div>{{{children}}}</div>');
-    expect(render(template, { data: { title: "A & B" } }, context)).toBe('<h1>A &amp; B</h1><div><div data-droplet-children style="display: contents"></div></div>');
+    const template = compile("<h1>{{data.title}}</h1><div>{{{children}}}</div>");
+    expect(render(template, { data: { title: "A & B" } }, context)).toBe(
+      '<h1>A &amp; B</h1><div><div data-droplet-children style="display: contents"></div></div>',
+    );
   });
 
   it("renders an error page with { error }", () => {
-    const template = compile('<p>{{error.message}}</p>{{children}}');
+    const template = compile("<p>{{error.message}}</p>{{children}}");
     expect(render(template, { error: { message: "Sorry" } }, { ...context, kind: "error" })).toBe(
       '<p>Sorry</p><div data-droplet-children style="display: contents"></div>',
     );

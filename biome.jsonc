@@ -37,7 +37,29 @@
   "assist": { "enabled": false },
   "linter": {
     "enabled": true,
-    "rules": { "recommended": true }
+    "rules": {
+      "preset": "recommended",
+      "complexity": {
+        // Brackets mark a key read through an index signature: a record, dataset, process.env, client input.
+        "useLiteralKeys": "off"
+      },
+      "style": {
+        // docs/style/code.md covers packages/** only; it is turned on there below.
+        "noNonNullAssertion": "off",
+        // Reordering the rules would change the cascade.
+        "noDescendingSpecificity": "off"
+      },
+      "suspicious": {
+        // The code generators and their tests write `${…}` into the code they emit.
+        "noTemplateCurlyInString": "off",
+        // `(a ??= {})` and `() => void (x = y)` are deliberate.
+        "noAssignInExpressions": "off",
+        // The regexes that reject control characters name them on purpose.
+        "noControlCharactersInRegex": "off",
+        // Public callback types: `undefined` would refuse a function that returns nothing.
+        "noConfusingVoidType": "off"
+      }
+    }
   },
   "overrides": [
     {
@@ -62,7 +84,7 @@
     },
     {
       // The default exports the consumer fixes: adapter entries, config files,
-      // the types/ twins of $droplets/* and their test stubs, fixture projects.
+      // the $droplets/* modules' types and test stubs, fixture projects.
       "includes": [
         "packages/adapters/*/src/entry.ts",
         "packages/adapters/cloudflare/src/worker.ts",
@@ -70,11 +92,41 @@
         "packages/**/*.config.ts",
         "packages/**/*.config.js",
         "packages/droplets/src/types/**",
+        "packages/droplets/ambient.d.ts",
         "packages/droplets/test/stubs/**",
         "packages/**/test/fixtures/**",
         "packages/renderers/svelte/src/*.svelte.d.ts"
       ],
       "linter": { "rules": { "style": { "noDefaultExport": "off" } } }
+    },
+    {
+      // The tests assert the fixtures' markup exactly; a test component closes over the test's own state.
+      "includes": ["packages/**/test/**"],
+      "linter": {
+        "rules": {
+          "a11y": { "useButtonType": "off" },
+          "correctness": { "noComponentHookFactories": "off" }
+        }
+      }
+    },
+    {
+      // The renderer hands the droplet's children element in props, with the rest.
+      "includes": ["packages/renderers/react/src/**"],
+      "linter": { "rules": { "correctness": { "noChildrenProp": "off" } } }
+    },
+    {
+      // The shop's markup is what the e2e tests and the host stacks read; changing it is its own step.
+      "includes": ["examples/shop/**", "examples/wp-shop/**"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "useAriaPropsSupportedByRole": "off",
+            "useSemanticElements": "off",
+            "useKeyWithClickEvents": "off",
+            "noStaticElementInteractions": "off"
+          }
+        }
+      }
     }
   ]
 }

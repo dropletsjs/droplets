@@ -73,8 +73,7 @@ export const VIRTUAL_MANIFEST = "virtual:droplets-manifest";
 const VIRTUAL_CSS_FILE = "virtual:droplets-css-file.css";
 
 /** Theme and utilities only: without the reset, or unscoped, where it would hit the host page. */
-export const TAILWIND_WITHOUT_PREFLIGHT =
-  '@import "tailwindcss/theme" layer(theme);\n@import "tailwindcss/utilities" layer(utilities);\n';
+export const TAILWIND_WITHOUT_PREFLIGHT = '@import "tailwindcss/theme" layer(theme);\n@import "tailwindcss/utilities" layer(utilities);\n';
 /** With scoping, the reset is confined to the element and becomes the droplets' base. */
 export const TAILWIND_FULL = '@import "tailwindcss";\n';
 /**
@@ -169,11 +168,7 @@ function rendererImports(
   };
 }
 
-export function buildServerCode(
-  entries: DropletEntry[],
-  globRoot: string,
-  extras: ServerCodeExtras = {},
-): string {
+export function buildServerCode(entries: DropletEntry[], globRoot: string, extras: ServerCodeExtras = {}): string {
   const members: string[] = [];
   const routes: string[] = [];
   const renderers = rendererImports(entries, extras.renderers ?? [], (r) => r.server);
@@ -183,12 +178,8 @@ export function buildServerCode(
 
   (extras.apiRoutes ?? []).forEach((route, index) => {
     const variable = `api_${index}`;
-    imports.push(
-      `import * as ${variable} from ${JSON.stringify(`${extras.apiGlobRoot ?? "/src/api"}/${route.file}`)};`,
-    );
-    routes.push(
-      `  { id: ${JSON.stringify(route.id)}, segments: ${JSON.stringify(route.segments)}, module: ${variable} },`,
-    );
+    imports.push(`import * as ${variable} from ${JSON.stringify(`${extras.apiGlobRoot ?? "/src/api"}/${route.file}`)};`);
+    routes.push(`  { id: ${JSON.stringify(route.id)}, segments: ${JSON.stringify(route.segments)}, module: ${variable} },`);
   });
 
   if (extras.hooksFile) {
@@ -205,28 +196,20 @@ export function buildServerCode(
     const serverVar = entry.hasServerLoad ? `serverLoad_${index}` : null;
     const errorVar = entry.hasError && entry.errorFile ? `error_${index}` : null;
     if (errorVar) {
-      imports.push(
-        `import * as ${errorVar} from ${JSON.stringify(component(`${base}/${entry.errorFile}`, entry.renderer))};`,
-      );
+      imports.push(`import * as ${errorVar} from ${JSON.stringify(component(`${base}/${entry.errorFile}`, entry.renderer))};`);
     }
 
     if (isScriptDroplet(entry)) {
       // Browser code only, never evaluated on the server: its renderer renders nothing.
       imports.push(`const ${componentVar} = Object.freeze({});`);
     } else {
-      imports.push(
-        `import * as ${componentVar} from ${JSON.stringify(component(`${base}/${entry.file}`, entry.renderer))};`,
-      );
+      imports.push(`import * as ${componentVar} from ${JSON.stringify(component(`${base}/${entry.file}`, entry.renderer))};`);
     }
     if (loadVar) {
-      imports.push(
-        `import * as ${loadVar} from ${JSON.stringify(`${base}/+droplet.ts`)};`,
-      );
+      imports.push(`import * as ${loadVar} from ${JSON.stringify(`${base}/+droplet.ts`)};`);
     }
     if (serverVar) {
-      imports.push(
-        `import * as ${serverVar} from ${JSON.stringify(`${base}/+droplet.server.ts`)};`,
-      );
+      imports.push(`import * as ${serverVar} from ${JSON.stringify(`${base}/+droplet.server.ts`)};`);
     }
 
     members.push(
@@ -238,9 +221,7 @@ export function buildServerCode(
         `    hydrate: ${JSON.stringify(entry.hydrate)},`,
         `    prerender: ${entry.prerender === true},`,
         `    load: ${loadVar ? `() => Promise.resolve(${loadVar})` : "undefined"},`,
-        `    serverLoad: ${
-          serverVar ? `() => Promise.resolve(${serverVar})` : "undefined"
-        },`,
+        `    serverLoad: ${serverVar ? `() => Promise.resolve(${serverVar})` : "undefined"},`,
         `    error: ${errorVar ?? "undefined"},`,
         `  },`,
       ].join("\n"),
@@ -272,10 +253,9 @@ const JOIN = `const join = (base, path) => \`\${base.replace(/\\/+$/, "")}/\${St
  * which the build put on the location already), anything else joined to
  * `base`.
  */
-const URL_OF = [
-  JOIN,
-  "const url = (base, path) => /^[a-z][a-z0-9+.-]*:/i.test(String(path)) ? String(path) : join(base, path);",
-].join("\n");
+const URL_OF = [JOIN, "const url = (base, path) => /^[a-z][a-z0-9+.-]*:/i.test(String(path)) ? String(path) : join(base, path);"].join(
+  "\n",
+);
 
 /**
  * `$droplets/drop` in the browser: where the page loads this build's
@@ -330,18 +310,19 @@ const NO_RENDER =
  * and its props from the render in progress unless given; and
  * `enhanceDropletForm`, which only ever runs in the browser.
  */
-const ACTION_URL = (current: string, location: string, page: string, enhanceModule: string) => [
-  `export { enhanceDropletForm } from ${JSON.stringify(enhanceModule)};`,
-  "export function actionUrl(name, options = {}) {",
-  `  const render = ${current};`,
-  "  const droplet = options.droplet ?? render?.droplet;",
-  `  if (typeof droplet !== "string" || droplet === "") throw new Error(${JSON.stringify(NO_RENDER)});`,
-  "  const props = options.props ?? (render?.droplet === droplet ? render.props : undefined);",
-  `  return actionHref(${location}, droplet, props, name, ${page});`,
-  "}",
-  "export default actionUrl;",
-  "",
-].join("\n");
+const ACTION_URL = (current: string, location: string, page: string, enhanceModule: string) =>
+  [
+    `export { enhanceDropletForm } from ${JSON.stringify(enhanceModule)};`,
+    "export function actionUrl(name, options = {}) {",
+    `  const render = ${current};`,
+    "  const droplet = options.droplet ?? render?.droplet;",
+    `  if (typeof droplet !== "string" || droplet === "") throw new Error(${JSON.stringify(NO_RENDER)});`,
+    "  const props = options.props ?? (render?.droplet === droplet ? render.props : undefined);",
+    `  return actionHref(${location}, droplet, props, name, ${page});`,
+    "}",
+    "export default actionUrl;",
+    "",
+  ].join("\n");
 
 /**
  * `$droplets/form` in the browser: the render in progress, on the location
@@ -423,9 +404,7 @@ export function buildClientCode(
   const flag = (e: DropletEntry) => `  ${JSON.stringify(e.id)}: true,`;
   const ids = entries.map(flag);
   // `true`, `"visible"` or `"interactive"`: when the element hydrates.
-  const hydrating = entries
-    .filter((e) => e.hydrate !== false)
-    .map((e) => `  ${JSON.stringify(e.id)}: ${JSON.stringify(e.hydrate)},`);
+  const hydrating = entries.filter((e) => e.hydrate !== false).map((e) => `  ${JSON.stringify(e.id)}: ${JSON.stringify(e.hydrate)},`);
   // Only these have server data to fetch from `_data`.
   const serverLoading = entries.filter((e) => e.hasServerLoad).map(flag);
   const scripts = entries.filter((e) => isScriptDroplet(e)).map(flag);
@@ -473,10 +452,7 @@ export async function update(handle, data, info) {
 `;
 
 /** What `createClientModuleCode` needs to know about one droplet. */
-export type ClientModuleInput = Pick<
-  DropletEntry,
-  "id" | "name" | "file" | "renderer" | "hasError" | "errorFile"
->;
+export type ClientModuleInput = Pick<DropletEntry, "id" | "name" | "file" | "renderer" | "hasError" | "errorFile">;
 
 /**
  * A single droplet's browser entry: the props schema, `load` and
@@ -513,9 +489,7 @@ export function createClientModuleCode(
   const shared = sharingRenderers(renderers);
 
   const componentModule = JSON.stringify(componentSpecifier(`${base}/${entry.file}`, entry.renderer, shared));
-  const errorModule = withError
-    ? JSON.stringify(componentSpecifier(`${base}/${entry.errorFile}`, entry.renderer, shared))
-    : null;
+  const errorModule = withError ? JSON.stringify(componentSpecifier(`${base}/${entry.errorFile}`, entry.renderer, shared)) : null;
   const devModule = dev ? renderer.clientDev : undefined;
   const imports = [
     ...(renderer.clientSetup ? [`import ${modulePath(renderer.clientSetup)};`] : []),
@@ -675,8 +649,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
       if (id === VIRTUAL_ENV) return RESOLVED_ENV;
       if (
         SERVER_ONLY.has(id) &&
-        (this.environment.config.consumer === "client" ||
-          (importer && !mayImportServerOnly(state.root, importer)))
+        (this.environment.config.consumer === "client" || (importer && !mayImportServerOnly(state.root, importer)))
       ) {
         this.error(
           `${id} can only be imported by server files: names with .server. in them (+droplet.server.ts, hooks.server.ts, *.server.*), +server.* routes or files under a server/ folder${
@@ -756,9 +729,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
       if (id === RESOLVED_ENV_PRIVATE) return buildPrivateEnvCode(state.env, envStorePath);
 
       if (id === RESOLVED_CSS) {
-        return state.css.path
-          ? `import ${JSON.stringify(state.css.path)};\n`
-          : `import ${JSON.stringify(VIRTUAL_CSS_FILE)};\n`;
+        return state.css.path ? `import ${JSON.stringify(state.css.path)};\n` : `import ${JSON.stringify(VIRTUAL_CSS_FILE)};\n`;
       }
 
       // No project stylesheet: with Tailwind, still emit it so utility
@@ -781,8 +752,11 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
         const key = serverKey(state.config.element, state.buildHash);
         const names = dynamicPublicNames(state.env);
         const env = Object.fromEntries(names.map((name) => [name, state.env.values[name]]));
-        return locationScript(key) + (names.length > 0 ? publicEnvScript(key, env) : "") +
-          `import(${JSON.stringify(toViteFsPath(state.entryClientPath))});\n`;
+        return (
+          locationScript(key) +
+          (names.length > 0 ? publicEnvScript(key, env) : "") +
+          `import(${JSON.stringify(toViteFsPath(state.entryClientPath))});\n`
+        );
       }
 
       if (id.startsWith(RESOLVED_CLIENT_PREFIX)) {

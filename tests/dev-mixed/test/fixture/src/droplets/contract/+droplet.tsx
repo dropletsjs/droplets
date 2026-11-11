@@ -12,7 +12,9 @@ export default function Contract() {
   return (
     <section data-testid="contract" data-hydrated={hydrated}>
       <p data-text>The contract</p>
-      <button type="button" onClick={() => setCount((n) => n + 1)}>{count}</button>
+      <button type="button" onClick={() => setCount((n) => n + 1)}>
+        {count}
+      </button>
     </section>
   );
 }

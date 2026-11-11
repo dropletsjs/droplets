@@ -70,7 +70,12 @@ describe("without a terminal", () => {
 describe("git", () => {
   const outside = mkdtempSync(join(tmpdir(), "create-droplets-"));
   afterAll(() => rmSync(outside, { recursive: true, force: true }));
-  const who = { GIT_AUTHOR_NAME: "Test", GIT_AUTHOR_EMAIL: "test@example.com", GIT_COMMITTER_NAME: "Test", GIT_COMMITTER_EMAIL: "test@example.com" };
+  const who = {
+    GIT_AUTHOR_NAME: "Test",
+    GIT_AUTHOR_EMAIL: "test@example.com",
+    GIT_COMMITTER_NAME: "Test",
+    GIT_COMMITTER_EMAIL: "test@example.com",
+  };
 
   it("makes the first commit in a new repository", async () => {
     await create(["fresh", "--frameworks", "vue", "--yes", "--no-install"], outside, who);
@@ -120,7 +125,13 @@ describe.each(CASES.map((c, i) => [c.name, c, 8300 + i] as const))("%s", (name, 
     server = spawn(process.execPath, ["dist/server.js"], { cwd: project, env: { ...env, PORT: String(port) }, stdio: "ignore" });
     const get = (path: string) => fetch(`http://localhost:${port}${path}`);
     for (let i = 0; i < 100; i++) {
-      if (await get("/health").then((r) => r.ok, () => false)) break;
+      if (
+        await get("/health").then(
+          (r) => r.ok,
+          () => false,
+        )
+      )
+        break;
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     for (const framework of frameworks) {

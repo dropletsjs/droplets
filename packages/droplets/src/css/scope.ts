@@ -70,13 +70,14 @@ export function scopeSelector(selector: string, element: string, svelte = false)
 
     if (isRootLike(first)) {
       // `html body` and friends collapse into the element itself.
-      let next = first.next();
-      while (isDescendantCombinator(next) && isRootLike(next?.next())) {
-        const combinator = next!;
-        const rootLike = combinator.next()!;
-        next = rootLike.next();
+      let combinator = first.next();
+      let rootLike = combinator?.next();
+      while (combinator && rootLike && isDescendantCombinator(combinator) && isRootLike(rootLike)) {
+        const after = rootLike.next();
         combinator.remove();
         rootLike.remove();
+        combinator = after;
+        rootLike = combinator?.next();
       }
       first.replaceWith(scope());
       return;

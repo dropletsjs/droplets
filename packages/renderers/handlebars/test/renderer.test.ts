@@ -33,8 +33,10 @@ describe("handlebars()", () => {
 
 describe("readFlags", () => {
   it("reads the flags from the template's opening comment, for either kind", () => {
-    expect(readFlags(input("droplet", "{{!--\nexport hydrate = false\nexport prerender = true\n--}}\n<p/>")))
-      .toEqual({ hydrate: false, prerender: true });
+    expect(readFlags(input("droplet", "{{!--\nexport hydrate = false\nexport prerender = true\n--}}\n<p/>"))).toEqual({
+      hydrate: false,
+      prerender: true,
+    });
     expect(readFlags(input("error", "{{!-- export prerender = true --}}<p/>"))).toEqual({ prerender: true });
   });
 
@@ -47,8 +49,11 @@ describe("readTemplateFlags", () => {
   const read = (source: string) => readTemplateFlags(source, "hello/+droplet.hbs");
 
   it("reads a multi-line block comment the template opens with", () => {
-    expect(read("{{!--\nexport hydrate = false\nexport prerender = true\nexport ssr = true\n--}}\n<p/>"))
-      .toEqual({ hydrate: false, prerender: true, ssr: true });
+    expect(read("{{!--\nexport hydrate = false\nexport prerender = true\nexport ssr = true\n--}}\n<p/>")).toEqual({
+      hydrate: false,
+      prerender: true,
+      ssr: true,
+    });
   });
 
   it("reads a one-line or short comment, `const` and a trailing semicolon too", () => {
@@ -58,12 +63,9 @@ describe("readTemplateFlags", () => {
   });
 
   it("reads several flags on one line, split by `;` or by the next `export`", () => {
-    expect(read("{{!-- export hydrate = false; export prerender = true --}}<p/>"))
-      .toEqual({ hydrate: false, prerender: true });
-    expect(read("{{!-- export const ssr = false export hydrate = false; --}}<p/>"))
-      .toEqual({ ssr: false, hydrate: false });
-    expect(() => read("{{!-- export ssr = false and more --}}"))
-      .toThrow('flag "ssr" must be true or false, found "false and more"');
+    expect(read("{{!-- export hydrate = false; export prerender = true --}}<p/>")).toEqual({ hydrate: false, prerender: true });
+    expect(read("{{!-- export const ssr = false export hydrate = false; --}}<p/>")).toEqual({ ssr: false, hydrate: false });
+    expect(() => read("{{!-- export ssr = false and more --}}")).toThrow('flag "ssr" must be true or false, found "false and more"');
   });
 
   it("reads when the template hydrates", () => {
@@ -89,8 +91,9 @@ describe("readTemplateFlags", () => {
   });
 
   it("refuses anything but flag lines in a flags comment", () => {
-    expect(() => read("{{!--\nexport ssr = false\nShows the card\n--}}"))
-      .toThrow('expected `export <flag> = true|false` in the flags comment, found "Shows the card"');
+    expect(() => read("{{!--\nexport ssr = false\nShows the card\n--}}")).toThrow(
+      'expected `export <flag> = true|false` in the flags comment, found "Shows the card"',
+    );
     expect(() => read("{{!-- export hydrat = false --}}")).toThrow('unknown flag "hydrat"');
     expect(() => read("{{!-- export ssr = no --}}")).toThrow('flag "ssr" must be true or false, found "no"');
     expect(() => read("{{!--\nexport ssr = false\nexport ssr = true\n--}}")).toThrow('flag "ssr" is declared twice');

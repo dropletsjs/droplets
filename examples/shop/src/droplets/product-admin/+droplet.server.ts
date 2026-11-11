@@ -35,7 +35,7 @@ export const load = async ({ props, locals }: LoadEvent) => {
     campaign,
     products,
     categories,
-    product: props.view === "edit" && props.id ? (await adminProduct(props.id)) ?? null : null,
+    product: props.view === "edit" && props.id ? ((await adminProduct(props.id)) ?? null) : null,
     recent: props.view === "campaign" ? await recentCampaigns() : [],
   };
 };
@@ -43,7 +43,12 @@ export const load = async ({ props, locals }: LoadEvent) => {
 type Errors = Partial<Record<"name" | "slug" | "category" | "price" | "stock" | "description" | "details" | "image" | "form", string>>;
 
 const slugify = (name: string) =>
-  name.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+  name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
 
 /** `14`, `14.5`, `14,50` → cents; anything else `null`. */
 function cents(value: string | null): number | null {
@@ -157,7 +162,10 @@ export const actions = {
     const pct = integer(form, "pct", 1, 90);
     if (pct === null) errors["pct"] = "A discount from 1 to 90 %.";
     const scope = text(form, "scope", 10) === "selected" ? "selected" : "all";
-    const picked = form.getAll("productIds").filter((v): v is string => typeof v === "string" && PRODUCT_ID.test(v)).slice(0, 200);
+    const picked = form
+      .getAll("productIds")
+      .filter((v): v is string => typeof v === "string" && PRODUCT_ID.test(v))
+      .slice(0, 200);
     const productIds = scope === "selected" ? (await productsByIds(picked)).map((p) => p.id) : [];
     if (scope === "selected" && !productIds.length) errors["productIds"] = "Pick at least one product.";
     const startsAt = date(text(form, "startsAt", 10)) ?? new Date().toISOString().slice(0, 10);

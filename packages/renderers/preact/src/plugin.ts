@@ -73,9 +73,7 @@ export function preactPlugin(include?: RegExp): Plugin {
     // Prefresh's runtime is pre-bundled with Preact, so it patches the
     // page's one copy of it.
     config: (_config, env) =>
-      env.command === "serve"
-        ? { optimizeDeps: { include: [`${PACKAGE} > @prefresh/core`, `${PACKAGE} > @prefresh/utils`] } }
-        : undefined,
+      env.command === "serve" ? { optimizeDeps: { include: [`${PACKAGE} > @prefresh/core`, `${PACKAGE} > @prefresh/utils`] } } : undefined,
 
     configResolved(config) {
       refresh = config.command === "serve" && !config.isProduction && config.server.hmr !== false;

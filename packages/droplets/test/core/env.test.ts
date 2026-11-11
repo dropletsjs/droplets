@@ -40,7 +40,10 @@ describe("defineEnvVars", () => {
 
 describe("generated modules", () => {
   it("$droplets/env/public holds public variables only", () => {
-    for (const target of [{ browser: true as const, serverKey: "djs:b1" }, { browser: false as const, envStorePath: "/s.js" }]) {
+    for (const target of [
+      { browser: true as const, serverKey: "djs:b1" },
+      { browser: false as const, envStorePath: "/s.js" },
+    ]) {
       const code = buildPublicEnvCode(state(), target);
       expect(code).toContain('"PUBLIC_NAME": "Site"');
       expect(code).not.toContain("secret");

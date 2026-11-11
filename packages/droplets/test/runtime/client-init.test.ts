@@ -23,7 +23,16 @@ describe("runClientInit", () => {
 
   it("logs an init that throws, and returns", () => {
     const failure = new Error("boom");
-    expect(() => runClientInit({ init: () => { throw failure; } }, FILE)).not.toThrow();
+    expect(() =>
+      runClientInit(
+        {
+          init: () => {
+            throw failure;
+          },
+        },
+        FILE,
+      ),
+    ).not.toThrow();
     expect(error).toHaveBeenCalledWith("[droplets] init() in src/hooks.client.ts failed; starting the droplets anyway", failure);
   });
 

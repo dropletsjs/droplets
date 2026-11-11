@@ -132,7 +132,9 @@ test("the shop flow, with the admin in wp-admin", async ({ page, rec, baseURL })
   await rec.click(row.getByRole("button", { name: "Save" }));
   await expect(admin.getByRole("status")).toContainText("Saved");
   await expect(page).toHaveURL(AT_SHOP_SCREEN);
-  await expect(admin.locator("tr", { has: page.getByLabel(`Stock of ${chosen.name}`, { exact: true }) }).locator("p.stock")).toHaveText("Out of stock");
+  await expect(admin.locator("tr", { has: page.getByLabel(`Stock of ${chosen.name}`, { exact: true }) }).locator("p.stock")).toHaveText(
+    "Out of stock",
+  );
   await rec.beat();
   await rec.shot("3-admin");
 
@@ -188,7 +190,12 @@ async function approvedComments(request: APIRequestContext, body: string): Promi
  * that page: it shows the same result and posts nothing again.
  */
 test("without JavaScript, a comment posts once and shows after the redirect", async ({ browser, baseURL }) => {
-  const context = await browser.newContext({ baseURL, javaScriptEnabled: false, ignoreHTTPSErrors: true, viewport: { width: 1280, height: 800 } });
+  const context = await browser.newContext({
+    baseURL,
+    javaScriptEnabled: false,
+    ignoreHTTPSErrors: true,
+    viewport: { width: 1280, height: 800 },
+  });
   const page = await context.newPage();
   await page.goto("/gallery");
   const href = (await page.locator('djs-shop[data-droplet="product-library"] article.card h3.name a').last().getAttribute("href"))!;
@@ -292,7 +299,9 @@ test("a user who cannot manage_options is refused the Shop screen and its action
     expect(await save.json()).toMatchObject({ type: "failure", status: 401, data: { reason: "login" } });
     await editor.context.close();
   } finally {
-    const removed = await admin.context.request.delete(`/wp-json/wp/v2/users/${id}?force=true&reassign=1`, { headers: { "x-wp-nonce": nonce } });
+    const removed = await admin.context.request.delete(`/wp-json/wp/v2/users/${id}?force=true&reassign=1`, {
+      headers: { "x-wp-nonce": nonce },
+    });
     expect(removed.status(), await removed.text()).toBe(200);
     await admin.context.close();
   }
@@ -309,7 +318,9 @@ test("the admin's save needs this site's Origin, even logged in", async ({ brows
   expect(await save.text()).not.toContain('"saved"');
   // A browser's own x-wp-shop-user is never passed on: still the gate for nobody.
   const visitor = await browser.newContext({ baseURL, ignoreHTTPSErrors: true });
-  const forged = await visitor.request.get("/droplets/product-admin", { headers: { accept: "text/html", "x-wp-shop-user": "e30.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" } });
+  const forged = await visitor.request.get("/droplets/product-admin", {
+    headers: { accept: "text/html", "x-wp-shop-user": "e30.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" },
+  });
   expect(await forged.text()).not.toContain("Stock of");
   await visitor.close();
   await admin.context.close();
@@ -354,11 +365,31 @@ test("no public page has the admin droplet, /admin included", async ({ browser, 
 async function looks(page: Page, selectors: string[]): Promise<Record<string, Record<string, string>>> {
   return page.evaluate((selectors) => {
     const PROPERTIES = [
-      "display", "position", "left", "visibility", "opacity",
-      "font-family", "font-size", "font-weight", "line-height", "color", "background-color",
-      "padding-top", "padding-right", "padding-bottom", "padding-left",
-      "margin-top", "margin-bottom", "border-top-width", "border-left-width", "border-top-color",
-      "border-top-left-radius", "box-shadow", "min-height", "box-sizing", "text-transform",
+      "display",
+      "position",
+      "left",
+      "visibility",
+      "opacity",
+      "font-family",
+      "font-size",
+      "font-weight",
+      "line-height",
+      "color",
+      "background-color",
+      "padding-top",
+      "padding-right",
+      "padding-bottom",
+      "padding-left",
+      "margin-top",
+      "margin-bottom",
+      "border-top-width",
+      "border-left-width",
+      "border-top-color",
+      "border-top-left-radius",
+      "box-shadow",
+      "min-height",
+      "box-sizing",
+      "text-transform",
     ];
     const out: Record<string, Record<string, string>> = {};
     for (const selector of selectors) {
@@ -367,9 +398,7 @@ async function looks(page: Page, selectors: string[]): Promise<Record<string, Re
       elements.forEach((element, index) => {
         const style = getComputedStyle(element);
         const names = element.localName === "a" ? PROPERTIES.filter((name) => name !== "color" && name !== "border-top-color") : PROPERTIES;
-        out[`${selector} #${index} <${element.localName}>`] = Object.fromEntries(
-          names.map((name) => [name, style.getPropertyValue(name)]),
-        );
+        out[`${selector} #${index} <${element.localName}>`] = Object.fromEntries(names.map((name) => [name, style.getPropertyValue(name)]));
       });
     }
     return out;
@@ -408,7 +437,10 @@ test("wp-admin's styles stay out of the droplet, and the droplet's out of wp-adm
   expect(html).toContain("Stock of");
   const bare = new URL("/__droplets-bare-page", baseURL).href;
   await page.route(bare, (route) =>
-    route.fulfill({ contentType: "text/html; charset=utf-8", body: `<!doctype html><html><head><meta charset="utf-8"></head><body>${html}</body></html>` }),
+    route.fulfill({
+      contentType: "text/html; charset=utf-8",
+      body: `<!doctype html><html><head><meta charset="utf-8"></head><body>${html}</body></html>`,
+    }),
   );
   await page.goto(bare);
   await page.waitForLoadState("networkidle");

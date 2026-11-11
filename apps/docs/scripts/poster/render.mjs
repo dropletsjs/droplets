@@ -19,14 +19,17 @@ try {
   const png = await page.screenshot({ type: "png" });
 
   await page.goto("about:blank");
-  const webp = await page.evaluate(async ({ src, width, height }) => {
-    const image = new Image();
-    image.src = src;
-    await image.decode();
-    const canvas = Object.assign(document.createElement("canvas"), { width, height });
-    canvas.getContext("2d").drawImage(image, 0, 0);
-    return canvas.toDataURL("image/webp", 0.85).split(",")[1];
-  }, { src: `data:image/png;base64,${png.toString("base64")}`, width, height });
+  const webp = await page.evaluate(
+    async ({ src, width, height }) => {
+      const image = new Image();
+      image.src = src;
+      await image.decode();
+      const canvas = Object.assign(document.createElement("canvas"), { width, height });
+      canvas.getContext("2d").drawImage(image, 0, 0);
+      return canvas.toDataURL("image/webp", 0.85).split(",")[1];
+    },
+    { src: `data:image/png;base64,${png.toString("base64")}`, width, height },
+  );
   writeFileSync(out, Buffer.from(webp, "base64"));
   console.log(`wrote ${out}`);
 } finally {

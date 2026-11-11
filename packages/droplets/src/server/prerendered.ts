@@ -55,9 +55,7 @@ export function createPrerenderedLoader(read: (path: string) => Promise<string |
       indexes.set(droplet, index);
     }
     const found = await index;
-    const file = found && typeof found === "object" && !Array.isArray(found) && Object.hasOwn(found, key)
-      ? found[key]
-      : undefined;
+    const file = found && typeof found === "object" && !Array.isArray(found) && Object.hasOwn(found, key) ? found[key] : undefined;
     if (typeof file !== "string" || !file) return null;
     const render = parse<PrerenderedDroplet>(await read(file));
     return render && typeof render === "object" && typeof render.html === "string" ? render : null;

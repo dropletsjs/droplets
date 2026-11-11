@@ -12,8 +12,7 @@ import type { Actions, LoadEvent } from "./$types";
  * transform: no `v` (the canonical URL), a product added later, or a `v`
  * an edit made since (the shop's links carry the current one).
  */
-export const entries = (async () =>
-  [...(await pageVersions())].map(([slug, v]) => ({ props: { slug, v } }))) satisfies Entries;
+export const entries = (async () => [...(await pageVersions())].map(([slug, v]) => ({ props: { slug, v } }))) satisfies Entries;
 
 /** What does not change after the build: name, text, image, related products. */
 export const load = async ({ props }: LoadEvent) => {

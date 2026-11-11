@@ -26,7 +26,7 @@ const clean = (id: string) => id.replace(/[?#].*$/, "").replaceAll("\\", "/");
  */
 export function isServerPath(path: string): boolean {
   const parts = clean(path).split("/");
-  return SERVER_NAME.test(parts.at(-1)!) || parts.slice(0, -1).includes("server");
+  return SERVER_NAME.test(parts.at(-1) ?? "") || parts.slice(0, -1).includes("server");
 }
 
 /**
@@ -57,9 +57,11 @@ function short(root: string, id: string): string {
 }
 
 export function serverOnlyError(root: string, chain: string[]): Error {
+  const file = chain.at(-1);
+  if (file === undefined) throw new Error("droplets: an empty import chain");
   const path = chain.map((id) => short(root, id)).join(" -> ");
   return new Error(
-    `droplets: ${short(root, chain.at(-1)!)} is server code and cannot reach the browser: ${path}. ` +
+    `droplets: ${short(root, file)} is server code and cannot reach the browser: ${path}. ` +
       `Files named *.server.* or under a server/ folder run on the server only: ` +
       `read them from +droplet.server.ts and pass what the browser needs as data.`,
   );
@@ -68,13 +70,10 @@ export function serverOnlyError(root: string, chain: string[]): Error {
 type GraphModule = { isEntry?: boolean; importedIds: readonly string[]; dynamicallyImportedIds: readonly string[] };
 
 /** The chain from an entry to the first server file in a client build graph; `null` when there is none. */
-export function findServerFile(
-  root: string,
-  moduleIds: Iterable<string>,
-  getModule: (id: string) => GraphModule | null,
-): string[] | null {
+export function findServerFile(root: string, moduleIds: Iterable<string>, getModule: (id: string) => GraphModule | null): string[] | null {
   const ids = [...moduleIds];
-  if (!ids.some((id) => isServerOnlyFile(root, id))) return null;
+  const serverFile = ids.find((id) => isServerOnlyFile(root, id));
+  if (serverFile === undefined) return null;
   const parent = new Map<string, string | null>();
   const queue: string[] = [];
   for (const id of ids) {
@@ -84,7 +83,8 @@ export function findServerFile(
     }
   }
   while (queue.length > 0) {
-    const current = queue.shift()!;
+    const current = queue.shift();
+    if (current === undefined) break;
     if (isServerOnlyFile(root, current)) {
       const chain: string[] = [];
       for (let at: string | null = current; at; at = parent.get(at) ?? null) chain.unshift(at);
@@ -99,7 +99,7 @@ export function findServerFile(
     }
   }
   // Reached, but not from an entry we know: name it on its own.
-  return [ids.find((id) => isServerOnlyFile(root, id))!];
+  return [serverFile];
 }
 
 type DevModule = { id: string | null; importers: Set<DevModule> };
@@ -108,7 +108,7 @@ type DevModule = { id: string | null; importers: Set<DevModule> };
 function importerChain(start: DevModule | undefined, importer: string): string[] {
   const chain = [importer];
   const seen = new Set<DevModule>();
-  for (let module = start; module && !seen.has(module);) {
+  for (let module = start; module && !seen.has(module); ) {
     seen.add(module);
     const [next] = module.importers;
     if (!next?.id) break;

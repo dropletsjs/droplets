@@ -38,5 +38,4 @@ export async function jsonBody(request: Request, max = 16 * 1024): Promise<Recor
 }
 
 /** An own property of a parsed body: never one inherited from Object.prototype. */
-export const field = (body: Record<string, unknown>, name: string): unknown =>
-  Object.hasOwn(body, name) ? body[name] : undefined;
+export const field = (body: Record<string, unknown>, name: string): unknown => (Object.hasOwn(body, name) ? body[name] : undefined);

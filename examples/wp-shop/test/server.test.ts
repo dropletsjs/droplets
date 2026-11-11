@@ -3,6 +3,7 @@ import { mkdirSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { type Claims, signAssertion } from "../src/lib/server/host-identity.ts";
+import type { CardProduct } from "../src/lib/types.ts";
 import { startMockWordPress, type MockWordPress } from "./mock-wordpress.ts";
 
 // wp-shop built and run against a stand-in WordPress (mock-wordpress.ts),
@@ -54,20 +55,25 @@ afterAll(() => wp?.close());
 type Init = RequestInit & { cookie?: string };
 
 const call = (path: string, { cookie, headers, ...init }: Init = {}) =>
-  server.fetch(new Request(`${ORIGIN}${path}`, {
-    ...init,
-    headers: { "x-droplet-location": HOST, ...(cookie ? { cookie } : {}), ...(headers as Record<string, string>) },
-  }));
+  server.fetch(
+    new Request(`${ORIGIN}${path}`, {
+      ...init,
+      headers: { "x-droplet-location": HOST, ...(cookie ? { cookie } : {}), ...(headers as Record<string, string>) },
+    }),
+  );
 
 /** As the plugin would sign it for this request. */
 const assertion = (method: string, path: string, over: Partial<Claims> = {}) =>
-  signAssertion({ sub: "admin", role: "administrator", exp: Math.floor(Date.now() / 1000) + 60, method, path, aud: "wp-shop", ...over }, SECRET);
+  signAssertion(
+    { sub: "admin", role: "administrator", exp: Math.floor(Date.now() / 1000) + 60, method, path, aud: "wp-shop", ...over },
+    SECRET,
+  );
 
 /** A browser's enhanced form post through the plugin's proxy. */
 const action = (path: string, fields: Record<string, string>, headers: Record<string, string> = {}) =>
   call(path, { method: "POST", body: new URLSearchParams(fields), headers: { origin: HOST, accept: "application/json", ...headers } });
 
-const products = async () => ((await (await call("/api/products?limit=48")).json()) as { items: Array<Record<string, any>> }).items;
+const products = async () => ((await (await call("/api/products?limit=48")).json()) as { items: CardProduct[] }).items;
 const bySlug = async (slug: string) => (await products()).find((p) => p.slug === slug)!;
 const renderId = (html: string) => /data-render-id="(\w+)"/.exec(html)?.[1];
 
@@ -101,7 +107,9 @@ describe("the catalogue, from WordPress", () => {
   it("renders a page without v live, and redirects an old v to the page without it", async () => {
     const live = await (await call("/droplets/product-page?slug=brass-pen-holder")).text();
     expect(renderId(live)).not.toBe(renderId(await (await call("/droplets/product-page?slug=brass-pen-holder")).text()));
-    const old = await call("/droplets/product-page?slug=brass-pen-holder&v=0123456789", { headers: { referer: `${HOST}/product/brass-pen-holder?v=0123456789` } });
+    const old = await call("/droplets/product-page?slug=brass-pen-holder&v=0123456789", {
+      headers: { referer: `${HOST}/product/brass-pen-holder?v=0123456789` },
+    });
     expect(old.status).toBe(302);
     expect(old.headers.get("location")).toBe(`${HOST}/product/brass-pen-holder`);
   });
@@ -144,7 +152,17 @@ describe("the WordPress admin, through x-wp-shop-user", () => {
       await assertion("GET", "/droplets/product-admin", { exp: Math.floor(Date.now() / 1000) - 1 }),
       `${(await assertion("GET", "/droplets/product-admin")).split(".")[0]}.${"A".repeat(43)}`,
       // Signed with the other direction's secret.
-      await signAssertion({ sub: "admin", role: "administrator", exp: Math.floor(Date.now() / 1000) + 60, method: "GET", path: "/droplets/product-admin", aud: "wp-shop" }, SERVICE_SECRET),
+      await signAssertion(
+        {
+          sub: "admin",
+          role: "administrator",
+          exp: Math.floor(Date.now() / 1000) + 60,
+          method: "GET",
+          path: "/droplets/product-admin",
+          aud: "wp-shop",
+        },
+        SERVICE_SECRET,
+      ),
     ]) {
       expect(await (await list({ "x-wp-shop-user": header })).text()).toContain("wp-login.php");
     }
@@ -174,14 +192,18 @@ describe("the WordPress admin, through x-wp-shop-user", () => {
     try {
       expect(await (await list({ "x-wp-shop-user": await assertion("GET", "/droplets/product-admin") })).text()).toContain("wp-login.php");
       const path = "/droplets/product-admin?/save";
-      expect((await action(path, { id: "p_11", stock: "5", price: "18.50" }, { "x-wp-shop-user": await assertion("POST", path) })).status).toBe(401);
+      expect(
+        (await action(path, { id: "p_11", stock: "5", price: "18.50" }, { "x-wp-shop-user": await assertion("POST", path) })).status,
+      ).toBe(401);
       expect(errors.mock.calls.flat().join("\n")).toContain("WP_SHOP_HOST_SECRET and WP_SHOP_SERVICE_SECRET are the same value");
     } finally {
       process.env["WP_SHOP_SERVICE_SECRET"] = SERVICE_SECRET;
       errors.mockRestore();
     }
     // Apart again: the admin is back.
-    expect(await (await list({ "x-wp-shop-user": await assertion("GET", "/droplets/product-admin") })).text()).toMatch(/Logged in to WordPress as/);
+    expect(await (await list({ "x-wp-shop-user": await assertion("GET", "/droplets/product-admin") })).text()).toMatch(
+      /Logged in to WordPress as/,
+    );
   });
 });
 
@@ -189,16 +211,23 @@ describe("the cart, in wp-shop's SQLite", () => {
   it("adds a WordPress product, and refuses a sold-out one", async () => {
     const added = await action("/droplets/product-library?/add", { productId: "p_14" });
     expect((await added.json()).data).toEqual({ added: "p_14", name: "Brass Pen Holder", count: 1 });
-    const cookie = added.headers.getSetCookie().find((line) => line.startsWith("cart_id="))!.split(";")[0]!;
+    const cookie = added.headers
+      .getSetCookie()
+      .find((line) => line.startsWith("cart_id="))!
+      .split(";")[0]!;
     const { cart } = await (await call("/api/cart", { cookie })).json();
-    expect(cart.items).toEqual([expect.objectContaining({ productId: "p_14", qty: 1, image: `${wp.url}/wp-content/uploads/2026/11/m-104.webp` })]);
+    expect(cart.items).toEqual([
+      expect.objectContaining({ productId: "p_14", qty: 1, image: `${wp.url}/wp-content/uploads/2026/11/m-104.webp` }),
+    ]);
     const out = await action("/droplets/product-library?/add", { productId: "p_12" });
     expect(out.status).toBe(409);
   });
 
   it("refuses a form posted from another origin", async () => {
     const response = await call("/droplets/product-library?/add", {
-      method: "POST", body: new URLSearchParams({ productId: "p_15" }), headers: { origin: "http://evil.example" },
+      method: "POST",
+      body: new URLSearchParams({ productId: "p_15" }),
+      headers: { origin: "http://evil.example" },
     });
     expect(response.status).toBe(403);
   });

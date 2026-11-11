@@ -3,12 +3,7 @@
  * from `vue/server-renderer`. `DropletChildren` finds no host and renders
  * the bare children marker.
  */
-import type {
-  ComponentModule,
-  RenderProps,
-  ServerRenderContext,
-  ServerRenderOutput,
-} from "@dropletsjs/droplets";
+import type { ComponentModule, RenderProps, ServerRenderContext, ServerRenderOutput } from "@dropletsjs/droplets";
 import { createSSRApp, type Component } from "vue";
 import { renderToString } from "vue/server-renderer";
 import { CHILDREN_KEY } from "./children.ts";
@@ -24,11 +19,7 @@ function componentOf(module: ComponentModule, context: ServerRenderContext): Com
   return component as Component;
 }
 
-export async function render(
-  module: ComponentModule,
-  props: RenderProps,
-  context: ServerRenderContext,
-): Promise<ServerRenderOutput> {
+export async function render(module: ComponentModule, props: RenderProps, context: ServerRenderContext): Promise<ServerRenderOutput> {
   const component = componentOf(module, context);
   const app = createSSRApp(component, props as Record<string, unknown>);
   app.provide(CHILDREN_KEY, null);

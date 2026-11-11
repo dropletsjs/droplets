@@ -100,14 +100,13 @@ export async function settle(value: unknown): Promise<unknown> {
   const results = await Promise.allSettled(entries.map(([, field]) => field));
   const failed = results.find((result) => result.status === "rejected");
   if (failed) throw failed.reason;
-  return Object.fromEntries(
-    entries.map(([key], index) => [key, (results[index] as PromiseFulfilledResult<unknown>).value]),
-  );
+  return Object.fromEntries(entries.map(([key], index) => [key, (results[index] as PromiseFulfilledResult<unknown>).value]));
 }
 
 function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
-  return (typeof value === "object" || typeof value === "function") && value !== null &&
-    typeof (value as { then?: unknown }).then === "function";
+  return (
+    (typeof value === "object" || typeof value === "function") && value !== null && typeof (value as { then?: unknown }).then === "function"
+  );
 }
 
 export type HandleDropletErrorFn = (input: { error: unknown }) => unknown;
@@ -116,12 +115,7 @@ export type HandleDropletErrorFn = (input: { error: unknown }) => unknown;
  * One link of the `handleError` chain. Without a `handleError` the error
  * passes through, as `({ error = new DropletRenderError() }) => ({ error })`.
  */
-export async function runHandleError(
-  droplet: string,
-  file: string,
-  handleError: unknown,
-  error: unknown,
-): Promise<unknown> {
+export async function runHandleError(droplet: string, file: string, handleError: unknown, error: unknown): Promise<unknown> {
   if (typeof handleError !== "function") return error ?? new DropletRenderError();
   const result: unknown = await (handleError as HandleDropletErrorFn)({ error });
   if (typeof result !== "object" || result === null || !("error" in result)) {
@@ -138,7 +132,7 @@ export async function runHandleError(
  */
 export function toWireError(error: unknown): unknown {
   const json = JSON.stringify(error, (_key, value: unknown) =>
-    value instanceof Error ? { name: value.name, message: value.message } : value
+    value instanceof Error ? { name: value.name, message: value.message } : value,
   );
   return json === undefined ? null : JSON.parse(json);
 }

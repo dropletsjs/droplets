@@ -74,9 +74,7 @@ describe("syncDropletTypes", () => {
 
     await syncDropletTypes({ ...input, entries: [entry("a")] });
     await expect(readFile(resolve(root, ".droplets/types/src/droplets/b/$types.d.ts"), "utf8")).rejects.toThrow();
-    await expect(readFile(resolve(root, ".droplets/types/src/droplets/a/$types.d.ts"), "utf8")).resolves.toContain(
-      "export type Data",
-    );
+    await expect(readFile(resolve(root, ".droplets/types/src/droplets/a/$types.d.ts"), "utf8")).resolves.toContain("export type Data");
   });
   it("lists a +droplet.tsx that a +droplet.ts shadows, and only then", async () => {
     const root = await mkdtemp(join(tmpdir(), "droplets-types-"));
@@ -127,7 +125,10 @@ describe("./$types, as TypeScript reads them", () => {
     );
     return ts
       .getPreEmitDiagnostics(program)
-      .map((d) => `${d.file ? `${d.file.fileName.slice(root.length)}:${d.file.getLineAndCharacterOfPosition(d.start ?? 0).line + 1} ` : ""}${ts.flattenDiagnosticMessageText(d.messageText, "\n")}`);
+      .map(
+        (d) =>
+          `${d.file ? `${d.file.fileName.slice(root.length)}:${d.file.getLineAndCharacterOfPosition(d.start ?? 0).line + 1} ` : ""}${ts.flattenDiagnosticMessageText(d.messageText, "\n")}`,
+      );
   }
 
   it("types props from the schema, data from the loads, and the error page from handleError", async () => {
@@ -140,7 +141,7 @@ describe("./$types, as TypeScript reads them", () => {
         "    types: undefined as unknown as { input: unknown; output: Out } },",
         "} as const;",
         "export const load = ({ data, props }: DropletLoadEvent) => ({ ...data, label: `${props.who} ${props.page}` });",
-        "export const handleError = () => ({ error: { reason: \"oops\" } });",
+        'export const handleError = () => ({ error: { reason: "oops" } });',
       ].join("\n"),
       "src/droplets/card/+droplet.server.ts": [
         'import { fail, redirect } from "@dropletsjs/droplets/server";',
@@ -163,10 +164,10 @@ describe("./$types, as TypeScript reads them", () => {
         "yes<Same<Props, { who: string; page: number }>>();",
         "yes<Same<ServerData, { who: string; page: number }>>();",
         "yes<Same<Data, { label: string; who: string; page: number }>>();",
-        "yes<Same<DropletProps[\"data\"], Data | Promise<Data>>>();",
-        "yes<Same<DropletErrorProps[\"error\"], { reason: string }>>();",
+        'yes<Same<DropletProps["data"], Data | Promise<Data>>>();',
+        'yes<Same<DropletErrorProps["error"], { reason: string }>>();',
         "yes<Same<ActionData, { missing: true } | { thanks: string } | undefined>>();",
-        "yes<Same<NonNullable<DropletProps[\"form\"]>, { missing: true } | { thanks: string }>>();",
+        'yes<Same<NonNullable<DropletProps["form"]>, { missing: true } | { thanks: string }>>();',
         "// @ts-expect-error: `who` is a string once the schema ran",
         "export const wrong: Props = { who: 1, page: 1 };",
       ].join("\n"),
@@ -234,8 +235,8 @@ describe("./$types, as TypeScript reads them", () => {
         "// @ts-expect-error: card exports no action `nope`",
         'enhanceDropletForm<DropletActions>(form, { action: "nope" });',
         "enhanceDropletForm(form);",
-        "export const options: EnhanceOptions<DropletActions, \"add\"> = { action: \"add\", onResult: ({ data }) => void data };",
-        "export type Result = EnhanceResult<DropletActions[\"add\"]>;",
+        'export const options: EnhanceOptions<DropletActions, "add"> = { action: "add", onResult: ({ data }) => void data };',
+        'export type Result = EnhanceResult<DropletActions["add"]>;',
         "export { stop };",
       ].join("\n"),
       "src/droplets/bare/check.ts": [
@@ -259,7 +260,7 @@ describe("./$types, as TypeScript reads them", () => {
     const root = await project({
       "src/droplets/tracker/+droplet.server.ts": [
         'import type { LoadEvent } from "./$types";',
-        "export const load = (_event: LoadEvent) => ({ views: 3, page: \"home\" });",
+        'export const load = (_event: LoadEvent) => ({ views: 3, page: "home" });',
       ].join("\n"),
       "src/droplets/tracker/+droplet.script.ts": [
         'import type { Data, DropletScript } from "./$types";',
@@ -287,10 +288,10 @@ describe("./$types, as TypeScript reads them", () => {
 
   it("checks +droplet.tsx next to +droplet.ts through the project's tsconfig, with or without its own include", async () => {
     const droplet = {
-      "src/droplets/card/+droplet.ts": "export const load = () => ({ label: \"hi\" });",
+      "src/droplets/card/+droplet.ts": 'export const load = () => ({ label: "hi" });',
       "src/droplets/card/+droplet.tsx": [
         'import type { Data } from "./$types";',
-        "export const ok: Data = { label: \"hi\" };",
+        'export const ok: Data = { label: "hi" };',
         "export const wrong: Data = { label: 1 };",
       ].join("\n"),
       "src/other.ts": "export const other = 1;",
@@ -315,12 +316,16 @@ describe("./$types, as TypeScript reads them", () => {
         renderers: [],
         entries: [entry("card", { file: "+droplet.tsx", renderer: "react", hasLoad: true })],
       });
-      const parsed = ts.getParsedCommandLineOfConfigFile(resolve(root, "tsconfig.json"), {}, {
-        ...ts.sys,
-        onUnRecoverableConfigFileDiagnostic: (d) => {
-          throw new Error(ts.flattenDiagnosticMessageText(d.messageText, "\n"));
+      const parsed = ts.getParsedCommandLineOfConfigFile(
+        resolve(root, "tsconfig.json"),
+        {},
+        {
+          ...ts.sys,
+          onUnRecoverableConfigFileDiagnostic: (d) => {
+            throw new Error(ts.flattenDiagnosticMessageText(d.messageText, "\n"));
+          },
         },
-      });
+      );
       if (!parsed) throw new Error("no tsconfig");
       expect(parsed.errors).toEqual([]);
       const names = parsed.fileNames.map((file) => file.slice(root.length));
@@ -328,7 +333,10 @@ describe("./$types, as TypeScript reads them", () => {
       const program = ts.createProgram(parsed.fileNames, parsed.options);
       const found = ts
         .getPreEmitDiagnostics(program)
-        .map((d) => `${d.file?.fileName.slice(root.length)}:${d.file?.getLineAndCharacterOfPosition(d.start ?? 0).line} ${ts.flattenDiagnosticMessageText(d.messageText, "\n")}`);
+        .map(
+          (d) =>
+            `${d.file?.fileName.slice(root.length)}:${d.file?.getLineAndCharacterOfPosition(d.start ?? 0).line} ${ts.flattenDiagnosticMessageText(d.messageText, "\n")}`,
+        );
       expect(found).toEqual(["/src/droplets/card/+droplet.tsx:2 Type 'number' is not assignable to type 'string'."]);
     }
   });

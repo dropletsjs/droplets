@@ -60,9 +60,7 @@ describe("scopeStylesPlugin", () => {
   it("only touches files the include filter accepts", () => {
     const css = ".x { color: red }";
     const include = (file: string | undefined) => file?.endsWith("app.css") ?? false;
-    expect(run(css, { element: el, include }, "/proj/src/app.css")).toBe(
-      "my-droplet .x { color: red }",
-    );
+    expect(run(css, { element: el, include }, "/proj/src/app.css")).toBe("my-droplet .x { color: red }");
     expect(run(css, { element: el, include }, "/proj/src/droplets/a/+droplet.svelte")).toBe(css);
     expect(run(css, { element: el, include })).toBe(css);
   });
@@ -74,8 +72,7 @@ describe("scopeStylesPlugin", () => {
 });
 
 describe("Svelte styles", () => {
-  const run = (css: string, from: string) =>
-    postcss([scopeStylesPlugin({ element: el })]).process(css, { from }).css;
+  const run = (css: string, from: string) => postcss([scopeStylesPlugin({ element: el })]).process(css, { from }).css;
 
   it("scope with :global(element) before Svelte compiles them, plainly after", () => {
     const before = run(":root { color: red } .note { font-style: italic }", "/p/Note.svelte.vite-preprocess.css");

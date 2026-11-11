@@ -160,11 +160,7 @@ export function externalsList(state: PluginState): string[] {
 }
 
 /** Recomputes the folder-derived fields after the config has been resolved. */
-export function applyConfig(
-  state: PluginState,
-  root: string,
-  config: ResolvedDropletsConfig,
-): void {
+export function applyConfig(state: PluginState, root: string, config: ResolvedDropletsConfig): void {
   const folder = normalizeDropletsFolder(config.dropletsFolder);
   state.root = root;
   state.config = { ...config, buildHash: state.buildHash };
@@ -180,11 +176,6 @@ export const HOOKS_FILES = ["src/hooks.server.ts", "src/hooks.server.js"];
  * `src/hooks.client.ts`, or another JavaScript or TypeScript extension;
  * where `init` lives, run by `/index.js` before any droplet starts.
  */
-export const CLIENT_HOOKS_FILES = [
-  "src/hooks.client.ts",
-  "src/hooks.client.mts",
-  "src/hooks.client.js",
-  "src/hooks.client.mjs",
-];
+export const CLIENT_HOOKS_FILES = ["src/hooks.client.ts", "src/hooks.client.mts", "src/hooks.client.js", "src/hooks.client.mjs"];
 /** Where `importmap` lives, next to the hooks. */
 export const IMPORTMAP_FILES = ["src/importmap.server.ts", "src/importmap.server.js"];

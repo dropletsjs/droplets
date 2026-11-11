@@ -2,11 +2,7 @@ import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import {
-  CONFIG_FILE_CANDIDATES,
-  findConfigFile,
-  loadDropletsConfig,
-} from "../../src/core/load-config.ts";
+import { CONFIG_FILE_CANDIDATES, findConfigFile, loadDropletsConfig } from "../../src/core/load-config.ts";
 
 const env = { command: "serve", mode: "development" } as const;
 
@@ -25,9 +21,7 @@ describe("findConfigFile", () => {
   });
 
   it("throws for an explicit file that is missing", async () => {
-    await expect(findConfigFile(root, "custom.config.ts")).rejects.toThrow(
-      /config file not found/,
-    );
+    await expect(findConfigFile(root, "custom.config.ts")).rejects.toThrow(/config file not found/);
   });
 
   it("prefers candidates in order", async () => {
@@ -59,10 +53,7 @@ describe("loadDropletsConfig", () => {
   });
 
   it("loads a TypeScript config file with its imports", async () => {
-    await writeFile(
-      join(root, "ports.ts"),
-      "export const port: number = 9876;\n",
-    );
+    await writeFile(join(root, "ports.ts"), "export const port: number = 9876;\n");
     await writeFile(
       join(root, "droplets.config.ts"),
       [
@@ -83,10 +74,7 @@ describe("loadDropletsConfig", () => {
   });
 
   it("honours an explicit configFile", async () => {
-    await writeFile(
-      join(root, "other.config.ts"),
-      'export default { dropletsFolder: "widgets" };\n',
-    );
+    await writeFile(join(root, "other.config.ts"), 'export default { dropletsFolder: "widgets" };\n');
     const loaded = await loadDropletsConfig(root, env, "other.config.ts");
     expect(loaded.config.dropletsFolder).toBe("widgets");
   });

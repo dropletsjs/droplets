@@ -2,19 +2,10 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import {
-  discoverDroplets,
-  dropletId,
-} from "../../src/core/discover.ts";
+import { discoverDroplets, dropletId } from "../../src/core/discover.ts";
 import { langOfFile, readExportedFlag, readExportedFlags } from "../../src/core/flags.ts";
 import { setLogLevel } from "../../src/core/logger.ts";
-import {
-  importsPackage,
-  pickRenderer,
-  sharingRenderers,
-  validateRenderers,
-  type DropletRenderer,
-} from "../../src/renderer.ts";
+import { importsPackage, pickRenderer, sharingRenderers, validateRenderers, type DropletRenderer } from "../../src/renderer.ts";
 
 /** Renderers as discovery sees them: a name and the extensions they claim. */
 const renderer = (name: string, extensions: string[], extra: Partial<DropletRenderer> = {}): DropletRenderer => ({
@@ -56,7 +47,7 @@ describe("readExportedFlag", () => {
     expect(readExportedFlags(source, "x")).toEqual({ ssr: true, hydrate: false });
   });
 
-  it("reads when a droplet hydrates: a boolean, \"visible\" or \"interactive\"", () => {
+  it('reads when a droplet hydrates: a boolean, "visible" or "interactive"', () => {
     expect(readExportedFlags('export const hydrate = "visible";', "x")).toEqual({ hydrate: "visible" });
     expect(readExportedFlags("export const hydrate = 'interactive'", "x")).toEqual({ hydrate: "interactive" });
     expect(readExportedFlags("export const hydrate = false;", "x")).toEqual({ hydrate: false });
@@ -175,9 +166,7 @@ describe("pickRenderer", () => {
       "a/+droplet.tsx: react and solid both handle this file and it imports neither; import from react or solid-js, " +
         "or add a /** @jsxImportSource <package> */ comment",
     );
-    expect(() =>
-      pickRenderer([react, solid], 'import "react";\nimport "solid-js";', "a/+droplet.tsx")
-    ).toThrow("imports from both");
+    expect(() => pickRenderer([react, solid], 'import "react";\nimport "solid-js";', "a/+droplet.tsx")).toThrow("imports from both");
   });
 
   it("names a component that two of three renderers claim, as Hono JSX next to React and Solid", () => {
@@ -338,7 +327,8 @@ describe("discoverDroplets", () => {
     await mkdir(join(other, "plain"), { recursive: true });
     await writeFile(join(other, "card", "+droplet.svelte"), "<script module>export const hydrate = false;</script><p></p>");
     await writeFile(join(other, "plain", "+droplet.svelte"), "<p></p>");
-    const load = "export const load = () => ({});\nexport const ssr = false;\nexport const hydrate = true;\nexport const prerender = true;\n";
+    const load =
+      "export const load = () => ({});\nexport const ssr = false;\nexport const hydrate = true;\nexport const prerender = true;\n";
     await writeFile(join(other, "card", file), load);
     await writeFile(join(other, "plain", file), load);
     for (const options of [{}, { dev: true }]) {

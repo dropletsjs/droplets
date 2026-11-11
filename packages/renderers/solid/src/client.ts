@@ -9,12 +9,7 @@
  * whatever throws while rendering, a resource of `data` that rejected
  * included.
  */
-import type {
-  ClientRenderContext,
-  ComponentModule,
-  DropletChildrenHost,
-  RenderProps,
-} from "@dropletsjs/droplets";
+import type { ClientRenderContext, ComponentModule, DropletChildrenHost, RenderProps } from "@dropletsjs/droplets";
 import {
   createComponent,
   createSignal,
@@ -97,7 +92,10 @@ function withBoundary(
     createComponent(ErrorBoundary, {
       fallback: (caught: unknown) => {
         const [shown, setShown] = createSignal<{ error: unknown }>();
-        error.handle(thrown(caught)).then((value) => setShown({ error: value }), () => undefined);
+        error.handle(thrown(caught)).then(
+          (value) => setShown({ error: value }),
+          () => undefined,
+        );
         return createComponent(Show, {
           get when() {
             return shown();
@@ -118,12 +116,7 @@ function withBoundary(
     });
 }
 
-export function mount(
-  module: ComponentModule,
-  target: HTMLElement,
-  props: RenderProps,
-  context: ClientRenderContext,
-): unknown {
+export function mount(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): unknown {
   const component = componentOf(module, context);
   const children = childrenOf(context.children, () => undefined);
   const live = liveProps(props, children);
@@ -133,12 +126,7 @@ export function mount(
   return handle;
 }
 
-export function hydrate(
-  module: ComponentModule,
-  target: HTMLElement,
-  props: RenderProps,
-  context: ClientRenderContext,
-): unknown {
+export function hydrate(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): unknown {
   const component = componentOf(module, context);
   const serverMarkers = context.markers();
   const children = childrenOf(context.children, () => serverMarkers.shift());

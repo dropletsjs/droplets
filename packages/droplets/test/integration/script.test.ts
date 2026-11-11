@@ -152,7 +152,8 @@ describe("a script droplet's server files", () => {
   it("fail the build when the script imports one", async () => {
     const root = await project({
       ...FILES,
-      "src/droplets/tracker/+droplet.script.ts": "import { secret } from './db.server.ts';\nexport default (data, el) => { el.textContent = secret; };\n",
+      "src/droplets/tracker/+droplet.script.ts":
+        "import { secret } from './db.server.ts';\nexport default (data, el) => { el.textContent = secret; };\n",
     });
     roots.push(root);
     await expect(build(root)).rejects.toThrow(
@@ -191,7 +192,7 @@ describe("a script droplet in vite dev", () => {
   });
 
   const api = () =>
-    server.config.plugins.find((plugin) => plugin.name === "droplets")!.api as {
+    (server.config.plugins.find((plugin) => plugin.name === "droplets") ?? expect.unreachable("the droplets plugin")).api as {
       fetch(request: Request): Promise<Response>;
       renderers(): string[];
       droplets(): { id: string; renderer: string; hydrate: unknown }[];
@@ -199,7 +200,11 @@ describe("a script droplet in vite dev", () => {
 
   it("is listed with the built-in renderer, which is not among the configured ones", () => {
     expect(api().renderers()).toEqual(["fake"]);
-    expect(api().droplets().find((d) => d.id === "tracker")).toMatchObject({ renderer: "script", hydrate: true });
+    expect(
+      api()
+        .droplets()
+        .find((d) => d.id === "tracker"),
+    ).toMatchObject({ renderer: "script", hydrate: true });
   });
 
   it("answers the same fragment, without evaluating the script on the server", async () => {

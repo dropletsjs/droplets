@@ -10,7 +10,13 @@ export type Adapter = "node" | "cloudflare" | "bun" | "deno";
 
 export const ADAPTERS: readonly { value: Adapter; label: string; hint: string; package: string; factory: string }[] = [
   { value: "node", label: "Node", hint: "dist/server.js for node", package: "@dropletsjs/adapter-node", factory: "node" },
-  { value: "cloudflare", label: "Cloudflare Workers", hint: "dist/worker.js for wrangler", package: "@dropletsjs/adapter-cloudflare", factory: "cloudflare" },
+  {
+    value: "cloudflare",
+    label: "Cloudflare Workers",
+    hint: "dist/worker.js for wrangler",
+    package: "@dropletsjs/adapter-cloudflare",
+    factory: "cloudflare",
+  },
   { value: "bun", label: "Bun", hint: "dist/server.js for bun", package: "@dropletsjs/adapter-bun", factory: "bun" },
   { value: "deno", label: "Deno", hint: "dist/server.js for deno serve", package: "@dropletsjs/adapter-deno", factory: "deno" },
 ];
@@ -58,7 +64,10 @@ export function starterName(framework: Framework): string {
 
 /** The adapter `vite build` uses without `DROPLETS_ADAPTER`: node when chosen, else the first. */
 export function defaultAdapter(adapters: readonly Adapter[]): Adapter {
-  return adapters.includes("node") ? "node" : adapters[0]!;
+  if (adapters.includes("node")) return "node";
+  const [first] = adapters;
+  if (first === undefined) throw new Error("create-droplets: no adapter chosen");
+  return first;
 }
 
 /** A package name from the folder: `My Widgets` → `my-widgets`. */
@@ -79,9 +88,7 @@ export function suggestElement(folder: string): string {
 
 /** Why `element` cannot name the custom element, or `undefined` when it can. */
 export function elementProblem(element: string): string | undefined {
-  return isValidElementName(element)
-    ? undefined
-    : "lowercase letters, digits and a hyphen, starting with a letter: my-widgets";
+  return isValidElementName(element) ? undefined : "lowercase letters, digits and a hyphen, starting with a letter: my-widgets";
 }
 
 export type Flags = {
@@ -114,7 +121,10 @@ export const USAGE = `Usage: npm create droplets [folder] [options]
 
 function list<T>(value: string | undefined, flag: string, pick: (item: string) => T | undefined, allowed: string[]): T[] | undefined {
   if (value === undefined) return undefined;
-  const items = value.split(",").map((item) => item.trim()).filter(Boolean);
+  const items = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
   const picked = items.map((item) => {
     const found = pick(item);
     if (found === undefined) throw new Error(`--${flag} ${item}: expected ${allowed.join(", ")}`);

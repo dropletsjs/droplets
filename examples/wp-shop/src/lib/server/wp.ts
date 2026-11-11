@@ -197,7 +197,8 @@ const warned = new Set<string>();
 
 /** Logs an item left out, once per item and reason. */
 function leftOut(what: string, item: unknown, reason: string) {
-  const id = typeof item === "object" && item !== null && Object.hasOwn(item, "id") ? String((item as { id: unknown }).id).slice(0, 20) : "?";
+  const id =
+    typeof item === "object" && item !== null && Object.hasOwn(item, "id") ? String((item as { id: unknown }).id).slice(0, 20) : "?";
   const key = `${what}:${id}:${reason}`;
   if (warned.has(key) || warned.size > 1000) return;
   warned.add(key);
@@ -245,7 +246,11 @@ export function toProduct(post: WpProductAnswer, image: string | null): WpProduc
     slug: post.slug,
     name,
     description: plainText(post.content.rendered, 2000),
-    details: post.meta.shop_details.split("·").map((part) => part.trim().slice(0, 80)).filter(Boolean).slice(0, 8),
+    details: post.meta.shop_details
+      .split("·")
+      .map((part) => part.trim().slice(0, 80))
+      .filter(Boolean)
+      .slice(0, 8),
     priceCents: post.meta.shop_price_cents,
     salePct: post.meta.shop_sale_pct,
     category: post.meta.shop_category,
@@ -288,7 +293,10 @@ async function withImages(config: WpConfig, items: unknown[]): Promise<WpProduct
     if (post.success) posts.push(post.data);
     else leftOut("product", item, issue(post.error));
   }
-  const images = await mediaUrls(config, posts.map((post) => post.featured_media));
+  const images = await mediaUrls(
+    config,
+    posts.map((post) => post.featured_media),
+  );
   return posts.flatMap((post) => {
     const product = toProduct(post, images.get(post.featured_media) ?? null);
     if (!product) leftOut("product", post, "no usable featured image or title");

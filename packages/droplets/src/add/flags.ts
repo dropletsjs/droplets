@@ -66,7 +66,7 @@ export function flagsFor(target: Target, hydrate?: HydrateChoice): { flags: Flag
   const choice = hydrate ?? DEFAULT_HYDRATE[target];
   const notes: Note[] = [];
   if (target === "full" && choice === "none") {
-    throw new Error('--target full always hydrates; for HTML without JavaScript use --target ssr');
+    throw new Error("--target full always hydrates; for HTML without JavaScript use --target ssr");
   }
   if (target === "ssr" && choice !== "none") {
     notes.push({ level: "info", message: `ssr with --hydrate ${choice} is the same as --target full --hydrate ${choice}` });

@@ -33,9 +33,9 @@ describe("the no-JavaScript form result", () => {
     const result = await read(value);
     expect(result).toEqual({ action: "add", status: 422, data: { message: "Thanks, Ana", fields: [{ name: "x" }] } });
     expect(Object.getPrototypeOf(result)).toBeNull();
-    expect(Object.getPrototypeOf(result!.data)).toBeNull();
+    expect(Object.getPrototypeOf((result ?? expect.unreachable("a form result")).data)).toBeNull();
     // The payload is the documented JSON, nothing more.
-    expect(JSON.parse(unb64url(value.split(".")[0]!))).toEqual({
+    expect(JSON.parse(unb64url(value.split(".")[0] ?? expect.unreachable("a payload")))).toEqual({
       status: 422,
       data: { message: "Thanks, Ana", fields: [{ name: "x" }] },
       exp: NOW + FORM_RESULT_TTL_MS,
@@ -47,7 +47,7 @@ describe("the no-JavaScript form result", () => {
     const value = (await mintFormResult(SECRET, SCOPE, { action: "default", status: 200 }, NOW)).value;
     const result = await read(value);
     expect(result).toEqual({ action: "default", status: 200 });
-    expect(Object.hasOwn(result!, "data")).toBe(false);
+    expect(Object.hasOwn(result ?? expect.unreachable("a form result"), "data")).toBe(false);
   });
 
   it("ignores a tampered payload: the MAC is checked before anything is parsed", async () => {
@@ -55,7 +55,11 @@ describe("the no-JavaScript form result", () => {
     const [payload, mac] = value.split(".") as [string, string];
     const body = JSON.parse(unb64url(payload)) as Record<string, unknown>;
     const parse = vi.spyOn(JSON, "parse");
-    for (const changed of [{ ...body, status: 500 }, { ...body, action: "leave" }, { ...body, data: { message: "Call 555" } }]) {
+    for (const changed of [
+      { ...body, status: 500 },
+      { ...body, action: "leave" },
+      { ...body, data: { message: "Call 555" } },
+    ]) {
       expect(await read(`${b64url(JSON.stringify(changed))}.${mac}`)).toBeNull();
     }
     // Garbage that is not JSON is never handed to JSON.parse either.
@@ -115,7 +119,17 @@ describe("the no-JavaScript form result", () => {
   it("refuses anything that is not one base64url payload and a 32-byte MAC", async () => {
     const value = await mint();
     const [payload, mac] = value.split(".") as [string, string];
-    for (const bad of [undefined, 42, "", value.replace(".", ""), `${payload}.${mac}.x`, `${payload}=.${mac}`, `${payload}.${mac}=`, `${payload}.${mac.slice(1)}`, `${payload}+.${mac}`]) {
+    for (const bad of [
+      undefined,
+      42,
+      "",
+      value.replace(".", ""),
+      `${payload}.${mac}.x`,
+      `${payload}=.${mac}`,
+      `${payload}.${mac}=`,
+      `${payload}.${mac.slice(1)}`,
+      `${payload}+.${mac}`,
+    ]) {
       expect(await read(bad), String(bad)).toBeNull();
     }
   });
@@ -124,7 +138,7 @@ describe("the no-JavaScript form result", () => {
     const data = JSON.parse('{"message":"hi","__proto__":{"polluted":1},"nested":{"__proto__":{"polluted":2}}}') as unknown;
     const result = await read(await mint(data));
     expect(result).not.toBeNull();
-    const form = result!.data as Record<string, unknown>;
+    const form = (result ?? expect.unreachable("a form result")).data as Record<string, unknown>;
     expect(form["message"]).toBe("hi");
     expect(Object.hasOwn(form, "__proto__")).toBe(false);
     expect(Object.getPrototypeOf(form)).toBeNull();

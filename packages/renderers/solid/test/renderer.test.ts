@@ -22,7 +22,7 @@ describe("solid()", () => {
     expect(renderer.clientSetup).toMatch(/[\\/]dist[\\/]client-setup\.js$/);
     expect(existsSync(renderer.server), "build the package first").toBe(true);
     expect(existsSync(renderer.client)).toBe(true);
-    expect(existsSync(renderer.clientSetup!)).toBe(true);
+    expect(existsSync(renderer.clientSetup ?? expect.unreachable("clientSetup"))).toBe(true);
     expect(renderer.packages).toEqual(["solid-js", "@dropletsjs/renderer-solid"]);
     expect((renderer.plugins as (scope: object) => unknown[])({})).toHaveLength(1);
   });
@@ -58,9 +58,9 @@ describe("the Vite plugin, per environment", () => {
   });
 
   const compile = async (environment: string) => {
-    const result = await server.environments[environment]!.transformRequest(component);
+    const result = await (server.environments[environment] ?? expect.unreachable(environment)).transformRequest(component);
     expect(result, environment).toBeTruthy();
-    return result!.code;
+    return (result ?? expect.unreachable(environment)).code;
   };
 
   it("compiles SSR output, keyed for hydration, where the consumer is the server", async () => {

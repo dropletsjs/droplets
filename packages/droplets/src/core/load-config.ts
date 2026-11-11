@@ -7,12 +7,7 @@ import { ensureTypesTsconfig } from "../vite/sync-types.ts";
 import { fileExists } from "./fs.ts";
 
 /** Looked up in this order when no `configFile` is given. */
-export const CONFIG_FILE_CANDIDATES = [
-  "droplets.config.ts",
-  "droplets.config.mts",
-  "droplets.config.js",
-  "droplets.config.mjs",
-] as const;
+export const CONFIG_FILE_CANDIDATES = ["droplets.config.ts", "droplets.config.mts", "droplets.config.js", "droplets.config.mjs"] as const;
 
 export type LoadedDropletsConfig = {
   config: ResolvedDropletsConfig;
@@ -23,10 +18,7 @@ export type LoadedDropletsConfig = {
   dependencies: string[];
 };
 
-export async function findConfigFile(
-  root: string,
-  configFile?: string,
-): Promise<string | null> {
+export async function findConfigFile(root: string, configFile?: string): Promise<string | null> {
   if (configFile) {
     const path = resolve(root, configFile);
     if (!(await fileExists(path))) {
@@ -45,11 +37,7 @@ export async function findConfigFile(
  * Loads `droplets.config.ts` the same way Vite loads its own config file, so
  * TypeScript and ESM imports work without any extra tooling.
  */
-export async function loadDropletsConfig(
-  root: string,
-  configEnv: ConfigEnv,
-  configFile?: string,
-): Promise<LoadedDropletsConfig> {
+export async function loadDropletsConfig(root: string, configEnv: ConfigEnv, configFile?: string): Promise<LoadedDropletsConfig> {
   await ensureTypesTsconfig(root);
   const path = await findConfigFile(root, configFile);
   let user: DropletsConfig = {};

@@ -1,13 +1,7 @@
 import userConfig from "virtual:droplets-config";
 import manifest from "virtual:droplets-manifest";
 import * as ssr from "virtual:droplets-ssr";
-import {
-  createPrerenderedLoader,
-  createServerApp,
-  resolveConfig,
-  setRuntimeEnv,
-  type AssetLoaders,
-} from "@dropletsjs/droplets";
+import { createPrerenderedLoader, createServerApp, resolveConfig, setRuntimeEnv, type AssetLoaders } from "@dropletsjs/droplets";
 
 /** Injected by the adapter at build time (`rolldownOptions.output.intro`). */
 declare const __DROPLETS_ASSETS_BINDING__: string;
@@ -51,9 +45,7 @@ function createLoaders(assets: AssetsFetcher): AssetLoaders {
     // Read through the binding on demand: never part of the Worker bundle.
     // Their directory's name is new every build and only this bundle has
     // it, so no one can guess a URL for them, whatever the assets config.
-    ...(manifest.__prerendered
-      ? { loadPrerendered: createPrerenderedLoader((path) => read(`${manifest.__prerendered}/${path}`)) }
-      : {}),
+    ...(manifest.__prerendered ? { loadPrerendered: createPrerenderedLoader((path) => read(`${manifest.__prerendered}/${path}`)) } : {}),
     externals: manifest.__externals ?? [],
     dropletStyles: (droplet) => Promise.resolve(dropletEntry(droplet)?.css ?? []),
     // The entry, shared chunks and assets, from the binding, named by
@@ -83,7 +75,10 @@ async function revalidated({ response, ifNoneMatch }: PublicAnswer): Promise<Res
   if (response.status === 304 || headers.has("etag")) return new Response(response.body, { status: response.status, headers });
   const body = await response.arrayBuffer();
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-1", body));
-  const etag = `"${btoa(String.fromCharCode(...digest)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")}"`;
+  const etag = `"${btoa(String.fromCharCode(...digest))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "")}"`;
   headers.set("etag", etag);
   if (ifNoneMatch?.split(",").some((tag) => tag.trim() === etag)) {
     headers.delete("content-length");

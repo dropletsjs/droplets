@@ -16,7 +16,8 @@ const SIMPLE_TYPES = new Set(["application/x-www-form-urlencoded", "multipart/fo
 
 /** The media type of a request, lowercase and without parameters; `""` without one. */
 export function mediaType(request: Request): string {
-  return (request.headers.get("content-type") ?? "").split(";")[0]!.trim().toLowerCase();
+  const [type = ""] = (request.headers.get("content-type") ?? "").split(";");
+  return type.trim().toLowerCase();
 }
 
 /**
@@ -59,7 +60,10 @@ export function trustedOriginsWith(configured: readonly string[], raw: string | 
   let parsed = fromEnv.get(raw);
   if (!parsed) {
     parsed = [];
-    for (const entry of raw.split(",").map((value) => value.trim()).filter(Boolean)) {
+    for (const entry of raw
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean)) {
       try {
         parsed.push(...normalizeTrustedOrigins([entry]));
       } catch {
@@ -85,11 +89,17 @@ export function originWith(configured: readonly string[], raw: string | undefine
   let parsed = originFromEnv.get(raw);
   if (!parsed) {
     parsed = [];
-    for (const entry of raw.split(",").map((value) => value.trim()).filter(Boolean)) {
+    for (const entry of raw
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean)) {
       try {
         parsed.push(...normalizeOrigin(entry));
       } catch {
-        logger.warn("framework", `DROPLETS_ORIGIN: ignoring ${JSON.stringify(entry)}, not a location such as https://shop.example or https://shop.example/mfe`);
+        logger.warn(
+          "framework",
+          `DROPLETS_ORIGIN: ignoring ${JSON.stringify(entry)}, not a location such as https://shop.example or https://shop.example/mfe`,
+        );
       }
     }
     if (parsed.includes("*")) warnAnyLocation("DROPLETS_ORIGIN");

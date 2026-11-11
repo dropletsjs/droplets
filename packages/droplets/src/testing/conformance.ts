@@ -152,8 +152,7 @@ export type ConformanceOptions = {
 
 type App = ReturnType<typeof createServerApp>;
 
-const decode = (b64: string): unknown =>
-  JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))));
+const decode = (b64: string): unknown => JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))));
 
 /** The inline payload of a fragment, decoded; `undefined` when absent. */
 function payload(html: string, attribute: "data-droplet-data" | "data-droplet-context"): unknown {
@@ -231,13 +230,15 @@ export function rendererConformance(options: ConformanceOptions): void {
     separateSsrBundle: true,
   };
 
-  const readFrom = (dir: string) => async (path: string): Promise<string | null> => {
-    try {
-      return await readFile(resolve(dir, path), "utf8");
-    } catch {
-      return null;
-    }
-  };
+  const readFrom =
+    (dir: string) =>
+    async (path: string): Promise<string | null> => {
+      try {
+        return await readFile(resolve(dir, path), "utf8");
+      } catch {
+        return null;
+      }
+    };
   const read = readFrom(clientRoot);
   /** The prerendered renders: server-only, next to the SSR bundle. */
   const readRendered = readFrom(resolve(outDir, "server", PRERENDER_DIR));
@@ -378,13 +379,12 @@ export function rendererConformance(options: ConformanceOptions): void {
         expect(existsSync(resolve(clientRoot, PRERENDER_DIR))).toBe(false);
         // "1" and 1 are one page after the schema; 99 is stored as its error
         // page; 404 answered error() and is not stored; 5 is stored for its host.
-        expect(Object.keys(index).sort()).toEqual([
-          '{"page":1}',
-          '{"page":2}',
-          '{"page":5} https://fixed.test/docs',
-          '{"page":99}',
-        ]);
-        const stored = JSON.parse((await readRendered(index['{"page":1}']!)) ?? "null") as { html: string; data: unknown; nonce: string };
+        expect(Object.keys(index).sort()).toEqual(['{"page":1}', '{"page":2}', '{"page":5} https://fixed.test/docs', '{"page":99}']);
+        const stored = JSON.parse((await readRendered(index['{"page":1}'] ?? expect.unreachable("page 1 in the index"))) ?? "null") as {
+          html: string;
+          data: unknown;
+          nonce: string;
+        };
         expect(stored.html).toContain("<h1>Page 1</h1>");
         // transform runs per request, never at build.
         expect(stored.html).toContain("@HOST@");
@@ -392,7 +392,9 @@ export function rendererConformance(options: ConformanceOptions): void {
         expect(stored.nonce).toMatch(/^[0-9a-f]{16}$/);
         expect(stored.data).toMatchObject({ page: 1, building: true, home: `__$DROPLET_HOST_${stored.nonce}$__/home` });
 
-        const stored2 = JSON.parse((await readRendered(index['{"page":2}']!)) ?? "null") as { headers?: unknown };
+        const stored2 = JSON.parse((await readRendered(index['{"page":2}'] ?? expect.unreachable("page 2 in the index"))) ?? "null") as {
+          headers?: unknown;
+        };
         // What its load set with setHeaders, kept with the render.
         expect(stored2.headers).toEqual({ "cache-control": "public, max-age=60" });
         const answer = await post("/droplets/docs", { host: "https://host.test/docs", props: { page: "2" } });
@@ -544,7 +546,9 @@ export function rendererConformance(options: ConformanceOptions): void {
           const value = new URL(back).searchParams.get(key()) ?? "";
           const [body, mac] = value.split(".") as [string, string];
           const forged = btoa(JSON.stringify({ status: 200, data: { message: "Call 555" }, exp: Date.now() + 60_000, action: "default" }))
-            .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+            .replace(/\+/g, "-")
+            .replace(/\//g, "_")
+            .replace(/=+$/, "");
           for (const bad of [`${forged}.${mac}`, `${body}.${"A".repeat(43)}`, `${body}${"A".repeat(2048)}.${mac}`]) {
             const html = await (await renderOn(`${PAGE}&${key()}=${bad}`)).text();
             expect(html).toMatch(/data-testid="form"[^>]*>none</);
@@ -573,11 +577,15 @@ export function rendererConformance(options: ConformanceOptions): void {
           const action = actionOf(html, "sign") ?? "";
           expect(action).toBe(actionOn("/droplets/guestbook", "https://shop.test/products/7"));
           // A native submit from there: `strict-origin-when-cross-origin` sends the origin alone.
-          const res = await submit(action.slice(origin.length), { name: "Ana" }, {
-            origin: "https://shop.test",
-            accept: "text/html,*/*;q=0.8",
-            referer: "https://shop.test/",
-          });
+          const res = await submit(
+            action.slice(origin.length),
+            { name: "Ana" },
+            {
+              origin: "https://shop.test",
+              accept: "text/html,*/*;q=0.8",
+              referer: "https://shop.test/",
+            },
+          );
           expect(res.status).toBe(303);
           const back = res.headers.get("location") ?? "";
           expect(back.startsWith(`https://shop.test/products/7?${key()}=`)).toBe(true);
@@ -607,9 +615,10 @@ export function rendererConformance(options: ConformanceOptions): void {
         const index = JSON.parse((await readRendered("guestbook/index.json")) ?? "{}") as Record<string, string>;
         const stored = JSON.parse((await readRendered(index["{}"] ?? "")) ?? "null") as { html: string; nonce: string } | null;
         expect(stored, "guestbook is prerendered").toBeTruthy();
-        const tokens = `__$DROPLET_HOST_${stored!.nonce}$____$DROPLET_PATH_${stored!.nonce}$__`;
-        expect(actionOf(stored!.html, "sign")).toBe(
-          `http://droplets.invalid/__$DROPLET_LOCATION_${stored!.nonce}$__/droplets/guestbook?__droplet_return=${encodeURIComponent(tokens)}`,
+        const { html, nonce } = stored ?? expect.unreachable("guestbook is prerendered");
+        const tokens = `__$DROPLET_HOST_${nonce}$____$DROPLET_PATH_${nonce}$__`;
+        expect(actionOf(html, "sign")).toBe(
+          `http://droplets.invalid/__$DROPLET_LOCATION_${nonce}$__/droplets/guestbook?__droplet_return=${encodeURIComponent(tokens)}`,
         );
 
         // A trusted x-droplet-location (this server's own origin, under a prefix) moves them.
@@ -683,7 +692,9 @@ export function rendererConformance(options: ConformanceOptions): void {
           expect(sheets.join("")).toContain("italic");
           // Linked inside the element, ahead of the markup, and announced.
           const href = `${origin}/droplets/static-note/style.css?c=${manifest.__hash}`;
-          expect(html).toContain(`<link rel="stylesheet" href="${href}" data-droplet-style><div style="display: contents" data-droplet-entry>`);
+          expect(html).toContain(
+            `<link rel="stylesheet" href="${href}" data-droplet-style><div style="display: contents" data-droplet-entry>`,
+          );
           expect(res.headers.get("link")).toContain(`<${href}>; rel=preload; as=style`);
           // It never hydrates: no bundle to preload.
           expect(res.headers.get("link")).not.toContain("client.js");
@@ -755,7 +766,8 @@ export function rendererConformance(options: ConformanceOptions): void {
           fetches.push(url);
           const headers = new Headers(init?.headers);
           const body = init?.body;
-          const type = headers.get("content-type") ??
+          const type =
+            headers.get("content-type") ??
             (body instanceof URLSearchParams ? "application/x-www-form-urlencoded" : body instanceof FormData ? "multipart/form-data" : "");
           requests.push({ url, method: init?.method ?? "GET", type, accept: headers.get("accept") ?? "" });
           if (holdActions && type.includes("form")) await holdActions;
@@ -768,9 +780,8 @@ export function rendererConformance(options: ConformanceOptions): void {
         }) as typeof fetch;
         document.addEventListener("submit", onDocumentSubmit);
         // What /index.js records before the entry: where it was loaded from.
-        const servers = ((globalThis as unknown as Record<symbol, Record<string, { origin?: string }>>)[
-          Symbol.for("droplets.servers")
-        ] ??= {});
+        const servers = ((globalThis as unknown as Record<symbol, Record<string, { origin?: string }>>)[Symbol.for("droplets.servers")] ??=
+          {});
         (servers[`${element}:${manifest.__hash}`] ??= {}).origin = origin;
         // The real loader, from the build; it defines the element.
         const entry = (await import(pathToFileURL(resolve(clientRoot, manifest.__entryModule ?? "")).href)) as {
@@ -844,8 +855,11 @@ export function rendererConformance(options: ConformanceOptions): void {
 
       it("keeps the container hidden under the element when the server HTML has no marker", async () => {
         // docs hydrates, static-note never does; neither renders its children.
-        for (const [path, kid] of [["/droplets/docs?page=3", "kid-docs"], ["/droplets/static-note", "kid-note"]]) {
-          const el = mount(await withChildren(path!, kid!));
+        for (const [path, kid] of [
+          ["/droplets/docs?page=3", "kid-docs"],
+          ["/droplets/static-note", "kid-note"],
+        ] as const) {
+          const el = mount(await withChildren(path, kid));
           const container = el.querySelector<HTMLElement>(":scope > [data-droplet-slot]");
           expect(container, path).not.toBeNull();
           expect(container?.hidden, path).toBe(true);
@@ -857,9 +871,7 @@ export function rendererConformance(options: ConformanceOptions): void {
       });
 
       it("mounts a client-only droplet and moves the host's children into its marker", async () => {
-        const el = mount(
-          `<${element} data-droplet="frame"><div data-droplet-slot><p id="kid-frame">from host</p></div></${element}>`,
-        );
+        const el = mount(`<${element} data-droplet="frame"><div data-droplet-slot><p id="kid-frame">from host</p></div></${element}>`);
         // Nothing rendered yet: the container waits under the element, hidden.
         expect(el.querySelector<HTMLElement>(":scope > [data-droplet-slot]")?.hidden).toBe(true);
         await until(() => expect(el.querySelector(`[data-droplet-entry] [data-testid=frame] ${IN_MARKER} > #kid-frame`)).not.toBeNull());
@@ -961,11 +973,14 @@ export function rendererConformance(options: ConformanceOptions): void {
           Object.defineProperty(event, "detail", { value: {} });
           target.dispatchEvent(event);
         };
-        const field = () => el.querySelector<HTMLInputElement>("[data-testid=sign] input[name=name]");
-        const form = (testid: string) => el.querySelector<HTMLFormElement>(`[data-testid=${testid}]`);
+        const field = () =>
+          el.querySelector<HTMLInputElement>("[data-testid=sign] input[name=name]") ?? expect.unreachable("the sign form's name field");
+        const form = (testid: string) =>
+          el.querySelector<HTMLFormElement>(`[data-testid=${testid}]`) ?? expect.unreachable(`form ${testid}`);
         const message = () => el.querySelector("[data-testid=form]")?.textContent;
         /** The form posts to the guestbook's actions so far. */
-        const actionPosts = () => requests.filter((r) => r.method === "POST" && r.type.includes("form") && r.url.startsWith(`${origin}/droplets/guestbook`));
+        const actionPosts = () =>
+          requests.filter((r) => r.method === "POST" && r.type.includes("form") && r.url.startsWith(`${origin}/droplets/guestbook`));
         /**
          * Submits `testid` until it is enhanced: a submit before the droplet
          * is live (and its forms bound) is the browser's, prevented here.
@@ -973,8 +988,8 @@ export function rendererConformance(options: ConformanceOptions): void {
         const submitEnhanced = async (testid: string, name?: string) => {
           await until(() => {
             const before = actionPosts().length;
-            if (name !== undefined) field()!.value = name;
-            submitForm(form(testid)!);
+            if (name !== undefined) field().value = name;
+            submitForm(form(testid));
             expect(actionPosts().length).toBe(before + 1);
           });
         };
@@ -995,25 +1010,35 @@ export function rendererConformance(options: ConformanceOptions): void {
             const before = el.querySelector("[data-testid=form]");
             await submitEnhanced("sign", "Ana");
             await until(() => expect(message()).toBe("Thanks, Ana"));
-            const sent = actionPosts().at(-1)!;
+            const sent = actionPosts().at(-1) ?? expect.unreachable("an action post");
             expect(sent.url).toBe(actionOn("/droplets/guestbook"));
             expect(sent.accept).toBe("application/json");
             if (byAttribute) {
               // The server rendered the fragment again with `form`, in place of the old one.
-              expect(requests.some((r) => r.method === "POST" && r.type === "application/json" && /\/droplets\/guestbook$/.test(r.url))).toBe(true);
+              expect(
+                requests.some((r) => r.method === "POST" && r.type === "application/json" && /\/droplets\/guestbook$/.test(r.url)),
+              ).toBe(true);
               expect(el.querySelector("[data-testid=form]")).not.toBe(before);
               expect(imported).not.toContain("guestbook");
             } else {
               // Rendered again in the browser, with its loads run again.
               expect(requests.some((r) => r.url.includes("/droplets/guestbook/_data"))).toBe(true);
             }
-            expect(events).toEqual([{ droplet: "guestbook", action: "default", type: "success", status: 200, data: { message: "Thanks, Ana" } }]);
+            expect(events).toEqual([
+              { droplet: "guestbook", action: "default", type: "success", status: 200, data: { message: "Thanks, Ana" } },
+            ]);
 
             await submitEnhanced("sign", "");
             await until(() => expect(message()).toBe("A name, please"));
             // Rendered again in the browser: the same action URL, the page from its `location`.
-            expect(actionPosts().at(-1)!.url).toBe(actionOn("/droplets/guestbook"));
-            expect(events.at(-1)).toEqual({ droplet: "guestbook", action: "default", type: "failure", status: 422, data: { message: "A name, please" } });
+            expect((actionPosts().at(-1) ?? expect.unreachable("an action post")).url).toBe(actionOn("/droplets/guestbook"));
+            expect(events.at(-1)).toEqual({
+              droplet: "guestbook",
+              action: "default",
+              type: "failure",
+              status: 422,
+              data: { message: "A name, please" },
+            });
 
             expect(assign).not.toHaveBeenCalled();
             expect(globalThis.location.href).toBe(href);
@@ -1041,8 +1066,8 @@ export function rendererConformance(options: ConformanceOptions): void {
             await submitEnhanced("sign", "Ana");
             const posts = actionPosts().length;
             native = [];
-            submitForm(form("sign")!);
-            submitForm(form("sign")!);
+            submitForm(form("sign"));
+            submitForm(form("sign"));
             // Prevented, and not sent.
             expect(native).toEqual([]);
             expect(actionPosts()).toHaveLength(posts);
@@ -1066,7 +1091,7 @@ export function rendererConformance(options: ConformanceOptions): void {
             await until(() => expect(message()).toBe("Thanks, Ana"));
             native = [];
             const posts = actionPosts().length;
-            submitForm(form("plain")!);
+            submitForm(form("plain"));
             expect(native).toEqual(["plain"]);
             await settle();
             expect(actionPosts()).toHaveLength(posts);
@@ -1078,9 +1103,7 @@ export function rendererConformance(options: ConformanceOptions): void {
       });
 
       it("shows the error page for a load that fails in the browser", async () => {
-        const el = mount(
-          `<${element} data-droplet="hello" data-params='{"who":"crash"}'></${element}>`,
-        );
+        const el = mount(`<${element} data-droplet="hello" data-params='{"who":"crash"}'></${element}>`);
         await until(() => expect(el.querySelector("[data-testid=error]")?.textContent).toBe("[hello] Sorry, ref 42"));
       });
 

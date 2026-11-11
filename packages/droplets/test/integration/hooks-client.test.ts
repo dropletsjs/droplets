@@ -78,9 +78,9 @@ const hooks = (element: string, body: string) =>
 
 /** Notes each `customElements.define`, so the order is on record. */
 const realDefine = customElements.define.bind(customElements);
-customElements.define = (name, constructor, options) => {
+customElements.define = (name, element, options) => {
   trace().steps.push(`define ${name}`);
-  realDefine(name, constructor, options);
+  realDefine(name, element, options);
 };
 
 afterEach(() => {
@@ -93,7 +93,7 @@ describe("without src/hooks.client.ts", () => {
     const { manifest, read } = await build(await project("plain-el"));
     expect(await read("index.js")).toBe(`import("./${manifest.__entryModule}");\n`);
     const entry = await read(manifest.__entryModule ?? "");
-    expect(entry).toContain('customElements.define(');
+    expect(entry).toContain("customElements.define(");
     expect(entry).not.toMatch(/hooks\.client|runClientInit|init\(\) in/);
   }, 90_000);
 });

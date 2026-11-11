@@ -8,9 +8,7 @@ const pageSchema = {
     vendor: "test",
     validate: async (value: unknown) => {
       const page = Number((value as { page?: unknown }).page);
-      return Number.isInteger(page)
-        ? { value: { page } }
-        : { issues: [{ message: "Expected number", path: [{ key: "page" }] }] };
+      return Number.isInteger(page) ? { value: { page } } : { issues: [{ message: "Expected number", path: [{ key: "page" }] }] };
     },
   },
 };

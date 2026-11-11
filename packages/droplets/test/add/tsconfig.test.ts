@@ -18,13 +18,14 @@ describe("withJsx()", () => {
     const code = await withJsx(join(root, "tsconfig.json"), "solid-js");
     expect(code).toContain("// Mine.");
     expect(code).toContain('"include": ["src/**/*.tsx", "src/**/*.ts"');
-    const parsed = JSON.parse(stripJsonc(code!)) as { compilerOptions: Record<string, unknown> };
+    const parsed = JSON.parse(stripJsonc(code ?? expect.unreachable("tsconfig.json"))) as { compilerOptions: Record<string, unknown> };
     expect(parsed.compilerOptions).toEqual({ jsx: "react-jsx", jsxImportSource: "solid-js", strict: true });
   });
 
   it("adds compilerOptions when there are none, into an empty object too", async () => {
     const root = project({ "tsconfig.json": `{ "include": ["src"] }`, "empty.json": `{ "compilerOptions": {} }` });
-    const parsed = (code: string | undefined) => JSON.parse(stripJsonc(code!)) as { compilerOptions: Record<string, unknown> };
+    const parsed = (code: string | undefined) =>
+      JSON.parse(stripJsonc(code ?? expect.unreachable("tsconfig.json"))) as { compilerOptions: Record<string, unknown> };
     expect(parsed(await withJsx(join(root, "tsconfig.json"), "react")).compilerOptions.jsx).toBe("react-jsx");
     expect(parsed(await withJsx(join(root, "empty.json"), "react")).compilerOptions).toEqual({
       jsx: "react-jsx",

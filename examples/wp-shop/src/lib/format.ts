@@ -9,8 +9,7 @@ import type { StockState } from "./types.ts";
  * build and an edited one renders live; `/product/<slug>` alone always
  * renders live (the canonical, shareable URL).
  */
-export const productHref = (slug: string, v?: string) =>
-  v ? `/product/${slug}?${new URLSearchParams({ v })}` : `/product/${slug}`;
+export const productHref = (slug: string, v?: string) => (v ? `/product/${slug}?${new URLSearchParams({ v })}` : `/product/${slug}`);
 
 const money = new Map<string, Intl.NumberFormat>();
 

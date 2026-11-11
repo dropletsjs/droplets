@@ -1,7 +1,7 @@
 import { relative, sep } from "node:path";
 import { isRunnableDevEnvironment } from "vite";
 import type { DevEnvironment, EnvironmentModuleNode, ViteDevServer } from "vite";
-import { discoverDroplets, dropletId } from "../core/discover.ts";
+import { type DropletEntry, discoverDroplets, dropletId } from "../core/discover.ts";
 import { logger } from "../core/logger.ts";
 import { entryServerPath, toViteFsPath } from "../core/paths.ts";
 import { CORE_SUFFIXES } from "../renderer.ts";
@@ -56,9 +56,7 @@ function normalizePath(value: string): string {
  * any suffix that is not a load file's (`+droplet.ts`, `+droplet.server.ts`).
  */
 export function extractDropletIdFromModuleId(id: string, extensions?: string[]): string | null {
-  const match = normalizePath(id.split("?")[0] ?? "").match(
-    /\/([^/]+)\/\+[Dd]roplet(\.[^/]+)$/,
-  );
+  const match = normalizePath(id.split("?")[0] ?? "").match(/\/([^/]+)\/\+[Dd]roplet(\.[^/]+)$/);
   if (!match?.[1] || !match[2]) return null;
   const suffix = match[2];
   if (CORE_SUFFIXES.has(suffix)) return null;
@@ -67,10 +65,7 @@ export function extractDropletIdFromModuleId(id: string, extensions?: string[]):
 }
 
 /** The droplet folder a file belongs to, if it is inside the droplets root. */
-export function dropletForFile(
-  dropletsRoot: string,
-  file: string,
-): string | null {
+export function dropletForFile(dropletsRoot: string, file: string): string | null {
   const rel = relative(dropletsRoot, file);
   if (!rel || rel.startsWith("..") || rel.includes(`..${sep}`)) return null;
   const folder = rel.split(sep)[0];
@@ -212,14 +207,10 @@ export type DevRuntime = {
   folderById: () => Map<string, string>;
 };
 
-export function createDevRuntime(
-  server: ViteDevServer,
-  state: PluginState,
-): DevRuntime {
+export function createDevRuntime(server: ViteDevServer, state: PluginState): DevRuntime {
   let folderById = new Map<string, string>();
 
-  const ssrEnvironment = (): DevEnvironment | undefined =>
-    server.environments["ssr"];
+  const ssrEnvironment = (): DevEnvironment | undefined => server.environments["ssr"];
 
   // Evaluated as at a server's start, outside the request that asked first:
   // a module's top level never keeps that request's location.
@@ -233,7 +224,7 @@ export function createDevRuntime(
     });
 
   const refreshDropletMap = async () => {
-    let entries;
+    let entries: DropletEntry[];
     try {
       entries = await discoverDroplets(state.dropletsRoot, state.renderers, { dev: true });
     } catch (error) {
@@ -259,11 +250,7 @@ export function createDevRuntime(
  * The Hono app for `vite dev`: Vite transforms modules on demand, the SSR
  * module is re-evaluated per request so edits show up without a restart.
  */
-export function createDevApp(
-  server: ViteDevServer,
-  state: PluginState,
-  runtime: DevRuntime,
-) {
+export function createDevApp(server: ViteDevServer, state: PluginState, runtime: DevRuntime) {
   const { config } = state;
 
   const renderDroplet: RenderDroplet = async (name, event, options) => {
@@ -296,9 +283,7 @@ export function createDevApp(
   };
 
   const loadEntryClient = async () => {
-    const result = await clientEnvironment().transformRequest(
-      toViteFsPath(state.entryClientPath),
-    );
+    const result = await clientEnvironment().transformRequest(toViteFsPath(state.entryClientPath));
     return result?.code ?? null;
   };
 
@@ -344,8 +329,7 @@ export function createDevApp(
     // up on the next request.
     getHandle: async () => (await runtime.loadSsrModule()).getHandle?.(),
     matchApi: async (pathname) => (await runtime.loadSsrModule()).matchApi?.(pathname) ?? null,
-    renderError: async (name, error) =>
-      (await runtime.loadSsrModule()).renderError?.(name, error) ?? null,
+    renderError: async (name, error) => (await runtime.loadSsrModule()).renderError?.(name, error) ?? null,
     getHandleError: async () => devHandleError((await runtime.loadSsrModule()).getHandleError?.()),
     validateProps: async (name, props) => {
       const mod = await runtime.loadSsrModule();

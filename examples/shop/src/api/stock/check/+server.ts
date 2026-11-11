@@ -23,13 +23,15 @@ export const POST: RequestHandler = async ({ request }) => {
   const items = unique.flatMap((id) => {
     const row = byId.get(id);
     if (!row) return [];
-    return [{
-      id,
-      stock: row.stock,
-      stockState: stockState(row.stock),
-      priceCents: row.price_cents,
-      salePriceCents: salePrice(campaign, id, row.price_cents),
-    }];
+    return [
+      {
+        id,
+        stock: row.stock,
+        stockState: stockState(row.stock),
+        priceCents: row.price_cents,
+        salePriceCents: salePrice(campaign, id, row.price_cents),
+      },
+    ];
   });
   return json({ items });
 };

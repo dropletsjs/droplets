@@ -1,12 +1,7 @@
 import { readFile } from "node:fs/promises";
 
 function isNotFound(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: string }).code === "ENOENT"
-  );
+  return typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "ENOENT";
 }
 
 /** Reads a UTF-8 file, returning `null` when it does not exist. */

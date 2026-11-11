@@ -28,9 +28,7 @@
 export type ClientInit = () => void | Promise<void>;
 
 const isThenable = (value: unknown): value is PromiseLike<unknown> =>
-  (typeof value === "object" || typeof value === "function") &&
-  value !== null &&
-  typeof (value as { then?: unknown }).then === "function";
+  (typeof value === "object" || typeof value === "function") && value !== null && typeof (value as { then?: unknown }).then === "function";
 
 /**
  * Calls `init` of `src/hooks.client.ts` (`file`, for the messages) and

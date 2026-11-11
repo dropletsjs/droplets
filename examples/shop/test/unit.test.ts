@@ -23,7 +23,8 @@ const values = (over: Partial<LiveValues> = {}): LiveValues => ({
 
 describe("the product page's transform replace", () => {
   it("fills every placeholder, in text and attributes", () => {
-    const html = `<section class="product stock-${liveToken("stock-state")}">` +
+    const html =
+      `<section class="product stock-${liveToken("stock-state")}">` +
       `<p class="stock">${liveToken("stock-label")}</p>` +
       `<button ${liveToken("disabled")}>${liveToken("button-label")}</button></section>`;
     expect(fillLive(html, values())).toBe(
@@ -39,7 +40,7 @@ describe("the product page's transform replace", () => {
   });
 
   it("leaves no placeholder behind, known or not", () => {
-    const html = LIVE_FIELDS.map(liveToken).join("|") + "|%live:typo%";
+    const html = `${LIVE_FIELDS.map(liveToken).join("|")}|%live:typo%`;
     expect(fillLive(html, values())).not.toContain("%live:");
   });
 
@@ -58,11 +59,21 @@ describe("the comments entries rule", () => {
     const keys = entries.map(({ props }) => `${props.productId}:${props.showing}:${props.page}`);
     expect(keys).toEqual([
       // 23 comments: two full pages of 10, one of 20, none of 25 or 50.
-      "p_aaaa:10:1", "p_aaaa:10:2", "p_aaaa:20:1",
+      "p_aaaa:10:1",
+      "p_aaaa:10:2",
+      "p_aaaa:20:1",
       // 9 comments: no page is full.
       // 50: five of 10, two of 20 and 25, one of 50.
-      "p_cccc:10:1", "p_cccc:10:2", "p_cccc:10:3", "p_cccc:10:4", "p_cccc:10:5",
-      "p_cccc:20:1", "p_cccc:20:2", "p_cccc:25:1", "p_cccc:25:2", "p_cccc:50:1",
+      "p_cccc:10:1",
+      "p_cccc:10:2",
+      "p_cccc:10:3",
+      "p_cccc:10:4",
+      "p_cccc:10:5",
+      "p_cccc:20:1",
+      "p_cccc:20:2",
+      "p_cccc:25:1",
+      "p_cccc:25:2",
+      "p_cccc:50:1",
     ]);
     expect(entries.every(({ props }) => props.order === "oldest")).toBe(true);
   });
@@ -144,7 +155,10 @@ describe("the cart drawer's stock check", () => {
     const check = {
       ids: ["p_glass1", "p_mug001", "p_gone01"],
       // p_gone01 was asked about and left out: archived.
-      items: [{ id: "p_glass1", stock: 0 }, { id: "p_mug001", stock: 3 }],
+      items: [
+        { id: "p_glass1", stock: 0 },
+        { id: "p_mug001", stock: 3 },
+      ],
     };
     const { lines: shown, out } = cartAvailability(lines, check);
     expect(shown.get("p_glass1")).toEqual({ stock: 0, state: "out" });

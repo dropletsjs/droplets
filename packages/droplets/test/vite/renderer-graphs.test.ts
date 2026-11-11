@@ -98,8 +98,10 @@ describe("checkDropletGraphs", () => {
   });
   state.entries = [entry("r", "+droplet.tsx", "react"), entry("s", "+droplet.svelte", "svelte")];
 
-  const graph = (edges: Record<string, string[]>) => (id: string) =>
-    id in edges ? { importedIds: edges[id]!, dynamicallyImportedIds: [] } : null;
+  const graph = (edges: Record<string, string[]>) => (id: string) => {
+    const importedIds = edges[id];
+    return importedIds === undefined ? null : { importedIds, dynamicallyImportedIds: [] };
+  };
 
   it("accepts neutral code and the droplet's own framework", () => {
     const edges = {
@@ -128,9 +130,7 @@ describe("checkDropletGraphs", () => {
     const edges = {
       "/app/src/droplets/r/+droplet.tsx?droplets-renderer=react": ["/app/src/lib/count.svelte.ts?droplets-renderer=react"],
     };
-    expect(() => checkDropletGraphs(state, Object.keys(edges), graph(edges))).toThrow(
-      "a react droplet imports svelte code",
-    );
+    expect(() => checkDropletGraphs(state, Object.keys(edges), graph(edges))).toThrow("a react droplet imports svelte code");
   });
 
   it("leaves a script droplet alone, and owns nothing for it", () => {
@@ -183,8 +183,10 @@ describe("checkDropletGraphs, for styles", () => {
       prerender: false,
     },
   ];
-  const graph = (edges: Record<string, string[]>) => (id: string) =>
-    id in edges ? { importedIds: edges[id]!, dynamicallyImportedIds: [] } : null;
+  const graph = (edges: Record<string, string[]>) => (id: string) => {
+    const importedIds = edges[id];
+    return importedIds === undefined ? null : { importedIds, dynamicallyImportedIds: [] };
+  };
   const advice = "Styles belong to the component: import them from +droplet.<ext> or +error.<ext> (or a <style> block).";
 
   it("accepts CSS the component imports, and strings of CSS anywhere", () => {

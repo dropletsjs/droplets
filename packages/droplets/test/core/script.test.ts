@@ -77,7 +77,11 @@ describe("discovering script droplets", () => {
       "hello/+droplet.tsx": "export default () => null;\n",
     });
     const entries = await discoverDroplets(root, withScriptRenderer([tsx, lit]));
-    expect(entries.map((e) => [e.id, e.renderer])).toEqual([["card", "lit"], ["hello", "preact"], ["tracker", "script"]]);
+    expect(entries.map((e) => [e.id, e.renderer])).toEqual([
+      ["card", "lit"],
+      ["hello", "preact"],
+      ["tracker", "script"],
+    ]);
   });
 
   it("finds no droplet in a folder with load files only", async () => {
@@ -104,7 +108,7 @@ describe("discovering script droplets", () => {
     expect(warn.mock.calls.flat().join(" ")).toContain("a script droplet has no error page");
   });
 
-  it("reads hydrate = \"visible\" and prerender", async () => {
+  it('reads hydrate = "visible" and prerender', async () => {
     const root = await folder({
       "later/+droplet.script.ts": `export const hydrate = "visible";\nexport const prerender = true;\n${RUN}`,
     });
@@ -128,7 +132,7 @@ describe("the flags of a script droplet", () => {
     await expect(discoverDroplets(root, renderers)).rejects.toThrow(/hydrate = false would never run it/);
   });
 
-  it("take true and \"visible\"", () => {
+  it('take true and "visible"', () => {
     expect(read("export const hydrate = true;")).toEqual({ hydrate: true });
     expect(read("export const hydrate = 'visible';")).toEqual({ hydrate: "visible" });
     expect(read(RUN)).toEqual({});
@@ -186,7 +190,12 @@ describe("the registries", () => {
 
 describe("./$types of a script droplet", () => {
   it("type its default export by the loads' data", () => {
-    const code = dropletTypesCode(tracker, scriptRenderer(), "/p/.droplets/types/src/droplets/tracker/$types.d.ts", "/p/src/droplets/tracker");
+    const code = dropletTypesCode(
+      tracker,
+      scriptRenderer(),
+      "/p/.droplets/types/src/droplets/tracker/$types.d.ts",
+      "/p/src/droplets/tracker",
+    );
     expect(code).toContain('import type { DropletScript as BaseDropletScript } from "@dropletsjs/droplets";');
     expect(code).toContain("export type DropletScript = BaseDropletScript<Data>;");
   });

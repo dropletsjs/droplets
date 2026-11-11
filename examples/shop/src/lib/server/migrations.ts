@@ -7,7 +7,7 @@ import type { Migration } from "kysely/migration";
  */
 export const migrations: Record<string, Migration> = {
   "001_init": {
-    async up(db: Kysely<any>) {
+    async up(db: Kysely<unknown>) {
       await db.schema
         .createTable("categories")
         .addColumn("slug", "text", (c) => c.primaryKey())

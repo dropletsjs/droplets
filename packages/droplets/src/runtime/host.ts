@@ -82,9 +82,8 @@ export function headerLocations(headers: Headers, requestUrl: URL): { source: Lo
   const forwardedHost = firstValue(headers.get("x-forwarded-host"));
   if (forwardedHost) {
     const port = firstValue(headers.get("x-forwarded-port"));
-    const withPort = port && /^\d{1,5}$/.test(port) && Number(port) <= 65535 && !/:\d+$/.test(forwardedHost)
-      ? `${forwardedHost}:${port}`
-      : forwardedHost;
+    const withPort =
+      port && /^\d{1,5}$/.test(port) && Number(port) <= 65535 && !/:\d+$/.test(forwardedHost) ? `${forwardedHost}:${port}` : forwardedHost;
     const origin = forwardedOrigin(firstValue(headers.get("x-forwarded-proto")) ?? protocol, withPort);
     if (origin) found.push({ source: "x-forwarded-host", location: withPrefix(origin, prefix) });
   }
@@ -135,7 +134,10 @@ function parseForwarded(header: string): { host?: string; proto?: string } {
     const at = pair.indexOf("=");
     if (at < 0) continue;
     const name = pair.slice(0, at).trim().toLowerCase();
-    const value = pair.slice(at + 1).trim().replace(/^"(.*)"$/, "$1");
+    const value = pair
+      .slice(at + 1)
+      .trim()
+      .replace(/^"(.*)"$/, "$1");
     if (name === "host" || name === "proto") found[name] = value;
   }
   return found;
@@ -217,7 +219,11 @@ function escapeRegExp(value: string): string {
 function swap(text: string, { host, location }: TokenValues, tokens: HostTokens, write: (value: string) => string): string {
   if (!text.includes("DROPLET_")) return text;
   const values = new Map<string, string>();
-  const pairs = [[tokens.host, host.origin], [tokens.path, host.pathname], [tokens.location, location]] as const;
+  const pairs = [
+    [tokens.host, host.origin],
+    [tokens.path, host.pathname],
+    [tokens.location, location],
+  ] as const;
   for (const [token, value] of pairs) {
     values.set(token, write(value));
     values.set(encodeURIComponent(token), write(encodeURIComponent(value)));

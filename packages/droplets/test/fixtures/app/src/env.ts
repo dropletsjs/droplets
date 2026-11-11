@@ -8,6 +8,7 @@ export const variables = defineEnvVars({
 });
 
 declare module "@dropletsjs/droplets/env" {
+  // biome-ignore lint/style/useConsistentTypeDefinitions: an augmentation; `type` cannot merge.
   interface Register {
     variables: typeof variables;
   }

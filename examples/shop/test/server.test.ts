@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
+import type { CardProduct } from "../src/lib/types.ts";
 
 // The built server, driven in-process through its fetch handler, on a
 // freshly seeded copy of the database. Run `pnpm build` first.
@@ -32,10 +33,12 @@ beforeAll(async () => {
 type Init = RequestInit & { cookie?: string };
 
 const call = (path: string, { cookie, headers, ...init }: Init = {}) =>
-  server.fetch(new Request(`${ORIGIN}${path}`, {
-    ...init,
-    headers: { ...(cookie ? { cookie } : {}), ...(headers as Record<string, string>) },
-  }));
+  server.fetch(
+    new Request(`${ORIGIN}${path}`, {
+      ...init,
+      headers: { ...(cookie ? { cookie } : {}), ...(headers as Record<string, string>) },
+    }),
+  );
 
 const getJson = async (path: string, init?: Init) => {
   const response = await call(path, init);
@@ -60,7 +63,7 @@ const cookieOf = (response: Response, name: string) => {
   return line?.split(";")[0];
 };
 
-const products = async (query = "") => (await getJson(`/api/products?limit=48${query}`)).body.items as Array<Record<string, any>>;
+const products = async (query = "") => (await getJson(`/api/products?limit=48${query}`)).body.items as CardProduct[];
 const bySlug = async (slug: string) => (await products()).find((p) => p.slug === slug)!;
 
 async function login() {
@@ -124,8 +127,9 @@ describe("/api/stock/check", () => {
     expect((await postJson("/api/stock/check", { ids: ["../x"] })).status).toBe(400);
     expect((await postJson("/api/stock/check", { ids: "p_abcdef" })).status).toBe(400);
     expect((await postJson("/api/stock/check", [1, 2])).status).toBe(400);
-    expect((await call("/api/stock/check", { method: "POST", body: "ids=1", headers: { "content-type": "text/plain" } })).status)
-      .toBeGreaterThanOrEqual(400);
+    expect(
+      (await call("/api/stock/check", { method: "POST", body: "ids=1", headers: { "content-type": "text/plain" } })).status,
+    ).toBeGreaterThanOrEqual(400);
   });
 
   it("takes __proto__ as data, never as a prototype", async () => {
@@ -157,7 +161,7 @@ describe("the cart", () => {
     expect(response.headers.getSetCookie()[0]).toMatch(/HttpOnly/i);
 
     // The same cart, one more: no new cookie.
-    const again = await action("/droplets/product-card?/add&slug=" + product.slug, { productId: product.id, qty: "2" }, { cookie });
+    const again = await action(`/droplets/product-card?/add&slug=${product.slug}`, { productId: product.id, qty: "2" }, { cookie });
     expect((await again.json()).data.count).toBe(3);
     expect(cookieOf(again, "cart_id")).toBeUndefined();
 
@@ -195,9 +199,13 @@ describe("the cart", () => {
   });
 
   it("refuses a form posted from another origin", async () => {
-    const response = await action("/droplets/product-library?/add", { productId: "p_abcdef" }, {
-      headers: { origin: "https://evil.example" },
-    });
+    const response = await action(
+      "/droplets/product-library?/add",
+      { productId: "p_abcdef" },
+      {
+        headers: { origin: "https://evil.example" },
+      },
+    );
     expect(response.status).toBe(403);
   });
 });
@@ -313,7 +321,7 @@ describe("admin stock, and the product page's live fields", () => {
     const cookie = await login();
     const product = await bySlug("concrete-tray");
     await action("/droplets/product-admin?/delete", { id: product.id }, { cookie });
-    const notice = (html: string) => /<p class="gone">This product is no longer available\.[^]*?<\/p>/.exec(html)?.[0];
+    const notice = (html: string) => /<p class="gone">This product is no longer available\.[\s\S]*?<\/p>/.exec(html)?.[0];
 
     // An old link to the build's page: the stored page is never served, only the notice.
     const stored = await call(`/droplets/product-page?slug=concrete-tray&v=${product.v}`);
@@ -369,16 +377,20 @@ describe("the product page's version (`v`)", () => {
     const before = await bySlug(slug);
     const { data } = await (await call(`/droplets/product-page/_data?slug=${slug}`)).json();
     const cookie = await login();
-    const saved = await action("/droplets/product-admin?/update", {
-      id: before.id,
-      name: "Canvas Urban Tote, Renamed",
-      slug,
-      category: before.category,
-      price: (before.priceCents / 100).toFixed(2),
-      stock: String(before.stock),
-      description: data.product.description,
-      details: data.product.details.join(" · "),
-    }, { cookie });
+    const saved = await action(
+      "/droplets/product-admin?/update",
+      {
+        id: before.id,
+        name: "Canvas Urban Tote, Renamed",
+        slug,
+        category: before.category,
+        price: (before.priceCents / 100).toFixed(2),
+        stock: String(before.stock),
+        description: data.product.description,
+        details: data.product.details.join(" · "),
+      },
+      { cookie },
+    );
     expect(await saved.json()).toMatchObject({ type: "success", data: { saved: before.id } });
 
     const after = await bySlug(slug);
@@ -523,7 +535,11 @@ describe("without JavaScript (Post/Redirect/Get)", () => {
 
   it("goes back only to a page on the shop's own or a trusted origin", async () => {
     const product = (await products()).find((p) => p.stockState === "in")!;
-    const posted = await nativePost(`/droplets/product-page?/add&slug=${product.slug}`, { productId: product.id }, "https://evil.example/x");
+    const posted = await nativePost(
+      `/droplets/product-page?/add&slug=${product.slug}`,
+      { productId: product.id },
+      "https://evil.example/x",
+    );
     expect(posted.status).toBe(400);
     expect(posted.headers.get("location")).toBeNull();
     expect(posted.headers.getSetCookie()).toEqual([]);

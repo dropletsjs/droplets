@@ -25,9 +25,12 @@ export function navigationTimeline(page: Page): Stop[] {
   const start = Date.now();
   const stops: Stop[] = [{ at: 0, url: "", title: "New Tab" }];
   const titled = (stop: Stop) => {
-    page.title().then((title) => {
-      if (title) stop.title = title;
-    }, () => {});
+    page.title().then(
+      (title) => {
+        if (title) stop.title = title;
+      },
+      () => {},
+    );
   };
   page.on("framenavigated", (frame) => {
     if (frame !== page.mainFrame()) return;
@@ -41,7 +44,7 @@ export function navigationTimeline(page: Page): Stop[] {
   return stops;
 }
 
-const escape = (text: string) => text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+const escapeHtml = (text: string) => text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
 /** What the address bar shows: the URL without its scheme, as a browser does. */
 const shown = (url: string) => (url === "about:blank" ? "" : url.replace(/^https?:\/\//, ""));
@@ -69,12 +72,12 @@ function barHtml(width: number, { url, title }: Stop): string {
   </style></head><body>
   <div class="strip">
     <div class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
-    <div class="tab">${url ? '<span class="fav"></span>' : ""}<b>${escape(title || shown(url) || "New Tab")}</b><span class="x">×</span></div>
+    <div class="tab">${url ? '<span class="fav"></span>' : ""}<b>${escapeHtml(title || shown(url) || "New Tab")}</b><span class="x">×</span></div>
     <div class="plus">+</div>
   </div>
   <div class="tools">
     <span class="icon">←</span><span class="icon off">→</span><span class="icon">↻</span>
-    <div class="address"><span>${secure ? "🔒" : "ⓘ"}</span><em>${escape(shown(url))}</em></div>
+    <div class="address"><span>${secure ? "🔒" : "ⓘ"}</span><em>${escapeHtml(shown(url))}</em></div>
     <span class="icon">⋮</span>
   </div>
   </body></html>`;
@@ -84,7 +87,15 @@ function barHtml(width: number, { url, title }: Stop): string {
  * `webm` with the window drawn around it, as H.264 MP4 at `mp4`. False
  * when ffmpeg could not (the caller keeps the plain video then).
  */
-export async function framedMp4(browser: Browser, webm: string, mp4: string, stops: Stop[], width: number, height: number, work: string): Promise<boolean> {
+export async function framedMp4(
+  browser: Browser,
+  webm: string,
+  mp4: string,
+  stops: Stop[],
+  width: number,
+  height: number,
+  work: string,
+): Promise<boolean> {
   mkdirSync(work, { recursive: true });
   // Stops that change nothing on the bar, or last no time, are dropped.
   const kept: Stop[] = [];
@@ -112,12 +123,27 @@ export async function framedMp4(browser: Browser, webm: string, mp4: string, sto
   const converted = spawnSync(
     "ffmpeg",
     [
-      "-y", "-loglevel", "error",
-      "-i", webm,
-      "-f", "concat", "-safe", "0", "-i", bars,
+      "-y",
+      "-loglevel",
+      "error",
+      "-i",
+      webm,
+      "-f",
+      "concat",
+      "-safe",
+      "0",
+      "-i",
+      bars,
       "-filter_complex",
       `[0:v]pad=${width}:${height + BAR}:0:${BAR}:color=white[page];[1:v]fps=25,format=rgba[bar];[page][bar]overlay=0:0:shortest=1,format=yuv420p[v]`,
-      "-map", "[v]", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+      "-map",
+      "[v]",
+      "-c:v",
+      "libx264",
+      "-pix_fmt",
+      "yuv420p",
+      "-movflags",
+      "+faststart",
       mp4,
     ],
     { stdio: "inherit" },

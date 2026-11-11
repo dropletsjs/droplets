@@ -1,8 +1,4 @@
-import {
-  createServerApp,
-  type ResolvedDropletsConfig,
-  type SsrModule,
-} from "@dropletsjs/droplets";
+import { createServerApp, type ResolvedDropletsConfig, type SsrModule } from "@dropletsjs/droplets";
 import { createAssetLoaders } from "./assets.ts";
 import { createStaticHandler } from "./static.ts";
 
@@ -23,10 +19,7 @@ export type NodeServerPaths = {
  * client build is read from `dist/client`. Shared by `vite preview` and the
  * bundled `dist/server.js`.
  */
-export async function createNodeServerApp(
-  paths: NodeServerPaths,
-  config: ResolvedDropletsConfig,
-) {
+export async function createNodeServerApp(paths: NodeServerPaths, config: ResolvedDropletsConfig) {
   const ssr = (await import(paths.ssrEntryUrl)) as SsrModule;
   const loaders = createAssetLoaders(paths.clientRoot, paths.serverRoot);
   const manifest = await loaders.getManifest();

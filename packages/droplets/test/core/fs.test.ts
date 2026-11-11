@@ -2,13 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import {
-  fileExists,
-  listDirectories,
-  readJsonFile,
-  readTextFile,
-  writeTextFile,
-} from "../../src/core/fs.ts";
+import { fileExists, listDirectories, readJsonFile, readTextFile, writeTextFile } from "../../src/core/fs.ts";
 
 describe("fs helpers", () => {
   let root: string;

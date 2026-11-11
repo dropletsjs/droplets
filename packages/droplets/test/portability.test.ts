@@ -11,12 +11,7 @@ const src = fileURLToPath(new URL("../src/", import.meta.url));
  * per-runtime adapters (`server/<runtime>/`) and the build tooling may use
  * Node APIs. This test keeps that line from moving by accident.
  */
-const NEUTRAL = [
-  "runtime",
-  "server",
-  "core/config.ts",
-  "core/logger.ts",
-];
+const NEUTRAL = ["runtime", "server", "core/config.ts", "core/logger.ts"];
 
 const FORBIDDEN: Array<[string, RegExp]> = [
   ["node: import", /from\s+["']node:/],

@@ -66,8 +66,7 @@ export async function listProducts(filter: Filter, offset: number, limit: number
 export async function categoriesWithCounts(): Promise<Category[]> {
   const rows = await db()
     .selectFrom("categories")
-    .leftJoin("products", (join) =>
-      join.onRef("products.category", "=", "categories.slug").on("products.status", "=", "active"))
+    .leftJoin("products", (join) => join.onRef("products.category", "=", "categories.slug").on("products.status", "=", "active"))
     .select(["categories.slug", "categories.name", (eb) => eb.fn.count<number>("products.id").as("count")])
     .groupBy(["categories.slug", "categories.name", "categories.position"])
     .orderBy("categories.position")
@@ -80,8 +79,7 @@ export const productById = (id: string) => active().where("id", "=", id).execute
 
 /** Whether `slug` names a product that was archived (deleted in the admin); slugs are never reused. */
 export const isArchived = async (slug: string) =>
-  !!(await db().selectFrom("products").select("id").where("slug", "=", slug).where("status", "=", "archived")
-    .executeTakeFirst());
+  !!(await db().selectFrom("products").select("id").where("slug", "=", slug).where("status", "=", "archived").executeTakeFirst());
 
 export async function productsByIds(ids: string[]): Promise<Row[]> {
   if (!ids.length) return [];
@@ -141,8 +139,7 @@ export async function pageData(slug: string): Promise<PageData | null> {
  * product's name or image) changes `v`; stock and prices are filled in live,
  * so they never do.
  */
-export const pageVersion = (data: PageData) =>
-  createHash("sha256").update(JSON.stringify(data)).digest("hex").slice(0, 10);
+export const pageVersion = (data: PageData) => createHash("sha256").update(JSON.stringify(data)).digest("hex").slice(0, 10);
 
 /**
  * Every active product's page version, by slug: two reads of the whole
@@ -157,26 +154,29 @@ export async function pageVersions(): Promise<Map<string, string>> {
   const names = new Map(categories.map((category) => [category.slug, category.name]));
   const byCategory = new Map<string, Row[]>();
   for (const row of rows) byCategory.set(row.category, [...(byCategory.get(row.category) ?? []), row]);
-  return new Map(rows.map((row) => [
-    row.slug,
-    pageVersion(pageDataOf(row, names.get(row.category), byCategory.get(row.category) ?? [])),
-  ]));
+  return new Map(rows.map((row) => [row.slug, pageVersion(pageDataOf(row, names.get(row.category), byCategory.get(row.category) ?? []))]));
 }
 
 export async function adminList() {
-  const [rows, campaign] = await Promise.all([
-    active().orderBy("created_at", "desc").execute(),
-    currentCampaign(),
-  ]);
+  const [rows, campaign] = await Promise.all([active().orderBy("created_at", "desc").execute(), currentCampaign()]);
   return rows.map((row) => ({ ...toCard(row, campaign), updatedAt: row.updated_at }));
 }
 
 export async function adminProduct(id: string) {
   const row = await productById(id);
-  return row && {
-    id: row.id, slug: row.slug, name: row.name, description: row.description, details: row.details,
-    priceCents: row.price_cents, category: row.category, stock: row.stock, image: row.image,
-  };
+  return (
+    row && {
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      description: row.description,
+      details: row.details,
+      priceCents: row.price_cents,
+      category: row.category,
+      stock: row.stock,
+      image: row.image,
+    }
+  );
 }
 
 export type ProductInput = {
@@ -201,49 +201,65 @@ export const categoryExists = async (slug: string) =>
 export async function createProduct(input: ProductInput, image: string): Promise<string> {
   const id = `p_${randomBytes(5).toString("hex")}`;
   const at = now();
-  await db().insertInto("products").values({
-    id,
-    slug: input.slug,
-    name: input.name,
-    description: input.description,
-    details: input.details,
-    price_cents: input.priceCents,
-    currency: "EUR",
-    category: input.category,
-    stock: input.stock,
-    status: "active",
-    image,
-    created_at: at,
-    updated_at: at,
-  }).execute();
+  await db()
+    .insertInto("products")
+    .values({
+      id,
+      slug: input.slug,
+      name: input.name,
+      description: input.description,
+      details: input.details,
+      price_cents: input.priceCents,
+      currency: "EUR",
+      category: input.category,
+      stock: input.stock,
+      status: "active",
+      image,
+      created_at: at,
+      updated_at: at,
+    })
+    .execute();
   return id;
 }
 
 export async function updateProduct(id: string, input: ProductInput, image?: string): Promise<boolean> {
-  const result = await db().updateTable("products").set({
-    slug: input.slug,
-    name: input.name,
-    description: input.description,
-    details: input.details,
-    price_cents: input.priceCents,
-    category: input.category,
-    stock: input.stock,
-    ...(image ? { image } : {}),
-    updated_at: now(),
-  }).where("id", "=", id).where("status", "=", "active").executeTakeFirst();
+  const result = await db()
+    .updateTable("products")
+    .set({
+      slug: input.slug,
+      name: input.name,
+      description: input.description,
+      details: input.details,
+      price_cents: input.priceCents,
+      category: input.category,
+      stock: input.stock,
+      ...(image ? { image } : {}),
+      updated_at: now(),
+    })
+    .where("id", "=", id)
+    .where("status", "=", "active")
+    .executeTakeFirst();
   return Number(result.numUpdatedRows) > 0;
 }
 
 /** Deleting archives: carts and comments keep pointing at a real row. */
 export async function archiveProduct(id: string): Promise<boolean> {
-  const result = await db().updateTable("products").set({ status: "archived", updated_at: now() })
-    .where("id", "=", id).where("status", "=", "active").executeTakeFirst();
+  const result = await db()
+    .updateTable("products")
+    .set({ status: "archived", updated_at: now() })
+    .where("id", "=", id)
+    .where("status", "=", "active")
+    .executeTakeFirst();
   return Number(result.numUpdatedRows) > 0;
 }
 
 export async function setStock(id: string, stock: number): Promise<boolean> {
-  const result = await db().updateTable("products").set({ stock, updated_at: now() })
-    .where("id", "=", id).where("status", "=", "active").executeTakeFirst();
+  const result = await db()
+    .updateTable("products")
+    .set({ stock, updated_at: now() })
+    .where("id", "=", id)
+    .where("status", "=", "active")
+    .executeTakeFirst();
   return Number(result.numUpdatedRows) > 0;
 }
 

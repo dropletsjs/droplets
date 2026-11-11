@@ -51,7 +51,7 @@ class EnhanceDirective extends AsyncDirective {
   override update(part: ElementPart, [options]: [EnhanceOptions?]): unknown {
     this.#options = options;
     const form = part.element;
-    if (!(form instanceof HTMLFormElement)) throw new Error("enhance() goes on a <form> element, not <" + form.localName + ">");
+    if (!(form instanceof HTMLFormElement)) throw new Error(`enhance() goes on a <form> element, not <${form.localName}>`);
     if (form !== this.#form) {
       this.#release?.();
       this.#form = form;

@@ -86,10 +86,16 @@ function ToastView(props: { item: Item }) {
 
   onMount(run);
   // The same toast again: its full time, from now.
-  createEffect(on(item.count, () => {
-    left = TOAST_MS;
-    if (held === 0) run();
-  }, { defer: true }));
+  createEffect(
+    on(
+      item.count,
+      () => {
+        left = TOAST_MS;
+        if (held === 0) run();
+      },
+      { defer: true },
+    ),
+  );
   onCleanup(() => clearTimeout(timer));
 
   const error = item.type === "error";
@@ -104,12 +110,20 @@ function ToastView(props: { item: Item }) {
       onFocusIn={hold}
       onFocusOut={release}
     >
-      <span class="toast-icon" aria-hidden="true">{error ? "!" : item.type === "success" ? "✓" : "i"}</span>
+      <span class="toast-icon" aria-hidden="true">
+        {error ? "!" : item.type === "success" ? "✓" : "i"}
+      </span>
       <p class="toast-label">
         {item.label}
-        {item.count() > 1 ? <span class="toast-count" aria-label={`${item.count()} times`}>×{item.count()}</span> : null}
+        {item.count() > 1 ? (
+          <span class="toast-count" aria-label={`${item.count()} times`}>
+            ×{item.count()}
+          </span>
+        ) : null}
       </p>
-      <button type="button" class="toast-close" aria-label="Dismiss" onClick={() => dismiss(item.id)}>×</button>
+      <button type="button" class="toast-close" aria-label="Dismiss" onClick={() => dismiss(item.id)}>
+        ×
+      </button>
     </li>
   );
 }

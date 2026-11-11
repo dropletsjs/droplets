@@ -20,7 +20,7 @@ const WRANGLER_CONFIGS = ["wrangler.jsonc", "wrangler.json", "wrangler.toml"];
 function jsonc(text: string): string {
   let out = "";
   for (let i = 0; i < text.length; i++) {
-    const char = text[i]!;
+    const char = text.charAt(i);
     if (char === '"') {
       const end = /"(?:[^"\\]|\\.)*"/y;
       end.lastIndex = i;
@@ -64,7 +64,10 @@ type RoutePair = { pattern: string; route: string };
 
 /** Whether the `run_worker_first` glob `pattern` matches `route` literally. */
 function matchesRoute({ pattern, route }: RoutePair): boolean {
-  const source = pattern.split("*").map((part) => part.replace(/[.+?^${}()|[\]\\]/g, "\\$&")).join(".*");
+  const source = pattern
+    .split("*")
+    .map((part) => part.replace(/[.+?^${}()|[\]\\]/g, "\\$&"))
+    .join(".*");
   return new RegExp(`^${source}$`).test(route);
 }
 
@@ -91,9 +94,7 @@ function coversWorkerRoutes({ value }: { value: unknown }): boolean {
   const included = patterns.filter((p) => !p.startsWith("!"));
   const excluded = patterns.filter((p) => p.startsWith("!")).map((p) => p.slice(1));
   return WORKER_ROUTES.every(
-    (route) =>
-      included.some((pattern) => coversRoute({ pattern, route })) &&
-      !excluded.some((pattern) => touchesRoute({ pattern, route })),
+    (route) => included.some((pattern) => coversRoute({ pattern, route })) && !excluded.some((pattern) => touchesRoute({ pattern, route })),
   );
 }
 

@@ -16,11 +16,16 @@ const MONO = font("@fontsource-variable/jetbrains-mono/files/jetbrains-mono-lati
 
 // The dark set of src/styles/tokens.css: the poster is the same in both themes.
 const T = {
-  s100: "#111417", s200: "#181c20", s300: "#20252a",
-  line: "#2a3036", lineStrong: "#69737d", ink: "#e8ecef",
+  s100: "#111417",
+  s200: "#181c20",
+  s300: "#20252a",
+  line: "#2a3036",
+  lineStrong: "#69737d",
+  ink: "#e8ecef",
   accent2: "#a9bbe3",
 };
-const W = 1034, H = 720;
+const W = 1034,
+  H = 720;
 const TITLE = "Wireframe of the shop's gallery on a WordPress page, its droplets outlined";
 // JetBrains Mono's advance, in em: the labels are sized from it.
 const MONO_ADV = 0.6;
@@ -44,7 +49,8 @@ function tag(name, x, y, size, { alignEnd = false } = {}) {
   const x0 = alignEnd ? x - w : x;
   return {
     h,
-    svg: rect(x0, y, w, h, { r: 3, fill: T.accent2 }) +
+    svg:
+      rect(x0, y, w, h, { r: 3, fill: T.accent2 }) +
       text(x0 + pad, y + h / 2 + size * 0.36, s, { size, weight: 600, fill: T.s100, cls: "mono" }),
   };
 }
@@ -52,8 +58,12 @@ function tag(name, x, y, size, { alignEnd = false } = {}) {
 const dropletBox = (x, y, w, h) =>
   rect(x, y, w, h, { r: 6, fill: T.accent2, op: 0.06 }) + rect(x, y, w, h, { r: 6, stroke: T.accent2, sw: 1.75 });
 
-const fx = 40, fy = 32, fw = W - 80, fh = 656;
-const L = 72, R = W - 72;
+const fx = 40,
+  fy = 32,
+  fw = W - 80,
+  fh = 656;
+const L = 72,
+  R = W - 72;
 const cartTag = tag("shopping-cart", R, 78, 12, { alignEnd: true });
 const filterTag = tag("product-filter", L, 238, 12);
 const libX = L + 324;

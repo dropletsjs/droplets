@@ -99,7 +99,7 @@ describe("mount()", () => {
     document.body.append(target);
     const children = host();
     const handle = mount(toggling, target, { data: {} }, contextFor(target, "t1", children));
-    const first = target.querySelector("[data-droplet-children]")!;
+    const first = target.querySelector("[data-droplet-children]") ?? expect.unreachable("the children marker");
     expect(children.filled).toEqual([first]);
 
     setShow(false);
@@ -107,7 +107,7 @@ describe("mount()", () => {
     expect(target.querySelector("[data-droplet-children]")).toBeNull();
 
     setShow(true);
-    const second = target.querySelector("[data-droplet-children]")!;
+    const second = target.querySelector("[data-droplet-children]") ?? expect.unreachable("the children marker");
     expect(second).not.toBe(first);
     expect(children.filled).toEqual([first, second]);
     unmount(handle);
@@ -120,7 +120,7 @@ describe("hydrate()", () => {
     target.innerHTML = serverHtml("h1x", "kid-a");
     document.body.append(target);
     const greeting = q(target, "greeting");
-    const marker = target.querySelector("[data-droplet-children]")!;
+    const marker = target.querySelector("[data-droplet-children]") ?? expect.unreachable("the children marker");
     const children = host();
 
     const handle = hydrate(hello, target, { data: { greeting: "Hello kid-a!" } }, contextFor(target, "h1x", children));
@@ -151,7 +151,7 @@ describe("hydrate()", () => {
     expect(hyState()?.done).toBe(true);
 
     const greeting = q(second, "greeting");
-    const marker = second.querySelector("[data-droplet-children]")!;
+    const marker = second.querySelector("[data-droplet-children]") ?? expect.unreachable("the children marker");
     const children = host();
     hydrate(hello, second, { data: { greeting: "Hello kid-2!" } }, contextFor(second, "bbb", children));
 

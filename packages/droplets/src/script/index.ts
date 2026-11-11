@@ -35,13 +35,7 @@
 import { resolve } from "node:path";
 import { langOfFile, readExportedFlags } from "../core/flags.ts";
 import { packageDist } from "../core/paths.ts";
-import {
-  SCRIPT_RENDERER,
-  SCRIPT_SUFFIXES,
-  type DropletRenderer,
-  type ReadFlagsInput,
-  type RenderFlags,
-} from "../renderer.ts";
+import { SCRIPT_RENDERER, SCRIPT_SUFFIXES, type DropletRenderer, type ReadFlagsInput, type RenderFlags } from "../renderer.ts";
 
 /**
  * The flags of a script droplet: `hydrate` (`true`, the default, or
@@ -52,9 +46,7 @@ export function readScriptFlags(input: Pick<ReadFlagsInput, "source" | "file" | 
   const where = `${input.droplet}/${input.file}`;
   const flags = readExportedFlags(input.source, input.droplet, langOfFile(input.file));
   if (flags.ssr !== undefined) {
-    throw new Error(
-      `droplets: ${where}: a script droplet renders nothing on the server, so it has no ssr flag; remove export const ssr`,
-    );
+    throw new Error(`droplets: ${where}: a script droplet renders nothing on the server, so it has no ssr flag; remove export const ssr`);
   }
   if (flags.hydrate === false) {
     throw new Error(

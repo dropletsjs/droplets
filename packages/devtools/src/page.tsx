@@ -47,7 +47,11 @@ function jsonForScript(value: unknown): string {
 function Segmented(props: { id: string; options: Array<[string, string]> }) {
   return (
     <span class="dt-seg" id={props.id}>
-      {props.options.map(([value, label]) => <button type="button" data-value={value}>{label}</button>)}
+      {props.options.map(([value, label]) => (
+        <button type="button" data-value={value}>
+          {label}
+        </button>
+      ))}
     </span>
   );
 }
@@ -59,34 +63,58 @@ function Panel(props: { element: string }) {
         <span class="dt-dot" id="dt-conn"></span>
         <h1>Droplets devtools</h1>
         <code>{`<${props.element}>`}</code>
-        <button type="button" class="dt-btn dt-icon" id="dt-collapse" title="Collapse (Alt+D)">–</button>
+        <button type="button" class="dt-btn dt-icon" id="dt-collapse" title="Collapse (Alt+D)">
+          –
+        </button>
       </header>
       <div class="dt-body">
         <section class="dt-section">
           <div class="dt-label">
             Render
-            <Segmented id="dt-render" options={[["client", "Client"], ["server", "Server"]]} />
+            <Segmented
+              id="dt-render"
+              options={[
+                ["client", "Client"],
+                ["server", "Server"],
+              ]}
+            />
           </div>
           <span class="dt-status" id="dt-render-hint"></span>
         </section>
         <section class="dt-section">
-          <label class="dt-label" for="dt-droplet">Droplet</label>
+          <label class="dt-label" for="dt-droplet">
+            Droplet
+          </label>
           <select class="dt-select" id="dt-droplet"></select>
         </section>
         <section class="dt-section">
           <div class="dt-label">
             Request
-            <Segmented id="dt-method" options={[["GET", "GET"], ["POST", "POST"]]} />
+            <Segmented
+              id="dt-method"
+              options={[
+                ["GET", "GET"],
+                ["POST", "POST"],
+              ]}
+            />
           </div>
           <span class="dt-status" id="dt-method-hint"></span>
         </section>
         <section class="dt-section">
           <div class="dt-label">
             Props
-            <Segmented id="dt-mode" options={[["builder", "Builder"], ["json", "JSON"]]} />
+            <Segmented
+              id="dt-mode"
+              options={[
+                ["builder", "Builder"],
+                ["json", "JSON"],
+              ]}
+            />
           </div>
           <div id="dt-builder" class="dt-rows"></div>
-          <button type="button" class="dt-btn" id="dt-add-row">Add prop</button>
+          <button type="button" class="dt-btn" id="dt-add-row">
+            Add prop
+          </button>
           <textarea class="dt-textarea" id="dt-json" spellcheck={false} hidden></textarea>
           <p class="dt-error" id="dt-json-error" hidden></p>
           <div id="dt-warnings"></div>
@@ -100,9 +128,13 @@ function Panel(props: { element: string }) {
         <section class="dt-section">
           <div class="dt-label">
             Last response
-            <button type="button" class="dt-btn" id="dt-refresh">Render again</button>
+            <button type="button" class="dt-btn" id="dt-refresh">
+              Render again
+            </button>
           </div>
-          <span class="dt-status" id="dt-status">Not rendered yet</span>
+          <span class="dt-status" id="dt-status">
+            Not rendered yet
+          </span>
         </section>
       </div>
     </aside>
@@ -122,15 +154,15 @@ export function renderDevtoolsPage(input: DevtoolsPageInput): string {
     strategy: input.strategy ?? "hmr",
     ...(input.server
       ? {
-        server: {
-          droplet: input.server.droplet,
-          method: input.server.method,
-          props: input.server.props,
-          status: input.server.status,
-          ms: input.server.ms,
-          bytes: input.server.bytes,
-        },
-      }
+          server: {
+            droplet: input.server.droplet,
+            method: input.server.method,
+            props: input.server.props,
+            status: input.server.status,
+            ms: input.server.ms,
+            bytes: input.server.bytes,
+          },
+        }
       : {}),
   };
 
@@ -141,7 +173,9 @@ export function renderDevtoolsPage(input: DevtoolsPageInput): string {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Droplets devtools</title>
         {raw(input.importMap ?? "")}
-        {(input.server?.styles ?? []).map((href) => <link rel="stylesheet" href={href} />)}
+        {(input.server?.styles ?? []).map((href) => (
+          <link rel="stylesheet" href={href} />
+        ))}
         {input.pageStyles === false ? "" : <style>{raw(STYLES)}</style>}
       </head>
       <body>
@@ -152,7 +186,9 @@ export function renderDevtoolsPage(input: DevtoolsPageInput): string {
           <span class="dt-status" id="dt-pill-status"></span>
         </button>
         <Panel element={input.element} />
-        <script type="application/json" id="dt-data">{raw(jsonForScript(data))}</script>
+        <script type="application/json" id="dt-data">
+          {raw(jsonForScript(data))}
+        </script>
         {/* The dev tool is always on here: the page is a host like any other.
             vite-ignore: the droplets app serves index.js, not Vite's module
             graph, so Vite's pre-transform of it would only log an error. */}

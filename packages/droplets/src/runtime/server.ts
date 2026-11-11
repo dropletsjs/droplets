@@ -18,6 +18,7 @@ import { webUrl, withinTrusted } from "./web-url.ts";
  * }
  * ```
  */
+// biome-ignore lint/style/useConsistentTypeDefinitions: the user merges into it; `type` cannot merge.
 export interface Locals {
   [key: string]: unknown;
 }
@@ -27,6 +28,7 @@ export interface Locals {
  * bindings (KV, D1, R2…) and `context` the execution context; on Node `env`
  * holds the raw `incoming`/`outgoing` objects.
  */
+// biome-ignore lint/style/useConsistentTypeDefinitions: the user merges into it; `type` cannot merge.
 export interface Platform {
   env?: unknown;
   context?: unknown;
@@ -66,7 +68,7 @@ export type CookieSerializeOptions = {
  * response, whatever answers it; `get` and `getAll` see them at once. Not
  * available while prerendering: there is no request at build.
  */
-export interface Cookies {
+export type Cookies = {
   /** The cookie's value, `undefined` when there is none. */
   get(name: string, options?: CookieParseOptions): string | undefined;
   getAll(options?: CookieParseOptions): Array<{ name: string; value: string }>;
@@ -75,7 +77,7 @@ export interface Cookies {
   delete(name: string, options: CookieSerializeOptions): void;
   /** The `Set-Cookie` value, with the same defaults, for a response built by hand. */
   serialize(name: string, value: string, options: CookieSerializeOptions): string;
-}
+};
 
 /**
  * The cookies a droplet's `load` and `transform` receive: read only. Set
@@ -215,9 +217,7 @@ export type HandleServerErrorInput = {
  * a droplet that cannot show its error). Log it and choose the message the
  * answer carries; returning nothing keeps "Internal Server Error".
  */
-export type HandleServerError = (
-  input: HandleServerErrorInput,
-) => { message: string } | void | Promise<{ message: string } | void>;
+export type HandleServerError = (input: HandleServerErrorInput) => { message: string } | void | Promise<{ message: string } | void>;
 
 /**
  * `handleError` in `+droplet.server.ts` or `+droplet.ts`: turns what a load
@@ -225,9 +225,7 @@ export type HandleServerError = (
  * first, on the server only: put it there to keep internals off the page.
  * Throwing renders nothing.
  */
-export type HandleDropletError = (input: {
-  error: unknown;
-}) => { error: unknown } | Promise<{ error: unknown }>;
+export type HandleDropletError = (input: { error: unknown }) => { error: unknown } | Promise<{ error: unknown }>;
 
 /** An import map, as the browser reads it. */
 export type ImportMap = {
@@ -293,10 +291,7 @@ export type ResolveFunction = (event: RequestEvent) => Promise<Response>;
  * except the health check: fill `event.locals`, answer early without calling
  * `resolve`, or change the response `resolve` returns.
  */
-export type Handle = (input: {
-  event: RequestEvent;
-  resolve: ResolveFunction;
-}) => Response | Promise<Response>;
+export type Handle = (input: { event: RequestEvent; resolve: ResolveFunction }) => Response | Promise<Response>;
 
 const HTTP_ERROR = Symbol.for("droplets.http-error");
 const REDIRECT = Symbol.for("droplets.redirect");
@@ -370,9 +365,7 @@ export function redirect(status: 300 | 301 | 302 | 303 | 307 | 308, location: st
   }
   const target = String(location);
   if (!isRedirectTarget(target)) {
-    throw new Error(
-      `redirect() needs an http(s) URL or a path on this site, got ${JSON.stringify(target.slice(0, 200))}`,
-    );
+    throw new Error(`redirect() needs an http(s) URL or a path on this site, got ${JSON.stringify(target.slice(0, 200))}`);
   }
   throw new Redirect(status, target);
 }
@@ -511,9 +504,7 @@ export function sequence(...handlers: Handle[]): Handle {
     const apply = (index: number, current: RequestEvent): Promise<Response> => {
       const handle = handlers[index];
       if (!handle) return resolve(current);
-      return Promise.resolve(
-        handle({ event: current, resolve: (next) => apply(index + 1, next) }),
-      );
+      return Promise.resolve(handle({ event: current, resolve: (next) => apply(index + 1, next) }));
     };
     return apply(0, event);
   };

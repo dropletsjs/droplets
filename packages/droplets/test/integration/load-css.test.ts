@@ -26,7 +26,7 @@ async function project(style: string): Promise<string> {
   const root = await mkdtemp(join(fixtures, ".load-css-"));
   const folder = join(root, "src/droplets/card");
   await mkdir(folder, { recursive: true });
-  await writeFile(join(folder, "+droplet.fake.js"), "export default () => `<p class=\"card\">card</p>`;\n");
+  await writeFile(join(folder, "+droplet.fake.js"), 'export default () => `<p class="card">card</p>`;\n');
   await writeFile(join(folder, "+droplet.ts"), `import ${JSON.stringify(style)};\n\nexport const load = () => ({});\n`);
   await writeFile(join(folder, "card.css"), ".card { color: red; }\n");
   return root;

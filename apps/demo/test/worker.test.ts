@@ -67,7 +67,19 @@ beforeAll(async () => {
   const bin = join(root, "node_modules/wrangler/bin/wrangler.js");
   wrangler = spawn(
     process.execPath,
-    [bin, "dev", "--config", "wrangler.json", "--ip", "127.0.0.1", "--port", String(port), "--var", `DROPLETS_SECRET:${SECRET}`, "--show-interactive-dev-session=false"],
+    [
+      bin,
+      "dev",
+      "--config",
+      "wrangler.json",
+      "--ip",
+      "127.0.0.1",
+      "--port",
+      String(port),
+      "--var",
+      `DROPLETS_SECRET:${SECRET}`,
+      "--show-interactive-dev-session=false",
+    ],
     { cwd: out, env: { ...process.env, WRANGLER_SEND_METRICS: "false", CI: "1" }, stdio: ["ignore", "pipe", "pipe"] },
   );
   let log = "";

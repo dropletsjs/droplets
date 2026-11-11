@@ -201,13 +201,18 @@ describe("the client module", () => {
       const handled: unknown[] = [];
       const el = target();
       const data = Promise.reject({ status: 500 });
-      mount({ default: Hello }, el, { data }, clientContext(children, {
-        module: { default: Oops },
-        handle: async (error) => {
-          handled.push(error);
-          return { message: "Sorry" };
-        },
-      }));
+      mount(
+        { default: Hello },
+        el,
+        { data },
+        clientContext(children, {
+          module: { default: Oops },
+          handle: async (error) => {
+            handled.push(error);
+            return { message: "Sorry" };
+          },
+        }),
+      );
       await settle();
       expect(handled).toEqual([{ status: 500 }]);
       expect(el.querySelector("[data-testid=error]")?.textContent).toBe("Sorry");
@@ -221,10 +226,15 @@ describe("the client module", () => {
     const { children } = host();
     const el = target();
     const Oops = () => domJsx("p", { children: "never" });
-    mount({ default: Hello }, el, { data: Promise.reject(new Error("x")) }, clientContext(children, {
-      module: { default: Oops },
-      handle: () => Promise.reject(new Error("handler failed")),
-    }));
+    mount(
+      { default: Hello },
+      el,
+      { data: Promise.reject(new Error("x")) },
+      clientContext(children, {
+        module: { default: Oops },
+        handle: () => Promise.reject(new Error("handler failed")),
+      }),
+    );
     await settle();
     expect(el.textContent).toBe("");
   });

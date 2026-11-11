@@ -4,7 +4,7 @@ import { requireAdmin } from "../../lib/server/admin.ts";
 import { adminList, productById } from "../../lib/server/catalogue.ts";
 import { integer, readForm, text } from "../../lib/server/forms.ts";
 import { forgetProducts, wpConfig } from "../../lib/server/site.ts";
-import { updateProduct, WordPressError } from "../../lib/server/wp.ts";
+import { updateProduct, WordPressError, type WpProduct } from "../../lib/server/wp.ts";
 import type { Actions, LoadEvent } from "./$types";
 
 /**
@@ -52,7 +52,7 @@ export const actions = {
 
     const product = await productById(id);
     if (!product) return fail(404, { errors: { form: "No such product." } satisfies Errors });
-    let saved;
+    let saved: WpProduct;
     try {
       saved = await updateProduct(wpConfig(), event.locals.admin!, product.postId, {
         shop_stock: stock!,

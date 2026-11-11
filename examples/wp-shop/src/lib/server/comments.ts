@@ -23,10 +23,12 @@ export const countComments = (productId: string) => countWp(wpConfig(), postIdOf
 /** Every product with its comment count, for `entries()` at build. */
 export async function commentCounts(): Promise<Array<{ productId: string; count: number }>> {
   const products = await allProducts();
-  return Promise.all(products.map(async (product) => ({
-    productId: product.id,
-    count: await countWp(wpConfig(), product.postId),
-  })));
+  return Promise.all(
+    products.map(async (product) => ({
+      productId: product.id,
+      count: await countWp(wpConfig(), product.postId),
+    })),
+  );
 }
 
 export const postComment = (productId: string, author: string, body: string): Promise<CommentResult> =>

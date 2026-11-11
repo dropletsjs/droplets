@@ -1,10 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  getLogLevel,
-  logger,
-  resolveLevel,
-  setLogLevel,
-} from "../../src/core/logger.ts";
+import { getLogLevel, logger, resolveLevel, setLogLevel } from "../../src/core/logger.ts";
 
 describe("resolveLevel", () => {
   it.each([

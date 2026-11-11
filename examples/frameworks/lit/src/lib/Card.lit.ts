@@ -171,18 +171,18 @@ export abstract class Card extends DropletElement<{ data: Facts | undefined }> {
           <dd data-testid="private">${facts ? `${facts.apiToken}, channel ${facts.channel}` : "…"}</dd>
           <dt>Rendered</dt>
           <dd data-testid="rendered">${data ? `on the server, ${data.renderedAt}` : "in the browser"}</dd>
-          ${this.mode === "client"
-            ? html`<dt>Server time<small>/api/time</small></dt><dd data-testid="time">${this.time ?? "…"}</dd>`
-            : nothing}
+          ${
+            this.mode === "client"
+              ? html`<dt>Server time<small>/api/time</small></dt><dd data-testid="time">${this.time ?? "…"}</dd>`
+              : nothing
+          }
           <dt>Hydrated</dt>
           <dd data-testid="hydrated">${this.hydrated ? "yes" : "no"}</dd>
         </dl>
 
         <div class="card-counter">
           <span class="card-count" data-testid="count">${shown ?? "…"}</span>
-          ${this.mode !== "ssr-nohydrate"
-            ? html`<button type="button" data-testid="bump" @click=${this.#bump}>+1</button>`
-            : nothing}
+          ${this.mode !== "ssr-nohydrate" ? html`<button type="button" data-testid="bump" @click=${this.#bump}>+1</button>` : nothing}
           <small>one counter for every droplet: /api/counter</small>
         </div>
         <!-- The host's children, in this element's light DOM, show here. -->

@@ -11,7 +11,8 @@ export type CommentQuery = { productId: string; order: CommentOrder; page: numbe
  */
 export async function commentsPage({ productId, order, page, showing }: CommentQuery): Promise<Comment[]> {
   const direction = order === "oldest" ? "asc" : "desc";
-  const rows = await db().selectFrom("comments")
+  const rows = await db()
+    .selectFrom("comments")
     .select(["id", "author", "body", "created_at"])
     .where("product_id", "=", productId)
     .orderBy("created_at", direction)
@@ -23,14 +24,18 @@ export async function commentsPage({ productId, order, page, showing }: CommentQ
 }
 
 export async function countComments(productId: string): Promise<number> {
-  const row = await db().selectFrom("comments").select((eb) => eb.fn.countAll<number>().as("n"))
-    .where("product_id", "=", productId).executeTakeFirst();
+  const row = await db()
+    .selectFrom("comments")
+    .select((eb) => eb.fn.countAll<number>().as("n"))
+    .where("product_id", "=", productId)
+    .executeTakeFirst();
   return Number(row?.n ?? 0);
 }
 
 /** Every active product with its comment count, for `entries()` at build. */
 export async function commentCounts(): Promise<Array<{ productId: string; count: number }>> {
-  const rows = await db().selectFrom("products")
+  const rows = await db()
+    .selectFrom("products")
     .leftJoin("comments", "comments.product_id", "products.id")
     .select(["products.id", (eb) => eb.fn.count<number>("comments.id").as("count")])
     .where("products.status", "=", "active")
@@ -46,7 +51,6 @@ export const commentId = (at: Date) => `m_${at.getTime().toString(36).padStart(9
 export async function postComment(productId: string, author: string, body: string): Promise<string> {
   const at = new Date(now());
   const id = commentId(at);
-  await db().insertInto("comments").values({ id, product_id: productId, author, body, created_at: at.toISOString() })
-    .execute();
+  await db().insertInto("comments").values({ id, product_id: productId, author, body, created_at: at.toISOString() }).execute();
   return id;
 }

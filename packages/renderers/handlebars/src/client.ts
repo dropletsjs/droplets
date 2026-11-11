@@ -69,12 +69,7 @@ export async function mount(
   return shown.kind === "droplet" ? { ...instance, module } : instance;
 }
 
-export function hydrate(
-  module: ComponentModule,
-  target: HTMLElement,
-  _props: RenderProps,
-  context: ClientRenderContext,
-): Instance {
+export function hydrate(module: ComponentModule, target: HTMLElement, _props: RenderProps, context: ClientRenderContext): Instance {
   // The server markup stays as it is; the element put the host's container
   // in its marker at connect and took it out before this call: `fill` puts
   // it back.

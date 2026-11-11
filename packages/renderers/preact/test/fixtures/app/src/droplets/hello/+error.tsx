@@ -6,7 +6,9 @@ export default function HelloError({ error, children }: DropletErrorProps<{ mess
   const [tries, setTries] = useState(0);
   return (
     <>
-      <p class="oops" data-testid="error">{error.message}</p>
+      <p class="oops" data-testid="error">
+        {error.message}
+      </p>
       <button data-testid="retry" onClick={() => setTries((n) => n + 1)}>
         {tries}
       </button>

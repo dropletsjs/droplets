@@ -46,7 +46,9 @@ describe("parseFlags", () => {
   });
 
   it("names what it does not know", () => {
-    expect(() => parseFlags(["--frameworks", "angular"])).toThrow("--frameworks angular: expected svelte, vue, react, preact, solid, hono-jsx, handlebars, lit");
+    expect(() => parseFlags(["--frameworks", "angular"])).toThrow(
+      "--frameworks angular: expected svelte, vue, react, preact, solid, hono-jsx, handlebars, lit",
+    );
     expect(() => parseFlags(["--adapters", "vercel"])).toThrow("--adapters vercel: expected node, cloudflare, bun, deno");
     expect(() => parseFlags(["--frameworks", ","])).toThrow("--frameworks: name at least one");
     expect(() => parseFlags(["--pm", "pip"])).toThrow("--pm pip");
@@ -72,8 +74,8 @@ describe("names", () => {
   });
 
   it("names the starter droplets", () => {
-    expect(starterName(frameworkNamed("svelte")!)).toBe("hello-svelte");
-    expect(starterName(frameworkNamed("hono-jsx")!)).toBe("hello-hono");
+    expect(starterName(frameworkNamed("svelte") ?? expect.unreachable("svelte"))).toBe("hello-svelte");
+    expect(starterName(frameworkNamed("hono-jsx") ?? expect.unreachable("hono-jsx"))).toBe("hello-hono");
   });
 });
 

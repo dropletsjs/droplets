@@ -42,12 +42,7 @@ const entry = (id: string, name = id): DropletEntry => ({
 describe("createClientInputs", () => {
   it("has one named input per droplet plus the entry client and global css", () => {
     const inputs = createClientInputs([entry("hello", "Hello"), entry("clock")]);
-    expect(Object.keys(inputs)).toEqual([
-      ENTRY_CLIENT_NAME,
-      GLOBAL_CSS_NAME,
-      "droplets/hello",
-      "droplets/clock",
-    ]);
+    expect(Object.keys(inputs)).toEqual([ENTRY_CLIENT_NAME, GLOBAL_CSS_NAME, "droplets/hello", "droplets/clock"]);
     expect(inputs[GLOBAL_CSS_NAME]).toBe(VIRTUAL_CSS);
     expect(inputs["droplets/hello"]).toBe(clientEntryId("Hello"));
     expect(inputs[ENTRY_CLIENT_NAME]).toMatch(/entry-client\.js$/);
@@ -115,9 +110,7 @@ describe("createBuildEnvironments", () => {
     const state = createInitialState();
     state.adapter = fakeAdapter();
     const output = createBuildEnvironments(state)["client"]?.build?.rolldownOptions?.output;
-    const naming = (Array.isArray(output) ? output[0] : output)?.entryFileNames as (
-      chunk: { name: string },
-    ) => string;
+    const naming = (Array.isArray(output) ? output[0] : output)?.entryFileNames as (chunk: { name: string }) => string;
     expect(naming({ name: ENTRY_CLIENT_NAME })).toBe("assets/index.[hash].js");
     // Where the URL says, so its relative imports resolve: /droplets/hello/client.js.
     expect(naming({ name: "droplets/hello" })).toBe("[name]/client.js");
@@ -193,11 +186,9 @@ describe("translateManifest", () => {
   });
 
   it("falls back to path-shaped keys when names are missing", () => {
-    const manifest = translateManifest(
-      { "virtual:droplet-client?name=Hello": { css: ["assets/h.css"] } },
-      "x",
-      [{ id: "hello", name: "Hello" }],
-    );
+    const manifest = translateManifest({ "virtual:droplet-client?name=Hello": { css: ["assets/h.css"] } }, "x", [
+      { id: "hello", name: "Hello" },
+    ]);
     expect(manifest.droplets["hello"]?.css).toEqual(["assets/h.css"]);
   });
 

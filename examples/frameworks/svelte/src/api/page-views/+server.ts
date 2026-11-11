@@ -7,8 +7,7 @@ const MAX_BODY = 256;
 
 /** A plain `{ … }` object, as `JSON.parse` makes: no array, no other prototype. */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value) &&
-    Object.getPrototypeOf(value) === Object.prototype;
+  return typeof value === "object" && value !== null && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
 }
 
 /** `GET /api/page-views?page=pricing` -> `{ "page": "pricing", "views": 3 }`. */

@@ -98,7 +98,10 @@ createServer(async (request, response) => {
     return;
   }
   if (rest === "written") {
-    html(response, page(droplets, "Written by the host", `<djs-${example} data-droplet="ssr-hydrate" data-params='{"who":"Writer"}'></djs-${example}>`));
+    html(
+      response,
+      page(droplets, "Written by the host", `<djs-${example} data-droplet="ssr-hydrate" data-params='{"who":"Writer"}'></djs-${example}>`),
+    );
     return;
   }
   // The fragment fetched by the page itself and inserted with innerHTML, as

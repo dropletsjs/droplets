@@ -6,7 +6,7 @@ import { dropletFileChoices, dropletFiles, type DropletFile } from "../../src/ad
 
 const spec = (framework: string, files: DropletFile[] = [], target: Parameters<typeof flagsFor>[0] = "full") => ({
   name: "hello-world",
-  framework: frameworkNamed(framework)!,
+  framework: frameworkNamed(framework) ?? expect.unreachable(framework),
   flags: flagsFor(target, target === "full" ? "visible" : undefined).flags,
   files: new Set(files),
 });
@@ -19,19 +19,30 @@ describe("dropletFiles()", () => {
   });
 
   it("puts the flags where each renderer reads them", () => {
-    const component = (framework: string) => dropletFiles(spec(framework, [], "ssg"))[`+droplet${frameworkNamed(framework)!.extension}`]!;
-    expect(component("svelte")).toMatch(/<script module lang="ts">\n  export const ssr = true;\n  export const hydrate = true;\n  export const prerender = true;\n<\/script>/);
-    expect(component("vue")).toMatch(/^<script lang="ts">\nexport const ssr = true;\nexport const hydrate = true;\nexport const prerender = true;\n<\/script>/);
+    const component = (framework: string) =>
+      dropletFiles(spec(framework, [], "ssg"))[`+droplet${(frameworkNamed(framework) ?? expect.unreachable(framework)).extension}`] ??
+      expect.unreachable(`${framework}'s component`);
+    expect(component("svelte")).toMatch(
+      /<script module lang="ts">\n {2}export const ssr = true;\n {2}export const hydrate = true;\n {2}export const prerender = true;\n<\/script>/,
+    );
+    expect(component("vue")).toMatch(
+      /^<script lang="ts">\nexport const ssr = true;\nexport const hydrate = true;\nexport const prerender = true;\n<\/script>/,
+    );
     expect(component("handlebars")).toMatch(/^\{\{!--\nexport ssr = true\nexport hydrate = true\nexport prerender = true\n--\}\}/);
     for (const exported of ["react", "preact", "solid", "hono-jsx", "lit"]) {
-      const lang = langOfFile(frameworkNamed(exported)!.extension);
+      const lang = langOfFile((frameworkNamed(exported) ?? expect.unreachable(exported)).extension);
       expect(readExportedFlags(component(exported), "x", lang)).toEqual({ ssr: true, hydrate: true, prerender: true });
     }
     expect(dropletFiles(spec("react"))["+droplet.tsx"]).toContain('export const hydrate = "visible";');
   });
 
   it("names the JSX import source in every .tsx file, so mixed projects can tell them apart", () => {
-    for (const [framework, source] of [["react", "react"], ["preact", "preact"], ["solid", "solid-js"], ["hono-jsx", "hono/jsx"]] as const) {
+    for (const [framework, source] of [
+      ["react", "react"],
+      ["preact", "preact"],
+      ["solid", "solid-js"],
+      ["hono-jsx", "hono/jsx"],
+    ] as const) {
       const files = dropletFiles(spec(framework, ["error"]));
       expect(files["+droplet.tsx"]).toMatch(new RegExp(`^/\\*\\* @jsxImportSource ${source} \\*/`));
       expect(files["+error.tsx"]).toMatch(new RegExp(`^/\\*\\* @jsxImportSource ${source} \\*/`));
@@ -93,7 +104,7 @@ describe("dropletFiles()", () => {
 describe("dropletFiles() for a script droplet", () => {
   const script = (files: DropletFile[] = [], hydrate: "always" | "visible" = "always") => ({
     name: "page-views",
-    framework: kindNamed("script")!,
+    framework: kindNamed("script") ?? expect.unreachable("script"),
     flags: scriptFlags(hydrate),
     files: new Set(files),
   });
@@ -101,7 +112,7 @@ describe("dropletFiles() for a script droplet", () => {
   it("writes +droplet.script.ts, typed by ./$types, with no ssr flag", () => {
     const files = dropletFiles(script());
     expect(Object.keys(files)).toEqual(["+droplet.script.ts"]);
-    const code = files["+droplet.script.ts"]!;
+    const code = files["+droplet.script.ts"] ?? expect.unreachable("+droplet.script.ts");
     expect(code).toContain('import type { DropletScript } from "./$types";');
     expect(code).toContain("const run: DropletScript = (_data, el) => {");
     expect(code).toContain('heading.textContent = "page-views";');
@@ -112,7 +123,7 @@ describe("dropletFiles() for a script droplet", () => {
   it("writes hydrate only when visible, data from the loads, and styles from style.css", () => {
     const files = dropletFiles(script(["server", "universal", "css"], "visible"));
     expect(Object.keys(files).sort()).toEqual(["+droplet.script.ts", "+droplet.server.ts", "+droplet.ts", "style.css"]);
-    const code = files["+droplet.script.ts"]!;
+    const code = files["+droplet.script.ts"] ?? expect.unreachable("+droplet.script.ts");
     expect(readExportedFlags(code, "x", "ts")).toEqual({ hydrate: "visible" });
     expect(code).toContain('import "./style.css";');
     expect(code).toContain("heading.textContent = data.greeting;");
@@ -120,6 +131,10 @@ describe("dropletFiles() for a script droplet", () => {
 
   it("has no error page", () => {
     expect(() => dropletFiles(script(["error"]))).toThrow(/no error page/);
-    expect(dropletFileChoices(kindNamed("script")!).map((f) => f.value)).toEqual(["server", "universal", "css"]);
+    expect(dropletFileChoices(kindNamed("script") ?? expect.unreachable("script")).map((f) => f.value)).toEqual([
+      "server",
+      "universal",
+      "css",
+    ]);
   });
 });

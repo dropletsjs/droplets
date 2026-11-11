@@ -13,12 +13,9 @@
  * before it detaches its DOM nodes. The effect depends on the host alone, so
  * a re-render never moves the children.
  */
-import { createContext, h, type VNode } from "preact";
+import { type ComponentChild, createContext, h, type VNode } from "preact";
 import { useContext, useLayoutEffect, useRef } from "preact/hooks";
 import type { DropletChildrenHost } from "@dropletsjs/droplets";
-
-/** Any element: a vnode's props type does not widen to `{}`. */
-type AnyVNode = VNode<any>;
 
 /** The element's children host, provided by the client module; `null` on the server. */
 export const ChildrenHostContext = createContext<DropletChildrenHost | null>(null);
@@ -26,7 +23,7 @@ export const ChildrenHostContext = createContext<DropletChildrenHost | null>(nul
 const MARKER_STYLE = { display: "contents" };
 
 /** Renders the children marker. See the module documentation. */
-export function DropletChildren(): AnyVNode {
+export function DropletChildren(): ComponentChild {
   const host = useContext(ChildrenHostContext);
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -39,6 +36,6 @@ export function DropletChildren(): AnyVNode {
 }
 
 /** The `children` value handed to a component: one `<DropletChildren />`. */
-export function childrenElement(): AnyVNode {
+export function childrenElement(): VNode {
   return h(DropletChildren, {});
 }

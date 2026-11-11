@@ -22,7 +22,7 @@ describe("react()", () => {
     expect(renderer.clientSetup).toMatch(/[\\/]dist[\\/]client-setup\.js$/);
     expect(existsSync(renderer.server), "build the package first").toBe(true);
     expect(existsSync(renderer.client)).toBe(true);
-    expect(existsSync(renderer.clientSetup!)).toBe(true);
+    expect(existsSync(renderer.clientSetup ?? expect.unreachable("clientSetup"))).toBe(true);
     expect(renderer.packages).toEqual(["react", "react-dom", "@dropletsjs/renderer-react"]);
     // A function of core's scope: @vitejs/plugin-react's own array of
     // plugins, then the Fast Refresh that compiles React's modules alone.
@@ -94,7 +94,9 @@ describe("render()", () => {
 
   it("renders an error page with several roots, as plain HTML without a head", () => {
     const out = render({ default: Oops }, { error: { message: "Sorry" } }, serverContext("error"));
-    expect(out).toBe(`<p data-testid="error">Sorry</p><div data-testid="error-children"><div data-droplet-children="" style="display:contents"></div></div>`);
+    expect(out).toBe(
+      `<p data-testid="error">Sorry</p><div data-testid="error-children"><div data-droplet-children="" style="display:contents"></div></div>`,
+    );
   });
 
   it("escapes what the loads return", () => {
@@ -216,7 +218,7 @@ describe("hydrate()", () => {
     target.innerHTML = String(render({ default: Hello }, { data: { greeting: "Hi" } }, serverContext()));
     document.body.appendChild(target);
     // The element took the host's container out before hydrating: an empty marker.
-    const serverMarker = target.querySelector("[data-droplet-children]")!;
+    const serverMarker = target.querySelector("[data-droplet-children]") ?? expect.unreachable("the children marker");
     const order: string[] = [];
     const host: DropletChildrenHost = {
       fill: (marker) => order.push(`fill:${marker === serverMarker ? "same" : "other"}:${marker.isConnected}`),
@@ -251,7 +253,7 @@ describe("hydrate()", () => {
     target.innerHTML = String(render({ default: Oops }, { error: { message: "no" } }, serverContext("error")));
     document.body.appendChild(target);
     const p = q(target, "error");
-    const marker = target.querySelector("[data-droplet-children]")!;
+    const marker = target.querySelector("[data-droplet-children]") ?? expect.unreachable("the children marker");
     const host = fakeHost();
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const root = hydrate({ default: Oops }, target, { error: { message: "no" } }, clientContext(host, [marker], "error"));
@@ -267,7 +269,12 @@ describe("hydrate()", () => {
     target.innerHTML = `<section><h1 data-testid="greeting">Stale</h1><button data-testid="count">0</button><div data-testid="children"><div data-droplet-children="" style="display:contents"></div></div></section>`;
     document.body.appendChild(target);
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    const root = hydrate({ default: Hello }, target, { data: { greeting: "Fresh" } }, clientContext(fakeHost(), [target.querySelector("[data-droplet-children]")!]));
+    const root = hydrate(
+      { default: Hello },
+      target,
+      { data: { greeting: "Fresh" } },
+      clientContext(fakeHost(), [target.querySelector("[data-droplet-children]") ?? expect.unreachable("the children marker")]),
+    );
     expect(q(target, "greeting").textContent).toBe("Fresh");
     expect(error).toHaveBeenCalled();
     expect(error.mock.calls.some((call) => String(call[0]).includes("[droplets] hello (droplet, react)"))).toBe(true);

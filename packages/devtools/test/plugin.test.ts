@@ -18,9 +18,9 @@ describe("dropletsDevtools", () => {
   });
 
   it("refuses to run without the droplets plugin", async () => {
-    await expect(
-      createServer({ root, configFile: false, logLevel: "silent", plugins: [dropletsDevtools()] }),
-    ).rejects.toThrow(/add droplets\(\)/);
+    await expect(createServer({ root, configFile: false, logLevel: "silent", plugins: [dropletsDevtools()] })).rejects.toThrow(
+      /add droplets\(\)/,
+    );
   });
 });
 
@@ -111,7 +111,7 @@ describe("in vite dev", () => {
     const html = await (await fetch(`${origin}/`)).text();
     const style = html.match(/<style>([^<]*)<\/style>/)?.[1] ?? "";
     expect(style.startsWith(":root {")).toBe(true);
-    expect(style).toContain(".dt-panel, .dt-pill {");
+    expect(style).toContain(".dt-panel,\n.dt-pill {");
     expect(style).not.toContain("test-droplet");
   });
 

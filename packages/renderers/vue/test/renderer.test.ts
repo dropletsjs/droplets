@@ -185,7 +185,7 @@ describe("DropletChildren in the browser", () => {
     target.innerHTML = String(await render({ default: Scoped }, { data: { greeting: "Hi" } }, serverContext()));
     document.body.appendChild(target);
     // The element took the host's container out before hydrating: an empty marker.
-    const serverMarker = target.querySelector("[data-droplet-children]")!;
+    const serverMarker = target.querySelector("[data-droplet-children]") ?? expect.unreachable("the children marker");
     const host = fakeHost();
     const h1 = target.querySelector("h1");
     const app = hydrate({ default: Scoped }, target, { data: { greeting: "Hi" } }, clientContext(host, [serverMarker]));

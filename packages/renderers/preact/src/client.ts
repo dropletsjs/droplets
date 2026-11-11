@@ -16,11 +16,7 @@
  * boundary, which shows `+error.tsx` in place of whatever throws while
  * rendering later on.
  */
-import type {
-  ClientRenderContext,
-  ComponentModule,
-  RenderProps,
-} from "@dropletsjs/droplets";
+import type { ClientRenderContext, ComponentModule, RenderProps } from "@dropletsjs/droplets";
 import { hydrate as preactHydrate, render as preactRender } from "preact";
 import { componentOf, isThenable, tree, type AnyComponent } from "./tree.ts";
 
@@ -72,12 +68,7 @@ export function mount(
   });
 }
 
-export function hydrate(
-  module: ComponentModule,
-  target: HTMLElement,
-  props: RenderProps,
-  context: ClientRenderContext,
-): PreactInstance {
+export function hydrate(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): PreactInstance {
   const component = componentOf(module, context);
   // Preact adopts the server's nodes as they are; the element emptied the
   // marker before this call, and the container returns through `fill` once

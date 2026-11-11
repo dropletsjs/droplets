@@ -66,11 +66,17 @@ function importsOf(code: string): string[] {
   const found: string[] = [];
   const visit = (node: unknown): void => {
     if (!node || typeof node !== "object") return;
-    if (Array.isArray(node)) return node.forEach(visit);
+    if (Array.isArray(node)) {
+      for (const item of node) visit(item);
+      return;
+    }
     const n = node as Node;
     const source = n["source"] as Node | undefined;
     if (
-      (n.type === "ImportDeclaration" || n.type === "ExportNamedDeclaration" || n.type === "ExportAllDeclaration" || n.type === "ImportExpression") &&
+      (n.type === "ImportDeclaration" ||
+        n.type === "ExportNamedDeclaration" ||
+        n.type === "ExportAllDeclaration" ||
+        n.type === "ImportExpression") &&
       source?.type === "Literal" &&
       typeof source["value"] === "string"
     ) {
@@ -168,7 +174,11 @@ describe.each(PACKAGES)("%s, packed", (path) => {
 
   it("imports only its dependencies and peers, Node built-ins and virtual modules", () => {
     const allowed = new Set([pkg.name, ...Object.keys(pkg.dependencies ?? {}), ...Object.keys(pkg.peerDependencies ?? {})]);
-    const name = (id: string) => id.split("/").slice(0, id.startsWith("@") ? 2 : 1).join("/");
+    const name = (id: string) =>
+      id
+        .split("/")
+        .slice(0, id.startsWith("@") ? 2 : 1)
+        .join("/");
     for (const file of files.filter((file) => file.endsWith(".js") && file.startsWith("dist/"))) {
       for (const specifier of importsOf(readFileSync(at(file), "utf8"))) {
         if (/^(\.|node:|virtual:|\$droplets\/)/.test(specifier)) {
@@ -182,9 +192,16 @@ describe.each(PACKAGES)("%s, packed", (path) => {
 
   it("leaves import.meta.env.DEV and import.meta.hot to the consumer's Vite", () => {
     const sources = walk(join(source, "src")).filter((file) => /\.tsx?$/.test(file) && !file.endsWith(".d.ts"));
-    const dist = files.filter((file) => file.endsWith(".js")).map((file) => readFileSync(at(file), "utf8")).join("\n");
+    const dist = files
+      .filter((file) => file.endsWith(".js"))
+      .map((file) => readFileSync(at(file), "utf8"))
+      .join("\n");
     for (const marker of ["import.meta.env.DEV", "import.meta.hot"]) {
-      const used = sources.some((file) => readFileSync(file, "utf8").replace(/`[^`]*`|"[^"\n]*"/g, "").includes(marker));
+      const used = sources.some((file) =>
+        readFileSync(file, "utf8")
+          .replace(/`[^`]*`|"[^"\n]*"/g, "")
+          .includes(marker),
+      );
       if (used) expect(dist, marker).toContain(marker);
     }
     expect(dist).not.toMatch(/import\.meta\.env\s*=|\{\s*DEV\s*:\s*(true|false)/);
@@ -197,7 +214,8 @@ describe.each(PACKAGES)("%s, packed", (path) => {
     const css = /\.css(\?|$)/;
     const js = files.filter((file) => file.startsWith("dist/") && file.endsWith(".js"));
     expect(js.filter((file) => importsOf(readFileSync(at(file), "utf8")).some((specifier) => css.test(specifier)))).toEqual([]);
-    const typeImports = (file: string) => [...readFileSync(at(file), "utf8").matchAll(/^(?:import|export)\b[^;]*?["']([^"']+)["']/gm)].map((match) => match[1]!);
+    const typeImports = (file: string) =>
+      [...readFileSync(at(file), "utf8").matchAll(/^(?:import|export)\b[^;]*?["']([^"']+)["']/gm)].map((match) => match[1]!);
     expect(types.filter((file) => typeImports(file).some((specifier) => css.test(specifier)))).toEqual([]);
   });
 

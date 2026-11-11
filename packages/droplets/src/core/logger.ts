@@ -18,9 +18,7 @@ export function resolveLevel(raw: string | undefined): LogLevel {
   return value && value in LEVELS ? (value as LogLevel) : DEFAULT_LEVEL;
 }
 
-let currentLevel = resolveLevel(
-  typeof process === "undefined" ? undefined : process.env["DROPLETS_LOG"],
-);
+let currentLevel = resolveLevel(typeof process === "undefined" ? undefined : process.env["DROPLETS_LOG"]);
 
 /** Mostly for tests; production reads `DROPLETS_LOG` once at startup. */
 export function setLogLevel(level: LogLevel): void {
@@ -31,12 +29,7 @@ export function getLogLevel(): LogLevel {
   return currentLevel;
 }
 
-function emit(
-  level: LogLevel,
-  source: LogSource,
-  message: string,
-  meta?: unknown,
-): void {
+function emit(level: LogLevel, source: LogSource, message: string, meta?: unknown): void {
   if (LEVELS[level] > LEVELS[currentLevel]) return;
   const prefix = `[droplets:${source}]`;
   if (meta === undefined) {
@@ -47,12 +40,8 @@ function emit(
 }
 
 export const logger = {
-  error: (source: LogSource, message: string, meta?: unknown) =>
-    emit("error", source, message, meta),
-  warn: (source: LogSource, message: string, meta?: unknown) =>
-    emit("warn", source, message, meta),
-  info: (source: LogSource, message: string, meta?: unknown) =>
-    emit("info", source, message, meta),
-  debug: (source: LogSource, message: string, meta?: unknown) =>
-    emit("debug", source, message, meta),
+  error: (source: LogSource, message: string, meta?: unknown) => emit("error", source, message, meta),
+  warn: (source: LogSource, message: string, meta?: unknown) => emit("warn", source, message, meta),
+  info: (source: LogSource, message: string, meta?: unknown) => emit("info", source, message, meta),
+  debug: (source: LogSource, message: string, meta?: unknown) => emit("debug", source, message, meta),
 };

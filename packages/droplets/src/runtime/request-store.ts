@@ -43,9 +43,7 @@ function holder(): Holder {
   if (!global[STORE]) {
     let storage: Storage | null = null;
     try {
-      const hooks = global.process?.getBuiltinModule?.("node:async_hooks") as
-        | { AsyncLocalStorage?: new () => Storage }
-        | undefined;
+      const hooks = global.process?.getBuiltinModule?.("node:async_hooks") as { AsyncLocalStorage?: new () => Storage } | undefined;
       if (hooks?.AsyncLocalStorage) storage = new hooks.AsyncLocalStorage();
     } catch {
       // Not offered here: one request at a time.

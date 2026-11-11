@@ -23,12 +23,26 @@ function fakeApp(overrides: Partial<DropletsAppOptions> = {}) {
     renderDroplet,
     loadDropletData: async (_name, event) => ({ data: { props: event.props } }),
     getDropletMeta: (name) => ({ exists: name !== "missing", ssr: true, hydrate: true }),
-    getHandle: () => ({ event, resolve }) => {
-      handled();
-      return resolve(event);
-    },
+    getHandle:
+      () =>
+      ({ event, resolve }) => {
+        handled();
+        return resolve(event);
+      },
     matchApi: (pathname) =>
-      matchRoute([{ id: "echo", segments: [{ type: "static", value: "api" }, { type: "static", value: "echo" }], module: echo }], pathname),
+      matchRoute(
+        [
+          {
+            id: "echo",
+            segments: [
+              { type: "static", value: "api" },
+              { type: "static", value: "echo" },
+            ],
+            module: echo,
+          },
+        ],
+        pathname,
+      ),
     ...overrides,
   };
   return { app: createDropletsApp(options), renderDroplet, handled };
@@ -69,7 +83,10 @@ describe("CSRF: the Origin check", () => {
   it("refuses PUT, PATCH and DELETE forms too, and a form without an Origin", async () => {
     const { app } = fakeApp();
     for (const method of ["PUT", "DELETE"]) {
-      expect((await app.request("http://drops.example/api/echo", form("https://evil.example", "multipart/form-data; boundary=x", method))).status).toBe(403);
+      expect(
+        (await app.request("http://drops.example/api/echo", form("https://evil.example", "multipart/form-data; boundary=x", method)))
+          .status,
+      ).toBe(403);
     }
     expect((await app.request("http://drops.example/api/echo", form())).status).toBe(403);
   });
@@ -96,20 +113,30 @@ describe("CSRF: the Origin check", () => {
     });
     expect(spoofed.status).toBe(403);
     const unlisted = fakeApp();
-    expect((await unlisted.app.request("http://drops.example/api/echo", {
-      ...form("https://evil.example"),
-      headers: { ...form("https://evil.example").headers, "x-droplet-location": "https://evil.example/" },
-    })).status).toBe(403);
+    expect(
+      (
+        await unlisted.app.request("http://drops.example/api/echo", {
+          ...form("https://evil.example"),
+          headers: { ...form("https://evil.example").headers, "x-droplet-location": "https://evil.example/" },
+        })
+      ).status,
+    ).toBe(403);
     // Nor a forged forwarded header.
-    expect((await app.request("http://drops.example/api/echo", {
-      ...form("https://evil.example"),
-      headers: { ...form("https://evil.example").headers, "x-forwarded-host": "evil.example", "x-forwarded-proto": "https" },
-    })).status).toBe(403);
+    expect(
+      (
+        await app.request("http://drops.example/api/echo", {
+          ...form("https://evil.example"),
+          headers: { ...form("https://evil.example").headers, "x-forwarded-host": "evil.example", "x-forwarded-proto": "https" },
+        })
+      ).status,
+    ).toBe(403);
     expect(handled).not.toHaveBeenCalled();
   });
 
-  it("trusts every origin with \"*\", or none of this with checkOrigin off", async () => {
-    expect((await fakeApp({ trustedOrigins: ["*"] }).app.request("http://drops.example/api/echo", form("https://evil.example"))).status).toBe(200);
+  it('trusts every origin with "*", or none of this with checkOrigin off', async () => {
+    expect(
+      (await fakeApp({ trustedOrigins: ["*"] }).app.request("http://drops.example/api/echo", form("https://evil.example"))).status,
+    ).toBe(200);
     expect((await fakeApp({ csrf: { checkOrigin: false } }).app.request("http://drops.example/api/echo", form())).status).toBe(200);
   });
 
@@ -122,7 +149,9 @@ describe("CSRF: the Origin check", () => {
     });
     expect(res.status).toBe(200);
     expect(await res.text()).toContain('<p>hello:{"a":1}</p>');
-    expect((await app.request("http://drops.example/droplets/hello?a=1", { headers: { origin: "https://evil.example" } })).status).toBe(200);
+    expect((await app.request("http://drops.example/droplets/hello?a=1", { headers: { origin: "https://evil.example" } })).status).toBe(
+      200,
+    );
   });
 
   it("refuses an untyped unsafe request from an untrusted Origin, and lets one without an Origin through", async () => {
@@ -335,7 +364,9 @@ describe("client input stays data", () => {
     }
     expect(await hostOf(body("https://user:pw@shop.example/p?q=1#frag"))).toBe("https://shop.example/p?q=1");
     expect(await hostOf({ headers: { forwarded: 'proto=javascript;host="shop.example"' } })).toBe("http://drops.example/");
-    expect(await hostOf({ headers: { forwarded: 'proto=https;host="shop.example"', origin: "https://page.example" } })).toBe("https://page.example/");
+    expect(await hostOf({ headers: { forwarded: 'proto=https;host="shop.example"', origin: "https://page.example" } })).toBe(
+      "https://page.example/",
+    );
     expect(await hostOf({ headers: { "x-forwarded-host": "shop.example", "x-forwarded-proto": "https" } })).toBe("http://drops.example/");
     expect(await hostOf({ headers: { "x-forwarded-host": "shop.example/<x>", "x-forwarded-proto": "https" } })).not.toContain("<");
     expect(await hostOf({ headers: { origin: "javascript:alert(1)" } })).toBe("http://drops.example/");

@@ -12,24 +12,19 @@ describe("dropletElement", () => {
   it("wraps the SSR output in a <djs-droplet> with its origin", async () => {
     const out = String(await dropletElement(base));
     expect(out).toBe(
-      '<djs-droplet data-droplet="hello">' +
-        '<div style="display: contents" data-droplet-entry><p>hi</p></div></djs-droplet>',
+      '<djs-droplet data-droplet="hello">' + '<div style="display: contents" data-droplet-entry><p>hi</p></div></djs-droplet>',
     );
   });
 
   it("inlines context and data payloads as text scripts", async () => {
-    const out = String(
-      await dropletElement({ ...base, dropletContext: "Y3R4", dropletData: "ZGF0YQ==" }),
-    );
+    const out = String(await dropletElement({ ...base, dropletContext: "Y3R4", dropletData: "ZGF0YQ==" }));
     expect(out).toContain('<script type="application/text" data-droplet-context>Y3R4</script>');
     expect(out).toContain('<script type="application/text" data-droplet-data>ZGF0YQ==</script>');
   });
 
   it("stamps the build and marks error pages", async () => {
     const out = String(await dropletElement({ ...base, build: "abc123", error: true }));
-    expect(out.startsWith(
-      '<djs-droplet data-droplet="hello" data-build="abc123" data-droplet-error>',
-    )).toBe(true);
+    expect(out.startsWith('<djs-droplet data-droplet="hello" data-build="abc123" data-droplet-error>')).toBe(true);
     expect(String(await dropletElement(base))).not.toContain("data-droplet-error");
   });
 

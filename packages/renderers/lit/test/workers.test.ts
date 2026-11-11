@@ -69,11 +69,15 @@ describe("on Cloudflare Workers", () => {
     const response = await get("/droplets/hello?who=Ana");
     expect(response.status).toBe(200);
     const html = await response.text();
-    expect(html).toMatch(/<test-lit-hello\s+defer-hydration><template shadowroot="open" shadowrootmode="open"><style>h1 \{ color: rgb\(1, 2, 3\); \}<\/style>/);
+    expect(html).toMatch(
+      /<test-lit-hello\s+defer-hydration><template shadowroot="open" shadowrootmode="open"><style>h1 \{ color: rgb\(1, 2, 3\); \}<\/style>/,
+    );
     expect(html.replace(/<!--[^>]*-->/g, "")).toContain('<h1 data-testid="greeting">Hello Ana!</h1>');
     expect(html).toMatch(/<\/template><div data-droplet-children style="display: contents"><\/div><\/test-lit-hello>/);
     // `actionUrl`, as the renderer handed it to the element.
-    expect(html).toMatch(/<form method="post" action="http:\/\/worker\.test\/droplets\/hello\?who=Ana&amp;__droplet_return=[^"]+" data-testid="sign">/);
+    expect(html).toMatch(
+      /<form method="post" action="http:\/\/worker\.test\/droplets\/hello\?who=Ana&amp;__droplet_return=[^"]+" data-testid="sign">/,
+    );
   });
 
   it("renders the error page in its own element, with its styles", async () => {
@@ -81,7 +85,9 @@ describe("on Cloudflare Workers", () => {
     expect(response.status).toBe(500);
     const html = await response.text();
     expect(html).toContain("data-droplet-error");
-    expect(html).toMatch(/<test-lit-hello--error\s+defer-hydration><template shadowroot="open" shadowrootmode="open"><style>p \{ color: rgb\(4, 5, 6\); \}<\/style>/);
+    expect(html).toMatch(
+      /<test-lit-hello--error\s+defer-hydration><template shadowroot="open" shadowrootmode="open"><style>p \{ color: rgb\(4, 5, 6\); \}<\/style>/,
+    );
     expect(html.replace(/<!--[^>]*-->/g, "")).toContain('<p data-testid="error">Sorry, ref 42</p>');
   });
 
