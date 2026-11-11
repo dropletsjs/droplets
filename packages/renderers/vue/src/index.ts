@@ -22,7 +22,21 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import vuePlugin, { type Options } from "@vitejs/plugin-vue";
-import type { DropletRenderer } from "@dropletsjs/droplets";
+import type { DropletRenderer, ReadFlagsInput, RenderFlags } from "@dropletsjs/droplets";
+import { readExportedFlags } from "@dropletsjs/droplets/vite";
+import { parse } from "vue/compiler-sfc";
+
+/**
+ * The flags of a component: the exports of its plain `<script>` block, the
+ * only one that can export (`<script setup>` cannot).
+ */
+export function readFlags(input: ReadFlagsInput): Partial<RenderFlags> | undefined {
+  const script = parse(input.source, { filename: input.file }).descriptor.script;
+  if (!script) return undefined;
+  const where = input.kind === "droplet" ? input.droplet : `${input.droplet}/${input.file}`;
+  // TypeScript parses plain JavaScript too; JSX needs its own language.
+  return readExportedFlags(script.content, where, script.lang === "tsx" || script.lang === "jsx" ? "tsx" : "ts");
+}
 
 /** The props of `+droplet.vue`: `data` from the loads (a promise when mounted, the value when hydrated). For `defineProps<DropletProps<…>>()`. */
 export type DropletProps<Data = unknown, Form = unknown> = {
@@ -82,6 +96,7 @@ export function vue(options: VueRendererOptions = {}): DropletRenderer {
   return {
     name: "vue",
     extensions: [".vue"],
+    readFlags,
     packages: ["vue", "@dropletsjs/renderer-vue"],
     componentTypes: "@dropletsjs/renderer-vue",
     ...(options.plugin === false ? {} : { plugins: [vuePlugin(pluginOptions)] }),

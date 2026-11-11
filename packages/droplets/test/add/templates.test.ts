@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readExportedFlags } from "../../src/index.ts";
+import { langOfFile, readExportedFlags } from "../../src/core/flags.ts";
 import { FRAMEWORKS, frameworkNamed, kindNamed } from "../../src/add/catalog.ts";
 import { flagsFor, scriptFlags } from "../../src/add/flags.ts";
 import { dropletFileChoices, dropletFiles, type DropletFile } from "../../src/add/templates.ts";
@@ -24,7 +24,8 @@ describe("dropletFiles()", () => {
     expect(component("vue")).toMatch(/^<script lang="ts">\nexport const ssr = true;\nexport const hydrate = true;\nexport const prerender = true;\n<\/script>/);
     expect(component("handlebars")).toMatch(/^\{\{!--\nexport ssr = true\nexport hydrate = true\nexport prerender = true\n--\}\}/);
     for (const exported of ["react", "preact", "solid", "hono-jsx", "lit"]) {
-      expect(readExportedFlags(component(exported), "x")).toEqual({ ssr: true, hydrate: true, prerender: true });
+      const lang = langOfFile(frameworkNamed(exported)!.extension);
+      expect(readExportedFlags(component(exported), "x", lang)).toEqual({ ssr: true, hydrate: true, prerender: true });
     }
     expect(dropletFiles(spec("react"))["+droplet.tsx"]).toContain('export const hydrate = "visible";');
   });
@@ -105,14 +106,14 @@ describe("dropletFiles() for a script droplet", () => {
     expect(code).toContain("const run: DropletScript = (_data, el) => {");
     expect(code).toContain('heading.textContent = "page-views";');
     expect(code).toContain("export default run;");
-    expect(readExportedFlags(code, "x")).toEqual({});
+    expect(readExportedFlags(code, "x", "ts")).toEqual({});
   });
 
   it("writes hydrate only when visible, data from the loads, and styles from style.css", () => {
     const files = dropletFiles(script(["server", "universal", "css"], "visible"));
     expect(Object.keys(files).sort()).toEqual(["+droplet.script.ts", "+droplet.server.ts", "+droplet.ts", "style.css"]);
     const code = files["+droplet.script.ts"]!;
-    expect(readExportedFlags(code, "x")).toEqual({ hydrate: "visible" });
+    expect(readExportedFlags(code, "x", "ts")).toEqual({ hydrate: "visible" });
     expect(code).toContain('import "./style.css";');
     expect(code).toContain("heading.textContent = data.greeting;");
   });

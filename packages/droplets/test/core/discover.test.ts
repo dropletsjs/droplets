@@ -6,12 +6,11 @@ import {
   discoverDroplets,
   dropletId,
 } from "../../src/core/discover.ts";
+import { langOfFile, readExportedFlag, readExportedFlags, readExportNames } from "../../src/core/flags.ts";
 import { setLogLevel } from "../../src/core/logger.ts";
 import {
   importsPackage,
   pickRenderer,
-  readExportedFlag,
-  readExportedFlags,
   sharingRenderers,
   validateRenderers,
   type DropletRenderer,
@@ -25,7 +24,11 @@ const renderer = (name: string, extensions: string[], extra: Partial<DropletRend
   client: `/renderers/${name}/client.js`,
   ...extra,
 });
-const svelte = renderer("svelte", [".svelte"]);
+/** A stand-in for Svelte's reader: the module block's exports. */
+const moduleScript = (source: string) => source.match(/<script module>([\s\S]*?)<\/script>/)?.[1] ?? "";
+const svelte = renderer("svelte", [".svelte"], {
+  readFlags: ({ source, droplet }) => readExportedFlags(moduleScript(source), droplet, "ts"),
+});
 const vue = renderer("vue", [".vue"]);
 const react = renderer("react", [".tsx", ".jsx"], { packages: ["react", "react-dom"] });
 const solid = renderer("solid", [".tsx", ".jsx"], { packages: ["solid-js"] });
@@ -47,7 +50,7 @@ describe("readExportedFlag", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("reads literal booleans", () => {
-    const source = `<script module>\n  export const ssr = true;\n  export const hydrate=false\n</script>`;
+    const source = "export const ssr: boolean = true;\n  export const hydrate=false\n";
     expect(readExportedFlag(source, "ssr", "x")).toBe(true);
     expect(readExportedFlag(source, "hydrate", "x")).toBe(false);
     expect(readExportedFlags(source, "x")).toEqual({ ssr: true, hydrate: false });
@@ -66,8 +69,44 @@ describe("readExportedFlag", () => {
   });
 
   it("returns undefined when the flag is absent", () => {
-    expect(readExportedFlag("<script>let a = 1</script>", "ssr", "x")).toBeUndefined();
+    expect(readExportedFlag("let a = 1", "ssr", "x")).toBeUndefined();
     expect(readExportedFlags("", "x")).toEqual({});
+  });
+
+  it("reads exports, not text: comments, strings and nested declarations never count", () => {
+    const source = [
+      "// export const ssr = false",
+      "/* export const hydrate = false */",
+      'const note = "export const prerender = true";',
+      "const t = `",
+      "export const ssr = false",
+      "`;",
+      "function f() { const hydrate = false; return hydrate; }",
+      "export default f;",
+    ].join("\n");
+    expect(readExportedFlags(source, "x")).toEqual({});
+    expect(readExportedFlags("// export const ssr = false\nexport const ssr = true;", "x")).toEqual({ ssr: true });
+  });
+
+  it("declares nothing for a source that does not parse", () => {
+    expect(readExportedFlags("export const ssr = false;\nexport const = ;", "x", "ts")).toEqual({});
+  });
+
+  it("parses the source in its language", () => {
+    const tsx = "export const ssr = false;\nexport default () => <p>hi</p>;";
+    expect(readExportedFlags(tsx, "x", langOfFile("+droplet.tsx"))).toEqual({ ssr: false });
+    const ts = "export const ssr = false;\nconst id = <T,>(x: T) => x;\nlet n = <number>id(1);";
+    expect(readExportedFlags(ts, "x", langOfFile("+droplet.lit.ts"))).toEqual({ ssr: false });
+    expect(langOfFile("+droplet.script.js")).toBe("js");
+    expect(langOfFile("+droplet.jsx")).toBe("jsx");
+  });
+
+  it("warns about a flag exported in any form but export const <literal>", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(readExportedFlags("export let ssr = false;", "x")).toEqual({});
+    expect(readExportedFlags("const off = false;\nexport { off as hydrate };", "x")).toEqual({});
+    expect(readExportedFlags("export function prerender() { return true; }", "x")).toEqual({});
+    expect(warn).toHaveBeenCalledTimes(3);
   });
 
   it("warns and ignores non-literal values", () => {
@@ -263,17 +302,16 @@ describe("discoverDroplets", () => {
     warn.mockRestore();
   });
 
-  it("lets a renderer read the flags from a sibling file", async () => {
+  it("lets a renderer read the flags from the component, for each component kind", async () => {
     await droplet("tpl", {
-      "+droplet.hbs": "<p>{{data.title}}</p>",
-      "+droplet.ts": "export const ssr = true;\nexport const hydrate = false;\nexport const load = () => ({});",
+      "+droplet.hbs": "{{!-- hydrate=false --}}<p>{{data.title}}</p>",
       "+error.hbs": "<p>{{error.message}}</p>",
     });
     const seen: string[] = [];
     const handlebars = renderer("handlebars", [".hbs"], {
-      readFlags: async ({ kind, file, readFile }) => {
+      readFlags: ({ kind, file, source }) => {
         seen.push(`${kind}:${file}`);
-        return kind === "droplet" ? readExportedFlags((await readFile("+droplet.ts")) ?? "", file) : undefined;
+        return source.includes("hydrate=false") ? { hydrate: false, ssr: true } : undefined;
       },
     });
     const [entry] = await discoverDroplets(root, [handlebars, svelte, vue]).then((all) => all.filter((e) => e.id === "tpl"));
@@ -283,6 +321,39 @@ describe("discoverDroplets", () => {
       ssr: true,
     });
     expect(seen).toEqual(["droplet:+droplet.hbs", "error:+error.hbs"]);
+  });
+
+  it("does not count a commented-out flag in the component", async () => {
+    const other = await mkdtemp(join(tmpdir(), "droplets-discover-"));
+    await mkdir(join(other, "card"));
+    await writeFile(join(other, "card", "+droplet.tsx"), "// export const ssr = false\nexport default () => <p/>;\n");
+    await writeFile(join(other, "card", "+droplet.ts"), "/* export const ssr = false */\nexport const load = () => ({});\n");
+    const [card] = await discoverDroplets(other, [renderer("react", [".tsx"])]);
+    expect(card).toMatchObject({ ssr: true, hydrate: true, prerender: false });
+  });
+
+  it.each(["+droplet.ts", "+droplet.server.ts"])("refuses a flag exported from %s, in a build and in dev", async (file) => {
+    const other = await mkdtemp(join(tmpdir(), "droplets-discover-"));
+    await mkdir(join(other, "card"));
+    await writeFile(join(other, "card", "+droplet.svelte"), "<p></p>");
+    await writeFile(join(other, "card", file), "export const load = () => ({});\nexport const ssr = false;\nexport { x as prerender };\n");
+    const message = `droplets: card/${file} exports "ssr", "prerender": flags live only in the droplet's component; ` +
+      "declare them in card/+droplet.svelte";
+    await expect(discoverDroplets(other, [svelte])).rejects.toThrow(message);
+    await expect(discoverDroplets(other, [svelte], { dev: true })).rejects.toThrow(message);
+  });
+
+  it("lists a load file's value exports, types left out", () => {
+    const source = [
+      "export const load = () => ({});",
+      "export type ssr = boolean;",
+      "export interface hydrate {}",
+      "export const { a, b: [c] } = obj;",
+      "export function handleError() {}",
+      'export { x as "prerender" };',
+    ].join("\n");
+    expect(readExportNames(source, "ts")).toEqual(["load", "a", "c", "handleError", "prerender"]);
+    expect(readExportNames("export const = ;", "ts")).toEqual([]);
   });
 
   it("names the renderer to install for an unknown extension", async () => {

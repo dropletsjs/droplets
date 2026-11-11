@@ -163,7 +163,9 @@ The contract lives in `@dropletsjs/droplets` (`DropletRenderer`,
 that renders `{ data, form? }` or `{ error }` (`form` is an
 [action's](/guides/actions/) result, passed only when there
 is one), a client module with `mount`,
-`hydrate` and `unmount`, optional flag reading, a once-per-page client
+`hydrate` and `unmount`, optional flag reading (`readFlags`, from the
+component's source only; `readExportedFlags` of `@dropletsjs/droplets/vite`
+reads a module's exports), a once-per-page client
 setup, and an optional `clientDev` module for `vite dev` alone. Its
 `update(instance, props)` gives a live instance a load edit's new data
 without a remount; a production build leaves the module out.

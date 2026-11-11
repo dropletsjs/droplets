@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { readExportedFlags, validateRenderers } from "@dropletsjs/droplets";
+import { validateRenderers } from "@dropletsjs/droplets";
+import { readExportedFlags } from "@dropletsjs/droplets/vite";
 import type { ClientRenderContext, DropletChildrenHost, ServerRenderContext } from "@dropletsjs/droplets";
 import { use, useState, type Child } from "hono/jsx/dom";
 import { Fragment, jsx as domJsx } from "hono/jsx/dom/jsx-runtime";
@@ -32,7 +33,7 @@ describe("honoJsx()", () => {
 
   it("reads flags from the component's named exports with the default reader", () => {
     const source = `import { useState } from "hono/jsx";\nexport const ssr = false;\nexport default () => <p />;\n`;
-    expect(readExportedFlags(source, "x")).toEqual({ ssr: false });
+    expect(readExportedFlags(source, "x", "tsx")).toEqual({ ssr: false });
     expect(honoJsx().readFlags).toBeUndefined();
   });
 });

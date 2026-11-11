@@ -33,9 +33,9 @@
  * @module
  */
 import { resolve } from "node:path";
+import { langOfFile, readExportedFlags } from "../core/flags.ts";
 import { packageDist } from "../core/paths.ts";
 import {
-  readExportedFlags,
   SCRIPT_RENDERER,
   SCRIPT_SUFFIXES,
   type DropletRenderer,
@@ -50,7 +50,7 @@ import {
  */
 export function readScriptFlags(input: Pick<ReadFlagsInput, "source" | "file" | "droplet">): Partial<RenderFlags> {
   const where = `${input.droplet}/${input.file}`;
-  const flags = readExportedFlags(input.source, input.droplet);
+  const flags = readExportedFlags(input.source, input.droplet, langOfFile(input.file));
   if (flags.ssr !== undefined) {
     throw new Error(
       `droplets: ${where}: a script droplet renders nothing on the server, so it has no ssr flag; remove export const ssr`,

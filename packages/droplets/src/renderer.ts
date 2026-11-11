@@ -17,9 +17,10 @@
  *   one droplet; its id is the folder name in kebab-case. The error page is
  *   in the droplet's framework; one in another framework is ignored.
  * - Reads the build-time flags of each component (`ssr`, `hydrate`,
- *   `prerender`) through {@link DropletRenderer.readFlags}, or by scanning
- *   the source for `export const <flag> = true|false` when the renderer has
- *   no reader.
+ *   `prerender`) through {@link DropletRenderer.readFlags}, or from the
+ *   component's top-level `export const <flag> = <literal>` declarations
+ *   when the renderer has no reader. Flags live in the component only: one
+ *   exported from `+droplet.ts` or `+droplet.server.ts` is an error.
  * - Runs the load chain on the server: `+droplet.server.ts` (`load`,
  *   `handleError`, `entries`, `transform`), then `+droplet.ts` (`props`
  *   schema, `load`, `handleError`), then asks the renderer's
@@ -100,17 +101,20 @@
  * `ssr` (default `true`), `hydrate` (default `true`) and `prerender`
  * (default `false`) decide how a droplet is built and served; `hydrate` may
  * also be `"visible"` or `"interactive"` (see {@link HydrateMode}), and a
- * host overrides it per element with `data-hydrate`. Core reads them
- * from the component's source before anything is compiled, with
- * {@link readExportedFlags}: a text scan for `export const ssr = false`
- * style lines, anywhere in the file (a `<script module>` block in Svelte, a
- * plain `<script>` block in Vue, the top of a `.tsx` file). A renderer whose
- * component files cannot carry exports (Handlebars templates) implements
- * {@link DropletRenderer.readFlags} and reads them from a sibling file, for
- * example `+droplet.ts`, through `input.readFile("+droplet.ts")` and
- * {@link readExportedFlags}. The error page has none of its own: it is the
- * droplet's error boundary and follows the droplet's flags; core ignores
- * any it declares, with a warning in dev.
+ * host overrides it per element with `data-hydrate`. They live in the
+ * component file and nowhere else; core reads them before anything is
+ * compiled. A component that is a module (`.tsx`, `.lit.ts`) is parsed and
+ * its top-level `export const ssr = false` style declarations are read; a
+ * flag in a comment or a string is none. A renderer whose component keeps
+ * its module code in a block implements {@link DropletRenderer.readFlags}
+ * and passes the block to `readExportedFlags` from
+ * `@dropletsjs/droplets/vite` (Svelte's `<script module>`, Vue's plain
+ * `<script>`); one whose component cannot carry exports reads its own syntax
+ * (Handlebars: the comment a template opens with). A flag exported from
+ * `+droplet.ts` or `+droplet.server.ts` fails the build and `vite dev`. The
+ * error page has none of its own: it is the droplet's error boundary and
+ * follows the droplet's flags; core ignores any it declares, with a warning
+ * in dev.
  *
  * ## CSS
  *
@@ -267,7 +271,6 @@
  * @module
  */
 import type { PluginOption } from "vite";
-import { logger } from "./core/logger.ts";
 import type { ActionUrl } from "./runtime/form.ts";
 
 export type { ActionUrl } from "./runtime/form.ts";
@@ -305,8 +308,6 @@ export type ReadFlagsInput = {
   folder: string;
   /** The droplet id, for messages. */
   droplet: string;
-  /** Reads another file of the droplet folder as text; `null` when it does not exist. */
-  readFile(name: string): Promise<string | null>;
 };
 
 /**
@@ -549,9 +550,10 @@ export type DropletRenderer = {
    */
   clientDev?: string;
   /**
-   * Reads the build-time flags of a component. Return only the flags the
-   * file declares; core fills in the defaults. Without it, core scans the
-   * component source with {@link readExportedFlags}.
+   * Reads the build-time flags of a component from its source. Return only
+   * the flags the file declares; core fills in the defaults. Without it,
+   * core parses the component as a module and reads its top-level
+   * `export const` flags.
    */
   readFlags?: (input: ReadFlagsInput) => MaybePromise<Partial<RenderFlags> | undefined>;
 };
@@ -585,68 +587,12 @@ export function defineRenderer(renderer: DropletRenderer): DropletRenderer {
   return renderer;
 }
 
-/**
- * Reads `export const <name> = true|false` out of a source text.
- *
- * A text scan, not a compile: the flags decide how a droplet is built, so
- * they must be known before anything is compiled. Only boolean literals are
- * understood; anything else warns and is ignored.
- */
-export function readExportedFlag(source: string, name: string, where: string): boolean | undefined {
-  const match = source.match(new RegExp(`export\\s+const\\s+${name}\\s*=\\s*([^;\\r\\n]+)`));
-  if (!match?.[1]) return undefined;
-
-  const value = match[1].trim();
-  if (value === "true") return true;
-  if (value === "false") return false;
-
-  logger.warn(
-    "framework",
-    `\`export const ${name}\` must be a literal true or false; ignoring it`,
-    { droplet: where, found: value },
-  );
-  return undefined;
-}
-
-/**
- * Reads `export const hydrate = …` out of a source text: a boolean literal,
- * or the string `"visible"` or `"interactive"`.
- */
-export function readExportedHydrate(source: string, where: string): HydrateMode | undefined {
-  const match = source.match(/export\s+const\s+hydrate\s*=\s*([^;\r\n]+)/);
-  if (!match?.[1]) return undefined;
-  const mode = parseHydrateMode(match[1].trim());
-  if (mode !== undefined) return mode;
-  logger.warn(
-    "framework",
-    '`export const hydrate` must be true, false, "visible" or "interactive"; ignoring it',
-    { droplet: where, found: match[1].trim() },
-  );
-  return undefined;
-}
-
 /** `true`, `false`, or `"visible"`/`"interactive"` in either quotes; `undefined` for anything else. */
 export function parseHydrateMode(value: string): HydrateMode | undefined {
   if (value === "true") return true;
   if (value === "false") return false;
   const quoted = value.match(/^(["'])(visible|interactive)\1$/);
   return quoted ? (quoted[2] as "visible" | "interactive") : undefined;
-}
-
-/**
- * The flags a source declares (`ssr`, `hydrate`, `prerender`), as
- * `export const` lines anywhere in it. Absent flags are left out; core
- * applies the defaults. `where` names the file in warnings.
- */
-export function readExportedFlags(source: string, where: string): Partial<RenderFlags> {
-  const flags: Partial<RenderFlags> = {};
-  const ssr = readExportedFlag(source, "ssr", where);
-  const hydrate = readExportedHydrate(source, where);
-  const prerender = readExportedFlag(source, "prerender", where);
-  if (ssr !== undefined) flags.ssr = ssr;
-  if (hydrate !== undefined) flags.hydrate = hydrate;
-  if (prerender !== undefined) flags.prerender = prerender;
-  return flags;
 }
 
 /** The defaults over what a reader returned. */

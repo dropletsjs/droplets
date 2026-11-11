@@ -27,7 +27,7 @@ the page could make one count.
 
 | File | What it is |
 | --- | --- |
-| `+droplet.hbs` | The template. Its flags go in the comment it opens with, or in `+droplet.ts`. |
+| `+droplet.hbs` | The template. Its flags go in the comment it opens with. |
 | `+error.hbs` | The error page, optional. |
 | `src/partials/**/*.hbs` | Partials, registered by their path without the extension: `{{> footer}}`, `{{> cards/item}}`. |
 | `src/handlebars.ts` | Helpers: every exported function is a helper of the same name, on the server and in the browser. |
@@ -93,7 +93,7 @@ droplets: counter/+droplet.hbs: flag "hydrate" must be true, false, "visible" or
 ```
 
 ```
-droplets: counter: "hydrate" is declared in both +droplet.hbs and +droplet.ts; keep one
+droplets: counter/+droplet.ts exports "hydrate": flags live only in the droplet's component; declare it in counter/+droplet.hbs
 ```
 
 and so is a `<style>` block, which is static CSS:
@@ -134,8 +134,8 @@ droplets: src/droplets/counter/+droplet.hbs:1: a <style> block cannot contain {{
   top of the template, outside `{{#…}}` blocks, with no `{{…}}` inside.
   Partials have none, since every droplet registers them.
 - **Flags** are `export <flag> = <value>` lines in the opening comment, one
-  per line or all on one line (`{{!-- export hydrate = false; export prerender = true --}}`).
-  `+error.hbs` follows the droplet's flags.
+  per line or all on one line (`{{!-- export hydrate = false; export prerender = true --}}`),
+  and nowhere else. `+error.hbs` follows the droplet's flags.
 - **Options:** `handlebars({ partials, helpers, compile })` moves the
   partials folder (`false` for none) or the helpers module (`false` for
   none), and passes options to `Handlebars.precompile` (`strict`,

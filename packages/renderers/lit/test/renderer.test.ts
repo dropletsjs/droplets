@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import { readExportedFlags, validateRenderers } from "@dropletsjs/droplets";
+import { validateRenderers } from "@dropletsjs/droplets";
+import { readExportedFlags } from "@dropletsjs/droplets/vite";
 import type { ServerRenderContext } from "@dropletsjs/droplets";
 import { css, html, LitElement } from "lit";
 import { lit } from "../src/index.ts";
@@ -39,7 +40,7 @@ describe("lit()", () => {
 
   it("reads flags from the component's named exports with the default reader", () => {
     const source = `import { LitElement } from "lit";\nexport const ssr = false;\nexport const hydrate = "visible";\nexport default class X extends LitElement {}\n`;
-    expect(readExportedFlags(source, "hello")).toEqual({ ssr: false, hydrate: "visible" });
+    expect(readExportedFlags(source, "hello", "ts")).toEqual({ ssr: false, hydrate: "visible" });
   });
 });
 

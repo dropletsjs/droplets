@@ -3,7 +3,8 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer, type PluginOption, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { readExportedFlags, validateRenderers } from "@dropletsjs/droplets";
+import { validateRenderers } from "@dropletsjs/droplets";
+import { readExportedFlags } from "@dropletsjs/droplets/vite";
 import { solid } from "../src/index.ts";
 
 const fixture = resolve(dirname(fileURLToPath(import.meta.url)), "fixtures/app");
@@ -32,7 +33,7 @@ describe("solid()", () => {
 
   it("reads flags from the component's named exports with the default reader", () => {
     const source = `import { createSignal } from "solid-js";\nexport const ssr = false;\nexport const prerender = true;\nexport default () => <p />;\n`;
-    expect(readExportedFlags(source, "x")).toEqual({ ssr: false, prerender: true });
+    expect(readExportedFlags(source, "x", "tsx")).toEqual({ ssr: false, prerender: true });
   });
 });
 

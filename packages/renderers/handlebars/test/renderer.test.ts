@@ -2,21 +2,16 @@
 import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { validateRenderers, type ReadFlagsInput } from "@dropletsjs/droplets";
-import { flagsFileFor, handlebars, readFlags, readTemplateFlags } from "../src/index.ts";
+import { handlebars, readFlags, readTemplateFlags } from "../src/index.ts";
 
-/** What core hands `readFlags`, over an in-memory droplet folder. */
-function input(
-  kind: ReadFlagsInput["kind"],
-  files: Record<string, string>,
-  source = "<p/>",
-): ReadFlagsInput {
+/** What core hands `readFlags`. */
+function input(kind: ReadFlagsInput["kind"], source = "<p/>"): ReadFlagsInput {
   return {
     kind,
     source,
     file: kind === "droplet" ? "+droplet.hbs" : "+error.hbs",
     folder: "/app/src/droplets/hello",
     droplet: "hello",
-    readFile: async (name) => files[name] ?? null,
   };
 }
 
@@ -37,46 +32,14 @@ describe("handlebars()", () => {
 });
 
 describe("readFlags", () => {
-  it("reads a droplet's flags from +droplet.ts", async () => {
-    const flags = await readFlags(input("droplet", {
-      "+droplet.ts": 'export const ssr = false;\nexport const prerender = true;\nexport const load = () => ({});\n',
-    }));
-    expect(flags).toEqual({ ssr: false, prerender: true });
+  it("reads the flags from the template's opening comment, for either kind", () => {
+    expect(readFlags(input("droplet", "{{!--\nexport hydrate = false\nexport prerender = true\n--}}\n<p/>")))
+      .toEqual({ hydrate: false, prerender: true });
+    expect(readFlags(input("error", "{{!-- export prerender = true --}}<p/>"))).toEqual({ prerender: true });
   });
 
-  it("reads an error page's flags from +error.ts, not from +droplet.ts", async () => {
-    const files = {
-      "+droplet.ts": "export const ssr = false;",
-      "+error.ts": "export const hydrate = false;\nexport const prerender = true;",
-    };
-    expect(await readFlags(input("error", files))).toEqual({ hydrate: false, prerender: true });
-    expect(await readFlags(input("droplet", files))).toEqual({ ssr: false });
-  });
-
-  it("declares nothing without the sibling file, so core applies the defaults", async () => {
-    expect(await readFlags(input("droplet", {}))).toBeUndefined();
-    expect(await readFlags(input("error", { "+droplet.ts": "export const ssr = false;" }))).toBeUndefined();
-    expect(await readFlags(input("droplet", { "+droplet.ts": "export const load = () => 1;" }))).toEqual({});
-  });
-
-  it("merges the template's comment with the sibling file", async () => {
-    const source = "{{!--\nexport hydrate = false\n--}}\n<p/>";
-    expect(await readFlags(input("droplet", {}, source))).toEqual({ hydrate: false });
-    expect(await readFlags(input("droplet", { "+droplet.ts": "export const ssr = false;" }, source)))
-      .toEqual({ ssr: false, hydrate: false });
-    expect(await readFlags(input("error", {}, "{{!-- export prerender = true --}}<p/>")))
-      .toEqual({ prerender: true });
-  });
-
-  it("refuses a flag declared in both the comment and the sibling file", async () => {
-    const source = "{{!-- export ssr = true --}}<p/>";
-    await expect(readFlags(input("droplet", { "+droplet.ts": "export const ssr = false;" }, source)))
-      .rejects.toThrow('"ssr" is declared in both +droplet.hbs and +droplet.ts');
-  });
-
-  it("names the sibling per kind", () => {
-    expect(flagsFileFor("droplet")).toBe("+droplet.ts");
-    expect(flagsFileFor("error")).toBe("+error.ts");
+  it("declares nothing without the comment, so core applies the defaults", () => {
+    expect(readFlags(input("droplet"))).toBeUndefined();
   });
 });
 

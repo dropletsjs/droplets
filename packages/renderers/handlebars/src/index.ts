@@ -28,10 +28,10 @@
  *
  * or on one line: `{{!-- export hydrate = false; export prerender = true --}}`.
  *
- * `+droplet.ts` may declare them instead (`export const ssr = false`), never
- * the same one twice. `+error.hbs` follows the droplet's flags: core ignores
- * any it declares, in its comment or in `+error.ts`. Partials live in `src/partials/*.hbs` and helpers are the exports
- * of `src/handlebars.ts`, on the server and in the browser.
+ * That comment is the only place for them. `+error.hbs` follows the
+ * droplet's flags: core ignores any it declares. Partials live in
+ * `src/partials/*.hbs` and helpers are the exports of `src/handlebars.ts`,
+ * on the server and in the browser.
  *
  * `<style>` blocks, inline or `<style src="./x.css">`, are taken out of the
  * template and become the droplet's stylesheet (see `styles.ts`).
@@ -43,7 +43,7 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import Handlebars from "handlebars";
-import { parseHydrateMode, readExportedFlags, type DropletRenderer, type ReadFlagsInput, type RenderFlags } from "@dropletsjs/droplets";
+import { parseHydrateMode, type DropletRenderer, type ReadFlagsInput, type RenderFlags } from "@dropletsjs/droplets";
 import { handlebarsPlugin, type HandlebarsRendererOptions } from "./plugin.ts";
 
 export type { HandlebarsRendererOptions, PrecompileOptions } from "./plugin.ts";
@@ -59,14 +59,6 @@ export type HandlebarsHelpers = Record<string, (...args: never[]) => unknown>;
 
 // `src/` and `dist/` both sit directly under the package root.
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-
-/**
- * The sibling a component's flags would be in: `+droplet.ts`, or `+error.ts`,
- * read only so that core can warn about flags the error page declares.
- */
-export function flagsFileFor(kind: ReadFlagsInput["kind"]): string {
-  return kind === "droplet" ? "+droplet.ts" : "+error.ts";
-}
 
 const FLAG_NAMES = ["ssr", "hydrate", "prerender"] as const;
 const FLAG_LINE = /^export\s+(?:const\s+)?(\w+)\s*=\s*(.+)$/;
@@ -155,27 +147,12 @@ export function readTemplateFlags(source: string, where: string): Partial<Render
 }
 
 /**
- * Reads `ssr`, `hydrate` and `prerender` from the template's flags comment
- * and from its sibling `.ts` file; a flag declared in both is an error. Core
- * applies the defaults (`ssr` and `hydrate` on, `prerender` off) to what is
- * not there.
+ * Reads `ssr`, `hydrate` and `prerender` from the template's flags comment.
+ * Core applies the defaults (`ssr` and `hydrate` on, `prerender` off) to what
+ * is not there.
  */
-export async function readFlags(input: ReadFlagsInput): Promise<Partial<RenderFlags> | undefined> {
-  const where = input.kind === "droplet" ? input.droplet : `${input.droplet}/${input.file}`;
-  const template = readTemplateFlags(input.source, `${input.droplet}/${input.file}`);
-  const sibling = await input.readFile(flagsFileFor(input.kind));
-  const declared = sibling === null ? undefined : readExportedFlags(sibling, where);
-  if (!template) return declared;
-  if (!declared) return template;
-
-  for (const name of FLAG_NAMES) {
-    if (name in template && name in declared) {
-      throw new Error(
-        `droplets: ${input.droplet}: "${name}" is declared in both ${input.file} and ${flagsFileFor(input.kind)}; keep one`,
-      );
-    }
-  }
-  return { ...declared, ...template };
+export function readFlags(input: ReadFlagsInput): Partial<RenderFlags> | undefined {
+  return readTemplateFlags(input.source, `${input.droplet}/${input.file}`);
 }
 
 /** The Handlebars renderer, for `droplets({ renderers: [handlebars()] })`. */

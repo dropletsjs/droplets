@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readExportedFlags, validateRenderers } from "@dropletsjs/droplets";
+import { validateRenderers } from "@dropletsjs/droplets";
+import { readExportedFlags } from "@dropletsjs/droplets/vite";
 import type { ClientRenderContext, DropletChildrenHost, ServerRenderContext } from "@dropletsjs/droplets";
 import { createElement, Fragment, StrictMode, useState, type ReactElement, type ReactNode } from "react";
 import { flushSync } from "react-dom";
@@ -49,7 +50,7 @@ describe("react()", () => {
 
   it("reads flags from the component's named exports with the default reader", () => {
     const source = `import { useState } from "react";\nexport const ssr = false;\nexport const prerender = true;\nexport default () => <p />;\n`;
-    expect(readExportedFlags(source, "x")).toEqual({ ssr: false, prerender: true });
+    expect(readExportedFlags(source, "x", "tsx")).toEqual({ ssr: false, prerender: true });
     expect(react().readFlags).toBeUndefined();
   });
 });

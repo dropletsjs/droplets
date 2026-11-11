@@ -119,6 +119,7 @@ export function agentsMd(choices: Choices): string {
     ...choices.frameworks.map((f) => `- ${f.label}: ${FLAGS_WHERE[f.name]}`),
     "",
     "Values must be literals (`export const ssr = !dev` is ignored, with a warning).",
+    "Flags live only in the component: one exported from `+droplet.ts` or `+droplet.server.ts` fails the build.",
     "",
     "## Data",
     "",

@@ -1,10 +1,18 @@
 // @vitest-environment happy-dom
 import { existsSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import { readExportedFlags, validateRenderers } from "@dropletsjs/droplets";
+import { validateRenderers, type ReadFlagsInput } from "@dropletsjs/droplets";
 import type { ClientRenderContext, DropletChildrenHost, ServerRenderContext } from "@dropletsjs/droplets";
 import { defineComponent, h, nextTick, ref } from "vue";
-import { vue } from "../src/index.ts";
+import { readFlags, vue } from "../src/index.ts";
+
+const input = (source: string): ReadFlagsInput => ({
+  kind: "droplet",
+  source,
+  file: "+droplet.vue",
+  folder: "/app/src/droplets/hello",
+  droplet: "hello",
+});
 import { DropletChildren } from "../src/children.ts";
 import { render } from "../src/server.ts";
 import { hydrate, mount, unmount } from "../src/client.ts";
@@ -43,8 +51,22 @@ describe("vue()", () => {
       `</script>`,
       `<template><p>{{ data }}</p></template>`,
     ].join("\n");
-    expect(readExportedFlags(source, "x")).toEqual({ ssr: false, prerender: true });
-    expect(vue().readFlags).toBeUndefined();
+    expect(readFlags(input(source))).toEqual({ ssr: false, prerender: true });
+    expect(vue().readFlags).toBe(readFlags);
+  });
+
+  it("reads the plain <script> block only: comments, <script setup> and the template never count", () => {
+    const source = [
+      "<!-- <script>export const ssr = false</script> -->",
+      `<script lang="ts">`,
+      "// export const prerender = true",
+      "export const hydrate = false;",
+      `</script>`,
+      `<script setup lang="ts">const ssr = false;</script>`,
+      `<template><p>export const prerender = true</p></template>`,
+    ].join("\n");
+    expect(readFlags(input(source))).toEqual({ hydrate: false });
+    expect(readFlags(input(`<template><p/></template>`))).toBeUndefined();
   });
 });
 

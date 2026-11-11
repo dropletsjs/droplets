@@ -1,8 +1,16 @@
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { readExportedFlags, validateRenderers } from "@dropletsjs/droplets";
-import { svelte } from "../src/index.ts";
+import { validateRenderers, type ReadFlagsInput } from "@dropletsjs/droplets";
+import { readFlags, svelte } from "../src/index.ts";
+
+const input = (source: string): ReadFlagsInput => ({
+  kind: "droplet",
+  source,
+  file: "+droplet.svelte",
+  folder: "/app/src/droplets/hello",
+  droplet: "hello",
+});
 
 describe("svelte()", () => {
   it("claims .svelte and points at its built server and client modules", () => {
@@ -25,8 +33,25 @@ describe("svelte()", () => {
     expect(plugins.map((plugin) => plugin.name)).toEqual(["droplets:svelte-options"]);
   });
 
-  it("reads flags from a <script module> block with the default reader", () => {
-    const source = `<script module lang="ts">\n  export const ssr = false;\n  export const prerender = true;\n</script>\n<p/>`;
-    expect(readExportedFlags(source, "x")).toEqual({ ssr: false, prerender: true });
+  it("reads flags from the <script module> block", async () => {
+    const source = `<script module lang="ts">\n  export const ssr: boolean = false;\n  export const prerender = true;\n</script>\n<p/>`;
+    expect(await readFlags(input(source))).toEqual({ ssr: false, prerender: true });
+    expect(await readFlags(input(`<script context="module">export const hydrate = false;</script><p/>`))).toEqual({ hydrate: false });
+    expect(svelte().readFlags).toBe(readFlags);
+  });
+
+  it("does not count a commented-out flag, nor one outside the module block", async () => {
+    const source = [
+      "<!-- <script module>export const hydrate = false</script> -->",
+      "<script module>",
+      "  // export const ssr = false",
+      "  /* export const prerender = true */",
+      "</script>",
+      "<script>export const hydrate = false;</script>",
+      "<p>export const ssr = false</p>",
+      `<style lang="scss">// a comment\n$x: red; .a { color: $x; }</style>`,
+    ].join("\n");
+    expect(await readFlags(input(source))).toEqual({});
+    expect(await readFlags(input("<p/>"))).toBeUndefined();
   });
 });

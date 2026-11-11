@@ -301,7 +301,7 @@ The renderer contract, documented in full in `packages/droplets/src/renderer.ts`
 | `ActionUrl` | `context.actionUrl(name?)` on both contexts: the URL of an action of the droplet rendering. |
 | `RenderFlags`, `HydrateMode` | `{ ssr, hydrate, prerender }`; `hydrate` is `boolean \| "visible" \| "interactive"`. |
 | `ComponentKind`, `ComponentModule`, `RenderProps`, `ReadFlagsInput` | `"droplet"` or `"error"`; a compiled component module; `{ data, form? }` or `{ error }`; the argument of `readFlags`. |
-| `readExportedFlags`, `readExportedFlag`, `readExportedHydrate`, `parseHydrateMode`, `withFlagDefaults` | Flag reading, for renderers that read flags themselves. |
+| `parseHydrateMode`, `withFlagDefaults` | Flag values and defaults, for renderers that read flags themselves. |
 | `validateRenderers` | Extension conflicts, as the plugin checks them: renderers may share an extension only when all of them declare `packages`. `.ts`, `.js`, `.server.ts`, `.server.js`, `.script.ts` and `.script.js` are core's, and `script` is the built-in renderer's name. |
 
 ### Adapters
@@ -374,6 +374,13 @@ Also exported: `DropletsCssOptions` (the `css` option), `DropletsPluginApi`
 see them, sent as `droplets:registry`), and the adapter and renderer types
 `DropletsAdapter`, `AdapterBuildContext`, `AdapterPreviewContext` and
 `DropletRenderer`.
+
+For a renderer's `readFlags`: `readExportedFlags(source, where, lang?)`
+parses a module (`lang` is `"js"`, `"jsx"`, `"ts"` or `"tsx"`, the default)
+and returns the flags its top-level `export const` declarations set;
+`readExportedFlag` and `readExportedHydrate` read one. Comments and strings
+never count, and a source that does not parse declares none. Svelte and Vue
+pass their module block's content. `FlagSourceLang` is the `lang` type.
 
 ## `@dropletsjs/droplets/postcss`
 

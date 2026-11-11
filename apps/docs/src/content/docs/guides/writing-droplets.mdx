@@ -39,10 +39,10 @@ dev server tracks which droplets depend on it.
 
 ## Flags
 
-Three flags decide how a droplet is delivered. Each renderer reads them from
-where its components can export a constant: `<script module>` in Svelte, a
-plain `<script>` in Vue, named exports in React, Preact, Solid, Hono JSX and Lit,
-the opening comment (or `+droplet.ts`) in Handlebars. Each
+Three flags decide how a droplet is delivered. They live in the droplet's
+component, `+droplet.<ext>`, and nowhere else: `<script module>` in Svelte, a
+plain `<script>` in Vue, named exports in React, Preact, Solid, Hono JSX, Lit
+and script droplets, the opening comment in Handlebars. Each
 [renderer's page](/renderers/) shows where.
 
 ```svelte
@@ -69,9 +69,18 @@ receives in each mode, and when the droplet's JavaScript loads.
 
 <RenderModes />
 
-The flags must be literals. They are read with a text scan before anything
-is compiled, because they decide *how* the droplet is built. A value that is
-not a literal (`export const ssr = !dev`) logs a warning and is ignored.
+The flags must be literals. They are read from the component's exports
+before anything is compiled, because they decide *how* the droplet is built.
+Only a top-level `export const` counts: a commented-out
+`// export const ssr = false` is no flag. A value that is not a literal
+(`export const ssr = !dev`) logs a warning and is ignored.
+
+A flag exported from `+droplet.ts` or `+droplet.server.ts` fails the build
+and `vite dev`:
+
+```
+droplets: counter/+droplet.ts exports "ssr": flags live only in the droplet's component; declare it in counter/+droplet.svelte
+```
 
 **One set of flags per droplet.** `+error.*` is the droplet's error boundary
 and follows the droplet's flags: it renders on the server when the droplet
