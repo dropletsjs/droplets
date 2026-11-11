@@ -47,7 +47,10 @@ export const init: ClientInit = () => {
   `server/` folder, `$droplets/env/private`) fails the build and the dev
   server, as from any droplet. See
   [Server-only code](/guides/security/#server-only-code).
-- Under `vite dev`, editing the file reloads the page.
+- Under `vite dev`, editing the file shows a notice with **Reload page**,
+  since `init` runs once per page. With `dev.strategy: "reload"` or
+  `"remount"` the page reloads; with `"manual"` the console says so. See
+  [Hot updates](/guides/development/#hot-updates).
 
 Without the file, `/index.js` is exactly what it would be otherwise: no
 code is added.

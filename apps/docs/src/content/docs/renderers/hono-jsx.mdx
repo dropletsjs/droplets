@@ -128,9 +128,11 @@ with a warning.
 - **Forms:** keep the action's URL from the first render,
   `const [add] = useState(() => actionUrl("add"))` with `actionUrl` of
   `$droplets/form`, then `<form method="post" action={add}>`.
-- **Hot updates:** no component-level HMR. Under `vite dev` an edit remounts
-  the droplet, as [`dev.strategy`](/guides/development/#hot-updates) says;
-  its state starts over.
+- **Hot updates:** Hono JSX has no HMR of its own. Under `vite dev` with
+  `dev.strategy: "hmr"` (the default), an edit to a component remounts the
+  droplet in place, without a page reload, and its state starts over. An
+  edit to the load brings new `data` to the live component, its state kept.
+  See [Hot updates](/guides/development/#hot-updates).
 - **Options:** `honoJsx({ plugin: false })` leaves compiling to you: the
   server build then needs `jsxImportSource: "hono/jsx"`, the browser build
   `hono/jsx/dom`, with `hono/jsx` resolving to `hono/jsx/dom` there.

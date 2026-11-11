@@ -140,7 +140,9 @@ droplets: src/droplets/counter/+droplet.hbs:1: a <style> block cannot contain {{
   partials folder (`false` for none) or the helpers module (`false` for
   none), and passes options to `Handlebars.precompile` (`strict`,
   `noEscape`, …).
-- **Hot updates:** an edited template remounts the droplet under `vite dev`
+- **Hot updates:** under `vite dev`, an edited template asks for the fragment
+  again and swaps the droplet's markup in place,
+  without a page reload
   ([`dev.strategy`](/guides/development/#hot-updates)).
 
 ## The example

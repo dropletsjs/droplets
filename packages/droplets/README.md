@@ -163,8 +163,13 @@ location in `x-host`, listed in `trustedOrigins` (or
   stylesheet to the droplet element.
 - `@dropletsjs/droplets/testing`: `rendererConformance()` and
   `fakeRenderer()`, for renderer authors.
-- In `vite dev`: hot updates on any page that embeds a droplet
-  (`dev.strategy`), and a dev tool for host pages (`dev.injectTool`).
+- In `vite dev`: hot updates on any page that embeds a droplet, never
+  reloading it. With `dev.strategy: "hmr"` (the default) a component edit
+  goes through the framework's own HMR (React Fast Refresh, Prefresh, Vue,
+  Svelte, solid-refresh), keeping state where that HMR does. Lit and Hono
+  JSX remount in place, and a load edit brings new data to the live
+  component. A new `ssr`, `hydrate` or `prerender` shows a notice. Also a
+  dev tool for host pages (`dev.injectTool`).
 
 ## Known limitations
 

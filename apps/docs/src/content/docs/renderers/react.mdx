@@ -117,14 +117,18 @@ with a warning.
 - **Forms:** keep the action's URL from the first render,
   `const [add] = useState(() => actionUrl("add"))` with `actionUrl` of
   `$droplets/form`, then `<form method="post" action={add}>`.
-- **Fast Refresh** works on any host page under `vite dev`: the renderer
-  installs React's preamble itself and compiles it into React's modules
-  only, never another framework's. As in any React app, it keeps a
-  component's state when every export of the file is a component or
-  unchanged. The flags (`ssr`, `hydrate`, `prerender`) are declared as
-  exports it ignores, so editing one does not turn the update into a full
-  reload: the droplet remounts with its new flags. Another non-component
-  export whose value changes still makes Fast Refresh fall back.
+- **Fast Refresh** works on any host page under `vite dev`, with
+  `dev.strategy: "hmr"` (the default). The renderer installs React's
+  preamble itself and compiles it into React's modules only, never another
+  framework's. As in any React app, an edit keeps the component's state
+  when every export of the file is a component or unchanged. The flags
+  (`ssr`, `hydrate`, `prerender`) are exports Fast Refresh ignores. A new
+  value for one is a new render contract, which shows a notice and leaves
+  the droplet as it is. Another non-component export whose value changes
+  makes Fast Refresh give up, and the droplet remounts in place: the page
+  never reloads. An edit to the load (`+droplet.server.ts`, `+droplet.ts`)
+  brings new `data` to the live component, which keeps its state. See
+  [Hot updates](/guides/development/#hot-updates).
 - **Options:** `react({ vitePlugin })` passes options to
   `@vitejs/plugin-react`. With `react({ plugin: false })` you register the
   plugin yourself; the renderer still needs it there, since the Fast Refresh

@@ -275,7 +275,8 @@ The module behind `$droplets/server`.
 | `ClientInit` | `init` in `src/hooks.client.ts`: `() => void \| Promise<void>`, called once, before the droplet element is defined. It may be async, but Droplets never waits for it; a rejection is logged. |
 | `DropletRenderError` | What the error page receives when a load failed with nothing to say. |
 | `DropletStaleDetail` | `event.detail` of `droplets:stale`. |
-| `DropletUpdatePayload` | The payload of the `droplets:update` HMR event. |
+| `DropletUpdatePayload` | The payload of the `droplets:update` HMR event: the droplet, and under `hmr` what changed (`component`, `load` or `contract`, with the flags before and after). |
+| `DevNotification`, `RenderContract` | A dev notice (`key`, `message`, `detail`, `reload`), as `DropletsDevTools.notify` receives it; a droplet's `ssr`, `hydrate` and `prerender`. |
 | `DevToolSource`, `DevElementInfo`, `DevElementState`, `DropletsDevTools` | The dev tool's contract. |
 | `logger`, `setLogLevel`, `LogLevel`, `LogSource` | The framework's logger; `LogSource` is `"framework"` or `"drop"` (droplet code). |
 | `DropletMeta`, `RenderResult`, `DropletPayload`, `PrerenderedDroplet` | Render flags, render output, a server load's outcome (`{ data }` or `{ failed, error }`) and a build-time render, for tooling. |
@@ -481,7 +482,7 @@ missing), and the host's `<div data-droplet-slot>`. Nothing goes into `<head>`.
 A form with `data-droplets-enhance` in a droplet's own markup is enhanced
 by the element, for any renderer.
 
-`index.js` query parameters, in `vite dev` only: `strategy=remount|reload|manual`
+`index.js` query parameters, in `vite dev` only: `strategy=hmr|remount|reload|manual`
 and `injectTool=true|false`. See [Development](/guides/development/). In a
 build, `/index.js` is a stub that imports `assets/index.<hash>.js`; see
 [Caching](/integrate/http-contract/#caching).

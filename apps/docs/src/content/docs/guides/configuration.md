@@ -38,7 +38,7 @@ export default config({
 
   dev: {
     server: { port: 5173 },         // Vite's own server.port wins if set
-    strategy: "remount",            // "reload" | "manual"
+    strategy: "hmr",                // "remount" | "reload" | "manual"
     injectTool: false,              // the dev tool on every page
   },
   server: { port: 8000 },           // for node or bun dist/server.js
@@ -65,7 +65,7 @@ export default config({
 | `importMap` | `"/importmap"`, when the client build has externals | Where the [import map](/guides/server/#import-maps) is served; `<path>.js` answers the inserting script. `false` turns both off. |
 | `warnImportMap` | `true` | In dev, warn about externals the map misses, keys that are not external, and version drift. |
 | `dev.server.port` | `5173` | Dev port, unless `vite.config.ts` sets `server.port`. |
-| `dev.strategy` | `"remount"` | What a droplet on a page does when its files change. See [Hot updates](/guides/development/#hot-updates). |
+| `dev.strategy` | `"hmr"` | What a droplet on a page does when its files change. `"hmr"` is the framework's own HMR, with new data for a load edit and a notice for a new render contract. `"remount"` loads the droplet again, `"reload"` reloads the page, and `"manual"` does nothing. See [Hot updates](/guides/development/#hot-updates). |
 | `dev.injectTool` | `false` | Show the [dev tool](/guides/development/#the-dev-tool) on every page that loads `index.js`. |
 | `server.port` | `8000` | Port for `node dist/server.js` and `bun dist/server.js`. `deno serve` takes `--port` instead. |
 

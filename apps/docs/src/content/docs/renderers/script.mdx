@@ -65,8 +65,9 @@ export default function (data: Data, el: HTMLElement): void | (() => void);
   `display: contents` box, so append your own element when the script needs
   something with a size, as the demo appends its `<section>`.
 - The returned function, if any, is the cleanup: it runs when the element
-  leaves the page (and before a remount under `vite dev`), and `el` is
-  emptied after it.
+  leaves the page, and `el` is emptied after it. Under `vite dev`, an edit to
+  the script runs the cleanup, then the new function on the same `el`,
+  without a page reload ([Hot updates](/guides/development/#hot-updates)).
 
 `./$types` of a script droplet exports `DropletScript`, the default export
 typed with the droplet's own `Data`; `@dropletsjs/droplets` exports a

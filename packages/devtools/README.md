@@ -40,8 +40,12 @@ host pages included. Turn it on with `dev.injectTool: true` in
   server.
 - Each droplet with its mode, renderer and state (waiting, loading, hydrated,
   mounted, error, static, empty). Hover to outline it on the page.
-- Switch the hot-update strategy (`remount`, `reload`, `manual`) for the tab's
-  session; under `manual`, Remount or Reload page when you are ready.
+- Switch the hot-update strategy (`hmr`, `remount`, `reload`, `manual`) for
+  the tab's session; under `manual`, Remount or Reload page when you are
+  ready.
+- Under `hmr`, the notices of a page (a droplet's new render contract, a
+  `hooks.client.ts` edit) show in the panel, at the bottom left, instead of
+  core's own toast.
 
 The plugin also serves the tool's module and `/__droplets/devtools.json`, the
 droplets and their flags.

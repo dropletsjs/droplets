@@ -123,8 +123,14 @@ warning in dev.
   `features.customElement` is combined with the error page pattern. With
   `vue({ plugin: false })` you register `@vitejs/plugin-vue` yourself, and
   give `+error.vue` files `features.customElement`.
-- **Hot updates.** Under `vite dev`, an edit to a component goes through
-  Vue's own HMR; see [Hot updates](/guides/development/#hot-updates).
+- **Hot updates.** Under `vite dev`, with `dev.strategy: "hmr"` (the
+  default), an edit to a component goes through `@vitejs/plugin-vue`'s HMR.
+  A template edit re-renders and keeps the component's state; a `<script>`
+  edit reloads the component, and its state starts over. An edit to the load
+  brings new `data` to the live component, its state kept, when the
+  component reads `data` in its template or a `computed`. A component whose
+  `setup` awaits `props.data` ran that `setup` once, with the old data, so it
+  remounts instead. See [Hot updates](/guides/development/#hot-updates).
 
 ## The example
 

@@ -121,8 +121,13 @@ with a warning.
   `ssr` is always on, and `solid.hydratable` must stay at its default. With
   `solid({ plugin: false })` you register `vite-plugin-solid` yourself, with
   `ssr: true`.
-- **Hot updates.** Under `vite dev`, an edit to a component goes through
-  Solid's own refresh; see [Hot updates](/guides/development/#hot-updates).
+- **Hot updates.** Under `vite dev`, with `dev.strategy: "hmr"` (the
+  default), an edit to a component goes through solid-refresh, which swaps
+  the component in place and creates it again: its signals start over. An
+  edit to the load brings new `data` to the live component, its state kept,
+  when the component reads `props.data` where Solid tracks it (in JSX, a
+  memo). A component that reads it once at setup, or wraps the first
+  promise in a resource, keeps the old data until its next edit. See [Hot updates](/guides/development/#hot-updates).
 
 ## The example
 

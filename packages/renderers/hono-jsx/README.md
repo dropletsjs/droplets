@@ -79,8 +79,8 @@ export default function HelloError({ error, children }: DropletErrorProps<{ mess
   `@dropletsjs/renderer-hono-jsx/form` opts it in to progressive
   enhancement: the submit goes by `fetch` and the droplet shows the result
   in place. See [Actions](https://dropletsjs.dev/guides/writing-droplets/#actions).
-- **No hot updates of its own:** under `vite dev` an edit remounts the
-  droplet (`dev.strategy`).
+- **No HMR of its own:** under `vite dev` an edit remounts the droplet in
+  place, without a page reload (`dev.strategy: "hmr"`, the default).
 - React, Preact and Solid claim `.tsx` and `.jsx` too, and all four can share
   a project: a droplet's framework is the one its file imports (`hono/jsx`,
   `react`, `preact`, `solid-js`), or a `/** @jsxImportSource hono/jsx */` comment.

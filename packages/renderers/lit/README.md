@@ -97,8 +97,8 @@ export default class HelloError extends DropletErrorElement<DropletErrorProps> {
 - **Cloudflare Workers:** the renderer bundles Lit's server build (`node/`)
   into the server, which runs on Lit's DOM shim and needs no DOM and no Node
   API. Node, Bun, Deno and Workers render alike.
-- **No hot updates of its own:** under `vite dev` an edit remounts the
-  droplet, its class defined anew as `<tag>--v2`.
+- **No HMR of its own:** under `vite dev` an edit remounts the droplet in
+  place, without a page reload, its class defined anew as `<tag>--v2`.
 
 See [Renderers](https://dropletsjs.dev/renderers/lit/).
 

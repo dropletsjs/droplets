@@ -117,9 +117,12 @@ Svelte droplet is ignored, with a warning in dev.
 - **The error page** compiles with injected CSS, so its `<style>` travels
   with the markup wherever it renders, even where the droplet's stylesheet
   never loaded.
-- **Hot updates.** Under `vite dev`, an edit to a component goes through
-  Svelte's own HMR, on any page that loads `index.js` from the dev server;
-  see [Hot updates](/guides/development/#hot-updates).
+- **Hot updates.** Under `vite dev`, with `dev.strategy: "hmr"` (the
+  default), an edit to a component goes through `@sveltejs/vite-plugin-svelte`'s
+  HMR on any page that loads `index.js` from the dev server. Svelte 5's HMR
+  swaps the component in place but creates it again, so its `$state` starts
+  over. An edit to the load brings new `data` to the live component, its
+  state kept. See [Hot updates](/guides/development/#hot-updates).
 
 ## The example
 

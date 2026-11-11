@@ -127,9 +127,12 @@ with a warning.
 - **Forms:** keep the action's URL from the first render,
   `const [add] = useState(() => actionUrl("add"))` with `actionUrl` of
   `$droplets/form`, then `<form method="post" action={add}>`.
-- **Hot updates:** no Prefresh. Under `vite dev` an edit remounts the
-  droplet, as [`dev.strategy`](/guides/development/#hot-updates) says;
-  its state starts over.
+- **Hot updates:** Prefresh, under `vite dev` with `dev.strategy: "hmr"`
+  (the default), on any page that loads `index.js` from the dev server. An
+  edit to a component keeps its hook state. The renderer compiles Prefresh
+  into Preact's modules only, in its own transform, so nothing of it reaches
+  a React or Solid module next to it. An edit to the load brings new `data`
+  to the live component, its state kept. See [Hot updates](/guides/development/#hot-updates).
 - **Options:** `preact({ plugin: false })` leaves compiling to you: both
   builds then need Preact's automatic runtime, `jsxImportSource: "preact"`.
 

@@ -3,6 +3,62 @@
 How to read this: each section is one design decision, recorded as it was taken, with its reasons and how much of it is built.
 What ships is described by the guides at https://dropletsjs.dev; where the two differ, the guides are right.
 
+## `dev.strategy: "hmr"`: the framework's own HMR, never a reload (built 2026-11-11)
+
+The host's page is not ours, so a dev edit must never reload it. `hmr` is
+the new default; `remount`, `reload` and `manual` stay as they were, and
+`index.js?strategy=` takes `hmr` too.
+
+- **Classifying an edit.** The plugin's `hotUpdate` runs once per edit (the
+  client environment, which Vite runs first) and sends one
+  `droplets:update` per droplet, with `kind`. It is `contract` when the
+  registry's `ssr` / `hydrate` / `prerender` differ from before the edit,
+  carrying `before` and `after`. It is `load` for `+droplet.server.ts`,
+  `+droplet.ts`, a server-only file, or a module only they reach. Anything
+  else is `component`. The payloads are plain data; the page reads them with
+  `Object.hasOwn`, known droplet ids only, and only from the server that
+  served its `index.js`.
+- **Component edits** stay with Vite and the framework: React Fast Refresh,
+  Prefresh (compiled in the Preact renderer's own transform, never Vite's
+  shared `oxc` options), plugin-vue, vite-plugin-svelte and solid-refresh.
+  Each droplet's client module accepts its component and error page as the
+  last boundary. An update that no framework module takes stops there
+  instead of becoming a full reload. The client module then dispatches
+  `droplets:hot-fallback`, and the element remounts in place: Lit, Hono JSX,
+  Handlebars, script droplets, or a Fast Refresh that gives up. A Svelte
+  module accepts its `default` export only, so its update reaches the
+  client module too. The loader drops that second update when the module
+  took the edit itself (`vite:beforeUpdate`).
+- **Load edits** run the loads again (`_data`, then `+droplet.ts`) and hand
+  the result to a new optional renderer hook, `update(instance, props)`. The
+  instance keeps its state; without the hook the element remounts. Every
+  framework renderer in the repo has one; a script droplet runs its cleanup
+  and its function again.
+- **Contract edits** leave the droplet as it is. `contractNotice` and
+  `hydrateAction` in `runtime/dev-contract.ts` are the decision table: a
+  notice per change, **Reload page** for `ssr` → true and `hydrate` → false,
+  and a live hydrate for `hydrate` turning on. Between hydrate modes, an
+  element still waiting waits in the new mode and a hydrated one only gets a
+  console line. `prerender` points to `vite preview`.
+- **Notices** go to `DropletsDevTools.notify` when the dev tool is on the
+  page. Otherwise they go to a small toast stack of core's own, in a shadow
+  root (`<droplets-dev-notifications>`). A notice with a button is an
+  `alertdialog`, one without is a `status`. Each can be dismissed, at most
+  three show, and a repeat replaces the earlier one by key (droplet and
+  flags). Each also writes one console line. A `hooks.client.ts` edit is
+  such a notice too, instead of the old full reload.
+- **Other strategies** keep working by dropping Vite's module updates for
+  a held edit in `vite:beforeUpdate` (stylesheets aside). The element then
+  follows `droplets:update` as before.
+- **Kept out of a build:** every piece is behind `import.meta.env.DEV` or
+  `import.meta.hot`. That covers the dev-only static helpers of the element
+  class, which live in a `static {}` block under that condition, since a
+  class's public members are never tree-shaken. A built example's
+  `/index.js` and client assets carry none of the notice strings.
+- **Limits:** Svelte 5 and solid-refresh create the component again, so
+  its local state starts over. A Vue `<script>` edit does the same. A
+  `prerender` change shows only in a build.
+
 ## `host`: where a droplet renders (built 2026-11-09)
 
 Two words, two things:

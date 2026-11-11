@@ -180,8 +180,11 @@ in the server's log.
   which runs on Lit's DOM shim with no Node API. apps/demo, which serves the
   droplet on this page, builds for Workers too, and its tests render this
   counter under `wrangler dev`.
-- **Hot updates:** no component-level HMR; an edit remounts the droplet under
-  a new tag.
+- **Hot updates:** Lit has no HMR of its own. Under `vite dev` with
+  `dev.strategy: "hmr"` (the default), an edit to a component remounts the
+  droplet in place, under a new tag, without a page reload, and its state
+  starts over. An edit to the load brings new `data` to the live element.
+  See [Hot updates](/guides/development/#hot-updates).
 
 ### Tests
 

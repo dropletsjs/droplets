@@ -69,9 +69,10 @@ export default function HelloError({ error, children }: DropletErrorProps<{ mess
   `@dropletsjs/renderer-react/form` opts it in to progressive
   enhancement: the submit goes by `fetch` and the droplet shows the result
   in place. See [Actions](https://dropletsjs.dev/guides/writing-droplets/#actions).
-- **Fast Refresh** works on any host page under `vite dev`; the renderer
-  installs the preamble itself, and compiles it into React's modules
-  alone, never into another framework's (a Vue `<script lang="ts">`).
+- **Fast Refresh** works on any host page under `vite dev`
+  (`dev.strategy: "hmr"`, the default), keeping component state; the
+  renderer installs the preamble itself, and compiles it into React's
+  modules alone, never into another framework's (a Vue `<script lang="ts">`).
 - On Workers, the server uses React's edge build.
 - Solid, React, Preact and Hono JSX all claim `.tsx` and `.jsx` and can share
   a project: a droplet's framework is the one its file imports (`react`,

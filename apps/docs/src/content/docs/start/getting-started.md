@@ -128,7 +128,11 @@ Give the component a button:
 </section>
 ```
 
-Save it: the devtools page updates in place. `data` is what the load
+Save it: the droplet updates in place through Svelte's own HMR, and the
+page does not reload. Svelte 5 creates the component again, so `clicks`
+starts over. An edit to `+droplet.server.ts` brings the new `data` to the
+running component and keeps `clicks`. See
+[Hot updates](/guides/development/#hot-updates). `data` is what the load
 returns, typed through `./$types`, so neither file spells it out. It is a
 value when the droplet hydrates server markup and a promise when it mounts
 from scratch in the browser, which `{#await}` covers. The flags (`ssr`,

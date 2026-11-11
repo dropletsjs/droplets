@@ -75,8 +75,9 @@ export default function HelloError({ error, children }: DropletErrorProps<{ mess
 - **JSX:** the renderer compiles its modules with Preact's automatic runtime
   (`preact/jsx-runtime`) itself; there is no `@preact/preset-vite`, and
   nothing aliases `react` to `preact/compat`.
-- **Hot updates:** no Prefresh; under `vite dev` an edit remounts the droplet
-  (`dev.strategy`).
+- **Hot updates:** Prefresh under `vite dev` (`dev.strategy: "hmr"`, the
+  default): an edit keeps the component's hook state. It is compiled into
+  Preact's modules only, in the renderer's own transform.
 - **Files:** `.tsx` and `.jsx`, the suffixes React, Solid and Hono JSX claim
   too. All of them can share a project: a droplet's framework is the one its
   file imports (`preact`, `preact/hooks`, …), or a

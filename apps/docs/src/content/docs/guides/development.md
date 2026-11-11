@@ -1,6 +1,6 @@
 ---
 title: Development
-description: "vite dev, the devtools page, hot updates on any host page, the dev tool and the known limitations."
+description: "vite dev, the devtools page, framework HMR on any host page (dev.strategy hmr, remount, reload, manual), render-contract notices, the dev tool and the known limitations."
 ---
 
 ## The dev server
@@ -47,31 +47,88 @@ reaches a build.
 
 ## Hot updates
 
-Inside a droplet, the framework's own HMR works as usual (Svelte, Vue, Solid
-refresh, React Fast Refresh). On top of that, when a file a droplet depends on
-changes, the plugin tells every page that shows it, over Vite's socket. A
-shared file (a component several droplets import) reaches every droplet above
-it in the module graph.
+When a file a droplet depends on changes, the plugin tells every page that
+shows the droplet, over Vite's socket. A shared file (a component several
+droplets import) reaches every droplet above it in the module graph.
 
-That works on **any page that loads `index.js` from the dev server**, not only
-the devtools page: a droplet embedded in your Rails app, served from
-`localhost:5173`, updates in place while you edit it. What it does is
-`dev.strategy`:
+This works on **any page that loads `index.js` from the dev server**, not
+only the devtools page. A droplet embedded in your Rails app and served from
+`localhost:5173` updates in place while you edit it. The host's page is
+yours, not the dev server's, so no strategy but `"reload"` ever reloads it.
+What happens on an edit depends on `dev.strategy`:
 
 | Strategy | On a change |
 | --- | --- |
-| `"remount"` (default) | The droplet loads again, by its flags as they are now, the way it reached the page. A server fragment is requested again with the same context and hydrates (or stays as the server rendered it, with `hydrate = false`); an element the host wrote, or a `clientOnly` fragment, mounts in the browser. The host's children are carried over. |
+| `"hmr"` (default) | The framework's own HMR, which keeps component state where it can. Load edits arrive as new data, and render-contract changes arrive as a notice. See the table below. |
+| `"remount"` | The droplet loads again, by its flags as they are now, the way it reached the page. A server fragment is requested again with the same context and hydrates, or stays as the server rendered it when `hydrate = false`. An element the host wrote, or a `clientOnly` fragment, mounts in the browser. The host's children are carried over. State starts over. |
 | `"reload"` | The page reloads, so a host that renders on the server renders again. |
 | `"manual"` | Nothing; the console says which droplet changed. |
 
-A page overrides it on its script tag, for that page only:
+A page can override the strategy on its script tag, for that page only:
 
 ```html
-<script type="module" src="http://localhost:5173/index.js?strategy=reload"></script>
+<script type="module" src="http://localhost:5173/index.js?strategy=remount"></script>
 ```
 
 Only `index.js` reads these parameters; fragments and the other routes are
 unchanged.
+
+### What `hmr` does
+
+Stylesheets (imported CSS, CSS modules, the shared stylesheet) update live
+through Vite's own CSS updates, with nothing remounted, under every strategy
+but `"reload"`. A component's own styles follow its framework's HMR.
+
+**A component edit**, in the component or in anything it imports:
+
+| Renderer | What happens | State |
+| --- | --- | --- |
+| React | Fast Refresh | kept |
+| Preact | Prefresh | kept |
+| Vue | `@vitejs/plugin-vue` HMR. A template edit re-renders; a `<script>` edit reloads the component. | kept for a template edit; starts over for a script edit |
+| Svelte 5 | `@sveltejs/vite-plugin-svelte` HMR swaps the component in place | starts over |
+| Solid | solid-refresh swaps the component in place | starts over |
+| Lit, Hono JSX | No HMR of their own. The droplet remounts in place, as under `"remount"`. | starts over |
+| Handlebars | The fragment is requested again and the markup swapped | none to keep |
+| Script | The previous cleanup runs, then the new `default(data, el)` runs on the same `el` | yours |
+
+If no HMR of the framework takes an edit (React Fast Refresh, for example,
+gives up on a module that also exports a non-component), the droplet remounts
+in place, and the console says so. A droplet whose markup does not hydrate
+(`hydrate = false`, or not hydrated yet) gets the server's new markup.
+
+**A load edit** (`+droplet.server.ts`, `+droplet.ts`, or a module only they
+import): the loads run again, through `_data` as on any render, and the live
+component receives the new `data` without a remount. Its state is kept. A
+Vue component whose `setup` awaits `props.data` remounts instead, and a
+script droplet runs its cleanup and its function again.
+
+**A render-contract change** (`ssr`, `hydrate` or `prerender` in the
+droplet's flags) leaves the droplet on the page as it is. A notice names the
+droplet and the change, for example *counter changed its render contract:
+hydrate true → false*:
+
+| Change | What happens |
+| --- | --- |
+| `ssr` false → true | A notice with **Reload page**. The host has to ask for the fragment again to get the server's markup. |
+| `ssr` true → false | A notice. |
+| `hydrate` false → `true`, `"visible"` or `"interactive"` | The droplet hydrates live, in the new mode, and a notice says so. |
+| `hydrate` on → false | A notice with **Reload page**. The running component stays live until then. |
+| `hydrate` between modes | Not hydrated yet: the droplet waits in the new mode. Already hydrated: a console line only. |
+| `prerender`, either way | A notice. Prerendering happens in `vite build`, so check it with `vite preview`. |
+
+An edit to `src/hooks.client.ts` gets a notice with **Reload page** as well:
+`init()` runs once per page, before any droplet.
+
+Notices show in the [dev tool](#the-dev-tool) when it is on the page.
+Otherwise they show as a small toast in the corner of the page, in its own
+shadow root, out of the host's styles. A notice with a button is an alert
+dialog. One without is a status that closes after ten seconds. Every notice
+can be dismissed with its × button, or with Escape while it has focus. A
+newer notice about the same flags of the same droplet replaces the older
+one, and no more than three show at once. Each notice also writes one line
+to the console. None of this exists outside `vite dev`; nothing of it
+reaches a build.
 
 ## The dev tool
 
@@ -96,6 +153,8 @@ it. It needs `dropletsDevtools()` in the Vite config; without it,
 - The **strategy** can be switched per server for the tab's session. Under
   `manual`, a changed droplet is marked, and **Remount** or **Reload page**
   load it again.
+- **Notices** of `hmr` (a new render contract, a `hooks.client.ts` edit)
+  show at the bottom left of the page, under the panel's styles.
 
 ## Workspace development
 
@@ -135,6 +194,24 @@ included, is unaffected: Vite injects it with `/index.js`.
 
 **Flags are read textually.** They must be literals; see
 [Flags](/guides/writing-droplets/#flags).
+
+**State across a component edit.** Under `hmr`, React and Preact keep hook
+state, and Vue keeps it for a template edit. Svelte 5, Solid, Lit and Hono JSX
+start the component over: their HMR, or the remount, creates a new instance.
+The data stays the same either way.
+
+**Load edits in Vue and Solid.** A Vue component whose `setup` awaits
+`props.data` remounts on a load edit, so its state starts over. New `data`
+reaches a Solid component through its props, so only a component that reads
+`props.data` where Solid tracks it (in JSX, a memo) shows it. A component
+that reads it once at setup keeps the old data until its next edit.
+
+**`prerender` in dev.** `vite dev` renders every request, so a change to
+`prerender` shows only in a build: check it with `vite preview`.
+
+**The devtools page under `hmr`.** The page leaves an edit to the droplet it
+shows. The droplet's own HMR updates it, and the page itself does not render
+again.
 
 **Remounting a `noSSR` fragment.** A host's `?noSSR` request cannot be told
 apart from `ssr = false`; on a remount the fragment is requested without it.
