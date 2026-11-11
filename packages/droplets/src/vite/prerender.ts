@@ -10,7 +10,7 @@ import { setRuntimeEnv } from "../runtime/env-store.ts";
 import type { SsrModule } from "../server/app.ts";
 import type { DropletsManifest } from "../server/manifest.ts";
 import { PRERENDER_DIR, prerenderIndexPath, type PrerenderIndex } from "../server/prerendered.ts";
-import { fallbackPrerenderHost, type PluginState } from "./state.ts";
+import type { PluginState } from "./state.ts";
 
 /** Read by `building` in `$droplets/env` when the SSR bundle loads. */
 const BUILDING = Symbol.for("droplets.building");
@@ -61,7 +61,7 @@ export function prerenderRoot(state: PluginState): { dir: string; assets?: strin
  * directory (`prerenderRoot`). A load that fails is stored as its
  * `+error.*` render only when that page has `prerender = true`. Requests go through the built SSR bundle and
  * through `handle`, with `building` true. An entry renders for its `host`,
- * else `prerender.host`, else `PUBLIC_URL`, else host-agnostic; a render
+ * else `host` of the config, else host-agnostic; a render
  * that reads more of `host` than it can have stops the build. Returns how
  * many renders it wrote.
  */
@@ -110,7 +110,7 @@ export async function prerender({ state, ssrEntry }: PrerenderInput): Promise<nu
       building: true,
     });
 
-    const fallbackHost = fallbackPrerenderHost(state);
+    const fallbackHost = state.config.host;
     let count = 0;
     for (const entry of targets) {
       const index: PrerenderIndex = {};

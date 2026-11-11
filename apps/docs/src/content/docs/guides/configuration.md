@@ -24,8 +24,10 @@ export default config({
   // Pages on other origins embed these droplets: let their browsers in.
   cors: true,                       // or Hono cors() options: { origin: [...] }
 
-  // Where browsers reach this server, behind a proxy: see "The public location" below.
-  origin: "https://shop.example/mfe",
+  // Where browsers reach this server, fixed at build: see "The public location" below.
+  location: "https://shop.example/mfe",
+  // The page every droplet renders on, fixed at build: see "A fixed host" below.
+  host: "https://shop.example",
   // Hosts whose pages post forms to these droplets: see "Form posts" below.
   trustedOrigins: ["https://shop.example"],
   csrf: { checkOrigin: true },      // the default
@@ -57,7 +59,8 @@ export default config({
 | `apiFolder` | `"src/api"` | Folder scanned for `**/+server.ts`, served under `/api/`. |
 | `element` | `"djs-droplet"` | Tag name of the element that hosts every droplet. Lowercase with a hyphen. See [The element name](#the-element-name). |
 | `cors` | off | `true` sends `Access-Control-Allow-Origin: *` on every route (`/api/*`, `_data`, `/index.js` included), and warns once under `vite dev`; an object is passed to Hono's `cors()`. Needed whenever a page on another origin embeds your droplets. Prefer an origin list (`{ origin: ["https://shop.example"] }`) for anything not public: with `*`, any page can read what an employee's browser can reach on an intranet server. |
-| `origin` | `[]` | Where browsers reach this server: its public origin, with the path prefix a proxy serves it under (`"https://shop.example/mfe"`), or a list of them. No query, hash or credentials. The `DROPLETS_ORIGIN` environment variable (comma-separated, read at runtime on every adapter) adds to it. See [The public location](#the-public-location). |
+| `location` | computed per request | Where browsers reach this server, fixed at build: its public origin, with the path prefix a proxy serves it under (`"https://shop.example/mfe"`). One value, no query, hash or credentials, never `"*"`. See [The public location](#the-public-location). |
+| `host` | computed per request | The origin of the page every droplet renders on, fixed at build (`"https://shop.example"`, no path, never `"*"`). Prerendering renders an entry without its own `host` there. See [A fixed host](#a-fixed-host). |
 | `trustedOrigins` | `[]` | Origins, besides the server's own, allowed to send form submissions: the hosts whose pages post to your droplets. `"*"` trusts every origin. The `DROPLETS_TRUSTED_ORIGINS` environment variable (comma-separated, read at runtime on every adapter) adds to it. When set (without `"*"`), it also bounds `host`: a host on another origin becomes the location's origin. A location header naming one of these origins is trusted too, and `"*"` trusts any ([Trusting any location](/guides/security/#trusting-any-location)). The same list (without `"*"`) says where a form posted without JavaScript may be sent back to. See [Form posts](/integrate/http-contract/#form-posts-the-origin-check) and [Security model](/guides/security/). |
 | `csrf.checkOrigin` | `true` | Answer `403` to a cross-site form submission (form-urlencoded, multipart or `text/plain` body, or none at all with an `Origin`) to `/droplets/*` or `/api/*` from an origin that is not trusted. `false` turns the check off. |
 | `fragmentCacheControl` | `"private, no-store"` | The default `Cache-Control` of fragments and `_data`, when neither the droplet's load ([`setHeaders`](/guides/writing-droplets/#setheaders)) nor `handle` set one. `false` sends none. See [Caching](/guides/security/#caching). |
@@ -104,6 +107,18 @@ DROPLETS_ORIGIN=https://shop.example,https://www.shop.example node dist/server.j
 `"*"` trusts any location a header names, and warns once at start under
 `vite dev`; read
 [Trusting any location](/guides/security/#trusting-any-location) first.
+
+### A fixed host
+
+`host` names the origin of the page your droplets render on, when there is
+one:
+
+```ts
+export default config({ host: "https://shop.example" });
+```
+
+Prerendering renders every entry without its own `host` for it; see
+[`host` at build](/guides/prerendering/#host-at-build).
 
 ### The element name
 

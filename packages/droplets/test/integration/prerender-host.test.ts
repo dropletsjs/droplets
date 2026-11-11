@@ -1,5 +1,5 @@
 /**
- * `host` at build: an entry's `host`, `prerender.host`, `PUBLIC_URL`, or the
+ * `host` at build: an entry's `host`, `host` of `droplets.config.ts`, or the
  * token stand-in, whose other fields stop a real `vite build`.
  */
 import { readFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -19,10 +19,10 @@ const fakeAdapter: DropletsAdapter = {
   separateSsrBundle: true,
 };
 
-type ProjectInput = { server: string; env?: string };
+type ProjectInput = { server: string; config?: string };
 
-/** A project with one prerendered droplet; `server` is its `+droplet.server.ts`. */
-async function project({ server, env }: ProjectInput): Promise<string> {
+/** A project with one prerendered droplet; `server` is its `+droplet.server.ts`, `config` its `droplets.config.ts`. */
+async function project({ server, config }: ProjectInput): Promise<string> {
   const root = await mkdtemp(join(fixtures, ".prerender-host-"));
   const folder = join(root, "src/droplets/page");
   await mkdir(folder, { recursive: true });
@@ -31,18 +31,18 @@ async function project({ server, env }: ProjectInput): Promise<string> {
     'export const prerender = true;\n\nexport default ({ data }) => `<a href="${data.home}">${data.path}</a>`;\n',
   );
   await writeFile(join(folder, "+droplet.server.ts"), server);
-  if (env) await writeFile(join(root, ".env"), env);
+  if (config) await writeFile(join(root, "droplets.config.ts"), config);
   return root;
 }
 
-type BuildInput = { root: string; prerender?: { host: string } };
+type BuildInput = { root: string };
 
-const build = ({ root, prerender }: BuildInput) =>
+const build = ({ root }: BuildInput) =>
   createBuilder({
     root,
     configFile: false,
     logLevel: "silent",
-    plugins: [droplets({ adapter: fakeAdapter, renderers: [fakeRenderer()], ...(prerender ? { prerender } : {}) })],
+    plugins: [droplets({ adapter: fakeAdapter, renderers: [fakeRenderer()] })],
   }).then((builder) => builder.buildApp());
 
 /** Every stored render's server data, by key. */
@@ -82,26 +82,20 @@ describe("host while prerendering", () => {
     await expect(build({ root: root })).rejects.toThrow("host.port is not known while prerendering");
   }, 90_000);
 
-  it("renders for the entry's host, else prerender.host, keyed by that host", async () => {
+  it("renders for the entry's host, else host of the config, keyed by that host", async () => {
     const root = await project({
       server: `${LOAD}export const entries = () => [{ props: { a: 1 }, host: "https://entry.test/docs?q=1" }, { props: { a: 2 } }];\n`,
+      config: 'export default { host: "https://config.test" };\n',
     });
     roots.push(root);
-    await build({ root, prerender: { host: "https://config.test/base" } });
+    await build({ root });
     expect(await stored(root)).toEqual({
       '{"a":1} https://entry.test/docs': { home: "https://entry.test/home", path: "/docs" },
-      '{"a":2} https://config.test/base': { home: "https://config.test/home", path: "/base" },
+      '{"a":2} https://config.test/': { home: "https://config.test/home", path: "/" },
     });
   }, 90_000);
 
-  it("takes PUBLIC_URL when nothing else gives a host, and tokens without it", async () => {
-    const withUrl = await project({ server: LOAD, env: "PUBLIC_URL=https://public.test/\n" });
-    roots.push(withUrl);
-    await build({ root: withUrl });
-    expect(await stored(withUrl)).toEqual({
-      "{} https://public.test/": { home: "https://public.test/home", path: "/" },
-    });
-
+  it("renders host-agnostic, with tokens, when nothing gives a host", async () => {
     const agnostic = await project({ server: LOAD });
     roots.push(agnostic);
     await build({ root: agnostic });

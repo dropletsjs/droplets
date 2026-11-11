@@ -49,7 +49,6 @@ describe("resolveConfig", () => {
       importMap: { path: "/importmap", auto: true },
       warnImportMap: true,
       element: "djs-droplet",
-      origin: [],
       trustedOrigins: [],
       fragmentCacheControl: "private, no-store",
       publicCacheControl: "no-cache",
@@ -61,14 +60,13 @@ describe("resolveConfig", () => {
     expect(resolveDevConfig({ user: {} })).toEqual({ server: { port: DEFAULTS.devPort }, strategy: "hmr", injectTool: false });
   });
 
-  it("normalizes origin to locations, a prefix allowed, and refuses anything else", () => {
-    expect(resolveConfig({ origin: "https://shop.example/" }).origin).toEqual(["https://shop.example"]);
-    expect(resolveConfig({ origin: ["https://shop.example/mfe/", "http://localhost:3000", "*"] }).origin).toEqual([
-      "https://shop.example/mfe",
-      "http://localhost:3000",
-      "*",
-    ]);
+  it("takes one location, an origin with an optional prefix, and refuses anything else", () => {
+    expect(resolveConfig({}).location).toBeUndefined();
+    expect(resolveConfig({ location: "https://shop.example/" }).location).toBe("https://shop.example");
+    expect(resolveConfig({ location: "https://shop.example/mfe/" }).location).toBe("https://shop.example/mfe");
+    expect(resolveConfig({ location: "http://localhost:3000" }).location).toBe("http://localhost:3000");
     for (const bad of [
+      "*",
       "shop.example",
       "ftp://shop.example",
       "https://u:p@shop.example",
@@ -80,10 +78,19 @@ describe("resolveConfig", () => {
       "https://*.example",
       "",
       42,
+      ["https://shop.example"],
     ]) {
-      expect(() => resolveConfig({ origin: [bad as string] }), String(bad)).toThrow("origin takes this server's public URL");
+      expect(() => resolveConfig({ location: bad as string }), String(bad)).toThrow("location takes this server's public URL");
     }
-    expect(() => resolveConfig({ origin: { url: "https://a.example" } as never })).toThrow("origin takes");
+  });
+
+  it("takes one host, an origin without a path, and refuses anything else", () => {
+    expect(resolveConfig({}).host).toBeUndefined();
+    expect(resolveConfig({ host: "https://shop.example/" }).host).toBe("https://shop.example");
+    expect(resolveConfig({ host: "http://localhost:3000" }).host).toBe("http://localhost:3000");
+    for (const bad of ["*", "shop.example", "https://shop.example/cart", "https://shop.example/?x=1", "", 42, ["https://shop.example"]]) {
+      expect(() => resolveConfig({ host: bad as string }), String(bad)).toThrow("host takes the origin of the page");
+    }
   });
 
   it("normalizes trustedOrigins and refuses what is not an origin", () => {

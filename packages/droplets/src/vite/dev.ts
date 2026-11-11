@@ -23,7 +23,7 @@ import { PUBLIC_PATH, publicFileHandler } from "./assets.ts";
 import { withViteIdAliases } from "./externalize.ts";
 import { checkImportMap } from "./importmap-check.ts";
 import { loadIndexHtml } from "./index-html.ts";
-import { externalsList, fallbackPrerenderHost, type PluginState } from "./state.ts";
+import { externalsList, type PluginState } from "./state.ts";
 import { syncTypes } from "./sync-types.ts";
 import { clientEntryId, RESOLVED_VIRTUAL_DROPLETS } from "./virtual.ts";
 
@@ -392,7 +392,7 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
     // others behave as in a build (404 when the droplet has `ssr = false`).
     loadPrerendered: async (name, key, event) => {
       const mod = await runtime.loadSsrModule();
-      const keys = (await mod.prerenderKeys?.(name, fallbackPrerenderHost(state))) ?? [];
+      const keys = (await mod.prerenderKeys?.(name, state.config.host)) ?? [];
       if (!keys.includes(key)) return null;
       const result = await (mod.renderDroplet ?? mod.default)?.(name, event);
       if (!result) return null;
@@ -420,7 +420,6 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
     buildHash: state.buildHash,
     tokenNonce: state.tokenNonce,
     cors: config.cors,
-    origin: config.origin,
     trustedOrigins: config.trustedOrigins,
     fragmentCacheControl: config.fragmentCacheControl,
     csrf: config.csrf,

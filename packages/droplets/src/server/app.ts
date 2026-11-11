@@ -110,7 +110,6 @@ export function createServerApp({ ssr, assets, config }: ServerAppOptions): Drop
     buildHash: assets.buildHash,
     ...(ssr.tokenNonce === undefined ? {} : { tokenNonce: ssr.tokenNonce }),
     cors: config.cors,
-    origin: config.origin,
     trustedOrigins: config.trustedOrigins,
     fragmentCacheControl: config.fragmentCacheControl,
     csrf: config.csrf,

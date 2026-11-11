@@ -13,7 +13,7 @@
 - Flags (`ssr`, `hydrate`, `prerender`) are literal `export const` declarations read only from the droplet's component file; flags anywhere else are ignored (an `+error.*`'s with a dev warning).
   Checked by: `../../test/core/discover.test.ts`.
 - `discoverDroplets` is the one list of droplets: the plugin, the build and the dev server all read it.
-- `origin` and `trustedOrigins` accept `"*"` on the owner's explicit opt-in and never refuse it; the warning is the runtime's.
+- `trustedOrigins` accepts `"*"` on the owner's explicit opt-in and never refuses it; the warning is the runtime's. `location` and `host` are one value each and never `"*"`.
   Checked by: `../../test/core/config.test.ts`.
 - A config mistake throws when the config is resolved, with a `droplets:` message that names the fix.
   Checked by: `../../test/core/config.test.ts`.

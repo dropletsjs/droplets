@@ -74,24 +74,7 @@ export type PluginState = {
   namedExternals: string[];
   /** The dev tool's browser module, as a URL Vite serves; set by `dropletsDevtools()`. */
   devToolUrl: string | null;
-  /** `prerender.host` from `droplets()`: where an entry without `host` renders. */
-  prerenderHost: string | undefined;
 };
-
-/**
- * Where an entry without `host` renders: `prerender.host`, else `PUBLIC_URL`
- * from the mode's environment, else nothing (host-agnostic renders).
- */
-export function fallbackPrerenderHost(state: PluginState): string | undefined {
-  if (state.prerenderHost) return state.prerenderHost;
-  const publicUrl = state.env.values["PUBLIC_URL"];
-  if (!publicUrl) return undefined;
-  try {
-    return new URL(publicUrl).href;
-  } catch {
-    throw new Error(`droplets: PUBLIC_URL must be an absolute URL such as "https://shop.example", got "${publicUrl}"`);
-  }
-}
 
 export function createBuildHash(): string {
   return randomBytes(4).toString("hex").slice(0, 6);
@@ -114,7 +97,6 @@ export function createInitialState(): PluginState {
       importMap: { path: "/importmap", auto: true },
       warnImportMap: true,
       element: "djs-droplet",
-      origin: [],
       trustedOrigins: [],
       fragmentCacheControl: DEFAULTS.fragmentCacheControl,
       publicCacheControl: DEFAULTS.publicCacheControl,
@@ -138,7 +120,6 @@ export function createInitialState(): PluginState {
     seenExternals: new Set(),
     namedExternals: [],
     devToolUrl: null,
-    prerenderHost: undefined,
   };
 }
 

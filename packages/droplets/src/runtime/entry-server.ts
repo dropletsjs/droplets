@@ -260,8 +260,8 @@ export async function loadDropletData(name: string, event: LoadEvent): Promise<D
 /**
  * The lookup keys of the renders `entries` lists, after the schema: which
  * props, for which host, have a prerendered render. `fallbackHost` is what
- * an entry without `host` renders for (`prerender.host`, `PUBLIC_URL`);
- * without one, the render is host-agnostic.
+ * an entry without `host` renders for (`host` of the config); without one,
+ * the render is host-agnostic.
  */
 export async function prerenderKeys(name: string, fallbackHost?: string): Promise<string[]> {
   const keys: string[] = [];

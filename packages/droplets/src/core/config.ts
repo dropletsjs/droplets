@@ -54,18 +54,26 @@ export type DropletsConfig = {
    */
   cors?: boolean | DropletsCorsOptions;
   /**
-   * Where browsers reach this server: its public origin, with the path
-   * prefix a proxy serves it under when there is one (`"https://shop.example"`,
-   * `"https://shop.example/mfe"`), or a list of them. A location that the
-   * request's headers name (`x-droplet-location`, `Forwarded`,
-   * `X-Forwarded-*`) is used only when its origin is listed here, in
-   * `trustedOrigins`, or is the request's own. With a single entry, that
-   * entry is the location when no header names one. `"*"` trusts any
-   * location a header names (see "Trusting any location" in the security
-   * guide). `DROPLETS_ORIGIN`, a comma-separated list read at runtime, adds
-   * to it without a build.
+   * Where browsers reach this server, fixed at build: its public origin, with
+   * the path prefix a proxy serves it under when there is one
+   * (`"https://droplets.example"`, `"https://shop.example/mfe"`). The URLs the
+   * server writes about itself (stylesheet, `Link`, `droplet.url()`, action
+   * URLs) are on it, and no request header changes it. Without it, the
+   * location is computed per request: a location header whose origin is the
+   * request's own or in `trustedOrigins`, else the request's own origin.
+   * `vite dev` always computes it per request.
    */
-  origin?: string | string[];
+  location?: string;
+  /**
+   * The origin of the page every droplet renders on, fixed at build
+   * (`"https://shop.example"`, no path). `event.host` is this origin, with
+   * the path and query the request reports when it reports this origin, and
+   * this origin alone otherwise; it joins `trustedOrigins` for form posts and
+   * redirects. Prerendering renders an entry without its own `host` here.
+   * Without it, `event.host` comes from each request. `vite dev` always
+   * takes it from the request.
+   */
+  host?: string;
   /**
    * Origins, besides this server's own, allowed to send form submissions:
    * the hosts whose pages post to droplets (`https://shop.example`). `"*"`
@@ -73,7 +81,7 @@ export type DropletsConfig = {
    * comma-separated list read at runtime, adds to it without a build. When
    * the list is set, it also bounds `event.host`: a host outside it becomes
    * this server's origin. A location header naming one of them is trusted
-   * too (see `origin`).
+   * too, when `location` is not set.
    */
   trustedOrigins?: string[];
   /**
@@ -168,8 +176,10 @@ export type ResolvedDropletsConfig = {
   importMap: { path: string; auto: boolean } | false;
   warnImportMap: boolean;
   cors?: DropletsCorsOptions;
-  /** Locations (origin and optional prefix, see `normalizeOrigin`), `"*"` for any. */
-  origin: string[];
+  /** The fixed location (origin and optional prefix, see `normalizeLocation`); absent: per request. */
+  location?: string;
+  /** The fixed host origin; absent: per request. */
+  host?: string;
   /** Origins, `"*"` for all; this server's own is always trusted. */
   trustedOrigins: string[];
   fragmentCacheControl: string | false;
@@ -216,6 +226,10 @@ export type NormalizeTrustedOriginsInput = { origins: unknown };
 type LocationOfInput = { value: unknown };
 
 export type NormalizeOriginInput = { value: unknown };
+
+type NormalizeLocationInput = { value: unknown };
+
+type NormalizeHostInput = { value: unknown };
 
 type ResolveCacheControlInput = { option: "fragmentCacheControl" | "publicCacheControl"; value: unknown; fallback: string };
 
@@ -267,6 +281,21 @@ export function isValidElementName(name: string): boolean {
   return CUSTOM_ELEMENT_NAME.test(name);
 }
 
+type OriginOfInput = { value: unknown };
+
+/** `value` as `scheme://host[:port]`; `null` unless it is exactly that. */
+function originOf({ value }: OriginOfInput): string | null {
+  let url: URL | undefined;
+  try {
+    url = typeof value === "string" ? new URL(value) : undefined;
+  } catch {
+    // Not a URL: no origin.
+    url = undefined;
+  }
+  if (!url || url.origin === "null" || url.href.replace(/\/$/, "") !== url.origin) return null;
+  return url.origin;
+}
+
 /** Each origin as `scheme://host[:port]`, `"*"` kept; throws for anything else. */
 export function normalizeTrustedOrigins({ origins }: NormalizeTrustedOriginsInput): string[] {
   if (origins === undefined) return [];
@@ -275,17 +304,11 @@ export function normalizeTrustedOrigins({ origins }: NormalizeTrustedOriginsInpu
   }
   return origins.map((origin) => {
     if (origin === "*") return origin;
-    let url: URL | undefined;
-    try {
-      url = typeof origin === "string" ? new URL(origin) : undefined;
-    } catch {
-      // Not a URL: refused with the message below.
-      url = undefined;
-    }
-    if (!url || url.origin === "null" || url.href.replace(/\/$/, "") !== url.origin) {
+    const normalized = originOf({ value: origin });
+    if (normalized === null) {
       throw new Error(`droplets: trustedOrigins takes origins such as "https://shop.example" (no path), got ${JSON.stringify(origin)}`);
     }
-    return url.origin;
+    return normalized;
   });
 }
 
@@ -318,6 +341,30 @@ export function normalizeOrigin({ value }: NormalizeOriginInput): string[] {
     }
     return location;
   });
+}
+
+/** `location` as `scheme://host[:port][/prefix]`, or `undefined` when it is not set; throws for anything else. */
+function normalizeLocation({ value }: NormalizeLocationInput): string | undefined {
+  if (value === undefined) return undefined;
+  const location = locationOf({ value });
+  if (location === null) {
+    throw new Error(
+      `droplets: location takes this server's public URL, an origin with an optional path prefix such as "https://droplets.example" or "https://shop.example/mfe", got ${JSON.stringify(value)}`,
+    );
+  }
+  return location;
+}
+
+/** `host` as `scheme://host[:port]`, or `undefined` when it is not set; throws for anything else. */
+function normalizeHost({ value }: NormalizeHostInput): string | undefined {
+  if (value === undefined) return undefined;
+  const origin = originOf({ value });
+  if (origin === null) {
+    throw new Error(
+      `droplets: host takes the origin of the page the droplets render on, such as "https://shop.example" (no path), got ${JSON.stringify(value)}`,
+    );
+  }
+  return origin;
 }
 
 function resolveCacheControl({ option, value, fallback }: ResolveCacheControlInput): string | false {
@@ -371,6 +418,9 @@ export function resolveConfig(user: DropletsConfig, env: ResolveConfigEnv = {}):
     );
   }
 
+  const location = normalizeLocation({ value: user.location });
+  const host = normalizeHost({ value: user.host });
+
   return {
     dropletsFolder,
     apiFolder: normalizeDropletsFolder({ folder: user.apiFolder ?? DEFAULTS.apiFolder, fallback: DEFAULTS.apiFolder }),
@@ -380,7 +430,8 @@ export function resolveConfig(user: DropletsConfig, env: ResolveConfigEnv = {}):
     importMap,
     warnImportMap: user.warnImportMap ?? true,
     ...(cors ? { cors } : {}),
-    origin: normalizeOrigin({ value: user.origin }),
+    ...(location === undefined ? {} : { location }),
+    ...(host === undefined ? {} : { host }),
     trustedOrigins: normalizeTrustedOrigins({ origins: user.trustedOrigins }),
     fragmentCacheControl: resolveCacheControl({
       option: "fragmentCacheControl",

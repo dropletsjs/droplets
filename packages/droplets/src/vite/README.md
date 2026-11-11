@@ -29,7 +29,6 @@ export default defineConfig({
 | `adapter` | Decides what `vite build` emits as the server. `vite build` requires one; `vite dev` runs without one; `vite preview` needs one with `preview`. |
 | `renderers` | The UI engines. The plugin validates them when `droplets()` is called and appends the built-in `script` renderer. |
 | `css` | `path` (the shared stylesheet; default `./src/app.css` when that file exists), `scoped` (default `true`), `tailwind` (default `false`), `twPreflight` (default `true`). |
-| `prerender.host` | The host an `entries` render without its own `host` renders for. It must be an absolute URL. |
 
 ### The modules
 
@@ -101,10 +100,9 @@ restarts the server.
 ## Facts
 
 - `droplets()` returns the virtual-modules plugin, the dev externalize plugin, the core `droplets` plugin, asset URLs, Tailwind, server-only, renderer graphs, then each renderer's own plugins, in that order. `plugin.ts:592`
-- `droplets()` options are `configFile`, `adapter`, `renderers`, `css` and `prerender.host`; nothing else is read. `plugin.ts:48`
+- `droplets()` options are `configFile`, `adapter`, `renderers` and `css`; nothing else is read. `plugin.ts:48`
 - `droplets()` appends the built-in script renderer after the user's renderers. `plugin.ts:227`
 - `droplets()` validates the renderers when it is called: two renderers claiming one extension without `packages` to tell them apart is an error. `plugin.ts:239`, `../renderer.ts:623`
-- `prerender.host` that does not parse as an absolute URL throws `prerender.host must be an absolute URL` when `droplets()` is called. `plugin.ts:233`
 - `config` hook loads `droplets.config.*`, the env state, discovers the droplets and writes `.droplets/`, in every `vite dev` and `vite build`. `plugin.ts:339`, `plugin.ts:344`, `plugin.ts:354`, `plugin.ts:359`
 - `config` hook: a `static` env variable without a value throws under `vite build` and only warns under `vite dev`. `plugin.ts:350`
 - `config` hook sets `appType: "custom"`. `plugin.ts:368`
@@ -169,8 +167,7 @@ restarts the server.
 - `assetUrlsPlugin` is `sharedDuringBuild`: one location token nonce for every environment of a build. `assets.ts:144`
 - `buildHash` is 6 random hex characters, created per `droplets()` instance. `state.ts:96`, `state.ts:103`
 - `tokenNonce` is created per `droplets()` instance; each server bundle exports its own. `state.ts:104`, `virtual.ts:268`
-- Prerender host fallback: `prerender.host`, else `PUBLIC_URL` from the mode's env, else none (host-agnostic renders). `state.ts:85`
-- `PUBLIC_URL` that is not an absolute URL throws. `state.ts:92`
+- Prerender host fallback: `host` of the config, else none (host-agnostic renders). `prerender.ts:113`
 - `hooks.server` files looked up: `src/hooks.server.ts`, `src/hooks.server.js`. `state.ts:178`
 - `hooks.client` files looked up: `src/hooks.client.ts`, `.mts`, `.js`, `.mjs`. `state.ts:183`
 - `importmap.server` files looked up: `src/importmap.server.ts`, `src/importmap.server.js`. `state.ts:185`

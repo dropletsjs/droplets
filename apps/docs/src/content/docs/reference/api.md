@@ -383,13 +383,10 @@ type DropletsPluginOptions = {
     tailwind?: boolean;          // default false: add @tailwindcss/vite
     twPreflight?: boolean;       // default true
   };
-  prerender?: {
-    host?: string | URL;         // where entries without a host render; else PUBLIC_URL, else host-agnostic
-  };
 };
 ```
 
-See [`css`](/guides/configuration/#css) and [`host` at build](/guides/prerendering/#host-at-build).
+See [`css`](/guides/configuration/#css).
 
 Also exported: `DropletsCssOptions` (the `css` option), `DropletsPluginApi`
 (`plugin.api`, what companion plugins such as the devtools use in dev),

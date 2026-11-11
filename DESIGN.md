@@ -133,8 +133,7 @@ to the server as it came, so `_data` loads see the host the fragment was
 rendered for.
 
 Prerendering: `entries` returns events, `{ props?, host? }`. An entry renders
-for its `host`, else `prerender.host` from `droplets()`, else `PUBLIC_URL`,
-else host-agnostic. Host-agnostic renders get a stand-in: `origin` →
+for its `host`, else `host` of `droplets.config.ts`, else host-agnostic. Host-agnostic renders get a stand-in: `origin` →
 `__$DROPLET_HOST$__`, `pathname` → `__$DROPLET_PATH$__`, `href` /
 `toString()` / `toJSON()` → both; any other URL field throws
 `HostUrlPropsErrorInPrerender`, recorded on the render so a `try`/`catch`

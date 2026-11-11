@@ -46,7 +46,8 @@ production server never carries it.
 | `index` | absent: root `index.html` or a placeholder | kept as given |
 | `element` | `djs-droplet` | `^[a-z][a-z0-9._]*-[a-z0-9._-]*$` |
 | `cors` | off | `true` becomes `{ origin: "*" }`, an object passes through |
-| `origin` | `[]` | each `"*"` or an `http(s)` location with an optional path prefix |
+| `location` | absent: computed per request | one `http(s)` location with an optional path prefix; never `"*"` |
+| `host` | absent: computed per request | one bare origin, no path; never `"*"` |
 | `trustedOrigins` | `[]` | an array; each `"*"` or a bare origin, no path |
 | `fragmentCacheControl` | `private, no-store` | non-empty, no CR/LF, trimmed; `false` sends none |
 | `publicCacheControl` | `no-cache` | as `fragmentCacheControl`; `/assets/public/*` only |
@@ -57,10 +58,9 @@ production server never carries it.
 | `dev.strategy` | `"hmr"` | one of `DEV_STRATEGIES` |
 | `dev.injectTool` | `false` | |
 
-`"*"` in `origin` or `trustedOrigins` is accepted, never refused; the
-warning it earns is the runtime's (`runtime/security.ts`). `DROPLETS_ORIGIN`
-and `DROPLETS_TRUSTED_ORIGINS` are not read here: the runtime adds them per
-request through `normalizeOrigin` and `normalizeTrustedOrigins`.
+`"*"` in `trustedOrigins` is accepted, never refused; the warning it earns
+is the runtime's (`runtime/security.ts`). `DROPLETS_TRUSTED_ORIGINS` is not
+read here: the runtime adds it per request through `normalizeTrustedOrigins`.
 
 ### Discovery and flags
 
@@ -102,17 +102,19 @@ builds and runs them.
 - `element` must match `^[a-z][a-z0-9._]*-[a-z0-9._-]*$`, else `resolveConfig` throws. `config.ts:264`, `config.ts:354`
 - `isValidElementName` is the same check, exported from `@dropletsjs/droplets`. `config.ts:266`, `../index.ts:1`
 - `cors: true` resolves to `{ origin: "*" }`; an object passes through; anything else leaves `cors` unset. `config.ts:359`
-- `origin` accepts a string or a list; anything else throws. `config.ts:311`
-- `origin` entry `"*"` is kept as is: trust settings accept it, never refuse. `config.ts:313`
-- `origin` entries are `http:` or `https:` URLs only. `config.ts:301`
-- `origin` entries refuse credentials and a `*` in the hostname (`https://*.example`). `config.ts:303`
-- `origin` entries refuse `\`, `#` and `?`. `config.ts:294`
-- `origin` entry with a path keeps it as a prefix, trailing slashes trimmed, when `isLocationPrefix` accepts it. `config.ts:305`
+- `location` is one string; anything else, a list or `"*"` included, throws `location takes this server's public URL`. `config.ts:347`, `config.ts:349`
+- `location` is an `http:` or `https:` URL only. `config.ts:324`
+- `location` refuses credentials and a `*` in the hostname (`https://*.example`). `config.ts:326`
+- `location` refuses `\`, `#` and `?`. `config.ts:317`
+- `location` with a path keeps it as a prefix, trailing slashes trimmed, when `isLocationPrefix` accepts it. `config.ts:328`
 - `isLocationPrefix` takes a prefix that starts with `/`, is at most 256 characters, and has no `//`, `\`, `..`, `?`, `#` or control character. `../runtime/web-url.ts:46`
-- `origin` entry with the path `/` resolves to the bare origin. `config.ts:304`
-- `trustedOrigins` must be an array, else `resolveConfig` throws. `config.ts:273`
-- `trustedOrigins` entry `"*"` is kept as is. `config.ts:277`
-- `trustedOrigins` entries are bare origins (no path), resolved to `scheme://host[:port]`. `config.ts:285`, `config.ts:288`
+- `location` with the path `/` resolves to the bare origin. `config.ts:327`
+- `location` absent leaves the resolved config without a `location` key. `config.ts:433`
+- `host` is one bare origin (no path), checked as a `trustedOrigins` entry and resolved to `scheme://host[:port]`; anything else, `"*"` included, throws `host takes the origin of the page`. `config.ts:359`, `config.ts:361`, `config.ts:287`
+- `host` absent leaves the resolved config without a `host` key. `config.ts:434`
+- `trustedOrigins` must be an array, else `resolveConfig` throws. `config.ts:303`
+- `trustedOrigins` entry `"*"` is kept as is. `config.ts:306`
+- `trustedOrigins` entries are bare origins (no path), resolved to `scheme://host[:port]`. `config.ts:294`, `config.ts:295`
 - `DROPLETS_ORIGIN` is not read in core: the runtime parses it per request with `normalizeOrigin`, skipping bad entries (a warning under `vite dev`). `../runtime/security.ts:89`
 - `DROPLETS_TRUSTED_ORIGINS` is not read in core: the runtime parses it per request with `normalizeTrustedOrigins`, skipping bad entries (a warning under `vite dev`). `../runtime/security.ts:58`
 - `"*"` warning (`trusts any forwarded location`) is the runtime's dev log, not core's. `../runtime/dev-log.ts:49`

@@ -132,7 +132,7 @@ export type LoadEvent = Omit<RequestEvent, "params" | "url" | "cookies"> & {
   /**
    * Where the droplet renders, as `RequestEvent.host`. The fragment's own
    * URL is `request.url`. While prerendering it is the entry's `host`,
-   * `prerender.host`, `PUBLIC_URL`, or else a stand-in: `host.origin`,
+   * `host` of `droplets.config.ts`, or else a stand-in: `host.origin`,
    * `host.pathname` and `host.href` give tokens the server replaces per
    * request, any other field throws `HostUrlPropsErrorInPrerender` and stops
    * the build.
@@ -268,8 +268,8 @@ export type TransformInput = Transform | Transform[];
 /**
  * One render `entries` asks for: the event its loads run with. `props` are
  * the droplet's props (`{}` without them); `host` is where it renders. Without
- * `host`, `prerender.host` from `droplets()` applies, then `PUBLIC_URL`, then
- * a stand-in that keeps the render host-agnostic (see `LoadEvent.host`).
+ * `host`, `host` of `droplets.config.ts` applies, then a stand-in that keeps
+ * the render host-agnostic (see `LoadEvent.host`).
  */
 export type PrerenderEntry = {
   props?: Record<string, unknown>;
@@ -453,7 +453,7 @@ export class HostUrlPropsErrorInPrerender extends Error {
 
   constructor(droplet: string, entry: string, property: string) {
     super(
-      `${droplet}: host.${property} is not known while prerendering entry ${entry}; only host.origin, host.pathname and host.href are. Give \`host\` in the entry, set \`prerender.host\` in droplets() or PUBLIC_URL, or render it live`,
+      `${droplet}: host.${property} is not known while prerendering entry ${entry}; only host.origin, host.pathname and host.href are. Give \`host\` in the entry or in droplets.config.ts, or render it live`,
     );
     this.name = "HostUrlPropsErrorInPrerender";
     this.droplet = droplet;

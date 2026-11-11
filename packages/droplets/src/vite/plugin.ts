@@ -70,17 +70,6 @@ export type DropletsPluginOptions = {
   renderers?: DropletRenderer[];
   /** Stylesheets: the shared one, scoping, Tailwind. See `DropletsCssOptions`. */
   css?: DropletsCssOptions;
-  prerender?: {
-    /**
-     * Where the renders `entries` lists happen, when an entry gives no
-     * `host`: an absolute URL, `host` in their loads. `PUBLIC_URL` from the
-     * environment does the same when this is not set. Without either, a
-     * render is host-agnostic: `host.origin`, `host.pathname` and
-     * `host.href` are tokens replaced per request, any other field of
-     * `host` stops the build.
-     */
-    host?: string | URL;
-  };
 };
 
 /** One droplet as the devtools see it. */
@@ -225,14 +214,6 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
   // Script droplets (`+droplet.script.ts`) are core's: their renderer is
   // always there, after the user's.
   state.renderers = withScriptRenderer({ renderers: options.renderers ?? [] });
-  if (options.prerender?.host !== undefined) {
-    const host = options.prerender.host;
-    try {
-      state.prerenderHost = new URL(host).href;
-    } catch {
-      throw new Error(`droplets: prerender.host must be an absolute URL such as "https://shop.example", got "${String(host)}"`);
-    }
-  }
   // Two renderers claiming one extension without packages to tell them apart
   // is a configuration error: say so when the config is read, not when a
   // droplet happens to use it.

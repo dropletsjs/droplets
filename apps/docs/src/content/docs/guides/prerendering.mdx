@@ -38,9 +38,8 @@ export const entries = (() => [
 Each entry renders for the first host it can have:
 
 1. the entry's `host`;
-2. `prerender.host` in `droplets()` (`droplets({ prerender: { host: "https://shop.example" } })`);
-3. `PUBLIC_URL` from the mode's environment;
-4. none: the render is **host-agnostic**.
+2. [`host`](/guides/configuration/#options) in `droplets.config.ts` (`host: "https://shop.example"`);
+3. none: the render is **host-agnostic**.
 
 A render with a host is a real `URL` to its loads, and is stored under its
 props and that host's origin and path. A request gets it only when its own
@@ -63,8 +62,8 @@ Use them in text and attribute positions: inside an inline `<script>` or
 Logic on the value cannot be computed at build, so any other field
 (`host.searchParams`, `host.hostname`, …) throws
 `HostUrlPropsErrorInPrerender` and **stops the build**, even when the
-droplet's code catches it. Give that entry a `host`, set `prerender.host`, or
-render it live. [`cookies`](/guides/server/#cookies) stop the build the same
+droplet's code catches it. Give that entry a `host`, set `host` in
+`droplets.config.ts`, or render it live. [`cookies`](/guides/server/#cookies) stop the build the same
 way: there is no request at build.
 
 ## `transform`
