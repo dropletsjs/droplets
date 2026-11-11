@@ -18,7 +18,7 @@ import {
   tokenNonce,
 } from "./host.ts";
 import { isUnhandled } from "./load.ts";
-import { dropletElement } from "./page.ts";
+import { dropletElement } from "./element.ts";
 import { prerenderKey, propsKey } from "./props.ts";
 import { requestInfo, withRequestInfo } from "./request-store.ts";
 import { loadHeaders, storedHeaders } from "./set-headers.ts";

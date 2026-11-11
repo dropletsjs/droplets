@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dropletElement } from "../../src/runtime/page.ts";
+import { dropletElement } from "../../src/runtime/element.ts";
 
 const base = {
   element: "djs-droplet",
