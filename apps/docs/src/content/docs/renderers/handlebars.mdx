@@ -92,10 +92,6 @@ droplets: counter/+droplet.hbs: flags go in the comment the template starts with
 droplets: counter/+droplet.hbs: flag "hydrate" must be true, false, "visible" or "interactive", found "maybe"
 ```
 
-```
-droplets: counter/+droplet.ts exports "hydrate": flags live only in the droplet's component; declare it in counter/+droplet.hbs
-```
-
 and so is a `<style>` block, which is static CSS:
 
 ```
@@ -135,7 +131,8 @@ droplets: src/droplets/counter/+droplet.hbs:1: a <style> block cannot contain {{
   Partials have none, since every droplet registers them.
 - **Flags** are `export <flag> = <value>` lines in the opening comment, one
   per line or all on one line (`{{!-- export hydrate = false; export prerender = true --}}`),
-  and nowhere else. `+error.hbs` follows the droplet's flags.
+  and nowhere else: one exported from `+droplet.ts` or `+droplet.server.ts`
+  is ignored. `+error.hbs` follows the droplet's flags.
 - **Options:** `handlebars({ partials, helpers, compile })` moves the
   partials folder (`false` for none) or the helpers module (`false` for
   none), and passes options to `Handlebars.precompile` (`strict`,

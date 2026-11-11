@@ -11,8 +11,6 @@ import type { HydrateMode, RenderFlags } from "../renderer.ts";
 /** The language a source is parsed as. */
 export type FlagSourceLang = "js" | "jsx" | "ts" | "tsx";
 
-export const FLAG_NAMES = ["ssr", "hydrate", "prerender"] as const;
-
 /** `+droplet.tsx` -> `"tsx"`; anything that is not a known script extension parses as TSX, the widest. */
 export function langOfFile(file: string): FlagSourceLang {
   const match = file.match(/\.[cm]?([jt]sx?)$/);
@@ -89,12 +87,6 @@ function valueExports(program: ESTree.Program): Map<string, FlagExport> {
     }
   }
   return exports;
-}
-
-/** The names of a module's value exports, for a check that no flag is exported where none belongs. */
-export function readExportNames(source: string, lang: FlagSourceLang): string[] {
-  const program = parse(source, lang);
-  return program ? [...valueExports(program).keys()] : [];
 }
 
 function literal(init: ESTree.Expression | null): boolean | string | undefined {

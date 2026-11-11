@@ -75,12 +75,9 @@ Only a top-level `export const` counts: a commented-out
 `// export const ssr = false` is no flag. A value that is not a literal
 (`export const ssr = !dev`) logs a warning and is ignored.
 
-A flag exported from `+droplet.ts` or `+droplet.server.ts` fails the build
-and `vite dev`:
-
-```
-droplets: counter/+droplet.ts exports "ssr": flags live only in the droplet's component; declare it in counter/+droplet.svelte
-```
+Flags live only in the component and are read from there. An `ssr`,
+`hydrate` or `prerender` exported from `+droplet.ts` or `+droplet.server.ts`
+is not a flag: it changes nothing.
 
 **One set of flags per droplet.** `+error.*` is the droplet's error boundary
 and follows the droplet's flags: it renders on the server when the droplet

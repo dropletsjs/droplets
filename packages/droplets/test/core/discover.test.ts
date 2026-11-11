@@ -6,7 +6,7 @@ import {
   discoverDroplets,
   dropletId,
 } from "../../src/core/discover.ts";
-import { langOfFile, readExportedFlag, readExportedFlags, readExportNames } from "../../src/core/flags.ts";
+import { langOfFile, readExportedFlag, readExportedFlags } from "../../src/core/flags.ts";
 import { setLogLevel } from "../../src/core/logger.ts";
 import {
   importsPackage,
@@ -332,28 +332,20 @@ describe("discoverDroplets", () => {
     expect(card).toMatchObject({ ssr: true, hydrate: true, prerender: false });
   });
 
-  it.each(["+droplet.ts", "+droplet.server.ts"])("refuses a flag exported from %s, in a build and in dev", async (file) => {
+  it.each(["+droplet.ts", "+droplet.server.ts"])("ignores a flag exported from %s, in a build and in dev", async (file) => {
     const other = await mkdtemp(join(tmpdir(), "droplets-discover-"));
-    await mkdir(join(other, "card"));
-    await writeFile(join(other, "card", "+droplet.svelte"), "<p></p>");
-    await writeFile(join(other, "card", file), "export const load = () => ({});\nexport const ssr = false;\nexport { x as prerender };\n");
-    const message = `droplets: card/${file} exports "ssr", "prerender": flags live only in the droplet's component; ` +
-      "declare them in card/+droplet.svelte";
-    await expect(discoverDroplets(other, [svelte])).rejects.toThrow(message);
-    await expect(discoverDroplets(other, [svelte], { dev: true })).rejects.toThrow(message);
-  });
-
-  it("lists a load file's value exports, types left out", () => {
-    const source = [
-      "export const load = () => ({});",
-      "export type ssr = boolean;",
-      "export interface hydrate {}",
-      "export const { a, b: [c] } = obj;",
-      "export function handleError() {}",
-      'export { x as "prerender" };',
-    ].join("\n");
-    expect(readExportNames(source, "ts")).toEqual(["load", "a", "c", "handleError", "prerender"]);
-    expect(readExportNames("export const = ;", "ts")).toEqual([]);
+    await mkdir(join(other, "card"), { recursive: true });
+    await mkdir(join(other, "plain"), { recursive: true });
+    await writeFile(join(other, "card", "+droplet.svelte"), "<script module>export const hydrate = false;</script><p></p>");
+    await writeFile(join(other, "plain", "+droplet.svelte"), "<p></p>");
+    const load = "export const load = () => ({});\nexport const ssr = false;\nexport const hydrate = true;\nexport const prerender = true;\n";
+    await writeFile(join(other, "card", file), load);
+    await writeFile(join(other, "plain", file), load);
+    for (const options of [{}, { dev: true }]) {
+      const [card, plain] = await discoverDroplets(other, [svelte], options);
+      expect(card).toMatchObject({ id: "card", ssr: true, hydrate: false, prerender: false });
+      expect(plain).toMatchObject({ id: "plain", ssr: true, hydrate: true, prerender: false });
+    }
   });
 
   it("names the renderer to install for an unknown extension", async () => {

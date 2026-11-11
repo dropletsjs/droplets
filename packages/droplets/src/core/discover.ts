@@ -2,7 +2,7 @@ import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { kebabCase } from "case-anything";
 import { fileExists, listDirectories, readTextFile } from "./fs.ts";
-import { FLAG_NAMES, langOfFile, readExportedFlags, readExportNames } from "./flags.ts";
+import { langOfFile, readExportedFlags } from "./flags.ts";
 import { logger } from "./logger.ts";
 import {
   CORE_SUFFIXES,
@@ -160,22 +160,6 @@ async function findComponent(
   return { file, renderer, flags: withFlagDefaults(declared) };
 }
 
-const LOAD_FILES = ["+droplet.ts", "+droplet.server.ts"];
-
-/** A flag exported from a load file is an error: flags live only in the component. */
-async function refuseLoadFileFlags(folderName: string, folder: string, files: string[], component: string): Promise<void> {
-  for (const file of LOAD_FILES.filter((f) => files.includes(f))) {
-    const source = (await readTextFile(resolve(folder, file))) ?? "";
-    const names = readExportNames(source, "ts").filter((name) => (FLAG_NAMES as readonly string[]).includes(name));
-    if (names.length === 0) continue;
-    const list = names.map((name) => `"${name}"`).join(", ");
-    throw new Error(
-      `droplets: ${folderName}/${file} exports ${list}: flags live only in the droplet's component; ` +
-        `declare ${names.length > 1 ? "them" : "it"} in ${folderName}/${component}`,
-    );
-  }
-}
-
 /**
  * Finds every `<folder>/+droplet.<ext>` under `dropletsRoot`, picks the
  * renderer for each by extension and reads its build-time flags. The single
@@ -197,7 +181,6 @@ export async function discoverDroplets(
     const id = dropletId(name);
     const component = await findComponent("droplet", name, folder, files, byExtension, id, options);
     if (!component) continue;
-    await refuseLoadFileFlags(name, folder, files, component.file);
 
     if (seen.has(id)) {
       logger.warn("framework", "duplicate droplet id; skipping folder", { id, folder: name });

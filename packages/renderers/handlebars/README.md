@@ -49,8 +49,8 @@ export const upper = (value: unknown) => String(value).toUpperCase();
 
 - **Flags** go in the comment the template opens with, before anything else:
   `export <flag> = <value>`, on lines of their own or on one line, and
-  nowhere else. A misplaced or misspelled flag fails the build, and so does
-  one exported from `+droplet.ts` or `+droplet.server.ts`.
+  nowhere else. A misplaced or misspelled flag in the template fails the
+  build; one exported from `+droplet.ts` or `+droplet.server.ts` is ignored.
 - **Context:** `{{data.…}}` in the droplet, `{{error.…}}` in the error page,
   `{{{children}}}` for the host's content. `@droplet`, `@kind` and
   `@renderId` are data variables of the render.

@@ -17,6 +17,7 @@ packages/droplets/test/fixtures/.server-only-*/
 packages/droplets/test/fixtures/.script-*/
 packages/droplets/test/fixtures/.prerender-host-*/
 packages/droplets/test/fixtures/.client-graph-*/
+packages/renderers/svelte/test/fixtures/.flags-*/
 
 # Playwright's output.
 test-results/
