@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { logger, type DropletsAdapter } from "@dropletsjs/droplets";
+import { logger, type DropletsAdapter, type DropletsManifest } from "@dropletsjs/droplets";
 import { defaultServerConditions } from "vite";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -15,6 +15,9 @@ const here = dirname(fileURLToPath(import.meta.url));
 const ASSETS_IGNORE = "/droplets.json\n/.vite/\n";
 
 const WRANGLER_CONFIGS = ["wrangler.jsonc", "wrangler.json", "wrangler.toml"];
+
+/** The project's own `_headers`, in its root: appended after the adapter's rules, so it has the last word. */
+const USER_HEADERS = "_headers";
 
 type ToJsonInput = { text: string };
 
@@ -56,49 +59,94 @@ function readRunWorkerFirst({ file, text }: ReadRunWorkerFirstInput): unknown {
   return config.assets?.run_worker_first;
 }
 
-/** What the Worker must answer itself; a `*` stands for anything, `/` included, as in `run_worker_first`. */
-const WORKER_ROUTES = ["/index.js", "/droplets/*", "/assets/*"];
+const DEPLOYMENT_DOCS = "https://dropletsjs.dev/guides/deployment/";
 
-const RUN_WORKER_FIRST_DOCS = "https://dropletsjs.dev/guides/deployment/#run_worker_first";
+const IMMUTABLE = "public, max-age=2592000, immutable";
 
-type RoutePair = { pattern: string; route: string };
+type HeadersBlockInput = { publicCacheControl: string | false };
 
-/** Whether the `run_worker_first` glob `pattern` matches `route` literally. */
-function matchesRoute({ pattern, route }: RoutePair): boolean {
+/**
+ * The adapter's rules for `dist/client/_headers`. Cloudflare applies every
+ * rule that matches and joins repeated headers, so each rule detaches
+ * `Cache-Control` first: the default of static assets, and on
+ * `/assets/public/*` the immutable one `/assets/*` gave it.
+ */
+function headersBlock({ publicCacheControl }: HeadersBlockInput): string {
+  const files = (path: string, cacheControl: string) =>
+    `${path}\n  Access-Control-Allow-Origin: *\n  ! Cache-Control\n  Cache-Control: ${cacheControl}\n`;
+  const publicRule = `/assets/public/*\n  ! Cache-Control\n${publicCacheControl === false ? "" : `  Cache-Control: ${publicCacheControl}\n`}`;
+  return [
+    files("/index.js", "no-store"),
+    files("/assets/*", IMMUTABLE),
+    publicRule,
+    files("/droplets/:id/client.js", IMMUTABLE),
+    files("/droplets/:id/style.css", IMMUTABLE),
+  ].join("");
+}
+
+const MAX_RULES = 100;
+const MAX_LINE = 2000;
+
+type HeadersLimitsInput = { text: string };
+
+/** What breaks Cloudflare's `_headers` limits, `null` when nothing does. */
+function headersOverLimits({ text }: HeadersLimitsInput): string | null {
+  const lines = text.split("\n");
+  const rules = lines.filter((line) => line.trim() !== "" && !/^\s/.test(line) && !line.startsWith("#")).length;
+  const long = lines.filter((line) => line.length > MAX_LINE).length;
+  if (rules <= MAX_RULES && long === 0) return null;
+  return [rules > MAX_RULES ? `${rules} rules` : "", long > 0 ? `${long} ${long === 1 ? "line" : "lines"} over ${MAX_LINE} characters` : ""]
+    .filter(Boolean)
+    .join(" and ");
+}
+
+type MatchesGlobInput = { pattern: string; path: string };
+
+/** Whether a `run_worker_first` pattern matches `path`; `*` stands for anything, `/` included. */
+function matchesGlob({ pattern, path }: MatchesGlobInput): boolean {
   const source = pattern
     .split("*")
     .map((part) => part.replace(/[.+?^${}()|[\]\\]/g, "\\$&"))
     .join(".*");
-  return new RegExp(`^${source}$`).test(route);
+  return new RegExp(`^${source}$`).test(path);
 }
 
-/** Whether `pattern` matches every path `route` stands for. */
-function coversRoute({ pattern, route }: RoutePair): boolean {
-  if (!route.endsWith("*")) return matchesRoute({ pattern, route });
-  const prefix = pattern.slice(0, -1);
-  return pattern.endsWith("*") && !prefix.includes("*") && route.startsWith(prefix);
-}
+type WorkerFirstPathsInput = { value: unknown; paths: readonly string[] };
 
-/** Whether `pattern` matches any path `route` stands for. */
-function touchesRoute({ pattern, route }: RoutePair): boolean {
-  if (!route.endsWith("*")) return matchesRoute({ pattern, route });
-  const [literal = ""] = pattern.split("*");
-  const prefix = route.slice(0, -1);
-  return literal.startsWith(prefix) || (pattern.includes("*") && prefix.startsWith(literal));
-}
-
-type CoversWorkerRoutesInput = { value: unknown };
-
-/** Whether a `run_worker_first` value sends every route of `WORKER_ROUTES` to the Worker: `true`, or a list that covers them and excludes none (`!`). */
-function coversWorkerRoutes({ value }: CoversWorkerRoutesInput): boolean {
-  if (value === true) return true;
-  if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) return false;
-  const patterns: string[] = value;
+/**
+ * Which of `paths` a `run_worker_first` value sends through the Worker:
+ * all of them for `true`; for a list, those a pattern matches and no `!`
+ * pattern excludes (negative patterns win).
+ */
+function workerFirstPaths({ value, paths }: WorkerFirstPathsInput): string[] {
+  if (value === true) return [...paths];
+  if (!Array.isArray(value)) return [];
+  const patterns = value.filter((entry): entry is string => typeof entry === "string");
   const included = patterns.filter((pattern) => !pattern.startsWith("!"));
   const excluded = patterns.filter((pattern) => pattern.startsWith("!")).map((pattern) => pattern.slice(1));
-  return WORKER_ROUTES.every(
-    (route) => included.some((pattern) => coversRoute({ pattern, route })) && !excluded.some((pattern) => touchesRoute({ pattern, route })),
+  return paths.filter(
+    (path) => included.some((pattern) => matchesGlob({ pattern, path })) && !excluded.some((pattern) => matchesGlob({ pattern, path })),
   );
+}
+
+type FilePathsInput = { manifestPath: string };
+
+/** URL paths of the build's files that `_headers` covers: generic ones, and each droplet's from the manifest. */
+async function filePaths({ manifestPath }: FilePathsInput): Promise<string[]> {
+  const paths = ["/index.js", "/assets/index.js", "/assets/public/index.txt", "/droplets/x/client.js", "/droplets/x/style.css"];
+  let manifest: DropletsManifest;
+  try {
+    manifest = JSON.parse(await readFile(manifestPath, "utf8")) as DropletsManifest;
+  } catch {
+    // No manifest to read: the generic paths stand.
+    return paths;
+  }
+  if (manifest.__entryModule) paths.push(`/${manifest.__entryModule}`);
+  for (const [id, entry] of Object.entries(manifest.droplets ?? {})) {
+    if (entry.client) paths.push(`/${entry.client}`);
+    if (entry.css?.length) paths.push(`/droplets/${id}/style.css`);
+  }
+  return paths;
 }
 
 export type CloudflareAdapterOptions = {
@@ -112,7 +160,9 @@ export type CloudflareAdapterOptions = {
 /**
  * The Cloudflare Workers adapter: `vite build` emits `dist/worker.js`, a
  * self-contained Worker with the SSR renderer and the manifest inlined. The
- * client build in `dist/client` is served through Workers Static Assets.
+ * client build in `dist/client` is served through Workers Static Assets,
+ * with the headers of the `dist/client/_headers` it writes; what is no file
+ * reaches the Worker.
  *
  * ```ts
  * import { droplets } from "@dropletsjs/droplets/vite";
@@ -127,7 +177,7 @@ export type CloudflareAdapterOptions = {
  *   "main": "dist/worker.js",
  *   "compatibility_date": "2025-10-01",
  *   "compatibility_flags": ["nodejs_compat"],   // Svelte's SSR uses AsyncLocalStorage
- *   "assets": { "directory": "dist/client", "binding": "ASSETS", "run_worker_first": true }
+ *   "assets": { "directory": "dist/client", "binding": "ASSETS" }
  * }
  * ```
  */
@@ -160,13 +210,31 @@ export function cloudflare(options: CloudflareAdapterOptions = {}): DropletsAdap
         },
       },
     },
-    async afterBuild({ root, outDir, serverPath }) {
-      await writeFile(resolve(outDir, "client/.assetsignore"), ASSETS_IGNORE);
+    async afterBuild({ root, outDir, manifestPath, serverPath, config }) {
+      const client = resolve(outDir, "client");
+      await writeFile(resolve(client, ".assetsignore"), ASSETS_IGNORE);
+      const own = existsSync(resolve(root, USER_HEADERS)) ? await readFile(resolve(root, USER_HEADERS), "utf8") : "";
+      const headers = `${headersBlock({ publicCacheControl: config.publicCacheControl })}${own ? `\n${own}` : ""}`;
+      await writeFile(resolve(client, "_headers"), headers);
+      const over = headersOverLimits({ text: headers });
+      if (over) {
+        logger.warn(
+          "framework",
+          `dist/client/_headers has ${over}: Cloudflare takes up to ${MAX_RULES} rules and ${MAX_LINE} characters per line; trim ${USER_HEADERS}, see ${DEPLOYMENT_DOCS}#_headers`,
+        );
+      }
+      if (existsSync(resolve(client, "assets/public/_headers"))) {
+        logger.warn(
+          "framework",
+          `public/_headers lands at /assets/public/_headers, where Cloudflare never reads it; move your rules to ${USER_HEADERS} in the project root, which the adapter appends to dist/client/_headers, see ${DEPLOYMENT_DOCS}#_headers`,
+        );
+      }
+
       const file = WRANGLER_CONFIGS.find((name) => existsSync(resolve(root, name)));
       if (!file) {
         logger.info(
           "framework",
-          `no wrangler config found; point "main" at ${serverPath}, "assets.directory" at dist/client and set "assets.run_worker_first": true`,
+          `no wrangler config found; point "main" at ${serverPath} and "assets.directory" at dist/client, with "assets.binding": ${JSON.stringify(assetsBinding)}`,
         );
         return;
       }
@@ -175,13 +243,18 @@ export function cloudflare(options: CloudflareAdapterOptions = {}): DropletsAdap
         value = readRunWorkerFirst({ file, text: await readFile(resolve(root, file), "utf8") });
       } catch {
         // Text this reader does not parse (broken JSON, a TOML value JSON does not take): warn, never fail the build.
-        logger.warn("framework", `could not read assets.run_worker_first in ${file}; set it to true, see ${RUN_WORKER_FIRST_DOCS}`);
-        return;
-      }
-      if (!coversWorkerRoutes({ value })) {
         logger.warn(
           "framework",
-          `${file}: assets.run_worker_first is ${value === undefined ? "not set" : JSON.stringify(value)}, so static assets answer ${WORKER_ROUTES.join(", ")} without the Worker's CORS and no-store headers and pages on another origin cannot load them; set it to true, see ${RUN_WORKER_FIRST_DOCS}`,
+          `could not read assets.run_worker_first in ${file}; leave it out so static assets serve the build's files with dist/client/_headers, see ${DEPLOYMENT_DOCS}#run_worker_first`,
+        );
+        return;
+      }
+      const matched = workerFirstPaths({ value, paths: await filePaths({ manifestPath }) });
+      if (matched.length > 0) {
+        const shown = matched.length > 5 ? `${matched.slice(0, 5).join(", ")}, …` : matched.join(", ");
+        logger.warn(
+          "framework",
+          `${file}: assets.run_worker_first is ${JSON.stringify(value)}, so build files (${shown}) go through the Worker, billed per request; dist/client/_headers already gives them their CORS and cache headers, so leave run_worker_first out, see ${DEPLOYMENT_DOCS}#run_worker_first`,
         );
       }
     },

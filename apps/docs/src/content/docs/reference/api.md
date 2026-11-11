@@ -344,6 +344,11 @@ type DropletsAdapter = {
 };
 ```
 
+`afterBuild` runs once both environments are built, with `root`, `outDir`,
+`manifestPath` (the emitted `droplets.json`), `serverPath` (the emitted
+server file) and `config`, the resolved `droplets.config.ts`. The Cloudflare
+adapter writes `dist/client/_headers` there, `publicCacheControl` included.
+
 `AssetLoaders` reads the client build through `droplets.json`:
 `loadEntryClient()` returns the `/index.js` file (`__entryClient`),
 `entryModule()` the path of the entry it imports (`__entryModule`, announced

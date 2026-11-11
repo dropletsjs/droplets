@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { entryClientPath } from "../../src/core/paths.ts";
 import { locationScript } from "../../src/runtime/server-records.ts";
 import { fakeRenderer } from "../../src/testing/index.ts";
+import type { AdapterBuildContext } from "../../src/adapters.ts";
 import { droplets, type DropletsAdapter } from "../../src/vite.ts";
 
 const root = fileURLToPath(new URL("../fixtures/app/", import.meta.url));
@@ -18,11 +19,16 @@ const clientExternal = {
   client: { build: { rolldownOptions: { external: ["case-anything"] } } },
 };
 
+const afterBuilds: AdapterBuildContext[] = [];
+
 const fakeAdapter: DropletsAdapter = {
   name: "fake",
   serverEntry: resolve(root, "fake-entry.js"),
   serverFile: "server.js",
   separateSsrBundle: true,
+  afterBuild: (context) => {
+    afterBuilds.push(context);
+  },
 };
 
 beforeAll(() => {
@@ -230,6 +236,18 @@ describe("vite build", () => {
     expect(server).toContain("fake-entry-marker");
     // Nothing virtual is left to resolve at runtime.
     expect(server).not.toMatch(/from "virtual:/);
+  });
+
+  it("runs afterBuild once, with the paths and the resolved config", () => {
+    expect(afterBuilds).toHaveLength(1);
+    const [context] = afterBuilds;
+    expect(context).toMatchObject({
+      root: root.replace(/\/$/, ""),
+      outDir,
+      manifestPath: resolve(outDir, "client/droplets.json"),
+      serverPath: resolve(outDir, "server.js"),
+    });
+    expect(context?.config).toMatchObject({ element: "test-droplet", server: { port: 8123 }, publicCacheControl: "no-cache" });
   });
 
   it("bundles API routes, hooks and the index page", async () => {

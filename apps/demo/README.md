@@ -125,8 +125,8 @@ so after a demo deploy, build and deploy the docs against it
 - Worker assets: `dist/client` through the `ASSETS` binding. `wrangler.jsonc:13`, `wrangler.jsonc:14`
 - Worker `run_worker_first` is `true`: every request, files included, reaches the Worker. `wrangler.jsonc:19`
 - Worker runs only on the custom domain `demo.dropletsjs.dev`; no `*.workers.dev` or preview URLs. `wrangler.jsonc:22`, `wrangler.jsonc:23`, `wrangler.jsonc:24`
-- Cloudflare adapter warns, never fails, when `run_worker_first` does not cover the Worker's routes. `../../packages/adapters/cloudflare/src/index.ts:177`
-- Cloudflare adapter writes `client/.assetsignore` with `/droplets.json` and `/.vite/`. `../../packages/adapters/cloudflare/src/index.ts:15`, `../../packages/adapters/cloudflare/src/index.ts:161`
+- Cloudflare adapter warns, never fails, when `run_worker_first` sends the build's files through the Worker. `../../packages/adapters/cloudflare/src/index.ts:253`
+- Cloudflare adapter writes `client/.assetsignore` with `/droplets.json` and `/.vite/`. `../../packages/adapters/cloudflare/src/index.ts:15`, `../../packages/adapters/cloudflare/src/index.ts:211`
 - `/health` is the framework's default health route. `../../packages/droplets/src/core/config.ts:191`
 - `hello` props: `who`, trimmed, 1 to 40 characters, default `world`. `src/droplets/hello/+droplet.ts:8`
 - `hello` load returns the greeting and `renderedAt`, `cache-control: public, max-age=300`. `src/droplets/hello/+droplet.server.ts:8`, `src/droplets/hello/+droplet.server.ts:9`

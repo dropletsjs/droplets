@@ -12,8 +12,12 @@
   Checked by: `test/worker.test.ts`, `test/index.test.ts`.
 - Hashed files under `/assets/*` are `public, max-age=2592000, immutable`; `public/` under `/assets/public/*` gets `publicCacheControl` (`no-cache` by default), an `ETag` and 304.
   Checked by: `test/worker.test.ts`.
-- The user's wrangler config is read, never written; a `run_worker_first` that leaves the Worker's routes to static assets warns once and never fails the build.
+- Static assets answer the build's files before the Worker; `dist/client/_headers` gives `/index.js`, `/assets/*`, `/assets/public/*` and each droplet's `client.js` and `style.css` their CORS and `Cache-Control`, each rule detaching `Cache-Control` first, and the project root's `_headers` is appended after them.
   Checked by: `test/index.test.ts`.
+- The user's wrangler config is read, never written; a `run_worker_first` that sends one of the build's files through the Worker warns once and never fails the build, and unset or `false` is silent.
+  Checked by: `test/index.test.ts`.
+- A binding answer of 400 or more leaves the Worker with `no-store`.
+  Checked by: `test/worker.test.ts`.
 - The Worker's bindings are the runtime environment, set on every request before it is answered.
   Checked by: `test/worker.test.ts`.
 - A droplet name from the URL reaches the inlined manifest only through `Object.hasOwn`.

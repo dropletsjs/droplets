@@ -174,6 +174,14 @@ describe("worker", () => {
     expect(asset.headers.get("x-served-by")).toBe("assets-binding");
   });
 
+  it("sends a missing file's 404 from the binding with no-store, so it is never cached", async () => {
+    for (const path of ["/assets/missing.js", "/assets/public/missing.txt"]) {
+      const res = await call({ path });
+      expect(res.status, path).toBe(404);
+      expect(res.headers.get("cache-control"), path).toBe("no-store");
+    }
+  });
+
   it("serves public/ at /assets/public/, revalidated: no-cache, an ETag, 304 when it matches", async () => {
     const res = await call({ path: "/assets/public/robots.txt" });
     expect(res.status).toBe(200);

@@ -560,6 +560,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
         outDir: state.outDir,
         manifestPath,
         serverPath: resolve(state.outDir, adapter.serverFile),
+        config: state.config,
       });
       logger.info("framework", "build finished", { manifest: manifestPath });
     },

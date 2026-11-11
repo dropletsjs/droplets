@@ -89,9 +89,7 @@ export default defineConfig({ plugins: [droplets({ adapter: cloudflare(), render
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "dist/client",
-    "binding": "ASSETS",
-    // Every request reaches the Worker, files included.
-    "run_worker_first": true
+    "binding": "ASSETS"
   }
 }
 ```
@@ -102,25 +100,81 @@ wrangler dev        # local, in workerd
 wrangler deploy
 ```
 
+### Static files and `_headers`
+
+Workers Static Assets answer every request for a file in `dist/client`
+before the Worker runs: `/index.js`, the entry and the chunks under
+`/assets/*`, `public/` under `/assets/public/*`, and each droplet's
+`/droplets/<id>/client.js` and `/droplets/<id>/style.css`. Those requests
+are not Worker invocations, so they are not billed as such. Everything else
+reaches the Worker: renders at `/droplets/<id>`, `/droplets/<id>/_data`,
+actions, `/env.js`, `/api/*` and the health check.
+
+`vite build` writes `dist/client/_headers`, which gives those files their
+headers:
+
+```
+/index.js
+  Access-Control-Allow-Origin: *
+  ! Cache-Control
+  Cache-Control: no-store
+/assets/*
+  Access-Control-Allow-Origin: *
+  ! Cache-Control
+  Cache-Control: public, max-age=2592000, immutable
+/assets/public/*
+  ! Cache-Control
+  Cache-Control: no-cache
+/droplets/:id/client.js
+  Access-Control-Allow-Origin: *
+  ! Cache-Control
+  Cache-Control: public, max-age=2592000, immutable
+/droplets/:id/style.css
+  Access-Control-Allow-Origin: *
+  ! Cache-Control
+  Cache-Control: public, max-age=2592000, immutable
+```
+
+The `/assets/public/*` rule carries
+[`publicCacheControl`](/guides/configuration/) (`no-cache` by default); with
+`publicCacheControl: false` it keeps only `! Cache-Control`. These files are
+public, so they are sent with `Access-Control-Allow-Origin: *` whatever
+`cors` says; `cors` applies to what the Worker answers. Cloudflare reads
+`_headers` and never serves it as a file
+([Headers](https://developers.cloudflare.com/workers/static-assets/headers/)),
+so `.assetsignore` does not list it.
+
+To add your own rules, put a `_headers` file in the project root (next to
+`wrangler.jsonc`, not in `public/`). `vite build` appends it after the
+adapter's rules. Cloudflare applies every rule that matches a path and joins
+a header that two rules set with a comma, so a rule that changes
+`Cache-Control` starts with `! Cache-Control`:
+
+```
+/assets/public/fonts/*
+  ! Cache-Control
+  Cache-Control: public, max-age=31536000
+```
+
+A `public/_headers` lands at `/assets/public/_headers`, where Cloudflare
+never reads it, and the build warns once. The build also warns when the
+file has more than 100 rules or a line longer than 2,000 characters,
+Cloudflare's limits.
+
 ### `run_worker_first`
 
-Set `run_worker_first` to `true`, or to a list that covers `/index.js`,
-`/droplets/*` and `/assets/*` (`["/index.js", "/droplets/*", "/assets/*"]`,
-or `["/*"]`). The Worker answers `/index.js` with the stub that records
-where it was loaded from, and reads `/droplets/*` and `/assets/*` through
-the binding to send them with CORS and their cache headers.
+Leave `run_worker_first` out. The build's files need nothing from the
+Worker: `/index.js` is a file of the build and `_headers` carries their CORS
+and cache headers.
 
-Without it, Workers Static Assets answer those paths before the Worker
-runs. `/index.js` and the bundles go out without the Worker's CORS headers,
-and `/index.js` is the bare entry file, without the stub (the location
-record, runtime public env variables) and without `no-store`, so a browser
-or CDN may keep it past the next deploy. A page on another origin cannot
-load the droplets at all.
-
-The adapter reads your wrangler config (`wrangler.jsonc`, `wrangler.json` or
-`wrangler.toml`) after `vite build` and warns once when `run_worker_first`
-is `false`, unset, or a list that misses one of those paths. The build goes
-on: the setting is yours. It also warns when the file does not parse.
+`true`, or a list whose patterns match `/index.js`, `/assets/*` or a
+droplet's `client.js` or `style.css`, sends those requests through the
+Worker, billed per request. The adapter reads your wrangler config
+(`wrangler.jsonc`, `wrangler.json` or `wrangler.toml`) after `vite build`
+and warns once when it does, naming the paths it matched; a `!` pattern
+that excludes a path wins. The build goes on: the setting is yours. A list
+that matches none of them (`["/api/*"]`) is silent, and so is `false`. It
+also warns when the file does not parse.
 
 The Worker bundles everything, so there are no `node_modules` at runtime.
 `PORT` and `server.port` do not apply. Environment variables come from the
@@ -129,7 +183,8 @@ Prerendered droplets are read through the assets binding, from
 `dist/client/_prerendered/<random>/`: a name new every build that only the
 Worker's inlined manifest holds, so no assets config makes them reachable at
 a URL one could guess. `public/` is in `dist/client/assets/public/`, served at
-`/assets/public/*` with `no-cache` and the binding's `ETag`. `vite build` also writes `dist/client/.assetsignore`,
+`/assets/public/*` with `publicCacheControl` and the static assets' `ETag`. A
+file that is missing answers `404` with `no-store`. `vite build` also writes `dist/client/.assetsignore`,
 which keeps `droplets.json` and `.vite/` out of the upload. Set `cors` in `droplets.config.ts` if
 pages on other origins embed your droplets. On the free plan this is enough
 to host a droplets server for a documentation site or a demo.

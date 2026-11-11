@@ -100,7 +100,7 @@ restarts the server.
 
 ## Facts
 
-- `droplets()` returns the virtual-modules plugin, the dev externalize plugin, the core `droplets` plugin, asset URLs, Tailwind, server-only, renderer graphs, then each renderer's own plugins, in that order. `plugin.ts:591`
+- `droplets()` returns the virtual-modules plugin, the dev externalize plugin, the core `droplets` plugin, asset URLs, Tailwind, server-only, renderer graphs, then each renderer's own plugins, in that order. `plugin.ts:592`
 - `droplets()` options are `configFile`, `adapter`, `renderers`, `css` and `prerender.host`; nothing else is read. `plugin.ts:48`
 - `droplets()` appends the built-in script renderer after the user's renderers. `plugin.ts:227`
 - `droplets()` validates the renderers when it is called: two renderers claiming one extension without `packages` to tell them apart is an error. `plugin.ts:239`, `../renderer.ts:623`
@@ -129,8 +129,8 @@ restarts the server.
 - `generateBundle` of the client build records every bare import left external, for `importmap`'s `externals`. `plugin.ts:514`
 - `buildApp` writes the manifest and copies `public/` right after the client build. `plugin.ts:543`, `plugin.ts:544`
 - `buildApp` prerenders right after the ssr build, then removes `dist/server/` unless the adapter has `separateSsrBundle`. `plugin.ts:548`, `plugin.ts:552`
-- `adapter.afterBuild` runs last, with `root`, `outDir`, `manifestPath` and `serverPath`. `plugin.ts:558`
-- `vite preview` runs `adapter.preview`; without it the plugin warns and serves nothing. `plugin.ts:570`
+- `adapter.afterBuild` runs last, with `root`, `outDir`, `manifestPath`, `serverPath` and the resolved `config`. `plugin.ts:558`, `plugin.ts:563`, `../../test/integration/vite.test.ts:241`
+- `vite preview` runs `adapter.preview`; without it the plugin warns and serves nothing. `plugin.ts:571`
 - `DropletsPluginApi` (`plugin.api`) gives `element`, `strategy`, `droplets`, `renderers`, `dropletsRoot`, `importMapPath`, `fetch`, `loaderUrl`, `syncTypes` and `setDevTool`. `plugin.ts:116`, `plugin.ts:313`
 - `DropletsPluginApi.renderers()` never lists the built-in `script` renderer. `plugin.ts:317`
 - `DropletsPluginApi.fetch` throws outside `vite dev`. `plugin.ts:321`

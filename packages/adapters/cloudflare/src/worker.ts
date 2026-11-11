@@ -35,6 +35,8 @@ type LoadFileInput = { path: string };
 
 type RevalidatedInput = { response: Response; ifNoneMatch: string | undefined; cacheControl: string | false };
 
+type UncachedInput = { response: Response };
+
 type AppOfInput = { env: Env };
 
 // A droplet name comes from the URL: it must never reach `Object.prototype`.
@@ -73,6 +75,7 @@ function createAssetLoaders({ assets }: AssetLoadersOptions): AssetLoaders {
     // keeps its names: `publicCacheControl`, with the binding's ETag and 304.
     assetHandler: async (c) => {
       const response = await assets.fetch(c.req.raw);
+      if (response.status >= 400) return uncached({ response });
       if (!c.req.path.startsWith("/assets/public/")) {
         if (!response.ok) return response;
         const cached = new Response(response.body, response);
@@ -83,6 +86,13 @@ function createAssetLoaders({ assets }: AssetLoadersOptions): AssetLoaders {
       return revalidated({ response, ifNoneMatch: c.req.header("if-none-match"), cacheControl: config.publicCacheControl });
     },
   };
+}
+
+/** A binding error, `no-store`: a file that is missing now may be deployed a moment later. */
+function uncached({ response }: UncachedInput): Response {
+  const headers = new Headers(response.headers);
+  headers.set("cache-control", "no-store");
+  return new Response(response.body, { status: response.status, headers });
 }
 
 /** `cacheControl` (none for `false`) with an `ETag`: the binding's, else one from the content, answered 304 when it matches. */

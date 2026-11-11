@@ -11,5 +11,4 @@ Every URL a droplet writes for its own files is on the droplet location, where `
 - `public/` is copied to `dist/client/assets/public/` only and served at `/assets/public/*` with `cache-control: no-cache` and an `ETag` (304 when it matches), by the Node, Bun, Deno and Cloudflare adapters and `vite dev`.
 - `vite dev` sets `server.origin` to the dev server, so file URLs load from a page on another origin.
 - `hooks.server` `handle` never runs for `/index.js` and `/assets/*`.
-- The Cloudflare adapter warns once after `vite build` when the wrangler config's `assets.run_worker_first` is not `true` and does not cover `/index.js`, `/droplets/*` and `/assets/*`: without it a page on another origin cannot load the droplets.
 - A host's `data-hydrate="false"` no longer stops a script droplet, with a warning in `vite dev`.

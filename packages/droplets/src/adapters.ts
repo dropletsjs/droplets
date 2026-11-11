@@ -53,6 +53,8 @@ export type AdapterBuildContext = {
   manifestPath: string;
   /** Absolute path of the emitted server bundle. */
   serverPath: string;
+  /** The resolved `droplets.config.ts`, as the server bundle has it. */
+  config: ResolvedDropletsConfig;
 };
 
 export type AdapterPreviewContext = {
