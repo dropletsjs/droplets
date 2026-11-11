@@ -34,3 +34,10 @@ linkWorkspacePackages: true
 
 # Resolve only versions published at least 7 days ago (minutes).
 minimumReleaseAge: 10080
+
+# astro2tsx (astro check) pins @emnapi/core 1.x but takes @emnapi/runtime as a
+# peer, which pnpm would fill with the 2.0 beta: the two don't load together.
+packageExtensions:
+  "@astrojs/astro2tsx@0.1.3":
+    dependencies:
+      "@emnapi/runtime": 1.11.3

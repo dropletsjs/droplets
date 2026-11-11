@@ -33,6 +33,7 @@
   },
   "scripts": {
     "build": "vitest run && vite build",
+    "build:dist": "vite build",
     "clean": "rm -rf dist",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"

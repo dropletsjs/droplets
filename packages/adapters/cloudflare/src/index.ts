@@ -55,6 +55,11 @@ export function cloudflare(options: CloudflareAdapterOptions = {}): DropletsAdap
     // A Worker has no node_modules: everything goes into the bundle.
     noExternal: true,
     environment: {
+      // Bundled dependencies (React's CJS entries, Vue, …) pick their build
+      // from process.env.NODE_ENV; a server environment keeps it as a runtime
+      // read, so both builds would ship. Vite has set it by the time the
+      // config loads: "production" for `vite build` unless overridden.
+      define: { "process.env.NODE_ENV": JSON.stringify(process.env["NODE_ENV"] || "production") },
       resolve: {
         conditions: ["workerd", "worker", ...defaultServerConditions.filter((c) => c !== "node")],
       },

@@ -64,7 +64,7 @@ reads the new range when it is next built.
 
 ```bash
 pnpm install
-pnpm build          # compiles every package into its dist/ (the examples import dist)
+pnpm build          # compiles every package into its dist/ (the examples import dist) and runs its unit tests
 pnpm dev            # http://localhost:5173: the Svelte example with hot updates
 pnpm dev:shop       # the shop instead
 pnpm docs:dev       # the guide on http://localhost:4321, with apps/demo beside it
@@ -78,11 +78,12 @@ the change on the next request (restart it if you change the plugin's
 ## Checks
 
 ```bash
-pnpm typecheck                  # tsc over every package, example and test
+pnpm typecheck                  # tsc over every package, example and test; astro check for apps/docs
 pnpm test                       # vitest: unit tests plus real `vite build` / `vite dev` on fixtures
+pnpm test:integration           # only tests/*, the cross-package suites
 pnpm build:examples             # the eight framework examples for Node
 pnpm build:examples:cloudflare  # and for Cloudflare Workers
-pnpm check                      # all of the above, the shops' build and tests, apps/demo's build and tests
+pnpm check                      # build (with the unit tests), typecheck, tests/*, the above, the shops' and apps/demo's build and tests
 pnpm test:e2e                   # tests/examples: the framework examples in Chromium
 pnpm test:hosts [host…]         # tests/hosts: the shop on each host stack (Docker)
 ```
@@ -94,8 +95,12 @@ a mixed `vite dev`) and check them from outside, in a browser or a shell. A
 test of one package's behaviour goes in that package's `test/`, even when
 it builds a fixture. Unit tests import from `src/`
 directly; the integration tests need `dist/` to exist, so run `pnpm build`
-first (`pnpm check` does). A package whose tests need no `dist/` of its own
-(the adapters, create-droplets) runs them in its `build`. Every renderer runs `rendererConformance()` from
+first (`pnpm check` does). Every package runs its unit tests in its `build`,
+so a failing suite stops `pnpm build` and `pnpm release`: after tsdown when
+the tests import the package's own `dist/` (core, the devtools, the
+renderers), before it when they need none (the adapters, create-droplets).
+`pnpm check` then runs only `tests/*`, not the unit tests a second time.
+`pnpm build:dist` compiles without testing, as the Dockerfiles do. Every renderer runs `rendererConformance()` from
 `@dropletsjs/droplets/testing` on a fixture app in its `test/fixtures/app`: a
 change to the renderer contract shows up there for all of them.
 

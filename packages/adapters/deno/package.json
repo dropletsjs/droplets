@@ -36,6 +36,7 @@
   },
   "scripts": {
     "build": "vitest run && tsdown",
+    "build:dist": "tsdown",
     "clean": "rm -rf dist",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",

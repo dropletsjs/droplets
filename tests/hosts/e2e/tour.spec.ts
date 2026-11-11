@@ -45,7 +45,7 @@ async function expectTidy(page: Page, droplet: string) {
  * Each droplet on the page not shown yet, in page order, but `later`: a
  * step after this one shows it (it counts in the page's total).
  */
-async function tourPage(page: Page, rec: Recorder, renderers: Map<string, string>, shown: Shown, options: { poster?: string; later?: string } = {}) {
+async function tourPage(page: Page, rec: Recorder, renderers: Map<string, string>, shown: Shown, options: { later?: string } = {}) {
   await page.waitForLoadState("networkidle");
   await installOverlay(page);
   const { element, droplets } = await readFacts(page, renderers);
@@ -76,7 +76,6 @@ async function tourPage(page: Page, rec: Recorder, renderers: Map<string, string
     shown.add(facts.droplet);
     await page.waitForTimeout(rec.random(...READ_MS));
     await expectTidy(page, facts.droplet);
-    if (options.poster && facts.droplet === options.poster) await rec.shot("poster");
   }
   await clearOverlay(page);
   return { element, droplets, place: `${total} of ${total}` };
@@ -118,7 +117,7 @@ test("the droplet tour", async ({ page, rec }) => {
   await page.goto("/gallery");
   const library = page.locator('[data-droplet="product-library"]');
   await expect(library.locator("article.card").first()).toBeVisible();
-  await tourPage(page, rec, renderers, shown, { poster: "product-library" });
+  await tourPage(page, rec, renderers, shown);
 
   // A product page, from the gallery's link: the version the build prerendered.
   await page.evaluate(() => scrollTo({ top: 0, behavior: "smooth" }));

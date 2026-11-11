@@ -30,7 +30,9 @@ RUN CI=true pnpm install --offline --frozen-lockfile --filter "@dropletsjs/examp
 # but .dockerignore leaves .env files out, so the demo values come from here.
 ARG PUBLIC_SITE_NAME="Droplets showcase"
 ARG BUILD_CHANNEL=example
-RUN pnpm --filter "@dropletsjs/example-${EXAMPLE}^..." build \
+# build:dist compiles the packages without their unit tests, which CI runs
+# (their fixtures' .env files are not in the image).
+RUN pnpm --filter "@dropletsjs/example-${EXAMPLE}^..." build:dist \
  && pnpm --filter "@dropletsjs/example-${EXAMPLE}" build \
  && pnpm --filter "@dropletsjs/example-${EXAMPLE}" deploy --legacy --prod /app \
  && cp -r "examples/frameworks/${EXAMPLE}/dist" /app/

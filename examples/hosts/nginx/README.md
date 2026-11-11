@@ -10,7 +10,8 @@ The host is a static `index.html`. nginx does two things:
   talks to nginx, so the droplets server needs no CORS. It has nginx's public
   URL in `DROPLETS_ORIGIN` (`docker-compose.yml`) and writes the fragments'
   URLs on that origin; nginx sends no location header, and clears the ones a
-  client could send. Droplets build their API calls
+  client could send. `DROPLETS_TRUSTED_ORIGINS` names where the host page
+  is, so `event.host` stays on it. Droplets build their API calls
   from that origin (`$droplets/drop`), so `/api/*` has to go through too.
 
 ```bash

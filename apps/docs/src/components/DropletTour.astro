@@ -2,24 +2,56 @@
 /**
  * The droplet tour: the shop on a WordPress page with the dev tool's
  * overlay on, each droplet named as the pointer reaches it, then a comment
- * posted live. The files are public/hosts/tour.mp4 and its poster tour.webp.
+ * posted live. The files are public/hosts/tour.mp4 and its poster tour.webp
+ * (drawn by scripts/poster/). The play button over the poster needs the
+ * script below; without JavaScript it is not shown and the video's own
+ * controls play it.
  */
 const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
 ---
 
 <figure class="droplet-tour">
-  <video controls muted playsinline preload="metadata" poster={`${base}hosts/tour.webp`} width="1034" height="720">
-    <source src={`${base}hosts/tour.mp4`} type="video/mp4" />
-  </video>
+  <div class="droplet-tour-stage" data-tour>
+    <video controls muted playsinline preload="metadata" poster={`${base}hosts/tour.webp`} width="1034" height="720">
+      <source src={`${base}hosts/tour.mp4`} type="video/mp4" />
+    </video>
+    <button type="button" class="droplet-tour-play" aria-label="Play the tour (47 s)" data-play>
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M8.5 5.6v12.8c0 .8.9 1.3 1.6.9l10-6.4c.6-.4.6-1.4 0-1.8l-10-6.4c-.7-.4-1.6.1-1.6.9Z"></path>
+      </svg>
+    </button>
+  </div>
   <figcaption>
     The shop on a WordPress page: hover a droplet for its framework, SSR, hydration, prerender and
     actions; then a comment goes up live.
   </figcaption>
 </figure>
 
+<script>
+  for (const stage of document.querySelectorAll<HTMLElement>("[data-tour]")) {
+    const video = stage.querySelector("video");
+    const play = stage.querySelector<HTMLButtonElement>("[data-play]");
+    if (!video || !play) continue;
+    const show = (visible: boolean) => {
+      play.hidden = !visible;
+    };
+    play.addEventListener("click", () => {
+      show(false);
+      // The button is gone: keyboard focus goes on to the video's own controls.
+      video.focus();
+      video.play().catch(() => show(true));
+    });
+    for (const type of ["play", "playing", "seeking"]) video.addEventListener(type, () => show(false));
+    video.addEventListener("ended", () => show(true));
+  }
+</script>
+
 <style>
   .droplet-tour {
     margin: 0 0 2rem;
+  }
+  .droplet-tour-stage {
+    position: relative;
   }
   .droplet-tour video {
     display: block;
@@ -28,6 +60,58 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
     border: 1px solid var(--djs-line);
     border-radius: var(--djs-radius-md, 8px);
     background: var(--djs-surface-300);
+  }
+  /* The poster is dark in both themes, so the button keeps the dark set's
+     accent and ink rather than the theme's. */
+  .droplet-tour-play {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    display: grid;
+    place-items: center;
+    width: clamp(3.5rem, 12%, 7.75rem);
+    aspect-ratio: 1;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: #ff5f24;
+    color: #1a0800;
+    box-shadow:
+      0 0 0 0.75rem rgb(255 95 36 / 0.18),
+      0 0.6rem 1.75rem rgb(0 0 0 / 0.55);
+    cursor: pointer;
+    transition: scale 120ms ease-out, background-color 120ms ease-out;
+  }
+  .droplet-tour-play[hidden] {
+    display: none;
+  }
+  .droplet-tour-play svg {
+    width: 46%;
+    height: 46%;
+    fill: currentColor;
+  }
+  .droplet-tour-play:hover {
+    background: #ff7a47;
+    scale: 1.05;
+  }
+  .droplet-tour-play:focus-visible {
+    outline: 3px solid #e8ecef;
+    outline-offset: 0.35rem;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .droplet-tour-play {
+      transition: none;
+    }
+    .droplet-tour-play:hover {
+      scale: none;
+    }
+  }
+  @media (scripting: none) {
+    .droplet-tour-play {
+      display: none;
+    }
   }
   .droplet-tour figcaption {
     margin-top: 0.4rem;

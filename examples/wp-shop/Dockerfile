@@ -43,7 +43,9 @@ COPY examples/wp-shop/package.json examples/wp-shop/
 RUN pnpm install --frozen-lockfile --filter @dropletsjs/example-wp-shop...
 
 COPY packages packages
-RUN pnpm --filter '@dropletsjs/example-wp-shop^...' build
+# build:dist compiles the packages without their unit tests, which CI runs
+# (their fixtures' .env files are not in the image).
+RUN pnpm --filter '@dropletsjs/example-wp-shop^...' build:dist
 COPY examples/wp-shop examples/wp-shop
 # The build at start writes dist/ and .droplets/, the cart its SQLite file.
 RUN rm -rf examples/wp-shop/dist examples/wp-shop/node_modules/.vite examples/wp-shop/wp-shop.db* \

@@ -70,7 +70,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build
+      # The unit tests run in the check job's build.
+      - run: pnpm build:dist
       - run: pnpm --filter @dropletsjs/tests-examples exec playwright install --with-deps chromium
       # Builds the eight framework examples, then runs one project per example.
       - run: pnpm test:e2e

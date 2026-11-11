@@ -59,6 +59,21 @@ the `<Code>` those components render gets them too.
 `connect-src` and `form-action`, and nowhere else; `docs:check-csp` fails
 if it is missing from one of them or if any directive names another host.
 
+## Videos and the tour's poster
+
+`public/hosts/` holds each host's recorded video and screenshots
+(`pnpm test:hosts --docs`, see [tests/hosts](../../tests/hosts/README.md))
+and the droplet tour on the home page, `tour.mp4` (`--tour --docs`). The
+tour's poster, `tour.webp`, is drawn, not recorded: `scripts/poster/gen.mjs`
+writes `tour-poster.svg` (a wireframe of the WordPress page, its droplets
+outlined, in the docs' dark tokens and fonts) and `render.mjs` turns it into
+the WebP in Playwright's Chromium. It has no play button: the page draws its
+own (`src/components/DropletTour.astro`).
+
+```bash
+node apps/docs/scripts/poster/gen.mjs && node apps/docs/scripts/poster/render.mjs
+```
+
 ## Deploying
 
 The site at https://dropletsjs.dev is an assets-only Cloudflare Worker

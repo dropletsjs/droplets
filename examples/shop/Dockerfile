@@ -45,7 +45,9 @@ RUN pnpm install --frozen-lockfile --filter @dropletsjs/example-shop...
 
 COPY packages packages
 COPY examples/shop examples/shop
-RUN pnpm --filter '@dropletsjs/example-shop^...' build \
+# build:dist compiles the packages without their unit tests, which CI runs
+# (their fixtures' .env files are not in the image).
+RUN pnpm --filter '@dropletsjs/example-shop^...' build:dist \
  && cd examples/shop \
  && node scripts/seed.ts \
  && pnpm exec vite build \

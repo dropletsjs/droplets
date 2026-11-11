@@ -22,12 +22,18 @@ marker on `window` that a reload would lose:
 - `index.js?strategy=remount` still remounts.
 
 `test/production.test.ts` builds the same project with `vite build` (copied
-to `.tmp/production`) and checks that nothing of the above is in it: none of
+to `.tmp/production-node`) and checks that nothing of the above is in it: none of
 a list of dev markers (HMR event names, `import.meta.hot`, the notices, the
 dev tool's hooks, dev-only warnings, Fast Refresh and Prefresh globals) in
 any emitted JavaScript, no `update` export in a droplet's client module, and
 no code of a dev module (`dev-element`, `dev-notify`, `dev-contract`,
 `client-dev`, the devtools) in any chunk, nor a file of one in `dist/`.
+
+It builds it again for Cloudflare Workers (`.tmp/production-cloudflare`),
+where `worker.js` bundles every dependency: no `process.env.NODE_ENV` is
+left to decide at runtime, no `*.development.js` module is in it, nor
+React's `jsxDEV` or a Vue dev warning, and every framework's droplet renders
+from it.
 
 ```bash
 pnpm build                                          # the packages first

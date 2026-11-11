@@ -242,9 +242,9 @@ DESIGN.md                 design decisions, as they were taken
 ```bash
 git clone https://github.com/dropletsjs/droplets droplets && cd droplets
 pnpm install
-pnpm build          # compile every package
+pnpm build          # compile every package and run its unit tests
 pnpm dev            # the Svelte example on http://localhost:5173 (pnpm dev:shop: the shop)
-pnpm check          # build, typecheck, test, build every example for Node and Workers, test the shops and apps/demo
+pnpm check          # build, typecheck, tests/*, build every example for Node and Workers, test the shops and apps/demo
 pnpm test:e2e       # the framework examples in Chromium
 pnpm test:hosts     # the shop on every host stack (Docker)
 pnpm docs:dev       # the docs on http://localhost:4321, with apps/demo beside them

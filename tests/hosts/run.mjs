@@ -33,6 +33,7 @@
  * `--docs` or `--human` the flow runs as fast as the page allows.
  * `--tour` records the droplet tour first (recordings/tour-<host>.mp4);
  * with `--docs` it becomes the docs' `tour.mp4` (the last host's, if several).
+ * Its poster, `tour.webp`, is drawn, not recorded: apps/docs/scripts/poster/.
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, statSync } from "node:fs";
@@ -205,10 +206,9 @@ function docsCopies(name) {
   return ok;
 }
 
-/** The docs' copy of the droplet tour: tour.mp4, its poster tour.webp. */
+/** The docs' copy of the droplet tour: tour.mp4. Its poster is drawn (apps/docs/scripts/poster/). */
 function docsTour(name) {
-  const ok = docsVideo(join(here, "recordings", `tour-${name}.mp4`), join(DOCS, "tour.mp4")) &&
-    docsImage(join(here, "recordings", `tour-${name}`, "poster.png"), join(DOCS, "tour.webp"));
+  const ok = docsVideo(join(here, "recordings", `tour-${name}.mp4`), join(DOCS, "tour.mp4"));
   if (!ok) console.warn(`${name}: could not write the tour's docs copy (ffmpeg missing?)`);
   return ok;
 }

@@ -30,15 +30,17 @@ Droplets: server-rendered components any stack can embed, as a Vite 8 plugin on 
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm build            # every package with tsdown, in dependency order
-pnpm check            # build, typecheck, test, framework examples (Node + Cloudflare), shop + wp-shop, apps/demo
+pnpm build            # every package with tsdown and its unit tests, in dependency order
+pnpm check            # build, typecheck, tests/*, framework examples (Node + Cloudflare), shop + wp-shop, apps/demo
 pnpm test:e2e         # builds examples/frameworks/*, runs tests/examples in Chromium
 pnpm docs:build       # builds and starts apps/demo, then astro build (fails without the demo)
 pnpm docs:check-csp   # after docs:build: every inline script hash is in apps/docs/public/_headers
 ```
 
-- `pnpm build` runs unit tests where a package needs no `dist/` of its own: the adapters and create-droplets run `vitest run` in `build`.
-- `pnpm test` = vitest over `packages/**` and `tests/**`. Integration tests import `dist/`, so build first.
+- Every package runs its unit tests in `build`, so a failing suite stops `pnpm build` and `pnpm release`.
+  Tests that import the package's own `dist/` run after tsdown (`tsdown && vitest run`); the adapters and create-droplets need none and test first.
+  `build:dist` (root and per package) only compiles: the Dockerfiles and CI's e2e job use it.
+- `pnpm test` = vitest over `packages/**` and `tests/**`; `pnpm test:integration` = `tests/**` only, what `check` runs after `build`. Integration tests import `dist/`, so build first.
 - `tests/packages` tests the published packages as `npm pack` writes them: entries at fixed paths, client entries never reach server code or Node built-ins, only declared deps imported, `import.meta.env.DEV` intact.
 - Every renderer runs `rendererConformance()` from `@dropletsjs/droplets/testing`; a renderer contract change shows up there.
 - `pnpm test:hosts [host…]` needs Docker. Local overrides go in the gitignored `.env.local` (see `.env.example`).

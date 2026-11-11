@@ -64,6 +64,10 @@ location ^~ /_fragment/ {
   it. The headers a client could name another location with
   (`x-droplet-location`, `Forwarded`, `X-Forwarded-*`) are cleared: the shop
   would trust them only against that list anyway.
+- `DROPLETS_TRUSTED_ORIGINS=http://localhost:8081` is where the host pages
+  are. Here it is the same origin, but it is a different setting:
+  `DROPLETS_ORIGIN` is where the shop is reached, `DROPLETS_TRUSTED_ORIGINS`
+  bounds `event.host`, so a page anywhere else renders as the shop's own.
 
 ## The shop demo, recorded
 
@@ -87,8 +91,9 @@ SSI pages in `examples/hosts/nginx/shop/`.
 | `droplets` | 8000, internal only | the Svelte example's droplets server, behind port 8080 |
 
 The internal addresses are `upstream` blocks (`server shop:8300;`). The
-public ones are in two places: each droplets server's `DROPLETS_ORIGIN`
-(`http://localhost:8081` for `shop`, `http://localhost:8080` for `droplets`),
+public ones are in two places: each droplets server's `DROPLETS_ORIGIN` and
+`DROPLETS_TRUSTED_ORIGINS` (`http://localhost:8081` for `shop`,
+`http://localhost:8080` for `droplets`),
 and `web`'s `SHOP_PUBLIC_URL`, which fills in the `Referer` of
 `/_fragment/` (`nginx.conf` is a template, the nginx image's
 `/etc/nginx/templates/`). The shop has its own
@@ -130,6 +135,8 @@ cart and the login cookies are first-party, and nothing is cross-origin.
   [public location](/integrate/http-contract/#x-droplet-location-the-public-location),
   where it writes its URLs and the only origin whose
   [form posts](/integrate/http-contract/#form-posts-the-origin-check) it accepts.
+- `DROPLETS_TRUSTED_ORIGINS: http://localhost:8081`: where the host pages
+  are. It bounds `event.host`: a host outside it becomes the shop's origin.
 - `DROPLETS_SECRET`: signs a form's result on the redirect back to the page
   when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)).
 - `ADMIN_USER`, `ADMIN_PASSWORD`, `SHOP_SECRET`: the demo login
@@ -230,7 +237,11 @@ public URL in its environment, and with that one entry it needs no header.
 droplets:
   environment:
     DROPLETS_ORIGIN: http://localhost:8080
+    DROPLETS_TRUSTED_ORIGINS: http://localhost:8080
 ```
+
+`DROPLETS_ORIGIN` is the droplets server's location; `DROPLETS_TRUSTED_ORIGINS`
+is where the host pages are, and keeps `event.host` within them.
 
 The `proxy_set_header` lines clear what a client may have sent. The
 droplets server would only trust a location header whose origin is in

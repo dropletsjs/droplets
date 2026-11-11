@@ -9,6 +9,7 @@
     "test": "vitest run"
   },
   "devDependencies": {
+    "@dropletsjs/adapter-cloudflare": "workspace:*",
     "@dropletsjs/adapter-node": "workspace:*",
     "@dropletsjs/devtools": "workspace:*",
     "@dropletsjs/droplets": "workspace:*",

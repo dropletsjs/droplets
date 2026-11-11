@@ -13,6 +13,8 @@ services:
     environment:
       # Its public URL: nginx's basic page, which proxies it on its own origin.
       DROPLETS_ORIGIN: ${DROPLETS_URL:-http://localhost:8080}
+      # Where its host page is: event.host stays within it.
+      DROPLETS_TRUSTED_ORIGINS: ${DROPLETS_URL:-http://localhost:8080}
 
   # The shop demo, served by nginx on :8081. Only nginx reaches it.
   shop:
@@ -30,6 +32,8 @@ services:
       DROPLETS_SECRET: demo-only-droplets-secret-change-me-0123456789
       # Its public URL: nginx's shop origin, where its pages and form posts are.
       DROPLETS_ORIGIN: ${WEB_URL:-http://localhost:8081}
+      # Where its host pages are: event.host stays within it.
+      DROPLETS_TRUSTED_ORIGINS: ${WEB_URL:-http://localhost:8081}
 
   # nginx.conf, html/ and shop/ baked in (Dockerfile). nginx.conf is a
   # template, with the shop's public URL below filled in at start.
