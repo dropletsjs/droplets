@@ -189,6 +189,11 @@ export type DropletsAppOptions = {
    * `DropletsConfig.trustedOrigins`.
    */
   trustedOrigins?: readonly string[] | undefined;
+  /**
+   * The one location this server is reached at (see
+   * `DropletsConfig.location`): every request's, with no header read.
+   */
+  location?: string | undefined;
   /** See `DropletsConfig.fragmentCacheControl`. Default: `private, no-store`. */
   fragmentCacheControl?: string | false | undefined;
   /** See `DropletsConfig.csrf`. Default: the `Origin` check is on. */
@@ -422,6 +427,9 @@ const VARY_HEADERS = [
   "x-forwarded-prefix",
   "origin",
 ];
+
+/** With a fixed `location`, only `host` comes from a header. */
+const HOST_VARY_HEADERS = ["origin"];
 
 type WithVaryInput = { vary: string | null; names: readonly string[] };
 
@@ -901,7 +909,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
   // Where this server is reached: before anything that writes a URL or
   // checks an origin.
   app.use("*", (c, next) => {
-    c.set("location", resolveLocation({ c, trusted: trustedOrigins(), devLog: options.devLog }));
+    c.set("location", options.location ?? resolveLocation({ c, trusted: trustedOrigins(), devLog: options.devLog }));
     c.set("referer", c.req.header("referer"));
     return next();
   });
@@ -913,12 +921,12 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
   if (health) app.get(health, (c) => c.text("ok"));
 
   // What `$droplets/drop` and `actionUrl()` read on the server, for the
-  // rest of the request. At build the location is a token of this build,
-  // replaced per request by the location the render is served from.
+  // rest of the request. At build without `location` it is a token of this
+  // build, replaced per request by the location the render is served from.
   app.use("*", (c, next) =>
     withRequestInfo(
       {
-        origin: buildTokens ? buildTokens.location : publicLocation({ c }),
+        origin: options.location ?? (buildTokens ? buildTokens.location : publicLocation({ c })),
         trustedOrigins: trustedOrigins(),
         ownOrigins: ownOrigins(c),
       },
@@ -1169,7 +1177,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     await next();
     const headers = new Headers(c.res.headers);
     if (!headers.has("cache-control") && cacheControl) headers.set("cache-control", cacheControl);
-    const vary = withVary({ vary: headers.get("vary"), names: VARY_HEADERS });
+    const vary = withVary({ vary: headers.get("vary"), names: options.location === undefined ? VARY_HEADERS : HOST_VARY_HEADERS });
     if (vary !== null) headers.set("vary", vary);
     const response = c.res;
     c.res = undefined;

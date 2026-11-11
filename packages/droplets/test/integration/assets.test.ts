@@ -45,8 +45,12 @@ export function attach(target) {
 }
 `;
 
-/** A project with one droplet that names its files every way there is, and a public/ folder. */
-async function project(): Promise<string> {
+const TRUSTING = 'export default { trustedOrigins: ["https://host.example"] };\n';
+
+type ProjectInput = { config?: string };
+
+/** A project with one droplet that names its files every way there is, and a public/ folder; `config` is its `droplets.config.ts`. */
+async function project({ config = TRUSTING }: ProjectInput = {}): Promise<string> {
   const root = await mkdtemp(join(fixtures, ".assets-"));
   const folder = join(root, "src/droplets/pics");
   await mkdir(folder, { recursive: true });
@@ -58,7 +62,7 @@ async function project(): Promise<string> {
   await writeFile(join(folder, "lazy.js"), 'import "./lazy.css";\nexport const name = "lazy";\n');
   await writeFile(join(folder, "lazy.css"), ".lazy { color: red; }\n");
   await writeFile(join(root, "public/robots.txt"), "User-agent: *\n");
-  await writeFile(join(root, "droplets.config.ts"), 'export default { trustedOrigins: ["https://host.example"] };\n');
+  await writeFile(join(root, "droplets.config.ts"), config);
   await writeFile(join(root, "public/img/a.png"), png(3));
   return root;
 }
@@ -188,6 +192,65 @@ describe("file URLs in a build", () => {
     expect(existsSync(join(dist, "client/robots.txt"))).toBe(false);
     expect((await files(join(dist, "server"))).filter((file) => file.includes("robots"))).toEqual([]);
     expect(existsSync(join(dist, "robots.txt"))).toBe(false);
+  });
+});
+
+describe("file URLs in a build with a fixed location", () => {
+  const LOCATION = "https://cdn.test/mfe";
+  let dist: string;
+
+  beforeAll(async () => {
+    const root = await project({ config: `export default { location: ${JSON.stringify(LOCATION)} };\n` });
+    roots.push(root);
+    dist = join(root, "dist");
+    const builder = await createBuilder({
+      root,
+      configFile: false,
+      logLevel: "silent",
+      plugins: [droplets({ adapter: fakeAdapter, renderers: [fakeRenderer()] })],
+    });
+    await builder.buildApp();
+  }, 120_000);
+
+  it("writes the server bundle's file URLs and droplet.url() on that location, with no token", async () => {
+    const ssr = await readFile(join(dist, "server/entry-server.js"), "utf8");
+    expect(ssr).toContain(`${LOCATION}/assets/logo-`);
+    expect(ssr).not.toContain("DROPLET_LOCATION");
+    expect(ssr).not.toContain("__DROPLETS_SERVER_LOCATION__");
+  });
+
+  it("renders every file URL there, whatever location a header names", async () => {
+    const { createServerApp, resolveConfig } = await import("../../src/index.ts");
+    const ssr = await import(pathToFileURL(join(dist, "server/entry-server.js")).href);
+    const app = createServerApp({
+      ssr,
+      config: resolveConfig({ location: LOCATION, trustedOrigins: ["https://host.example"] }),
+      assets: {
+        buildHash: "x",
+        loadClientModule: async () => null,
+        loadEntryClient: async () => null,
+        entryModule: async () => null,
+        loadGlobalStyle: async () => null,
+        dropletStyles: async () => [],
+        loadIndex: async () => null,
+        externals: [],
+        assetHandler: (c) => c.text("Not Found", 404),
+      },
+    });
+    const html = await (
+      await app.request("http://drops.test/droplets/pics", { headers: { "x-droplet-location": "https://host.example/x" } })
+    ).text();
+    expect(attr({ html, id: "imported", name: "src" })).toMatch(/^https:\/\/cdn\.test\/mfe\/assets\/logo-[\w-]+\.png$/);
+    expect(attr({ html, id: "from-url", name: "src" })).toBe(attr({ html, id: "imported", name: "src" }));
+    expect(attr({ html, id: "drop", name: "href" })).toBe(attr({ html, id: "imported", name: "src" }));
+    expect(attr({ html, id: "robots", name: "href" })).toBe(`${LOCATION}/assets/public/robots.txt`);
+    expect(html).not.toContain("host.example");
+  });
+
+  it("leaves browser bundles relative to the file that names them", async () => {
+    const js = await readFile(join(dist, "client/droplets/pics/client.js"), "utf8");
+    expect(js).toMatch(/new URL\(([`"'])\.\.\/\.\.\/assets\/logo-[\w-]+\.png\1,\s*import\.meta\.url\)/);
+    expect(js).not.toContain("cdn.test");
   });
 });
 

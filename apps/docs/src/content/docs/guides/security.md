@@ -65,6 +65,9 @@ Anyone can send those headers, so:
 
 With no trusted header, the location is the request's own origin. See
 [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location).
+With [`location`](/guides/configuration/#a-fixed-location) set, there is
+nothing to trust: every request's location is `location`, and no header is
+read.
 
 `host` (where the droplet renders) is taken from the request too: a render
 body, then `Origin`, then the location's origin. With `trustedOrigins` set,
@@ -176,7 +179,8 @@ droplet, or `false` sends none.
 
 Every fragment and `_data` answer carries
 `Vary: x-droplet-location, forwarded, x-forwarded-host, x-forwarded-proto, x-forwarded-port, x-forwarded-prefix, origin`,
-after any `Vary` the load set. A cache keys the answers it keeps by URL;
+after any `Vary` the load set; with `location` set, `Vary: origin` alone,
+since no location header decides them. A cache keys the answers it keeps by URL;
 `Vary` adds these headers to the key. They are what the answer's URLs and
 `host` come from, so in a cache that honours `Vary` a request with a
 spoofed one lands in an entry of its own. CDNs mostly ignore `Vary` on

@@ -209,6 +209,11 @@ import { config } from "@dropletsjs/droplets";
 export default config({ trustedOrigins: ["https://drops.example.com"] });
 ```
 
+With [`location`](/guides/configuration/#a-fixed-location) in
+`droplets.config.ts`, none of this runs: every request's location is
+`location`, no header is read or trusted, and fragments vary on `origin`
+alone. One build serves one location.
+
 ### Trust
 
 Any client can send these headers, and the location decides the URLs the

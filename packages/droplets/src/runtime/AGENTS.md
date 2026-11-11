@@ -28,8 +28,8 @@
   Checked by: `../../test/runtime/app.test.ts` ("createDropletsApp: handleError").
 - Each input rule has a negative test: `__proto__` names, tampered and expired tokens, odd field names.
   Checked by: `../../test/runtime/actions.test.ts`, `../../test/runtime/form-token.test.ts`, `../../test/runtime/security.test.ts`.
-- The droplet location is resolved once per request in `resolveLocation`: a location header is trusted only against the allow-list (`trustedOrigins`/`DROPLETS_TRUSTED_ORIGINS`, the request's own origin), else it is the request's own origin; `"*"` warns and is never refused.
-  Checked by: `../../test/runtime/app.test.ts` ("createDropletsApp: the droplet location", `"*"`).
+- The droplet location is resolved once per request: with `location` it is that value and no location header is read; without, `resolveLocation` trusts a location header only against the allow-list (`trustedOrigins`/`DROPLETS_TRUSTED_ORIGINS`, the request's own origin), else it is the request's own origin; `"*"` warns and is never refused.
+  Checked by: `../../test/runtime/app.test.ts` ("createDropletsApp: the droplet location", `"*"`, "createDropletsApp: a fixed location").
 - `handle` never runs for `/index.js`, `/env.js` and `/assets/*`.
   Checked by: `../../test/runtime/app.test.ts` ("never runs for files: /index.js and everything under /assets/", "createDropletsApp: /env.js").
 - `/env.js` takes no input from the request and holds only the declared `public: true` variables without `static`, read through `readRuntimeEnv`; `DROPLETS_ENV_MAX_AGE` warns only through `devLog`.

@@ -108,6 +108,30 @@ DROPLETS_TRUSTED_ORIGINS=https://shop.example,https://www.shop.example node dist
 `vite dev`; read
 [Trusting any location](/guides/security/#trusting-any-location) first.
 
+#### A fixed location
+
+When the server has one public URL, write it as `location`:
+
+```ts
+export default config({ location: "https://shop.example/mfe" });
+```
+
+`vite build` writes it into the server bundle: imported files,
+`new URL("./x", import.meta.url)`, `droplet.url()` and `droplet.origin` at a
+module's top level, and every prerendered render. The browser bundles are
+the same build either way: they find the location from the URL `/index.js`
+was loaded from.
+
+At runtime every request's location is `location`. No location header is
+read or trusted, so a proxy that serves the build under another origin or
+prefix is ignored: one build serves one location. The `x-droplet-location`
+setup above applies only without `location`. Fragments and `_data` then
+vary on `origin` alone.
+
+`vite dev` ignores `location` and computes it per request. `vite preview`
+and `wrangler dev` serve the build, so the URLs the server writes point at
+`location`: a page under them loads its files from there.
+
 ### A fixed host
 
 `host` names the origin of the page your droplets render on, when there is

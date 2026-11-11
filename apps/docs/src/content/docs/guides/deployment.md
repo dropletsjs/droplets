@@ -292,8 +292,11 @@ When a reverse proxy fronts the droplets server:
   `DROPLETS_TRUSTED_ORIGINS`): the server ignores a location whose origin is
   not its own or listed there. A proxy that already sends `Forwarded` or
   `X-Forwarded-Proto` and `X-Forwarded-Host` (with `X-Forwarded-Prefix` under
-  a path) is read the same way, when `x-droplet-location` is absent. Keep the
-  droplets server unreachable except through the proxy;
+  a path) is read the same way, when `x-droplet-location` is absent. With
+  [`location`](/guides/configuration/#a-fixed-location) set, skip this: the
+  server reads none of these headers and writes every URL on `location`, so
+  a proxy under another origin or prefix gets URLs that point elsewhere. Keep
+  the droplets server unreachable except through the proxy;
 - keep the `cache-control` headers it sends; they are safe to honour: `/index.js`
   is `no-store`, fragments and `_data` are `private, no-store`
   (`fragmentCacheControl`), `/assets/public/*` is `no-cache` (`publicCacheControl`) with an `ETag`,
@@ -307,8 +310,9 @@ server, under its prefix: `https://shop.example/mfe/index.js` makes the
 elements load from `https://shop.example/mfe`. A CDN in front works when it
 pulls from the server at the same URL (origin pull); `/index.js` is
 `no-store`, `/assets/public/*` revalidates, the rest is immutable and caches well. Copying the files to
-another bucket under another URL does not: there is no option that bakes a
-location into the build.
+another bucket under another URL works only with
+[`location`](/guides/configuration/#a-fixed-location) set to that URL: the
+server then writes every fragment's URLs there.
 
 ### Trusted origins at runtime
 

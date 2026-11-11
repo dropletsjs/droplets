@@ -88,6 +88,11 @@ rewritten: call `droplet.url()` inside the handler, where it reads the
 request, and pass an imported file's URL through it
 (`droplet.url(logo)`) to put it on the request's location.
 
+With [`location`](/guides/configuration/#a-fixed-location) in
+`droplets.config.ts`, a build writes no token: `origin` is `location`
+everywhere on the server, inside a request or not, and imported files'
+URLs are on it already.
+
 ## `$droplets/form`
 
 ```ts

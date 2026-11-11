@@ -558,6 +558,19 @@ describe("$droplets/drop", () => {
       expect(droplet.url(`${TOKEN}/assets/logo.png`)).toBe("https://host.example/mfe/assets/logo.png");
     });
   });
+
+  it("answers a fixed location everywhere, with no token and no request store", async () => {
+    const { withRequestInfo } = await import(store);
+    const code = buildDropServerCode({ requestStore: `file://${store}`, location: "https://cdn.example/mfe", isFixed: true });
+    expect(code).not.toContain("requestInfo");
+    expect(code).not.toContain("startsWith");
+    const droplet = await load(code);
+    expect(droplet.origin).toBe("https://cdn.example/mfe");
+    withRequestInfo({ origin: "https://host.example" }, () => {
+      expect(droplet.url("/api/x")).toBe("https://cdn.example/mfe/api/x");
+      expect(droplet.url("https://cdn.example/mfe/assets/a.png")).toBe("https://cdn.example/mfe/assets/a.png");
+    });
+  });
 });
 
 describe("$droplets/form", () => {

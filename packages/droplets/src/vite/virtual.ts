@@ -23,9 +23,8 @@ import { isScriptDroplet } from "../script/index.ts";
 import { tailwindActive } from "./css.ts";
 import { isServerPath, projectPath } from "./server-only.ts";
 import { componentSpecifier } from "./renderer-graphs.ts";
-import { hostTokens } from "../runtime/host.ts";
 import { locationScript, publicEnvScript, serverKey } from "../runtime/server-records.ts";
-import { CLIENT_HOOKS_FILES, HOOKS_FILES, IMPORTMAP_FILES, rendererNamed, type PluginState } from "./state.ts";
+import { bundleLocation, CLIENT_HOOKS_FILES, HOOKS_FILES, IMPORTMAP_FILES, rendererNamed, type PluginState } from "./state.ts";
 
 /** Registry of droplets. Resolves to different code per environment. */
 export const VIRTUAL_DROPLETS = "virtual:droplets";
@@ -308,11 +307,24 @@ export function buildDropClientCode({ key, recordsModule = serverRecordsModulePa
  * outside a request (a module's top level) the bundle's location token
  * `location`, which every fragment and its data have replaced for theirs.
  * A path that starts with the token (a file the bundle imports) gets the
- * request's location in its place.
+ * request's location in its place. With `isFixed`, `location` is the one
+ * location every request has, and nothing is replaced.
  */
-type BuildDropServerCodeInput = { requestStore: string; location: string };
+type BuildDropServerCodeInput = { requestStore: string; location: string; isFixed?: boolean };
 
-export function buildDropServerCode({ requestStore, location }: BuildDropServerCodeInput): string {
+export function buildDropServerCode({ requestStore, location, isFixed = false }: BuildDropServerCodeInput): string {
+  if (isFixed) {
+    return [
+      `const origin = ${JSON.stringify(location)};`,
+      URL_OF,
+      "export const droplet = Object.freeze({",
+      "  origin,",
+      "  url(path) { return url(origin, path); },",
+      "});",
+      "export default droplet;",
+      "",
+    ].join("\n");
+  }
   return [
     `import { requestInfo } from ${modulePath({ file: requestStore })};`,
     `const token = ${JSON.stringify(location)};`,
@@ -380,8 +392,9 @@ export function buildFormClientCode({
 
 /**
  * `$droplets/form` on the server: the droplet the current request renders,
- * on its public location (a trusted location header, else the request's origin;
- * a token at build), for the page of `event.host` (tokens at build).
+ * on its public location (`location` of the config; without it a trusted
+ * location header, else the request's origin, and a token at build), for
+ * the page of `event.host` (tokens at build).
  */
 type BuildFormServerCodeInput = { requestStore: string; formModule: string; location: string; enhanceModule?: string };
 
@@ -798,7 +811,11 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
       if (id === RESOLVED_DROP) {
         return this.environment.config.consumer === "client"
           ? buildDropClientCode({ key: serverKey(state.config.element, state.buildHash) })
-          : buildDropServerCode({ requestStore: requestStorePath, location: hostTokens({ nonce: state.tokenNonce }).location });
+          : buildDropServerCode({
+              requestStore: requestStorePath,
+              location: bundleLocation({ state, isBuilding: command === "build" }),
+              isFixed: command === "build" && state.config.location !== undefined,
+            });
       }
       if (id === RESOLVED_FORM) {
         return this.environment.config.consumer === "client"
@@ -806,7 +823,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
           : buildFormServerCode({
               requestStore: requestStorePath,
               formModule: formModulePath,
-              location: hostTokens({ nonce: state.tokenNonce }).location,
+              location: bundleLocation({ state, isBuilding: command === "build" }),
             });
       }
       if (id === RESOLVED_ENV_PRIVATE) return buildPrivateEnvCode({ env: state.env, envStorePath });

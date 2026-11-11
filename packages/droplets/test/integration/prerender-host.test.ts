@@ -104,6 +104,16 @@ describe("host while prerendering", () => {
     });
   }, 120_000);
 
+  it("renders on the config's location, when it has one", async () => {
+    const root = await project({
+      server: 'import droplet from "$droplets/drop";\nexport const load = () => ({ home: droplet.url("/api/x"), path: droplet.origin });\n',
+      config: 'export default { location: "https://cdn.test/mfe" };\n',
+    });
+    roots.push(root);
+    await build({ root });
+    expect(await stored(root)).toEqual({ "{}": { home: "https://cdn.test/mfe/api/x", path: "https://cdn.test/mfe" } });
+  }, 90_000);
+
   it("refuses entries that are bare props", async () => {
     const root = await project({ server: `${LOAD}export const entries = () => [{ page: 1 }];\n` });
     roots.push(root);

@@ -111,6 +111,7 @@ export function createServerApp({ ssr, assets, config }: ServerAppOptions): Drop
     ...(ssr.tokenNonce === undefined ? {} : { tokenNonce: ssr.tokenNonce }),
     cors: config.cors,
     trustedOrigins: config.trustedOrigins,
+    location: config.location,
     fragmentCacheControl: config.fragmentCacheControl,
     csrf: config.csrf,
     limits: config.limits,

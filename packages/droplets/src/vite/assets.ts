@@ -7,8 +7,9 @@
  * - Browser bundles: relative to the file that names them, resolved at
  *   runtime against `import.meta.url` (JavaScript) or the stylesheet's own
  *   URL (CSS).
- * - Server bundles: the bundle's location token (`hostTokens`), which every
- *   fragment and its data have replaced with the request's location.
+ * - Server bundles: `location` of the config in a build that sets it, else
+ *   the bundle's location token (`hostTokens`), which every fragment and
+ *   its data have replaced with the request's location.
  * - `public/`: copied to `assets/public/` of the client build only.
  */
 import { createHash } from "node:crypto";
@@ -17,9 +18,8 @@ import { cp, readFile, stat } from "node:fs/promises";
 import { dirname, posix, resolve, sep } from "node:path";
 import type { Context } from "hono";
 import type { Plugin, UserConfig } from "vite";
-import { hostTokens } from "../runtime/host.ts";
 import { isServerPath, projectPath } from "./server-only.ts";
-import type { PluginState } from "./state.ts";
+import { bundleLocation, type PluginState } from "./state.ts";
 
 /** Where `public/` is served from, in a build and in `vite dev`. */
 export const PUBLIC_PATH = "assets/public";
@@ -30,8 +30,8 @@ const BUILD_ROOT_LITERAL = new RegExp(`(["'\`])${BUILD_ROOT}\\1`, "g");
 
 /**
  * What a server bundle's file URLs start with until its chunks are
- * rendered, then the location token of the instance shared by every
- * environment: `renderBuiltUrl` lives in a config that `vite build`
+ * rendered, then the location of the instance shared by every environment
+ * (`bundleLocation`): `renderBuiltUrl` lives in a config that `vite build`
  * resolves again per environment, with a nonce of its own.
  */
 const SERVER_LOCATION = "__DROPLETS_SERVER_LOCATION__";
@@ -157,14 +157,14 @@ export function assetUrlsPlugin(state: PluginState): Plugin {
       const rewritten = rewriteFileUrls({
         code,
         file: id.replace(/[?#].*$/, ""),
-        location: hostTokens({ nonce: state.tokenNonce }).location,
+        location: bundleLocation({ state, isBuilding: !serving }),
       });
       return rewritten === null ? null : { code: rewritten, map: null };
     },
     renderChunk(code, chunk) {
       if (this.environment.config.consumer !== "client") {
         if (!code.includes(SERVER_LOCATION)) return null;
-        return { code: code.replaceAll(SERVER_LOCATION, hostTokens({ nonce: state.tokenNonce }).location), map: null };
+        return { code: code.replaceAll(SERVER_LOCATION, bundleLocation({ state, isBuilding: !serving })), map: null };
       }
       if (!code.includes(BUILD_ROOT)) return null;
       return { code: code.replace(BUILD_ROOT_LITERAL, JSON.stringify(rootFrom({ fileName: chunk.fileName }))), map: null };

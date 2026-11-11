@@ -8,7 +8,7 @@ import type { DropletsAdapter } from "../adapters.ts";
 import type { EnvState } from "../core/env.ts";
 import type { DropletRenderer } from "../renderer.ts";
 import type { ResolvedCss } from "./css.ts";
-import { tokenNonce } from "../runtime/host.ts";
+import { hostTokens, tokenNonce } from "../runtime/host.ts";
 
 /**
  * Everything the individual plugins share. Filled in by the main plugin's
@@ -164,3 +164,15 @@ export const HOOKS_FILES = ["src/hooks.server.ts", "src/hooks.server.js"];
 export const CLIENT_HOOKS_FILES = ["src/hooks.client.ts", "src/hooks.client.mts", "src/hooks.client.js", "src/hooks.client.mjs"];
 /** Where `importmap` lives, next to the hooks. */
 export const IMPORTMAP_FILES = ["src/importmap.server.ts", "src/importmap.server.js"];
+
+type BundleLocationInput = { state: PluginState; isBuilding: boolean };
+
+/**
+ * What a server bundle writes for this server's location: `location` of
+ * the config in a build, else the instance's location token, which every
+ * fragment and its data get replaced per request. `vite dev` always takes
+ * the token.
+ */
+export function bundleLocation({ state, isBuilding }: BundleLocationInput): string {
+  return isBuilding && state.config.location !== undefined ? state.config.location : hostTokens({ nonce: state.tokenNonce }).location;
+}

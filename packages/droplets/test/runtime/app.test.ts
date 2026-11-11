@@ -2123,6 +2123,59 @@ describe("createDropletsApp: the droplet location", () => {
   });
 });
 
+describe("createDropletsApp: a fixed location", () => {
+  let warn: MockInstance<typeof logger.warn>;
+  beforeEach(() => {
+    warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    warn.mockRestore();
+    vi.unstubAllEnvs();
+  });
+
+  const LOCATION = "https://shop.test/mfe";
+  const stylesheetOf = (html: string) => html.match(/<link rel="stylesheet" href="([^"]*)\/droplets\/hello\/style\.css/)?.[1];
+
+  it("is every request's location, whatever a header names, trusted or not", async () => {
+    const { app } = fakeApp({ location: LOCATION, trustedOrigins: ["https://other.test", "*"] });
+    vi.stubEnv("DROPLETS_TRUSTED_ORIGINS", "https://env.test");
+    const headers: Record<string, string>[] = [
+      {},
+      { "x-droplet-location": "https://other.test/x" },
+      { "x-droplet-location": "https://env.test" },
+      { "x-droplet-location": "http://internal:8000/own" },
+      { forwarded: "proto=https;host=other.test" },
+      { "x-forwarded-host": "evil.example", "x-forwarded-proto": "https", "x-forwarded-prefix": "/p" },
+    ];
+    for (const sent of headers) {
+      const html = await (await app.request("http://internal:8000/droplets/hello", { headers: sent })).text();
+      expect(stylesheetOf(html), JSON.stringify(sent)).toBe(LOCATION);
+    }
+    expect(warn.mock.calls.map((call) => String(call[1])).filter((text) => text.includes("ignoring"))).toEqual([]);
+  });
+
+  it("varies fragments and _data on origin only: no location header decides them", async () => {
+    const { app } = fakeApp({ location: LOCATION, fragmentCacheControl: "public, max-age=60" });
+    for (const path of ["/droplets/hello", "/droplets/hello/_data"]) {
+      const res = await app.request(`http://internal:8000${path}`, { headers: { "x-droplet-location": "https://evil.example" } });
+      expect(res.headers.get("vary"), path).toBe("origin");
+      expect(await res.text(), path).not.toContain("evil.example");
+    }
+  });
+
+  it("takes form posts from its own origin, not from one a header names", async () => {
+    const { app } = fakeApp({ location: LOCATION });
+    const post = (origin: string, headers: Record<string, string> = {}) =>
+      app.request("http://internal:8000/droplets/hello", {
+        method: "POST",
+        headers: { "content-type": "text/plain", origin, ...headers },
+        body: "x",
+      });
+    expect((await post("https://shop.test")).status).not.toBe(403);
+    expect((await post("https://evil.example", { "x-droplet-location": "https://evil.example" })).status).toBe(403);
+  });
+});
+
 describe("createDropletsApp: what a production server logs", () => {
   afterEach(() => {
     vi.restoreAllMocks();

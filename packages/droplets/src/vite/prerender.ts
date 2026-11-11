@@ -108,6 +108,7 @@ export async function prerender({ state, ssrEntry }: PrerenderInput): Promise<nu
       // The renders' tokens are the bundle's own: one nonce for both.
       ...(ssr.tokenNonce === undefined ? {} : { tokenNonce: ssr.tokenNonce }),
       building: true,
+      location: state.config.location,
     });
 
     const fallbackHost = state.config.host;

@@ -14,8 +14,8 @@
   Checked by: `test/integration/server-only.test.ts`, `test/integration/load-css.test.ts`.
 - Flags reach the plugin only through `discoverDroplets`, which reads them from the droplet's component; the registries take `ssr`, `hydrate` and `prerender` from that entry and read none from `+droplet.ts`, `+droplet.server.ts` or `+error.*`.
   Checked by: `test/core/discover.test.ts`, `test/vite/virtual.test.ts`.
-- Every URL a build writes for a droplet's own files is on the droplet location: browser bundles relative to the file that names them (`new URL(…, import.meta.url)` in JavaScript, a relative path in CSS), server bundles on the location token; never a root-relative `/assets/…`. A user's own `renderBuiltUrl` answers first.
-  Checked by: `test/vite/assets.test.ts`, `test/integration/assets.test.ts`.
+- Every URL a build writes for a droplet's own files is on the droplet location: browser bundles relative to the file that names them (`new URL(…, import.meta.url)` in JavaScript, a relative path in CSS), server bundles on `location` of the config in a build that sets it, else on the location token; never a root-relative `/assets/…`. A user's own `renderBuiltUrl` answers first.
+  Checked by: `test/vite/assets.test.ts`, `test/integration/assets.test.ts` ("file URLs in a build with a fixed location").
 - `dist/client/index.js` imports `env.js` (when runtime public variables are declared) and the entry statically, then writes the location record; nothing the browser reads at module top level depends on that record.
   Checked by: `test/integration/index-js.test.ts`, `test/vite/build.test.ts`.
 - `public/` lands only in `dist/client/assets/public/` (every environment has `copyPublicDir: false`), and `vite dev` serves it at `/assets/public/*`.
