@@ -133,13 +133,13 @@ the endpoint's response (even one with immutable headers, such as
 `Response.redirect()`), an `error()` or `redirect()`, or a response `handle`
 returns without resolving. A fragment the host's server fetches hands its
 `Set-Cookie` to that server; see
-[Cookies](/integrate/http-contract/#cookies) in the HTTP contract for how cookies
+[Cookies](/guides/security/#cookies) in the Security model for how cookies
 reach the browser (same origin, or a host that forwards them, never their
 `Domain`).
 
 Cookies do not exist at build: using them while prerendering throws
 `CookiesInPrerenderError` and stops the build, as reading
-[`host`](/guides/writing-droplets/#host-at-build) beyond its tokens does.
+[`host`](/guides/prerendering/#host-at-build) beyond its tokens does.
 `handle` runs for build-time renders too, so skip cookies there when
 `building` from `$droplets/env` is true.
 

@@ -1,9 +1,58 @@
 ---
-title: Ruby (Sinatra)
-description: "Fetch fragments with Net::HTTP and render them into ERB."
+title: Sinatra
+description: "Ruby: fetch fragments with Net::HTTP and render them into ERB."
 ---
 
 import HostDemo from "../../../../components/HostDemo.astro";
+
+How a Sinatra app embeds droplets: a route fetches each fragment with
+`Net::HTTP` and an ERB view prints it into the page.
+
+## The pattern in Sinatra
+
+```ruby
+# shop.rb (trimmed)
+def shop_fragment(id, params = [])
+  headers = { "accept" => "text/html", "x-host" => SHOP_ORIGIN, "referer" => SHOP_ORIGIN + shop_raw_target }
+  cookie = shop_request_header("cookie")
+  headers["cookie"] = cookie if cookie
+  target = "/droplets/#{URI.encode_www_form_component(id)}?#{URI.encode_www_form(params)}"
+  result = { html: "", status: 502, location: nil, cookies: [], link: nil }
+  response = shop_request("GET", target, headers) # Net::HTTP to SHOP_INTERNAL_URL
+  code = response.code.to_i
+  result.merge!(status: code, cookies: response.get_fields("set-cookie") || [], link: response["link"])
+  if (300..399).cover?(code)
+    result[:location] = response["location"]
+  elsif (response.is_a?(Net::HTTPSuccess) || code == 500) && response["content-type"].to_s.start_with?("text/html")
+    result[:html] = response.body.to_s.force_encoding("UTF-8")
+    return result
+  end
+  # … anything else: result[:html] becomes a "droplet is unavailable" note
+  result
+end
+```
+
+```erb
+<%# views/shop/layout.erb, in <head>: once per page %>
+<script type="module" src="/index.js"></script>
+<%# views/shop/gallery.erb: the fragment's HTML, as it came %>
+<aside><%= fragments[0] %></aside>
+```
+
+- `shop_fragment` sends `GET /droplets/<id>?<params>` to `SHOP_INTERNAL_URL`
+  with `accept: text/html`, `x-host` set to this host's public origin
+  (`SHOP_ORIGIN`, from `SHOP_PUBLIC_URL`), the browser's `Cookie` as it came,
+  and the page's path and query as `referer`.
+- `Net::HTTP` never follows a redirect, so a droplet's 3xx is kept:
+  `shop_render` answers it with `halt`, and sends the fragments' `Set-Cookie`
+  with the page.
+- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+  page) is pasted; `<%= %>` prints it unescaped.
+- `views/shop/layout.erb` loads `/index.js` once. `SHOP_PROXIED`, routed for
+  every verb, passes `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` on
+  to the shop.
+
+## The shop demo, recorded
 
 The [shop demo](/integrate/hosts/shop-demo/) on Sinatra 4, recorded by the
 end-to-end test. [How the pieces fit](/integrate/hosts/shop-demo/#how-it-fits-together)
@@ -11,9 +60,7 @@ has the diagram.
 
 <HostDemo id="sinatra" stack="Sinatra 4" />
 
-## How this host is set up
-
-The code is `examples/hosts/ruby-sinatra/shop.rb` (required by `app.rb`) and the
+The code is `examples/hosts/sinatra/shop.rb` (required by `app.rb`) and the
 ERB views in `views/shop/`.
 
 ### Pieces and ports
@@ -34,27 +81,13 @@ ERB views in `views/shop/`.
 
 ### How a page gets a droplet
 
-A server fetch with `Net::HTTP`, one thread per fragment, rendered into ERB:
+A server fetch with `Net::HTTP`, one thread per fragment, rendered into ERB.
+The fetch is `shop_fragment` and the view is `views/shop/gallery.erb`, both
+shown in the pattern above; the fragments' `Link` preloads go into `<head>`.
+`shop_render` runs the fetches:
 
 ```ruby
-# shop.rb
-def shop_fragment(id, params = [])
-  # The browser's request, as the shop should see it: its cookies, this page as the host.
-  headers = { "accept" => "text/html", "x-host" => SHOP_ORIGIN, "referer" => SHOP_ORIGIN + shop_raw_target }
-  cookie = shop_request_header("cookie")
-  headers["cookie"] = cookie if cookie
-  target = "/droplets/#{URI.encode_www_form_component(id)}?#{URI.encode_www_form(params)}"
-  response = shop_request("GET", target, headers) # never follows redirects
-  # Only a text/html answer is pasted; its Set-Cookie goes out with the page,
-  # its Link preloads into <head>, a 3xx is answered with halt.
-end
-
 results = requests.map { |id, params| Thread.new { shop_fragment(id, params) } }.map(&:value)
-```
-
-```erb
-<%# views/shop/gallery.erb %>
-<aside><%= fragments[0] %></aside>
 ```
 
 `referer` is the page's path and query as the browser sent it: the
@@ -103,7 +136,7 @@ sets them only from form actions and `/api`, which come through here.
 ### Run it
 
 ```bash
-cd examples/hosts/ruby-sinatra
+cd examples/hosts/sinatra
 docker compose up --build
 open http://localhost:8002/gallery   # log in as admin / droplets
 ```
@@ -147,5 +180,5 @@ end
 Rails works the same way: fetch in the controller, `raw` or `html_safe` in the
 view.
 
-The example lives in `examples/hosts/ruby-sinatra`. The page and the droplets
+The example lives in `examples/hosts/sinatra`. The page and the droplets
 server are different origins, so the droplets server runs with `cors: true`.

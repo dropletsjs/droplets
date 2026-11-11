@@ -1,17 +1,70 @@
 ---
-title: Node (Express)
-description: "Fetch fragments in a route handler, or mount the droplets server inside Express."
+title: Express
+description: "Node: fetch fragments in a route handler, or mount the droplets server inside Express."
 ---
 
 import HostDemo from "../../../../components/HostDemo.astro";
+
+How an Express app embeds droplets: a route handler fetches each fragment
+on the server and pastes it into the page it sends.
+
+## The pattern in Express
+
+```js
+// src/shop.js (trimmed)
+const fragmentHeaders = (req) => {
+  const headers = { accept: "text/html", "x-host": origin, referer: origin + req.originalUrl };
+  const cookie = req.get("cookie");
+  if (cookie) headers.cookie = cookie;
+  return headers;
+};
+
+async function fragment(req, id, params = new URLSearchParams()) {
+  const url = `${internal}/droplets/${encodeURIComponent(id)}?${params}`;
+  const result = { html: "", status: 502, location: null, cookies: [], link: null };
+  const response = await fetch(url, { headers: fragmentHeaders(req), redirect: "manual" });
+  result.status = response.status;
+  result.cookies = response.headers.getSetCookie();
+  if (response.status >= 300 && response.status < 400) {
+    result.location = response.headers.get("location");
+  } else if (
+    (response.ok || response.status === 500) &&
+    (response.headers.get("content-type") ?? "").startsWith("text/html")
+  ) {
+    result.html = await response.text();
+    return result;
+  }
+  // … anything else: result.html becomes a "droplet is unavailable" note
+  return result;
+}
+```
+
+```html
+<!-- src/shop.js, layout(): in <head>, once per page -->
+<script type="module" src="/index.js"></script>
+<!-- src/shop.js, the /gallery page's body: the fragment's HTML, as it came -->
+<aside>${filter}</aside>
+```
+
+- `fragment()` asks the shop for `GET /droplets/<id>?<params>` on its
+  internal address (`SHOP_INTERNAL_URL`), with `accept: text/html`, `x-host`
+  set to this host's public origin (`SHOP_PUBLIC_URL`), the browser's
+  `Cookie` as it came, and the page's URL as `referer`. `redirect: "manual"`
+  keeps a droplet's 3xx, which `render()` answers as it is.
+- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+  page) is pasted. `render()` sends every fragment's `Set-Cookie` with the page.
+- `layout()` loads `/index.js` once; each droplet element on the page then
+  hydrates itself.
+- `router.use(path, proxy)` passes `/index.js`, `/droplets/*`, `/assets/*`
+  and `/api/*` on to the shop, so the browser only talks to this origin.
+
+## The shop demo, recorded
 
 The [shop demo](/integrate/hosts/shop-demo/) on Express 5, recorded by the
 end-to-end test. [How the pieces fit](/integrate/hosts/shop-demo/#how-it-fits-together)
 has the diagram.
 
 <HostDemo id="express" stack="Express 5" />
-
-## How this host is set up
 
 The code is `examples/hosts/express/src/shop.js`, mounted by `src/server.js`.
 
@@ -34,24 +87,9 @@ The code is `examples/hosts/express/src/shop.js`, mounted by `src/server.js`.
 ### How a page gets a droplet
 
 A server fetch. Each route fetches its fragments in parallel (`Promise.all`,
-with the toasts and the header's cart badge) and pastes them into one template-string layout:
-
-```js
-// src/shop.js
-const fragmentHeaders = (req) => {
-  const headers = { accept: "text/html", "x-host": origin, referer: origin + req.originalUrl };
-  const cookie = req.get("cookie");
-  if (cookie) headers.cookie = cookie;
-  return headers;
-};
-
-const response = await fetch(`${internal}/droplets/${encodeURIComponent(id)}?${params}`, {
-  headers: fragmentHeaders(req),
-  redirect: "manual",
-});
-// Only a text/html answer is pasted. Its Set-Cookie goes out with the page,
-// its Link preloads into <head>, and a 3xx is answered as it is.
-```
+with the toasts and the header's cart badge) and pastes them into one
+template-string layout. The fetch is `fragment()`, shown in the pattern above;
+its `Link` preloads go into `<head>`.
 
 `referer` is the page's own URL, query included: that is the droplet's
 [`host`](/integrate/http-contract/#host-where-the-droplet-renders), and after a

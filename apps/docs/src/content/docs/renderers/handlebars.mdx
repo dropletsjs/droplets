@@ -118,7 +118,7 @@ droplets: src/droplets/counter/+droplet.hbs:1: a <style> block cannot contain {{
     `+droplet.server.ts`, and `data-droplets-enhance` on the `<form>` makes
     `/index.js` post it by `fetch` and render the result in place, even with
     `hydrate = false` (the server renders the fragment again). See
-    [Actions](/guides/writing-droplets/#actions);
+    [Actions](/guides/actions/);
   - or browser code next to it, in another droplet: a
     [plain script](/renderers/script/) builds its own UI from its data.
 - **Templates** are precompiled at build; only `handlebars/runtime` ships,

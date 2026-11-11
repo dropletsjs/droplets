@@ -153,33 +153,15 @@ replayed the same way.
 
 ## Forms
 
-A droplet's forms post to its [actions](/guides/writing-droplets/#actions)
+A droplet's forms post to its [actions](/guides/actions/)
 as any form does: the browser navigates to the action's URL. The element
-intercepts nothing on its own. A form that opts in
-([enhancing a form](/guides/writing-droplets/#enhancing-a-form): a
-renderer's `/form` wrapper, `enhanceDropletForm` of `$droplets/form`, or
+intercepts nothing on its own. A form that opts in (a renderer's `/form`
+wrapper, `enhanceDropletForm` of `$droplets/form`, or
 `data-droplets-enhance` on the form, which `/index.js` binds for any
 droplet) posts by `fetch` instead, and only to its own droplet's action.
-The element then:
-
-- renders the droplet again with the result as `form`, its loads run again
-  as a `_data` refresh; a droplet that does not hydrate gets its fragment,
-  rendered with `form` by the server (a JSON render that carries `form`),
-  swapped in. Either way focus goes back to the control in the same place;
-- follows a redirect with `location.assign`, `http:` and `https:` only;
-- dispatches `droplets:action` on `window` once the result is in:
-
-```js
-addEventListener("droplets:action", (event) => {
-  const { droplet, action, type, status, data } = event.detail;
-  if (droplet === "product-card" && action === "add" && type === "success") refreshCart();
-});
-```
-
-`data` is a copy of what the action returned or `fail()`ed with, as plain
-JSON; `undefined` for a redirect. A second submit of the same form while
-one is in flight is ignored. A form among the host's children, or in a
-nested droplet, belongs to them.
+[Enhancing a form](/guides/actions/#enhancing-a-form) has the code for each
+renderer and what the element does with the result: the re-render, the
+redirect and the `droplets:action` event.
 
 ## Host children
 

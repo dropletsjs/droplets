@@ -1,6 +1,6 @@
 ---
 title: The HTTP contract
-description: "Every route a droplets server exposes, the fragment's markup and Link header, x-host, CORS and caching."
+description: "Every route a droplets server exposes, the fragment's markup and Link header, x-host and host, form actions, the Origin check and body limits."
 ---
 
 A droplets server is an ordinary HTTP server. These routes are the whole
@@ -69,7 +69,7 @@ from.
 
 ### The `Link` header
 
-Every fragment (`GET` and `POST`, live or [prerendered](/guides/writing-droplets/#prerendering),
+Every fragment (`GET` and `POST`, live or [prerendered](/guides/prerendering/),
 the error page too) names what the browser will ask for next, as absolute URLs
 on the public origin:
 
@@ -148,15 +148,31 @@ GET /droplets/products/_data?category=mugs
 
 ## `x-host`: the public location
 
-The URLs a fragment writes (its `style.css` link, the `Link` header) point
-where the **browser** reaches the droplets server. By default that is the
-request's own origin, which is wrong as soon as a proxy or a host application
-sits in between: the host reaches the droplets server at
-`http://droplets:8000` inside Docker, but browsers reach it at
-`https://drops.example.com`.
+`x-host` carries one URL: the droplets server's public location, as the
+**browser** sees it. That is the origin, and the path prefix if there is
+one, under which the browser reaches `/index.js`, `/droplets/*`,
+`/assets/*` and `/api/*`:
 
-Send the browser-facing URL in the `x-host` header when fetching a fragment,
-and list its origin in [`trustedOrigins`](/guides/configuration/) (or
+- the host's own origin when the host proxies those paths
+  (`x-host: https://www.example.com`), as every [known host](/integrate/hosts/overview/) does;
+- the droplets server's public URL when the page loads `/index.js` from it
+  directly (`x-host: https://drops.example.com`).
+
+It differs from `Host`. `Host` is the address the request was sent to, so it
+says where the **host's server** reached the droplets server:
+`Host: droplets:8000` inside Docker, `Host: localhost:8000` on one machine.
+Without `x-host` the droplets server takes its location from `Host` (the
+request's own origin) and writes URLs the browser cannot reach. It also
+differs from `host` in a load, which is the page the droplet renders on
+([below](#host-where-the-droplet-renders)).
+
+What the location decides: every URL the fragment writes about the server
+(its `style.css` link, the `Link` header, action URLs, `droplet.origin`),
+the origins the [`Origin` check](#form-posts-the-origin-check) accepts as
+its own, and `request.url` in `handle` and `+server.ts`.
+
+Send it when fetching a fragment or proxying a request, and list its origin
+in [`trustedOrigins`](/guides/configuration/) (or
 `DROPLETS_TRUSTED_ORIGINS`):
 
 ```
@@ -192,6 +208,18 @@ location from `/index.js`: the elements load JavaScript, CSS and data from
 the URL the page loaded `/index.js` from, prefix included, whatever the
 markup says. Point the `<script src>` at the same place as `x-host`.
 
+### Why not `X-Forwarded-Host`?
+
+Proxies, CDNs and load balancers set and overwrite `X-Forwarded-Host`,
+`X-Forwarded-Proto` and `Forwarded` on their own, hop by hop: a load
+balancer in front of the droplets server replaces what the host page's
+server wrote with what it saw itself. Those headers cannot reliably carry
+what the host page asks for. A header of its own, which that
+infrastructure does not touch, can: `x-host` arrives as the host wrote it.
+Droplets still reads the forwarded headers, for what they do mean: the
+host of the request a proxy forwarded, which becomes the droplet's
+[`host`](#host-where-the-droplet-renders) when nothing better names the page.
+
 ## `host`: where the droplet renders
 
 `x-host` says where the droplet **lives**; `host` in load events says where it
@@ -220,24 +248,13 @@ per request, which is why fragments are [not cached](#caching) by default.
 
 ### Who sees what
 
-Embedding a droplet tells its server where it renders: the page's URL, path
-and query, in `host`. It is the same trust you give a third-party script on
-the page. A droplet served by someone else sees the URLs of the pages it is
-embedded in, query strings included; do not embed droplets you do not trust
-on pages whose URLs carry anything sensitive. The
-[Security model](/guides/security/) gathers the rest of what a droplets
-server trusts.
+What a droplets server learns about the pages that embed it is in
+[Who sees what](/guides/security/#who-sees-what).
 
 ## CORS
 
-When the host page and the droplets server are on different origins, the
-browser needs permission to import `/droplets/<id>/client.js` as a module and
-to `POST` to `/droplets/<id>/_data` with a JSON body. Set `cors: true` in
-`droplets.config.ts`, or pass an origin list. Stylesheets need no CORS. With
-CORS on, `Access-Control-Expose-Headers` always includes `Link` and
-`x-droplets-build`, on top of any `exposeHeaders` you pass. The
-[nginx example](/integrate/hosts/nginx/) avoids CORS entirely by proxying the
-droplets routes under the host's own origin.
+A page on another origin needs `cors` on the droplets server: see
+[CORS](/guides/security/#cors).
 
 ## Form actions
 
@@ -334,7 +351,7 @@ any of it is ignored. The keys are taken out of `host` before `handle` runs
 fragments on its server sends its page's URL as `"host"` in a `POST`
 render, or as `Referer` for a `handle` that reads it with `hostFrom`; the
 browser sends the page's URL with `_data` on its own. See
-[Without JavaScript](/guides/writing-droplets/#without-javascript-postredirectget).
+[Without JavaScript](/guides/actions/#without-javascript-postredirectget).
 
 ## Form posts: the `Origin` check
 
@@ -354,7 +371,7 @@ one. So is `Origin: null`, what a browser sends from a page with
 `Referrer-Policy: no-referrer`: such a page needs
 `<meta name="referrer" content="strict-origin-when-cross-origin">` for its
 forms to post here (see
-[Post/Redirect/Get](/guides/writing-droplets/#without-javascript-postredirectget)).
+[Post/Redirect/Get](/guides/actions/#without-javascript-postredirectget)).
 A request without a content type and without an `Origin` passes: that
 is another server calling, not a browser. This is SvelteKit's `csrf.checkOrigin`; `csrf: { checkOrigin: false }`
 turns it off. JSON bodies and `GET`s are not checked: a JSON post from
@@ -372,88 +389,11 @@ form-urlencoded or `text/plain`, 10 MB of multipart or anything else. An
 
 ## Cookies
 
-What `handle` or a `+server.ts` handler sets with
-[`event.cookies`](/guides/server/#cookies) goes out as `Set-Cookie` on the
-response that answers the request: the fragment, `_data` or the endpoint,
-also an error, a redirect or a response the handler built itself. A
-[form action](#form-actions) sets them too. A droplet's `load` and
-`transform` only read cookies: `cookies.set()` and `cookies.delete()` throw
-there.
-
-Cookies reach the browser in one of two ways:
-
-- **same origin**: proxy the droplets routes under the host's own origin (the
-  [nginx example](/integrate/hosts/nginx/)); the browser sends and receives them
-  directly;
-- **forwarded by the host**: a fragment fetched by the host's server delivers
-  its `Set-Cookie` to that server, not to the browser. The host passes it on
-  with its page, and forwards the browser's `Cookie` header when it fetches
-  fragments. It never passes on a `Domain` attribute: the cookie belongs to
-  the host's own origin.
-
-A host's server fetching fragments should not follow redirects
-(`fetch(url, { redirect: "manual" })`): a redirect is the droplet's answer,
-for the host to pass on, and following it would make the host's server
-request a URL someone else chose.
+How `Set-Cookie` gets from a fragment, `_data`, an action or an endpoint to
+the browser, and what a host passes on, is in
+[Cookies](/guides/security/#cookies).
 
 ## Caching
 
-Droplet bundles, stylesheets and everything under `/assets/` are sent with
-`cache-control: public, max-age=2592000, immutable`. Files under `/assets/`
-are content-addressed; for the routes, every build gets a short hash, appended
-to their URLs as `?c=<hash>`, so a deploy invalidates them.
-
-`/index.js` is the exception: a small stub, always `no-store`, that imports
-the entry client under a name unique to the build, relative to its own URL:
-
-```js
-((globalThis[Symbol.for("droplets.servers")] ??= {})["my-widgets:a151d9"] ??= {}).origin = new URL(/* @vite-ignore */ ".", import.meta.url).href.replace(/\/$/, "");
-((globalThis[Symbol.for("droplets.servers")] ??= {})["my-widgets:a151d9"] ??= {}).env = {"PUBLIC_BANNER":"…"};
-import("./assets/index.C-iXBKI0.js");
-```
-
-The first line records where the page loaded `/index.js` from, prefix
-included: the elements load from there. The second is there only when
-`src/env.ts` declares dynamic public variables (`{ public: true }`): their
-current values. Both live under `<element>:<build>`. Servers sharing a page
-already need distinct `element` names, so each keeps its own values; the
-build hash tells two builds of one server apart. `$droplets/drop` reads the
-server's origin from the same record.
-
-`/index.js` must be served by the droplets server, under its prefix: its own
-URL is what the browser trusts. A CDN in front of it, pulling from the
-server at the same URL, works; a copy uploaded elsewhere would make the
-elements load from there.
-
-A page that loads `/index.js` always learns about the newest build, and on a
-reload only those few bytes go over the network: the entry itself comes from
-the cache.
-
-Fragments and `_data` are sent with `cache-control: private, no-store` by
-default: they depend on the request's host, props and cookies, so a shared
-cache must not keep them. The droplet decides otherwise, from its load:
-
-```ts
-export const load = ({ setHeaders }: LoadEvent) => {
-  setHeaders({ "cache-control": "public, max-age=60" });
-  return { … };
-};
-```
-
-Its `Cache-Control` replaces the default, on the fragment and on `_data`;
-an error answer, or a load that failed, keeps the default. A prerendered
-render is served with the headers its load set at build. `handle` has the
-last word: a `Cache-Control` it sets on the response stands.
-`fragmentCacheControl` in `droplets.config.ts` changes the default for every
-droplet, or `false` sends none.
-
-Every fragment and `_data` answer carries
-`Vary: x-host, forwarded, x-forwarded-host, x-forwarded-proto, origin`,
-after any `Vary` the load set. A cache keys the answers it keeps by URL;
-`Vary` adds these headers to the key. They are what the answer's URLs and
-`host` come from, so a request with a spoofed one lands in a cache entry of
-its own: it can poison only the answer it gets itself, never the one
-everybody else is served.
-
-The import map is not cached by the server. Cache fragments in your host if
-their content allows it.
+What each route sends as `Cache-Control` and `Vary`, and how `/index.js`
+picks up a new build, is in [Caching](/guides/security/#caching).

@@ -2,7 +2,7 @@
 /**
  * The shop demo on every host in examples/hosts/, end to end:
  *
- *   pnpm test:hosts                  # all nine, one at a time
+ *   pnpm test:hosts                  # the nine shop flows, one at a time
  *   pnpm test:hosts express nginx    # some
  *   pnpm test:hosts express --https  # express behind Caddy on https://127-0-0-1.sslip.io:8443
  *   pnpm test:hosts --docs           # also refresh the docs' copies (apps/docs/public/hosts/), paced as a person
@@ -45,25 +45,26 @@ const envLocal = join(root, ".env.local");
 if (existsSync(envLocal)) process.loadEnvFile(envLocal);
 
 /**
- * Host name → its folder in examples/hosts/ and the shop's URL on it. A host
- * with `byName` runs only when named (the WordPress showcase, examples/wp-shop).
+ * Host id → the shop's URL on it. The id names everything about a host:
+ * its folder in examples/hosts/, its docs page, its recordings and its
+ * compose project (`droplets-<id>`). A host with `byName` runs only when
+ * named (the WordPress showcase, examples/wp-shop).
  * A host with `spec` runs that flow instead of the shop's: `page` is the
  * page to wait for, `shots` its screenshots, and `droplets` says the
  * browser reaches the droplets server directly, on DROPLETS_URL.
  */
 const HOSTS = {
-  express: { folder: "express", url: "http://localhost:8003" },
-  nginx: { folder: "nginx", url: "http://localhost:8081" },
-  fastapi: { folder: "python-fastapi", url: "http://localhost:8001" },
-  sinatra: { folder: "ruby-sinatra", url: "http://localhost:8002" },
-  php: { folder: "php", url: "http://localhost:8009" },
-  wordpress: { folder: "wordpress", url: "http://localhost:8008", byName: true },
-  react: { folder: "react-vite", url: "http://localhost:8004" },
-  astro: { folder: "astro", url: "http://localhost:8005" },
-  sveltekit: { folder: "sveltekit", url: "http://localhost:8006" },
-  nextjs: { folder: "nextjs", url: "http://localhost:8007" },
+  express: { url: "http://localhost:8003" },
+  nginx: { url: "http://localhost:8081" },
+  fastapi: { url: "http://localhost:8001" },
+  sinatra: { url: "http://localhost:8002" },
+  php: { url: "http://localhost:8009" },
+  wordpress: { url: "http://localhost:8008", byName: true },
+  "react-vite": { url: "http://localhost:8004" },
+  astro: { url: "http://localhost:8005" },
+  sveltekit: { url: "http://localhost:8006" },
+  nextjs: { url: "http://localhost:8007" },
   htmx: {
-    folder: "htmx",
     url: "http://localhost:8010",
     byName: true,
     spec: "e2e/htmx.spec.ts",
@@ -73,7 +74,7 @@ const HOSTS = {
   },
 };
 
-/** The https variant: a compose override with Caddy in front (examples/hosts/<folder>/docker-compose.https.yml). */
+/** The https variant: a compose override with Caddy in front (examples/hosts/<id>/docker-compose.https.yml). */
 const HTTPS = { express: "https://127-0-0-1.sslip.io:8443" };
 
 /** The flow's screenshots (e2e/shop.spec.ts), copied to the docs with --docs. */
@@ -221,7 +222,7 @@ let current;
 /** `docker compose` on a host's stack, as the project `droplets-<host>`. */
 const compose = (name, files, argv) =>
   run("docker", ["compose", "-p", `droplets-${name}`, ...files, ...argv], {
-    cwd: join(root, "examples", "hosts", HOSTS[name].folder),
+    cwd: join(root, "examples", "hosts", name),
     env: { ...process.env, ...portsOf(name).env },
   }).status === 0;
 
@@ -277,7 +278,7 @@ for (const name of names) {
   results.push({ host: recording, ok, video: existsSync(video) ? video : "-" });
 }
 
-if (current) console.log(`\n${current} stays up: docker compose -p droplets-${current} down -v, in examples/hosts/${HOSTS[current].folder}`);
+if (current) console.log(`\n${current} stays up: docker compose -p droplets-${current} down -v, in examples/hosts/${current}`);
 
 console.log("\nhost\tresult\tvideo");
 for (const { host, ok, video } of results) console.log(`${host}\t${ok ? "pass" : "FAIL"}\t${video}`);

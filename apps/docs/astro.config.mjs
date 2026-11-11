@@ -47,7 +47,20 @@ export default defineConfig({
           items: ["start/what-is-a-droplet", "start/getting-started", "start/manual-setup"],
         },
         {
+          label: "Writing droplets",
+          items: [
+            "guides/writing-droplets",
+            "guides/actions",
+            "guides/prerendering",
+            "guides/errors",
+            "guides/server",
+            "guides/development",
+            "guides/configuration",
+          ],
+        },
+        {
           label: "Renderers",
+          collapsed: true,
           items: [
             { label: "Overview", slug: "renderers" },
             "renderers/svelte",
@@ -64,35 +77,27 @@ export default defineConfig({
         {
           label: "Integrating",
           items: [
+            "integrate/any-stack",
+            "integrate/http-contract",
             {
               label: "Known hosts",
+              collapsed: true,
               items: [
-                "integrate/hosts/overview",
+                { label: "Overview", slug: "integrate/hosts/overview" },
                 "integrate/hosts/nginx",
                 "integrate/hosts/express",
-                "integrate/hosts/react",
+                "integrate/hosts/react-vite",
                 "integrate/hosts/astro",
                 "integrate/hosts/sveltekit",
                 "integrate/hosts/nextjs",
-                "integrate/hosts/python",
-                "integrate/hosts/ruby",
+                "integrate/hosts/fastapi",
+                "integrate/hosts/sinatra",
                 "integrate/hosts/php",
                 "integrate/hosts/htmx",
                 "integrate/hosts/shop-demo",
               ],
             },
             "integrate/wordpress",
-            "integrate/http-contract",
-          ],
-        },
-        {
-          label: "Writing droplets",
-          items: [
-            "guides/writing-droplets",
-            "guides/errors",
-            "guides/server",
-            "guides/development",
-            "guides/configuration",
           ],
         },
         { label: "In the browser", items: ["guides/in-the-browser"] },

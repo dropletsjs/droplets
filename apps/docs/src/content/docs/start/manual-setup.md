@@ -174,7 +174,8 @@ the fragment (or an element it writes itself).
 
 [Getting started](/start/getting-started/#8-embed-it-in-a-plain-html-page)
 has a complete page, and [Known hosts](/integrate/hosts/overview/) shows the same
-thing from nine stacks.
+thing in eleven host examples.
 
 Next: [Writing droplets](/guides/writing-droplets/) covers the flags, the load
-chain, props, actions and prerendering.
+chain and props; [Actions](/guides/actions/) and
+[Prerendering](/guides/prerendering/) follow it.

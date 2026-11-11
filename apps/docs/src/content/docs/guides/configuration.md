@@ -55,7 +55,7 @@ export default config({
 | `cors` | off | `true` sends `Access-Control-Allow-Origin: *` on every route (`/api/*`, `_data`, `/index.js` included), and warns once in production; an object is passed to Hono's `cors()`. Needed whenever a page on another origin embeds your droplets. Prefer an origin list (`{ origin: ["https://shop.example"] }`) for anything not public: with `*`, any page can read what an employee's browser can reach on an intranet server. |
 | `trustedOrigins` | `[]` | Origins, besides the server's own, allowed to send form submissions: the hosts whose pages post to your droplets. `"*"` trusts every origin. The `DROPLETS_TRUSTED_ORIGINS` environment variable (comma-separated, read at runtime on every adapter) adds to it. When set (without `"*"`), it also bounds `host`: a host on another origin becomes the server's own. An `x-host` is honoured only when its origin is the server's own or listed here (`"*"` does not count). The same list (without `"*"`) says where a form posted without JavaScript may be sent back to. See [Form posts](/integrate/http-contract/#form-posts-the-origin-check) and [Security model](/guides/security/). |
 | `csrf.checkOrigin` | `true` | Answer `403` to a cross-site form submission (form-urlencoded, multipart or `text/plain` body, or none at all with an `Origin`) to `/droplets/*` or `/api/*` from an origin that is not trusted. `false` turns the check off. |
-| `fragmentCacheControl` | `"private, no-store"` | The default `Cache-Control` of fragments and `_data`, when neither the droplet's load ([`setHeaders`](/guides/writing-droplets/#setheaders)) nor `handle` set one. `false` sends none. See [Caching](/integrate/http-contract/#caching). |
+| `fragmentCacheControl` | `"private, no-store"` | The default `Cache-Control` of fragments and `_data`, when neither the droplet's load ([`setHeaders`](/guides/writing-droplets/#setheaders)) nor `handle` set one. `false` sends none. See [Caching](/guides/security/#caching). |
 | `limits.json` | 1 MB | Largest JSON body, in bytes: render requests and `+server.ts`. Bigger answers `413`. |
 | `limits.form` | 1 MB | Largest form-urlencoded or `text/plain` body. |
 | `limits.multipart` | 10 MB | Largest multipart body, and body of any other type (uploads). A body without a `content-length` is held in memory while it is counted, up to the limit, so mind it times your concurrency. |
@@ -177,7 +177,7 @@ Client externals are declared in
 | `PORT` | Overrides both ports, so a container can relocate the server without a rebuild. |
 | `DROPLETS_LOG` | Log verbosity: `error`, `warn`, `info` (default) or `debug`. |
 | `DROPLETS_TRUSTED_ORIGINS` | Comma-separated origins added to `trustedOrigins`, read at runtime. |
-| `DROPLETS_SECRET` | 32 or more random bytes, read at runtime: signs the result of a form posted without JavaScript, carried back to the page on the redirect ([Post/Redirect/Get](/guides/writing-droplets/#without-javascript-postredirectget)). Without it, or shorter, such a post answers the fragment instead, with a warning in the log. |
+| `DROPLETS_SECRET` | 32 or more random bytes, read at runtime: signs the result of a form posted without JavaScript, carried back to the page on the redirect ([Post/Redirect/Get](/guides/actions/#without-javascript-postredirectget)). Without it, or shorter, such a post answers the fragment instead, with a warning in the log. |
 
 Your own variables are declared in `src/env.ts`; see
 [Environment variables](/guides/server/#environment-variables).

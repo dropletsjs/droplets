@@ -1,7 +1,8 @@
 # tests/hosts
 
-The shop demo on every host in [`examples/hosts`](../../examples/hosts), end
-to end: for each host, its compose stack is started (`docker compose up
+Eleven host examples; nine run the shop demo; WordPress and htmx have flows
+of their own. All eleven in [`examples/hosts`](../../examples/hosts), end to
+end, each by its id (the folder's name). For each of the nine, its compose stack is started (`docker compose up
 --build -d`), the same flow runs in Chromium (the gallery, a product into the
 cart, the admin login, that product's stock set to 0, the product page
 saying "Out of stock", and a post without JavaScript), and the stack is
@@ -20,7 +21,7 @@ another origin; the shop's enhanced and plain forms under `hx-boost`; a
 boosted link and the browser's Back.
 
 ```bash
-pnpm test:hosts                     # all nine, one at a time (wordpress only by name)
+pnpm test:hosts                     # the nine shop flows, one at a time (wordpress and htmx only by name)
 pnpm test:hosts express nginx       # some
 pnpm test:hosts wordpress           # the WordPress showcase, with wp-shop
 pnpm test:hosts htmx                # the htmx pages

@@ -1,6 +1,6 @@
 ---
 title: Security model
-description: "What a droplets server trusts, who sees what, and the rules for x-host, CSRF, cookies, limits, server-only code, signed form results and request input."
+description: "What a droplets server trusts, who sees what, and the rules for x-host, caching, CSRF, CORS, cookies, limits, server-only code, signed form results and request input."
 ---
 
 This page gathers the rules spread over the guides, in one place. Each
@@ -68,15 +68,68 @@ elements load JavaScript, CSS and data from the URL the page loaded
 
 ## Caching
 
-Fragments and `_data` are `cache-control: private, no-store` by default:
-they depend on the request's host, props and cookies. A droplet that is the
-same for everyone opens itself to caches with
-[`setHeaders`](/guides/writing-droplets/#setheaders). Every fragment and
-`_data` answer carries
-`Vary: x-host, forwarded, x-forwarded-host, x-forwarded-proto, origin`, so
-a request with a spoofed header lands in a cache entry of its own and
-cannot poison the one everybody else gets. A rendered form result is
-always `private, no-store`. See [Caching](/integrate/http-contract/#caching).
+Droplet bundles, stylesheets and everything under `/assets/` are sent with
+`cache-control: public, max-age=2592000, immutable`. Files under `/assets/`
+are content-addressed; for the routes, every build gets a short hash, appended
+to their URLs as `?c=<hash>`, so a deploy invalidates them.
+
+`/index.js` is the exception: a small stub, always `no-store`, that imports
+the entry client under a name unique to the build, relative to its own URL:
+
+```js
+((globalThis[Symbol.for("droplets.servers")] ??= {})["my-widgets:a151d9"] ??= {}).origin = new URL(/* @vite-ignore */ ".", import.meta.url).href.replace(/\/$/, "");
+((globalThis[Symbol.for("droplets.servers")] ??= {})["my-widgets:a151d9"] ??= {}).env = {"PUBLIC_BANNER":"…"};
+import("./assets/index.C-iXBKI0.js");
+```
+
+The first line records where the page loaded `/index.js` from, prefix
+included: the elements load from there. The second is there only when
+`src/env.ts` declares dynamic public variables (`{ public: true }`): their
+current values. Both live under `<element>:<build>`. Servers sharing a page
+already need distinct `element` names, so each keeps its own values; the
+build hash tells two builds of one server apart. `$droplets/drop` reads the
+server's origin from the same record.
+
+`/index.js` must be served by the droplets server, under its prefix: its own
+URL is what the browser trusts. A CDN in front of it, pulling from the
+server at the same URL, works; a copy uploaded elsewhere would make the
+elements load from there.
+
+A page that loads `/index.js` always learns about the newest build, and on a
+reload only those few bytes go over the network: the entry itself comes from
+the cache.
+
+Fragments and `_data` are sent with `cache-control: private, no-store` by
+default: they depend on the request's host, props and cookies, so a shared
+cache must not keep them. The droplet decides otherwise, from its load:
+
+```ts
+export const load = ({ setHeaders }: LoadEvent) => {
+  setHeaders({ "cache-control": "public, max-age=60" });
+  return { … };
+};
+```
+
+Its `Cache-Control` replaces the default, on the fragment and on `_data`;
+an error answer, or a load that failed, keeps the default. A prerendered
+render is served with the headers its load set at build. `handle` has the
+last word: a `Cache-Control` it sets on the response stands.
+`fragmentCacheControl` in `droplets.config.ts` changes the default for every
+droplet, or `false` sends none.
+
+Every fragment and `_data` answer carries
+`Vary: x-host, forwarded, x-forwarded-host, x-forwarded-proto, origin`,
+after any `Vary` the load set. A cache keys the answers it keeps by URL;
+`Vary` adds these headers to the key. They are what the answer's URLs and
+`host` come from, so a request with a spoofed one lands in a cache entry of
+its own: it can poison only the answer it gets itself, never the one
+everybody else is served.
+
+The import map is not cached by the server. Cache fragments in your host if
+their content allows it.
+
+A fragment or `_data` rendered with a form's result is always
+`private, no-store`.
 
 ## CSRF: the `Origin` check
 
@@ -99,6 +152,15 @@ that has no content type, answers `403` before `handle` runs unless its
 
 ## CORS
 
+When the host page and the droplets server are on different origins, the
+browser needs permission to import `/droplets/<id>/client.js` as a module and
+to `POST` to `/droplets/<id>/_data` with a JSON body. Set `cors` in
+`droplets.config.ts`: `true`, or an origin list. Stylesheets need no CORS.
+With CORS on, `Access-Control-Expose-Headers` always includes `Link` and
+`x-droplets-build`, on top of any `exposeHeaders` you pass. A host that
+proxies the droplets routes under its own origin
+([the paths](/integrate/any-stack/#the-paths-to-proxy)) needs no CORS at all.
+
 `cors: true` sends `Access-Control-Allow-Origin: *` on every route, `/api/*`
 and `_data` included, and warns once in production. For anything that is
 not public, list the hosts instead (`cors: { origin: [...] }`): with `*`,
@@ -112,18 +174,31 @@ any site you visit read the dev server's sources. See
 - Defaults: `httpOnly: true`, `sameSite: "lax"`, `secure: true` except over
   plain HTTP to `localhost` or a loopback address. `path` is required and
   absolute. `sameSite: "none"` without `secure: true` throws.
-- A droplet's `load` and `transform` read cookies only; `set` and `delete`
-  throw there. `handle`, `+server.ts` and [actions](/guides/writing-droplets/#actions)
-  set them.
-- A fragment the host's server fetches hands its `Set-Cookie` to that
-  server. The host passes it on with its page, forwards the browser's
-  `Cookie` when it fetches fragments, and never passes on a `Domain`: the
-  cookie belongs to the host's own origin. Proxying the droplets routes
-  under the host's origin makes them first-party.
+- What `handle`, a `+server.ts` handler or an [action](/guides/actions/)
+  sets with [`event.cookies`](/guides/server/#cookies) goes out as
+  `Set-Cookie` on the response that answers the request: the fragment,
+  `_data` or the endpoint, also an error, a redirect or a response the
+  handler built itself.
+- A droplet's `load` and `transform` only read cookies: `cookies.set()` and
+  `cookies.delete()` throw there.
 - Using cookies while prerendering throws `CookiesInPrerenderError` and
   stops the build.
 
-See [Cookies](/guides/server/#cookies).
+Cookies reach the browser in one of two ways:
+
+- **same origin**: the host proxies the droplets routes under its own
+  origin ([the paths](/integrate/any-stack/#the-paths-to-proxy)); the
+  browser sends and receives them directly, as first-party cookies;
+- **forwarded by the host**: a fragment fetched by the host's server
+  delivers its `Set-Cookie` to that server, not to the browser. The host
+  passes it on with its page, and forwards the browser's `Cookie` header
+  when it fetches fragments. It never passes on a `Domain` attribute: the
+  cookie belongs to the host's own origin.
+
+A host's server fetching fragments does not follow redirects
+(`fetch(url, { redirect: "manual" })`): a redirect is the droplet's answer,
+for the host to pass on, and following it would make the host's server
+request a URL someone else chose.
 
 ## Limits
 
@@ -160,7 +235,7 @@ See [Environment variables](/guides/server/#environment-variables).
 
 A form posted without JavaScript is answered with a `303` back to its page,
 the action's result signed in the page's query
-([Post/Redirect/Get](/guides/writing-droplets/#without-javascript-postredirectget)).
+([Post/Redirect/Get](/guides/actions/#without-javascript-postredirectget)).
 What that token is, and is not:
 
 - **Signed, not encrypted.** `base64url(JSON { status, data, exp, action })`,
@@ -222,11 +297,11 @@ Two more places where request data meets HTML:
 
 - `transform` writes into HTML with `host` and props from the request:
   escape what you splice in, and pass the replacement as a function. See
-  [`transform`](/guides/writing-droplets/#transform).
+  [`transform`](/guides/prerendering/#transform).
 - Build-time renders hold `host` and the location as tokens that carry a
   per-build nonce, so content cannot fake one. They are filled with HTML
   escaping: use them in text and attribute positions, not inside an inline
-  `<script>` or `<style>`. See [`host` at build](/guides/writing-droplets/#host-at-build).
+  `<script>` or `<style>`. See [`host` at build](/guides/prerendering/#host-at-build).
 
 ## Host-asserted identity
 
@@ -280,20 +355,7 @@ cannot strip headers, use a login of its own instead, as the shop does.
 
 ## For hosts
 
-A host that fetches fragments on its server:
-
-- sends a fixed `x-host`, written out, and lists it in the droplets
-  server's `DROPLETS_TRUSTED_ORIGINS`;
-- does not follow redirects (`fetch(url, { redirect: "manual" })`): a
-  redirect is the droplet's answer to pass on, and following it would make
-  the host's server request a URL someone else chose;
-- pastes only `text/html` answers (a `200`, or a `500` with the error page):
-  a `400` or `404` is plain text that may echo the props;
-- forwards the browser's `Cookie`, and passes `Set-Cookie` on without a
-  `Domain`;
-- keeps `Referrer-Policy` at the default
-  `strict-origin-when-cross-origin` on pages with forms, or forms cannot
-  post.
-
-[Known hosts](/integrate/hosts/overview/) and the
-[HTTP contract](/integrate/http-contract/) have the rest.
+A host that fetches fragments on its server follows the five-line
+[security checklist](/integrate/any-stack/#security-checklist) on
+[Any other stack](/integrate/any-stack/), with the headers it sends and
+passes on.

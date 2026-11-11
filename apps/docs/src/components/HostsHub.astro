@@ -1,8 +1,8 @@
 ---
 /**
- * One droplets server, the ten hosts of examples/hosts/ around it. Nine
- * fetch the fragment on their server (solid arrows); the React SPA lets
- * the browser fetch it (dashed). The proxy every example runs is in the
+ * One droplets server, the eleven hosts of examples/hosts/ around it. Nine
+ * fetch the fragment on their server (solid arrows); the React SPA and the
+ * htmx pages let the browser fetch it (dashed). The proxy every example runs is in the
  * prose under the diagram.
  */
 import Diagram from "./Diagram.astro";
@@ -20,6 +20,7 @@ const hosts: Host[] = [
   { name: "PHP" },
   { name: "WordPress" },
   { name: "nginx SSI" },
+  { name: "htmx", browser: true },
 ];
 
 type Box = { x: number; y: number; w: number; h: number };
@@ -42,7 +43,7 @@ function wide(): Scene {
   const cw = 112;
   const ch = 32;
   hosts.forEach((h, i) => {
-    const a = ((-90 + i * 36) * Math.PI) / 180;
+    const a = ((-90 + (i * 360) / hosts.length) * Math.PI) / 180;
     const x = cx + 255 * Math.cos(a);
     const y = cy + 160 * Math.sin(a);
     const b = { x: Math.round(x - cw / 2), y: Math.round(y - ch / 2), w: cw, h: ch };
@@ -66,9 +67,11 @@ function narrow(): Scene {
     const row = Math.floor(i / 3);
     d.rect(26 + col * 62, 146 + row * 26, 54, 18, "ghost", 3);
   }
-  d.box(240, 150, 110, 40, "node", "React SPA");
+  d.box(240, 120, 110, 36, "node", "React SPA");
+  d.box(240, 176, 110, 36, "node", "htmx");
   d.line(115, 108, 140, 62);
-  d.line(295, 148, 250, 62, "arrow dashed");
+  d.line(295, 118, 250, 62, "arrow dashed");
+  d.line(238, 194, 228, 62, "arrow dashed");
   return d.scene(236);
 }
 ---
@@ -76,7 +79,7 @@ function narrow(): Scene {
 <Diagram
   id="hosts"
   title="One droplets server, many hosts"
-  desc="A droplets server in the middle, ten hosts around it. Express, Next.js, SvelteKit, Astro, FastAPI, Sinatra, PHP, WordPress and nginx (with Server Side Includes) fetch GET /droplets/:id on their server and paste the fragment into their page: solid arrows. The React single-page app lets the browser fetch it, or writes the element itself: a dashed arrow. In every example the browser reaches /index.js, /droplets/*, /assets/* and /api/* through a proxy on the host's own origin."
+  desc="A droplets server in the middle, eleven hosts around it. Express, Next.js, SvelteKit, Astro, FastAPI, Sinatra, PHP, WordPress and nginx (with Server Side Includes) fetch GET /droplets/:id on their server and paste the fragment into their page: solid arrows. The React single-page app and the htmx pages let the browser fetch it (the React app can also write the element itself): dashed arrows. In every example but the htmx page that fetches across origins, the browser reaches /index.js, /droplets/*, /assets/* and /api/* through a proxy on the host's own origin."
   caption="Solid: the host's server fetches the fragment. Dashed: the browser does."
   wide={wide()}
   narrow={narrow()}

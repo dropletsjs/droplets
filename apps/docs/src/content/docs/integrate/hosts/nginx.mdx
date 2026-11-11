@@ -1,17 +1,70 @@
 ---
-title: nginx (and IIS)
-description: "Server Side Includes plus a reverse proxy, with zero application code."
+title: nginx
+description: "nginx and IIS: Server Side Includes plus a reverse proxy, with zero application code."
 ---
 
 import HostDemo from "../../../../components/HostDemo.astro";
+
+How nginx embeds droplets with no application code: an SSI include fetches
+each fragment while nginx serves the page, and a reverse proxy carries the rest.
+
+## The pattern in nginx
+
+```nginx
+# nginx.conf, the shop's server block (trimmed)
+location = /gallery {
+  ssi on;
+  rewrite ^ /gallery.html break;
+}
+
+# What the browser asks the shop for.
+location ~ ^/(index\.js|droplets/|assets/|api/) {
+  proxy_pass http://shop;
+  proxy_set_header x-host ${SHOP_PUBLIC_URL};
+}
+
+# The fragments the pages include.
+location ^~ /_fragment/ {
+  internal;
+  rewrite ^/_fragment(/.*)$ $1 break;
+  proxy_pass http://shop;
+  proxy_set_header x-host ${SHOP_PUBLIC_URL};
+  proxy_set_header Referer ${SHOP_PUBLIC_URL}$request_uri;
+  proxy_set_header Accept text/html;
+  proxy_intercept_errors on;
+  error_page 400 401 403 404 405 413 431 502 503 504 = @unavailable;
+}
+```
+
+```html
+<!-- shop/_layout/head.html: one script per page, through the proxy -->
+<script type="module" src="/index.js"></script>
+<!-- shop/gallery.html -->
+<aside><!--# include virtual="/_fragment/droplets/product-filter?$args" --></aside>
+```
+
+- `ssi on` makes nginx run the page's `include virtual` while it serves
+  `/gallery`. The include is a subrequest to `/_fragment/droplets/product-filter`,
+  which `/_fragment/` rewrites to `GET /droplets/product-filter?<the page's query>`
+  on the shop, with `Accept: text/html`, `x-host` set to this server's public
+  URL, the page's URL as `Referer`, and the browser's `Cookie`, which a
+  subrequest carries. nginx does not follow the answer's redirect.
+- The answer's body goes into the page where the include was. The error
+  statuses listed in `error_page` become a fixed note
+  (`<p class="shop-unavailable">This droplet is unavailable.</p>`), so only a
+  2xx, or a 500 with the droplet's error page, is pasted.
+- `nginx.conf` is a template: the nginx image fills in `${SHOP_PUBLIC_URL}`
+  (`http://localhost:8081`) when it starts.
+- The `location ~` block passes `/index.js`, `/droplets/*`, `/assets/*` and
+  `/api/*` to the shop, so the browser only talks to nginx.
+
+## The shop demo, recorded
 
 The [shop demo](/integrate/hosts/shop-demo/) on nginx, with no application code,
 recorded by the end-to-end test. [How the pieces fit](/integrate/hosts/shop-demo/#how-it-fits-together)
 has the diagram.
 
 <HostDemo id="nginx" stack="nginx 1.27" />
-
-## How this host is set up
 
 The code is `examples/hosts/nginx/nginx.conf` (the second `server` block) and the
 SSI pages in `examples/hosts/nginx/shop/`.
@@ -26,32 +79,19 @@ SSI pages in `examples/hosts/nginx/shop/`.
 | `shop` | 8300, internal only | the shop's droplets server (`examples/shop`) |
 | `droplets` | 8000, internal only | the Svelte example's droplets server, behind port 8080 |
 
-There are no environment variables on `web`: the internal addresses are
-`upstream` blocks (`server shop:8300;`) and the public one is written out in
-each `proxy_set_header x-host http://localhost:8081;`. The shop has its own
+The internal addresses are `upstream` blocks (`server shop:8300;`). The
+public ones come from `web`'s environment: `nginx.conf` is a template (the
+nginx image's `/etc/nginx/templates/`), and at start `SHOP_PUBLIC_URL`
+(`http://localhost:8081`) and `DROPLETS_PUBLIC_URL` (`http://localhost:8080`)
+fill in each `proxy_set_header x-host ${SHOP_PUBLIC_URL};`. The shop has its own
 port because its `/index.js` and `/droplets/*` would collide with the basic
 server's on 8080.
 
 ### How a page gets a droplet
 
 Server Side Includes. Each page is an `.html` file of SSI directives; every
-include goes through one internal location that sets the headers:
-
-```nginx
-# shop/gallery.html
-<aside><!--# include virtual="/_fragment/droplets/product-filter?$args" --></aside>
-
-# nginx.conf
-location ^~ /_fragment/ {
-  internal;
-  rewrite ^/_fragment(/.*)$ $1 break;
-  proxy_pass http://shop;
-  proxy_set_header x-host http://localhost:8081;
-  proxy_set_header Referer http://localhost:8081$request_uri;  # the page, query included
-  proxy_set_header Accept text/html;
-  proxy_intercept_errors on;   # an error answer becomes a fixed note, never pasted
-}
-```
+include goes through one internal location that sets the headers: the
+`/_fragment/` block in the pattern above.
 
 A subrequest carries the browser's `Cookie`, so the cart badge and the admin
 render for the visitor. `Referer` is the page's URL: the droplet's
@@ -196,4 +236,4 @@ a Windows host; treat it as a starting point. Two notes:
 - IIS cannot include arbitrary URLs server-side. Pair it with a page that
   fetches fragments itself (an ASP.NET page following the
   [Express](/integrate/hosts/express/) pattern) or with the client-only pattern from
-  the [React example](/integrate/hosts/react/).
+  the [React example](/integrate/hosts/react-vite/).

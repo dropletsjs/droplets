@@ -13,7 +13,10 @@ URLs on that server:
 The element's tag name is the server's `element` setting: `djs-droplet` by
 default, `djs-svelte` for the Svelte example these hosts embed.
 
-Every example in this folder does the same two things, in its own language:
+Eleven host examples; nine run the shop demo; WordPress and htmx have flows
+of their own. Every example in this folder does the same two things, in its
+own language ([Any other stack](https://dropletsjs.dev/integrate/any-stack/)
+has the exact headers, for a stack that is not here):
 
 1. **Fetch the fragment on the server** and paste it into the page. The page
    arrives fully rendered; no JavaScript is needed for the first paint.
@@ -61,8 +64,8 @@ docker compose up --build
 | [`astro`](./astro) | Astro | Fragment fetch in a `.astro` page with `set:html`. |
 | [`sveltekit`](./sveltekit) | SvelteKit | Fragment fetch in `+page.server.ts`, `{@html}` in the page. |
 | [`nextjs`](./nextjs) | Next.js App Router | Fragment fetch in a server component. |
-| [`python-fastapi`](./python-fastapi) | Python, FastAPI, Jinja2 | Fragment fetch with `httpx`, injected into a template. |
-| [`ruby-sinatra`](./ruby-sinatra) | Ruby, Sinatra | Fragment fetch with `Net::HTTP`, injected into ERB. |
+| [`fastapi`](./fastapi) | Python, FastAPI, Jinja2 | Fragment fetch with `httpx`, injected into a template. |
+| [`sinatra`](./sinatra) | Ruby, Sinatra | Fragment fetch with `Net::HTTP`, injected into ERB. |
 | [`php`](./php) | PHP 8.3, Apache, no framework | Fragment fetch with `curl_multi`, injected into plain PHP templates. |
 | [`wordpress`](./wordpress) | WordPress 6 | The WordPress showcase: a plugin with a `[droplet]` shortcode and [`examples/wp-shop`](../wp-shop) with WordPress holding the shop's data. |
 | [`htmx`](./htmx) | htmx 2, static pages on nginx | `hx-get` swaps the fragments in from the browser: cross-origin from the Svelte example, and the shop's forms through a proxy, under `hx-boost`. No shop pages: a flow of its own. |
@@ -81,8 +84,8 @@ proxies the droplets server under its own origin (nginx) proxies `/api/*` too.
 
 ## The shop demo
 
-Every host also serves the [shop example](../shop) beside the
-basic page, with one layout: a header with the logo, Gallery and Admin and
+Every host but htmx also serves the [shop example](../shop) beside the
+basic page (WordPress with [wp-shop](../wp-shop) in its place), with one layout: a header with the logo, Gallery and Admin and
 the cart badge droplet, and a footer naming the host's stack in large type.
 The pages are `/gallery` (hero, `product-filter`, `product-library`),
 `/product/<slug>` (breadcrumb, `product-page`, `product-comments`), `/login`
@@ -120,8 +123,8 @@ host, the same file everywhere.
 | `astro` | http://localhost:8005/gallery |
 | `sveltekit` | http://localhost:8006/gallery |
 | `nextjs` | http://localhost:8007/gallery |
-| `python-fastapi` | http://localhost:8001/gallery |
-| `ruby-sinatra` | http://localhost:8002/gallery |
+| `fastapi` | http://localhost:8001/gallery |
+| `sinatra` | http://localhost:8002/gallery |
 | `php` | http://localhost:8009/gallery |
 | `wordpress` | http://localhost:8008/gallery (once `wordpress-init` has installed WordPress and activated the plugin, about a minute) |
 
@@ -135,7 +138,7 @@ Chromium are all it needs; the stacks run one at a time and are taken down
 after.
 
 ```bash
-pnpm test:hosts                     # all nine (wordpress only by name)
+pnpm test:hosts                     # the nine shop flows (wordpress and htmx only by name)
 pnpm test:hosts express sveltekit   # some
 pnpm test:hosts wordpress           # the WordPress showcase
 pnpm test:hosts htmx                # the htmx pages, their own flow (e2e/htmx.spec.ts)
@@ -149,7 +152,7 @@ converted from Playwright's WebM with ffmpeg) and its screenshots
 (`recordings/<host>/`), all gitignored. `--docs` writes small copies into the
 docs site (`apps/docs/public/hosts/`: a 720p MP4 and four WebP screenshots per
 host), which each host's page in the docs shows with how that host is set
-up, and the [Shop demo on 9 hosts](https://dropletsjs.dev/integrate/hosts/shop-demo/)
+up, and the [shop demo](https://dropletsjs.dev/integrate/hosts/shop-demo/)
 page ([source](../../apps/docs/src/content/docs/integrate/hosts/shop-demo.mdx)) all together,
 with a diagram of how the pieces talk. A second test turns JavaScript off and
 adds a product from its page: the post answers `303` back to the host page
@@ -161,11 +164,11 @@ The `--https` run checks that the `cart_id` and `shop_admin` cookies arrive
 | ---- | ----- | --------------------------------- |
 | `nginx` | [nginx.mp4](../../apps/docs/public/hosts/nginx.mp4) | ![The shop on nginx](../../apps/docs/public/hosts/nginx/2-cart.webp) |
 | `express` | [express.mp4](../../apps/docs/public/hosts/express.mp4) | ![The shop on Express](../../apps/docs/public/hosts/express/2-cart.webp) |
-| `python-fastapi` | [fastapi.mp4](../../apps/docs/public/hosts/fastapi.mp4) | ![The shop on FastAPI](../../apps/docs/public/hosts/fastapi/2-cart.webp) |
-| `ruby-sinatra` | [sinatra.mp4](../../apps/docs/public/hosts/sinatra.mp4) | ![The shop on Sinatra](../../apps/docs/public/hosts/sinatra/2-cart.webp) |
-| `php` | php.mp4, from the next `pnpm test:hosts php --docs` | `apps/docs/public/hosts/php/2-cart.webp`, likewise |
+| `fastapi` | [fastapi.mp4](../../apps/docs/public/hosts/fastapi.mp4) | ![The shop on FastAPI](../../apps/docs/public/hosts/fastapi/2-cart.webp) |
+| `sinatra` | [sinatra.mp4](../../apps/docs/public/hosts/sinatra.mp4) | ![The shop on Sinatra](../../apps/docs/public/hosts/sinatra/2-cart.webp) |
+| `php` | [php.mp4](../../apps/docs/public/hosts/php.mp4) | ![The shop on PHP](../../apps/docs/public/hosts/php/2-cart.webp) |
 | `wordpress` | [wordpress.mp4](../../apps/docs/public/hosts/wordpress.mp4) | ![The shop on WordPress](../../apps/docs/public/hosts/wordpress/2-cart.webp) |
-| `react-vite` | [react.mp4](../../apps/docs/public/hosts/react.mp4) | ![The shop on React and Vite](../../apps/docs/public/hosts/react/2-cart.webp) |
+| `react-vite` | [react-vite.mp4](../../apps/docs/public/hosts/react-vite.mp4) | ![The shop on React and Vite](../../apps/docs/public/hosts/react-vite/2-cart.webp) |
 | `astro` | [astro.mp4](../../apps/docs/public/hosts/astro.mp4) | ![The shop on Astro](../../apps/docs/public/hosts/astro/2-cart.webp) |
 | `sveltekit` | [sveltekit.mp4](../../apps/docs/public/hosts/sveltekit.mp4) | ![The shop on SvelteKit](../../apps/docs/public/hosts/sveltekit/2-cart.webp) |
 | `nextjs` | [nextjs.mp4](../../apps/docs/public/hosts/nextjs.mp4) | ![The shop on Next.js](../../apps/docs/public/hosts/nextjs/2-cart.webp) |

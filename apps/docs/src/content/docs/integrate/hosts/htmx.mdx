@@ -5,11 +5,57 @@ description: "htmx swaps droplet fragments into a static page; /index.js makes e
 
 import HostDemo from "../../../../components/HostDemo.astro";
 
-htmx is built around HTML fragments from a server, and a droplets server
-serves exactly that: `GET /droplets/<id>` answers a droplet element with its
-server-rendered markup. Load `/index.js` once and every droplet element on
-the page comes alive, whether it was there at first or htmx swapped it in
-later. Nothing renders the page on a server: it is a static file.
+How a static page embeds droplets with htmx: `hx-get` swaps each fragment in
+from the browser, and `/index.js` makes it live.
+
+## The pattern in htmx
+
+```html
+<!-- html/shop.html (trimmed) -->
+<head>
+  <script src="/vendor/htmx.min.js"></script>
+  <script type="module" src="/index.js"></script>
+</head>
+<body>
+  <section id="product"
+           hx-get="/droplets/product-page?slug=clay-cylinder-mug"
+           hx-trigger="load">
+    <p>Loading the product…</p>
+  </section>
+</body>
+```
+
+```nginx
+# nginx.conf
+location ~ ^/(index\.js|droplets/|assets/|api/) {
+  proxy_pass http://shop;
+  proxy_set_header x-host ${SHOP_PUBLIC_URL};
+  proxy_set_header Forwarded "";
+  proxy_set_header X-Forwarded-Host "";
+  proxy_set_header X-Forwarded-Proto "";
+}
+```
+
+- When the page loads (`hx-trigger="load"`), htmx asks for
+  `GET /droplets/product-page?slug=clay-cylinder-mug` from the browser and
+  puts the answer inside the `<section>`, in place of its placeholder.
+- The request is same-origin, through nginx: the browser sends the shop's
+  cookies and the page's URL as `Referer` itself, and nginx adds `x-host`.
+  `nginx.conf` is a template; the nginx image fills in `${SHOP_PUBLIC_URL}`
+  (`http://localhost:8010`) when it starts.
+- `/index.js`, loaded once, defines the shop's droplet element, so each
+  fragment htmx swaps in upgrades and hydrates as it lands. nginx passes
+  `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` on to the shop.
+- The example's `<body>` has `hx-boost="true"`, so each droplet's section
+  also has `hx-boost="false"` ([With `hx-boost`](#with-hx-boost)). A page on
+  another origin than the droplets server needs two settings more
+  ([Cross-origin](#cross-origin)).
+
+## The htmx pages, recorded
+
+The example's two pages, `/` and `/shop`, recorded by the end-to-end test
+(`tests/hosts/e2e/htmx.spec.ts`). The droplets on `/shop` are the
+[shop demo](/integrate/hosts/shop-demo/)'s.
 
 <HostDemo
   id="htmx"
@@ -22,8 +68,6 @@ later. Nothing renders the page on a server: it is a static file.
     ["4-lazy", "Asked for once revealed"],
   ]}
 />
-
-## How this host is set up
 
 The code is in `examples/hosts/htmx`: two static pages (`html/index.html`,
 `html/shop.html`), `nginx.conf`, and the `Dockerfile` that copies htmx in.
@@ -55,6 +99,12 @@ open http://localhost:8010        # the Svelte droplets; /shop has the forms
 `pnpm test:hosts htmx` runs it end to end (`tests/hosts/e2e/htmx.spec.ts`).
 
 ## Swapping a droplet in
+
+htmx is built around HTML fragments from a server, and a droplets server
+serves exactly that: `GET /droplets/<id>` answers a droplet element with its
+server-rendered markup. Load `/index.js` once and every droplet element on
+the page comes alive, whether it was there at first or htmx swapped it in
+later. Nothing renders the page on a server: it is a static file.
 
 ```html
 <head>
@@ -125,7 +175,7 @@ things need saying, one to htmx and one to the droplets server.
 
 **The droplets server.** htmx sends its own headers (`HX-Request`,
 `HX-Current-URL`, `HX-Target`, `HX-Trigger`), so the browser asks first,
-with a preflight. [`cors`](/integrate/http-contract/#cors) answers it:
+with a preflight. [`cors`](/guides/security/#cors) answers it:
 `cors: true` allows every origin and echoes the headers asked for, which is
 also what lets the elements import their bundles cross-origin. The Svelte
 example has it.
@@ -163,7 +213,7 @@ The shop's droplets, swapped into `/shop` through the proxy, keep both
 ways a droplet form works.
 
 **Enhanced.** The product page's form has `data-droplets-enhance`
-([enhancing a form](/guides/writing-droplets/#enhancing-a-form), bound by
+([enhancing a form](/guides/actions/#enhancing-a-form), bound by
 `/index.js` for a droplet with no bundle):
 the submit goes by `fetch`, as JSON, and the droplet renders again in place
 with the result. One request, no page load; the cart badge hears of it

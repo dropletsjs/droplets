@@ -1,17 +1,88 @@
 ---
-title: React (Vite SPA)
-description: "A <Droplet> component for single-page apps, with and without server-rendered markup."
+title: React + Vite
+description: "A Vite SPA: a <Droplet> component for single-page apps, with and without server-rendered markup."
 ---
 
 import HostDemo from "../../../../components/HostDemo.astro";
+
+How a React single-page app embeds droplets: a component fetches each
+fragment from the browser, through a same-origin proxy, and inserts it.
+
+## The pattern in React + Vite
+
+```tsx
+// src/shop/ShopDroplet.tsx (trimmed)
+export function ensureShopClient(): void {
+  if (document.querySelector('script[src="/index.js"]')) return;
+  const script = document.createElement("script");
+  script.type = "module";
+  script.src = "/index.js";
+  document.head.appendChild(script);
+}
+
+// ShopFragment: GET /droplets/<id>?<query>, inserted as it came.
+useEffect(() => {
+  ensureShopClient();
+  const target = host.current;
+  if (!target) return;
+  fetch(`/droplets/${encodeURIComponent(id)}?${search}`, { redirect: "manual", headers: { accept: "text/html" } })
+    .then(async (response) => {
+      if (response.type === "opaqueredirect") {
+        if (redirected.current) return redirected.current(); // onRedirect
+        throw new Error("redirected");
+      }
+      const isFragment =
+        (response.ok || response.status === 500) &&
+        (response.headers.get("content-type") ?? "").startsWith("text/html");
+      if (!isFragment) throw new Error(`HTTP ${response.status}`);
+      const template = document.createElement("template");
+      template.innerHTML = await response.text();
+      target.replaceChildren(template.content); // the element upgrades on insert
+    });
+  return () => target.replaceChildren();
+}, [id, search]);
+
+// ShopClientDroplet: the element alone; it fetches its own data.
+const element = document.createElement(SHOP_ELEMENT); // "djs-shop"
+element.dataset["droplet"] = id;
+element.dataset["params"] = paramsKey; // JSON.stringify(params)
+target.replaceChildren(element);
+```
+
+```nginx
+# nginx.conf
+location ~ ^/(index\.js$|droplets/|assets/|api/) {
+  proxy_pass http://shop:8300;
+  proxy_set_header x-host ${SHOP_PUBLIC_URL};
+}
+location / {
+  try_files $uri /index.html;
+}
+```
+
+- `ShopFragment` fetches `GET /droplets/<id>?<query>` from the browser with
+  `accept: text/html`. It is a same-origin request, so the browser sends the
+  shop's cookies and the page's URL as `Referer` itself, and nginx adds
+  `x-host` on the way to the shop. `redirect: "manual"` turns a 3xx into an
+  `opaqueredirect`, which the page handles (`onRedirect`).
+- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+  page) is inserted, through a `<template>`; anything else shows as unavailable.
+- `ShopClientDroplet` writes `<djs-shop data-droplet="…" data-params="…">`
+  instead: nothing server-rendered, the element fetches its data once its
+  bundle has loaded.
+- `ensureShopClient()` adds `<script type="module" src="/index.js">` to the
+  head once. `nginx.conf` passes `/index.js`, `/droplets/*`, `/assets/*` and
+  `/api/*` to the shop and answers every other path with `index.html`; it is
+  a template, and the nginx image fills in `${SHOP_PUBLIC_URL}`
+  (`http://localhost:8004`) when it starts.
+
+## The shop demo, recorded
 
 The [shop demo](/integrate/hosts/shop-demo/) on React 19 and Vite, recorded by
 the end-to-end test. [How the pieces fit](/integrate/hosts/shop-demo/#how-it-fits-together)
 has the diagram.
 
-<HostDemo id="react" stack="React 19 + Vite" />
-
-## How this host is set up
+<HostDemo id="react-vite" stack="React 19 + Vite" />
 
 The code is in `examples/hosts/react-vite`: `src/shop/` (the pages and
 `ShopDroplet.tsx`), `src/router.ts`, `nginx.conf` and `vite.config.ts`.
@@ -26,32 +97,17 @@ The code is in `examples/hosts/react-vite`: `src/shop/` (the pages and
 | `shop` | 8300, internal only | the shop's droplets server (`examples/shop`) |
 | `droplets` | 8000, public | the Svelte example's droplets server, for `/` only (`VITE_DROPLETS_URL` at build) |
 
-There is no server code, so no runtime variables: `nginx.conf` writes out
-the shop's internal address (`proxy_pass http://shop:8300`) and the public
-one (`x-host http://localhost:8004`). Under `vite dev` and `vite preview`,
+There is no server code. `nginx.conf` writes out the shop's internal address
+(`proxy_pass http://shop:8300`); it is a template (the nginx image's
+`/etc/nginx/templates/`), so the public one, `x-host ${SHOP_PUBLIC_URL}`,
+comes from `SHOP_PUBLIC_URL` (`http://localhost:8004`) at start. Under `vite dev` and `vite preview`,
 `server.proxy` does the same from `SHOP_INTERNAL_URL` and `SHOP_PUBLIC_URL`.
 
 ### How a page gets a droplet
 
 Client-only. The pages fetch each fragment from the browser, through the
-proxy, and insert it; the element upgrades and hydrates itself:
-
-```tsx
-// src/shop/ShopDroplet.tsx
-useEffect(() => {
-  ensureShopClient(); // <script type="module" src="/index.js">, once
-  fetch(`/droplets/${encodeURIComponent(id)}?${search}`, { redirect: "manual", headers: { accept: "text/html" } })
-    .then(async (response) => {
-      if (response.type === "opaqueredirect") return onRedirect?.(); // the product page's old `v`
-      const isFragment = (response.ok || response.status === 500) &&
-        (response.headers.get("content-type") ?? "").startsWith("text/html");
-      if (!isFragment) throw new Error(`HTTP ${response.status}`);
-      const template = document.createElement("template");
-      template.innerHTML = await response.text();
-      host.current.replaceChildren(template.content); // the element upgrades on insert
-    });
-}, [id, search]);
-```
+proxy, and insert it; the element upgrades and hydrates itself. The code is
+`ShopFragment`, shown in the pattern above.
 
 The browser sends the shop's cookies and the page's URL as `Referer` itself:
 same origin. The cart badge is client-only: a

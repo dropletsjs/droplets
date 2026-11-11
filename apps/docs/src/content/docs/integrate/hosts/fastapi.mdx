@@ -1,9 +1,64 @@
 ---
-title: Python (FastAPI)
-description: "Fetch fragments with httpx and inject them into a Jinja template."
+title: FastAPI
+description: "Python: fetch fragments with httpx and inject them into a Jinja template."
 ---
 
 import HostDemo from "../../../../components/HostDemo.astro";
+
+How a FastAPI app embeds droplets: a route fetches each fragment with `httpx`
+and a Jinja template prints it into the page.
+
+## The pattern in FastAPI
+
+```python
+# shop.py (trimmed)
+client = httpx.AsyncClient(
+    timeout=10.0,
+    follow_redirects=False,
+    cookies=CookieJar(policy=DefaultCookiePolicy(allowed_domains=[])),
+)
+
+async def fragment(request: Request, droplet: str, params: list[tuple[str, str]] | None = None) -> dict:
+    url = f"{SHOP_INTERNAL_URL}/droplets/{quote(droplet, safe='')}?{urlencode(params or [])}"
+    headers = {"accept": "text/html", "x-host": SHOP_ORIGIN, "referer": SHOP_ORIGIN + _raw_target(request)}
+    cookie = request.headers.get("cookie")
+    if cookie:
+        headers["cookie"] = cookie
+    result = {"html": Markup(""), "status": 502, "location": None, "cookies": [], "link": None}
+    response = await client.get(url, headers=headers)
+    result["status"] = response.status_code
+    result["cookies"] = response.headers.get_list("set-cookie")
+    content_type = response.headers.get("content-type", "")
+    if 300 <= response.status_code < 400:
+        result["location"] = response.headers.get("location")
+    elif (response.is_success or response.status_code == 500) and content_type.startswith("text/html"):
+        result["html"] = Markup(response.text)
+        return result
+    # … anything else: result["html"] becomes a "droplet is unavailable" note
+    return result
+```
+
+```jinja
+{# templates/shop/layout.html, in <head>: once per page #}
+<script type="module" src="/index.js"></script>
+{# templates/shop/gallery.html: the fragment's HTML, as it came #}
+<aside>{{ fragments[0] }}</aside>
+```
+
+- `fragment()` sends `GET /droplets/<id>?<params>` to `SHOP_INTERNAL_URL`
+  with `accept: text/html`, `x-host` set to this host's public origin
+  (`SHOP_ORIGIN`, from `SHOP_PUBLIC_URL`), the browser's `Cookie` as it came,
+  and the page's path and query as `referer`.
+- The shared client never follows a redirect (`follow_redirects=False`), so
+  a droplet's 3xx is answered as it is, and never keeps a cookie (a
+  `CookieJar` that accepts no domain). `render` sends the fragments'
+  `Set-Cookie` with the page.
+- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+  page) becomes `Markup`, which Jinja prints unescaped.
+- `templates/shop/layout.html` loads `/index.js` once. One handler passes
+  `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` on to the shop.
+
+## The shop demo, recorded
 
 The [shop demo](/integrate/hosts/shop-demo/) on FastAPI, recorded by the
 end-to-end test. [How the pieces fit](/integrate/hosts/shop-demo/#how-it-fits-together)
@@ -11,9 +66,7 @@ has the diagram.
 
 <HostDemo id="fastapi" stack="FastAPI" />
 
-## How this host is set up
-
-The code is `examples/hosts/python-fastapi/shop.py` (a router `main.py` includes)
+The code is `examples/hosts/fastapi/shop.py` (a router `main.py` includes)
 and the Jinja templates in `templates/shop/`.
 
 ### Pieces and ports
@@ -35,26 +88,9 @@ and the Jinja templates in `templates/shop/`.
 ### How a page gets a droplet
 
 A server fetch with `httpx`, all of a page's fragments at once
-(`asyncio.gather`), printed by a Jinja template:
-
-```python
-# shop.py
-async def fragment(request: Request, droplet: str, params: list[tuple[str, str]] | None = None) -> dict:
-    url = f"{SHOP_INTERNAL_URL}/droplets/{quote(droplet, safe='')}?{urlencode(params or [])}"
-    # The browser's request, as the shop should see it: its cookies, this page as the host.
-    headers = {"accept": "text/html", "x-host": SHOP_ORIGIN, "referer": SHOP_ORIGIN + _raw_target(request)}
-    cookie = request.headers.get("cookie")
-    if cookie:
-        headers["cookie"] = cookie
-    response = await client.get(url, headers=headers)  # follow_redirects=False
-    # Only a text/html answer becomes Markup; its Set-Cookie goes out with the
-    # page, its Link preloads into <head>, a 3xx is answered as it is.
-```
-
-```jinja
-{# templates/shop/gallery.html #}
-<aside>{{ fragments[0] }}</aside>
-```
+(`asyncio.gather`), printed by a Jinja template. The fetch is `fragment()`
+and the template is `templates/shop/gallery.html`, both shown in the pattern
+above; the fragments' `Link` preloads go into `<head>`.
 
 `referer` is the page's path and query as the browser sent it: the
 droplet's [`host`](/integrate/http-contract/#host-where-the-droplet-renders).
@@ -105,7 +141,7 @@ come through here.
 ### Run it
 
 ```bash
-cd examples/hosts/python-fastapi
+cd examples/hosts/fastapi
 docker compose up --build
 open http://localhost:8001/gallery   # log in as admin / droplets
 ```
@@ -157,5 +193,5 @@ async def index(request: Request, who: str = "FastAPI"):
 pattern works with Flask, Django or anything else that can make an HTTP
 request and print a string.
 
-The example lives in `examples/hosts/python-fastapi`. The page and the droplets
+The example lives in `examples/hosts/fastapi`. The page and the droplets
 server are different origins, so the droplets server runs with `cors: true`.

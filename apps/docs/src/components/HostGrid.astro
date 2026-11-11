@@ -1,8 +1,9 @@
 ---
 /**
- * The nine hosts in examples/hosts/, each the shop demo's gallery as the
- * end-to-end test recorded it (public/hosts/<id>/1-gallery.webp, written by
- * `pnpm test:hosts --docs`), linking to that host's page. A host not
+ * The nine of the eleven hosts in examples/hosts/ that run the shop demo,
+ * each its gallery as the end-to-end test recorded it
+ * (public/hosts/<id>/1-gallery.webp, written by `pnpm test:hosts --docs`),
+ * linking to that host's page. A host not
  * recorded yet gets a plain tile with its name.
  */
 import { hasHostFile } from "./host-media.ts";
@@ -11,12 +12,12 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
 const hosts = [
   ["nginx", "nginx", "nginx"],
   ["express", "Express", "express"],
-  ["react", "React + Vite", "react"],
+  ["react-vite", "React + Vite", "react-vite"],
   ["astro", "Astro", "astro"],
   ["sveltekit", "SvelteKit", "sveltekit"],
   ["nextjs", "Next.js", "nextjs"],
-  ["fastapi", "FastAPI", "python"],
-  ["sinatra", "Sinatra", "ruby"],
+  ["fastapi", "FastAPI", "fastapi"],
+  ["sinatra", "Sinatra", "sinatra"],
   ["php", "PHP", "php"],
 ] as const;
 ---

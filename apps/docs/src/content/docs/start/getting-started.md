@@ -24,8 +24,8 @@ deno init --npm droplets my-widgets
 In a terminal it asks for what the command line leaves out: the folder, the
 custom element (the folder's name, or `<folder>-droplets` when that has no
 hyphen), the frameworks, the adapters (Node by default), Tailwind, the dev
-tool on external host pages, whether you use Claude, and the package
-manager (the one running it is preselected). Then it writes the project,
+tool on external host pages, and the package manager (the one running it
+is preselected). Then it writes the project,
 installs, runs `djs sync` and makes the first git commit.
 
 Without a terminal, or with `--yes`, it asks nothing; the folder and
@@ -133,9 +133,10 @@ page does not reload. Svelte 5 creates the component again, so `clicks`
 starts over. An edit to `+droplet.server.ts` brings the new `data` to the
 running component and keeps `clicks`. See
 [Hot updates](/guides/development/#hot-updates). `data` is what the load
-returns, typed through `./$types`, so neither file spells it out. It is a
-value when the droplet hydrates server markup and a promise when it mounts
-from scratch in the browser, which `{#await}` covers. The flags (`ssr`,
+returns: the load's result, typed through `./$types`, so neither file
+spells it out. The template uses `{#await}` so it also works with Svelte's
+[`experimental.async`](/renderers/svelte/#specifics), which hands a droplet
+mounted in the browser a promise. The flags (`ssr`,
 `hydrate`, `prerender`) are explained in
 [Writing droplets](/guides/writing-droplets/#flags).
 
@@ -222,10 +223,12 @@ instead, so the markup is there before any JavaScript runs:
 <my-widgets data-droplet="hello-svelte" data-build="…" data-render-id="…">…</my-widgets>
 ```
 
-[Known hosts](/integrate/hosts/overview/) does the same from nine stacks, and
+[Known hosts](/integrate/hosts/overview/) does the same in eleven host
+examples, [Any other stack](/integrate/any-stack/) has the exact headers, and
 [Security model](/guides/security/) says what a droplets server learns
 about the pages that embed it.
 
-Next: [Writing droplets](/guides/writing-droplets/) covers the flags, the
-load chain, props, actions and prerendering. To set a project up by hand
-instead, see [Manual setup](/start/manual-setup/).
+[Manual setup](/start/manual-setup/), the next page, sets the same project
+up by hand. [Writing droplets](/guides/writing-droplets/) covers the flags,
+the load chain and props; [Actions](/guides/actions/) and
+[Prerendering](/guides/prerendering/) follow it.

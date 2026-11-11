@@ -1,19 +1,10 @@
 ---
 title: What is a droplet?
-description: "The idea behind Droplets, and when it is (not) the right tool."
+description: "What a droplet is, the words these docs use, and when Droplets is (not) the right tool."
 ---
 
 import DropletAnatomy from "../../../components/DropletAnatomy.astro";
 import LiveDroplet from "../../../components/LiveDroplet.astro";
-
-**If micro-frontends were a framework.** Droplets grew out of SvelteKit
-and keeps the patterns that work there: `+` files, `load` on the server and
-on both sides, form actions with `fail()` and `redirect()`,
-`hooks.server.ts` and `hooks.client.ts`, `$droplets/env/*`, prerendering
-with `entries`. They are reshaped for islands of server-rendered HTML that
-live inside someone else's page, served by any stack and written in any of
-eight frameworks. Droplets is an independent project, not affiliated with
-Svelte or SvelteKit.
 
 A **droplet** is a single component with its own URL. A droplets server hosts
 a folder of them and answers, for each one:
@@ -23,6 +14,18 @@ a folder of them and answers, for each one:
 | `GET /droplets/hello?who=Ana` | The droplet as an HTML fragment, ready to paste into another page |
 | `POST /droplets/hello` | The same fragment, with the props in a JSON body |
 | `GET /droplets/hello/_data?who=Ana` | Just the server load's result, as JSON |
+
+## Words these docs use
+
+| Word | Meaning |
+| --- | --- |
+| **fragment** | The HTML a droplets server answers for `GET /droplets/<id>`: the droplet element with its data and server-rendered markup, ready to paste into a page. |
+| **host** | The page that embeds a droplet, and the server or app that renders that page (nginx, Express, WordPress, a single-page app). In a load, `host` is that page's URL. |
+| **`x-host`** | The request header a host sends with a fragment fetch: the droplets server's public location, as the browser sees it. See [`x-host`](/integrate/http-contract/#x-host-the-public-location). |
+| **location** | Where the browser reaches the droplets server: the origin, and path prefix, that `/index.js` was loaded from. A trusted `x-host` tells the server the same thing. |
+| **context** | What a droplet renders with: `{ host, props }`, carried in the fragment (`data-droplet-context`) so the browser can ask for the same data again. |
+| **renderer** | The package that renders one framework's components: `@dropletsjs/renderer-svelte`, `-vue`, `-react` and the others. See [Renderers](/renderers/). |
+| **element** | The custom element every droplet renders in, `<djs-droplet>` by default, named per server with the `element` option. `/index.js` defines it. |
 
 A droplet is one folder:
 
@@ -89,4 +92,12 @@ Droplets is a [Vite](https://vite.dev) plugin. One `vite build` emits:
 The dev server is Vite's own, with droplet-level hot updates layered on top,
 on any page that embeds a droplet.
 
-Next: [Getting started](/start/getting-started/).
+## Where it comes from
+
+Droplets grew out of SvelteKit and keeps the patterns that work there: `+` files, `load` on the server and
+on both sides, form actions with `fail()` and `redirect()`,
+`hooks.server.ts` and `hooks.client.ts`, `$droplets/env/*`, prerendering
+with `entries`. They are reshaped for islands of server-rendered HTML that
+live inside someone else's page, served by any stack and written in any of
+eight frameworks. Droplets is an independent project, not affiliated with
+Svelte or SvelteKit.

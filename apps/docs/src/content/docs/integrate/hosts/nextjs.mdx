@@ -1,17 +1,69 @@
 ---
-title: Next.js (App Router)
-description: "Fetch fragments in a server component and emit them as HTML."
+title: Next.js
+description: "App Router: fetch fragments in a server component and emit them as HTML."
 ---
 
 import HostDemo from "../../../../components/HostDemo.astro";
+
+How a Next.js App Router app embeds droplets: a server component fetches
+each fragment and emits it as HTML.
+
+## The pattern in Next.js
+
+```ts
+// lib/shop.ts, fragment() (trimmed)
+async function fragment(page: PageRequest, id: string, params = new URLSearchParams()): Promise<Fragment> {
+  const url = `${internal}/droplets/${encodeURIComponent(id)}?${params}`;
+  const headers: Record<string, string> = { accept: "text/html", "x-host": origin, referer: origin + page.path };
+  if (page.cookie) headers["cookie"] = page.cookie;
+  const result: Fragment = { html: "", status: 502, location: null, cookies: [], link: null };
+  const response = await fetch(url, { headers, redirect: "manual", cache: "no-store" });
+  result.status = response.status;
+  result.cookies = response.headers.getSetCookie();
+  if (response.status >= 300 && response.status < 400) {
+    result.location = response.headers.get("location");
+  } else if (
+    (response.ok || response.status === 500) &&
+    (response.headers.get("content-type") ?? "").startsWith("text/html")
+  ) {
+    result.html = await response.text();
+    return result;
+  }
+  // … anything else: result.html becomes a "droplet is unavailable" note
+  return result;
+}
+```
+
+```tsx
+// app/(shop)/layout.tsx, in <head>: once per page
+<script type="module" src="/index.js" />
+// app/(shop)/gallery/page.tsx: the fragment's HTML, as it came
+<aside>
+  <Fragment html={fragments[0]!} />
+</aside>
+```
+
+- `shopPage()` in `lib/shop-page.tsx` takes `page` from the page's own path
+  and query and the browser's `Cookie` (from `headers()`). `fragment()` sends
+  `GET /droplets/<id>?<params>` to `SHOP_INTERNAL_URL` with
+  `accept: text/html`, `x-host` set to this host's public origin
+  (`SHOP_PUBLIC_URL`), that `Cookie`, and the page's URL as `referer`.
+  `cache: "no-store"` keeps Next from caching it.
+- `redirect: "manual"` keeps a droplet's 3xx, which `shopPage()` answers with
+  Next's `redirect()`.
+- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+  page) is pasted; `Fragment` writes it with `dangerouslySetInnerHTML`.
+- Route handlers (`app/index.js/route.ts`, `app/droplets/[[...path]]`,
+  `app/assets/[...path]`, `app/api/[...path]`) pass `/index.js`,
+  `/droplets/*`, `/assets/*` and `/api/*` on to the shop.
+
+## The shop demo, recorded
 
 The [shop demo](/integrate/hosts/shop-demo/) on Next.js 16, recorded by the
 end-to-end test. [How the pieces fit](/integrate/hosts/shop-demo/#how-it-fits-together)
 has the diagram.
 
 <HostDemo id="nextjs" stack="Next.js 16" />
-
-## How this host is set up
 
 The code is in `examples/hosts/nextjs`: the `app/(shop)` route group, the route
 handlers that proxy, `lib/shop-page.tsx` (the Next.js side) and `lib/shop.ts`

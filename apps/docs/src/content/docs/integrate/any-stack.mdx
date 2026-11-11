@@ -1,0 +1,158 @@
+---
+title: Any other stack
+description: "Embed droplets from any server: the two steps, the exact headers in and out, a fetch to copy, the paths to proxy, the environment and a security checklist."
+---
+
+A host needs nothing from Droplets but HTTP. If your stack can make a
+request on the server and send HTML back, it can host droplets. This page is
+the whole recipe; the [known hosts](/integrate/hosts/overview/) are the same
+recipe written out in nginx, Express, React, Astro, SvelteKit, Next.js,
+FastAPI, Sinatra, PHP, WordPress and htmx.
+
+## The two steps
+
+1. **On your server, for each droplet on the page:** request
+   `GET <droplets server>/droplets/<id>?<props>` with the headers below. If
+   the answer is `text/html`, paste its body where the droplet goes.
+2. **In the page, once:** `<script type="module" src="/index.js"></script>`.
+   Every droplet element on the page then hydrates itself, and loads only its
+   own bundle.
+
+`/index.js` comes through your own origin when you proxy the droplets routes
+([the paths](#the-paths-to-proxy)), which is what every known host does: the
+browser then talks to one origin, and the droplets' cookies are first-party.
+
+## The headers, in and out
+
+| Header | On | Value | Why |
+| --- | --- | --- | --- |
+| `accept: text/html` | your request | exactly that | What every example sends. A `GET` fragment is HTML whatever `accept` says; on an action `POST` (the proxy), `accept: application/json` is what makes the answer JSON, so the proxy passes the browser's `accept` on unchanged. |
+| `x-host` | your request | your public origin, written out in your config: `https://www.example.com` | The URLs the fragment writes (its stylesheet, its `Link` preloads, its form actions) point there. Honoured only when listed in `DROPLETS_TRUSTED_ORIGINS`. See [`x-host`](/integrate/http-contract/#x-host-the-public-location). |
+| `Cookie` | your request | the browser's `Cookie` header, as it came | The droplet's `handle` and loads see the visitor's session, cart and login. |
+| `Referer` | your request | the page's own URL, query included: `https://www.example.com/product/mug?v=3` | A `handle` that reads it with [`hostFrom`](/guides/writing-droplets/#host) gets the page as the droplet's `host`. After a form posted without JavaScript, the query carries the form's result ([Post/Redirect/Get](/guides/actions/#without-javascript-postredirectget)). |
+| redirects | your HTTP client | not followed: `redirect: "manual"` | A `3xx` is the droplet's answer (a moved product, a login). Answer the browser with the same status and `Location`. Following it would make your server request a URL someone else chose. |
+| `content-type` | the answer | paste only `text/html`: a `200`, or a `500` with the droplet's error page | A `400` or `404` is plain text that may echo the props. Show a note of your own instead. |
+| `Set-Cookie` | the answer | each one passed on with your page, unchanged | A droplet that sets a cookie on a `GET` reaches the browser only through you. Never add a `Domain`: the cookie belongs to your origin. |
+| `Link` | the answer | the fragments' `Link` headers joined with `, ` on your page, or turned into `<link>` tags in its `<head>` | The browser starts the droplets' stylesheets and bundles before it reaches the elements. Optional: without it they start later. |
+
+## The fetch
+
+The same steps in a dozen lines of JavaScript-flavoured pseudocode. Every
+known host has this function in its own language:
+
+```js
+// On your server, for each droplet the page shows.
+async function fragment(page, id, props) {
+  const res = await fetch(`${DROPLETS_INTERNAL_URL}/droplets/${encodeURIComponent(id)}?${new URLSearchParams(props)}`, {
+    headers: {
+      accept: "text/html",
+      "x-host": PUBLIC_ORIGIN, // fixed, from your config: never from the request
+      referer: PUBLIC_ORIGIN + page.pathAndQuery,
+      ...(page.cookie ? { cookie: page.cookie } : {}),
+    },
+    redirect: "manual",
+  });
+  for (const cookie of res.headers.getSetCookie()) page.addHeader("set-cookie", cookie);
+  if (res.headers.has("link")) page.addHeader("link", res.headers.get("link"));
+  if (res.status >= 300 && res.status < 400) return page.redirect(res.status, res.headers.get("location"));
+  const isFragment = (res.status === 200 || res.status === 500) && res.headers.get("content-type")?.startsWith("text/html");
+  return isFragment ? await res.text() : `<p>This part of the page is unavailable.</p>`;
+}
+```
+
+And the page around it:
+
+```html
+<script type="module" src="/index.js"></script>
+…
+<main>${await fragment(page, "product-card", { slug: "mug" })}</main>
+```
+
+Fetch several droplets in parallel (`Promise.all`, `asyncio.gather`,
+`curl_multi`, a thread each): the page waits for the slowest one, not for
+their sum. Send the page itself with `cache-control: private, no-store`: its
+fragments were rendered with the visitor's cookies.
+
+## The paths to proxy
+
+The browser asks for more than the fragment: the droplets' code, their
+data, form posts and your API. Forward these paths from your origin to the
+droplets server, every method, body streamed:
+
+| Path | What the browser asks for |
+| --- | --- |
+| `/index.js` | The entry stub, `no-store`; it imports the element from `/assets/` |
+| `/droplets/*` | `client.js` bundles, `style.css`, `_data` refreshes and form actions (`POST /droplets/<id>?/name`) |
+| `/assets/*` | The entry client, shared chunks, stylesheets, images |
+| `/api/*` | Your [`+server.ts`](/guides/server/#api-routes) endpoints, which [`$droplets/drop`](/reference/api/#dropletsdrop) calls |
+
+Two more only when you use them: `/index.css` (the shared stylesheet, for a
+page that links it itself) and `/importmap.js` (with
+[externals](/guides/server/#import-maps)). The rest of the
+[routes](/integrate/http-contract/#routes) are for servers, not browsers.
+
+On each proxied request, set `x-host` to your public origin, clear
+`Forwarded`, `X-Forwarded-Host` and `X-Forwarded-Proto` (a client could name
+another host with them), do not follow redirects, and pass `Set-Cookie`
+back untouched. If your HTTP client decodes the body, drop
+`content-encoding` and `content-length` from the answer. In nginx, from
+`examples/hosts/nginx/nginx.conf`:
+
+```nginx
+location ~ ^/(index\.js|droplets/|assets/|api/) {
+  proxy_pass http://shop;
+  proxy_set_header x-host ${SHOP_PUBLIC_URL};
+  proxy_set_header Forwarded "";
+  proxy_set_header X-Forwarded-Host "";
+  proxy_set_header X-Forwarded-Proto "";
+}
+```
+
+Without a proxy, load `/index.js` from the droplets server's public URL,
+send that URL as `x-host`, and turn on [`cors`](/guides/security/#cors) on
+the droplets server: the browser then fetches bundles and data across
+origins, and the droplets' cookies are third-party.
+
+## The environment
+
+On the droplets server:
+
+| Variable | Value | What for |
+| --- | --- | --- |
+| `DROPLETS_TRUSTED_ORIGINS` | `https://www.example.com`, comma-separated for several | The `x-host` values it honours, and the origins whose form posts pass the [`Origin` check](/integrate/http-contract/#form-posts-the-origin-check). Added to `trustedOrigins` in `droplets.config.ts`, read at runtime. |
+| `DROPLETS_SECRET` | 32 or more random bytes | Signs a form's result on the `303` back to your page when JavaScript is off. Without it, such a post answers the droplet's fragment instead. |
+| `PORT` | `8000` by default | Where `node dist/server.js` (and Bun's) listens. |
+
+On your server, two values the known hosts read from their environment
+(Droplets does not read them, name them as you like):
+
+| Variable | Example | What for |
+| --- | --- | --- |
+| `DROPLETS_INTERNAL_URL` | `http://droplets:8000` | Where your server reaches the droplets server: fragment fetches and the proxy |
+| `DROPLETS_PUBLIC_URL` | `https://www.example.com` | Where the browser reaches the droplets routes: sent as `x-host` |
+
+## Security checklist
+
+1. Write `x-host` out in your config, never pass on a client's or build it from `Host`, and list it in `DROPLETS_TRUSTED_ORIGINS`.
+2. Keep the droplets server reachable only through your server and your proxy.
+3. Paste only `text/html` answers, and never follow a fragment's redirect.
+4. Forward the browser's `Cookie`, pass `Set-Cookie` on without a `Domain`, and send pages with fragments as `private, no-store`.
+5. Keep `Referrer-Policy` at the default `strict-origin-when-cross-origin` on pages with forms, or their posts are refused.
+
+[Security model](/guides/security/) has the reasons, and
+[Who sees what](/guides/security/#who-sees-what) says what a droplets server
+learns about the pages that embed it.
+
+## Worked versions
+
+The [known hosts](/integrate/hosts/overview/) run this recipe in eleven
+stacks, each a Docker Compose project in `examples/hosts/` with an
+end-to-end test. Start from the one closest to yours:
+[nginx](/integrate/hosts/nginx/) (no application code),
+[Express](/integrate/hosts/express/), [PHP](/integrate/hosts/php/),
+[FastAPI](/integrate/hosts/fastapi/), [Sinatra](/integrate/hosts/sinatra/),
+[Astro](/integrate/hosts/astro/), [SvelteKit](/integrate/hosts/sveltekit/),
+[Next.js](/integrate/hosts/nextjs/), [React + Vite](/integrate/hosts/react-vite/)
+(a single-page app, no server), [htmx](/integrate/hosts/htmx/) (static pages)
+and the [WordPress tutorial](/integrate/wordpress/).
+[The HTTP contract](/integrate/http-contract/) has every route and status.

@@ -1,16 +1,17 @@
 ---
-title: Shop demo on 9 hosts
-description: "One demo shop, nine droplets in six frameworks, embedded by nine stacks: how it fits together, and each host recorded end to end."
+title: Shop demo
+description: "One demo shop, nine droplets in six frameworks, embedded by nine of the eleven host examples: how it fits together, and each host recorded end to end."
 ---
 
 import ShopDiagram from "../../../../components/ShopDiagram.astro";
 import HostDemo from "../../../../components/HostDemo.astro";
 
 The shop example (`examples/shop` in the repository) is one droplets server with nine droplets: a gallery with a filter, product
-pages with comments, a cart, toasts, a login and an admin. Every host in
-`examples/hosts/` builds the same pages around them in its own stack (`/gallery`,
-`/product/:slug`, `/login`, `/admin`), and the same end-to-end test runs on
-each one. The [tour on the home page](/) walks through the WordPress host's
+pages with comments, a cart, toasts, a login and an admin. There are eleven
+host examples; nine run the shop demo; WordPress and htmx have flows of their
+own. Each of the nine builds the same pages around the droplets in its own
+stack (`/gallery`, `/product/:slug`, `/login`, `/admin`), and the same
+end-to-end test runs on each one. The [tour on the home page](/) walks through the WordPress host's
 pages droplet by droplet.
 
 ## How it fits together
@@ -66,10 +67,10 @@ comes back with the button saying "✓ Added".
 | --- | --- | --- | --- |
 | [nginx](/integrate/hosts/nginx/) | static `.html` files | Server Side Includes (`include virtual`); the product's id from its `_data` into an SSI variable | `proxy_pass` |
 | [Express 5](/integrate/hosts/express/) | route handlers, template strings | `fetch` on the server, in parallel | a router that streams through |
-| [FastAPI](/integrate/hosts/python/) | Jinja2 templates | `httpx`, `asyncio.gather` | a catch-all route |
-| [Sinatra](/integrate/hosts/ruby/) | ERB views | `Net::HTTP`, a thread per fragment | a catch-all route |
+| [FastAPI](/integrate/hosts/fastapi/) | Jinja2 templates | `httpx`, `asyncio.gather` | a catch-all route |
+| [Sinatra](/integrate/hosts/sinatra/) | ERB views | `Net::HTTP`, a thread per fragment | a catch-all route |
 | [PHP](/integrate/hosts/php/) | PHP templates, no framework | `curl_multi`, all at once | a front controller (`index.php`) |
-| [React + Vite](/integrate/hosts/react/) | a single-page app | client-only: fetched by the browser, the cart as `data-droplet` | nginx in the image |
+| [React + Vite](/integrate/hosts/react-vite/) | a single-page app | client-only: fetched by the browser, the cart as `data-droplet` | nginx in the image |
 | [Astro 5](/integrate/hosts/astro/) | `.astro` pages, `set:html` | `fetch` in the frontmatter; cookies through `Astro.response` | endpoints (`ALL`) |
 | [SvelteKit](/integrate/hosts/sveltekit/) | `+page.svelte`, `{@html}` | `fetch` in `+page.server.ts`; cookies from `handle` | `hooks.server.ts` |
 | [Next.js 16](/integrate/hosts/nextjs/) | server components | `fetch` in the component, `dangerouslySetInnerHTML` | route handlers |
@@ -83,7 +84,7 @@ would need.
 
 Without JavaScript, every form still works: a native post answers `303`
 back to the host page with the result signed in its query
-([Post/Redirect/Get](/guides/writing-droplets/#without-javascript-postredirectget)),
+([Post/Redirect/Get](/guides/actions/#without-javascript-postredirectget)),
 and the host renders that page again, passing its URL on. The SPA is the
 exception: it renders its pages in the browser, so it needs JavaScript.
 
@@ -149,15 +150,17 @@ gallery links its new version, that its page shows the new name, and that
 the old link redirects to the page without `v`.
 
 ```bash
-pnpm test:hosts                    # all nine, one at a time
+pnpm test:hosts                    # the nine shop flows, one at a time
 pnpm test:hosts express sveltekit  # some
 pnpm test:hosts express --https    # Express behind Caddy, on https://127-0-0-1.sslip.io:8443
 pnpm test:hosts --docs             # refresh the videos and screenshots in these docs
 pnpm test:hosts wordpress          # the WordPress showcase, by name only
+pnpm test:hosts htmx               # the htmx pages, by name only
 ```
 
-WordPress has [a tutorial of its own](/integrate/wordpress/): the shop in a
-real WordPress site, with WordPress holding the data.
+The two with flows of their own: WordPress has [a tutorial](/integrate/wordpress/),
+the shop in a real WordPress site with WordPress holding the data, and
+[htmx](/integrate/hosts/htmx/) swaps droplets into static pages.
 
 ### nginx
 
@@ -181,7 +184,7 @@ real WordPress site, with WordPress holding the data.
 
 ### React + Vite
 
-<HostDemo id="react" stack="React 19 + Vite" />
+<HostDemo id="react-vite" stack="React 19 + Vite" />
 
 ### Astro
 

@@ -99,19 +99,19 @@ render it needs `{ droplet }` (and `{ props }`), and it throws for a name
 render only while the component renders synchronously: call it as the
 component sets up (`useState(() => actionUrl("add"))` in React, Preact and
 Hono JSX). With `DropletActions` it takes only the exported names. See
-[Where a form posts](/guides/writing-droplets/#where-a-form-posts).
+[Where a form posts](/guides/actions/#where-a-form-posts).
 
 A form posted to it without JavaScript is answered with a `303` back to its
 page, the result signed in the query as `__droplet_form_<droplet>_<build>`
 (needs `DROPLETS_SECRET`, 32+ bytes); the droplet renders there with it as
-`form`. See [Post/Redirect/Get](/guides/writing-droplets/#without-javascript-postredirectget).
+`form`. See [Post/Redirect/Get](/guides/actions/#without-javascript-postredirectget).
 
 `enhanceDropletForm(form, options?)` enhances one form and returns the
 function that removes it: a `POST` to its own droplet's action goes by
 `fetch` with `accept: application/json`, the droplet renders again with
 `form` (or the page follows a redirect), and `droplets:action` is
 dispatched. Anything else is the browser's. See
-[Enhancing a form](/guides/writing-droplets/#enhancing-a-form).
+[Enhancing a form](/guides/actions/#enhancing-a-form).
 
 | Option | What it does |
 | --- | --- |
@@ -365,7 +365,7 @@ type DropletsPluginOptions = {
 };
 ```
 
-See [`css`](/guides/configuration/#css) and [`host` at build](/guides/writing-droplets/#host-at-build).
+See [`css`](/guides/configuration/#css) and [`host` at build](/guides/prerendering/#host-at-build).
 
 Also exported: `DropletsCssOptions` (the `css` option), `DropletsPluginApi`
 (`plugin.api`, what companion plugins such as the devtools use in dev),
@@ -485,4 +485,4 @@ by the element, for any renderer.
 `index.js` query parameters, in `vite dev` only: `strategy=hmr|remount|reload|manual`
 and `injectTool=true|false`. See [Development](/guides/development/). In a
 build, `/index.js` is a stub that imports `assets/index.<hash>.js`; see
-[Caching](/integrate/http-contract/#caching).
+[Caching](/guides/security/#caching).

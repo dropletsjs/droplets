@@ -240,7 +240,7 @@ with a warning.
 
 Forms posted without JavaScript are answered with a redirect back to the
 host page, the action's result signed in its URL
-([Post/Redirect/Get](/guides/writing-droplets/#without-javascript-postredirectget)).
+([Post/Redirect/Get](/guides/actions/#without-javascript-postredirectget)).
 Set `DROPLETS_SECRET` to 32 or more random bytes (`openssl rand -base64 32`),
 the same on every instance serving a build, as a secret: a Worker secret, the
 process environment elsewhere. It is read at runtime and never reaches a

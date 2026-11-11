@@ -5,13 +5,74 @@ description: "Plain PHP on Apache: fragments fetched with curl_multi, no framewo
 
 import HostDemo from "../../../../components/HostDemo.astro";
 
+How a plain PHP site embeds droplets: the page fetches its fragments with
+curl and prints them into the template.
+
+## The pattern in PHP
+
+```php
+// app/shop.php (trimmed)
+function shop_fragments(array $wanted): array
+{
+    $headers = ['accept' => 'text/html', 'x-host' => shop_origin(), 'referer' => shop_origin() . shop_raw_target()];
+    $cookie = shop_request_header('cookie');
+    if ($cookie !== null) {
+        $headers['cookie'] = $cookie;
+    }
+    $requests = [];
+    foreach ($wanted as $key => [$id, $pairs]) {
+        $requests[$key] = ['url' => shop_internal_url() . '/droplets/' . rawurlencode($id) . '?' . shop_build_query($pairs), 'headers' => $headers];
+    }
+    $responses = http_all($requests); // app/http.php: curl_multi, CURLOPT_FOLLOWLOCATION => false
+
+    $results = [];
+    foreach ($wanted as $key => [$id]) {
+        $response = $responses[$key];
+        $status = $response['status'] ?: 502;
+        $result = ['html' => '', 'status' => $status, 'location' => null, 'cookies' => $response['headers']['set-cookie'] ?? [], 'link' => http_header($response, 'link')];
+        $is_html = str_starts_with((string) http_header($response, 'content-type'), 'text/html');
+        if ($status >= 300 && $status < 400) {
+            $result['location'] = http_header($response, 'location');
+        } elseif ((($status >= 200 && $status < 300) || $status === 500) && $is_html) {
+            $result['html'] = $response['body'];
+            $results[$key] = $result;
+            continue;
+        }
+        // … anything else: $result['html'] becomes a "droplet is unavailable" note
+        $results[$key] = $result;
+    }
+    return $results;
+}
+```
+
+```php
+<!-- app/views/shop/layout.php, in <head>: once per page -->
+<script type="module" src="/index.js"></script>
+<!-- app/views/shop/gallery.php: the fragment's HTML, as it came -->
+<aside><?= $fragments[0] ?></aside>
+```
+
+- `shop_fragments()` sends `GET /droplets/<id>?<params>` for every fragment
+  at once to `SHOP_INTERNAL_URL`, with `accept: text/html`, `x-host` set to
+  this host's public origin (`shop_origin()`, from `SHOP_PUBLIC_URL`), the
+  browser's `Cookie` as it came, and the page's path and query as `referer`
+  (`shop_raw_target()` is `$_SERVER['REQUEST_URI']`).
+- curl never follows a redirect, so a droplet's 3xx is kept: `shop_render()`
+  answers it with a `Location` header, and sends the fragments'
+  `Set-Cookie` with the page.
+- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+  page) is pasted; `<?= ?>` prints it unescaped.
+- `app/views/shop/layout.php` loads `/index.js` once. `shop_is_proxied()`
+  sends `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` to
+  `shop_proxy()`, which passes them on to the shop.
+
+## The shop demo, recorded
+
 The [shop demo](/integrate/hosts/shop-demo/) on plain PHP 8.3, recorded by the
 end-to-end test. [How the pieces fit](/integrate/hosts/shop-demo/#how-it-fits-together)
 has the diagram.
 
 <HostDemo id="php" stack="PHP 8.3" />
-
-## How this host is set up
 
 No framework and no Composer: PHP files on the official `php:8.3-apache`
 image, and curl, which the image already has. Apache sends every path that
@@ -42,33 +103,13 @@ or `SetEnv` in Apache.
 ### How a page gets a droplet
 
 Each page's fragments, the toasts and the header's cart badge included, go
-out at once with `curl_multi`:
+out at once with `curl_multi`. The fetch is `shop_fragments()` and the view
+is `app/views/shop/gallery.php`, both shown in the pattern above; the
+fragments' `Link` preloads go into `<head>`. The `/gallery` route asks for
+its two:
 
 ```php
-// app/shop.php
-function shop_fragments(array $wanted): array
-{
-    // The browser's request, as the shop should see it: its cookies, this page as the host.
-    $headers = ['accept' => 'text/html', 'x-host' => shop_origin(), 'referer' => shop_origin() . $_SERVER['REQUEST_URI']];
-    $cookie = shop_request_header('cookie');
-    if ($cookie !== null) {
-        $headers['cookie'] = $cookie;
-    }
-    $requests = [];
-    foreach ($wanted as $key => [$id, $pairs]) {
-        $requests[$key] = ['url' => shop_internal_url() . '/droplets/' . rawurlencode($id) . '?' . shop_build_query($pairs), 'headers' => $headers];
-    }
-    $responses = http_all($requests); // curl_multi; never follows a redirect
-    // Only a text/html answer is pasted; its Set-Cookie goes out with the page,
-    // its Link preloads into <head>, a 3xx is answered as it is.
-}
-
 shop_render('gallery', 'Gallery', '/gallery', [['product-filter', $query], ['product-library', $query]]);
-```
-
-```php
-<?php // app/views/shop/gallery.php ?>
-<aside><?= $fragments[0] ?></aside>
 ```
 
 `referer` is the page's path and query as the browser sent it

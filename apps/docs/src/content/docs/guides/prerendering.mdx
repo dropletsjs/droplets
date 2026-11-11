@@ -1,0 +1,95 @@
+---
+title: Prerendering
+description: "Rendering droplets at build time: prerender, entries, host at build, the stored renders and transform."
+---
+
+`export const prerender = true` renders the droplet at build time, once for
+each event `entries` in `+droplet.server.ts` returns (`[{}]` without it). An
+event is what the loads run with: `props`, and optionally `host`.
+
+```ts
+// src/droplets/docs/+droplet.server.ts
+import type { Entries } from "$droplets/server";
+
+export const entries = (() => [
+  { props: { page: 1 } },
+  { props: { page: 2 } },
+  { props: { page: 3 }, host: "https://shop.example/docs" },
+]) satisfies Entries;
+```
+
+- Renders go through `handle`, with `building` from `$droplets/env` set to
+  `true`.
+- They are stored with the server, never as public files, and read per
+  request: from `dist/server/_prerendered/` on Node, Bun and Deno; on
+  Workers through the assets binding, from a directory of `dist/client`
+  named anew every build that only the Worker knows. Nothing is bundled.
+- Listed props are served from the store (and `_data` answers from it).
+  Other props render live, or answer `404` when `ssr = false`. A render made
+  for a host serves that host only (origin and path, never the query); see
+  below.
+- A prop set whose load fails is stored as its error page, served with a
+  `500`. One that answers `error()` or `redirect()` warns at build and renders
+  live.
+- In `vite dev`, everything renders live.
+
+## `host` at build
+
+Each entry renders for the first host it can have:
+
+1. the entry's `host`;
+2. `prerender.host` in `droplets()` (`droplets({ prerender: { host: "https://shop.example" } })`);
+3. `PUBLIC_URL` from the mode's environment;
+4. none: the render is **host-agnostic**.
+
+A render with a host is a real `URL` to its loads, and is stored under its
+props and that host's origin and path. A request gets it only when its own
+`host` matches; any other host gets the host-agnostic render of the same
+props when there is one, else a live render.
+
+A host-agnostic render gets a stand-in for `host`: `host.origin`,
+`host.pathname` and `host.href` (and `String(host)`, `JSON.stringify`) give
+the tokens `__$DROPLET_HOST$__` and `__$DROPLET_PATH$__`. Every render made
+at build, with a host or without, has the droplets server's location as a
+token too, `__$DROPLET_LOCATION$__` (`droplet.origin`, action URLs), replaced
+with the location of each request that serves it. Each token carries the
+build's nonce (`__$DROPLET_HOST_<nonce>$__`).
+`<a href="{host.origin}/sale">` is stored as `<a href="__$DROPLET_HOST$__/sale">`,
+and every request that serves it gets the tokens replaced with its own
+`host`, after `handle` and before `transform`: in the HTML (escaped for
+attributes), in the inline data, and in their `encodeURIComponent` forms.
+Use them in text and attribute positions: inside an inline `<script>` or
+`<style>` they get HTML escaping, not JavaScript or CSS escaping.
+Logic on the value cannot be computed at build, so any other field
+(`host.searchParams`, `host.hostname`, …) throws
+`HostUrlPropsErrorInPrerender` and **stops the build**, even when the
+droplet's code catches it. Give that entry a `host`, set `prerender.host`, or
+render it live. [`cookies`](/guides/server/#cookies) stop the build the same
+way: there is no request at build.
+
+## `transform`
+
+`transform` in `+droplet.server.ts` rewrites the droplet's HTML on every
+request, prerendered or live, with the request's event. What a build-time
+render cannot know goes here:
+
+```ts
+import type { TransformEvent } from "$droplets/server";
+
+const escapeHtml = (text: string) =>
+  text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+export const transform = ({ html, host }: TransformEvent) =>
+  html.replaceAll("@HOST@", () => escapeHtml(host.host));
+```
+
+`transform` writes into HTML, and `host` comes from the request: escape what
+you splice in, and pass the replacement as a function, so `$&` or `$'` in
+it is not read as a pattern. A list of functions runs in order.
+
+`error()` and `redirect()` stop it as they stop a load: the fragment answers
+with that status, or the redirect. `transform` runs on fragments only;
+`_data` answers what the load returned. The
+[shop demo](/integrate/hosts/shop-demo/#stale-free-ssg-with-a-version-prop)
+redirects an old link from its `transform`.
+

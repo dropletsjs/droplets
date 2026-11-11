@@ -5,13 +5,62 @@ description: "Fetch fragments in +page.server.ts and render them with {@html}."
 
 import HostDemo from "../../../../components/HostDemo.astro";
 
+How a SvelteKit app embeds droplets: a server `load` fetches each fragment,
+and `{@html}` renders it into the page.
+
+## The pattern in SvelteKit
+
+```ts
+// src/lib/shop.server.ts, fragment() (trimmed)
+async function fragment(page: PageRequest, id: string, params = new URLSearchParams()): Promise<Fragment> {
+  const url = `${internal}/droplets/${encodeURIComponent(id)}?${params}`;
+  const headers: Record<string, string> = { accept: "text/html", "x-host": origin, referer: origin + page.path };
+  if (page.cookie) headers["cookie"] = page.cookie;
+  const result: Fragment = { html: "", status: 502, location: null, cookies: [], link: null };
+  const response = await fetch(url, { headers, redirect: "manual", cache: "no-store" });
+  result.status = response.status;
+  result.cookies = response.headers.getSetCookie();
+  if (response.status >= 300 && response.status < 400) {
+    result.location = response.headers.get("location");
+  } else if (
+    (response.ok || response.status === 500) &&
+    (response.headers.get("content-type") ?? "").startsWith("text/html")
+  ) {
+    result.html = await response.text();
+    return result;
+  }
+  // … anything else: result.html becomes a "droplet is unavailable" note
+  return result;
+}
+```
+
+```svelte
+<!-- src/routes/(shop)/+layout.svelte, in <svelte:head>: once per page -->
+<script type="module" src="/index.js"></script>
+<!-- src/routes/(shop)/gallery/+page.svelte: the fragment's HTML, as it came -->
+<aside>{@html data.filter}</aside>
+```
+
+- `shopFragments()` in `src/lib/shop-page.server.ts` takes `page` from the
+  load's `event`: `event.url`'s path and query, and the browser's `Cookie`.
+  `fragment()` sends `GET /droplets/<id>?<params>` to `SHOP_INTERNAL_URL`
+  with `accept: text/html`, `x-host` set to this host's public origin
+  (`SHOP_PUBLIC_URL`), that `Cookie`, and the page's URL as `referer`.
+- `redirect: "manual"` keeps a droplet's 3xx, which `shopFragments()` answers
+  with SvelteKit's `redirect()`; the fragments' `Set-Cookie` go to
+  `event.locals.shopCookies`, which `handle` appends to the page's response.
+- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+  page) is pasted; `{@html}` writes it unescaped.
+- `handle` in `src/hooks.server.ts` passes `/index.js`, `/droplets/*`,
+  `/assets/*` and `/api/*` on to the shop before any routing.
+
+## The shop demo, recorded
+
 The [shop demo](/integrate/hosts/shop-demo/) on SvelteKit 2, recorded by the
 end-to-end test. [How the pieces fit](/integrate/hosts/shop-demo/#how-it-fits-together)
 has the diagram.
 
 <HostDemo id="sveltekit" stack="SvelteKit 2" />
-
-## How this host is set up
 
 The code is in `examples/hosts/sveltekit/src`: `hooks.server.ts`, the `(shop)`
 route group, `lib/shop-page.server.ts` (the SvelteKit side) and

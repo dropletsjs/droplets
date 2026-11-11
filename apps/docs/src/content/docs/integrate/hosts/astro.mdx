@@ -5,13 +5,63 @@ description: "Fetch fragments in a page's frontmatter and render them with set:h
 
 import HostDemo from "../../../../components/HostDemo.astro";
 
+How an Astro site embeds droplets: a page's frontmatter fetches each fragment
+on the server, and `set:html` renders it into the page.
+
+## The pattern in Astro
+
+```ts
+// src/lib/shop.ts, fragment() (trimmed)
+async function fragment(page: PageRequest, id: string, params = new URLSearchParams()): Promise<Fragment> {
+  const url = `${internal}/droplets/${encodeURIComponent(id)}?${params}`;
+  const headers: Record<string, string> = { accept: "text/html", "x-host": origin, referer: origin + page.path };
+  if (page.cookie) headers["cookie"] = page.cookie;
+  const result: Fragment = { html: "", status: 502, location: null, cookies: [], link: null };
+  const response = await fetch(url, { headers, redirect: "manual", cache: "no-store" });
+  result.status = response.status;
+  result.cookies = response.headers.getSetCookie();
+  if (response.status >= 300 && response.status < 400) {
+    result.location = response.headers.get("location");
+  } else if (
+    (response.ok || response.status === 500) &&
+    (response.headers.get("content-type") ?? "").startsWith("text/html")
+  ) {
+    result.html = await response.text();
+    return result;
+  }
+  // … anything else: result.html becomes a "droplet is unavailable" note
+  return result;
+}
+```
+
+```astro
+<!-- src/layouts/Shop.astro, in <head>: once per page -->
+<script type="module" src="/index.js" is:inline></script>
+<!-- src/pages/gallery.astro: the fragment's HTML, as it came -->
+<aside><Fragment set:html={filter} /></aside>
+```
+
+- `shopPage()` in `src/lib/shop-page.ts` takes `page` from `Astro.request`:
+  its path and query, and the browser's `Cookie`. `fragment()` sends
+  `GET /droplets/<id>?<params>` to `SHOP_INTERNAL_URL` with
+  `accept: text/html`, `x-host` set to this host's public origin
+  (`SHOP_PUBLIC_URL`), that `Cookie`, and the page's URL as `referer`.
+- `redirect: "manual"` keeps a droplet's 3xx: `finish()` returns it as the
+  page's `Response`, and otherwise appends the fragments' `Set-Cookie` to
+  `Astro.response.headers`.
+- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+  page) is pasted; `set:html` writes it unescaped.
+- `is:inline` keeps Astro from bundling the `/index.js` script. Endpoints that
+  export `ALL` (`src/pages/index.js.ts`, `src/pages/{droplets,assets,api}/[...path].ts`)
+  pass `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` on to the shop.
+
+## The shop demo, recorded
+
 The [shop demo](/integrate/hosts/shop-demo/) on Astro 5, recorded by the
 end-to-end test. [How the pieces fit](/integrate/hosts/shop-demo/#how-it-fits-together)
 has the diagram.
 
 <HostDemo id="astro" stack="Astro 5" />
-
-## How this host is set up
 
 The code is in `examples/hosts/astro/src`: the pages, `lib/shop-page.ts` (the
 Astro side) and `lib/shop.ts` (the framework-free fetches and proxy).
