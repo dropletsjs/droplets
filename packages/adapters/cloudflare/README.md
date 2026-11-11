@@ -156,9 +156,9 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - `cloudflare()` build target is `es2022`. `src/index.ts:204`
 - `assetsBinding` defaults to `ASSETS`. `src/index.ts:185`
 - `assetsBinding` is baked into `dist/worker.js` as `__DROPLETS_ASSETS_BINDING__` through the output intro. `src/index.ts:208`, `src/worker.ts:14`
-- `cloudflare()` has no `preview`: `vite preview` warns and serves nothing. `src/index.ts:186`, `../../droplets/src/vite/plugin.ts:555`
+- `cloudflare()` has no `preview`: `vite preview` warns and serves nothing. `src/index.ts:186`, `../../droplets/src/vite/plugin.ts:536`
 - `.assetsignore` is written to `dist/client/` after every build with `/droplets.json` and `/.vite/`. `src/index.ts:15`, `src/index.ts:215`, `test/index.test.ts:40`
-- `afterBuild` receives the resolved config from the plugin: `publicCacheControl` comes from `droplets.config.ts`. `src/index.ts:213`, `../../droplets/src/vite/plugin.ts:563`
+- `afterBuild` receives the resolved config from the plugin: `publicCacheControl` comes from `droplets.config.ts`. `src/index.ts:213`, `../../droplets/src/vite/plugin.ts:544`
 - `_headers` is written to `dist/client/` after every build: the adapter's rules, then the project root's `_headers` after a blank line. `src/index.ts:216`, `src/index.ts:218`, `test/index.test.ts:44`, `test/index.test.ts:109`
 - `_headers` rules: `/index.js` (`no-store`), `/assets/*`, `/assets/public/*`, `/droplets/:id/client.js`, `/droplets/:id/style.css`, in that order. `src/index.ts:79`, `test/index.test.ts:99`
 - `_headers` sends `Access-Control-Allow-Origin: *` on every rule but `/assets/public/*`, which gets it from `/assets/*`; the `cors` config is not read. `src/index.ts:76`
@@ -181,14 +181,14 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - `run_worker_first` pattern `*` matches anything, `/` included. `src/index.ts:106`
 - `run_worker_first` warning names the file, the value and up to five matched paths, and links `https://dropletsjs.dev/guides/deployment/#run_worker_first`. `src/index.ts:253`
 - Config in the Worker is `resolveConfig(userConfig)` with no environment: `PORT` is never read. `src/worker.ts:23`
-- Manifest is inlined into the Worker through `virtual:droplets-manifest`, the build's `droplets.json`. `src/worker.ts:2`, `../../droplets/src/vite/virtual.ts:683`
+- Manifest is inlined into the Worker through `virtual:droplets-manifest`, the build's `droplets.json`. `src/worker.ts:2`, `../../droplets/src/vite/virtual.ts:73`
 - Assets binding missing from `env`: the request throws `droplets: no "<name>" binding`. `src/worker.ts:119`, `test/worker.test.ts:269`
 - App is created once per assets binding object and kept in a `WeakMap`. `src/worker.ts:27`, `src/worker.ts:124`
 - Bindings are the runtime env: every request calls `setRuntimeEnv(env)` before it is answered. `src/worker.ts:135`
-- `platform.env` is the Worker's `env`, every binding included. `../../droplets/src/runtime/app.ts:529`, `test/worker.test.ts:87`
-- `platform.context` is the Worker's execution context when the runtime has one. `../../droplets/src/runtime/app.ts:565`
+- `platform.env` is the Worker's `env`, every binding included. `../../droplets/src/runtime/app.ts:525`, `test/worker.test.ts:87`
+- `platform.context` is the Worker's execution context when the runtime has one. `../../droplets/src/runtime/app.ts:561`
 - `.env` values are not in `dist/worker.js`; runtime secrets come from the bindings. `test/worker.test.ts:103`
-- `DROPLETS_TRUSTED_ORIGINS` binding is read per request, for form posts and for the location headers it trusts. `../../droplets/src/runtime/app.ts:844`, `test/worker.test.ts:227`, `test/worker.test.ts:245`
+- `DROPLETS_TRUSTED_ORIGINS` binding is read per request, for form posts and for the location headers it trusts. `../../droplets/src/runtime/app.ts:840`, `test/worker.test.ts:227`, `test/worker.test.ts:245`
 - Droplet lookup in the inlined manifest uses `Object.hasOwn`: `__proto__` and other prototype names find nothing. `src/worker.ts:43`, `test/worker.test.ts:221`
 - Files are read through the binding by pathname; the origin `https://assets.invalid` is a placeholder. `src/worker.ts:50`
 - File the binding answers with a non-2xx status reads as missing (`null`). `src/worker.ts:51`
@@ -205,7 +205,7 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - `/assets/public/*` without a binding `ETag` gets one from the SHA-1 of the body in base64url, and `304` with no body when `If-None-Match` lists it. `src/worker.ts:104`, `src/worker.ts:110`
 - `/assets/public/*` status from 300 to 399 other than 304 passes through untouched. `src/worker.ts:85`
 - `/robots.txt` answers 404: `public/` is served only under `/assets/public/`. `test/worker.test.ts:195`
-- `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:902`, `test/worker.test.ts:214`
+- `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:900`, `test/worker.test.ts:214`
 - `nodejs_compat` gives `AsyncLocalStorage`, found through `process.getBuiltinModule`; without it overlapping requests share one request store. `../../droplets/src/runtime/request-store.ts:46`, `../../droplets/src/runtime/request-store.ts:60`
 - Node engine for the build is `>=22`. `package.json:36`
 - `vite` is a peer dependency (`^8.0.0`): the adapter reads `defaultServerConditions` from it. `package.json:49`, `src/index.ts:6`

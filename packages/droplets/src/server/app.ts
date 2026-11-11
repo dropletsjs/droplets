@@ -13,6 +13,7 @@ import {
 } from "../runtime/app.ts";
 import type { HandleServerError, ImportMapHandler, TransformEvent } from "../runtime/server.ts";
 import type { ResolvedDropletsConfig } from "../core/config.ts";
+import type { HostTokenReplacers } from "../runtime/host-tokens.ts";
 
 /** What the built SSR bundle exports. */
 export type SsrModule = {
@@ -32,7 +33,9 @@ export type SsrModule = {
   publicEnv?: () => Record<string, string | undefined>;
   findAction?: FindAction;
   /** The nonce of the location tokens the bundle writes (see `DropletsAppOptions.tokenNonce`). */
-  tokenNonce?: string;
+  tokenNonce?: string | undefined;
+  /** Internal: the bundle's token replacers, none when the build fixes `location` and `host` (see `DropletsAppOptions.tokens`). */
+  tokens?: HostTokenReplacers | undefined;
 };
 
 /**
@@ -109,6 +112,7 @@ export function createServerApp({ ssr, assets, config }: ServerAppOptions): Drop
     loadIndex: () => assets.loadIndex(),
     buildHash: assets.buildHash,
     ...(ssr.tokenNonce === undefined ? {} : { tokenNonce: ssr.tokenNonce }),
+    ...(ssr.tokens === undefined ? {} : { tokens: ssr.tokens }),
     cors: config.cors,
     trustedOrigins: config.trustedOrigins,
     location: config.location,

@@ -121,12 +121,12 @@ by path.
 - `node()` separateSsrBundle is true: the SSR bundle is its own file, `dist/server/entry-server.js`. `src/index.ts:28`, `../../droplets/src/vite/build.ts:163`
 - `node()` noExternal bundles `@hono/node-server` and `@dropletsjs/adapter-node` into `dist/server.js`. `src/index.ts:29`
 - Server bundle always bundles `hono`, `case-anything`, `@dropletsjs/droplets` and `@dropletsjs/renderer-*`; `dist/server.js` imports only `node:*`. `../../droplets/src/vite/build.ts:59`, `test/index.test.ts:25`
-- `vite preview` calls `node().preview`, which serves `dist/client` and `dist/server/entry-server.js` through `createNodeServerApp`. `src/index.ts:30`, `../../droplets/src/vite/plugin.ts:550`
+- `vite preview` calls `node().preview`, which serves `dist/client` and `dist/server/entry-server.js` through `createNodeServerApp`. `src/index.ts:30`, `../../droplets/src/vite/plugin.ts:531`
 - `dist/server.js` resolves `client/` and `server/entry-server.js` relative to its own file, not the working directory. `src/entry.ts:10`
 - `droplets.config.ts` is bundled into `dist/server.js` through `virtual:droplets-config`; it is not read at runtime. `src/entry.ts:4`, `test/index.test.ts:27`
-- `PORT` is read once at startup and overrides `server.port` from the config. `src/entry.ts:17`, `../../droplets/src/core/config.ts:358`
-- `PORT` is converted with `Number()`; empty, `0` or not a number falls back to `server.port`, then 8000. `../../droplets/src/core/config.ts:327`
-- `server.port` defaults to 8000. `../../droplets/src/core/config.ts:195`
+- `PORT` is read once at startup and overrides `server.port` from the config. `src/entry.ts:17`, `../../droplets/src/core/config.ts:408`
+- `PORT` is converted with `Number()`; empty, `0` or not a number falls back to `server.port`, then 8000. `../../droplets/src/core/config.ts:374`
+- `server.port` defaults to 8000. `../../droplets/src/core/config.ts:205`
 - Listening starts only when `process.argv[1]` is this file's own URL: `node dist/server.js` listens. `src/entry.ts:43`
 - Listening does not start through a symlink or for `node dist/server` without the extension. `src/entry.ts:43`
 - Importing `dist/server.js` does not listen; the default export is `{ fetch }`. `src/entry.ts:35`
@@ -146,8 +146,8 @@ by path.
 - Droplet lookup in the manifest uses `Object.hasOwn`: `__proto__` and other prototype names find nothing. `src/assets.ts:62`, `test/assets.test.ts:57`
 - Client bundles, `/index.js` and the global CSS are read from disk per request, not cached. `src/assets.ts:71`, `src/assets.ts:75`, `src/assets.ts:83`
 - File read errors other than ENOENT are thrown, not turned into null. `src/fs.ts:19`
-- `/assets/*` is the only route that serves files from `dist/client`. `../../droplets/src/server/app.ts:122`
-- `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:342`, `../../droplets/src/runtime/app.ts:902`
+- `/assets/*` is the only route that serves files from `dist/client`. `../../droplets/src/server/app.ts:125`
+- `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:338`, `../../droplets/src/runtime/app.ts:900`
 - `/assets/*` serves from `dist/client/assets`. `src/static.ts:48`
 - `/assets/*` path resolving outside `dist/client/assets` answers `404 Not Found` before any read. `src/static.ts:57`
 - `/assets/*` missing file or directory answers `404 Not Found`. `src/static.ts:66`
@@ -163,4 +163,4 @@ by path.
 - Node engine is `>=22`. `package.json:35`
 - Build script runs the tests before tsdown. `package.json:38`
 - Tests build the framework's fixture app and fail when `@dropletsjs/droplets` is not built. `test/build-fixture.ts:19`
-- A droplet without stylesheets has no `style.css` (404), and `/index.css` answers 404 without a shared stylesheet: the empty file is not in the build. `../../droplets/src/runtime/app.ts:1164`, `test/app.test.ts:187`
+- A droplet without stylesheets has no `style.css` (404), and `/index.css` answers 404 without a shared stylesheet: the empty file is not in the build. `../../droplets/src/runtime/app.ts:1162`, `test/app.test.ts:187`

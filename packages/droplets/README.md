@@ -263,12 +263,12 @@ renderer under `testing/`.
 - Dependencies: `@clack/prompts`, `@hono/node-server`, `case-anything`, `hono`, `postcss`, `postcss-selector-parser`. `package.json:83`
 - Peer dependencies: `vite` `^8.0.0`; `vitest`, `tailwindcss`, `@tailwindcss/vite` optional. `package.json:91`, `package.json:108`
 - Script `build` is `tsdown && vitest run`; `build:dist` is `tsdown`; `dev` is `tsdown --watch`; `typecheck` is `tsc -p tsconfig.json`. `package.json:75`
-- tsdown entries: the eight public entries, then the files found by path, then `runtime/dev-element.ts` in its own file so a production build drops it whole. `tsdown.config.ts:6`, `tsdown.config.ts:15`, `tsdown.config.ts:26`
+- tsdown entries: the eight public entries, then the files found by path, then `runtime/dev-element.ts` in its own file so a production build drops it whole. `tsdown.config.ts:6`, `tsdown.config.ts:15`, `tsdown.config.ts:27`
 - tsdown entries found by path: `runtime/entry-client`, `entry-server`, `props`, `load`, `env-store`, `request-store`, `form`, `client-init`, `server-records`, `script/server`, `script/client`, `testing/conformance-entry`, `testing/fake-renderer/server`, `testing/fake-renderer/client`. `tsdown.config.ts:16`
-- tsdown bundles no bare import except Oxc's runtime helpers. `tsdown.config.ts:34`
-- graphCheck `client` list: `runtime/entry-client`, `props`, `load`, `form`, `enhance`, `client-init`, `server-records`, `dev-element`, `script/client`, `testing/fake-renderer/client`. `tsdown.config.ts:38`
-- graphCheck `server` list: `runtime/app`, `entry-server`, `server`, `env-store`, `request-store`, `security`, `cookies`, `element`, `index`, `vite`, `cli`, `testing/index`, `testing/conformance`, and the folders `vite/`, `core/`, `add/`, `css/`. `tsdown.config.ts:50`
-- Runtime CSS is imported with `?inline` through `cssInline()`. `tsdown.config.ts:36`
+- tsdown bundles no bare import except Oxc's runtime helpers. `tsdown.config.ts:35`
+- graphCheck `client` list: `runtime/entry-client`, `props`, `load`, `form`, `enhance`, `client-init`, `server-records`, `dev-element`, `script/client`, `testing/fake-renderer/client`. `tsdown.config.ts:39`
+- graphCheck `server` list: `runtime/app`, `entry-server`, `server`, `env-store`, `request-store`, `security`, `cookies`, `element`, `index`, `vite`, `cli`, `testing/index`, `testing/conformance`, and the folders `vite/`, `core/`, `add/`, `css/`. `tsdown.config.ts:51`
+- Runtime CSS is imported with `?inline` through `cssInline()`. `tsdown.config.ts:37`
 - tsconfig maps `virtual:droplets*`, `$droplets/env*`, `$droplets/server`, `$droplets/drop`, `$droplets/form` to `src/types/*` (and `src/runtime/server.ts`) for the package's own typecheck. `tsconfig.json:5`
 - vitest aliases the virtual modules to `test/stubs/*` and runs `test/**/*.test.ts` in Node with `test/setup.ts`. `vitest.config.ts:8`, `vitest.config.ts:17`
 - Portability: `test/portability.test.ts` NEUTRAL list is `runtime`, `server`, `core/config.ts`, `core/logger.ts`. `test/portability.test.ts:14`
@@ -279,7 +279,7 @@ renderer under `testing/`.
 - Entry `.` exports the renderer helpers `defineRenderer`, `importsPackage`, `parseHydrateMode`, `RENDERER_QUERY`, `rendererScopeFilter`, `validateRenderers`, `withFlagDefaults`. `src/index.ts:57`
 - Entry `.` exports `ActionFailure`, `CookiesInPrerenderError`, `HostUrlPropsErrorInPrerender`, `DropletRenderError`. `src/index.ts:46`, `src/index.ts:12`
 - Entry `./vite` exports `droplets()` and `readExportedFlag`, `readExportedFlags`, `readExportedHydrate`. `src/vite.ts:1`, `src/vite.ts:14`
-- `droplets()` takes `DropletsPluginOptions` (default `{}`) and returns Vite plugins. `src/vite/plugin.ts:222`
+- `droplets()` takes `DropletsPluginOptions` (default `{}`) and returns Vite plugins. `src/vite/plugin.ts:211`
 - Entry `./env`: `defineEnvVars` validates and returns the declaration unchanged. `src/env.ts:74`
 - Env variable names match `^[A-Za-z_][A-Za-z0-9_]*$`, and each needs an options object; otherwise `validateEnvDeclaration` throws. `src/env.ts:59`, `src/env.ts:62`
 - Env `Register` is an `interface` so the user merges `variables` into it. `src/env.ts:40`
@@ -291,10 +291,10 @@ renderer under `testing/`.
 - `rendererConformance` `enhance`: `"wrapper"` (default) or `"attribute"` for template engines. `src/testing/conformance.ts:147`
 - `rendererConformance` runs on `fakeRenderer()` and `test/fixtures/app` in this package. `test/conformance.test.ts:7`
 - `fakeRenderer()` is named `fake` and handles `.fake.js`. `src/testing/fake-renderer/index.ts:31`
-- `createServerApp` throws when the SSR bundle exports neither `renderDroplet` nor a default. `src/server/app.ts:81`
-- `cors` allowing every origin warns once under `vite dev` (`devLog`); `createServerApp` warns about nothing. `src/runtime/app.ts:851`, `src/runtime/dev-log.ts:62`
-- `createServerApp` mounts `/assets/*` on the adapter's `assetHandler`. `src/server/app.ts:122`
-- `AssetLoaders`: every loader returns `null` for something that does not exist. `src/server/app.ts:43`
+- `createServerApp` throws when the SSR bundle exports neither `renderDroplet` nor a default. `src/server/app.ts:84`
+- `cors` allowing every origin warns once under `vite dev` (`devLog`); `createServerApp` warns about nothing. `src/runtime/app.ts:847`, `src/runtime/dev-log.ts:62`
+- `createServerApp` mounts `/assets/*` on the adapter's `assetHandler`. `src/server/app.ts:125`
+- `AssetLoaders`: every loader returns `null` for something that does not exist. `src/server/app.ts:46`
 - `FALLBACK_MANIFEST` is the manifest a runtime answers with before the build is found: no droplets, `__entryClient` `index.js`. `src/server/manifest.ts:42`
 - `PRERENDER_DIR` is `_prerendered`: `dist/server/_prerendered/` with a separate SSR bundle, else `dist/client/_prerendered/<random>/` named only in the manifest. `src/server/prerendered.ts:15`, `src/server/prerendered.ts:3`
 - `createPrerenderedLoader` reads each droplet's `index.json` once and each render on demand. `src/server/prerendered.ts:57`, `src/server/prerendered.ts:62`
@@ -315,15 +315,15 @@ renderer under `testing/`.
 - Adapter contract `DropletsAdapter`: `name`, `serverEntry`, `serverFile`, `separateSsrBundle`, optional `noExternal`, `environment`, `afterBuild`, `preview`. `src/adapters.ts:10`
 - `AdapterBuildContext`, what `afterBuild` gets: `root`, `outDir`, `manifestPath`, `serverPath` and the resolved `config`. `src/adapters.ts:47`, `src/adapters.ts:57`
 - `vite build` without an adapter throws, naming `@dropletsjs/adapter-node`. `src/vite/build.ts:96`
-- Health route answers `ok` and is mounted before `handle`. `src/runtime/app.ts:936`
-- `handle` never runs for `/index.js`, `/env.js` and `/assets/*`. `src/runtime/app.ts:360`, `src/runtime/app.ts:984`
-- Routes: `/` `src/runtime/app.ts:1109`, `/index.js` `src/runtime/app.ts:1116`, `/index.css` `src/runtime/app.ts:1144`, `style.css` `src/runtime/app.ts:1157`, `client.js` `src/runtime/app.ts:1173`, `_data` `src/runtime/app.ts:1287`, the fragment `src/runtime/app.ts:1674`, `/api` `src/runtime/app.ts:1715`
-- `_data` answers `405` with `allow: GET, POST` for `PUT`, `PATCH`, `DELETE`. `src/runtime/app.ts:1283`
-- Droplet file URLs (the stylesheet, `client.js`, the `Link` preloads) are built on the request's droplet location. `src/runtime/app.ts:1330`
-- `style.css` imports each stylesheet as `../../<file>`, relative to itself. `src/runtime/app.ts:310`
+- Health route answers `ok` and is mounted before `handle`. `src/runtime/app.ts:934`
+- `handle` never runs for `/index.js`, `/env.js` and `/assets/*`. `src/runtime/app.ts:356`, `src/runtime/app.ts:982`
+- Routes: `/` `src/runtime/app.ts:1107`, `/index.js` `src/runtime/app.ts:1114`, `/index.css` `src/runtime/app.ts:1142`, `style.css` `src/runtime/app.ts:1155`, `client.js` `src/runtime/app.ts:1171`, `_data` `src/runtime/app.ts:1288`, the fragment `src/runtime/app.ts:1676`, `/api` `src/runtime/app.ts:1717`
+- `_data` answers `405` with `allow: GET, POST` for `PUT`, `PATCH`, `DELETE`. `src/runtime/app.ts:1284`
+- Droplet file URLs (the stylesheet, `client.js`, the `Link` preloads) are built on the request's droplet location. `src/runtime/app.ts:1331`
+- `style.css` imports each stylesheet as `../../<file>`, relative to itself. `src/runtime/app.ts:306`
 - Dev element code enters production code through one gate: `if (import.meta.env.DEV) installDevElement(...)`. `src/runtime/entry-client.ts:1374`
-- Client module dev hooks (`update`, the HMR fallback) are emitted only under `vite dev` or a non-production build. `src/vite/virtual.ts:726`
-- Build hash is random per plugin instance, so per build environment; the entry module is named `assets/index.[hash].js`, not after it. `src/vite/state.ts:96`, `src/vite/build.ts:33`
-- Dev serves no droplet stylesheets: a `hydrate = false` droplet renders without its component styles in dev. `src/vite/dev.ts:346`
+- Client module dev hooks (`update`, the HMR fallback) are emitted only under `vite dev` or a non-production build. `src/vite/virtual.ts:736`
+- Build hash is random per plugin instance, so per build environment; the entry module is named `assets/index.[hash].js`, not after it. `src/vite/state.ts:79`, `src/vite/build.ts:33`
+- Dev serves no droplet stylesheets: a `hydrate = false` droplet renders without its component styles in dev. `src/vite/dev.ts:347`
 - Flags are read from the droplet's component only; flags `+error.*` declares warn in dev and are ignored. `src/core/discover.ts:171`, `src/core/discover.ts:180`
 - Flag not a literal: warns and is ignored. `src/core/flags.ts:127`

@@ -4,6 +4,8 @@
 
 - A production build holds no dev or HMR code: no `DEV_MARKERS` text, no `update` export, no dev module, for Node and for Cloudflare's `worker.js`.
   Checked by: `test/production.test.ts`.
+- A build with `location` and `host` both fixed holds no host or location token and no `host-tokens` module in its server output or stored renders, for Node and Cloudflare; the builds that compute them per request still do.
+  Checked by: `test/production.test.ts` ("a production build with location and host fixed").
 - Dev code added to a package adds its marker to `DEV_MARKERS`, and a new dev module's file name to `DEV_MODULE`, in `test/production.test.ts`.
   Checked by: `test/production.test.ts`.
 - Each renderer's transforms see that renderer's modules only: React's refresh in React's modules, Preact's Prefresh in Preact's.

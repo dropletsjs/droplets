@@ -365,7 +365,8 @@ Two more places where request data meets HTML:
   escape what you splice in, and pass the replacement as a function. See
   [`transform`](/guides/prerendering/#transform).
 - Build-time renders hold `host` and the location as tokens that carry a
-  per-build nonce, so content cannot fake one. They are filled with HTML
+  per-build nonce, so content cannot fake one (none at all when `location`
+  and `host` are both set). They are filled with HTML
   escaping: use them in text and attribute positions, not inside an inline
   `<script>` or `<style>`. See [`host` at build](/guides/prerendering/#host-at-build).
 

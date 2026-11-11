@@ -215,7 +215,7 @@ describe("file URLs in a build with a fixed location", () => {
   it("writes the server bundle's file URLs and droplet.url() on that location, with no token", async () => {
     const ssr = await readFile(join(dist, "server/entry-server.js"), "utf8");
     expect(ssr).toContain(`${LOCATION}/assets/logo-`);
-    expect(ssr).not.toContain("DROPLET_LOCATION");
+    expect(ssr).not.toMatch(/DROPLET_LOCATION_[0-9a-f]+\$__\/assets/);
     expect(ssr).not.toContain("__DROPLETS_SERVER_LOCATION__");
   });
 

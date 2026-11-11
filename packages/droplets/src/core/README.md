@@ -91,17 +91,17 @@ builds and runs them.
 - `dropletsFolder` and `apiFolder` normalisation: `\` becomes `/`, empty and `.` segments drop, `..` pops a segment. `config.ts:245`
 - `dropletsFolder` normalisation drops a leading `..` silently: `../elsewhere` becomes `elsewhere`. `config.ts:248`
 - `dropletsFolder` that normalises to nothing falls back to the default. `config.ts:253`
-- `health` defaults to `/health`; `false` turns it off. `config.ts:202`, `config.ts:392`
+- `health` defaults to `/health`; `false` turns it off. `config.ts:202`, `config.ts:389`
 - `health` and `importMap` paths must start with `/` and hold no `?`, `#` or whitespace, else `resolveConfig` throws. `config.ts:263`
 - `health` and `importMap` may not be `/`, `/index.js`, `/env.js`, `/index.css` or under `/droplets`, `/assets`, `/api`. `config.ts:257`, `config.ts:258`
 - `health` equal to `importMap` or to `<importMap>.js` throws. `config.ts:400`
-- `importMap` defaults to `/importmap`; `auto` is true only when the key is unset (served only when the client build has externals). `config.ts:203`, `config.ts:398`
-- `importMap: false` turns the import map routes off. `config.ts:394`
-- `index` is kept as given; absent, the resolved config has no `index` key. `config.ts:413`
+- `importMap` defaults to `/importmap`; `auto` is true only when the key is unset (served only when the client build has externals). `config.ts:203`, `config.ts:397`
+- `importMap: false` turns the import map routes off. `config.ts:392`
+- `index` is kept as given; absent, the resolved config has no `index` key. `config.ts:411`
 - `element` defaults to `djs-droplet`. `config.ts:204`
-- `element` must match `^[a-z][a-z0-9._]*-[a-z0-9._-]*$`, else `resolveConfig` throws. `config.ts:276`, `config.ts:384`
+- `element` must match `^[a-z][a-z0-9._]*-[a-z0-9._-]*$`, else `resolveConfig` throws. `config.ts:276`, `config.ts:382`
 - `isValidElementName` is the same check, exported from `@dropletsjs/droplets`. `config.ts:278`, `../index.ts:1`
-- `cors: true` resolves to `{ origin: "*" }`; an object passes through; anything else leaves `cors` unset. `config.ts:389`
+- `cors: true` resolves to `{ origin: "*" }`; an object passes through; anything else leaves `cors` unset. `config.ts:387`
 - `location` is one string; anything else, a list or `"*"` included, throws `location takes this server's public URL`. `config.ts:330`, `config.ts:332`
 - `location` is an `http:` or `https:` URL only. `config.ts:322`
 - `location` refuses credentials and a `*` in the hostname (`https://*.example`). `config.ts:324`
@@ -112,28 +112,28 @@ builds and runs them.
 - `location` absent leaves the resolved config without a `location` key. `config.ts:416`
 - `host` is one bare origin (no path), checked as a `trustedOrigins` entry and resolved to `scheme://host[:port]`; anything else, `"*"` included, throws `host takes the origin of the page`. `config.ts:342`, `config.ts:344`, `config.ts:285`
 - `host` absent leaves the resolved config without a `host` key. `config.ts:417`
-- `trustedOrigins` must be an array, else `resolveConfig` throws. `config.ts:301`
+- `trustedOrigins` must be an array, else `resolveConfig` throws. `config.ts:300`
 - `trustedOrigins` entry `"*"` is kept as is. `config.ts:304`
 - `trustedOrigins` entries are bare origins (no path), resolved to `scheme://host[:port]`. `config.ts:293`, `config.ts:294`
 - `DROPLETS_TRUSTED_ORIGINS` is not read in core: the runtime parses it per request with `normalizeTrustedOrigins`, skipping bad entries (a warning under `vite dev`). `../runtime/security.ts:58`
 - `"*"` warning (`trusts any forwarded location`) is the runtime's dev log, not core's. `../runtime/dev-log.ts:49`
 - `fragmentCacheControl` defaults to `private, no-store`; `false` sends none. `config.ts:208`, `config.ts:355`
-- `fragmentCacheControl` must be a non-empty string without CR or LF; it is trimmed. `config.ts:356`, `config.ts:361`
+- `fragmentCacheControl` must be a non-empty string without CR or LF; it is trimmed. `config.ts:356`
 - `publicCacheControl` defaults to `no-cache`, `false` sends none, and is checked by the same `resolveCacheControl` as `fragmentCacheControl`, the error naming the option. `config.ts:209`, `config.ts:353`, `config.ts:427`
-- `csrf.checkOrigin` defaults to `true`. `config.ts:431`
+- `csrf.checkOrigin` defaults to `true`. `config.ts:429`
 - `warnImportMap` defaults to `true`. `config.ts:414`
 - `limits` defaults: json 1 MB, form 1 MB, multipart 10 MB, props 8 KB. `config.ts:207`
-- `limits` values must be numbers greater than 0, else `resolveConfig` throws; `Infinity` passes. `config.ts:367`
+- `limits` values must be numbers greater than 0, else `resolveConfig` throws; `Infinity` passes. `config.ts:365`
 - `server.port` defaults to 8000. `config.ts:206`
-- `PORT` is converted with `Number()`; empty, `0` or not a number counts as unset. `config.ts:388`
-- `PORT` wins over `server.port`. `config.ts:433`
-- `resolveConfig` reads no environment itself: the caller passes `{ port }`. `config.ts:380`
-- `resolveConfig` reads only the known keys; unknown keys are dropped without a warning. `config.ts:409`
+- `PORT` is converted with `Number()`; empty, `0` or not a number counts as unset. `config.ts:386`
+- `PORT` wins over `server.port`. `config.ts:431`
+- `resolveConfig` reads no environment itself: the caller passes `{ port }`. `config.ts:378`
+- `resolveConfig` reads only the known keys; unknown keys are dropped without a warning. `config.ts:407`
 - `DEV_STRATEGIES` is `hmr`, `remount`, `reload`, `manual`; `DevStrategy` is derived from it. `config.ts:162`, `config.ts:165`
 - `DevStrategy` is exported from `@dropletsjs/droplets` as a type; `DEV_STRATEGIES` is not exported. `../index.ts:6`
-- `dev.strategy` defaults to `hmr`; any other value than `DEV_STRATEGIES` throws. `config.ts:439`, `config.ts:440`
-- `dev.server.port` defaults to 5173; `PORT` wins over it. `config.ts:205`, `config.ts:444`
-- `dev.injectTool` defaults to `false`. `config.ts:446`
+- `dev.strategy` defaults to `hmr`; any other value than `DEV_STRATEGIES` throws. `config.ts:437`, `config.ts:438`
+- `dev.server.port` defaults to 5173; `PORT` wins over it. `config.ts:205`, `config.ts:442`
+- `dev.injectTool` defaults to `false`. `config.ts:444`
 - `config.ts` is Node-free: it imports only `hono/cors` types and `../runtime/web-url.ts`. `config.ts:1`, `config.ts:2`
 - Config file candidates, in order: `droplets.config.ts`, `.mts`, `.js`, `.mjs`. `load-config.ts:10`
 - Config file named by `configFile` that does not exist throws `config file not found`. `load-config.ts:29`
@@ -199,9 +199,9 @@ builds and runs them.
 - `setLogLevel` changes the level for the process. `logger.ts:36`
 - `logger.ts` is Node-free: it touches `process` only behind `typeof process`. `logger.ts:25`
 - Package root is found by walking up from the compiled module to the nearest `package.json`. `paths.ts:9`, `paths.ts:22`
-- Paths into `dist/`: `runtime/entry-client.js`, `entry-server.js`, `server.js`, `props.js`, `load.js`, `env-store.js`, `request-store.js`, `form.js`, `enhance.js`, `server-records.js`, `client-init.js`. `paths.ts:31`, `paths.ts:53`
+- Paths into `dist/`: `runtime/entry-client.js`, `entry-server.js`, `server.js`, `props.js`, `load.js`, `env-store.js`, `request-store.js`, `form.js`, `enhance.js`, `server-records.js`, `client-init.js`. `paths.ts:31`, `paths.ts:56`
 - Paths into `dist/` all name tsdown entries, so their names stay fixed. `../../tsdown.config.ts:12`, `../../tsdown.config.ts:16`
-- `toViteFsPath` turns an absolute path into `/@fs/<path>` with forward slashes. `paths.ts:57`
+- `toViteFsPath` turns an absolute path into `/@fs/<path>` with forward slashes. `paths.ts:60`
 - `fileExists` is true for files only; a missing or unreadable path is false. `fs.ts:22`, `fs.ts:25`
 - `loadTextFile` returns `null` for a missing file and throws any other read error. `fs.ts:34`, `fs.ts:35`
 - `loadJsonFile` returns `null` for a missing or malformed file. `fs.ts:48`, `fs.ts:53`

@@ -477,6 +477,7 @@ export function rendererConformance({
           ...(ssr.getDropletMeta ? { getDropletMeta: ssr.getDropletMeta } : {}),
           ...(ssr.validateDropletProps ? { validateProps: ssr.validateDropletProps } : {}),
           ...(ssr.renderError ? { renderError: ssr.renderError } : {}),
+          ...(ssr.tokens ? { tokens: ssr.tokens } : {}),
           building: true,
         });
         const res = await building.request("http://droplets.build/droplets/docs", {

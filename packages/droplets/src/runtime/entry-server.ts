@@ -380,6 +380,7 @@ export async function renderError(name: string, error: unknown, props: Record<st
 }
 
 export { tokenNonce };
+export { tokens } from "virtual:droplets-config";
 
 /** The public variables read at runtime, with their values now: `/index.js` hands them to the page. */
 export function publicEnv(): Record<string, string | undefined> {

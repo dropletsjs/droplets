@@ -4,7 +4,9 @@ Every renderer in one project, under `vite dev` and in a production build, as
 a user runs it. `test/dev.test.ts` checks that each droplet renders,
 hydrates on a host page of another origin and takes edits through its
 framework's HMR without a reload; `test/production.test.ts` checks that none
-of that dev code reaches a `vite build` for Node or Cloudflare Workers.
+of that dev code reaches a `vite build` for Node or Cloudflare Workers, and
+that a build with `location` and `host` fixed holds no host or location
+token.
 
 ```bash
 pnpm build                                        # the packages' dist/ first
@@ -82,22 +84,24 @@ droplet lists of both tests.
 
 ## Facts
 
-- `DEV_MARKERS` lists the text only HMR or `vite dev` code holds. `test/production.test.ts:22`
-- `DEV_MARKERS` is checked in every emitted `.js`/`.mjs` file of the Node build. `test/production.test.ts:158`
-- `DEV_MARKERS` is checked in the Cloudflare `worker.js`. `test/production.test.ts:220`
-- `DEV_MODULE` matches the dev modules by file name: `dev-element`, `dev-notify`, `dev-contract`, `dev-tool`, `client-dev`, `devtools/`. `test/production.test.ts:60`
-- Dev module code rendered into any chunk of any environment fails the production test. `test/production.test.ts:180`
-- Production `dist/` holds no file with `dev` in its name (case-insensitive). `test/production.test.ts:190`
-- Droplet `client.js` in production exports no `update` hook. `test/production.test.ts:170`
-- Production build runs `vite build` with `NODE_ENV` removed, since vitest's `NODE_ENV=test` builds for development. `test/production.test.ts:108`
-- Production build recorder plugin writes `rendered-<environment>.json` per Vite environment. `test/production.test.ts:89`
-- Node production build has the environments `client`, `server` and `ssr`. `test/production.test.ts:137`
-- Cloudflare production build has the environments `client` and `server`; `worker.js` is the only file outside `client/`. `test/production.test.ts:199`
-- Cloudflare `worker.js` contains no `process.env.NODE_ENV`. `test/production.test.ts:203`
-- Cloudflare `worker.js` bundles no `*.development.js` module and none of `jsxDEV`, `react-stack-bottom-frame`, `[Vue warn]`. `test/production.test.ts:63`, `test/production.test.ts:211`
-- Hono modules are exempt from the `jsxDEV` check: Hono's JSX runtime is named `jsxDEV` in production too. `test/production.test.ts:69`
-- Cloudflare `worker.js` renders the React, Preact, Vue, Solid, Svelte, Lit and Hono JSX droplets with 200; Handlebars is not in that list. `test/production.test.ts:230`
-- Production builds are copied to `.tmp/production-node` and `.tmp/production-cloudflare`. `test/production.test.ts:106`
+- `DEV_MARKERS` lists the text only HMR or `vite dev` code holds. `test/production.test.ts:26`
+- `DEV_MARKERS` is checked in every emitted `.js`/`.mjs` file of the Node build. `test/production.test.ts:209`
+- `DEV_MARKERS` is checked in the Cloudflare `worker.js`. `test/production.test.ts:271`
+- `DEV_MODULE` matches the dev modules by file name: `dev-element`, `dev-notify`, `dev-contract`, `dev-tool`, `client-dev`, `devtools/`. `test/production.test.ts:78`
+- Dev module code rendered into any chunk of any environment fails the production test. `test/production.test.ts:231`
+- Production `dist/` holds no file with `dev` in its name (case-insensitive). `test/production.test.ts:241`
+- Droplet `client.js` in production exports no `update` hook. `test/production.test.ts:221`
+- Production build runs `vite build` with `NODE_ENV` removed, since vitest's `NODE_ENV=test` builds for development. `test/production.test.ts:147`
+- Production build recorder plugin writes `rendered-<environment>.json` per Vite environment. `test/production.test.ts:106`
+- Node production build has the environments `client`, `server` and `ssr`. `test/production.test.ts:188`
+- Cloudflare production build has the environments `client` and `server`; `worker.js` is the only file outside `client/`. `test/production.test.ts:250`
+- Cloudflare `worker.js` contains no `process.env.NODE_ENV`. `test/production.test.ts:259`
+- Cloudflare `worker.js` bundles no `*.development.js` module and none of `jsxDEV`, `react-stack-bottom-frame`, `[Vue warn]`. `test/production.test.ts:81`, `test/production.test.ts:267`
+- Hono modules are exempt from the `jsxDEV` check: Hono's JSX runtime is named `jsxDEV` in production too. `test/production.test.ts:87`
+- Cloudflare `worker.js` renders the React, Preact, Vue, Solid, Svelte, Lit and Hono JSX droplets with 200; Handlebars is not in that list. `test/production.test.ts:281`
+- Production builds are copied to `.tmp/production-node` and `.tmp/production-cloudflare`, and with `location` and `host` fixed to `.tmp/production-node-fixed` and `.tmp/production-cloudflare-fixed`. `test/production.test.ts:144`
+- `TOKEN_MARKERS` (`DROPLET_LOCATION`, `DROPLET_HOST`, `DROPLET_PATH`, `droplets.invalid`, `host-tokens`) are absent from `dist/server*`, `dist/worker.js`, the stored renders and the server modules of a build with `location` and `host` fixed, and present in the builds that compute them per request. `test/production.test.ts:122`, `test/production.test.ts:309`
+- The fixed builds add a prerendered React droplet `where` that writes `droplet.url()` and `host`. `test/production.test.ts:125`
 - Fixture adapter is Cloudflare when `DROPLETS_ADAPTER=cloudflare`, Node otherwise. `test/fixture/vite.config.ts:19`
 - Fixture registers every renderer and `dropletsDevtools()`. `test/fixture/vite.config.ts:23`
 - Fixture element is `djs-mixed`, `cors: true`, `trustedOrigins` holds the host page `http://localhost:5192`. `test/fixture/droplets.config.ts:2`

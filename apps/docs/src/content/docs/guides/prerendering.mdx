@@ -56,6 +56,10 @@ A request looks for the render made for its page, then the one for `host`
 of the config, then the host-agnostic one of the same props; with none, it
 renders live.
 
+With `location` set too ([Both fixed](/guides/configuration/#both-fixed)),
+a render holds no token: `host.pathname` is `/` and `host.href` is the
+origin's root, and the render is served exactly as stored.
+
 A host-agnostic render gets a stand-in for `host`: `host.origin`,
 `host.pathname` and `host.href` (and `String(host)`, `JSON.stringify`) give
 the tokens `__$DROPLET_HOST$__` and `__$DROPLET_PATH$__`. Every render made

@@ -362,8 +362,15 @@ describe("mayImportServerOnly", () => {
 
 describe("buildConfigCode", () => {
   it("imports the user's config or exports an empty object", () => {
-    expect(buildConfigCode({ configPath: null })).toBe("export default {};\n");
+    expect(buildConfigCode({ configPath: null })).toBe("export default {};\nexport const tokens = undefined;\n");
     expect(buildConfigCode({ configPath: "/p/droplets.config.ts" })).toContain('import userConfig from "/p/droplets.config.ts";');
+  });
+
+  it("exports the token replacers only when given their module", () => {
+    expect(buildConfigCode({ configPath: null, hostTokensModule: "/d/runtime/host-tokens.js" })).toBe(
+      'export default {};\nexport { replacers as tokens } from "/d/runtime/host-tokens.js";\n',
+    );
+    expect(buildConfigCode({ configPath: "/p/droplets.config.ts" })).not.toContain("host-tokens");
   });
 });
 

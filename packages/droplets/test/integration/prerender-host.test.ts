@@ -4,7 +4,7 @@
  */
 import { readFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { createBuilder } from "vite";
 import { afterAll, describe, expect, it } from "vitest";
 import { fakeRenderer } from "../../src/testing/index.ts";
@@ -123,6 +123,53 @@ describe("host while prerendering", () => {
     roots.push(root);
     await build({ root });
     expect(await stored(root)).toEqual({ "{}": { home: "https://cdn.test/mfe/api/x", path: "https://cdn.test/mfe" } });
+  }, 90_000);
+
+  it("serves a render made with location and host fixed exactly as stored, with no token or nonce", async () => {
+    const root = await project({
+      server:
+        'import droplet from "$droplets/drop";\nexport const load = ({ host }) => ({ home: `${droplet.url("/api/x")} ${host.origin}`, path: host.pathname });\n',
+      config: 'export default { location: "https://cdn.test/mfe", host: "https://shop.test" };\n',
+    });
+    roots.push(root);
+    await build({ root });
+    const dir = join(root, "dist/server/_prerendered");
+    const index = JSON.parse(await readFile(join(dir, "page/index.json"), "utf8")) as Record<string, string>;
+    expect(Object.keys(index)).toEqual(["{} https://shop.test"]);
+    const file = await readFile(join(dir, index["{} https://shop.test"] ?? ""), "utf8");
+    const render = JSON.parse(file) as { html: string; data: unknown; nonce?: string };
+    expect(render.nonce).toBeUndefined();
+    expect(render.data).toEqual({ home: "https://cdn.test/mfe/api/x https://shop.test", path: "/" });
+    expect(file).not.toMatch(/DROPLET_|droplets\.invalid/);
+
+    const { createPrerenderedLoader, createServerApp, resolveConfig } = await import("../../src/index.ts");
+    const ssr = await import(pathToFileURL(join(root, "dist/server/entry-server.js")).href);
+    expect(ssr.tokens).toBeUndefined();
+    expect(ssr.tokenNonce).toBeUndefined();
+    const app = createServerApp({
+      ssr,
+      config: resolveConfig({ location: "https://cdn.test/mfe", host: "https://shop.test" }),
+      assets: {
+        buildHash: "x",
+        loadClientModule: async () => null,
+        loadEntryClient: async () => null,
+        entryModule: async () => null,
+        loadGlobalStyle: async () => null,
+        dropletStyles: async () => [],
+        loadIndex: async () => null,
+        loadPrerendered: createPrerenderedLoader((path) => readFile(join(dir, path), "utf8").catch(() => null)),
+        externals: [],
+        assetHandler: (c) => c.text("Not Found", 404),
+      },
+    });
+    const ask = (path: string) =>
+      app.request(`http://drops.test${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ host: "https://shop.test/other?q=1", props: {} }),
+      });
+    expect(await (await ask("/droplets/page/_data")).text()).toBe(JSON.stringify({ data: render.data }));
+    expect(await (await ask("/droplets/page")).text()).toContain(render.html);
   }, 90_000);
 
   it("refuses entries that are bare props", async () => {

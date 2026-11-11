@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } fr
 import { logger } from "../../src/core/logger.ts";
 import { createDropletsApp, type DropletsApp, type DropletsAppOptions } from "../../src/runtime/app.ts";
 import { createDevLog } from "../../src/runtime/dev-log.ts";
+import { replacers } from "../../src/runtime/host-tokens.ts";
 import { publicEnvScript } from "../../src/runtime/server-records.ts";
 import { UnhandledDropletError } from "../../src/runtime/load.ts";
 import type { ApiModule, ApiRoute } from "../../src/runtime/routes.ts";
@@ -42,6 +43,7 @@ function fakeApp(overrides: Partial<DropletsAppOptions> = {}) {
     loadGlobalStyle: () => "body{}",
     dropletStyles: (name: string) => (name === "hello" || name === "static" ? ["assets/Badge-1.css", `assets/${name}-2.css`] : []),
     buildHash: "abc123",
+    tokens: replacers,
     ...overrides,
   };
   return { app: createDropletsApp(options), renderDroplet, loadDropletData };
@@ -2188,6 +2190,47 @@ describe("createDropletsApp: a fixed host", () => {
     expect(payload({ html, attribute: "data-droplet-data" })).toEqual({ data: { path: "/guide" } });
     expect(renderDroplet).not.toHaveBeenCalled();
     expect(loadPrerendered.mock.calls.map((call) => call[1])).toEqual([`{"page":1} https://shop.test/guide`, `{"page":1} ${HOST}`]);
+  });
+});
+
+describe("createDropletsApp: without token replacers", () => {
+  const LITERAL = "__$DROPLET_HOST_n1$__ __$DROPLET_PATH_n1$__ http://droplets.invalid/__$DROPLET_LOCATION_n1$__";
+
+  it("serves a stored render with a literal token unchanged", async () => {
+    const { app } = fakeApp({
+      tokens: undefined,
+      location: "https://cdn.test",
+      host: "https://shop.test",
+      getDropletMeta: () => ({ exists: true, ssr: true, prerender: true }),
+      loadPrerendered: async () => ({ html: `<p>${LITERAL}</p>`, data: { text: LITERAL }, nonce: "n1" }),
+    });
+    for (const path of ["/droplets/docs", "/droplets/docs/_data"]) {
+      const text = await (
+        await app.request(`http://drops.test${path}`, { method: "POST", body: "{}", headers: { "content-type": "application/json" } })
+      ).text();
+      expect(text, path).toContain(path.endsWith("_data") ? JSON.stringify(LITERAL).slice(1, -1) : LITERAL);
+    }
+  });
+
+  it("serves a live render as it was rendered", async () => {
+    const { app } = fakeApp({
+      tokens: undefined,
+      tokenNonce: "n1",
+      renderDroplet: async () => ({ html: `<p>${LITERAL}</p>`, serverData: null }),
+    });
+    expect(await (await app.request("http://drops.test/droplets/hello")).text()).toContain(`<p>${LITERAL}</p>`);
+  });
+
+  it("stores a build's renders without a nonce, for the fixed host", async () => {
+    const { app } = fakeApp({ tokens: undefined, building: true, location: "https://cdn.test", host: "https://shop.test" });
+    const res = await app.request("http://droplets.build/droplets/hello", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ props: {} }),
+    });
+    const stored = (await res.json()) as Record<string, unknown>;
+    expect(stored["key"]).toBe("{} https://shop.test");
+    expect(stored).not.toHaveProperty("nonce");
   });
 });
 

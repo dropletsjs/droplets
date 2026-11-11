@@ -26,6 +26,8 @@
   Checked by: `tests/dev-mixed/test/production.test.ts` (a real `vite build --config`).
 - Server bundles always bundle `SERVER_NO_EXTERNAL` (`hono`, `case-anything`, `@dropletsjs/droplets`, `@dropletsjs/renderer-*`), in `vite dev`'s ssr environment too.
   Checked by: `test/vite/build.test.ts`.
+- `virtual:droplets-config` exports `tokens` (the `host-tokens` replacers) unless `vite build` has both `location` and `host`; then it exports `undefined`, the SSR bundle's `tokenNonce` is `undefined` and `$droplets/drop` holds no token. `vite dev` always computes both per request.
+  Checked by: `test/vite/virtual.test.ts`, `test/integration/prerender-host.test.ts`, `tests/dev-mixed/test/production.test.ts`.
 - `vite build` requires an adapter; `vite dev` runs without one.
   Checked by: `test/vite/build.test.ts`, `test/integration/vite.test.ts`.
 - Code generated as strings calls the runtime entries in `dist/runtime/` with their exported signatures; a change to one of those signatures changes the template in the same commit.

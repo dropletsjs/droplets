@@ -9,9 +9,13 @@
  *
  * Built again for Cloudflare Workers, where every dependency is bundled into
  * `worker.js`: each framework's production build, never its development one.
+ *
+ * Built once more for each with `location` and `host` both fixed: no host or
+ * location token, and no code that replaces one, in the server's output or
+ * the stored renders.
  */
 import { execFileSync } from "node:child_process";
-import { cpSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -114,15 +118,48 @@ type Build = {
   rendered: Record<string, Record<string, Record<string, string>>>;
 };
 
-/** A copy of the fixture built with `vite build`, as a user runs it, for one adapter. */
-function build(adapter: "node" | "cloudflare"): Build {
-  const project = here(`../.tmp/production-${adapter}`);
+/** Text of the host and location tokens, and the module that replaces them. */
+const TOKEN_MARKERS = ["DROPLET_LOCATION", "DROPLET_HOST", "DROPLET_PATH", "droplets.invalid", "host-tokens"];
+
+/** A prerendered droplet that writes the location and the host. */
+const WHERE = {
+  "+droplet.tsx": `/** @jsxImportSource react */
+import droplet from "$droplets/drop";
+
+export const ssr = true;
+export const hydrate = false;
+export const prerender = true;
+
+export default function Where({ data }: { data: { page: string } }) {
+  return <p data-where>{\`\${droplet.url("/api/x")} \${data.page}\`}</p>;
+}
+`,
+  "+droplet.server.ts": "export const load = ({ host }) => ({ page: host.href });\n",
+};
+
+type BuildOptions = { isFixed?: boolean };
+
+/** A copy of the fixture built with `vite build`, as a user runs it, for one adapter; `isFixed` sets `location` and `host`. */
+function build(adapter: "node" | "cloudflare", { isFixed = false }: BuildOptions = {}): Build {
+  const project = here(`../.tmp/production-${adapter}${isFixed ? "-fixed" : ""}`);
   const dist = join(project, "dist");
   // vitest's NODE_ENV=test would make Vite build for development.
   const { NODE_ENV: _, ...env } = process.env;
   rmSync(project, { recursive: true, force: true });
   cpSync(here("fixture"), project, { recursive: true });
   writeFileSync(join(project, "vite.production.config.ts"), RECORDER);
+  if (isFixed) {
+    mkdirSync(join(project, "src/droplets/where"));
+    for (const [name, code] of Object.entries(WHERE)) writeFileSync(join(project, "src/droplets/where", name), code);
+    const config = join(project, "droplets.config.ts");
+    writeFileSync(
+      config,
+      readFileSync(config, "utf8").replace(
+        "cors: true,",
+        'cors: true,\n  location: "https://cdn.example/mfe",\n  host: "https://shop.example",',
+      ),
+    );
+  }
   execFileSync(here("../node_modules/.bin/vite"), ["build", "--config", "vite.production.config.ts"], {
     cwd: project,
     stdio: "pipe",
@@ -138,10 +175,14 @@ function build(adapter: "node" | "cloudflare"): Build {
 
 let node: Build;
 let workers: Build;
+let fixedNode: Build;
+let fixedWorkers: Build;
 
 beforeAll(() => {
   node = build("node");
   workers = build("cloudflare");
+  fixedNode = build("node", { isFixed: true });
+  fixedWorkers = build("cloudflare", { isFixed: true });
 });
 
 describe("a production build of every renderer", () => {
@@ -245,5 +286,50 @@ describe("a production build for Cloudflare Workers", () => {
       expect(response.status, id).toBe(200);
       expect(await response.text(), id).toMatch(/from the (?:server|universal load)/);
     }
+  });
+});
+
+/** The server's output (`dist/server*`, `dist/worker.js`) and the stored renders. */
+const serverFiles = ({ files }: Build) =>
+  files.filter((name) => /^server(?:\.js$|\/)|^worker\.js$|(?:^|\/)_prerendered\//.test(name) && /\.(?:m?js|json)$/.test(name));
+
+type MarkersInput = { build: Build };
+
+/** Each token marker, with the server files and the server modules that hold it. */
+function tokenMarkers({ build }: MarkersInput): Record<string, string[]> {
+  const found: Record<string, string[]> = {};
+  for (const marker of TOKEN_MARKERS) {
+    found[marker] = [
+      ...serverFiles(build).filter((file) => readFileSync(join(build.dist, file), "utf8").includes(marker)),
+      ...["ssr", "server"].flatMap((env) =>
+        Object.values(build.rendered[env] ?? {}).flatMap((modules) => Object.keys(modules).filter((id) => id.includes(marker))),
+      ),
+    ];
+  }
+  return found;
+}
+
+describe("a production build with location and host fixed", () => {
+  for (const [name, fixed, live] of [
+    ["Node", () => fixedNode, () => node],
+    ["Cloudflare Workers", () => fixedWorkers, () => workers],
+  ] as const) {
+    it(`holds no host or location token, nor their replacement, in the server output or the stored renders (${name})`, () => {
+      expect(serverFiles(fixed()).some((file) => file.includes("_prerendered/"))).toBe(true);
+      expect(Object.values(tokenMarkers({ build: fixed() })).flat()).toEqual([]);
+    });
+
+    it(`still holds them when computed per request (${name})`, () => {
+      const found = tokenMarkers({ build: live() });
+      for (const marker of TOKEN_MARKERS) expect(found[marker], marker).not.toEqual([]);
+    });
+  }
+
+  it("stores the render with the real location and host", () => {
+    const stored = serverFiles(fixedNode).filter((file) => /_prerendered\/where\/(?!index\.json)/.test(file));
+    expect(stored).toHaveLength(1);
+    const render = JSON.parse(readFileSync(join(fixedNode.dist, stored[0]!), "utf8")) as { html: string; nonce?: string };
+    expect(render.html).toContain("https://cdn.example/mfe/api/x https://shop.example/");
+    expect(render.nonce).toBeUndefined();
   });
 });

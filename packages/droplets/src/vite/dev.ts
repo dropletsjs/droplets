@@ -26,6 +26,7 @@ import { loadIndexHtml } from "./index-html.ts";
 import { externalsList, type PluginState } from "./state.ts";
 import { syncTypes } from "./sync-types.ts";
 import { clientEntryId, RESOLVED_VIRTUAL_DROPLETS } from "./virtual.ts";
+import { replacers } from "../runtime/host-tokens.ts";
 
 /**
  * `handleError` under `vite dev`: a form action's data that cannot travel
@@ -419,6 +420,8 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
     linkHeader: false,
     buildHash: state.buildHash,
     tokenNonce: state.tokenNonce,
+    // `vite dev` computes `location` and `host` per request, set or not.
+    tokens: replacers,
     cors: config.cors,
     trustedOrigins: config.trustedOrigins,
     fragmentCacheControl: config.fragmentCacheControl,

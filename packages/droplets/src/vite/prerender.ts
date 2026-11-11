@@ -107,6 +107,7 @@ export async function prerender({ state, ssrEntry }: PrerenderInput): Promise<nu
       buildHash: state.buildHash,
       // The renders' tokens are the bundle's own: one nonce for both.
       ...(ssr.tokenNonce === undefined ? {} : { tokenNonce: ssr.tokenNonce }),
+      ...(ssr.tokens === undefined ? {} : { tokens: ssr.tokens }),
       building: true,
       location: state.config.location,
       // An entry without `host` renders for this one: the app knows it.

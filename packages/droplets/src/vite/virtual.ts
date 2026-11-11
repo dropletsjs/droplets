@@ -10,6 +10,7 @@ import {
   entryServerPath,
   envStorePath,
   formModulePath,
+  hostTokensModulePath,
   loadModulePath,
   propsModulePath,
   requestStorePath,
@@ -24,7 +25,7 @@ import { tailwindActive } from "./css.ts";
 import { isServerPath, projectPath } from "./server-only.ts";
 import { componentSpecifier } from "./renderer-graphs.ts";
 import { locationScript, publicEnvScript, serverKey } from "../runtime/server-records.ts";
-import { bundleLocation, CLIENT_HOOKS_FILES, HOOKS_FILES, IMPORTMAP_FILES, rendererNamed, type PluginState } from "./state.ts";
+import { bundleLocation, CLIENT_HOOKS_FILES, isFixed, HOOKS_FILES, IMPORTMAP_FILES, rendererNamed, type PluginState } from "./state.ts";
 
 /** Registry of droplets. Resolves to different code per environment. */
 export const VIRTUAL_DROPLETS = "virtual:droplets";
@@ -132,8 +133,8 @@ export type ServerCodeExtras = {
   renderers?: DropletRenderer[];
   /** Public variables read at runtime, which `/index.js` hands to the page. */
   publicEnvNames?: string[];
-  /** The nonce of the location tokens this bundle writes (see `hostTokens`). */
-  tokenNonce?: string;
+  /** The nonce of the location tokens this bundle writes (see `hostTokens`); none when the build fixes `location` and `host`. */
+  tokenNonce?: string | undefined;
 };
 
 type ModulePathInput = { file: string };
@@ -191,7 +192,7 @@ export function buildServerCode({
   importMapFile,
   renderers: configured = [],
   publicEnvNames = [],
-  tokenNonce = "",
+  tokenNonce,
 }: BuildServerCodeInput): string {
   const members: string[] = [];
   const routes: string[] = [];
@@ -264,7 +265,7 @@ export function buildServerCode({
     hooksFile ? "export { hooks };" : "export const hooks = {};",
     importMapFile ? "export { importMapModule };" : "export const importMapModule = {};",
     `export const publicEnvNames = ${JSON.stringify(publicEnvNames)};`,
-    `export const tokenNonce = ${JSON.stringify(tokenNonce)};`,
+    tokenNonce === undefined ? "export const tokenNonce = undefined;" : `export const tokenNonce = ${JSON.stringify(tokenNonce)};`,
     "",
   ].join("\n");
 }
@@ -679,12 +680,21 @@ if (import.meta.hot) {
 `;
 }
 
-/** The production server's view of `droplets.config.ts`. */
-type BuildConfigCodeInput = { configPath: string | null };
+/**
+ * The production server's view of `droplets.config.ts`, and `tokens`: the
+ * replacers of `host-tokens` when the build computes `location` or `host`
+ * per request, `undefined` when it fixes both, so that module is never
+ * bundled.
+ */
+type BuildConfigCodeInput = { configPath: string | null; hostTokensModule?: string | undefined };
 
-export function buildConfigCode({ configPath }: BuildConfigCodeInput): string {
-  if (!configPath) return "export default {};\n";
-  return `import userConfig from ${JSON.stringify(configPath)};\nexport default userConfig ?? {};\n`;
+export function buildConfigCode({ configPath, hostTokensModule }: BuildConfigCodeInput): string {
+  const tokens =
+    hostTokensModule === undefined
+      ? "export const tokens = undefined;\n"
+      : `export { replacers as tokens } from ${modulePath({ file: hostTokensModule })};\n`;
+  if (!configPath) return `export default {};\n${tokens}`;
+  return `import userConfig from ${JSON.stringify(configPath)};\nexport default userConfig ?? {};\n${tokens}`;
 }
 
 /**
@@ -777,7 +787,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
           importMapFile: await findFile(IMPORTMAP_FILES),
           renderers: state.renderers,
           publicEnvNames: dynamicPublicNames(state.env),
-          tokenNonce: state.tokenNonce,
+          tokenNonce: isFixed({ state, isBuilding: command === "build" }) ? undefined : state.tokenNonce,
         });
       }
 
@@ -841,7 +851,10 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
       }
 
       if (id === RESOLVED_CONFIG) {
-        return buildConfigCode({ configPath: state.configPath });
+        return buildConfigCode({
+          configPath: state.configPath,
+          hostTokensModule: isFixed({ state, isBuilding: command === "build" }) ? undefined : hostTokensModulePath,
+        });
       }
 
       if (id === RESOLVED_DROPS_CLIENT) {

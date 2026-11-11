@@ -162,6 +162,16 @@ page.
 
 `vite dev` ignores `host` and takes it from each request.
 
+### Both fixed
+
+With `location` and `host` both set, a build holds no token at all: the
+server bundle writes the real values, prerendering stores renders as they
+will be served, and no answer is rewritten on its way out. The code that
+replaces tokens is not in the server bundle. A render for `host` then knows
+no page: `host.pathname` is `/`, and a form posted without JavaScript from
+it returns to `host`'s root page. With `location` alone, `host` and the page
+are still tokens, replaced per request.
+
 ### The element name
 
 Every droplet renders inside a custom element, and `/index.js` defines it.

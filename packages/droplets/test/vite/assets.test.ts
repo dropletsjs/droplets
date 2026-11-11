@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { hostTokens } from "../../src/runtime/host.ts";
+import { hostTokens } from "../../src/runtime/host-tokens.ts";
 import { assetUrlsPlugin, type BuiltUrlContext, builtUrl, publicFileHandler, rewriteFileUrls } from "../../src/vite/assets.ts";
 import { createInitialState } from "../../src/vite/state.ts";
 

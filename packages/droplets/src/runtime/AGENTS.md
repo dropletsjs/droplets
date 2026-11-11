@@ -32,6 +32,8 @@
   Checked by: `../../test/runtime/app.test.ts` ("createDropletsApp: the droplet location", `"*"`, "createDropletsApp: a fixed location").
 - With `host`, `event.host` stays on its origin: the reported page's path and query only when that page is on it, never `Origin`; `host` joins the form-post and redirect allow-lists, never location trust.
   Checked by: `../../test/runtime/app.test.ts` ("createDropletsApp: a fixed host"), `../../test/runtime/actions.test.ts` ("lets an action redirect to the fixed host").
+- `app.ts` never imports `host-tokens.ts` at runtime: the replacers reach it as the internal `tokens` option, and a build with `location` and `host` both set bundles none.
+  Checked by: `../../../../tests/dev-mixed/test/production.test.ts` ("a production build with location and host fixed"), `../../test/runtime/app.test.ts` ("createDropletsApp: without token replacers").
 - `handle` never runs for `/index.js`, `/env.js` and `/assets/*`.
   Checked by: `../../test/runtime/app.test.ts` ("never runs for files: /index.js and everything under /assets/", "createDropletsApp: /env.js").
 - `/env.js` takes no input from the request and holds only the declared `public: true` variables without `static`, read through `readRuntimeEnv`; `DROPLETS_ENV_MAX_AGE` warns only through `devLog`.

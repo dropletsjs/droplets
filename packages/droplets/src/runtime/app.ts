@@ -6,19 +6,8 @@ import { createCookies, prerenderCookies, readonlyCookies } from "./cookies.ts";
 import { readRuntimeEnv } from "./env-store.ts";
 import { backUrl, formResultKey, isReservedQueryKey, RETURN_KEY, splitFormResults } from "./form.ts";
 import { formSecret, mintFormResult, readFormResult } from "./form-token.server.ts";
-import {
-  fixedHost,
-  fixedPrerenderHost,
-  headerLocations,
-  hostFromHeaders,
-  hostTokens,
-  parseHost,
-  withinTrusted,
-  prerenderHost,
-  replaceHostTokens,
-  replaceHostTokensInData,
-  tokenNonce,
-} from "./host.ts";
+import { fixedHost, fixedPrerenderHost, headerLocations, hostFromHeaders, parseHost, withinTrusted } from "./host.ts";
+import type { HostTokenReplacers } from "./host-tokens.ts";
 import { isUnhandled } from "./load.ts";
 import { dropletElement } from "./element.ts";
 import { prerenderKey, propsKey } from "./props.ts";
@@ -218,6 +207,13 @@ export type DropletsAppOptions = {
    * a prerender stores its renders under the same nonce.
    */
   tokenNonce?: string;
+  /**
+   * Internal: how this app writes and replaces the tokens of `host` and the
+   * location (`host-tokens.ts`). Absent when the build fixes both
+   * (`location` and `host`): nothing is replaced, and stored renders are
+   * served as they are.
+   */
+  tokens?: HostTokenReplacers | undefined;
 };
 
 /** The context a droplet was rendered with; travels to the client and back. */
@@ -850,9 +846,11 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
   if (configuredOrigins.includes("*")) options.devLog?.anyLocation({ option: "trustedOrigins" });
   if (options.cors?.origin === "*") options.devLog?.corsAny();
   // One per build: what host-agnostic renders hold for `host`, never sent.
-  const buildNonce = options.building ? (options.tokenNonce ?? tokenNonce()) : "";
-  const buildTokens = options.building ? hostTokens({ nonce: buildNonce }) : undefined;
-  const liveTokens = !options.building && options.tokenNonce !== undefined ? hostTokens({ nonce: options.tokenNonce }) : undefined;
+  const tokens = options.tokens;
+  const buildNonce = options.building && tokens ? (options.tokenNonce ?? tokens.tokenNonce()) : "";
+  const buildTokens = options.building && tokens ? tokens.hostTokens({ nonce: buildNonce }) : undefined;
+  const liveTokens =
+    !options.building && tokens && options.tokenNonce !== undefined ? tokens.hostTokens({ nonce: options.tokenNonce }) : undefined;
   const importMapPaths = options.importMap ? [options.importMap.path, `${options.importMap.path}.js`] : [];
   const cacheControl = options.fragmentCacheControl === undefined ? DEFAULTS.fragmentCacheControl : options.fragmentCacheControl;
 
@@ -992,9 +990,9 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     if (!host && options.building && renderRoute && options.host !== undefined) {
       host = fixedPrerenderHost({ fixed: options.host, tokens: buildTokens });
       c.set("configHost", host);
-    } else if (!host && buildTokens && renderRoute) {
+    } else if (!host && tokens && buildTokens && renderRoute) {
       // No host known at build: tokens, and a record of what else was read.
-      const probe = prerenderHost({ droplet, entry: JSON.stringify(contextFromBody({ body }).props ?? {}), tokens: buildTokens });
+      const probe = tokens.prerenderHost({ droplet, entry: JSON.stringify(contextFromBody({ body }).props ?? {}), tokens: buildTokens });
       c.set("hostProbe", probe);
       host = probe.host;
     }
@@ -1240,15 +1238,16 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
       (await options.loadPrerendered(ctx.droplet, key, ctx.event));
     if (!found && !ctx.meta.ssr) throw new HttpError(404);
     if (!found) return null;
-    const tokens = hostTokens({ nonce: typeof found.nonce === "string" ? found.nonce : "" });
+    if (!tokens) return found;
+    const stored = tokens.hostTokens({ nonce: typeof found.nonce === "string" ? found.nonce : "" });
     // Before `transform`: it sees the HTML as a live render would be.
     const values = { host, location: ctx.dropletLocation };
     return {
       ...found,
-      html: replaceHostTokens({ html: found.html, values, tokens }),
+      html: tokens.replaceHostTokens({ html: found.html, values, tokens: stored }),
       ...(found.failed
-        ? { error: replaceHostTokensInData({ data: found.error, values, tokens }) }
-        : { data: replaceHostTokensInData({ data: found.data, values, tokens }) }),
+        ? { error: tokens.replaceHostTokensInData({ data: found.error, values, tokens: stored }) }
+        : { data: tokens.replaceHostTokensInData({ data: found.data, values, tokens: stored }) }),
     };
   }
 
@@ -1259,13 +1258,13 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
    * is left to replace in it.
    */
   function liveHtml({ ctx, html }: LiveHtmlInput): string {
-    return liveTokens
-      ? replaceHostTokens({ html, values: { host: ctx.event.host, location: ctx.dropletLocation }, tokens: liveTokens })
+    return tokens && liveTokens
+      ? tokens.replaceHostTokens({ html, values: { host: ctx.event.host, location: ctx.dropletLocation }, tokens: liveTokens })
       : html;
   }
   function liveData<T>({ ctx, data }: LiveDataInput<T>): T {
-    return liveTokens
-      ? replaceHostTokensInData({ data, values: { host: ctx.event.host, location: ctx.dropletLocation }, tokens: liveTokens })
+    return tokens && liveTokens
+      ? tokens.replaceHostTokensInData({ data, values: { host: ctx.event.host, location: ctx.dropletLocation }, tokens: liveTokens })
       : data;
   }
 
@@ -1394,8 +1393,9 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
             ? propsKey(ctx.event.props)
             : prerenderKey({ key: propsKey(ctx.event.props), host: ctx.event.host, isOriginOnly: c.get("configHost") === ctx.event.host });
         // The tokens' nonce goes to the build with the render, and stays on
-        // the server. Every render has one: its location is a token too.
-        const nonce = { nonce: buildNonce };
+        // the server. Every render with tokens has one: its location is a
+        // token too, unless the build fixes it.
+        const nonce = buildTokens ? { nonce: buildNonce } : {};
         if (result.failed) {
           const page = await errorHtml({ ctx, error: result.error });
           return c.json({ key, html: page.html, renderId: page.renderId, failed: true, error: result.error, ...nonce });

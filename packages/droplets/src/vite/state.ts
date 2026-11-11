@@ -8,7 +8,7 @@ import type { DropletsAdapter } from "../adapters.ts";
 import type { EnvState } from "../core/env.ts";
 import type { DropletRenderer } from "../renderer.ts";
 import type { ResolvedCss } from "./css.ts";
-import { hostTokens, tokenNonce } from "../runtime/host.ts";
+import { hostTokens, tokenNonce } from "../runtime/host-tokens.ts";
 
 /**
  * Everything the individual plugins share. Filled in by the main plugin's
@@ -175,4 +175,14 @@ type BundleLocationInput = { state: PluginState; isBuilding: boolean };
  */
 export function bundleLocation({ state, isBuilding }: BundleLocationInput): string {
   return isBuilding && state.config.location !== undefined ? state.config.location : hostTokens({ nonce: state.tokenNonce }).location;
+}
+
+type IsFixedInput = { state: PluginState; isBuilding: boolean };
+
+/**
+ * Whether the build fixes both `location` and `host`: the server bundle
+ * then holds no token, and nothing replaces one per request.
+ */
+export function isFixed({ state, isBuilding }: IsFixedInput): boolean {
+  return isBuilding && state.config.location !== undefined && state.config.host !== undefined;
 }

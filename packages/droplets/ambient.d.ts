@@ -121,6 +121,7 @@ declare module "$droplets/server" {
 declare module "virtual:droplets-config" {
   const userConfig: import("@dropletsjs/droplets").DropletsConfig;
   export default userConfig;
+  export const tokens: import("@dropletsjs/droplets").SsrModule["tokens"];
 }
 
 /** The SSR renderer, for adapter entries that inline it. */

@@ -46,6 +46,9 @@ export const formModulePath = resolve(packageDist, "runtime/form.js");
 /** `enhanceDropletForm`: what `$droplets/form` re-exports, and `@dropletsjs/droplets/enhance` is. */
 export const enhanceModulePath = resolve(packageDist, "runtime/enhance.js");
 
+/** The host and location tokens and their replacement: what `virtual:droplets-config` hands the app when the build computes either per request. */
+export const hostTokensModulePath = resolve(packageDist, "runtime/host-tokens.js");
+
 /** Where the browser loads a server from: `$droplets/drop` and `$droplets/form` in the browser, and the element. */
 export const serverRecordsModulePath = resolve(packageDist, "runtime/server-records.js");
 

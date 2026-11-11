@@ -31,6 +31,24 @@ What ships is described by the guides at https://dropletsjs.dev; where the two d
 - `Vary` lists the location headers, but CDNs ignore `Vary` on custom
   headers: the allow-list is the guard.
 
+## `location` and `host`: computed per request, or fixed at build (built 2026-11-11)
+
+- Without `location`, the location is computed per request (above). With
+  it, a build writes it into the server bundle and every request's location
+  is that value: no location header is read, and `Vary` keeps `origin` alone.
+  One build serves one location.
+- Without `host`, `event.host` comes from the request. With it, `event.host`
+  is that origin, plus the reported page's path and query only when the page
+  is on it; `Origin` is no fallback. It joins the origin check and the
+  redirect allow-list, never location trust.
+- Prerendering renders an entry without its own `host` for `host` of the
+  config, stored under the origin alone.
+- With both set, nothing is per request: no token in the bundle or the
+  renders, no rewrite of any answer, and the replacing code
+  (`runtime/host-tokens.ts`) is not bundled. It reaches the app only through
+  `virtual:droplets-config`, as an internal option.
+- `vite dev` ignores both and computes them per request.
+
 ## `dev.strategy: "hmr"`: the framework's own HMR, never a reload (built 2026-11-11)
 
 The host's page is not ours, so a dev edit must never reload it. `hmr` is
