@@ -24,7 +24,6 @@ beforeAll(async () => {
     ADMIN_PASSWORD: "droplets",
     SHOP_SECRET: "test-secret-0123456789abcdef-0123456789",
     DROPLETS_SECRET: "test-droplets-secret-0123456789abcdef-0123",
-    DROPLETS_LOG: "error",
   });
   execFileSync(process.execPath, ["scripts/seed.ts"], { cwd: root, env: process.env, stdio: "ignore" });
   server = (await import(`${root}dist/server.js`)).default;

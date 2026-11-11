@@ -54,7 +54,7 @@ export default config({
 | `dropletsFolder` | `"src/droplets"` | Folder scanned for `<name>/+droplet.<ext>`. |
 | `apiFolder` | `"src/api"` | Folder scanned for `**/+server.ts`, served under `/api/`. |
 | `element` | `"djs-droplet"` | Tag name of the element that hosts every droplet. Lowercase with a hyphen. See [The element name](#the-element-name). |
-| `cors` | off | `true` sends `Access-Control-Allow-Origin: *` on every route (`/api/*`, `_data`, `/index.js` included), and warns once in production; an object is passed to Hono's `cors()`. Needed whenever a page on another origin embeds your droplets. Prefer an origin list (`{ origin: ["https://shop.example"] }`) for anything not public: with `*`, any page can read what an employee's browser can reach on an intranet server. |
+| `cors` | off | `true` sends `Access-Control-Allow-Origin: *` on every route (`/api/*`, `_data`, `/index.js` included), and warns once under `vite dev`; an object is passed to Hono's `cors()`. Needed whenever a page on another origin embeds your droplets. Prefer an origin list (`{ origin: ["https://shop.example"] }`) for anything not public: with `*`, any page can read what an employee's browser can reach on an intranet server. |
 | `origin` | `[]` | Where browsers reach this server: its public origin, with the path prefix a proxy serves it under (`"https://shop.example/mfe"`), or a list of them. No query, hash or credentials. The `DROPLETS_ORIGIN` environment variable (comma-separated, read at runtime on every adapter) adds to it. See [The public location](#the-public-location). |
 | `trustedOrigins` | `[]` | Origins, besides the server's own, allowed to send form submissions: the hosts whose pages post to your droplets. `"*"` trusts every origin. The `DROPLETS_TRUSTED_ORIGINS` environment variable (comma-separated, read at runtime on every adapter) adds to it. When set (without `"*"`), it also bounds `host`: a host on another origin becomes the location's origin. A location header naming one of these origins is trusted too, and `"*"` trusts any ([Trusting any location](/guides/security/#trusting-any-location)). The same list (without `"*"`) says where a form posted without JavaScript may be sent back to. See [Form posts](/integrate/http-contract/#form-posts-the-origin-check) and [Security model](/guides/security/). |
 | `csrf.checkOrigin` | `true` | Answer `403` to a cross-site form submission (form-urlencoded, multipart or `text/plain` body, or none at all with an `Origin`) to `/droplets/*` or `/api/*` from an origin that is not trusted. `false` turns the check off. |
@@ -98,7 +98,8 @@ export default config({ origin: "https://shop.example/mfe" });
 DROPLETS_ORIGIN=https://shop.example,https://www.shop.example node dist/server.js
 ```
 
-`"*"` trusts any location a header names, and warns once at start; read
+`"*"` trusts any location a header names, and warns once at start under
+`vite dev`; read
 [Trusting any location](/guides/security/#trusting-any-location) first.
 
 ### The element name
@@ -204,10 +205,10 @@ Client externals are declared in
 | Variable | Effect |
 | --- | --- |
 | `PORT` | Overrides both ports, so a container can relocate the server without a rebuild. |
-| `DROPLETS_LOG` | Log verbosity: `error`, `warn`, `info` (default) or `debug`. |
 | `DROPLETS_ORIGIN` | Comma-separated locations added to `origin`, read at runtime (per request, so Workers bindings work). |
 | `DROPLETS_TRUSTED_ORIGINS` | Comma-separated origins added to `trustedOrigins`, read at runtime. |
-| `DROPLETS_SECRET` | 32 or more random bytes, read at runtime: signs the result of a form posted without JavaScript, carried back to the page on the redirect ([Post/Redirect/Get](/guides/actions/#without-javascript-postredirectget)). Without it, or shorter, such a post answers the fragment instead, with a warning in the log. |
+| `DROPLETS_SECRET` | 32 or more random bytes, read at runtime: signs the result of a form posted without JavaScript, carried back to the page on the redirect ([Post/Redirect/Get](/guides/actions/#without-javascript-postredirectget)). Without it, or shorter, such a post answers the fragment instead, with a warning under `vite dev`. |
+| `DEV_DROPLETS_LOG` | The level of the `vite dev` and `vite build` log: `error`, `warn`, `info` (default) or `debug`. A production server ignores it: it logs errors only ([Logging](/guides/deployment/#logging)). |
 
 Your own variables are declared in `src/env.ts`; see
 [Environment variables](/guides/server/#environment-variables).

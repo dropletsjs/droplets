@@ -73,8 +73,8 @@ Hono app itself. `paths` is `{ clientRoot, ssrEntryUrl, serverRoot? }`
 
 The config is bundled at build time: `droplets.config.ts` is not read at
 runtime. What is read from `process.env` at runtime: `PORT` (once, at
-startup), `DROPLETS_SECRET`, `DROPLETS_TRUSTED_ORIGINS`, `DROPLETS_ORIGIN`,
-`DROPLETS_LOG` and your own private variables. See
+startup), `DROPLETS_SECRET`, `DROPLETS_TRUSTED_ORIGINS`, `DROPLETS_ORIGIN`
+and your own private variables. It logs errors only, with `console.error`. See
 [Deployment](https://dropletsjs.dev/guides/deployment/).
 
 ### Static files
@@ -127,27 +127,27 @@ by path.
 - `PORT` is read once at startup and overrides `server.port` from the config. `src/entry.ts:17`, `../../droplets/src/core/config.ts:365`
 - `PORT` is converted with `Number()`; empty, `0` or not a number falls back to `server.port`, then 8000. `../../droplets/src/core/config.ts:334`
 - `server.port` defaults to 8000. `../../droplets/src/core/config.ts:186`
-- Listening starts only when `process.argv[1]` is this file's own URL: `node dist/server.js` listens. `src/entry.ts:45`
-- Listening does not start through a symlink or for `node dist/server` without the extension. `src/entry.ts:45`
-- Importing `dist/server.js` does not listen; the default export is `{ fetch }`. `src/entry.ts:37`
+- Listening starts only when `process.argv[1]` is this file's own URL: `node dist/server.js` listens. `src/entry.ts:43`
+- Listening does not start through a symlink or for `node dist/server` without the extension. `src/entry.ts:43`
+- Importing `dist/server.js` does not listen; the default export is `{ fetch }`. `src/entry.ts:35`
 - `runServer()` is exported from `dist/server.js` and starts listening. `src/entry.ts:27`
 - Listen hostname is not set: `@hono/node-server` listens on Node's default, every interface. `src/entry.ts:31`
-- Listen log line: `server listening on http://localhost:<port>`. `src/entry.ts:32`
+- Listening logs nothing: a production server logs errors only. `src/entry.ts:31`
 - App creation is lazy and once per process: the first request or `runServer()` creates it, later calls reuse the same promise. `src/entry.ts:22`
 - App creation that fails stays cached: every later request gets the same rejection. `src/entry.ts:22`
 - `createNodeServerApp(paths, config)` is exported from the package and returns the Hono app. `src/index.ts:6`, `src/app.ts:22`
 - `createNodeServerApp` imports the SSR bundle from `paths.ssrEntryUrl`, a `file:` URL. `src/app.ts:24`
 - `createNodeServerApp` reads `droplets.json` before it returns: `buildHash` is `__hash`, `externals` is `__externals`. `src/app.ts:26`, `src/app.ts:32`, `src/app.ts:40`
-- `serverRoot` defaults to `server` next to `clientRoot`. `src/assets.ts:41`
-- Prerendered renders are read from `<serverRoot>/_prerendered`. `src/assets.ts:44`
-- `droplets.json` is read from `<clientRoot>/droplets.json`, once per app, and cached. `src/assets.ts:43`, `src/assets.ts:48`
-- `droplets.json` missing or malformed: warns `droplets.json not found; did you build?` and uses the fallback manifest. `src/assets.ts:50`, `src/fs.ts:31`
-- `droplets.json` fallback stays for the life of the process: a build after startup needs a restart. `src/assets.ts:48`
-- Droplet lookup in the manifest uses `Object.hasOwn`: `__proto__` and other prototype names find nothing. `src/assets.ts:65`, `test/assets.test.ts:57`
-- Client bundles, the `/index.js` stub and the global CSS are read from disk per request, not cached. `src/assets.ts:74`, `src/assets.ts:78`, `src/assets.ts:86`
+- `serverRoot` defaults to `server` next to `clientRoot`. `src/assets.ts:40`
+- Prerendered renders are read from `<serverRoot>/_prerendered`. `src/assets.ts:43`
+- `droplets.json` is read from `<clientRoot>/droplets.json`, once per app, and cached. `src/assets.ts:42`, `src/assets.ts:47`
+- `droplets.json` missing or malformed: `console.error` `droplets.json not found at <path>; did you build?` once, and the fallback manifest. `src/assets.ts:49`, `src/fs.ts:31`
+- `droplets.json` fallback stays for the life of the process: a build after startup needs a restart. `src/assets.ts:47`
+- Droplet lookup in the manifest uses `Object.hasOwn`: `__proto__` and other prototype names find nothing. `src/assets.ts:62`, `test/assets.test.ts:57`
+- Client bundles, the `/index.js` stub and the global CSS are read from disk per request, not cached. `src/assets.ts:71`, `src/assets.ts:75`, `src/assets.ts:83`
 - File read errors other than ENOENT are thrown, not turned into null. `src/fs.ts:19`
-- `/assets/*` is the only route that serves files from `dist/client`. `../../droplets/src/server/app.ts:130`
-- `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:328`, `../../droplets/src/runtime/app.ts:882`
+- `/assets/*` is the only route that serves files from `dist/client`. `../../droplets/src/server/app.ts:120`
+- `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:330`, `../../droplets/src/runtime/app.ts:868`
 - `/assets/*` serves from `dist/client/assets`. `src/static.ts:43`
 - `/assets/*` path resolving outside `dist/client/assets` answers `404 Not Found` before any read. `src/static.ts:52`
 - `/assets/*` missing file or directory answers `404 Not Found`. `src/static.ts:61`
@@ -160,8 +160,7 @@ by path.
 - `/assets/public/*` is the only path with an `ETag`; hashed files never revalidate. `src/static.ts:64`, `test/static.test.ts:61`
 - `public/robots.txt` is not served at `/robots.txt`: it answers 404. `test/app.test.ts:124`
 - Runtime env comes from `process.env`: `DROPLETS_SECRET`, `DROPLETS_TRUSTED_ORIGINS`, `DROPLETS_ORIGIN` and private variables, per read. `../../droplets/src/runtime/env-store.ts:26`
-- `DROPLETS_LOG` is read once, when the logger loads. `../../droplets/src/core/logger.ts:21`
 - Node engine is `>=22`. `package.json:35`
 - Build script runs the tests before tsdown. `package.json:38`
 - Tests build the framework's fixture app and fail when `@dropletsjs/droplets` is not built. `test/build-fixture.ts:19`
-- A droplet without stylesheets has no `style.css` (404), and `/index.css` answers 404 without a shared stylesheet: the empty file is not in the build. `../../droplets/src/runtime/app.ts:1130`, `test/app.test.ts:179`
+- A droplet without stylesheets has no `style.css` (404), and `/index.css` answers 404 without a shared stylesheet: the empty file is not in the build. `../../droplets/src/runtime/app.ts:1116`, `test/app.test.ts:179`

@@ -2,7 +2,6 @@ import { resolve } from "node:path";
 import {
   createPrerenderedLoader,
   FALLBACK_MANIFEST,
-  logger,
   PRERENDER_DIR,
   type AssetLoaders,
   type DropletManifestEntry,
@@ -47,9 +46,7 @@ export function createAssetLoaders({
   function loadManifest(): Promise<DropletsManifest> {
     cached ??= loadJsonFile<DropletsManifest>({ path: manifestPath }).then((manifest) => {
       if (!manifest) {
-        logger.warn("framework", "droplets.json not found; did you build?", {
-          path: manifestPath,
-        });
+        console.error(`droplets.json not found at ${manifestPath}; did you build?`);
         return FALLBACK_MANIFEST;
       }
       return manifest;

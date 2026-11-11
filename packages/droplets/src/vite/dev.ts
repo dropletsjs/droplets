@@ -16,6 +16,7 @@ import {
 } from "../runtime/app.ts";
 import type { HandleServerError, ImportMap, ImportMapHandler } from "../runtime/server.ts";
 import type { SsrModule } from "../server/app.ts";
+import { createDevLog } from "../runtime/dev-log.ts";
 import { withoutRequestInfo } from "../runtime/request-store.ts";
 import { PUBLIC_PATH, publicFileHandler } from "./assets.ts";
 import { withViteIdAliases } from "./externalize.ts";
@@ -343,6 +344,7 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
   const warned = new Set<string>();
 
   const app = createDropletsApp({
+    devLog: createDevLog(),
     element: config.element,
     health: config.health,
     importMap: config.importMap,

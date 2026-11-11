@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { setLogLevel, type DropletsManifest } from "@dropletsjs/droplets";
+import type { DropletsManifest } from "@dropletsjs/droplets";
 import { createAssetLoaders } from "../src/assets.ts";
 
 describe("createAssetLoaders", () => {
@@ -69,20 +69,18 @@ describe("createAssetLoaders", () => {
     expect(await assets.loadClientModule("plain")).toBeNull();
   });
 
-  it("falls back to defaults and warns when droplets.json is missing", async () => {
-    setLogLevel("warn");
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  it("falls back to defaults and logs an error when droplets.json is missing", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const empty = await mkdtemp(join(tmpdir(), "droplets-manifest-empty-"));
     try {
       const assets = createAssetLoaders({ clientRoot: empty });
       const manifest = await assets.loadManifest();
       expect(manifest.droplets).toEqual({});
       expect(manifest.__entryClient).toBe("index.js");
-      expect(warn).toHaveBeenCalledOnce();
-      expect(String(warn.mock.calls[0]?.[0])).toContain("did you build?");
+      expect(error).toHaveBeenCalledOnce();
+      expect(error.mock.calls[0]).toEqual([`droplets.json not found at ${join(empty, "droplets.json")}; did you build?`]);
     } finally {
       vi.restoreAllMocks();
-      setLogLevel("error");
       await rm(empty, { recursive: true, force: true });
     }
   });

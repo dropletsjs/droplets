@@ -52,12 +52,25 @@ const DEV_MARKERS: (string | RegExp)[] = [
   "__dropletsReactRefresh",
   "transformImportMap",
   /\.dev\s*\?\s*[\w$]+\.message\b/,
+  // The dev and build logger, and the runtime's dev warnings (`runtime/dev-log.ts`, `import.meta.env.DEV`).
+  "DEV_DROPLETS_LOG",
+  "[droplets:",
+  "trusts any forwarded location",
+  "ignoring the location",
+  "ignoring malformed x-droplet-props",
+  "cors allows every origin",
+  "DROPLETS_SECRET is not set",
+  "DROPLETS_SECRET is shorter than",
+  "is over 2 KB as a URL value",
+  "such as https://shop.example",
+  "unknown droplet",
+  "rendered droplet",
 ];
 
 const hasMarker = (code: string, marker: string | RegExp) => (typeof marker === "string" ? code.includes(marker) : marker.test(code));
 
 /** Our dev-only modules, as the bundler names them. */
-const DEV_MODULE = /[\\/](?:dev-element|dev-notify|dev-contract|dev-tool|client-dev)(?:-[\w-]+)?\.js$|[\\/]devtools[\\/]/;
+const DEV_MODULE = /[\\/](?:dev-element|dev-notify|dev-contract|dev-tool|dev-log|client-dev)(?:-[\w-]+)?\.js$|[\\/]devtools[\\/]/;
 
 /** Text that only a framework's development build holds. */
 const DEV_BUILD_MARKERS = ["jsxDEV", "react-stack-bottom-frame", "[Vue warn]"];

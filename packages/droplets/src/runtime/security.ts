@@ -6,7 +6,7 @@
 import type { Context, MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { normalizeOrigin, normalizeTrustedOrigins, type BodyLimits } from "../core/config.ts";
-import { logger } from "../core/logger.ts";
+import type { DevLog } from "./dev-log.ts";
 
 /** Methods a cross-site form, or a fetch without preflight, can send with a body. */
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
@@ -45,27 +45,17 @@ function isUntyped({ request }: IsUntypedInput): boolean {
   return UNSAFE_METHODS.has(request.method.toUpperCase()) && mediaType({ request }) === "";
 }
 
-/** Where "Trusting any location" is explained, for the warning `"*"` gets. */
-const ANY_LOCATION_DOCS = "https://dropletsjs.dev/guides/security/#trusting-any-location";
-
-export type WarnAnyLocationInput = { option: string };
-
-/** The warning for a `"*"` in `option`, which trusts any location a request's headers name. */
-export function warnAnyLocation({ option }: WarnAnyLocationInput): void {
-  logger.warn("framework", `${option}: "*" trusts any forwarded location; see ${ANY_LOCATION_DOCS}`);
-}
-
 /** The origins of `DROPLETS_TRUSTED_ORIGINS`, by raw value: parsed once, a bad entry warned about once. */
 const fromEnv = new Map<string, string[]>();
 
-export type TrustedOriginsWithInput = { configured: readonly string[]; raw: string | undefined };
+export type TrustedOriginsWithInput = { configured: readonly string[]; raw: string | undefined; devLog?: DevLog | undefined };
 
 /**
  * `trustedOrigins` from the config with `DROPLETS_TRUSTED_ORIGINS`, a
  * comma-separated list read at runtime, added: the hosts can change without
- * a build. An entry that is not an origin is skipped, with a warning.
+ * a build. An entry that is not an origin is skipped, with a warning under `vite dev`.
  */
-export function trustedOriginsWith({ configured, raw }: TrustedOriginsWithInput): readonly string[] {
+export function trustedOriginsWith({ configured, raw, devLog }: TrustedOriginsWithInput): readonly string[] {
   if (!raw?.trim()) return configured;
   let parsed = fromEnv.get(raw);
   if (!parsed) {
@@ -77,10 +67,10 @@ export function trustedOriginsWith({ configured, raw }: TrustedOriginsWithInput)
       try {
         parsed.push(...normalizeTrustedOrigins({ origins: [entry] }));
       } catch {
-        logger.warn("framework", `DROPLETS_TRUSTED_ORIGINS: ignoring ${JSON.stringify(entry)}, not an origin such as https://shop.example`);
+        devLog?.badEnvEntry({ variable: "DROPLETS_TRUSTED_ORIGINS", entry });
       }
     }
-    if (parsed.includes("*")) warnAnyLocation({ option: "DROPLETS_TRUSTED_ORIGINS" });
+    if (parsed.includes("*")) devLog?.anyLocation({ option: "DROPLETS_TRUSTED_ORIGINS" });
     fromEnv.set(raw, parsed);
   }
   return [...new Set([...configured, ...parsed])];
@@ -89,14 +79,14 @@ export function trustedOriginsWith({ configured, raw }: TrustedOriginsWithInput)
 /** The locations of `DROPLETS_ORIGIN`, by raw value, as `fromEnv` keeps them. */
 const originFromEnv = new Map<string, string[]>();
 
-export type OriginWithInput = { configured: readonly string[]; raw: string | undefined };
+export type OriginWithInput = { configured: readonly string[]; raw: string | undefined; devLog?: DevLog | undefined };
 
 /**
  * `origin` from the config with `DROPLETS_ORIGIN`, a comma-separated list
  * of locations read at runtime, added. An entry that is not a location is
- * skipped, with a warning.
+ * skipped, with a warning under `vite dev`.
  */
-export function originWith({ configured, raw }: OriginWithInput): readonly string[] {
+export function originWith({ configured, raw, devLog }: OriginWithInput): readonly string[] {
   if (!raw?.trim()) return configured;
   let parsed = originFromEnv.get(raw);
   if (!parsed) {
@@ -108,13 +98,10 @@ export function originWith({ configured, raw }: OriginWithInput): readonly strin
       try {
         parsed.push(...normalizeOrigin({ value: entry }));
       } catch {
-        logger.warn(
-          "framework",
-          `DROPLETS_ORIGIN: ignoring ${JSON.stringify(entry)}, not a location such as https://shop.example or https://shop.example/mfe`,
-        );
+        devLog?.badEnvEntry({ variable: "DROPLETS_ORIGIN", entry });
       }
     }
-    if (parsed.includes("*")) warnAnyLocation({ option: "DROPLETS_ORIGIN" });
+    if (parsed.includes("*")) devLog?.anyLocation({ option: "DROPLETS_ORIGIN" });
     originFromEnv.set(raw, parsed);
   }
   return [...new Set([...configured, ...parsed])];

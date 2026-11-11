@@ -2,7 +2,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { serve } from "@hono/node-server";
 import userConfig from "virtual:droplets-config";
-import { type DropletsApp, logger, resolveConfig } from "@dropletsjs/droplets";
+import { type DropletsApp, resolveConfig } from "@dropletsjs/droplets";
 import { createNodeServerApp } from "./app.ts";
 
 // Bundled as `dist/server.js`, next to `client/` and `server/`: paths are
@@ -28,9 +28,7 @@ export async function runServer(): Promise<void> {
   const app = await loadApp();
   const port = config.server.port;
 
-  serve({ fetch: app.fetch, port }, () => {
-    logger.info("framework", `server listening on http://localhost:${port}`);
-  });
+  serve({ fetch: app.fetch, port });
 }
 
 /** Fetch handler, for hosts that drive the server themselves. */

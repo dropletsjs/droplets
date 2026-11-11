@@ -149,10 +149,10 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - Assets binding missing from `env`: the request throws `droplets: no "<name>" binding`. `src/worker.ts:108`, `test/worker.test.ts:251`
 - App is created once per assets binding object and kept in a `WeakMap`. `src/worker.ts:27`, `src/worker.ts:113`
 - Bindings are the runtime env: every request calls `setRuntimeEnv(env)` before it is answered. `src/worker.ts:124`
-- `platform.env` is the Worker's `env`, every binding included. `../../droplets/src/runtime/app.ts:504`, `test/worker.test.ts:87`
-- `platform.context` is the Worker's execution context when the runtime has one. `../../droplets/src/runtime/app.ts:500`
+- `platform.env` is the Worker's `env`, every binding included. `../../droplets/src/runtime/app.ts:493`, `test/worker.test.ts:87`
+- `platform.context` is the Worker's execution context when the runtime has one. `../../droplets/src/runtime/app.ts:529`
 - `.env` values are not in `dist/worker.js`; runtime secrets come from the bindings. `test/worker.test.ts:103`
-- `DROPLETS_TRUSTED_ORIGINS` and `DROPLETS_ORIGIN` bindings are read per request. `../../droplets/src/runtime/app.ts:754`, `../../droplets/src/runtime/app.ts:757`, `test/worker.test.ts:209`
+- `DROPLETS_TRUSTED_ORIGINS` and `DROPLETS_ORIGIN` bindings are read per request. `../../droplets/src/runtime/app.ts:808`, `../../droplets/src/runtime/app.ts:813`, `test/worker.test.ts:209`
 - Droplet lookup in the inlined manifest uses `Object.hasOwn`: `__proto__` and other prototype names find nothing. `src/worker.ts:41`, `test/worker.test.ts:203`
 - Files are read through the binding by pathname; the origin `https://assets.invalid` is a placeholder. `src/worker.ts:48`
 - File the binding answers with a non-2xx status reads as missing (`null`). `src/worker.ts:49`
@@ -160,7 +160,7 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - `/index.js` stub answers `cache-control: no-store`. `test/worker.test.ts:147`
 - Droplet styles and the entry module name come from the inlined manifest, not the binding. `src/worker.ts:59`, `src/worker.ts:69`
 - Prerendered renders are read through the binding from `_prerendered/<random>`; they are never in the bundle. `src/worker.ts:65`, `test/worker.test.ts:114`
-- Prerendered folder name is `_prerendered/` plus 32 hex characters, new every build, and only `droplets.json` holds it. `../../droplets/src/vite/prerender.ts:51`, `test/worker.test.ts:121`
+- Prerendered folder name is `_prerendered/` plus 32 hex characters, new every build, and only `droplets.json` holds it. `../../droplets/src/vite/prerender.ts:52`, `test/worker.test.ts:121`
 - Prerendered renders, `droplets.json` and `/.vite/manifest.json` answer 404 from the Worker. `test/worker.test.ts:127`, `test/worker.test.ts:134`
 - `/assets/*` forwards the original request to the binding. `src/worker.ts:74`
 - `/assets/*` hashed file answered 2xx gets `cache-control: public, max-age=2592000, immutable`; any other status passes through untouched. `src/worker.ts:76`, `src/worker.ts:78`
@@ -168,7 +168,7 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - `/assets/public/*` without a binding `ETag` gets one from the SHA-1 of the body in base64url, and `304` with no body when `If-None-Match` lists it. `src/worker.ts:93`, `src/worker.ts:99`
 - `/assets/public/*` error status other than 304 passes through untouched. `src/worker.ts:81`
 - `/robots.txt` answers 404: `public/` is served only under `/assets/public/`. `test/worker.test.ts:177`
-- `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:882`, `test/worker.test.ts:196`
+- `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:868`, `test/worker.test.ts:196`
 - `nodejs_compat` gives `AsyncLocalStorage`, found through `process.getBuiltinModule`; without it overlapping requests share one request store. `../../droplets/src/runtime/request-store.ts:46`, `../../droplets/src/runtime/request-store.ts:60`
 - Node engine for the build is `>=22`. `package.json:36`
 - `vite` is a peer dependency (`^8.0.0`): the adapter reads `defaultServerConditions` from it. `package.json:49`, `src/index.ts:6`

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { logger } from "../../src/core/logger.ts";
+import { createDevLog } from "../../src/runtime/dev-log.ts";
 import {
   FORM_RESULT_MAX_LENGTH,
   FORM_RESULT_TTL_MS,
@@ -8,7 +9,6 @@ import {
   formSecret,
   mintFormResult,
   readFormResult,
-  resetFormSecretWarnings,
 } from "../../src/runtime/form-token.server.ts";
 
 const SECRET = "test-secret-0123456789abcdef-0123456789";
@@ -39,7 +39,6 @@ function read({ value, scope = SCOPE, now = NOW }: ReadInput): Promise<FormResul
 
 afterEach(() => {
   vi.restoreAllMocks();
-  resetFormSecretWarnings();
 });
 
 describe("the no-JavaScript form result", () => {
@@ -166,16 +165,17 @@ describe("the no-JavaScript form result", () => {
 });
 
 describe("DROPLETS_SECRET", () => {
-  it("needs 32 bytes, and says so once", () => {
+  it("needs 32 bytes, and says so once under vite dev", () => {
     const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
-    expect(formSecret({ raw: SECRET })).toBe(SECRET);
-    expect(formSecret({ raw: undefined })).toBeNull();
-    expect(formSecret({ raw: "" })).toBeNull();
-    expect(formSecret({ raw: "x".repeat(31) })).toBeNull();
-    expect(formSecret({ raw: "x".repeat(31) })).toBeNull();
+    const devLog = createDevLog();
+    expect(formSecret({ raw: SECRET, devLog })).toBe(SECRET);
+    expect(formSecret({ raw: undefined, devLog })).toBeNull();
+    expect(formSecret({ raw: "", devLog })).toBeNull();
+    expect(formSecret({ raw: "x".repeat(31), devLog })).toBeNull();
+    expect(formSecret({ raw: "x".repeat(31), devLog })).toBeNull();
     // Bytes, not characters: 32 bytes in 16 characters.
-    expect(formSecret({ raw: "é".repeat(16) })).toBe("é".repeat(16));
-    expect(formSecret({ raw: `${"é".repeat(15)}x` })).toBeNull();
+    expect(formSecret({ raw: "é".repeat(16), devLog })).toBe("é".repeat(16));
+    expect(formSecret({ raw: `${"é".repeat(15)}x`, devLog })).toBeNull();
     expect(warn).toHaveBeenCalledTimes(2);
     expect(warn.mock.calls.map((call) => call[1])).toEqual([
       expect.stringContaining("DROPLETS_SECRET is not set"),
@@ -183,5 +183,12 @@ describe("DROPLETS_SECRET", () => {
     ]);
     // Both say what to set it to.
     for (const call of warn.mock.calls) expect(String(call[1])).toContain("openssl rand -base64 32");
+  });
+
+  it("says nothing without a dev log, as in production", () => {
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    expect(formSecret({ raw: undefined })).toBeNull();
+    expect(formSecret({ raw: "x".repeat(31) })).toBeNull();
+    expect(warn).not.toHaveBeenCalled();
   });
 });

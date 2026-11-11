@@ -1,3 +1,11 @@
+/**
+ * The logger of `vite dev` and `vite build` (`vite/`, `core/`). Runtime code
+ * reaches it only behind `import.meta.env.DEV` or through `runtime/dev-log.ts`,
+ * so production bundles hold none of it: in production the runtime logs only
+ * errors, with `console.error`.
+ *
+ * @module
+ */
 export type LogLevel = "error" | "warn" | "info" | "debug";
 
 /** Where a message came from: the framework itself, or user droplet code. */
@@ -16,25 +24,27 @@ export type ResolveLevelInput = { raw: string | undefined };
 
 type EmitInput = { level: LogLevel; source: LogSource; message: string; meta?: unknown };
 
-/** Reads `DROPLETS_LOG`; anything unrecognised falls back to `info`. */
+/** Reads `DEV_DROPLETS_LOG`; anything unrecognised falls back to `info`. */
 export function resolveLevel({ raw }: ResolveLevelInput): LogLevel {
   const value = raw?.toLowerCase();
   return value && value in LEVELS ? (value as LogLevel) : DEFAULT_LEVEL;
 }
 
-let currentLevel = resolveLevel({ raw: typeof process === "undefined" ? undefined : process.env["DROPLETS_LOG"] });
+// Read on first use, not at load: a module with no top-level work tree-shakes out of production bundles.
+let currentLevel: LogLevel | undefined;
 
-/** Mostly for tests; production reads `DROPLETS_LOG` once at startup. */
+/** Mostly for tests; otherwise `DEV_DROPLETS_LOG` is read once, on the first message. */
 export function setLogLevel(level: LogLevel): void {
   currentLevel = level;
 }
 
 export function getLogLevel(): LogLevel {
+  currentLevel ??= resolveLevel({ raw: typeof process === "undefined" ? undefined : process.env["DEV_DROPLETS_LOG"] });
   return currentLevel;
 }
 
 function emit({ level, source, message, meta }: EmitInput): void {
-  if (LEVELS[level] > LEVELS[currentLevel]) return;
+  if (LEVELS[level] > LEVELS[getLogLevel()]) return;
   const prefix = `[droplets:${source}]`;
   if (meta === undefined) {
     console[level](`${prefix} ${message}`);

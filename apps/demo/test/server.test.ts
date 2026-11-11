@@ -18,7 +18,6 @@ beforeAll(async () => {
   if (!existsSync(join(root, "dist/server.js"))) throw new Error("dist/server.js is missing: run `pnpm build` first");
   Object.assign(process.env, {
     DROPLETS_SECRET: "test-demo-secret-0123456789abcdef-0123456789",
-    DROPLETS_LOG: "error",
   });
   server = (await import(join(root, "dist/server.js"))).default;
 });

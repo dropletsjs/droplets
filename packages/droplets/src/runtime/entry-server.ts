@@ -120,10 +120,7 @@ function isAnswer({ error }: IsAnswerInput): boolean {
 export function getDropletMeta(name: string): DropletMeta {
   const entry = findEntry({ name });
   if (!entry?.component) {
-    logger.debug("framework", "unknown droplet", {
-      droplet: name,
-      known: [...registry.keys()],
-    });
+    if (import.meta.env.DEV) logger.debug("framework", "unknown droplet", { droplet: name, known: [...registry.keys()] });
     return { exists: false, ssr: true };
   }
   return {
@@ -227,7 +224,7 @@ type ServerFailure = { failed: true; error: unknown };
  * `handleError` throws, there is nothing to show: unhandled.
  */
 async function serverFailure({ name, error }: ServerFailureInput): Promise<ServerFailure> {
-  logger.error("drop", "droplet load failed", { droplet: name, error });
+  console.error(`${name}: droplet load failed`, error);
   const entry = findEntry({ name });
   if (!entry?.error) {
     throw new UnhandledDropletError({ droplet: name, reason: "load failed and there is no error page (+error.*)", cause: error });
@@ -348,7 +345,7 @@ export async function renderDroplet(name: string, event: LoadEvent, options: Ren
       kind: "droplet",
       dropletProps: event.props,
     });
-    logger.debug("framework", "rendered droplet", { droplet: name, bodyLength: html.length });
+    if (import.meta.env.DEV) logger.debug("framework", "rendered droplet", { droplet: name, bodyLength: html.length });
     return { body: html, html, data, serverData, renderId, ...(head === undefined ? {} : { head }) };
   } catch (error) {
     if (isAnswer({ error })) throw error;

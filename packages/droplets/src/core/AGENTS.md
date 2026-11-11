@@ -4,6 +4,8 @@
 
 - `config.ts` and `logger.ts` use web APIs only (no `node:` import, `Buffer`, `__dirname`, `process.argv`/`cwd`/`exit`, unguarded `process.env`); the other files here are build tooling on Node.
   Checked by: `../../test/portability.test.ts` (its `NEUTRAL` list names exactly these two core files).
+- `logger.ts` is the log of `vite dev` and `vite build` (level from `DEV_DROPLETS_LOG`), with no top-level work, so it tree-shakes out of production bundles; the runtime reaches it only through `runtime/dev-log.ts` or behind `import.meta.env.DEV`.
+  Checked by: `../../../../tests/dev-mixed/test/production.test.ts` (`DEV_MARKERS`).
 - `resolveConfig` is pure: it reads no environment and no file; the caller passes `PORT`.
   Checked by: `../../test/core/config.test.ts`.
 - Every file `paths.ts` names in `dist/` is a tsdown `entry`, so its name stays fixed.

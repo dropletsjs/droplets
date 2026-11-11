@@ -44,7 +44,6 @@ beforeAll(async () => {
     WP_SHOP_DATABASE: `${tmp}wp-shop.db`,
     DROPLETS_SECRET: "test-droplets-secret-0123456789abcdef-0123",
     DROPLETS_TRUSTED_ORIGINS: HOST,
-    DROPLETS_LOG: "error",
   });
   await build(process.env);
   server = (await import(`${root}dist/server.js?${Date.now()}`)).default;

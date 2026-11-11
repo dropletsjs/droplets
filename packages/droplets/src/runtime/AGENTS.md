@@ -6,6 +6,8 @@
   Checked by: `../../test/portability.test.ts` (`NEUTRAL` lists `runtime`).
 - Dev code lives in `dev-*.ts` and reaches production code only through the one `if (import.meta.env.DEV) installDevElement(...)` gate in `entry-client.ts`; the element class body holds no dev members.
   Checked by: `../../../../tests/dev-mixed/test/production.test.ts` (add a marker to `DEV_MARKERS` when you add dev code).
+- The server side logs errors only, with plain `console.error`; a warning goes through the app's `devLog` (`dev-log.ts`, passed by `vite dev` and the prerender), or behind `import.meta.env.DEV` in modules only Vite runs (`entry-server.ts`). Modules the plugin runs in Node (`app.ts`, `security.ts`, `form-token.server.ts`) never read `import.meta.env`.
+  Checked by: `../../../../tests/dev-mixed/test/production.test.ts` (`DEV_MARKERS`), `../../test/runtime/app.test.ts` ("what a production server logs").
 - Dev modules (`dev-*.ts`) have no top-level side effects, so they tree-shake.
   Checked by: `../../../../tests/dev-mixed/test/production.test.ts`, `../../../../tests/packages/test/packed.test.ts`.
 - `*.server.ts` modules (`form-token.server.ts`) are imported only by server code and never reach a client bundle.

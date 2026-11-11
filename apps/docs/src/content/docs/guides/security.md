@@ -51,8 +51,8 @@ Anyone can send those headers, so:
 
 - a header's location is used only when its origin is the request's own,
   in `origin` / `DROPLETS_ORIGIN`, or in `trustedOrigins` /
-  `DROPLETS_TRUSTED_ORIGINS`. An untrusted one is skipped with a warning,
-  and never reaches an action URL. Without a list, forwarded headers count
+  `DROPLETS_TRUSTED_ORIGINS`. An untrusted one is skipped (with a warning
+  under `vite dev`), and never reaches an action URL. Without a list, forwarded headers count
   only when they name the request's own origin;
 - it must be an `http:` or `https:` URL; credentials, query and hash are
   dropped, and a path prefix with `//`, `\`, `..`, `?`, `#` or control
@@ -81,7 +81,8 @@ elements load JavaScript, CSS and data from the URL the page loaded
 
 `"*"` in `origin` (or `DROPLETS_ORIGIN`) or in `trustedOrigins` (or
 `DROPLETS_TRUSTED_ORIGINS`) trusts any location a request's headers name.
-The server allows it, and warns once when it starts:
+The server allows it; under `vite dev` it warns once when it starts (a
+production server logs errors only):
 
 ```
 origin: "*" trusts any forwarded location; see https://dropletsjs.dev/guides/security/#trusting-any-location
@@ -211,7 +212,7 @@ proxies the droplets routes under its own origin
 ([the paths](/integrate/any-stack/#the-paths-to-proxy)) needs no CORS at all.
 
 `cors: true` sends `Access-Control-Allow-Origin: *` on every route, `/api/*`
-and `_data` included, and warns once in production. For anything that is
+and `_data` included, and warns once under `vite dev`. For anything that is
 not public, list the hosts instead (`cors: { origin: [...] }`): with `*`,
 any page can read what an employee's browser can reach on an intranet
 server. The same goes for `server.cors` in `vite dev`, which otherwise lets
@@ -402,6 +403,13 @@ holds the other's passwords.
 
 Where the droplets server is reachable from the internet, or the host
 cannot strip headers, use a login of its own instead, as the shop does.
+
+## What the log holds
+
+A production server logs errors only, with `console.error`; the warnings
+above (untrusted locations, `"*"`, a missing `DROPLETS_SECRET`, `cors`
+allowing every origin) show under `vite dev` and are not in a production
+bundle. The list is in [Logging](/guides/deployment/#logging).
 
 ## For hosts
 

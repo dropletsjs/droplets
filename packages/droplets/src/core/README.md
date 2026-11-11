@@ -21,7 +21,7 @@ const droplets = await discoverDroplets({ dropletsRoot: "/app/src/droplets", ren
 | File | What it does | Runs |
 |---|---|---|
 | `config.ts` | `DropletsConfig`, `resolveConfig`, `resolveDevConfig`, `DEFAULTS`, `DEV_STRATEGIES`, origin and folder normalisation | anywhere (on the portability list) |
-| `logger.ts` | `logger`, `setLogLevel`, `DROPLETS_LOG` | anywhere (on the portability list) |
+| `logger.ts` | `logger`, `setLogLevel`, `DEV_DROPLETS_LOG`: the log of `vite dev` and `vite build`, never in a production bundle | anywhere (on the portability list) |
 | `load-config.ts` | finds and loads `droplets.config.*` through Vite, then resolves it | Node, build and dev |
 | `discover.ts` | scans the droplets folder: ids, component files, renderers, flags, load files, error pages | Node, build and dev |
 | `flags.ts` | parses `ssr`, `hydrate`, `prerender` out of a component's source | build and dev (parses with Vite) |
@@ -112,9 +112,9 @@ builds and runs them.
 - `trustedOrigins` must be an array, else `resolveConfig` throws. `config.ts:263`
 - `trustedOrigins` entry `"*"` is kept as is. `config.ts:267`
 - `trustedOrigins` entries are bare origins (no path), resolved to `scheme://host[:port]`. `config.ts:275`, `config.ts:278`
-- `DROPLETS_ORIGIN` is not read in core: the runtime parses it per request with `normalizeOrigin`, warning about and skipping bad entries. `../runtime/security.ts:99`
-- `DROPLETS_TRUSTED_ORIGINS` is not read in core: the runtime parses it per request with `normalizeTrustedOrigins`, warning about and skipping bad entries. `../runtime/security.ts:68`
-- `"*"` warning (`trusts any forwarded location`) is logged by the runtime, not by core. `../runtime/security.ts:54`
+- `DROPLETS_ORIGIN` is not read in core: the runtime parses it per request with `normalizeOrigin`, skipping bad entries (a warning under `vite dev`). `../runtime/security.ts:89`
+- `DROPLETS_TRUSTED_ORIGINS` is not read in core: the runtime parses it per request with `normalizeTrustedOrigins`, skipping bad entries (a warning under `vite dev`). `../runtime/security.ts:58`
+- `"*"` warning (`trusts any forwarded location`) is the runtime's dev log, not core's. `../runtime/dev-log.ts:47`
 - `fragmentCacheControl` defaults to `private, no-store`; `false` sends none. `config.ts:189`, `config.ts:315`
 - `fragmentCacheControl` must be a non-empty string without CR or LF; it is trimmed. `config.ts:316`, `config.ts:321`
 - `csrf.checkOrigin` defaults to `true`. `config.ts:378`
@@ -188,11 +188,12 @@ builds and runs them.
 - API routes of the same shape (`a/[id]` and `a/[slug]`) throw `both answer`. `api-routes.ts:105`
 - API routes are sorted most specific first by `compareRoutes`, then by id. `api-routes.ts:112`
 - API folder that is missing or unreadable yields no routes. `api-routes.ts:78`
-- Logger levels: `error`, `warn`, `info`, `debug`; default `info`. `logger.ts:6`, `logger.ts:13`
-- `DROPLETS_LOG` is read once, when the logger module loads, guarded for runtimes without `process`. `logger.ts:25`
-- `DROPLETS_LOG` is case-insensitive; an unknown value falls back to `info`. `logger.ts:21`, `logger.ts:22`
-- Logger messages print through `console[level]` with the prefix `[droplets:<source>]`, source `framework` or `drop`. `logger.ts:4`, `logger.ts:38`
-- `setLogLevel` changes the level for the process. `logger.ts:28`
+- Logger levels: `error`, `warn`, `info`, `debug`; default `info`. `logger.ts:13`, `logger.ts:20`
+- `DEV_DROPLETS_LOG` is read once, on the first message (not when the module loads), guarded for runtimes without `process`. `logger.ts:33`, `logger.ts:41`
+- `DEV_DROPLETS_LOG` is case-insensitive; an unknown value falls back to `info`. `logger.ts:28`, `logger.ts:29`
+- Logger has no top-level work, so it tree-shakes out of a bundle that never calls it. `logger.ts:32`
+- Logger messages print through `console[level]` with the prefix `[droplets:<source>]`, source `framework` or `drop`. `logger.ts:11`, `logger.ts:47`
+- `setLogLevel` changes the level for the process. `logger.ts:36`
 - `logger.ts` is Node-free: it touches `process` only behind `typeof process`. `logger.ts:25`
 - Package root is found by walking up from the compiled module to the nearest `package.json`. `paths.ts:9`, `paths.ts:22`
 - Paths into `dist/`: `runtime/entry-client.js`, `entry-server.js`, `server.js`, `props.js`, `load.js`, `env-store.js`, `request-store.js`, `form.js`, `enhance.js`, `server-records.js`, `client-init.js`. `paths.ts:31`, `paths.ts:53`

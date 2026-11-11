@@ -9,7 +9,8 @@ import {
   type FindAction,
   type RenderDroplet,
 } from "../../src/runtime/app.ts";
-import { mintFormResult, resetFormSecretWarnings } from "../../src/runtime/form-token.server.ts";
+import { createDevLog } from "../../src/runtime/dev-log.ts";
+import { mintFormResult } from "../../src/runtime/form-token.server.ts";
 import { requestInfo } from "../../src/runtime/request-store.ts";
 import { error, fail, hostFrom, redirect, type Action, type ActionEvent, type Handle, type LoadEvent } from "../../src/runtime/server.ts";
 import { devHandleError } from "../../src/vite/dev.ts";
@@ -47,6 +48,7 @@ function actionsApp({ actions, overrides = {} }: ActionsAppInput) {
     findAction,
     getDropletMeta: (name) => ({ exists: name !== "missing", ssr: true, hydrate: true }),
     buildHash: "abc123",
+    devLog: createDevLog(),
     ...overrides,
   };
   return { app: createDropletsApp(options), renderDroplet, findAction };
@@ -489,7 +491,6 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
-    resetFormSecretWarnings();
   });
 
   /** The result's value in a redirect's location. */
@@ -560,7 +561,7 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
     const shop = await app.request(submit({ path: "/droplets/guestbook?/shop", body: "", headers: native }));
     expect(shop.status).toBe(303);
     expect(shop.headers.get("location")).toBe("https://shop.test/thanks#done");
-    vi.spyOn(logger, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     expect((await app.request(submit({ path: "/droplets/guestbook?/away", body: "", headers: native }))).status).toBe(400);
     expect((await app.request(submit({ path: "/droplets/guestbook?/lookalike", body: "", headers: native }))).status).toBe(400);
 
@@ -584,8 +585,9 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
       script: raw("javascript:alert(1)"),
       credentials: raw("http://user:pw@drops.test/x"),
     };
-    const { app } = actionsApp({ actions, overrides: { trustedOrigins: ["https://shop.test"] } });
-    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    // Without a dev log, as in production: an off-site redirect is an error all the same.
+    const { app } = actionsApp({ actions, overrides: { trustedOrigins: ["https://shop.test"], devLog: undefined } });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const json = { accept: "application/json" };
     const post = (name: string, headers: Record<string, string>) =>
       app.request(submit({ path: `/droplets/guestbook?/${name}`, body: "", headers }));
@@ -604,7 +606,10 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
       expect(res.headers.get("location"), name).toBeNull();
       expect(await res.json(), name).toEqual({ message: "Bad Request: the action redirects off this site" });
     }
-    expect(warn).toHaveBeenCalledTimes(12);
+    expect(error).toHaveBeenCalledTimes(12);
+    expect(error.mock.calls[0]).toEqual([
+      'guestbook: action away redirects to "https://evil.example/x", which is not on this server or a trusted origin; answered 400',
+    ]);
 
     // "*" trusts every Origin for the CSRF check, never a redirect target, in JSON too.
     const star = actionsApp({ actions, overrides: { trustedOrigins: ["*"] } }).app;
@@ -820,6 +825,19 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
     const form = options.form as Record<string, unknown>;
     expect(Object.getPrototypeOf(form)).toBeNull();
     expect(({} as Record<string, unknown>)["polluted"]).toBeUndefined();
+  });
+
+  it("warns about nothing without a dev log, as in production: no secret, a result over 2 KB", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const logged = vi.spyOn(logger, "warn");
+    vi.stubEnv("DROPLETS_SECRET", "too-short");
+    const quiet = actionsApp({ actions: { default: sign }, overrides: { devLog: undefined } }).app;
+    expect((await quiet.request(submit({ path: "/droplets/guestbook", body: "name=Ana", headers: native }))).status).toBe(200);
+    vi.stubEnv("DROPLETS_SECRET", SECRET);
+    const big = actionsApp({ actions: { default: () => fail(409, { message: "x".repeat(3000) }) }, overrides: { devLog: undefined } }).app;
+    expect((await big.request(submit({ path: "/droplets/guestbook", body: "", headers: native }))).status).toBe(303);
+    expect(warn).not.toHaveBeenCalled();
+    expect(logged).not.toHaveBeenCalled();
   });
 
   it("sends a result over 2 KB without its data, with a warning", async () => {

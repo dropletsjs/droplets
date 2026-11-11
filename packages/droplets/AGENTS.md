@@ -8,6 +8,8 @@
   Checked by: `tests/dev-mixed/test/production.test.ts`, `tests/packages/test/packed.test.ts`.
 - `src/vite/virtual.ts` emits a client module's dev hooks (`update`, the HMR fallback) only under `vite dev` or a non-production build.
   Checked by: `tests/dev-mixed/test/production.test.ts` ("emits no update hook"), `test/vite/virtual.test.ts`.
+- A production server logs errors only, with plain `console.error` (a message, then the error); every warning goes through `devLog` (`src/runtime/dev-log.ts`, which `vite dev` and the prerender pass) or behind `import.meta.env.DEV`, and `src/core/logger.ts` is the dev and build logger, never in a production bundle.
+  Checked by: `tests/dev-mixed/test/production.test.ts` (`DEV_MARKERS`), `test/runtime/app.test.ts` ("what a production server logs").
 - `*.server.*` and anything under `server/` never reach a client bundle, in build and in `vite dev`, through any import chain.
   Checked by: `src/vite/server-only.ts`, `test/integration/server-only.test.ts`; for this package's own output, `graphCheck()` in `tsdown.config.ts`.
 - Every tsdown entry and server module is listed in `tsdown.config.ts`: `entry` when code finds it by path in `dist/`, and `graphCheck` `client` or `server` by where it runs; a renamed or added entry, dev module or server module updates those lists in the same change.

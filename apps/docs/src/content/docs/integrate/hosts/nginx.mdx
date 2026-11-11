@@ -245,8 +245,8 @@ is where the host pages are, and keeps `event.host` within them.
 
 The `proxy_set_header` lines clear what a client may have sent. The
 droplets server would only trust a location header whose origin is in
-`DROPLETS_ORIGIN` (or `trustedOrigins`) anyway; clearing them keeps the
-warnings out of its log.
+`DROPLETS_ORIGIN` (or `trustedOrigins`) anyway; clearing them keeps a
+client's own headers from ever counting.
 
 Behind a path (`location /mfe/`), put the path in it:
 `DROPLETS_ORIGIN=https://shop.example/mfe`. With several public URLs (one
@@ -268,7 +268,7 @@ DROPLETS_ORIGIN=https://shop.example,https://www.shop.example
 
 `$host` comes from the client's `Host` header, so it is only used when it
 is one of the listed origins; any other falls back to the request's own
-origin, with a warning.
+origin (with a warning under `vite dev`).
 
 Run it from the repository: `cd examples/hosts/nginx && docker compose up --build`,
 then open `http://localhost:8080`.

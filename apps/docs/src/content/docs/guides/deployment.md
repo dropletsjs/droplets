@@ -139,8 +139,8 @@ to host a droplets server for a documentation site or a demo.
 PORT=8000 node dist/server.js
 ```
 
-`PORT` overrides `server.port` from the config. Logs go to stdout; set
-`DROPLETS_LOG=debug` for more.
+`PORT` overrides `server.port` from the config. It logs errors only, to
+stderr; see [Logging](#logging).
 
 Importing `dist/server.js` instead of running it does **not** start listening.
 It exports `{ fetch }`, a standard `Request => Promise<Response>` handler.
@@ -271,7 +271,7 @@ Set `DROPLETS_SECRET` to 32 or more random bytes (`openssl rand -base64 32`),
 the same on every instance serving a build, as a secret: a Worker secret, the
 process environment elsewhere. It is read at runtime and never reaches a
 browser bundle. Without it such a post answers the droplet's fragment
-instead, and the log says so once. Rotating it voids the results minted in
+instead (`vite dev` says so once). Rotating it voids the results minted in
 the last five minutes, nothing else.
 
 A host that fetches fragments on its server can pass their
@@ -286,6 +286,28 @@ See the [nginx example](/integrate/hosts/nginx/) for a complete configuration, a
 `GET /health` (the `health` option) answers `ok` with status `200` as soon as
 the server is listening, before `handle` runs. The SSR bundle is loaded on the
 first request that needs it.
+
+## Logging
+
+A production server logs errors only, with `console.error`: a message, then
+the error itself, nothing else. Those are:
+
+- a droplet's load failed (`<droplet>: droplet load failed`);
+- a form action failed;
+- an action's `redirect()` points off this server and its trusted origins,
+  answered `400`;
+- a request failed (`<where> failed: <path>`, such as `droplet failed:
+  /droplets/cart`);
+- `handleError` in `hooks.server.ts` failed, or could not be loaded;
+- on Node, Bun and Deno, `dist/client/droplets.json` is missing (not built).
+
+Warnings are for `vite dev` and `vite build`, and never reach a production
+bundle: an untrusted forwarded location, `"*"` in `origin` or
+`trustedOrigins`, an entry of `DROPLETS_ORIGIN` or `DROPLETS_TRUSTED_ORIGINS`
+that is not one, `DROPLETS_SECRET` missing or too short, `cors` allowing
+every origin, a malformed `x-droplet-props`, an action result over 2 KB. Set
+their level with `DEV_DROPLETS_LOG` (`error`, `warn`, `info`, the default,
+or `debug`); a production server ignores it.
 
 ## What `/` serves
 

@@ -217,8 +217,8 @@ when its origin is:
 - in [`origin`](/guides/configuration/#the-public-location) (or `DROPLETS_ORIGIN`), or
 - in [`trustedOrigins`](/guides/configuration/#options) (or `DROPLETS_TRUSTED_ORIGINS`).
 
-One that is not is skipped for the next, with a warning in the log, once
-per header. Without any list, forwarded headers count only when they name
+One that is not is skipped for the next, with a warning under `vite dev`,
+once per header. Without any list, forwarded headers count only when they name
 the request's own origin. `"*"` in either list trusts any location; see
 [Trusting any location](/guides/security/#trusting-any-location) before
 you use it.
@@ -346,7 +346,7 @@ A native post goes back to the host page, so a reload never posts again:
 | `redirect()` | `303`, `location`: its target |
 | no page that passes: neither `__droplet_return` (once, 2 KB at most) nor `Referer` names one whose origin is this server's (its location's included) or in `trustedOrigins`, outside `<location>/droplets/` | `400`, plain text; the action does not run |
 | a `redirect()` to such an origin, `javascript:` or anything but `http(s)` | `400`, plain text (`400` `{ "message": … }` to a request that accepts JSON: the same check) |
-| no `DROPLETS_SECRET` (or under 32 bytes) | the fragment rendered with `form`, as the table above; a warning in the log, once |
+| no `DROPLETS_SECRET` (or under 32 bytes) | the fragment rendered with `form`, as the table above; a warning under `vite dev`, once |
 
 The page, read from the URL and the headers before the body: the
 `Referer` when it has the origin and path `__droplet_return` names (its
@@ -359,7 +359,8 @@ the browser anywhere. The result is
 `base64url(JSON { status, data?, exp, action })`, a `.`, and
 `base64url(HMAC-SHA256)` over a version tag, the droplet, the build, the
 page's origin and path, and that JSON, keyed with `DROPLETS_SECRET`. It is valid for five minutes and at most
-2 KB; past that, `data` is dropped (status and action stay) with a warning.
+2 KB; past that, `data` is dropped (status and action stay), with a warning
+under `vite dev`.
 
 The page loads again. Any render of that droplet whose `host` carries a
 genuine result for it (the fragment, `GET` or `POST`, and `_data`) renders

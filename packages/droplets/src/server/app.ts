@@ -13,7 +13,6 @@ import {
 } from "../runtime/app.ts";
 import type { HandleServerError, ImportMapHandler, TransformEvent } from "../runtime/server.ts";
 import type { ResolvedDropletsConfig } from "../core/config.ts";
-import { logger } from "../core/logger.ts";
 
 /** What the built SSR bundle exports. */
 export type SsrModule = {
@@ -72,8 +71,6 @@ export type ServerAppOptions = {
   config: ResolvedDropletsConfig;
 };
 
-let warnedCors = false;
-
 /**
  * The production app, with nothing platform-specific in it: the SSR bundle
  * supplies rendering, hooks and API routes, the loaders supply assets.
@@ -84,14 +81,6 @@ export function createServerApp({ ssr, assets, config }: ServerAppOptions): Drop
   if (!renderDroplet) {
     throw new Error("The SSR bundle does not export renderDroplet.");
   }
-  if (config.cors?.origin === "*" && !warnedCors) {
-    warnedCors = true;
-    logger.warn(
-      "framework",
-      "cors allows every origin: Access-Control-Allow-Origin: * on every route (/api/*, _data, /index.js included); list the hosts' origins instead ({ origin: [...] }) for anything not public",
-    );
-  }
-
   const app = createDropletsApp({
     element: config.element,
     health: config.health,

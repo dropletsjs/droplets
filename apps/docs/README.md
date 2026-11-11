@@ -174,7 +174,7 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - `with-demo.mjs` fails unless `packages/droplets/dist/vite.js` exists: run `pnpm build` first. `scripts/with-demo.mjs:46`
 - `with-demo.mjs` builds the demo with `DROPLETS_ADAPTER=node`. `scripts/with-demo.mjs:50`
 - `with-demo.mjs` starts the demo's `dist/server.js` on a free `127.0.0.1` port. `scripts/with-demo.mjs:57`, `scripts/with-demo.mjs:64`
-- `with-demo.mjs` demo env: a random 32-byte `DROPLETS_SECRET`, `DROPLETS_ORIGIN` set to the `DEMO_PUBLIC_URL` origin, `DROPLETS_LOG=warn`. `scripts/with-demo.mjs:71`, `scripts/with-demo.mjs:75`, `scripts/with-demo.mjs:76`
+- `with-demo.mjs` demo env: a random 32-byte `DROPLETS_SECRET`, `DROPLETS_ORIGIN` set to the `DEMO_PUBLIC_URL` origin. `scripts/with-demo.mjs:71`, `scripts/with-demo.mjs:75`
 - `with-demo.mjs` waits up to 20 s for the demo's `/health`; a demo that exits or never answers fails the run. `scripts/with-demo.mjs:89`, `scripts/with-demo.mjs:91`
 - `with-demo.mjs` runs the command with `DEMO_URL` and `DEMO_PUBLIC_URL`, stops the demo, and prints its log on failure. `scripts/with-demo.mjs:103`, `scripts/with-demo.mjs:105`
 - `DEMO_PUBLIC_URL` defaults to `https://demo.dropletsjs.dev`. `src/components/live-droplet.ts:19`, `scripts/with-demo.mjs:43`

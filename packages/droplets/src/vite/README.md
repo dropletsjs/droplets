@@ -162,7 +162,7 @@ restarts the server.
 - `__DROPLETS_BUILD_ROOT__` in a browser bundle becomes the way back to the build's root (`../../` from `droplets/<id>/client.js`); under `vite dev` it becomes `/`. `assets.ts:170`, `assets.ts:152`
 - `new URL("./x", import.meta.url)` of an existing file, in a universal project file of a server bundle, becomes a `?url` import on the location token; server files keep theirs. `assets.ts:154`, `assets.ts:156`, `assets.ts:84`
 - `public/` is copied to `dist/client/assets/public/` and nowhere else. `assets.ts:100`
-- `public/` under `vite dev` is served at `/assets/public/*` with `cache-control: no-cache` and a sha1 `ETag`, 304 when it matches. `assets.ts:124`, `assets.ts:132`, `dev.ts:420`
+- `public/` under `vite dev` is served at `/assets/public/*` with `cache-control: no-cache` and a sha1 `ETag`, 304 when it matches. `assets.ts:124`, `assets.ts:132`, `dev.ts:422`
 - `public/` under `vite dev`: a path outside it, a folder or a missing file answers `404 Not Found`. `assets.ts:114`, `assets.ts:117`
 - `assetUrlsPlugin` is `sharedDuringBuild`: one location token nonce for every environment of a build. `assets.ts:144`
 - `buildHash` is 6 random hex characters, created per `droplets()` instance. `state.ts:96`, `state.ts:103`
@@ -222,20 +222,20 @@ restarts the server.
 - Flags come from `discoverDroplets`, read from the droplet's component only. `../core/discover.ts:171`, `../core/discover.ts:251`
 - Flags an error page declares are ignored (a warning in dev); the error page follows the droplet. `../core/discover.ts:181`
 - Script droplet flags are ignored with a warning, once per file and flag: it is always `ssr` false, `hydrate` true, `prerender` false. `../script/index.ts:51`, `../script/index.ts:64`
-- `classifyChange`: in a droplet folder, `+droplet.ts` is a universal load edit, `+droplet.server.ts` or a server file a load edit, anything else a component edit. `dev.ts:182`, `dev.ts:187`, `dev.ts:190`
-- `classifyChange`: a file outside the droplet folders is traced up the module graphs to the components and loads that import it. `dev.ts:195`
-- Dev SSR module is loaded through the ssr environment's runner (else `ssrLoadModule`), outside any request's info. `dev.ts:249`, `dev.ts:252`
-- Dev droplet rescan that fails (two components, an unknown extension) logs the error and keeps the previous list. `dev.ts:264`
-- Dev droplet rescan writes `.droplets/` again. `dev.ts:268`
-- Dev app: droplets have no stylesheets of their own; `style.css` answers 404 and fragments link none. `dev.ts:340`
-- Dev app: `/index.css` answers 404 without a shared stylesheet (`css.path` false or missing). `dev.ts:327`
+- `classifyChange`: in a droplet folder, `+droplet.ts` is a universal load edit, `+droplet.server.ts` or a server file a load edit, anything else a component edit. `dev.ts:183`, `dev.ts:188`, `dev.ts:191`
+- `classifyChange`: a file outside the droplet folders is traced up the module graphs to the components and loads that import it. `dev.ts:196`
+- Dev SSR module is loaded through the ssr environment's runner (else `ssrLoadModule`), outside any request's info. `dev.ts:250`, `dev.ts:253`
+- Dev droplet rescan that fails (two components, an unknown extension) logs the error and keeps the previous list. `dev.ts:265`
+- Dev droplet rescan writes `.droplets/` again. `dev.ts:269`
+- Dev app: droplets have no stylesheets of their own; `style.css` answers 404 and fragments link none. `dev.ts:341`
+- Dev app: `/index.css` answers 404 without a shared stylesheet (`css.path` false or missing). `dev.ts:328`
 - Build: an empty shared stylesheet is removed from `dist/client/assets/`, and the 0-byte `droplets-css.js` chunk of its entry is never kept. `build.ts:295`, `build.ts:298`
-- Dev app sends no `Link` header. `dev.ts:410`
-- Dev app re-reads `handle`, `+server.ts` routes and `handleError` from the SSR module per request. `dev.ts:366`, `dev.ts:367`, `dev.ts:369`
-- Dev app renders listed `entries` props live; nothing is prerendered. `dev.ts:384`
-- Dev `handleError`: a form action's data that cannot travel as JSON answers with its message. `dev.ts:36`
-- Dev import map: each bare key gets a `/@id/<name>` alias too. `dev.ts:360`, `externalize.ts:28`
-- Dev import map warnings print once each, unless `warnImportMap: false`. `dev.ts:353`, `dev.ts:355`
+- Dev app sends no `Link` header. `dev.ts:412`
+- Dev app re-reads `handle`, `+server.ts` routes and `handleError` from the SSR module per request. `dev.ts:368`, `dev.ts:369`, `dev.ts:371`
+- Dev app renders listed `entries` props live; nothing is prerendered. `dev.ts:386`
+- Dev `handleError`: a form action's data that cannot travel as JSON answers with its message. `dev.ts:37`
+- Dev import map: each bare key gets a `/@id/<name>` alias too. `dev.ts:361`, `externalize.ts:28`
+- Dev import map warnings print once each, unless `warnImportMap: false`. `dev.ts:355`, `dev.ts:357`
 - Import map check warns for an external the map does not map, a mapped name that is not external, and a version in the URL that differs from the installed one. `importmap-check.ts:53`, `importmap-check.ts:59`, `importmap-check.ts:66`
 - Client externals come from top-level `build.rolldownOptions.external` (or `rollupOptions`) and `environments.client.build`. `client-external.ts:18`, `client-external.ts:29`
 - Dev externalize plugin runs under `vite dev` only and keeps external only imports reached from a droplet's client module. `externalize.ts:57`, `externalize.ts:65`
@@ -245,15 +245,15 @@ restarts the server.
 - `css.postcss` as a config file path: the plugin warns and adds nothing. `css.ts:160`
 - `css.tailwind` adds `@tailwindcss/vite` unless a plugin named `@tailwindcss/vite*` is already there; without Tailwind installed it throws. `css.ts:222`, `css.ts:223`, `css.ts:225`
 - `css.twPreflight: false` rewrites `@import "tailwindcss"` to theme and utilities and drops the preflight import; a preflight that still shows up warns. `css.ts:89`, `css.ts:147`
-- Prerender requests go to `http://droplets.build/droplets/<id>` as a POST of `{ props, host? }`, through `handle`, with `building` set. `prerender.ts:32`, `prerender.ts:118`, `prerender.ts:86`
-- Prerender sets the runtime env store from the mode's `.env` values while it runs. `prerender.ts:88`
-- Prerender imports a fresh copy of the SSR bundle (`?prerender=<time>`). `prerender.ts:91`
-- Prerender root: `dist/server/_prerendered` when the adapter ships `dist/server`, else `dist/client/_prerendered/<32 hex>` with that name written into `droplets.json` as `__prerendered`. `prerender.ts:52`, `prerender.ts:53`, `prerender.ts:82`
-- Prerender removes the previous build's renders first. `prerender.ts:72`, `prerender.ts:73`
-- Prerender file: `<id>/<16 hex of sha256(key)>.json`, listed in `<id>/index.json`. `prerender.ts:41`, `prerender.ts:156`
-- Prerender: a render that read `host` without one stops the build. `prerender.ts:123`
-- Prerender: a non-2xx answer warns `not stored, it renders live`. `prerender.ts:133`
-- Prerender: a failed load is stored with `failed: true` and `error`, without headers. `prerender.ts:150`
+- Prerender requests go to `http://droplets.build/droplets/<id>` as a POST of `{ props, host? }`, through `handle`, with `building` set. `prerender.ts:33`, `prerender.ts:120`, `prerender.ts:87`
+- Prerender sets the runtime env store from the mode's `.env` values while it runs. `prerender.ts:89`
+- Prerender imports a fresh copy of the SSR bundle (`?prerender=<time>`). `prerender.ts:92`
+- Prerender root: `dist/server/_prerendered` when the adapter ships `dist/server`, else `dist/client/_prerendered/<32 hex>` with that name written into `droplets.json` as `__prerendered`. `prerender.ts:53`, `prerender.ts:54`, `prerender.ts:83`
+- Prerender removes the previous build's renders first. `prerender.ts:73`, `prerender.ts:74`
+- Prerender file: `<id>/<16 hex of sha256(key)>.json`, listed in `<id>/index.json`. `prerender.ts:42`, `prerender.ts:158`
+- Prerender: a render that read `host` without one stops the build. `prerender.ts:125`
+- Prerender: a non-2xx answer warns `not stored, it renders live`. `prerender.ts:135`
+- Prerender: a failed load is stored with `failed: true` and `error`, without headers. `prerender.ts:152`
 - `.droplets/` holds one `$types.d.ts` per droplet at `.droplets/types/<droplet folder from the root>/`. `sync-types.ts:8`, `sync-types.ts:221`
 - `.droplets/tsconfig.json`: `module: "esnext"`, `moduleResolution: "bundler"`, `rootDirs` of the root and `.droplets/types`; `include` and `files` only for a `x.tsx` next to `x.ts`. `sync-types.ts:127`, `sync-types.ts:131`
 - `.droplets/` files are written only when their content changed; stale `$types.d.ts` are removed. `sync-types.ts:186`, `sync-types.ts:238`

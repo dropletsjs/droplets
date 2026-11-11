@@ -171,7 +171,7 @@ never as a place to send the browser (an open redirect). A page to go back
 to is never one of the droplets server's own, under
 `<location>/droplets/` (a fragment or an action URL). A post with no page
 that passes answers `400` and its action does not run; a `redirect()`
-elsewhere answers `400` too (with a warning in the log), to an enhanced
+elsewhere answers `400` too (with an error in the log), to an enhanced
 form's JSON request as well.
 
 A host page with `Referrer-Policy: no-referrer` cannot post to the droplets
@@ -213,10 +213,10 @@ What to know:
 - **`DROPLETS_SECRET`** (32 or more random bytes, read at runtime, e.g.
   `openssl rand -base64 32`) is required. Without it, or shorter, a native
   post gets the droplet's fragment rendered with `form` as its answer, and
-  the log says so once. Every instance serving the same build needs the
+  `vite dev` says so once. Every instance serving the same build needs the
   same value.
 - **2 KB at most.** A value over 2 KB keeps `status` and `action` and drops
-  `data`, with a warning in the log: `form` is then `undefined`. Return
+  `data`, with a warning under `vite dev`: `form` is then `undefined`. Return
   field names and short messages, not documents.
 - **Readable by anyone who holds the URL.** The secret signs the result; it
   does not hide it. The JSON is base64url, readable without the secret, and

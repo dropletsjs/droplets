@@ -22,7 +22,7 @@ import { dropletElement } from "./element.ts";
 import { prerenderKey, propsKey } from "./props.ts";
 import { requestInfo, withRequestInfo } from "./request-store.ts";
 import { createLoadHeaders, storedHeaders } from "./load-headers.ts";
-import { mediaType, originCheck, originWith, sizeLimits, trustedOriginsWith, warnAnyLocation } from "./security.ts";
+import { mediaType, originCheck, originWith, sizeLimits, trustedOriginsWith } from "./security.ts";
 import { locationScript, publicEnvScript, serverKey } from "./server-records.ts";
 import { allowedMethods, API_METHODS, type ApiMatch, type ApiMethod } from "./routes.ts";
 import {
@@ -44,7 +44,7 @@ import {
   type RequestEvent,
   type TransformEvent,
 } from "./server.ts";
-import { logger } from "../core/logger.ts";
+import type { DevLog } from "./dev-log.ts";
 import { DEFAULTS, type BodyLimits, type DropletsCorsOptions } from "../core/config.ts";
 import type { HydrateMode } from "../renderer.ts";
 
@@ -180,6 +180,8 @@ export type DropletsAppOptions = {
   externals?: () => MaybePromise<string[]>;
   /** Enables cross-origin access to every route; see `DropletsConfig.cors`. */
   cors?: DropletsCorsOptions | undefined;
+  /** The warnings of `vite dev` and the build (`createDevLog`); a production server has none and warns about nothing. */
+  devLog?: DevLog | undefined;
   /**
    * This server's public locations, `"*"` for any a header names;
    * `DROPLETS_ORIGIN` adds to them per request. See `DropletsConfig.origin`.
@@ -347,9 +349,9 @@ function isStaticPath({ path }: IsStaticPathInput): boolean {
   return path === "/index.js" || path.startsWith("/assets/");
 }
 
-type PropsFromRequestInput = { c: AppContext };
+type PropsFromRequestInput = { c: AppContext; devLog: DevLog | undefined };
 
-function propsFromRequest({ c }: PropsFromRequestInput): Record<string, unknown> | undefined {
+function propsFromRequest({ c, devLog }: PropsFromRequestInput): Record<string, unknown> | undefined {
   const fromQuery: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(c.req.query())) {
     if (!isReservedQueryKey({ key })) fromQuery[key] = value;
@@ -363,7 +365,7 @@ function propsFromRequest({ c }: PropsFromRequestInput): Record<string, unknown>
       const props: unknown = decodeBase64Json({ encoded });
       if (isObject(props)) return props;
     } catch {
-      logger.warn("framework", "ignoring malformed x-droplet-props header");
+      devLog?.malformedProps();
     }
   }
   return undefined;
@@ -430,15 +432,7 @@ function applyHeaders({ c, headers }: ApplyHeadersInput): void {
   for (const [name, value] of headers) c.header(name, value);
 }
 
-/** The location headers already warned about, once each per process. */
-const warnedSources = new Set<string>();
-
-/** For the tests: warn again. */
-export function resetLocationWarnings(): void {
-  warnedSources.clear();
-}
-
-type ResolveLocationInput = { c: Context; origin: readonly string[]; trusted: readonly string[] };
+type ResolveLocationInput = { c: Context; origin: readonly string[]; trusted: readonly string[]; devLog: DevLog | undefined };
 
 /**
  * Where this request reaches the server. The first location the headers
@@ -449,19 +443,14 @@ type ResolveLocationInput = { c: Context; origin: readonly string[]; trusted: re
  * URLs) and the origins it takes form posts from. Then the one `origin`
  * entry, when there is exactly one; then the request's own origin.
  */
-function resolveLocation({ c, origin, trusted }: ResolveLocationInput): string {
+function resolveLocation({ c, origin, trusted, devLog }: ResolveLocationInput): string {
   const own = new URL(c.req.url).origin;
   const locations = origin.filter((entry) => entry !== "*");
   const any = origin.includes("*") || trusted.includes("*");
   const allowed = new Set([own, ...locations.map((entry) => new URL(entry).origin), ...trusted]);
   for (const { source, location } of headerLocations({ headers: c.req.raw.headers, requestUrl: new URL(c.req.url) })) {
     if (any || allowed.has(new URL(location).origin)) return location;
-    if (warnedSources.has(source)) continue;
-    warnedSources.add(source);
-    logger.warn(
-      "framework",
-      `ignoring the location ${JSON.stringify(location.slice(0, 200))} from ${source}: its origin must be this server's or listed in origin or trustedOrigins (or DROPLETS_ORIGIN, DROPLETS_TRUSTED_ORIGINS)`,
-    );
+    devLog?.untrustedLocation({ location, source });
   }
   const [only] = locations;
   return only !== undefined && locations.length === 1 ? only : own;
@@ -683,7 +672,7 @@ async function unexpectedMessage({ c, options, error }: UnexpectedMessageInput):
   try {
     handleError = options.getHandleError ? await options.getHandleError() : undefined;
   } catch (hookError) {
-    logger.error("framework", "loading handleError failed", { error: hookError });
+    console.error("loading handleError from hooks.server.ts failed", hookError);
   }
   if (!handleError) return INTERNAL_ERROR;
   const event = (c.get("event") as RequestEvent | undefined) ?? createRequestEvent({ c });
@@ -691,7 +680,7 @@ async function unexpectedMessage({ c, options, error }: UnexpectedMessageInput):
     const result: unknown = await handleError({ error, event, status: 500, message: INTERNAL_ERROR });
     return isObject(result) && typeof result["message"] === "string" ? result["message"] : INTERNAL_ERROR;
   } catch (hookError) {
-    logger.error("framework", "handleError failed", { error: hookError });
+    console.error("handleError in hooks.server.ts failed", hookError);
     return INTERNAL_ERROR;
   }
 }
@@ -714,11 +703,7 @@ async function failure({ c, options, error, as, where }: FailureInput): Promise<
   }
   // A droplet that could not show its error: what went wrong is the cause.
   const cause = isUnhandled(error) ? error.cause : error;
-  logger.error("framework", `${where} failed`, {
-    path: c.req.path,
-    error: cause,
-    ...(isUnhandled(error) ? { reason: error.message } : {}),
-  });
+  console.error(`${where} failed: ${c.req.path}${isUnhandled(error) ? ` (${error.message})` : ""}`, cause);
   const message = await unexpectedMessage({ c, options, error: cause });
   if (as === "text") return c.text(message, 500);
   return c.json({ message }, 500);
@@ -781,7 +766,7 @@ function createDropletMiddleware(options: DropletsAppOptions): MiddlewareHandler
     const fromQuery = c.req.method !== "POST" || isActionRequest({ request: c.req.raw });
     const wire: WireContext = {
       host: String(host),
-      props: (fromQuery ? propsFromRequest({ c }) : fromBody.props) ?? {},
+      props: (fromQuery ? propsFromRequest({ c, devLog: options.devLog }) : fromBody.props) ?? {},
     };
     // Read only in a droplet; at build they throw anyway, and stop it.
     const dropletCookies = options.building ? cookies : readonlyCookies({ cookies });
@@ -820,15 +805,16 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
   const configuredOrigins = options.trustedOrigins ?? [];
   /** `trustedOrigins` and `DROPLETS_TRUSTED_ORIGINS`, now: the env may change per request (Workers). */
   function trustedOrigins(): readonly string[] {
-    return trustedOriginsWith({ configured: configuredOrigins, raw: readRuntimeEnv("DROPLETS_TRUSTED_ORIGINS") });
+    return trustedOriginsWith({ configured: configuredOrigins, raw: readRuntimeEnv("DROPLETS_TRUSTED_ORIGINS"), devLog: options.devLog });
   }
   const configuredLocations = options.origin ?? [];
   /** `origin` and `DROPLETS_ORIGIN`, now, as `trustedOrigins`. */
   function locations(): readonly string[] {
-    return originWith({ configured: configuredLocations, raw: readRuntimeEnv("DROPLETS_ORIGIN") });
+    return originWith({ configured: configuredLocations, raw: readRuntimeEnv("DROPLETS_ORIGIN"), devLog: options.devLog });
   }
-  if (configuredLocations.includes("*")) warnAnyLocation({ option: "origin" });
-  if (configuredOrigins.includes("*")) warnAnyLocation({ option: "trustedOrigins" });
+  if (configuredLocations.includes("*")) options.devLog?.anyLocation({ option: "origin" });
+  if (configuredOrigins.includes("*")) options.devLog?.anyLocation({ option: "trustedOrigins" });
+  if (options.cors?.origin === "*") options.devLog?.corsAny();
   // One per build: what host-agnostic renders hold for `host`, never sent.
   const buildNonce = options.building ? (options.tokenNonce ?? tokenNonce()) : "";
   const buildTokens = options.building ? hostTokens({ nonce: buildNonce }) : undefined;
@@ -881,7 +867,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     // Bound to the page it was sent back to: `event.host` must be that page.
     const page = ctx.event.host instanceof URL ? pageOf({ url: ctx.event.host }) : undefined;
     if (page === undefined) return null;
-    const secret = formSecret({ raw: readRuntimeEnv("DROPLETS_SECRET") });
+    const secret = formSecret({ raw: readRuntimeEnv("DROPLETS_SECRET"), devLog: options.devLog });
     if (!secret) return null;
     const result = await readFormResult({ secret, scope: { droplet: ctx.droplet, build, page }, value });
     if (!result) return null;
@@ -904,7 +890,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
   // Where this server is reached: before anything that writes a URL or
   // checks an origin.
   app.use("*", (c, next) => {
-    c.set("location", resolveLocation({ c, origin: locations(), trusted: trustedOrigins() }));
+    c.set("location", resolveLocation({ c, origin: locations(), trusted: trustedOrigins(), devLog: options.devLog }));
     c.set("referer", c.req.header("referer"));
     return next();
   });
@@ -1524,7 +1510,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     // any script) gets the result; anything else is a native navigation.
     const wantsJson = (c.req.header("accept") ?? "").includes("application/json");
     const allowed = redirectOrigins({ c, trusted: trustedOrigins() });
-    const secret = wantsJson ? null : formSecret({ raw: readRuntimeEnv("DROPLETS_SECRET") });
+    const secret = wantsJson ? null : formSecret({ raw: readRuntimeEnv("DROPLETS_SECRET"), devLog: options.devLog });
     // Where the answer goes back to, known before the action runs (from
     // the URL and the headers, never the body): a post that cannot be
     // answered changes nothing.
@@ -1562,7 +1548,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
       outcome = actionOutcome({ droplet: ctx.droplet, name, result, host: ctx.event.host });
     } catch (error) {
       if (error instanceof ActionDataError) {
-        logger.error("framework", "form action failed", { path: c.req.path, error });
+        console.error(`form action failed: ${c.req.path}`, error);
         const message = await unexpectedMessage({ c, options, error });
         return wantsJson ? c.json({ message }, 500) : c.text(message, 500);
       }
@@ -1574,8 +1560,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
       // Followed at once, by the browser or by enhanceDropletForm: only to this server or a trusted origin.
       const target = redirectTarget({ value: outcome.location, allowed });
       if (!target) {
-        logger.warn(
-          "framework",
+        console.error(
           `${ctx.droplet}: action ${name} redirects to ${JSON.stringify(outcome.location.slice(0, 200))}, which is not on this server or a trusted origin; answered 400`,
         );
         const message = "Bad Request: the action redirects off this site";
@@ -1604,12 +1589,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
         ...(outcome.data === undefined ? {} : { data: liveData({ ctx, data: outcome.data }) }),
       },
     });
-    if (minted.dropped) {
-      logger.warn(
-        "framework",
-        `${ctx.droplet}: the result of action ${name} is over 2 KB as a URL value; it goes back to the page without its data (status and action only). Return less: field names and messages.`,
-      );
-    }
+    if (minted.dropped) options.devLog?.resultTooLarge({ droplet: ctx.droplet, action: name });
     applyHeaders({ c, headers: ctx.headers });
     return c.body(null, 303, { location: withFormResult({ page: back, key: formResultKey(ctx.droplet, build), value: minted.value }) });
   }

@@ -15,7 +15,7 @@
  *
  * Server only: the secret and the code that signs never reach a browser.
  */
-import { logger } from "../core/logger.ts";
+import type { DevLog } from "./dev-log.ts";
 import { ACTION_NAME } from "./form.ts";
 
 /** How long a minted result is honoured. */
@@ -71,34 +71,19 @@ function fromBase64Url({ text }: FromBase64UrlInput): Uint8Array<ArrayBuffer> | 
   }
 }
 
-let warnedMissing = false;
-let warnedShort = false;
-
-export type FormSecretInput = { raw: string | undefined };
+export type FormSecretInput = { raw: string | undefined; devLog?: DevLog | undefined };
 
 /**
  * `DROPLETS_SECRET` when it is usable: at least 32 bytes. Without it (or
- * shorter), `null`, and a warning naming the variable, once per process.
+ * shorter), `null`, and under `vite dev` a warning naming the variable.
  */
-export function formSecret({ raw }: FormSecretInput): string | null {
+export function formSecret({ raw, devLog }: FormSecretInput): string | null {
   if (raw === undefined || raw === "") {
-    if (!warnedMissing) {
-      warnedMissing = true;
-      logger.warn(
-        "framework",
-        "DROPLETS_SECRET is not set: a form posted without JavaScript gets the droplet's fragment instead of a redirect back to the page (Post/Redirect/Get). Set it to 32 or more random bytes, e.g. the output of `openssl rand -base64 32`.",
-      );
-    }
+    devLog?.secret({ problem: "missing", minBytes: FORM_SECRET_MIN_BYTES });
     return null;
   }
   if (encoder.encode(raw).length < FORM_SECRET_MIN_BYTES) {
-    if (!warnedShort) {
-      warnedShort = true;
-      logger.warn(
-        "framework",
-        `DROPLETS_SECRET is shorter than ${FORM_SECRET_MIN_BYTES} bytes and is ignored: forms posted without JavaScript get the droplet's fragment instead of a redirect back to the page. It should be ${FORM_SECRET_MIN_BYTES} or more random bytes, e.g. the output of \`openssl rand -base64 32\`.`,
-      );
-    }
+    devLog?.secret({ problem: "short", minBytes: FORM_SECRET_MIN_BYTES });
     return null;
   }
   return raw;
@@ -245,10 +230,4 @@ export async function readFormResult({ secret, scope, value, now = Date.now() }:
     result.data = data;
   }
   return result;
-}
-
-/** For tests: the warnings once more. */
-export function resetFormSecretWarnings(): void {
-  warnedMissing = false;
-  warnedShort = false;
 }

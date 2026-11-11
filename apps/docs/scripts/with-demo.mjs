@@ -73,7 +73,6 @@ const server = spawn(process.execPath, ["dist/server.js"], {
     // so the URLs they write are where browsers reach the demo: that origin is
     // the demo's own.
     DROPLETS_ORIGIN: publicUrl.origin,
-    DROPLETS_LOG: "warn",
   },
   stdio: ["ignore", "pipe", "pipe"],
 });

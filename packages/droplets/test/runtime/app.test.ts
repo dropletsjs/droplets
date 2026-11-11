@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { logger } from "../../src/core/logger.ts";
-import { createDropletsApp, resetLocationWarnings, type DropletsApp, type DropletsAppOptions } from "../../src/runtime/app.ts";
+import { createDropletsApp, type DropletsApp, type DropletsAppOptions } from "../../src/runtime/app.ts";
+import { createDevLog } from "../../src/runtime/dev-log.ts";
 import { UnhandledDropletError } from "../../src/runtime/load.ts";
 import type { ApiModule, ApiRoute } from "../../src/runtime/routes.ts";
 import { matchRoute } from "../../src/runtime/routes.ts";
@@ -27,6 +28,7 @@ function fakeApp(overrides: Partial<DropletsAppOptions> = {}) {
     data: { name, props: event.props } as unknown,
   }));
   const options: DropletsAppOptions = {
+    devLog: createDevLog(),
     renderDroplet,
     loadDropletData,
     getDropletMeta: (name) =>
@@ -1872,7 +1874,6 @@ describe("createDropletsApp: handleError", () => {
 describe("createDropletsApp: the droplet location", () => {
   let warn: MockInstance<typeof logger.warn>;
   beforeEach(() => {
-    resetLocationWarnings();
     warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
   });
   afterEach(() => {
@@ -2082,5 +2083,47 @@ describe("createDropletsApp: the droplet location", () => {
       await locationOf({ headers: {}, options: {}, app });
       expect(warnings().filter((text) => anyLocation(text) && text.startsWith("DROPLETS_ORIGIN"))).toHaveLength(1);
     });
+  });
+});
+
+describe("createDropletsApp: what a production server logs", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it("warns about nothing without a dev log: '*', cors '*', untrusted locations, bad env entries, malformed props", async () => {
+    const quiet = vi.fn();
+    for (const level of ["warn", "info", "debug", "log"] as const) vi.spyOn(console, level).mockImplementation(quiet);
+    const logged = vi.spyOn(logger, "warn");
+    vi.stubEnv("DROPLETS_ORIGIN", "https://shop.test,nope,*");
+    vi.stubEnv("DROPLETS_TRUSTED_ORIGINS", "nope,*");
+    const { app } = fakeApp({ devLog: undefined, origin: ["*"], trustedOrigins: ["*"], cors: { origin: "*" } });
+    const headers = { "x-forwarded-host": "evil.example", "x-forwarded-proto": "https", "x-droplet-props": "%%%" };
+    expect((await app.request("http://internal:8000/droplets/hello", { headers })).status).toBe(200);
+    const strict = fakeApp({ devLog: undefined }).app;
+    expect((await strict.request("http://internal:8000/droplets/hello", { headers })).status).toBe(200);
+    expect(quiet).not.toHaveBeenCalled();
+    expect(logged).not.toHaveBeenCalled();
+  });
+
+  it("logs an error with console.error alone: a plain message, then the error as it is", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const cause = new Error("database down");
+    const { app } = fakeApp({
+      devLog: undefined,
+      renderDroplet: async () => {
+        throw cause;
+      },
+      getHandleError: () => () => {
+        throw new Error("hook broke");
+      },
+    });
+    expect((await app.request("/droplets/hello")).status).toBe(500);
+    expect(error.mock.calls).toEqual([
+      ["droplet failed: /droplets/hello", cause],
+      ["handleError in hooks.server.ts failed", new Error("hook broke")],
+    ]);
+    for (const [message] of error.mock.calls) expect(String(message)).not.toMatch(/^\[droplets/);
   });
 });
