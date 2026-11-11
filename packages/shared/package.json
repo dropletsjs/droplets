@@ -8,6 +8,7 @@
   "exports": {
     "./env": "./env.ts",
     "./tsconfig": "./tsconfig.base.json",
+    "./tsconfig.base.json": "./tsconfig.base.json",
     "./tsdown": "./tsdown.ts",
     "./vitest": "./vitest.ts"
   },

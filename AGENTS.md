@@ -10,7 +10,7 @@ Droplets: server-rendered components any stack can embed, as a Vite 8 plugin on 
 - `packages/adapters/{node,cloudflare,bun,deno}`: `@dropletsjs/adapter-*`. `vite build` requires one.
 - `packages/renderers/{svelte,vue,react,preact,solid,hono-jsx,handlebars,lit}`: `@dropletsjs/renderer-*`.
 - `packages/create-droplets`: `create-droplets` (unscoped), `npm create droplets`.
-- `packages/shared`: `@dropletsjs/shared`, private, never published. `./tsdown` (`base`, `cssInline()`, `graphCheck()`), `./tsconfig`, `./vitest` (`rendererTests`, `adapterTests`, `happyDom`), `./env` (`loadEnvLocal()`).
+- `packages/shared`: `@dropletsjs/shared`, private, never published. `./tsdown` (`base`, `cssInline()`, `graphCheck()`), `./tsconfig.base.json` (extend it by that file path, which resolves with or without `exports`), `./vitest` (`rendererTests`, `adapterTests`, `happyDom`), `./env` (`loadEnvLocal()`).
 - `apps/docs`: the guide, Astro Starlight. `apps/demo`: the live droplets the guide embeds; it trusts only the docs' origins.
 - `examples/frameworks/*`: one project per renderer, the same three droplets each. A change to one usually belongs in all.
 - `examples/shop`, `examples/wp-shop`: the shop demo, on SQLite and on WordPress.

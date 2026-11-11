@@ -1,5 +1,5 @@
 {
-  "extends": "@dropletsjs/shared/tsconfig",
+  "extends": "@dropletsjs/shared/tsconfig.base.json",
   "compilerOptions": {
     "types": ["node", "vite/client", "@dropletsjs/droplets/ambient"]
   },

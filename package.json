@@ -40,7 +40,8 @@
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",
-    "tsdown": "catalog:"
+    "tsdown": "catalog:",
+    "typescript": "catalog:"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

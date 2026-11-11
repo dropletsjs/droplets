@@ -70,6 +70,10 @@ pnpm dev:shop       # the shop instead
 pnpm docs:dev       # the guide on http://localhost:4321, with apps/demo beside it
 ```
 
+VS Code: `.vscode/settings.json` points the editor at the repository's
+TypeScript (`node_modules/typescript`, the catalog's version), the one
+`pnpm typecheck` runs; accept the prompt to use the workspace version.
+
 While working on the framework itself, run `pnpm dev:lib` in a second
 terminal so `dist/` is rebuilt on save; the example's Vite server picks up
 the change on the next request (restart it if you change the plugin's
