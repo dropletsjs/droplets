@@ -14,7 +14,7 @@
  *
  * - Scans `<dropletsFolder>/<name>/` for `+droplet.<ext>` and `+error.<ext>`
  *   and picks the renderer whose `extensions` contain `<ext>`. One folder is
- *   one droplet; its id is the folder name in kebab-case. The error page is
+ *   one droplet; its id is the folder name, lowercase kebab-case. The error page is
  *   in the droplet's framework; one in another framework is ignored.
  * - Reads the build-time flags of each component (`ssr`, `hydrate`,
  *   `prerender`) through {@link DropletRenderer.readFlags}, or from the

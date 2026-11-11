@@ -44,10 +44,10 @@ const entry = ({ id, name = id }: EntryInput): DropletEntry => ({
 
 describe("createClientInputs", () => {
   it("has one named input per droplet plus the entry client and global css", () => {
-    const inputs = createClientInputs({ entries: [entry({ id: "hello", name: "Hello" }), entry({ id: "clock" })] });
+    const inputs = createClientInputs({ entries: [entry({ id: "hello", name: "hello" }), entry({ id: "clock" })] });
     expect(Object.keys(inputs)).toEqual([ENTRY_CLIENT_NAME, GLOBAL_CSS_NAME, "droplets/hello", "droplets/clock"]);
     expect(inputs[GLOBAL_CSS_NAME]).toBe(VIRTUAL_CSS);
-    expect(inputs["droplets/hello"]).toBe(clientEntryId({ folderName: "Hello" }));
+    expect(inputs["droplets/hello"]).toBe(clientEntryId({ folderName: "hello" }));
     expect(inputs[ENTRY_CLIENT_NAME]).toMatch(/entry-client\.js$/);
   });
 });
@@ -123,7 +123,7 @@ describe("createBuildEnvironments", () => {
 
 describe("translateManifest", () => {
   const viteManifest = {
-    "virtual:droplet-client?name=Hello": {
+    "virtual:droplet-client?name=hello": {
       name: "droplets/hello",
       file: "droplets/hello.js",
       css: ["assets/hello-abc.css"],
@@ -144,7 +144,7 @@ describe("translateManifest", () => {
       viteManifest,
       buildHash: "h4sh",
       entries: [
-        { id: "hello", name: "Hello" },
+        { id: "hello", name: "hello" },
         { id: "plain", name: "plain" },
       ],
     });
@@ -167,7 +167,7 @@ describe("translateManifest", () => {
     const manifest = translateManifest({
       viteManifest,
       buildHash: "h4sh",
-      entries: [{ id: "hello", name: "Hello" }],
+      entries: [{ id: "hello", name: "hello" }],
       sharedCss: false,
     });
     expect(manifest.__globalCss).toBe("assets/droplets-css-def.css");
@@ -199,9 +199,9 @@ describe("translateManifest", () => {
 
   it("falls back to path-shaped keys when names are missing", () => {
     const manifest = translateManifest({
-      viteManifest: { "virtual:droplet-client?name=Hello": { css: ["assets/h.css"] } },
+      viteManifest: { "virtual:droplet-client?name=hello": { css: ["assets/h.css"] } },
       buildHash: "x",
-      entries: [{ id: "hello", name: "Hello" }],
+      entries: [{ id: "hello", name: "hello" }],
     });
     expect(manifest.droplets["hello"]?.css).toEqual(["assets/h.css"]);
   });

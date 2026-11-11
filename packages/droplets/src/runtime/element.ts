@@ -5,7 +5,7 @@ export type DropletElementProps = {
   /** Tag name of the host element, from `config.element`. */
   element: string;
   /**
-   * Droplet id, kebab-cased from its folder name. Where its JavaScript, CSS
+   * Droplet id: its folder name. Where its JavaScript, CSS
    * and data load from is not in the markup: the browser takes it from the
    * URL the page loaded `/index.js` from.
    */

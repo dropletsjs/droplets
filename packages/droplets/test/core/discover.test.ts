@@ -25,14 +25,16 @@ const react = renderer("react", [".tsx", ".jsx"], { packages: ["react", "react-d
 const solid = renderer("solid", [".tsx", ".jsx"], { packages: ["solid-js"] });
 
 describe("dropletId", () => {
-  it.each([
-    ["hello", "hello"],
-    ["HelloWorld", "hello-world"],
-    ["hello_world", "hello-world"],
-    ["user profile", "user-profile"],
-  ])("%s -> %s", (folder, id) => {
-    expect(dropletId({ folderName: folder })).toBe(id);
+  it.each(["hello", "hello-world", "card2", "2fa", "a-b-c"])("%s is its own id", (folder) => {
+    expect(dropletId({ folderName: folder })).toBe(folder);
   });
+
+  it.each(["HelloWorld", "Hello", "hello_world", "user profile", "hello--world", "-hello", "hello-", "héllo"])(
+    "%s is not a droplet",
+    (folder) => {
+      expect(dropletId({ folderName: folder })).toBeNull();
+    },
+  );
 });
 
 describe("readExportedFlag", () => {
@@ -225,7 +227,7 @@ describe("discoverDroplets", () => {
   it("finds components, their renderer, flags and load files, sorted by id", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    await droplet("Zeta", {
+    await droplet("zeta", {
       "+droplet.svelte": "<script module>export const hydrate = false;</script>",
       "+droplet.server.ts": "export const load = () => ({});",
       "+error.vue": "<p>failed</p>",
@@ -239,10 +241,9 @@ describe("discoverDroplets", () => {
     await droplet("loads-only", { "+droplet.ts": "export {};", "+droplet.server.ts": "export {};" });
     // Nothing is reserved: every route lives under /droplets/, so this is just another droplet.
     await droplet("drops", { "+droplet.svelte": "<p>not reserved</p>" });
-    // Same id as alpha-beta; readdir order decides which folder wins, so give
-    // it the same files to keep the assertions below order-independent.
+    // Not lowercase kebab-case: ignored, never taken as alpha-beta.
     await droplet("AlphaBeta", {
-      "+Droplet.vue": "<p>duplicate id</p>",
+      "+Droplet.vue": "<p>ignored</p>",
       "+droplet.ts": "export const load = (e) => e.data;",
     });
 
@@ -252,7 +253,7 @@ describe("discoverDroplets", () => {
 
     const zeta = entries.find((e) => e.id === "zeta");
     expect(zeta).toMatchObject({
-      name: "Zeta",
+      name: "zeta",
       file: "+droplet.svelte",
       renderer: "svelte",
       hasLoad: false,
@@ -276,12 +277,37 @@ describe("discoverDroplets", () => {
       hydrate: true,
     });
     expect(alpha?.errorFile).toBeUndefined();
-    // Folder order is filesystem-dependent; one of the two spellings wins.
-    expect(["alpha-beta", "AlphaBeta"]).toContain(alpha?.name);
+    expect(alpha?.name).toBe("alpha-beta");
 
     const messages = warn.mock.calls.map((call) => String(call[0]));
-    expect(messages.some((m) => m.includes("duplicate droplet id"))).toBe(true);
+    expect(messages).toContain(
+      "[droplets:framework] These droplet folders do not match the naming convention (lowercase kebab-case) and are ignored: AlphaBeta",
+    );
     vi.restoreAllMocks();
+  });
+
+  it("ignores every droplet folder that is not lowercase kebab-case, warning once with the list", async () => {
+    const other = await mkdtemp(join(tmpdir(), "droplets-discover-"));
+    const make = async (name: string, file: string) => {
+      await mkdir(join(other, name));
+      await writeFile(join(other, name, file), "<p></p>");
+    };
+    await make("product-card", "+droplet.svelte");
+    await make("ProductCard", "+droplet.svelte");
+    await make("hello_world", "+droplet.svelte");
+    // Not a droplet at all: no component, so not named in the warning.
+    await make("Shared", "index.ts");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    for (const dev of [undefined, true]) {
+      const entries = await discoverDroplets({ dropletsRoot: other, renderers: [svelte], dev });
+      expect(entries.map((e) => [e.id, e.name])).toEqual([["product-card", "product-card"]]);
+    }
+    expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
+      "[droplets:framework] These droplet folders do not match the naming convention (lowercase kebab-case) and are ignored: ProductCard, hello_world",
+    ]);
+    warn.mockRestore();
+    await rm(other, { recursive: true, force: true });
   });
 
   it("ignores flags declared by the error page, with a warning in dev only", async () => {

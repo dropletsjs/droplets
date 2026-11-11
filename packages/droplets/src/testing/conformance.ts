@@ -91,7 +91,7 @@
  *                                 leave: redirect(303, "/bye")
  *                                 echo: ({ request }) => ({ message: new URL(request.url).search })
  *                               } satisfies Actions
- * src/droplets/static-note/     (the folder may be `StaticNote`: the id is kebab-cased)
+ * src/droplets/static-note/
  *   +droplet.<ext>              hydrate = false. Renders <p class="note">Rendered on the server only.</p>
  *                               with a style giving `.note` `font-style: italic` (only with `css`,
  *                               the default: the renderer's CSS must reach the client build)

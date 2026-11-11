@@ -219,8 +219,8 @@ restarts the server.
 - Load CSS check: a stylesheet reached from `+droplet.ts` or `+droplet.server.ts` fails the build and the dev import. `renderer-graphs.ts:250`, `renderer-graphs.ts:321`
 - `isStylesheet` takes `.css .less .sass .scss .styl .stylus .pcss .postcss .sss`; a `?url`, `?raw` or `?inline` import is a string, not a stylesheet. `renderer-graphs.ts:39`, `renderer-graphs.ts:40`
 - Renderer marks: with two renderers sharing an extension, modules a droplet reaches get `?droplets-renderer=<name>`, spread to script modules outside `node_modules` and outside the renderers' packages. `renderer-graphs.ts:361`, `renderer-graphs.ts:364`
-- Flags come from `discoverDroplets`, read from the droplet's component only. `../core/discover.ts:169`, `../core/discover.ts:247`
-- Flags an error page declares are ignored (a warning in dev); the error page follows the droplet. `../core/discover.ts:179`
+- Flags come from `discoverDroplets`, read from the droplet's component only. `../core/discover.ts:171`, `../core/discover.ts:251`
+- Flags an error page declares are ignored (a warning in dev); the error page follows the droplet. `../core/discover.ts:181`
 - Script droplet flags: `ssr`, `hydrate = false` and `hydrate = "interactive"` each throw. `../script/index.ts:51`, `../script/index.ts:54`, `../script/index.ts:60`
 - `classifyChange`: in a droplet folder, `+droplet.ts` is a universal load edit, `+droplet.server.ts` or a server file a load edit, anything else a component edit. `dev.ts:182`, `dev.ts:187`, `dev.ts:190`
 - `classifyChange`: a file outside the droplet folders is traced up the module graphs to the components and loads that import it. `dev.ts:195`

@@ -107,7 +107,7 @@ export function agentsMd({ pm, adapters: chosen, frameworks, tailwind }: AgentsM
     "src/lib/               your code: neutral, or in a folder per framework",
     "```",
     "",
-    "The folder name is the droplet's id, kebab-cased (`HelloWorld` → `hello-world`).",
+    "The folder name is the droplet's id, in lowercase kebab-case (`hello-world`); a folder named otherwise (`HelloWorld`) is ignored, with a warning.",
     "",
     "## Flags",
     "",

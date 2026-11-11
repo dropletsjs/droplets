@@ -7,7 +7,7 @@
  * from a `who` prop; without one it shows its name. Every component reads
  * its types from the generated `./$types`, so `djs sync` runs after.
  */
-import { kebabCase, pascalCase } from "case-anything";
+import { pascalCase } from "case-anything";
 import type { Framework } from "./catalog.ts";
 import type { Flags } from "./flags.ts";
 
@@ -57,7 +57,7 @@ const CSS_FILE = "style.css";
 export function dropletFiles(spec: DropletSpec): Record<string, string> {
   const context: Context = {
     ...spec,
-    className: kebabCase(spec.name),
+    className: spec.name,
     component: pascalCase(spec.name),
     hasData: spec.files.has("server") || spec.files.has("universal"),
     hasMessage: spec.files.has("server") && spec.files.has("error"),

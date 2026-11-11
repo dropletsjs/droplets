@@ -9,7 +9,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { styleText } from "node:util";
 import * as prompts from "@clack/prompts";
-import { kebabCase } from "case-anything";
+import { dropletId } from "../core/discover.ts";
 import { ADD_KINDS, FRAMEWORKS, frameworkNamed, kindNamed, packageName, SCRIPT, type Framework } from "./catalog.ts";
 import {
   FULL_HYDRATE,
@@ -82,9 +82,8 @@ type ReportInput = { result: AddResult; dropletName: string; interactive: boolea
 
 /** Why `name` cannot be a new droplet, or `undefined` when it can. */
 export function nameProblem({ name, project }: NameProblemInput): string | undefined {
-  if (!/^[A-Za-z][A-Za-z0-9-]*$/.test(name)) return "letters, digits and dashes, starting with a letter: hello-world";
-  const id = kebabCase(name);
-  if (project.api.droplets().some((droplet) => droplet.id === id)) return `a droplet with the id "${id}" exists already`;
+  if (!/^[a-z]/.test(name) || dropletId({ folderName: name }) === null) return "lowercase kebab-case, starting with a letter: hello-world";
+  if (project.api.droplets().some((droplet) => droplet.id === name)) return `a droplet with the id "${name}" exists already`;
   if (existsSync(join(project.api.dropletsRoot(), name))) return `${name}/ exists already`;
   return undefined;
 }
@@ -338,8 +337,7 @@ function report({ result, dropletName, interactive }: ReportInput): void {
   if (result.manual) {
     prompts.log.warn(`vite.config could not be updated; add the renderer by hand, then run djs sync:\n${result.manual}`);
   }
-  const id = kebabCase(dropletName);
-  const next = `${result.folder}/ is ready: vite dev, then /?droplet=${id} or /droplets/${id}`;
+  const next = `${result.folder}/ is ready: vite dev, then /?droplet=${dropletName} or /droplets/${dropletName}`;
   if (interactive) prompts.outro(next);
   else prompts.log.info(next);
 }

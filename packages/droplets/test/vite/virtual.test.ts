@@ -74,7 +74,7 @@ describe("buildServerCode", () => {
   it("imports every file a droplet has, its renderer, and wraps loads in thunks", () => {
     const code = buildServerCode({
       entries: [
-        entry({ id: "hello", name: "Hello", hasLoad: true, hasServerLoad: true }),
+        entry({ id: "hello", name: "hello", hasLoad: true, hasServerLoad: true }),
         entry({ id: "upper", name: "upper", file: "+Droplet.vue", renderer: "vue", hydrate: false }),
       ],
       globRoot: "/src/droplets",
@@ -82,9 +82,9 @@ describe("buildServerCode", () => {
     });
     expect(code).toContain('import * as renderer_0 from "/r/svelte/server.js";');
     expect(code).toContain('import * as renderer_1 from "/r/vue/server.js";');
-    expect(code).toContain('import * as component_0 from "/src/droplets/Hello/+droplet.svelte";');
-    expect(code).toContain('import * as load_0 from "/src/droplets/Hello/+droplet.ts";');
-    expect(code).toContain('import * as serverLoad_0 from "/src/droplets/Hello/+droplet.server.ts";');
+    expect(code).toContain('import * as component_0 from "/src/droplets/hello/+droplet.svelte";');
+    expect(code).toContain('import * as load_0 from "/src/droplets/hello/+droplet.ts";');
+    expect(code).toContain('import * as serverLoad_0 from "/src/droplets/hello/+droplet.server.ts";');
     expect(code).toContain("component: component_0,");
     expect(code).toContain("renderer: renderer_0,");
     expect(code).toContain("load: () => Promise.resolve(load_0),");
@@ -253,14 +253,14 @@ describe("createClientModuleCode", () => {
   it("imports the component, its renderer's client module and the client load", () => {
     const code = createClientModuleCode({
       globRoot: "/src/droplets",
-      entry: entry({ id: "hello", name: "Hello", hasError: true, errorFile: "+error.svelte" }),
+      entry: entry({ id: "hello", name: "hello", hasError: true, errorFile: "+error.svelte" }),
       renderers,
     });
     expect(code).toContain('import * as renderer from "/r/svelte/client.js";');
     expect(code).not.toContain("errorRenderer");
-    expect(code).toContain('import * as component from "/src/droplets/Hello/+droplet.svelte";');
-    expect(code).toContain('import * as errorComponent from "/src/droplets/Hello/+error.svelte";');
-    expect(code).toContain('import.meta.glob("/src/droplets/Hello/+droplet.ts")');
+    expect(code).toContain('import * as component from "/src/droplets/hello/+droplet.svelte";');
+    expect(code).toContain('import * as errorComponent from "/src/droplets/hello/+error.svelte";');
+    expect(code).toContain('import.meta.glob("/src/droplets/hello/+droplet.ts")');
     expect(code).toContain("renderer.hydrate(module, target, props, context)");
     expect(code).toContain("renderer.mount(module, target, props, context)");
     // A droplet mounted with data still to come gets its error page for the boundary.
@@ -274,7 +274,7 @@ describe("createClientModuleCode", () => {
   });
 
   it("leaves the error page out when the droplet has none", () => {
-    const code = createClientModuleCode({ globRoot: "/src/droplets", entry: entry({ name: "Hello" }), renderers });
+    const code = createClientModuleCode({ globRoot: "/src/droplets", entry: entry({ name: "hello" }), renderers });
     expect(code).not.toContain("+error.");
     expect(code).toContain("const errorComponent = undefined;");
   });
@@ -304,7 +304,7 @@ describe("createClientModuleCode", () => {
 
   it("exports update only with dev and a renderer's clientDev module", () => {
     const withDev = [{ ...svelte, clientDev: "/r/svelte/client-dev.js" }, vue];
-    const hello = entry({ name: "Hello" });
+    const hello = entry({ name: "hello" });
     const dev = createClientModuleCode({ globRoot: "/src/droplets", entry: hello, renderers: withDev, isDev: true });
     expect(dev).toContain('import { update as updateInstance } from "/r/svelte/client-dev.js";');
     expect(dev).toContain("export async function update(handle, data, info)");
@@ -319,7 +319,7 @@ describe("createClientModuleCode", () => {
   });
 
   it("accepts its component's HMR update with dev only, for the remount in place", () => {
-    const hello = entry({ name: "Hello" });
+    const hello = entry({ name: "hello" });
     expect(createClientModuleCode({ globRoot: "/src/droplets", entry: hello, renderers, isDev: true })).toContain(
       'new CustomEvent("droplets:hot-fallback"',
     );

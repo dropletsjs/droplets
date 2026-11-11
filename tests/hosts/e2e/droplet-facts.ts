@@ -76,12 +76,7 @@ export function renderersFromSync(source: string): Map<string, string> {
     }
     const match = /^\/\/ \S*\/([^/\s]+)\/ \(([^)]+)\)$/m.exec(header);
     if (!match) continue;
-    // The id is the folder, kebab-cased (`HelloWorld` → `hello-world`).
-    const id = match[1]!
-      .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-      .replace(/[\s_]+/g, "-")
-      .toLowerCase();
-    found.set(id, match[2]!);
+    found.set(match[1]!, match[2]!);
   }
   return found;
 }

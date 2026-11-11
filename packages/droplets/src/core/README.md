@@ -64,8 +64,10 @@ request through `normalizeOrigin` and `normalizeTrustedOrigins`.
 ### Discovery and flags
 
 A droplet is an immediate subfolder of `dropletsFolder` holding one
-`+droplet.<suffix>` (or `+Droplet.<suffix>`). Its id is the folder name in
-kebab case. The renderer is the one that claims the suffix; when several
+`+droplet.<suffix>` (or `+Droplet.<suffix>`), in a folder named in lowercase
+kebab-case (`product-card`). Its id is the folder name. A folder with another
+name (`ProductCard`, `hello_world`) is ignored, with one warning listing them.
+The renderer is the one that claims the suffix; when several
 renderers share it (`.tsx`), the component's imports decide. The flags are
 read from the component file only, by the renderer's `readFlags` or by the
 default parser: top-level `export const ssr | hydrate | prerender = <literal>`.
@@ -136,26 +138,27 @@ builds and runs them.
 - Config file's imports are returned as `dependencies`, for the dev server to restart on change. `load-config.ts:54`
 - `loadDropletsConfig` writes `.droplets/tsconfig.json` (through `vite/sync-types.ts`) before it loads the file. `load-config.ts:45`
 - `loadDropletsConfig` reads `PORT` from `process.env` and passes it to both `resolveConfig` and `resolveDevConfig`. `load-config.ts:58`, `load-config.ts:59`
-- Droplet discovery scans only the immediate subfolders of the droplets folder. `discover.ts:205`, `fs.ts:61`
-- Droplet id is the folder name in kebab case (`HelloWorld` → `hello-world`). `discover.ts:72`
-- Droplet component file matches `^\+[Dd]roplet(\..+)$`; the error page `^\+[Ee]rror(\..+)$`. `discover.ts:82`
-- Droplet component suffixes never taken as a component (`CORE_SUFFIXES`): `.ts`, `.js`, `.server.ts`, `.server.js`, `.d.ts`. `../renderer.ts:606`, `discover.ts:85`
-- Droplet folder with no component is skipped without a word. `discover.ts:210`
-- Droplet folder with two components throws `has 2 droplet components … keep one`. `discover.ts:159`
-- Droplet component suffix no renderer claims throws, naming the renderer to install when the suffix is a known one. `discover.ts:164`
-- Droplet renderer is picked among those sharing the suffix by the component's imports. `discover.ts:167`
-- Droplet folder that cannot be read holds no component. `discover.ts:96`
-- Droplet ids that collide: a warning `duplicate droplet id; skipping folder`, the later folder in `readdir` order is skipped (unsorted). `discover.ts:212`, `fs.ts:61`
-- Droplet list is returned sorted by id. `discover.ts:251`
-- Droplet `hasLoad` is true only for `+droplet.ts`; `hasServerLoad` only for `+droplet.server.ts` (`.js` spellings are not looked for). `discover.ts:243`, `discover.ts:244`
-- Flags are read from the component file only: the renderer's `readFlags`, else `readExportedFlags` on the component's source. `discover.ts:169`, `discover.ts:177`
-- Flags in `+droplet.ts` or `+droplet.server.ts` are never read: discovery opens no other file for flags. `discover.ts:166`
+- Droplet discovery scans only the immediate subfolders of the droplets folder. `discover.ts:207`, `fs.ts:61`
+- Droplet id is the folder name itself; a droplet folder's name must match `^[a-z0-9]+(-[a-z0-9]+)*$` (lowercase kebab-case). `discover.ts:70`, `discover.ts:74`
+- Droplet folder whose name is not lowercase kebab-case is ignored (`ProductCard/` never becomes `product-card`). `discover.ts:211`
+- Ignored droplet folders (those holding a `+droplet.*` component) are listed in one warning, `These droplet folders do not match the naming convention (lowercase kebab-case) and are ignored: …`, once per folder for the process, in `vite build` and `vite dev`. `discover.ts:213`, `discover.ts:256`
+- Droplet component file matches `^\+[Dd]roplet(\..+)$`; the error page `^\+[Ee]rror(\..+)$`. `discover.ts:84`
+- Droplet component suffixes never taken as a component (`CORE_SUFFIXES`): `.ts`, `.js`, `.server.ts`, `.server.js`, `.d.ts`. `../renderer.ts:606`, `discover.ts:87`
+- Droplet folder with no component is skipped without a word. `discover.ts:220`
+- Droplet folder with two components throws `has 2 droplet components … keep one`. `discover.ts:161`
+- Droplet component suffix no renderer claims throws, naming the renderer to install when the suffix is a known one. `discover.ts:166`
+- Droplet renderer is picked among those sharing the suffix by the component's imports. `discover.ts:169`
+- Droplet folder that cannot be read holds no component. `discover.ts:98`
+- Droplet list is returned sorted by id. `discover.ts:261`
+- Droplet `hasLoad` is true only for `+droplet.ts`; `hasServerLoad` only for `+droplet.server.ts` (`.js` spellings are not looked for). `discover.ts:247`, `discover.ts:248`
+- Flags are read from the component file only: the renderer's `readFlags`, else `readExportedFlags` on the component's source. `discover.ts:171`, `discover.ts:179`
+- Flags in `+droplet.ts` or `+droplet.server.ts` are never read: discovery opens no other file for flags. `discover.ts:168`
 - Flag defaults: `ssr` true, `hydrate` true, `prerender` false. `../renderer.ts:597`
-- Flags an `+error.*` declares are ignored: the error page follows the droplet's flags. `discover.ts:189`
-- Error page flags and an error page in another framework warn in dev only, once per file and reason. `discover.ts:109`, `discover.ts:180`
-- Error page is looked for only among files the droplet's renderer handles; another framework's is ignored. `discover.ts:144`
-- Error page next to a script droplet is ignored, with a dev warning. `discover.ts:223`
-- `shipsClient` is true unless `hydrate` is `false`. `discover.ts:76`
+- Flags an `+error.*` declares are ignored: the error page follows the droplet's flags. `discover.ts:191`
+- Error page flags and an error page in another framework warn in dev only, once per file and reason. `discover.ts:111`, `discover.ts:182`
+- Error page is looked for only among files the droplet's renderer handles; another framework's is ignored. `discover.ts:146`
+- Error page next to a script droplet is ignored, with a dev warning. `discover.ts:226`
+- `shipsClient` is true unless `hydrate` is `false`. `discover.ts:78`
 - Flags parser reads with Vite's `parseAst`, not a text scan: a flag in a comment or a string is no flag. `flags.ts:7`, `flags.ts:40`
 - Flags parser language comes from the extension (`js`, `jsx`, `ts`, `tsx`, with `c`/`m` variants); anything else parses as TSX. `flags.ts:33`
 - Flags source that does not parse declares no flags; its compiler reports it. `flags.ts:43`, `flags.ts:176`

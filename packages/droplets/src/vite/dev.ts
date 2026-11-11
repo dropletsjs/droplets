@@ -62,7 +62,8 @@ function normalizePath({ value }: NormalizePathInput): string {
 }
 
 /**
- * `/src/droplets/HelloWorld/+droplet.svelte` -> `hello-world`. With
+ * `/src/droplets/hello-world/+droplet.svelte` -> `hello-world`; a folder
+ * that is not lowercase kebab-case is no droplet (`null`). With
  * `extensions`, only component suffixes a renderer handles match; without,
  * any suffix that is not a load file's (`+droplet.ts`, `+droplet.server.ts`).
  */
@@ -128,13 +129,13 @@ export function affectedDroplets({ dropletsRoot, file, modules, extensions }: Af
   return found;
 }
 
-/** `/src/droplets/Hello/+droplet.server.ts` -> `{ droplet: "hello", server: true }`: a droplet's load file. */
+/** `/src/droplets/hello/+droplet.server.ts` -> `{ droplet: "hello", server: true }`: a droplet's load file. */
 export type ExtractLoadFromModuleIdInput = { id: string };
 
 export function extractLoadFromModuleId({ id }: ExtractLoadFromModuleIdInput): { droplet: string; server: boolean } | null {
   const match = normalizePath({ value: id.split("?")[0] ?? "" }).match(/\/([^/]+)\/\+[Dd]roplet(\.server)?\.[cm]?[jt]s$/);
-  if (!match?.[1]) return null;
-  return { droplet: dropletId({ folderName: match[1] }), server: match[2] !== undefined };
+  const droplet = match?.[1] ? dropletId({ folderName: match[1] }) : null;
+  return droplet === null ? null : { droplet, server: match?.[2] !== undefined };
 }
 
 /** What an edit touches in one droplet: its component side, its loads, and which. */

@@ -25,8 +25,11 @@ Instead of a component, a droplet can be plain browser code: a
 `djs add <name>` writes one, asking for the framework, the target and the
 optional files (see [`djs add`](/reference/api/#djs-add)).
 
-The folder name becomes the route id, kebab-cased: `HelloWorld` is served
-as `hello-world`. `+Droplet.vue` with a capital D also works. No id is
+The folder name is the route id, and it must be lowercase kebab-case
+(`^[a-z0-9]+(-[a-z0-9]+)*$`): `hello-world/` is served as `hello-world`. A
+folder named otherwise (`HelloWorld/`, `hello_world/`) is not a droplet:
+`vite dev` and `vite build` ignore it and warn once, listing such folders.
+`+Droplet.vue` with a capital D also works. No id is
 reserved; every droplet route lives under `/droplets/<id>`.
 
 The component's extension picks the [renderer](/renderers/) that

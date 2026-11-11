@@ -1,6 +1,5 @@
 import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
-import { kebabCase } from "case-anything";
 import { fileExists, loadDirectoryNames, loadTextFile } from "./fs.ts";
 import { langOfFile, readExportedFlags } from "./flags.ts";
 import { logger } from "./logger.ts";
@@ -20,9 +19,9 @@ import {
 export type { RenderFlags } from "../renderer.ts";
 
 export type DropletEntry = {
-  /** Route id, kebab-cased from the folder name. */
+  /** Route id: the folder name. */
   id: string;
-  /** Folder name on disk, which may differ in case from the id. */
+  /** Folder name on disk, the same as the id. */
   name: string;
   /** The component's file name inside the folder: `+droplet.svelte`, `+Droplet.vue`. */
   file: string;
@@ -67,9 +66,12 @@ export type DiscoverDropletsInput = {
   dev?: boolean;
 };
 
-/** Folder name -> route id. `HelloWorld` -> `hello-world`. */
-export function dropletId({ folderName }: DropletIdInput): string {
-  return kebabCase(folderName);
+/** A droplet folder's name, which is its id: lowercase kebab-case. */
+const DROPLET_FOLDER = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+/** Folder name -> route id: the name itself when it is lowercase kebab-case (`hello-world`), else `null`. */
+export function dropletId({ folderName }: DropletIdInput): string | null {
+  return DROPLET_FOLDER.test(folderName) ? folderName : null;
 }
 
 /** Whether the droplet ships a browser bundle: it hydrates, its error page with it. */
@@ -101,7 +103,7 @@ async function loadFileNames({ dir }: LoadFileNamesInput): Promise<string[]> {
 
 type Found = { file: string; renderer: DropletRenderer; flags: RenderFlags };
 
-/** Error pages already reported, so a rescan stays quiet. */
+/** Error pages and misnamed folders already reported, so a rescan (or the next environment's build) stays quiet. */
 const reported = new Set<string>();
 
 /** In dev, says why an error page is not taken as it is, once per file and reason. */
@@ -200,20 +202,22 @@ async function findComponent({
 export async function discoverDroplets({ dropletsRoot, renderers = [], dev }: DiscoverDropletsInput): Promise<DropletEntry[]> {
   const byExtension = validateRenderers(renderers);
   const entries: DropletEntry[] = [];
-  const seen = new Set<string>();
+  const ignored: string[] = [];
 
   for (const name of await loadDirectoryNames({ path: dropletsRoot })) {
     const folder = resolve(dropletsRoot, name);
     const files = await loadFileNames({ dir: folder });
     const id = dropletId({ folderName: name });
-    const component = await findComponent({ kind: "droplet", folderName: name, folder, files, byExtension, droplet: id, dev });
-    if (!component) continue;
-
-    if (seen.has(id)) {
-      logger.warn("framework", "duplicate droplet id; skipping folder", { id, folder: name });
+    if (id === null) {
+      const isDroplet = files.some((f) => componentSuffix({ fileName: f, kind: "droplet" }) !== null);
+      if (isDroplet && !reported.has(`${folder}:name`)) {
+        reported.add(`${folder}:name`);
+        ignored.push(name);
+      }
       continue;
     }
-    seen.add(id);
+    const component = await findComponent({ kind: "droplet", folderName: name, folder, files, byExtension, droplet: id, dev });
+    if (!component) continue;
 
     // One framework per droplet: an error page in another one is ignored.
     // A script droplet has none: it renders nothing, on either side.
@@ -248,5 +252,11 @@ export async function discoverDroplets({ dropletsRoot, renderers = [], dev }: Di
     });
   }
 
+  if (ignored.length > 0) {
+    logger.warn(
+      "framework",
+      `These droplet folders do not match the naming convention (lowercase kebab-case) and are ignored: ${ignored.join(", ")}`,
+    );
+  }
   return entries.sort((a, b) => a.id.localeCompare(b.id));
 }

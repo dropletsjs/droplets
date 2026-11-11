@@ -11,9 +11,11 @@ import {
 describe("extractDropletIdFromModuleId", () => {
   it.each([
     ["/proj/src/droplets/hello/+droplet.svelte", "hello"],
-    ["/proj/src/droplets/HelloWorld/+Droplet.svelte?svelte&type=style", "hello-world"],
-    ["/proj/src/droplets/HelloWorld/+droplet.vue?vue&type=style&index=0&lang.css", "hello-world"],
-    ["C:\\proj\\src\\droplets\\Clock\\+droplet.svelte", "clock"],
+    ["/proj/src/droplets/hello-world/+Droplet.svelte?svelte&type=style", "hello-world"],
+    ["/proj/src/droplets/hello-world/+droplet.vue?vue&type=style&index=0&lang.css", "hello-world"],
+    ["C:\\proj\\src\\droplets\\clock\\+droplet.svelte", "clock"],
+    // Not lowercase kebab-case: not a droplet.
+    ["/proj/src/droplets/HelloWorld/+droplet.svelte", null],
     ["/proj/src/droplets/hello/Badge.svelte", null],
     // Load files are not components.
     ["/proj/src/droplets/hello/+droplet.ts", null],
@@ -34,7 +36,8 @@ describe("extractDropletIdFromModuleId", () => {
 describe("dropletForFile", () => {
   const root = "/proj/src/droplets";
   it("maps files inside a droplet folder to its id", () => {
-    expect(dropletForFile({ dropletsRoot: root, file: "/proj/src/droplets/HelloWorld/+droplet.ts" })).toBe("hello-world");
+    expect(dropletForFile({ dropletsRoot: root, file: "/proj/src/droplets/hello-world/+droplet.ts" })).toBe("hello-world");
+    expect(dropletForFile({ dropletsRoot: root, file: "/proj/src/droplets/HelloWorld/+droplet.ts" })).toBeNull();
     expect(dropletForFile({ dropletsRoot: root, file: "/proj/src/droplets/hello/nested/util.ts" })).toBe("hello");
   });
   it("ignores files outside the root", () => {
@@ -63,7 +66,7 @@ describe("affectedDroplets", () => {
 
   it("walks importers up to every droplet entry, once each", () => {
     const hello = node({ id: "/proj/src/droplets/hello/+droplet.svelte" });
-    const world = node({ id: "/proj/src/droplets/World/+droplet.svelte" });
+    const world = node({ id: "/proj/src/droplets/world/+droplet.svelte" });
     const card = node({ id: "/proj/src/lib/Card.svelte", importers: [hello, world] });
     const badge = node({ id: "/proj/src/lib/Badge.svelte", importers: [card, hello] });
     // A cycle must not hang the walk.
@@ -88,7 +91,7 @@ describe("classifyChange: what an edit touches, per droplet", () => {
     Object.fromEntries(classifyChange({ dropletsRoot: root, file, modules, extensions: [".svelte"], isServerFile: serverFile }));
 
   it("tells a droplet's load files from its component in its folder", () => {
-    expect(at({ file: "/proj/src/droplets/Clock/+droplet.server.ts" })).toEqual({
+    expect(at({ file: "/proj/src/droplets/clock/+droplet.server.ts" })).toEqual({
       clock: { component: false, load: true, universal: false },
     });
     expect(at({ file: "/proj/src/droplets/clock/+droplet.ts" })).toEqual({ clock: { component: false, load: true, universal: true } });
@@ -100,7 +103,7 @@ describe("classifyChange: what an edit touches, per droplet", () => {
 
   it("traces a shared file to the components and the loads that import it", () => {
     const hello = node({ id: "/proj/src/droplets/hello/+droplet.svelte" });
-    const worldLoad = node({ id: "/proj/src/droplets/World/+droplet.server.ts" });
+    const worldLoad = node({ id: "/proj/src/droplets/world/+droplet.server.ts" });
     const pageLoad = node({ id: "/proj/src/droplets/page/+droplet.ts" });
     const util = node({ id: "/proj/src/lib/format.ts", importers: [hello, worldLoad, pageLoad] });
     expect(at({ file: "/proj/src/lib/format.ts", modules: [util] })).toEqual({
@@ -120,10 +123,11 @@ describe("classifyChange: what an edit touches, per droplet", () => {
   });
 
   it("reads a load file's droplet off its id", () => {
-    expect(extractLoadFromModuleId({ id: "/p/src/droplets/HelloWorld/+droplet.server.ts?t=1" })).toEqual({
+    expect(extractLoadFromModuleId({ id: "/p/src/droplets/hello-world/+droplet.server.ts?t=1" })).toEqual({
       droplet: "hello-world",
       server: true,
     });
+    expect(extractLoadFromModuleId({ id: "/p/src/droplets/HelloWorld/+droplet.server.ts" })).toBeNull();
     expect(extractLoadFromModuleId({ id: "/p/src/droplets/a/+droplet.js" })).toEqual({ droplet: "a", server: false });
     expect(extractLoadFromModuleId({ id: "/p/src/droplets/a/+droplet.svelte" })).toBeNull();
   });

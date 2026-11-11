@@ -176,7 +176,9 @@ type check where `vite` has not run: `"prepare": "djs sync"`.
 djs add [name] [--framework <f>] [--target <t>] [--hydrate <h>] [--with <files>] [--pm <pm>] [--yes]
 ```
 
-Writes `src/droplets/<name>/` (the `dropletsFolder`), then its `./$types`. In
+Writes `src/droplets/<name>/` (the `dropletsFolder`), then its `./$types`.
+`<name>` is the droplet's id: lowercase kebab-case, starting with a letter
+(`hello-world`). In
 a terminal it asks for what the options leave out; with `--yes`, or without
 a terminal, it asks nothing and takes the defaults.
 
