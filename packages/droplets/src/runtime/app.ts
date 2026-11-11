@@ -338,6 +338,11 @@ function contextFromBody(body: Record<string, unknown> | undefined): Partial<Wir
 /** The routes whose POST body is a render context: the fragment and `_data`. */
 const RENDER_ROUTE = /^\/droplets\/[^/]+(?:\/_data)?\/?$/;
 
+/** `/index.js` and everything under `/assets/`: files, which never pass through `handle`. */
+function isStaticPath(path: string): boolean {
+  return path === "/index.js" || path.startsWith("/assets/");
+}
+
 function propsFromRequest(c: AppContext): Record<string, unknown> | undefined {
   const fromQuery: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(c.req.query())) {
@@ -892,6 +897,9 @@ export function createDropletsApp(options: DropletsAppOptions) {
   });
 
   app.use("*", async (c, next) => {
+    // Static files are answered as files, as SvelteKit's adapters do:
+    // nothing of the app's (no event, no cookies, no `handle`) runs for them.
+    if (isStaticPath(c.req.path)) return next();
     // A render request may say where it renders: `{ host, props }`. The
     // body is read only for a droplet that exists.
     const renderRoute = RENDER_ROUTE.test(c.req.path);

@@ -729,6 +729,31 @@ describe("createDropletsApp: handle", () => {
     expect(await (await app.request("/health")).text()).toBe("ok");
     expect(handle).not.toHaveBeenCalled();
   });
+
+  it("never runs for files: /index.js and everything under /assets/, public/ included", async () => {
+    const handle = vi.fn<Handle>(({ event, resolve }) => resolve(event));
+    const { app } = fakeApp({
+      getHandle: () => handle,
+      matchApi: apiOf([[[{ type: "static", value: "api" }, { type: "static", value: "ping" }], { GET: () => new Response("pong") }]]),
+    });
+    // As createServerApp mounts the adapter's static files.
+    app.get("/assets/*", (c) => c.text(`file ${c.req.path}`));
+    for (const path of ["/index.js", "/assets/index.abc.js", "/assets/logo.abc.png", "/assets/public/robots.txt"]) {
+      const res = await app.request(path);
+      expect(res.status, path).toBe(200);
+    }
+    expect(await (await app.request("/assets/public/robots.txt")).text()).toBe("file /assets/public/robots.txt");
+    expect(handle).not.toHaveBeenCalled();
+
+    expect(await (await app.request("/droplets/hello")).text()).toContain("<djs-droplet");
+    expect(handle).toHaveBeenCalledTimes(1);
+    expect(await (await app.request("/api/ping")).text()).toBe("pong");
+    expect(handle).toHaveBeenCalledTimes(2);
+    // A path that only starts like one is not a file.
+    await app.request("/assetsx");
+    await app.request("/index.json");
+    expect(handle).toHaveBeenCalledTimes(4);
+  });
 });
 
 describe("createDropletsApp: file URLs of the server bundle", () => {
