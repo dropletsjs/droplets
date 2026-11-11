@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -304,7 +305,7 @@ describe("writeManifest", () => {
     state.root = root;
     state.outDir = root;
     state.buildHash = "abc";
-    state.entries = [entry({ id: "hello" })];
+    state.entries = [entry({ id: "hello" }), entry({ id: "plain" })];
     const path = await writeManifest(state);
     expect(path).toBe(join(root, "client/droplets.json"));
     const written = JSON.parse(await readFile(path, "utf8"));
@@ -318,6 +319,11 @@ describe("writeManifest", () => {
     expect(await readFile(join(root, "client/assets/index.abc.js"), "utf8")).toBe(
       `const styles=JSON.parse(${JSON.stringify(JSON.stringify({ hello: ["assets/Badge.css", "assets/hello.css"] }))});`,
     );
+    // The droplet's style.css, as /droplets/hello/style.css answers it; none without stylesheets.
+    expect(await readFile(join(root, "client/droplets/hello/style.css"), "utf8")).toBe(
+      '@import url("../../assets/Badge.css");\n@import url("../../assets/hello.css");\n',
+    );
+    expect(existsSync(join(root, "client/droplets/plain/style.css"))).toBe(false);
     // No index.html in the root: the placeholder page goes in.
     expect(written.__index).toContain("Powering Microfrontends");
   });

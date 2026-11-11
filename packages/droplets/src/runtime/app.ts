@@ -294,7 +294,7 @@ type StyleImportsInput = { files: readonly string[] };
  * `/droplets/<id>/style.css`, so it resolves under any origin or prefix the
  * server is reached through.
  */
-function styleImports({ files }: StyleImportsInput): string {
+export function styleImports({ files }: StyleImportsInput): string {
   return files.map((file) => `@import url(${JSON.stringify(`../../${file}`)});\n`).join("");
 }
 

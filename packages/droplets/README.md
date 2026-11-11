@@ -313,7 +313,7 @@ renderer under `testing/`.
 - `validateRenderers` throws for a missing name, a duplicate name, no extensions, an extension without a dot, a core or script suffix, a shared extension where a renderer lists no `packages`, a missing `server`/`client` path. `src/renderer.ts:623`
 - `RENDERER_QUERY` is `droplets-renderer`: `…/Button.tsx?droplets-renderer=solid` marks a module for one renderer. `src/renderer.ts:576`
 - Adapter contract `DropletsAdapter`: `name`, `serverEntry`, `serverFile`, `separateSsrBundle`, optional `noExternal`, `environment`, `afterBuild`, `preview`. `src/adapters.ts:10`
-- `vite build` without an adapter throws, naming `@dropletsjs/adapter-node`. `src/vite/build.ts:89`
+- `vite build` without an adapter throws, naming `@dropletsjs/adapter-node`. `src/vite/build.ts:96`
 - Health route answers `ok` and is mounted before `handle`. `src/runtime/app.ts:926`
 - `handle` never runs for `/index.js`, `/env.js` and `/assets/*`. `src/runtime/app.ts:348`, `src/runtime/app.ts:974`
 - Routes: `/` `src/runtime/app.ts:1093`, `/index.js` `src/runtime/app.ts:1100`, `/index.css` `src/runtime/app.ts:1128`, `style.css` `src/runtime/app.ts:1141`, `client.js` `src/runtime/app.ts:1157`, `_data` `src/runtime/app.ts:1269`, the fragment `src/runtime/app.ts:1653`, `/api` `src/runtime/app.ts:1694`
@@ -322,7 +322,7 @@ renderer under `testing/`.
 - `style.css` imports each stylesheet as `../../<file>`, relative to itself. `src/runtime/app.ts:298`
 - Dev element code enters production code through one gate: `if (import.meta.env.DEV) installDevElement(...)`. `src/runtime/entry-client.ts:1374`
 - Client module dev hooks (`update`, the HMR fallback) are emitted only under `vite dev` or a non-production build. `src/vite/virtual.ts:713`
-- Build hash is random per plugin instance, so per build environment; the entry module is named `assets/index.[hash].js`, not after it. `src/vite/state.ts:96`, `src/vite/build.ts:32`
+- Build hash is random per plugin instance, so per build environment; the entry module is named `assets/index.[hash].js`, not after it. `src/vite/state.ts:96`, `src/vite/build.ts:33`
 - Dev serves no droplet stylesheets: a `hydrate = false` droplet renders without its component styles in dev. `src/vite/dev.ts:346`
 - Flags are read from the droplet's component only; flags `+error.*` declares warn in dev and are ignored. `src/core/discover.ts:171`, `src/core/discover.ts:180`
 - Flag not a literal: warns and is ignored. `src/core/flags.ts:127`

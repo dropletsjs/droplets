@@ -3,6 +3,7 @@
  * stylesheet, a droplet with no CSS has no `style.css` (404, like
  * `/index.css`), and nothing links to, preloads or records one.
  */
+import { existsSync } from "node:fs";
 import { readdir, readFile, rm, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -86,7 +87,11 @@ describe("vite build without a shared stylesheet", () => {
     });
     expect((await app.request("/index.css")).status).toBe(404);
     expect((await app.request("/droplets/hello/style.css")).status).toBe(404);
-    expect((await app.request("/droplets/static-note/style.css")).status).toBe(200);
+    const style = await app.request("/droplets/static-note/style.css");
+    expect(style.status).toBe(200);
+    // The same as a file of the build, for a host that serves files first; none for a droplet without CSS.
+    expect(await readFile(resolve(clientRoot, "droplets/static-note/style.css"), "utf8")).toBe(await style.text());
+    expect(existsSync(resolve(clientRoot, "droplets/hello/style.css"))).toBe(false);
     const fragment = await app.request("/droplets/hello?who=x");
     expect(await fragment.text()).not.toContain("data-droplet-style");
     expect(fragment.headers.get("link") ?? "").not.toContain(".css");

@@ -171,6 +171,7 @@ Then the route.
 - `DROPLETS_ENV_MAX_AGE` is parsed once per raw value (a `Map`); anything but a non-negative integer of seconds keeps 600, with a warning once per value under `vite dev` only. `app.ts:355`, `app.ts:369`, `dev-log.ts:78`
 - `/index.css` answers 404 when there is no global CSS or it is empty. `app.ts:1132`
 - `style.css` answers 404 when the droplet has no stylesheets, or no `dropletStyles` loader is set; with stylesheets it answers `text/css`, cached a month. `app.ts:1144`, `app.ts:1148`
+- `styleImports` is `style.css`: one `@import url("../../<file>")` per stylesheet, relative to `/droplets/<id>/style.css`; `vite build` writes the same as a file. `app.ts:297`, `../vite/build.ts:327`
 - A fragment links and preloads `style.css` only when the droplet has stylesheets. `app.ts:1314`
 - `client.js` answers 404 for an unknown droplet, `hydrate === false` or no loader. `app.ts:1160`
 - Cached files get `public, max-age=2592000, immutable`. `app.ts:910`

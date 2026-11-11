@@ -113,6 +113,10 @@ or path prefix the server is reached through:
 @import url("../../assets/hello-B1eNVDFs.css");
 ```
 
+`vite build` also writes it as a file, `dist/client/droplets/<id>/style.css`,
+so a host that serves the build's files first (Workers Static Assets)
+answers it without the server. A droplet without stylesheets has no file.
+
 It is served for droplets that never hydrate as well, and is empty for a
 droplet without styles (and in `vite dev`, where styles come with the
 JavaScript).

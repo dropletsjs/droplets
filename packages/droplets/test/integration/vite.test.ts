@@ -79,7 +79,13 @@ describe("vite build", () => {
     expect(manifest.droplets["hello"].css).toEqual([manifest.__globalCss]);
     expect(manifest.droplets["static-note"].css).toEqual([manifest.__globalCss, expect.stringMatching(/^assets\/.+\.css$/)]);
     expect(manifest.droplets["static-note"].client).toBeUndefined();
-    expect(existsSync(resolve(outDir, "client/droplets/static-note"))).toBe(false);
+    expect(existsSync(resolve(outDir, "client/droplets/static-note/client.js"))).toBe(false);
+    // Each droplet's style.css as a file, what its route answers.
+    for (const id of ["hello", "static-note"]) {
+      expect(await readFile(resolve(outDir, `client/droplets/${id}/style.css`), "utf8"), id).toBe(
+        manifest.droplets[id].css.map((file: string) => `@import url("../../${file}");\n`).join(""),
+      );
+    }
     // Bundles sit as deep as their URLs, so relative imports resolve when served:
     // /droplets/hello/client.js -> /assets/chunks/…, /assets/index.<hash>.js -> /assets/chunks/….
     const relative = (code: string) =>

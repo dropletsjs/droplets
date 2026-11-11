@@ -59,6 +59,7 @@ name is fixed in `dist/worker.js` at build time.
 |---|---|
 | `dist/worker.js` | the Worker: this package's `worker.ts` with Hono, the framework, your droplets, hooks, `+server.ts` routes, `droplets.config.ts` and the manifest bundled in; no `import` is left, so no `node_modules` at runtime |
 | `dist/client/` | the browser build, uploaded as static assets |
+| `dist/client/droplets/<id>/style.css` | the droplet's `style.css`, a file the assets serve as they are; none for a droplet without stylesheets |
 | `dist/client/assets/public/` | a copy of your `public/` folder, served at `/assets/public/` |
 | `dist/client/_prerendered/<random>/` | prerendered renders, in a folder named anew every build; only the inlined manifest holds the name |
 | `dist/client/.assetsignore` | `/droplets.json` and `/.vite/`: wrangler never uploads them |

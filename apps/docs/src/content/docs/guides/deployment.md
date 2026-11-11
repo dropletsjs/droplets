@@ -15,6 +15,7 @@ dist/
     droplets.json          # manifest: build hash, entry, global CSS, per-droplet bundle and stylesheets
     index.js               # /index.js: imports env.js (with runtime public variables) and assets/index.<hash>.js
     droplets/<id>/client.js  # one bundle per droplet that hydrates
+    droplets/<id>/style.css  # what /droplets/<id>/style.css answers, for a droplet with stylesheets
     assets/                # entry client (index.<hash>.js), stylesheets, shared chunks
   server/entry-server.js   # the SSR renderer
   server/_prerendered/     # build-time renders, for droplets with prerender = true; never served

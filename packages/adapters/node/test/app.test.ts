@@ -84,6 +84,8 @@ describe("createNodeServerApp", () => {
     // style.css imports the droplet's stylesheets from /assets/.
     const style = await (await app.request("/droplets/static-note/style.css")).text();
     expect(style).toBe(manifest.droplets["static-note"].css.map((file: string) => `@import url("../../${file}");\n`).join(""));
+    // The file of the build holds the same, at the same path.
+    expect(await readFile(resolve(outDir, "client/droplets/static-note/style.css"), "utf8")).toBe(style);
     expect(await (await app.request(`/${manifest.droplets["static-note"].css.at(-1)}`)).text()).toContain("font-style");
     expect((await app.request("/droplets/static-note/client.js")).status).toBe(404);
 

@@ -8,6 +8,7 @@ import { logger } from "../core/logger.ts";
 import { dynamicPublicNames } from "../core/env.ts";
 import { entryClientPath, entryServerPath } from "../core/paths.ts";
 import type { HydrateMode } from "../renderer.ts";
+import { styleImports } from "../runtime/app.ts";
 import { locationScript, serverKey } from "../runtime/server-records.ts";
 import type { DropletManifestEntry, DropletsManifest } from "../server/manifest.ts";
 import { externalsList, type PluginState } from "./state.ts";
@@ -41,6 +42,12 @@ type DropletClientFileInput = { id: string };
 
 export function dropletClientFile({ id }: DropletClientFileInput): string {
   return `droplets/${id}/client.js`;
+}
+
+type DropletStyleFileInput = { id: string };
+
+export function dropletStyleFile({ id }: DropletStyleFileInput): string {
+  return `droplets/${id}/style.css`;
 }
 
 /**
@@ -314,6 +321,10 @@ export async function writeManifest(state: PluginState): Promise<string> {
   for (const entry of state.entries) {
     if (shipsClient(entry)) continue;
     await rm(resolve(clientRoot, dropletClientFile({ id: entry.id }), ".."), { recursive: true, force: true });
+  }
+  // What `/droplets/<id>/style.css` answers, as a file for a host that serves files first.
+  for (const [id, { css }] of Object.entries(manifest.droplets)) {
+    if (css?.length) await writeTextFile({ path: resolve(clientRoot, dropletStyleFile({ id })), contents: styleImports({ files: css }) });
   }
 
   if (manifest.__entryModule) {
