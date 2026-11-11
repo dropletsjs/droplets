@@ -12,7 +12,7 @@
     "start:container": "sh scripts/start.sh",
     "sync": "djs sync",
     "clean": "rm -rf dist wp-shop.db wp-shop.db-* test/.tmp",
-    "typecheck": "djs sync && tsc -p tsconfig.json",
+    "typecheck": "djs sync && vue-tsc -p tsconfig.json && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
     "test": "vitest run"
   },
   "dependencies": {
@@ -40,8 +40,10 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "svelte-check": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "vue-tsc": "catalog:"
   }
 }

@@ -19,7 +19,7 @@
     "start:deno": "deno serve -A dist/server.js",
     "sync": "djs sync",
     "clean": "rm -rf dist .wrangler",
-    "typecheck": "djs sync && tsc -p tsconfig.json"
+    "typecheck": "djs sync && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings"
   },
   "dependencies": {
     "@dropletsjs/droplets": "workspace:*",
@@ -36,6 +36,7 @@
     "@dropletsjs/renderer-svelte": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
+    "svelte-check": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

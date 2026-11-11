@@ -19,16 +19,18 @@
   const add = actionUrl<DropletActions>("add");
 
   let fresh = $state<Partial<CardProduct>>({});
-  const product = $derived({ ...data.product, ...fresh });
 
   onMount(() =>
     // An admin changed this product: read its stock and price again.
     on("shop:product-changed", async (detail) => {
-      if (!isRecord(detail) || detail["id"] !== data.product.id) return;
-      const [info] = await checkStock([data.product.id]);
+      const { product } = await data;
+      if (!isRecord(detail) || detail["id"] !== product.id) return;
+      const [info] = await checkStock([product.id]);
       if (info) fresh = { stock: info.stock, stockState: stockState(info.stock), salePriceCents: info.salePriceCents };
     })
   );
 </script>
 
-<ProductCard {product} action={add} {form} featured />
+{#await data then { product }}
+  <ProductCard product={{ ...product, ...fresh }} action={add} {form} featured />
+{/await}

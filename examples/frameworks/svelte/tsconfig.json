@@ -19,5 +19,5 @@
     "forceConsistentCasingInFileNames": true,
     "types": ["node", "vite/client", "@dropletsjs/droplets/ambient"]
   },
-  "include": ["src/**/*.ts", "droplets.config.ts", "vite.config.ts"]
+  "include": ["src/**/*.ts", "src/**/*.svelte", "droplets.config.ts", "vite.config.ts"]
 }

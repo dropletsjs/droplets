@@ -82,7 +82,7 @@ the change on the next request (restart it if you change the plugin's
 ## Checks
 
 ```bash
-pnpm typecheck                  # tsc over every package, example and test; astro check for apps/docs
+pnpm typecheck                  # tsc over every package, example and test (vue-tsc, svelte-check where they have components); astro check for apps/docs
 pnpm test                       # vitest: unit tests plus real `vite build` / `vite dev` on fixtures
 pnpm test:integration           # only tests/*, the cross-package suites
 pnpm build:examples             # the eight framework examples for Node

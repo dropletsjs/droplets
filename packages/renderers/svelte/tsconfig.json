@@ -3,5 +3,5 @@
   "compilerOptions": {
     "types": ["node", "vite/client", "@dropletsjs/droplets/ambient"]
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts", "tsdown.config.ts"]
+  "include": ["src/**/*.ts", "src/**/*.svelte", "test/**/*.ts", "test/**/*.svelte", "vitest.config.ts", "tsdown.config.ts"]
 }

@@ -8,4 +8,4 @@
   let { data }: DropletProps<{ page: number }> = $props();
 </script>
 
-<article data-testid="docs"><h1>Page {data.page}</h1><p>@HOST@</p></article>
+<article data-testid="docs">{#await data then { page }}<h1>Page {page}</h1>{/await}<p>@HOST@</p></article>

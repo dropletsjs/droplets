@@ -12,7 +12,7 @@
     "start": "node --env-file-if-exists=.env dist/server.js",
     "sync": "djs sync",
     "clean": "rm -rf dist .uploads shop.db",
-    "typecheck": "djs sync && tsc -p tsconfig.json",
+    "typecheck": "djs sync && vue-tsc -p tsconfig.json && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
     "test": "vitest run",
     "generate:data": "node scripts/generate-data.mjs",
     "generate:images": "node scripts/generate-images.mjs"
@@ -43,8 +43,10 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "svelte-check": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "vue-tsc": "catalog:"
   }
 }

@@ -21,6 +21,9 @@ catalogs:
     '@types/react-dom':
       specifier: ^19.3.0
       version: 19.3.0
+    svelte-check:
+      specifier: ^4.7.8
+      version: 4.7.8
     tailwindcss:
       specifier: ^4.3.4
       version: 4.3.4
@@ -36,6 +39,9 @@ catalogs:
     vitest:
       specifier: ^5.1.0
       version: 5.1.0
+    vue-tsc:
+      specifier: ^3.3.14
+      version: 3.3.14
     wrangler:
       specifier: ^4.157.0
       version: 4.157.0
@@ -51,7 +57,7 @@ importers:
         version: 3.0.3
       tsdown:
         specifier: 'catalog:'
-        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(tsx@4.23.15)(typescript@5.9.3)
+        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(@vue/language-core@3.3.14)(tsx@4.23.15)(typescript@5.9.3)(vue-tsc@3.3.14(typescript@5.9.3))
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -137,6 +143,9 @@ importers:
       '@types/react-dom':
         specifier: 'catalog:'
         version: 19.3.0(@types/react@19.3.0)
+      svelte-check:
+        specifier: 'catalog:'
+        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -146,6 +155,9 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 5.1.0(@types/node@24.19.2)(happy-dom@21.0.4)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+      vue-tsc:
+        specifier: 'catalog:'
+        version: 3.3.14(typescript@5.9.3)
       wrangler:
         specifier: 'catalog:'
         version: 4.157.0(@types/node@24.19.2)
@@ -535,6 +547,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2
+      svelte-check:
+        specifier: 'catalog:'
+        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@5.9.3)
       tailwindcss:
         specifier: 'catalog:'
         version: 4.3.4
@@ -596,6 +611,9 @@ importers:
       vite:
         specifier: 'catalog:'
         version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
+      vue-tsc:
+        specifier: 'catalog:'
+        version: 3.3.14(typescript@5.9.3)
       wrangler:
         specifier: 'catalog:'
         version: 4.157.0(@types/node@24.19.2)
@@ -672,6 +690,9 @@ importers:
       '@types/react-dom':
         specifier: 'catalog:'
         version: 19.3.0(@types/react@19.3.0)
+      svelte-check:
+        specifier: 'catalog:'
+        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -681,6 +702,9 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 5.1.0(@types/node@24.19.2)(happy-dom@21.0.4)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+      vue-tsc:
+        specifier: 'catalog:'
+        version: 3.3.14(typescript@5.9.3)
 
   examples/wp-shop:
     dependencies:
@@ -751,6 +775,9 @@ importers:
       '@types/react-dom':
         specifier: 'catalog:'
         version: 19.3.0(@types/react@19.3.0)
+      svelte-check:
+        specifier: 'catalog:'
+        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -760,6 +787,9 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 5.1.0(@types/node@24.19.2)(happy-dom@21.0.4)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+      vue-tsc:
+        specifier: 'catalog:'
+        version: 3.3.14(typescript@5.9.3)
 
   packages/adapters/bun:
     dependencies:
@@ -781,7 +811,7 @@ importers:
         version: 4.13.16
       tsdown:
         specifier: 'catalog:'
-        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(tsx@4.23.15)(typescript@5.9.3)
+        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(@vue/language-core@3.3.14)(tsx@4.23.15)(typescript@5.9.3)(vue-tsc@3.3.14(typescript@5.9.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -808,7 +838,7 @@ importers:
         version: 4.13.16
       tsdown:
         specifier: 'catalog:'
-        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(tsx@4.23.15)(typescript@5.9.3)
+        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(@vue/language-core@3.3.14)(tsx@4.23.15)(typescript@5.9.3)(vue-tsc@3.3.14(typescript@5.9.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -839,7 +869,7 @@ importers:
         version: 4.13.16
       tsdown:
         specifier: 'catalog:'
-        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(tsx@4.23.15)(typescript@5.9.3)
+        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(@vue/language-core@3.3.14)(tsx@4.23.15)(typescript@5.9.3)(vue-tsc@3.3.14(typescript@5.9.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -870,7 +900,7 @@ importers:
         version: 4.13.16
       tsdown:
         specifier: 'catalog:'
-        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(tsx@4.23.15)(typescript@5.9.3)
+        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(@vue/language-core@3.3.14)(tsx@4.23.15)(typescript@5.9.3)(vue-tsc@3.3.14(typescript@5.9.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -923,7 +953,7 @@ importers:
         version: 24.19.2
       tsdown:
         specifier: 'catalog:'
-        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(tsx@4.23.15)(typescript@5.9.3)
+        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(@vue/language-core@3.3.14)(tsx@4.23.15)(typescript@5.9.3)(vue-tsc@3.3.14(typescript@5.9.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -972,7 +1002,7 @@ importers:
         version: 4.3.4
       tsdown:
         specifier: 'catalog:'
-        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(tsx@4.23.15)(typescript@5.9.3)
+        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(@vue/language-core@3.3.14)(tsx@4.23.15)(typescript@5.9.3)(vue-tsc@3.3.14(typescript@5.9.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1003,7 +1033,7 @@ importers:
         version: 21.0.4
       tsdown:
         specifier: 'catalog:'
-        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(tsx@4.23.15)(typescript@5.9.3)
+        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(@vue/language-core@3.3.14)(tsx@4.23.15)(typescript@5.9.3)(vue-tsc@3.3.14(typescript@5.9.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1033,7 +1063,7 @@ importers:
         version: 4.13.16
       tsdown:
         specifier: 'catalog:'
-        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(tsx@4.23.15)(typescript@5.9.3)
+        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(@vue/language-core@3.3.14)(tsx@4.23.15)(typescript@5.9.3)(vue-tsc@3.3.14(typescript@5.9.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1073,7 +1103,7 @@ importers:
         version: 3.3.3
       tsdown:
         specifier: 'catalog:'
-        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(tsx@4.23.15)(typescript@5.9.3)
+        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(@vue/language-core@3.3.14)(tsx@4.23.15)(typescript@5.9.3)(vue-tsc@3.3.14(typescript@5.9.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1134,7 +1164,7 @@ importers:
         version: 19.3.1(react@19.3.1)
       tsdown:
         specifier: 'catalog:'
-        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(tsx@4.23.15)(typescript@5.9.3)
+        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(@vue/language-core@3.3.14)(tsx@4.23.15)(typescript@5.9.3)(vue-tsc@3.3.14(typescript@5.9.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1177,7 +1207,7 @@ importers:
         version: 19.3.1(react@19.3.1)
       tsdown:
         specifier: 'catalog:'
-        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(tsx@4.23.15)(typescript@5.9.3)
+        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(@vue/language-core@3.3.14)(tsx@4.23.15)(typescript@5.9.3)(vue-tsc@3.3.14(typescript@5.9.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1211,7 +1241,7 @@ importers:
         version: 1.9.18
       tsdown:
         specifier: 'catalog:'
-        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(tsx@4.23.15)(typescript@5.9.3)
+        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(@vue/language-core@3.3.14)(tsx@4.23.15)(typescript@5.9.3)(vue-tsc@3.3.14(typescript@5.9.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1243,9 +1273,12 @@ importers:
       svelte:
         specifier: ^5.57.3
         version: 5.57.3
+      svelte-check:
+        specifier: 'catalog:'
+        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@5.9.3)
       tsdown:
         specifier: 'catalog:'
-        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(tsx@4.23.15)(typescript@5.9.3)
+        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(@vue/language-core@3.3.14)(tsx@4.23.15)(typescript@5.9.3)(vue-tsc@3.3.14(typescript@5.9.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1276,7 +1309,7 @@ importers:
         version: 21.0.4
       tsdown:
         specifier: 'catalog:'
-        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(tsx@4.23.15)(typescript@5.9.3)
+        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(@vue/language-core@3.3.14)(tsx@4.23.15)(typescript@5.9.3)(vue-tsc@3.3.14(typescript@5.9.3))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1289,6 +1322,9 @@ importers:
       vue:
         specifier: ^3.5.44
         version: 3.5.44(typescript@5.9.3)
+      vue-tsc:
+        specifier: 'catalog:'
+        version: 3.3.14(typescript@5.9.3)
 
   packages/shared:
     devDependencies:
@@ -1297,7 +1333,7 @@ importers:
         version: 24.19.2
       tsdown:
         specifier: 'catalog:'
-        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(tsx@4.23.15)(typescript@5.9.3)
+        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(@vue/language-core@3.3.14)(tsx@4.23.15)(typescript@5.9.3)(vue-tsc@3.3.14(typescript@5.9.3))
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -1654,7 +1690,7 @@ importers:
         version: 24.19.2
       tsdown:
         specifier: 'catalog:'
-        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(tsx@4.23.15)(typescript@5.9.3)
+        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(@vue/language-core@3.3.14)(tsx@4.23.15)(typescript@5.9.3)(vue-tsc@3.3.14(typescript@5.9.3))
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -2719,6 +2755,10 @@ packages:
     peerDependencies:
       acorn: ^8.9.0
 
+  '@sveltejs/load-config@0.2.3':
+    resolution: {integrity: sha512-VT3qmUb8pRV2QrZjd8iAmtg8lf4W0TIjZbvXtz5MKei/q96teWZgGJyyidJzOjzZzvdq616eSRVeMYIQChUTAQ==}
+    engines: {node: '>= 18.0.0'}
+
   '@sveltejs/vite-plugin-svelte@7.3.1':
     resolution: {integrity: sha512-ZPsLN8B1e/En+Ak5s4V7srFDT532oS0qieLsQwu63NGKsS+iAjoO2Js1BochlHlglcU+Pt7WAO3C5Ee+4f6gVA==}
     engines: {node: ^20.19 || ^22.12 || >=24}
@@ -2989,6 +3029,9 @@ packages:
   '@vue/compiler-ssr@3.5.44':
     resolution: {integrity: sha512-xr5gb1JVHlfXJwSlRz1FeP6uxoazdzHuMTVLE7up+4Vrqxk219CvxLPxD9NXBt47yvZW7+p4DXfyp4O1fkByIA==}
 
+  '@vue/language-core@3.3.14':
+    resolution: {integrity: sha512-kRB+3hHg0c+BdD1XLAvwjVMQd5pC05zijSlPDRI3ERvC/s04JlRs5upy2KjeMg/9m9oD5zuMVh9yVvkKfZqoJg==}
+
   '@vue/reactivity@3.5.44':
     resolution: {integrity: sha512-u+QJdKeBBEADkPdevsL+6E12QlYVfBD8Zcw5qjDQKtamI6l14KyqazJMobhCKelhWN5zpyKUiEDoTyHE93cqWw==}
 
@@ -3057,6 +3100,9 @@ packages:
 
   ajv@8.20.0:
     resolution: {integrity: sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==}
+
+  alien-signals@3.2.1:
+    resolution: {integrity: sha512-I8FjmltrfnDFoZedi5CG8DghVYNhzb/Ijluz7tCSJH0xpd0484Kowhbb1XDYOxfJpU1p5wnM2X54dA+IfGyD1g==}
 
   am-i-vibing@0.5.0:
     resolution: {integrity: sha512-KLcsDhqf1XRrJmJr+9I/C0EX2K+sGrAGZFgkmd84c8TJO9zJBu+/kFInjazu1KfJWFhWDKdRWkpBzEs7s35DVA==}
@@ -3187,6 +3233,10 @@ packages:
 
   character-reference-invalid@2.0.1:
     resolution: {integrity: sha512-iBZ4F4wRbyORVsu0jPV7gXkOsGYjGHPmAyv+HiHG8gi5PtC9KI2j1+v8/tlibRvjoWX027ypmG/n0HtO5t7unw==}
+
+  chokidar@4.0.3:
+    resolution: {integrity: sha512-Qgzu8kfBvo+cA4962jnP1KkS6Dop5NS6g7R5LFYJr4b8Ub94PPQXUksCw9PvXoeXPRRddRNC5C1JQUR2SMGtnA==}
+    engines: {node: '>= 14.16.0'}
 
   chokidar@5.0.0:
     resolution: {integrity: sha512-TQMmc3w+5AxjpL8iIiwebF73dRDF4fBIieAqGn9RGCWaEVwQ6Fb2cGe31Yns0RRIzii5goJ1Y7xbMwo1TxMplw==}
@@ -3878,6 +3928,10 @@ packages:
   minimist@1.2.8:
     resolution: {integrity: sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==}
 
+  mri@1.2.0:
+    resolution: {integrity: sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA==}
+    engines: {node: '>=4'}
+
   mrmime@2.0.1:
     resolution: {integrity: sha512-Y3wQdFg2Va6etvQ5I82yUhGdsKrcYox6p7FfL1LbK2J4V01F9TGlepTIhnK24t7koZibmg82KGglhA1XK5IsLQ==}
     engines: {node: '>=10'}
@@ -4066,6 +4120,10 @@ packages:
     resolution: {integrity: sha512-QNhWdt7nrgVWWQG58QuGsAR3jv3Hbe4mb4vz7w2csnHavciZJgda1CPNaldF6eVxv90ud3jUXpKlHL69gO38yw==}
     engines: {node: '>=0.10.0'}
 
+  readdirp@4.1.2:
+    resolution: {integrity: sha512-GDhwkLfywWL2s6vEjyhri+eXmfH6j1L7JE27WhqLeYzoh/A3DBaYGEj2H/HFZCn/kMfim73FXxEJTw06WtxQwg==}
+    engines: {node: '>= 14.18.0'}
+
   readdirp@5.1.1:
     resolution: {integrity: sha512-Kko+Y5XQ6fM+Ce3dq3m9YGxnacYZYl9cA1wZjaF3Vbry2L3i1qVg8+CAgNPsXRArPMUMCaOR7oa9Nqntc43JKA==}
     engines: {node: '>= 20.19.0'}
@@ -4127,6 +4185,10 @@ packages:
     resolution: {integrity: sha512-bWvlMpFKiTfDKfnK7FC2MPgPeWCf/Kpwsq49ApdW+FQaBZb6O6dZ4MAPbPUjp7hYQrw/RobqCzn64BRrQecGHw==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
+
+  sade@1.8.1:
+    resolution: {integrity: sha512-xal3CZX1Xlo/k4ApwCFrHVACi9fBqJ7V+mwhBsuf/1IOKbBy098Fex+Wa/5QMubw09pSZ/u8EY8PWgevJsXp1A==}
+    engines: {node: '>=6'}
 
   satteri@0.10.5:
     resolution: {integrity: sha512-Ao1LKpAEa9Wdg0otgbVKViZHEq9ebdXe4DMrp3s9vQAU0HNIuHnFEuMuOcm0ZIXyV0Yzxj91NvhLpvXZJO/5ZQ==}
@@ -4226,6 +4288,14 @@ packages:
   supports-color@10.2.2:
     resolution: {integrity: sha512-SS+jx45GF1QjgEXQx4NJZV9ImqmO2NPz5FNsIHrsDjh2YsHnawpan7SNQ1o8NuhrbHZy9AZhIoCUiCeaW/C80g==}
     engines: {node: '>=18'}
+
+  svelte-check@4.7.8:
+    resolution: {integrity: sha512-laZ49GFHZ3b0z2PWinJWL0syehc/PTR8aHaUaTiBkWJ+4Y38nhxjmXsSz7CbGa3VdKopViVbrBH3bGNqIAI0bQ==}
+    engines: {node: '>= 18.0.0'}
+    hasBin: true
+    peerDependencies:
+      svelte: ^4.0.0 || ^5.0.0-next.0
+      typescript: ^5.0.0 || ^6.0.0
 
   svelte@5.57.3:
     resolution: {integrity: sha512-5mAftM3SoDV9X0zdF386F9p2pv8iKOwi/KfBS1XnBAkVCKFzVOLHUoa8iGWAt4buoicLmyWVRpuuD5wplXOQsg==}
@@ -4664,6 +4734,12 @@ packages:
 
   vscode-uri@3.2.0:
     resolution: {integrity: sha512-m2gXo3bn0G1kT9InzMf07fTbqMbGtyckj3bH5ktLO+1Ssv+yiATZ4dhwaQv9UZWxJh6E9IFGnQyjgWVDWVBDrg==}
+
+  vue-tsc@3.3.14:
+    resolution: {integrity: sha512-URAu2H9AuMZMg9GCgnqbaHHHd8pBZRAwNV2e2yYS8VDsoTVXHiOSo663OS6DkEvauQ2yixn5TPFJ9WV9QIspkA==}
+    hasBin: true
+    peerDependencies:
+      typescript: '>=5.0.0'
 
   vue@3.5.44:
     resolution: {integrity: sha512-dvvmaOCG7lAMkJTPqPwWeGMsPS6DIsFsfZDUgBp9V6mHf9b3+/wyVwYR4Es+WV6uJC0FKRxp81Obcq0ZwUcGFQ==}
@@ -5768,6 +5844,8 @@ snapshots:
     dependencies:
       acorn: 8.19.0
 
+  '@sveltejs/load-config@0.2.3': {}
+
   '@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))':
     dependencies:
       deepmerge: 4.3.1
@@ -6046,6 +6124,16 @@ snapshots:
       '@vue/compiler-dom': 3.5.44
       '@vue/shared': 3.5.44
 
+  '@vue/language-core@3.3.14':
+    dependencies:
+      '@volar/language-core': 2.4.30
+      '@vue/compiler-dom': 3.5.44
+      '@vue/shared': 3.5.44
+      alien-signals: 3.2.1
+      muggle-string: 0.4.1
+      path-browserify: 1.0.1
+      picomatch: 4.0.7
+
   '@vue/reactivity@3.5.44':
     dependencies:
       '@vue/shared': 3.5.44
@@ -6106,6 +6194,8 @@ snapshots:
       fast-uri: 3.1.9
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
+
+  alien-signals@3.2.1: {}
 
   am-i-vibing@0.5.0:
     dependencies:
@@ -6292,6 +6382,10 @@ snapshots:
   character-entities@2.0.2: {}
 
   character-reference-invalid@2.0.1: {}
+
+  chokidar@4.0.3:
+    dependencies:
+      readdirp: 4.1.2
 
   chokidar@5.0.0:
     dependencies:
@@ -7090,6 +7184,8 @@ snapshots:
 
   minimist@1.2.8: {}
 
+  mri@1.2.0: {}
+
   mrmime@2.0.1: {}
 
   ms@2.1.3: {}
@@ -7248,6 +7344,8 @@ snapshots:
 
   react@19.3.1: {}
 
+  readdirp@4.1.2: {}
+
   readdirp@5.1.1: {}
 
   regex-recursion@6.0.2:
@@ -7287,7 +7385,7 @@ snapshots:
       nlcst-to-string: 4.0.0
       unist-util-visit: 5.2.0
 
-  rolldown-plugin-dts@0.29.0(@volar/typescript@2.4.30(typescript@5.9.3))(rolldown@1.2.16)(typescript@5.9.3):
+  rolldown-plugin-dts@0.29.0(@volar/typescript@2.4.30(typescript@5.9.3))(@vue/language-core@3.3.14)(rolldown@1.2.16)(typescript@5.9.3)(vue-tsc@3.3.14(typescript@5.9.3)):
     dependencies:
       dts-resolver: 3.0.0
       get-tsconfig: 5.0.0-beta.6
@@ -7296,7 +7394,9 @@ snapshots:
       yuku: 0.25.0
     optionalDependencies:
       '@volar/typescript': 2.4.30(typescript@5.9.3)
+      '@vue/language-core': 3.3.14
       typescript: 5.9.3
+      vue-tsc: 3.3.14(typescript@5.9.3)
     transitivePeerDependencies:
       - '@yuku-toolchain/wasm'
       - oxc-resolver
@@ -7321,6 +7421,10 @@ snapshots:
       '@rolldown/binding-openharmony-arm64': 1.2.16
       '@rolldown/binding-win32-arm64-msvc': 1.2.16
       '@rolldown/binding-win32-x64-msvc': 1.2.16
+
+  sade@1.8.1:
+    dependencies:
+      mri: 1.2.0
 
   satteri@0.10.5:
     dependencies:
@@ -7455,6 +7559,19 @@ snapshots:
 
   supports-color@10.2.2: {}
 
+  svelte-check@4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@5.9.3):
+    dependencies:
+      '@jridgewell/trace-mapping': 0.3.31
+      '@sveltejs/load-config': 0.2.3
+      chokidar: 4.0.3
+      fdir: 6.5.0(picomatch@4.0.7)
+      picocolors: 1.1.1
+      sade: 1.8.1
+      svelte: 5.57.3
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - picomatch
+
   svelte@5.57.3:
     dependencies:
       '@jridgewell/remapping': 2.3.5
@@ -7508,7 +7625,7 @@ snapshots:
 
   trough@2.2.0: {}
 
-  tsdown@0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(tsx@4.23.15)(typescript@5.9.3):
+  tsdown@0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(@vue/language-core@3.3.14)(tsx@4.23.15)(typescript@5.9.3)(vue-tsc@3.3.14(typescript@5.9.3)):
     dependencies:
       cac: 7.1.0
       defu: 6.1.7
@@ -7518,7 +7635,7 @@ snapshots:
       obug: 3.0.0
       picomatch: 4.0.7
       rolldown: 1.2.16
-      rolldown-plugin-dts: 0.29.0(@volar/typescript@2.4.30(typescript@5.9.3))(rolldown@1.2.16)(typescript@5.9.3)
+      rolldown-plugin-dts: 0.29.0(@volar/typescript@2.4.30(typescript@5.9.3))(@vue/language-core@3.3.14)(rolldown@1.2.16)(typescript@5.9.3)(vue-tsc@3.3.14(typescript@5.9.3))
       tinyexec: 1.3.1
       tinyglobby: 0.2.17
       tinyps: 0.5.1
@@ -7808,6 +7925,12 @@ snapshots:
   vscode-nls@5.2.0: {}
 
   vscode-uri@3.2.0: {}
+
+  vue-tsc@3.3.14(typescript@5.9.3):
+    dependencies:
+      '@volar/typescript': 2.4.30(typescript@5.9.3)
+      '@vue/language-core': 3.3.14
+      typescript: 5.9.3
 
   vue@3.5.44(typescript@5.9.3):
     dependencies:
