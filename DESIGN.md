@@ -32,10 +32,12 @@ the new default; `remount`, `reload` and `manual` stay as they were, and
   client module too. The loader drops that second update when the module
   took the edit itself (`vite:beforeUpdate`).
 - **Load edits** run the loads again (`_data`, then `+droplet.ts`) and hand
-  the result to a new optional renderer hook, `update(instance, props)`. The
-  instance keeps its state; without the hook the element remounts. Every
-  framework renderer in the repo has one; a script droplet runs its cleanup
-  and its function again.
+  the result to an optional renderer hook, `update(instance, props)`, in the
+  renderer's `clientDev` module. The plugin imports that module only under
+  `vite dev` and in builds that are not for production (vitest's), so a
+  production build never carries it. The instance keeps its state; without
+  the hook the element remounts. Every framework renderer in the repo has
+  one; a script droplet runs its cleanup and its function again.
 - **Contract edits** leave the droplet as it is. `contractNotice` and
   `hydrateAction` in `runtime/dev-contract.ts` are the decision table: a
   notice per change, **Reload page** for `ssr` → true and `hydrate` → false,

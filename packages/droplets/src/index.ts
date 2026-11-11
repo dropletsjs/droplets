@@ -75,6 +75,7 @@ export type {
   DropletRenderer,
   HydrateMode,
   ReadFlagsInput,
+  RendererClientDevModule,
   RendererClientModule,
   RendererScope,
   RendererServerModule,

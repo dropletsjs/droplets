@@ -1112,9 +1112,12 @@ export function rendererConformance(options: ConformanceOptions): void {
         expect(file).toBeDefined();
         const bundle = (await import(pathToFileURL(resolve(clientRoot, file ?? "")).href)) as {
           default: (target: HTMLElement, data: unknown, host: unknown, info: unknown) => Promise<unknown>;
-          update: (handle: unknown, data: unknown) => Promise<boolean>;
+          update?: (handle: unknown, data: unknown) => Promise<boolean>;
           unmount: (handle: unknown) => unknown;
         };
+        // vitest's NODE_ENV is not "production": the build has the renderer's `clientDev`, as `vite dev` does.
+        expect(typeof bundle.update).toBe(renderer.clientDev ? "function" : "undefined");
+        if (!bundle.update) return;
         const target = document.createElement("div");
         document.body.append(target);
         const host = { fill: () => {}, empty: () => {} };
@@ -1123,7 +1126,7 @@ export function rendererConformance(options: ConformanceOptions): void {
           await until(() => expect(target.querySelector("[data-testid=greeting]")?.textContent).toBe("Hello Ana!"));
           const clicks = interactive ? await clickUntilLive(target) : 0;
           const kept = await bundle.update(handle, { who: "Bo", greeting: "Hello Bo!" });
-          // A renderer without `update` remounts instead: nothing to check here.
+          // An instance that cannot take new props remounts instead: nothing to check here.
           if (!kept) return;
           await until(() => expect(target.querySelector("[data-testid=greeting]")?.textContent).toBe("Hello Bo!"));
           if (interactive) expect(Number(target.querySelector("[data-testid=count]")?.textContent?.trim())).toBe(clicks);

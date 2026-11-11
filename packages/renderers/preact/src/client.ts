@@ -21,75 +21,11 @@ import type {
   ComponentModule,
   RenderProps,
 } from "@dropletsjs/droplets";
-import {
-  Component,
-  h,
-  hydrate as preactHydrate,
-  render as preactRender,
-  type ComponentChildren,
-  type ComponentType,
-  type VNode,
-} from "preact";
-import { childrenElement, ChildrenHostContext } from "./children.ts";
+import { hydrate as preactHydrate, render as preactRender } from "preact";
+import { componentOf, isThenable, tree, type AnyComponent } from "./tree.ts";
 
-type AnyComponent = ComponentType<Record<string, unknown>>;
-
-/** What `mount` and `hydrate` return, for `unmount`, and for `update` what they rendered. */
+/** What `mount` and `hydrate` return, for `unmount`, and for `update` in dev what they rendered. */
 export type PreactInstance = { target: HTMLElement; component?: AnyComponent; context?: ClientRenderContext };
-
-function componentOf(module: ComponentModule, context: ClientRenderContext): AnyComponent {
-  const component = module.default;
-  if (typeof component !== "function") {
-    throw new Error(`${context.droplet}: the ${context.kind} component is not a Preact component`);
-  }
-  return component as AnyComponent;
-}
-
-type BoundaryProps = {
-  errorComponent: AnyComponent;
-  handle: (error: unknown) => Promise<unknown>;
-  children?: ComponentChildren;
-};
-type BoundaryState = { failed: boolean; shown?: { error: unknown } };
-
-/**
- * The error boundary of a mounted droplet: what throws while rendering
- * goes through `handle` (the droplet's `handleError`) into the error page,
- * rendered in its place; nothing while `handle` runs, or when it rejects.
- */
-class DropletBoundary extends Component<BoundaryProps, BoundaryState> {
-  override state: BoundaryState = { failed: false };
-
-  static getDerivedStateFromError(): Partial<BoundaryState> {
-    return { failed: true };
-  }
-
-  override componentDidCatch(error: unknown): void {
-    this.props.handle(error).then(
-      (shown) => this.setState({ shown: { error: shown } }),
-      () => undefined,
-    );
-  }
-
-  override render(): ComponentChildren {
-    if (!this.state.failed) return this.props.children;
-    if (!this.state.shown) return null;
-    return h(this.props.errorComponent, { error: this.state.shown.error, children: childrenElement() });
-  }
-}
-
-/** The component with its props, under the provider that gives `children` the element's host. */
-function tree(component: AnyComponent, props: RenderProps, context: ClientRenderContext): VNode<any> {
-  let node: VNode<any> = h(component, { ...props, children: childrenElement() });
-  if (context.error) {
-    const errorComponent = componentOf(context.error.module, { ...context, kind: "error" });
-    node = h(DropletBoundary, { errorComponent, handle: context.error.handle }, node);
-  }
-  return h(ChildrenHostContext.Provider, { value: context.children }, node);
-}
-
-const isThenable = (value: unknown): value is PromiseLike<unknown> =>
-  typeof (value as { then?: unknown } | null)?.then === "function";
 
 /** The page with its props once `data` settled: the droplet, its error page, or `null` for nothing. */
 async function settled(
@@ -148,19 +84,6 @@ export function hydrate(
   // the adopted marker is committed.
   preactHydrate(tree(component, props, context), target);
   return { target, component, context };
-}
-
-/**
- * The same tree with new props, rendered into the same target: Preact
- * diffs it against what is there, and the component keeps its state.
- * `data` is always the value, as on mount.
- */
-export async function update(instance: unknown, props: RenderProps): Promise<boolean> {
-  const { target, component, context } = instance as PreactInstance;
-  if (!component || !context) return false;
-  const next = "data" in props && isThenable(props.data) ? { ...props, data: await props.data } : props;
-  preactRender(tree(component, next, context), target);
-  return true;
 }
 
 export function unmount(instance: unknown): void {

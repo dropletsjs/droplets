@@ -171,7 +171,7 @@ function summarize(state: PluginState): DropletSummary[] {
 function rendererDirs(renderers: DropletRenderer[]): string[] {
   const dirs = new Set<string>();
   for (const renderer of renderers) {
-    for (const file of [renderer.server, renderer.client, renderer.clientSetup]) {
+    for (const file of [renderer.server, renderer.client, renderer.clientSetup, renderer.clientDev]) {
       if (file) dirs.add(dirname(file));
     }
   }

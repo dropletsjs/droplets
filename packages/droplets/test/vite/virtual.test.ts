@@ -267,6 +267,21 @@ describe("createClientModuleCode", () => {
     );
   });
 
+  it("exports update only with dev and a renderer's clientDev module", () => {
+    const withDev = [{ ...svelte, clientDev: "/r/svelte/client-dev.js" }, vue];
+    const hello = entry({ name: "Hello" });
+    const dev = createClientModuleCode("/src/droplets", hello, withDev, true);
+    expect(dev).toContain('import { update as updateInstance } from "/r/svelte/client-dev.js";');
+    expect(dev).toContain("export async function update(handle, data, info)");
+    expect(dev).toContain("updateInstance(handle.instance, props)");
+    for (const code of [
+      createClientModuleCode("/src/droplets", hello, withDev),
+      createClientModuleCode("/src/droplets", hello, renderers, true),
+    ]) {
+      expect(code).not.toContain("client-dev");
+      expect(code).not.toContain("function update(");
+    }
+  });
 });
 
 describe("mayImportServerOnly", () => {

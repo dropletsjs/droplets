@@ -410,6 +410,19 @@ export function buildClientCode(
   ].join("\n");
 }
 
+/**
+ * New `data` (and `form`) for a live instance, which keeps its state; on
+ * `false` the element remounts, as it does for a module without `update`.
+ */
+const UPDATE_EXPORT = `
+export async function update(handle, data, info) {
+  if (!handle?.engine) return false;
+  const props = info && info.form !== undefined ? { data, form: info.form } : { data };
+  const done = await withRender(handle.rendering, () => updateInstance(handle.instance, props));
+  return done !== false;
+}
+`;
+
 /** What `createClientModuleCode` needs to know about one droplet. */
 export type ClientModuleInput = Pick<
   DropletEntry,
@@ -424,9 +437,11 @@ export type ClientModuleInput = Pick<
  * Exports, as the custom element (`entry-client`) calls them:
  * `default(target, data, host, info)` mounts or hydrates the droplet,
  * `renderError(target, error, host, info)` the error page, `unmount(handle)`
- * tears either down. `host` is the children host, `info` carries the
- * server's `renderId`, the server-rendered markers, the `form` a form
- * action's result rendered with, and, for a droplet
+ * tears either down. With `dev` and a renderer that has a `clientDev`
+ * module, `update(handle, data, info)` too, for a load edit. `host` is the
+ * children host, `info` carries the server's `renderId`, the
+ * server-rendered markers, the `form` a form action's result rendered
+ * with, and, for a droplet
  * mounted with `data` still to come, `handleError`: the renderer's error
  * boundary then shows the error page in place of what fails to render.
  */
@@ -434,6 +449,7 @@ export function createClientModuleCode(
   globRoot: string,
   entry: ClientModuleInput,
   renderers: DropletRenderer[],
+  dev = false,
   propsModule: string = propsModulePath,
   loadModule: string = loadModulePath,
   formModule: string = formModulePath,
@@ -449,9 +465,11 @@ export function createClientModuleCode(
   const errorModule = withError
     ? JSON.stringify(componentSpecifier(`${base}/${entry.errorFile}`, entry.renderer, shared))
     : null;
+  const devModule = dev ? renderer.clientDev : undefined;
   const imports = [
     ...(renderer.clientSetup ? [`import ${modulePath(renderer.clientSetup)};`] : []),
     `import * as renderer from ${modulePath(renderer.client)};`,
+    ...(devModule ? [`import { update as updateInstance } from ${modulePath(devModule)};`] : []),
     `import * as component from ${componentModule};`,
     ...(errorModule ? [`import * as errorComponent from ${errorModule};`] : ["const errorComponent = undefined;"]),
   ];
@@ -535,19 +553,7 @@ export function renderError(target, error, host, info) {
 export function unmount(handle) {
   return handle?.engine?.unmount(handle.instance);
 }
-
-/**
- * New \`data\` (and \`form\`) for a live instance, which keeps its state:
- * \`false\` when the renderer has no \`update\`, and the element remounts.
- */
-export async function update(handle, data, info) {
-  const engine = handle?.engine;
-  if (!engine || typeof engine.update !== "function") return false;
-  const props = info && info.form !== undefined ? { data, form: info.form } : { data };
-  const done = await withRender(handle.rendering, () => engine.update(handle.instance, props));
-  return done !== false;
-}
-
+${devModule ? UPDATE_EXPORT : ""}
 // Dev only: an edit that no HMR of the framework takes (an engine without
 // one, an export the framework cannot swap) stops here rather than
 // reloading the host's page, and the element remounts the droplet in place.
@@ -574,6 +580,8 @@ export function buildConfigCode(configPath: string | null): string {
  */
 export function virtualModulesPlugin(state: PluginState): Plugin {
   let command: "build" | "serve" = "build";
+  // `update` for a load edit: `vite dev`, and builds Vite does not call production (`import.meta.env.DEV`).
+  let devHooks = false;
   let cached: Promise<DropletEntry[]> | null = null;
 
   // During `build` the filesystem is fixed, so one scan is enough. In `serve`
@@ -599,6 +607,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
 
     configResolved(resolvedConfig) {
       command = resolvedConfig.command;
+      devHooks = resolvedConfig.command === "serve" || !resolvedConfig.isProduction;
     },
 
     resolveId(id, importer) {
@@ -716,7 +725,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
         if (!name) return null;
         const entry = (await getEntries()).find((e) => e.name === name);
         if (!entry) return null;
-        return createClientModuleCode(state.globRoot, entry, state.renderers);
+        return createClientModuleCode(state.globRoot, entry, state.renderers, devHooks);
       }
 
       return null;

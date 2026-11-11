@@ -3,11 +3,11 @@ import { base, bareImport, graphCheck } from "@dropletsjs/config/tsdown";
 
 export default defineConfig({
   ...base,
-  entry: ["./src/index.ts", "./src/server.ts", "./src/client.ts", "./src/children.ts", "./src/form.ts"],
+  entry: ["./src/index.ts", "./src/server.ts", "./src/client.ts", "./src/client-dev.ts", "./src/children.ts", "./src/form.ts"],
   deps: { neverBundle: [bareImport] },
   plugins: [
     graphCheck({
-      client: ["client", "children", "form"],
+      client: ["client", "client-dev", "children", "form"],
       server: ["index", "server"],
     }),
   ],

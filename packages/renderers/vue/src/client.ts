@@ -21,17 +21,13 @@ import {
   createSSRApp,
   defineComponent,
   h,
-  nextTick,
   onErrorCaptured,
   shallowRef,
-  Suspense,
   type App,
   type Component,
-  type ComponentInternalInstance,
-  type ShallowRef,
-  type VNode,
 } from "vue";
 import { CHILDREN_KEY } from "./children.ts";
+import { live, suspended, type Live } from "./live-props.ts";
 
 type WithStyles = { styles?: string[] };
 
@@ -72,22 +68,6 @@ function injectComponentStyles(component: Component, context: ClientRenderContex
   if (context.kind !== "error") return;
   const styles = (component as WithStyles).styles;
   if (Array.isArray(styles)) for (const css of styles) injectStyle(css);
-}
-
-/** Each app's root props, which `update` changes, and the component's instance once mounted. */
-type Live = { props: ShallowRef<RenderProps>; instance?: ComponentInternalInstance | null };
-const live = new WeakMap<App, Live>();
-
-/** The component under `<Suspense>`, as the root of the app, with props that `update` can change. */
-function suspended(component: Component, state: Live): Component {
-  const mounted = (vnode: VNode) => (state.instance = vnode.component);
-  return defineComponent({
-    name: "DropletRoot",
-    setup: () => () =>
-      h(Suspense, null, {
-        default: () => h(component, { ...(state.props.value as Record<string, unknown>), onVnodeMounted: mounted }),
-      }),
-  });
 }
 
 /**
@@ -156,19 +136,6 @@ export function hydrate(
   app.mount(target);
   live.set(app, current);
   return app;
-}
-
-/** New props for the root's component: Vue patches it, and its state stays. */
-export async function update(instance: unknown, props: RenderProps): Promise<boolean> {
-  const state = live.get(instance as App);
-  if (!state) return false;
-  // An async `setup` (`await props.data`) ran once, with the old data, and
-  // never runs again for the same instance: the droplet remounts instead.
-  // (`asyncDep` is Vue's own field for it, internal to its types.)
-  if ((state.instance as { asyncDep?: unknown } | null | undefined)?.asyncDep) return false;
-  state.props.value = props;
-  await nextTick();
-  return true;
 }
 
 export function unmount(instance: unknown): void {

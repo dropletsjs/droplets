@@ -180,8 +180,8 @@
  *   HMR therefore needs nothing.
  * - An edit to a load (`+droplet.server.ts`, `+droplet.ts`, or a server
  *   file they import) runs the loads again and hands the live instance the
- *   new data through {@link RendererClientModule.update}, which keeps the
- *   component's state; without `update`, the element remounts.
+ *   new data through {@link RendererClientDevModule.update}, which keeps
+ *   the component's state; without it, the element remounts.
  * - A change of `ssr`, `hydrate` or `prerender` never reaches the page's
  *   instance: the element says so, and hydrates live when `hydrate` turns on.
  *
@@ -445,17 +445,24 @@ export type RendererClientModule = {
   hydrate(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): MaybePromise<unknown>;
   /** Tears down what `mount` or `hydrate` returned. Core empties the markers itself first. */
   unmount(instance: unknown): void | Promise<void>;
+};
+
+/**
+ * What {@link DropletRenderer.clientDev} exports: hooks for `vite dev` that
+ * a production build never contains.
+ */
+export type RendererClientDevModule = {
   /**
-   * Optional. Renders a live instance (what `mount` or `hydrate` returned)
-   * with new props, keeping it and its state: the component sees the new
-   * `data` (and `form`) as a parent's new props. `data` has the same shape
-   * as the instance started with: the value for a hydrated instance, a
-   * promise (already settled, with React's `status` and `value` set) for
-   * a mounted one. Under `vite dev` this is how a load edit reaches the
-   * page. Return `false` when this instance cannot take them (an error
-   * page is showing, say): core then remounts, as it does without `update`.
+   * Renders a live instance (what `mount` or `hydrate` returned) with new
+   * props, keeping it and its state: the component sees the new `data`
+   * (and `form`) as a parent's new props. `data` has the same shape as the
+   * instance started with: the value for a hydrated instance, a promise
+   * (already settled, with React's `status` and `value` set) for a mounted
+   * one. This is how a load edit reaches the page under `vite dev`. Return
+   * `false` when this instance cannot take them (an error page is showing,
+   * say): core then remounts, as it does for a renderer without `update`.
    */
-  update?(instance: unknown, props: RenderProps): MaybePromise<boolean | void>;
+  update(instance: unknown, props: RenderProps): MaybePromise<boolean | void>;
 };
 
 /**
@@ -533,6 +540,14 @@ export type DropletRenderer = {
    * client module of this renderer, before anything renders. Once per page.
    */
   clientSetup?: string;
+  /**
+   * Absolute path of a module exporting {@link RendererClientDevModule},
+   * imported next to {@link DropletRenderer.client} under `vite dev` and in
+   * builds that are not for production (`NODE_ENV` other than
+   * `production`, as under vitest); a production build leaves it out. It
+   * may import the client module for what both need.
+   */
+  clientDev?: string;
   /**
    * Reads the build-time flags of a component. Return only the flags the
    * file declares; core fills in the defaults. Without it, core scans the

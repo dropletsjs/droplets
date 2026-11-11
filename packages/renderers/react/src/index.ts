@@ -95,6 +95,7 @@ export function react(options: ReactRendererOptions = {}): DropletRenderer {
       }),
     server: resolve(packageRoot, "dist/server.js"),
     client: resolve(packageRoot, "dist/client.js"),
+    clientDev: resolve(packageRoot, "dist/client-dev.js"),
     // Fast Refresh's preamble, and the flags it should ignore, once per page.
     clientSetup: resolve(packageRoot, "dist/client-setup.js"),
   };

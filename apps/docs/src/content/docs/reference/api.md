@@ -291,12 +291,13 @@ The renderer contract, documented in full in `packages/droplets/src/renderer.ts`
 
 | Export | What it is |
 | --- | --- |
-| `DropletRenderer` | What `svelte()`, `vue()` and the others return: `name`, `extensions`, `packages?`, `suffixes?`, `componentTypes?`, `plugins`, `server`, `client`, `clientSetup?`, `readFlags?`. `componentTypes` names the module whose `DropletProps` and `DropletErrorProps` a droplet's `./$types` uses. |
+| `DropletRenderer` | What `svelte()`, `vue()` and the others return: `name`, `extensions`, `packages?`, `suffixes?`, `componentTypes?`, `plugins`, `server`, `client`, `clientSetup?`, `clientDev?`, `readFlags?`. `componentTypes` names the module whose `DropletProps` and `DropletErrorProps` a droplet's `./$types` uses. |
 | `RendererScope`, `rendererScopeFilter(name)`, `RENDERER_QUERY` | `plugins` may be `(scope) => PluginOption[]`; `scope.include` matches the modules tagged `?droplets-renderer=<name>`. |
 | `importsPackage(source, pkg)` | Whether module source imports `pkg` or a subpath of it, or names it in `@jsxImportSource`. |
 | `defineRenderer(renderer)` | Identity helper, typed. |
 | `RendererServerModule`, `ServerRenderContext`, `ServerRenderOutput` | The server side: `render(component, props, context)` → `{ html, head? }`. |
 | `RendererClientModule`, `ClientRenderContext`, `DropletChildrenHost` | The browser side: `mount`, `hydrate`, `unmount`, children markers, the error boundary; `context.rendering(fn)` runs `fn` as part of the render (for a mount deferred past an `await`, so `actionUrl()` still knows the droplet). |
+| `RendererClientDevModule` | What `clientDev` exports: `update(instance, props)`, new props for a live instance on a load edit. Imported under `vite dev` and in non-production builds only. |
 | `ActionUrl` | `context.actionUrl(name?)` on both contexts: the URL of an action of the droplet rendering. |
 | `RenderFlags`, `HydrateMode` | `{ ssr, hydrate, prerender }`; `hydrate` is `boolean \| "visible" \| "interactive"`. |
 | `ComponentKind`, `ComponentModule`, `RenderProps`, `ReadFlagsInput` | `"droplet"` or `"error"`; a compiled component module; `{ data, form? }` or `{ error }`; the argument of `readFlags`. |

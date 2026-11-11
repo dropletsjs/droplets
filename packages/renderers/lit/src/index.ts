@@ -91,6 +91,7 @@ export function lit(options: LitRendererOptions = {}): DropletRenderer {
     plugins: [litPlugin(options.prefix !== undefined ? { prefix: options.prefix } : {})],
     server: resolve(packageRoot, "dist/server.js"),
     client: resolve(packageRoot, "dist/client.js"),
+    clientDev: resolve(packageRoot, "dist/client-dev.js"),
     // lit-element-hydrate-support, once per page, before any LitElement is defined.
     clientSetup: resolve(packageRoot, "dist/client-setup.js"),
   };

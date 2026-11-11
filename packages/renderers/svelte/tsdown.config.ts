@@ -3,7 +3,7 @@ import { base, bareImport, graphCheck } from "@dropletsjs/config/tsdown";
 
 export default defineConfig({
   ...base,
-  entry: ["./src/index.ts", "./src/server.ts", "./src/client.ts", "./src/children.ts"],
+  entry: ["./src/index.ts", "./src/server.ts", "./src/client.ts", "./src/client-dev.ts", "./src/children.ts"],
   deps: { neverBundle: [bareImport, /\.svelte$/] },
   // Compiled by the consumer's vite-plugin-svelte.
   copy: [
@@ -16,7 +16,7 @@ export default defineConfig({
   ],
   plugins: [
     graphCheck({
-      client: ["client", "children"],
+      client: ["client", "client-dev", "children"],
       server: ["index", "server"],
     }),
   ],

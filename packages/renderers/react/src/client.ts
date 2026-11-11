@@ -1,7 +1,7 @@
 /**
  * The browser side of the React renderer: `hydrateRoot` hydrates,
  * `createRoot().render()` mounts, `root.unmount()` tears down. The instance
- * handle is the root.
+ * handle is the root, with what it renders.
  *
  * Both run inside `flushSync`, so the component is committed when `mount`
  * or `hydrate` returns: the host's container, which the element took out of
@@ -24,72 +24,10 @@ import type {
   ComponentModule,
   RenderProps,
 } from "@dropletsjs/droplets";
-import {
-  Component,
-  createElement,
-  Suspense,
-  type ComponentType,
-  type ReactElement,
-  type ReactNode,
-} from "react";
+import type { ComponentType } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, hydrateRoot, type Root, type RootOptions } from "react-dom/client";
-import { childrenElement, ChildrenHostContext } from "./children.ts";
-
-function componentOf(module: ComponentModule, context: ClientRenderContext): ComponentType<Record<string, unknown>> {
-  const component = module.default;
-  if (typeof component !== "function" && !(component && typeof component === "object" && "$$typeof" in component)) {
-    throw new Error(`${context.droplet}: the ${context.kind} component is not a React component`);
-  }
-  return component as ComponentType<Record<string, unknown>>;
-}
-
-type BoundaryProps = {
-  errorComponent: ComponentType<Record<string, unknown>>;
-  handle: (error: unknown) => Promise<unknown>;
-  children?: ReactNode;
-};
-type BoundaryState = { failed: boolean; shown?: { error: unknown } };
-
-/**
- * The error boundary of a mounted droplet: what throws while rendering
- * goes through `handle` (the droplet's `handleError`) into the error page,
- * rendered in its place; nothing while `handle` runs, or when it rejects.
- */
-class DropletBoundary extends Component<BoundaryProps, BoundaryState> {
-  override state: BoundaryState = { failed: false };
-
-  static getDerivedStateFromError(): Partial<BoundaryState> {
-    return { failed: true };
-  }
-
-  override componentDidCatch(error: unknown): void {
-    this.props.handle(error).then(
-      (shown) => this.setState({ shown: { error: shown } }),
-      () => undefined,
-    );
-  }
-
-  override render(): ReactNode {
-    if (!this.state.failed) return this.props.children;
-    if (!this.state.shown) return null;
-    return createElement(this.props.errorComponent, { error: this.state.shown.error, children: childrenElement() });
-  }
-}
-
-/** The component with its props, under the provider that gives `children` the element's host. */
-function tree(component: ComponentType<Record<string, unknown>>, props: RenderProps, context: ClientRenderContext): ReactElement {
-  let node: ReactElement = createElement(component, { ...props, children: childrenElement() });
-  if (context.error) {
-    const errorComponent = componentOf(context.error.module, { ...context, kind: "error" });
-    node = createElement(
-      DropletBoundary,
-      { errorComponent, handle: context.error.handle },
-      createElement(Suspense, { fallback: null }, node),
-    );
-  }
-  return createElement(ChildrenHostContext.Provider, { value: context.children }, node);
-}
+import { componentOf, DropletBoundary, tree } from "./tree.ts";
 
 function rootOptions(context: ClientRenderContext): RootOptions {
   const where = `[droplets] ${context.droplet} (${context.kind}, react)`;
@@ -108,20 +46,19 @@ function rootOptions(context: ClientRenderContext): RootOptions {
   };
 }
 
-/** What a root renders, for `update`: the same component and context, with new props. */
-const rendered = new WeakMap<Root, { component: ComponentType<Record<string, unknown>>; context: ClientRenderContext }>();
+/** What `mount` and `hydrate` return: the root, and what it renders for `update` in dev. */
+export type ReactInstance = { root: Root; component: ComponentType<Record<string, unknown>>; context: ClientRenderContext };
 
 export function mount(
   module: ComponentModule,
   target: HTMLElement,
   props: RenderProps,
   context: ClientRenderContext,
-): Root {
+): ReactInstance {
   const component = componentOf(module, context);
   const root = createRoot(target, rootOptions(context));
   flushSync(() => root.render(tree(component, props, context)));
-  rendered.set(root, { component, context });
-  return root;
+  return { root, component, context };
 }
 
 export function hydrate(
@@ -129,7 +66,7 @@ export function hydrate(
   target: HTMLElement,
   props: RenderProps,
   context: ClientRenderContext,
-): Root {
+): ReactInstance {
   const component = componentOf(module, context);
   // React compares the DOM with its element tree; the element emptied the
   // server-rendered marker before this call, and the container returns
@@ -138,19 +75,9 @@ export function hydrate(
   flushSync(() => {
     root = hydrateRoot(target, tree(component, props, context), rootOptions(context));
   });
-  rendered.set(root!, { component, context });
-  return root!;
-}
-
-/** The same tree with new props: React reconciles it, and the component keeps its state. */
-export function update(instance: unknown, props: RenderProps): boolean {
-  const root = instance as Root;
-  const known = rendered.get(root);
-  if (!known) return false;
-  flushSync(() => root.render(tree(known.component, props, known.context)));
-  return true;
+  return { root: root!, component, context };
 }
 
 export function unmount(instance: unknown): void {
-  (instance as Root).unmount();
+  (instance as ReactInstance).root.unmount();
 }

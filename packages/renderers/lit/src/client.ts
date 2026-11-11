@@ -38,11 +38,11 @@ import { prefix } from "virtual:droplets-renderer-lit";
 import { adoptTag, claimTag, componentOf, tagName } from "./tags.ts";
 import { hostTemplate } from "./template.ts";
 
-/** What `mount` and `hydrate` return; with the host tag it rendered, for `update`. */
-type Instance = { target: HTMLElement; tag?: string; actionUrl?: ClientRenderContext["actionUrl"] };
+/** What `mount` and `hydrate` return; with the host tag it rendered, for `update` in dev. */
+export type Instance = { target: HTMLElement; tag?: string; actionUrl?: ClientRenderContext["actionUrl"] };
 
 /** Where Lit keeps the part it rendered into a container; cleared with the container. */
-type LitContainer = HTMLElement & { _$litPart$?: unknown };
+export type LitContainer = HTMLElement & { _$litPart$?: unknown };
 
 /** The `<template shadowrootmode>` under `root` the parser left inert, attached, the innermost first. */
 export function attachShadowRoots(root: ParentNode): void {
@@ -131,19 +131,6 @@ export function hydrate(
   const markers = context.markers();
   for (const marker of markers.length > 0 ? markers : markersIn(target)) context.children.fill(marker);
   return { target, tag: element.localName, actionUrl: context.actionUrl };
-}
-
-/**
- * The host template again with new props, into the same container: Lit
- * updates the element's properties, and the element, with its state,
- * stays. `data` is the value, as on mount.
- */
-export async function update(instance: unknown, props: RenderProps): Promise<boolean> {
-  const { target, tag, actionUrl } = instance as Instance;
-  if (!tag || !actionUrl || !(target as LitContainer)._$litPart$) return false;
-  const next = "data" in props ? { ...props, data: await props.data } : props;
-  render(hostTemplate(tag, next, actionUrl), target);
-  return true;
 }
 
 export function unmount(instance: unknown): void {

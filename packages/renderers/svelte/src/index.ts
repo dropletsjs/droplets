@@ -112,5 +112,6 @@ export function svelte(options: SvelteRendererOptions = {}): DropletRenderer {
     plugins: [...(options.plugin === false ? [] : [sveltePlugin(pluginOptions)]), optionsPlugin()],
     server: resolve(packageRoot, "dist/server.js"),
     client: resolve(packageRoot, "dist/client.js"),
+    clientDev: resolve(packageRoot, "dist/client-dev.js"),
   };
 }

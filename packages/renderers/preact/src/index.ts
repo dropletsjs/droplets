@@ -77,5 +77,6 @@ export function preact(options: PreactRendererOptions = {}): DropletRenderer {
     ...(options.plugin === false ? {} : { plugins: (scope) => [preactPlugin(scope.include)] }),
     server: resolve(packageRoot, "dist/server.js"),
     client: resolve(packageRoot, "dist/client.js"),
+    clientDev: resolve(packageRoot, "dist/client-dev.js"),
   };
 }

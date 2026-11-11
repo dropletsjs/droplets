@@ -87,5 +87,6 @@ export function vue(options: VueRendererOptions = {}): DropletRenderer {
     ...(options.plugin === false ? {} : { plugins: [vuePlugin(pluginOptions)] }),
     server: resolve(packageRoot, "dist/server.js"),
     client: resolve(packageRoot, "dist/client.js"),
+    clientDev: resolve(packageRoot, "dist/client-dev.js"),
   };
 }

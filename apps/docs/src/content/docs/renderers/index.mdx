@@ -163,8 +163,10 @@ The contract lives in `@dropletsjs/droplets` (`DropletRenderer`,
 that renders `{ data, form? }` or `{ error }` (`form` is an
 [action's](/guides/actions/) result, passed only when there
 is one), a client module with `mount`,
-`hydrate` and `unmount`, optional flag reading and a once-per-page client
-setup.
+`hydrate` and `unmount`, optional flag reading, a once-per-page client
+setup, and an optional `clientDev` module for `vite dev` alone. Its
+`update(instance, props)` gives a live instance a load edit's new data
+without a remount; a production build leaves the module out.
 
 For mixed projects, a renderer declares `packages` (its framework's packages
 and its own, which mark modules as its own; a subpath such as `hono/jsx`

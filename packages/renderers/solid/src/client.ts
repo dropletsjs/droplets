@@ -29,28 +29,7 @@ import {
 } from "solid-js";
 import { hydrate as solidHydrate, render as solidRender } from "solid-js/web";
 import { ensureHydrationState } from "./client-setup.ts";
-
-/** What `mount` and `hydrate` return: Solid's dispose function. */
-type Handle = () => void;
-
-/** Each handle's props setter, for `update`. */
-const setters = new WeakMap<Handle, (props: RenderProps) => void>();
-
-/**
- * The component's props as getters over one signal: a component reading
- * `props.data` follows it, and `update` sets it without a new instance.
- */
-function liveProps(props: RenderProps, children: () => JSX.Element): { props: Record<string, unknown>; set: (props: RenderProps) => void } {
-  const [current, setCurrent] = createSignal(props, { equals: false });
-  const live: Record<string, unknown> = { children };
-  for (const key of Object.keys(props)) {
-    Object.defineProperty(live, key, { enumerable: true, get: () => (current() as Record<string, unknown>)[key] });
-  }
-  if (!("form" in props) && "data" in props) {
-    Object.defineProperty(live, "form", { enumerable: true, get: () => (current() as Record<string, unknown>)["form"] });
-  }
-  return { props: live, set: (next) => setCurrent(() => next) };
-}
+import { liveProps, setters, type Handle } from "./live-props.ts";
 
 /** A fresh marker, as the server prints it. */
 function createMarker(): HTMLElement {
@@ -188,12 +167,4 @@ export function hydrate(
 
 export function unmount(instance: unknown): void {
   (instance as Handle)();
-}
-
-/** New props through the signal the component reads them from: no new instance, its state stays. */
-export function update(instance: unknown, props: RenderProps): boolean {
-  const set = setters.get(instance as Handle);
-  if (!set) return false;
-  set(props);
-  return true;
 }

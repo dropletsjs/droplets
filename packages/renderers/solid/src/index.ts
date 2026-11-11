@@ -68,6 +68,7 @@ export function solid(options: SolidRendererOptions = {}): DropletRenderer {
       : { plugins: (scope) => [solidPlugin({ ...pluginOptions, ...(scope.include ? { include: scope.include } : {}) })] }),
     server: resolve(packageRoot, "dist/server.js"),
     client: resolve(packageRoot, "dist/client.js"),
+    clientDev: resolve(packageRoot, "dist/client-dev.js"),
     // Solid's hydration state (`window._$HY`), defined once per page.
     clientSetup: resolve(packageRoot, "dist/client-setup.js"),
   };

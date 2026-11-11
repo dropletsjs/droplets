@@ -78,5 +78,6 @@ export function honoJsx(options: HonoJsxRendererOptions = {}): DropletRenderer {
     ...(options.plugin === false ? {} : { plugins: (scope) => [honoJsxPlugin(scope.include)] }),
     server: resolve(packageRoot, "dist/server.js"),
     client: resolve(packageRoot, "dist/client.js"),
+    clientDev: resolve(packageRoot, "dist/client-dev.js"),
   };
 }
