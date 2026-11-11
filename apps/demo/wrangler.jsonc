@@ -12,10 +12,10 @@
   "assets": {
     "directory": "dist/client",
     "binding": "ASSETS",
-    // Every request reaches the Worker first, files included: /index.js is
-    // the stub that records where it was loaded from, and /droplets/* and
-    // /assets/* get CORS and their cache headers. The Worker reads the files
-    // through the binding. The adapter's build stops unless this is true.
+    // Every request reaches the Worker first, files included. /index.js is
+    // dynamic (the location and the public env, no-store), and /droplets/*
+    // and /assets/* get CORS and their cache headers from the Worker, which
+    // reads the files through the binding.
     "run_worker_first": true
   },
   // Served only on the custom domain; no *.workers.dev or preview copies.
