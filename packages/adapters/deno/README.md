@@ -96,7 +96,7 @@ tsdown entry: `deno()` finds `dist/entry.js` by path.
 - App creation is lazy and once per process: the first request creates it, later requests reuse the same promise. `src/entry.ts:22`
 - App creation that fails stays cached: every later request gets the same rejection. `src/entry.ts:22`
 - Runtime env comes from the process environment: a secret set there reaches the droplet. `test/entry.test.ts:60`
-- `/index.js` stub answers `cache-control: no-store`. `test/entry.test.ts:64`
+- `/index.js` answers `cache-control: no-store`. `test/entry.test.ts:64`
 - Deno engine is `>=2.0`. `package.json:35`
 - Build script runs the tests before tsdown. `package.json:38`
 - `DENO` names the deno binary for the tests; default `deno` on the `PATH`. `test/entry.test.ts:13`

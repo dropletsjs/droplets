@@ -111,7 +111,7 @@ describe("the Worker, behind run_worker_first", () => {
     expect(response.headers.get("access-control-allow-origin")).toBe(DOCS);
     const code = await response.text();
     expect(code).toContain('Symbol.for("droplets.servers")');
-    expect(code.endsWith(`import("./${manifest.__entryModule}");\n`)).toBe(true);
+    expect(code).toContain(`import "./${manifest.__entryModule}";\n`);
   });
 
   it("serves /assets/* itself, through the binding, with CORS and cached for good", async () => {

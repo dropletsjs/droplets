@@ -10,6 +10,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createBuilder, createServer, type ViteDevServer } from "vite";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { locationScript } from "../../src/runtime/server-records.ts";
 import type { DropletsManifest } from "../../src/server/manifest.ts";
 import { fakeRenderer } from "../../src/testing/index.ts";
 import { droplets, type DropletsAdapter } from "../../src/vite.ts";
@@ -93,9 +94,9 @@ afterEach(() => {
 });
 
 describe("without src/hooks.client.ts", () => {
-  it("builds /index.js as before: the stub, and an entry without init", async () => {
+  it("builds /index.js and an entry without init", async () => {
     const { manifest, read } = await build(await project({ element: "plain-el" }));
-    expect(await read("index.js")).toBe(`import("./${manifest.__entryModule}");\n`);
+    expect(await read("index.js")).toBe(`import "./${manifest.__entryModule}";\n${locationScript(`plain-el:${manifest.__hash}`)}`);
     const entry = await read(manifest.__entryModule ?? "");
     expect(entry).toContain("customElements.define(");
     expect(entry).not.toMatch(/hooks\.client|runClientInit|init\(\) in/);
@@ -111,7 +112,7 @@ describe("with src/hooks.client.ts", () => {
       },
     });
     const { entry, read, manifest } = await build(root);
-    expect(await read("index.js")).toBe(`import("./${manifest.__entryModule}");\n`);
+    expect(await read("index.js")).toBe(`import "./${manifest.__entryModule}";\n${locationScript(`first-el:${manifest.__hash}`)}`);
     expect(await read(manifest.__entryModule ?? "")).not.toMatch(/\bawait\b[^;]*runClientInit/);
     await import(pathToFileURL(entry).href);
     expect(trace().steps).toEqual(["init: not defined", "init: done", "define first-el"]);

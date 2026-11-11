@@ -98,7 +98,7 @@ root `.env.local`) for one off the `PATH`. `entry.ts` is a tsdown entry:
 - App creation is lazy and once per process: the first request creates it, later requests reuse the same promise. `src/entry.ts:21`
 - App creation that fails stays cached: every later request gets the same rejection. `src/entry.ts:21`
 - Runtime env comes from the process environment: a secret set there reaches the droplet. `test/entry.test.ts:60`
-- `/index.js` stub answers `cache-control: no-store`. `test/entry.test.ts:64`
+- `/index.js` answers `cache-control: no-store`. `test/entry.test.ts:64`
 - Bun engine is `>=1.2`. `package.json:35`
 - Build script runs the tests before tsdown. `package.json:38`
 - `BUN` names the bun binary for the tests; default `bun` on the `PATH`. `test/entry.test.ts:13`

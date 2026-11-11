@@ -83,21 +83,21 @@ droplet lists of both tests.
 ## Facts
 
 - `DEV_MARKERS` lists the text only HMR or `vite dev` code holds. `test/production.test.ts:22`
-- `DEV_MARKERS` is checked in every emitted `.js`/`.mjs` file of the Node build. `test/production.test.ts:157`
-- `DEV_MARKERS` is checked in the Cloudflare `worker.js`. `test/production.test.ts:219`
+- `DEV_MARKERS` is checked in every emitted `.js`/`.mjs` file of the Node build. `test/production.test.ts:158`
+- `DEV_MARKERS` is checked in the Cloudflare `worker.js`. `test/production.test.ts:220`
 - `DEV_MODULE` matches the dev modules by file name: `dev-element`, `dev-notify`, `dev-contract`, `dev-tool`, `client-dev`, `devtools/`. `test/production.test.ts:60`
-- Dev module code rendered into any chunk of any environment fails the production test. `test/production.test.ts:179`
-- Production `dist/` holds no file with `dev` in its name (case-insensitive). `test/production.test.ts:189`
-- Droplet `client.js` in production exports no `update` hook. `test/production.test.ts:169`
-- Production build runs `vite build` with `NODE_ENV` removed, since vitest's `NODE_ENV=test` builds for development. `test/production.test.ts:107`
-- Production build recorder plugin writes `rendered-<environment>.json` per Vite environment. `test/production.test.ts:88`
-- Node production build has the environments `client`, `server` and `ssr`. `test/production.test.ts:136`
-- Cloudflare production build has the environments `client` and `server`; `worker.js` is the only file outside `client/`. `test/production.test.ts:198`
-- Cloudflare `worker.js` contains no `process.env.NODE_ENV`. `test/production.test.ts:202`
-- Cloudflare `worker.js` bundles no `*.development.js` module and none of `jsxDEV`, `react-stack-bottom-frame`, `[Vue warn]`. `test/production.test.ts:63`, `test/production.test.ts:210`
-- Hono modules are exempt from the `jsxDEV` check: Hono's JSX runtime is named `jsxDEV` in production too. `test/production.test.ts:68`
-- Cloudflare `worker.js` renders the React, Preact, Vue, Solid, Svelte, Lit and Hono JSX droplets with 200; Handlebars is not in that list. `test/production.test.ts:229`
-- Production builds are copied to `.tmp/production-node` and `.tmp/production-cloudflare`. `test/production.test.ts:105`
+- Dev module code rendered into any chunk of any environment fails the production test. `test/production.test.ts:180`
+- Production `dist/` holds no file with `dev` in its name (case-insensitive). `test/production.test.ts:190`
+- Droplet `client.js` in production exports no `update` hook. `test/production.test.ts:170`
+- Production build runs `vite build` with `NODE_ENV` removed, since vitest's `NODE_ENV=test` builds for development. `test/production.test.ts:108`
+- Production build recorder plugin writes `rendered-<environment>.json` per Vite environment. `test/production.test.ts:89`
+- Node production build has the environments `client`, `server` and `ssr`. `test/production.test.ts:137`
+- Cloudflare production build has the environments `client` and `server`; `worker.js` is the only file outside `client/`. `test/production.test.ts:199`
+- Cloudflare `worker.js` contains no `process.env.NODE_ENV`. `test/production.test.ts:203`
+- Cloudflare `worker.js` bundles no `*.development.js` module and none of `jsxDEV`, `react-stack-bottom-frame`, `[Vue warn]`. `test/production.test.ts:63`, `test/production.test.ts:211`
+- Hono modules are exempt from the `jsxDEV` check: Hono's JSX runtime is named `jsxDEV` in production too. `test/production.test.ts:69`
+- Cloudflare `worker.js` renders the React, Preact, Vue, Solid, Svelte, Lit and Hono JSX droplets with 200; Handlebars is not in that list. `test/production.test.ts:230`
+- Production builds are copied to `.tmp/production-node` and `.tmp/production-cloudflare`. `test/production.test.ts:106`
 - Fixture adapter is Cloudflare when `DROPLETS_ADAPTER=cloudflare`, Node otherwise. `test/fixture/vite.config.ts:19`
 - Fixture registers every renderer and `dropletsDevtools()`. `test/fixture/vite.config.ts:23`
 - Fixture element is `djs-mixed`, `cors: true`, `trustedOrigins` holds the host page `http://localhost:5192`. `test/fixture/droplets.config.ts:2`

@@ -599,7 +599,7 @@ import droplet from "$droplets/drop";
 const terms = droplet.url("assets/public/terms.pdf");
 ```
 
-Files are public. `handle` never runs for `/index.js` or `/assets/*` (see
+Files are public. `handle` never runs for `/index.js`, `/env.js` or `/assets/*` (see
 [`handle`](/guides/server/#handle)); keep a file only some users may see
 behind an endpoint or a signed URL.
 

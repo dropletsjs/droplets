@@ -24,6 +24,8 @@ export type DevLog = {
   /** `cors` allows every origin, once. */
   corsAny(): void;
   malformedProps(): void;
+  /** A `DROPLETS_ENV_MAX_AGE` that is no number of seconds, once per value. */
+  badEnvMaxAge(input: { value: string; fallback: string }): void;
   /** An action's result that does not fit a URL value. */
   resultTooLarge(input: { droplet: string; action: string }): void;
 };
@@ -72,6 +74,12 @@ export function createDevLog(): DevLog {
     },
     malformedProps() {
       logger.warn("framework", "ignoring malformed x-droplet-props header");
+    },
+    badEnvMaxAge({ value, fallback }) {
+      logger.warn(
+        "framework",
+        `DROPLETS_ENV_MAX_AGE: ignoring ${JSON.stringify(value.slice(0, 200))}, not a whole number of seconds (0 or more); /env.js is sent with ${fallback}`,
+      );
     },
     resultTooLarge({ droplet, action }) {
       logger.warn(

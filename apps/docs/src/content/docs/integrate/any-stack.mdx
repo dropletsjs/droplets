@@ -81,7 +81,7 @@ droplets server, every method, body streamed:
 
 | Path | What the browser asks for |
 | --- | --- |
-| `/index.js` | The entry stub, `no-store`; it imports the element from `/assets/` |
+| `/index.js` | A small file, `no-store`; it imports the element from `/assets/` |
 | `/droplets/*` | `client.js` bundles, `style.css`, `_data` refreshes and form actions (`POST /droplets/<id>?/name`) |
 | `/assets/*` | The entry client, shared chunks, stylesheets, images, and `public/` at `/assets/public/` |
 | `/api/*` | Your [`+server.ts`](/guides/server/#api-routes) endpoints, which [`$droplets/drop`](/reference/api/#dropletsdrop) calls |
@@ -125,6 +125,7 @@ On the droplets server:
 | --- | --- | --- |
 | `DROPLETS_ORIGIN` | `https://drops.example.com` | Its own public origin, when the browser reaches it directly: an `x-droplet-location` on it is honoured, and a single entry is the location when no header names one. Added to [`origin`](/guides/configuration/) in `droplets.config.ts`, read at runtime. |
 | `DROPLETS_TRUSTED_ORIGINS` | `https://www.example.com`, comma-separated for several | The origins whose `x-droplet-location` it honours, and the origins whose form posts pass the [`Origin` check](/integrate/http-contract/#form-posts-the-origin-check). Added to `trustedOrigins` in `droplets.config.ts`, read at runtime. |
+| `DROPLETS_ENV_MAX_AGE` | `600` by default | Seconds a browser or CDN may keep `/env.js`, the public variables read at runtime; `0` sends `no-store`. Read at runtime; an invalid value keeps `600`. |
 | `DROPLETS_SECRET` | 32 or more random bytes | Signs a form's result on the `303` back to your page when JavaScript is off. Without it, such a post answers the droplet's fragment instead. |
 | `PORT` | `8000` by default | Where `node dist/server.js` (and Bun's) listens. |
 

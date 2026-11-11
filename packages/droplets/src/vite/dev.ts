@@ -18,6 +18,7 @@ import type { HandleServerError, ImportMap, ImportMapHandler } from "../runtime/
 import type { SsrModule } from "../server/app.ts";
 import { createDevLog } from "../runtime/dev-log.ts";
 import { withoutRequestInfo } from "../runtime/request-store.ts";
+import { locationScript, publicEnvScript, serverKey } from "../runtime/server-records.ts";
 import { PUBLIC_PATH, publicFileHandler } from "./assets.ts";
 import { withViteIdAliases } from "./externalize.ts";
 import { checkImportMap } from "./importmap-check.ts";
@@ -317,9 +318,14 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
     return result?.code ?? null;
   };
 
+  // The entry itself, after the location record and the public runtime
+  // variables: a module served whole, so they are set before its body runs.
   const loadEntryClient = async () => {
     const result = await clientEnvironment().transformRequest(toViteFsPath({ filePath: state.entryClientPath }));
-    return result?.code ?? null;
+    if (!result?.code) return null;
+    const key = serverKey(config.element, state.buildHash);
+    const env = (await runtime.loadSsrModule()).publicEnv?.() ?? {};
+    return `${locationScript(key)}${Object.keys(env).length > 0 ? publicEnvScript(key, env) : ""}${result.code}`;
   };
 
   // Hand the browser an @import so Vite serves and watches the real file.

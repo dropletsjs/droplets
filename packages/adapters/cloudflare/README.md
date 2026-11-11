@@ -96,7 +96,7 @@ that overlap share one request store: the last one to start wins.
   `If-None-Match` is answered with `304`.
 - Nothing else in `dist/client` is a Worker route: `/robots.txt` answers 404.
 
-Droplet bundles, the `/index.js` stub and the global CSS are read through the
+Droplet bundles, `/index.js` and the global CSS are read through the
 binding on each request; the manifest itself is in the bundle.
 
 ### Environment
@@ -146,32 +146,32 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - `run_worker_first` warning names the file and the value and links `https://dropletsjs.dev/guides/deployment/#run_worker_first`. `src/index.ts:62`, `src/index.ts:184`
 - Config in the Worker is `resolveConfig(userConfig)` with no environment: `PORT` is never read. `src/worker.ts:23`
 - Manifest is inlined into the Worker through `virtual:droplets-manifest`, the build's `droplets.json`. `src/worker.ts:2`, `../../droplets/src/vite/virtual.ts:670`
-- Assets binding missing from `env`: the request throws `droplets: no "<name>" binding`. `src/worker.ts:108`, `test/worker.test.ts:251`
+- Assets binding missing from `env`: the request throws `droplets: no "<name>" binding`. `src/worker.ts:108`, `test/worker.test.ts:261`
 - App is created once per assets binding object and kept in a `WeakMap`. `src/worker.ts:27`, `src/worker.ts:113`
 - Bindings are the runtime env: every request calls `setRuntimeEnv(env)` before it is answered. `src/worker.ts:124`
-- `platform.env` is the Worker's `env`, every binding included. `../../droplets/src/runtime/app.ts:493`, `test/worker.test.ts:87`
-- `platform.context` is the Worker's execution context when the runtime has one. `../../droplets/src/runtime/app.ts:529`
+- `platform.env` is the Worker's `env`, every binding included. `../../droplets/src/runtime/app.ts:517`, `test/worker.test.ts:87`
+- `platform.context` is the Worker's execution context when the runtime has one. `../../droplets/src/runtime/app.ts:553`
 - `.env` values are not in `dist/worker.js`; runtime secrets come from the bindings. `test/worker.test.ts:103`
-- `DROPLETS_TRUSTED_ORIGINS` and `DROPLETS_ORIGIN` bindings are read per request. `../../droplets/src/runtime/app.ts:808`, `../../droplets/src/runtime/app.ts:813`, `test/worker.test.ts:209`
-- Droplet lookup in the inlined manifest uses `Object.hasOwn`: `__proto__` and other prototype names find nothing. `src/worker.ts:41`, `test/worker.test.ts:203`
+- `DROPLETS_TRUSTED_ORIGINS` and `DROPLETS_ORIGIN` bindings are read per request. `../../droplets/src/runtime/app.ts:832`, `../../droplets/src/runtime/app.ts:837`, `test/worker.test.ts:219`
+- Droplet lookup in the inlined manifest uses `Object.hasOwn`: `__proto__` and other prototype names find nothing. `src/worker.ts:41`, `test/worker.test.ts:213`
 - Files are read through the binding by pathname; the origin `https://assets.invalid` is a placeholder. `src/worker.ts:48`
 - File the binding answers with a non-2xx status reads as missing (`null`). `src/worker.ts:49`
-- Client bundles, the `/index.js` stub and the global CSS are fetched from the binding per request. `src/worker.ts:56`, `src/worker.ts:58`, `src/worker.ts:60`
-- `/index.js` stub answers `cache-control: no-store`. `test/worker.test.ts:147`
+- Client bundles, `/index.js` and the global CSS are fetched from the binding per request. `src/worker.ts:56`, `src/worker.ts:58`, `src/worker.ts:60`
+- `/index.js` answers `cache-control: no-store`. `test/worker.test.ts:157`
 - Droplet styles and the entry module name come from the inlined manifest, not the binding. `src/worker.ts:59`, `src/worker.ts:69`
-- Prerendered renders are read through the binding from `_prerendered/<random>`; they are never in the bundle. `src/worker.ts:65`, `test/worker.test.ts:114`
-- Prerendered folder name is `_prerendered/` plus 32 hex characters, new every build, and only `droplets.json` holds it. `../../droplets/src/vite/prerender.ts:52`, `test/worker.test.ts:121`
-- Prerendered renders, `droplets.json` and `/.vite/manifest.json` answer 404 from the Worker. `test/worker.test.ts:127`, `test/worker.test.ts:134`
+- Prerendered renders are read through the binding from `_prerendered/<random>`; they are never in the bundle. `src/worker.ts:65`, `test/worker.test.ts:124`
+- Prerendered folder name is `_prerendered/` plus 32 hex characters, new every build, and only `droplets.json` holds it. `../../droplets/src/vite/prerender.ts:52`, `test/worker.test.ts:131`
+- Prerendered renders, `droplets.json` and `/.vite/manifest.json` answer 404 from the Worker. `test/worker.test.ts:137`, `test/worker.test.ts:144`
 - `/assets/*` forwards the original request to the binding. `src/worker.ts:74`
 - `/assets/*` hashed file answered 2xx gets `cache-control: public, max-age=2592000, immutable`; any other status passes through untouched. `src/worker.ts:76`, `src/worker.ts:78`
 - `/assets/public/*` gets `cache-control: no-cache`; a 304 or a binding `ETag` is passed on. `src/worker.ts:90`, `src/worker.ts:91`
 - `/assets/public/*` without a binding `ETag` gets one from the SHA-1 of the body in base64url, and `304` with no body when `If-None-Match` lists it. `src/worker.ts:93`, `src/worker.ts:99`
 - `/assets/public/*` error status other than 304 passes through untouched. `src/worker.ts:81`
-- `/robots.txt` answers 404: `public/` is served only under `/assets/public/`. `test/worker.test.ts:177`
-- `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:868`, `test/worker.test.ts:196`
+- `/robots.txt` answers 404: `public/` is served only under `/assets/public/`. `test/worker.test.ts:187`
+- `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:892`, `test/worker.test.ts:206`
 - `nodejs_compat` gives `AsyncLocalStorage`, found through `process.getBuiltinModule`; without it overlapping requests share one request store. `../../droplets/src/runtime/request-store.ts:46`, `../../droplets/src/runtime/request-store.ts:60`
 - Node engine for the build is `>=22`. `package.json:36`
 - `vite` is a peer dependency (`^8.0.0`): the adapter reads `defaultServerConditions` from it. `package.json:49`, `src/index.ts:6`
 - Build script runs the tests before tsdown. `package.json:39`
 - Tests build the framework's fixture app and fail when `@dropletsjs/droplets` is not built. `test/build-fixture.ts:18`
-- A droplet without stylesheets has no `style.css` (404), and `/index.css` answers 404 without a shared stylesheet: the binding has no such file. `src/worker.ts:61`, `test/worker.test.ts:273`
+- A droplet without stylesheets has no `style.css` (404), and `/index.css` answers 404 without a shared stylesheet: the binding has no such file. `src/worker.ts:61`, `test/worker.test.ts:283`

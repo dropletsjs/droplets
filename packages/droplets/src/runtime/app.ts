@@ -22,8 +22,8 @@ import { dropletElement } from "./element.ts";
 import { prerenderKey, propsKey } from "./props.ts";
 import { requestInfo, withRequestInfo } from "./request-store.ts";
 import { createLoadHeaders, storedHeaders } from "./load-headers.ts";
+import { publicEnvScript, serverKey } from "./server-records.ts";
 import { mediaType, originCheck, originWith, sizeLimits, trustedOriginsWith } from "./security.ts";
-import { locationScript, publicEnvScript, serverKey } from "./server-records.ts";
 import { allowedMethods, API_METHODS, type ApiMatch, type ApiMethod } from "./routes.ts";
 import {
   HttpError,
@@ -122,12 +122,12 @@ export type DropletsAppOptions = {
   loadDropletData?: LoadDropletData;
   getDropletMeta?: GetDropletMeta;
   loadClientModule?: LoadClientModule;
-  /** What `/index.js` serves. */
+  /** What `/index.js` serves, as it is: the build's file, or the dev loader. */
   loadEntryClient?: () => MaybePromise<string | null>;
   /**
    * The public variables read at runtime (`public: true` without `static`),
-   * with their values for this request. `/index.js` hands them to the page
-   * before any droplet loads.
+   * with their values for this request: what `/env.js` hands the page,
+   * before any droplet loads. `{}` (no such variable) answers 404.
    */
   publicEnv?: () => MaybePromise<Record<string, string | undefined>>;
   /**
@@ -344,9 +344,33 @@ const RENDER_ROUTE = /^\/droplets\/[^/]+(?:\/_data)?\/?$/;
 
 type IsStaticPathInput = { path: string };
 
-/** `/index.js` and everything under `/assets/`: files, which never pass through `handle`. */
+/** `/index.js`, `/env.js` and everything under `/assets/`: what a page loads as files, which never pass through `handle`. */
 function isStaticPath({ path }: IsStaticPathInput): boolean {
-  return path === "/index.js" || path.startsWith("/assets/");
+  return path === "/index.js" || path === "/env.js" || path.startsWith("/assets/");
+}
+
+const ENV_MAX_AGE_SECONDS = 600;
+
+/** The `Cache-Control` of `/env.js` by raw `DROPLETS_ENV_MAX_AGE`: parsed once, a bad value warned about once. */
+const envCacheControls = new Map<string, string>();
+
+type EnvCacheControlInput = { raw: string | undefined; devLog: DevLog | undefined };
+
+/**
+ * `public, max-age=600`, or `DROPLETS_ENV_MAX_AGE` seconds, `0` for
+ * `no-store`; any other value is ignored, with a warning under `vite dev`.
+ */
+function envCacheControl({ raw, devLog }: EnvCacheControlInput): string {
+  const fallback = `public, max-age=${ENV_MAX_AGE_SECONDS}`;
+  if (!raw?.trim()) return fallback;
+  let value = envCacheControls.get(raw);
+  if (value === undefined) {
+    const seconds = /^\d+$/.test(raw.trim()) ? Number(raw.trim()) : Number.NaN;
+    if (!Number.isSafeInteger(seconds)) devLog?.badEnvMaxAge({ value: raw, fallback });
+    value = !Number.isSafeInteger(seconds) ? fallback : seconds === 0 ? "no-store" : `public, max-age=${seconds}`;
+    envCacheControls.set(raw, value);
+  }
+  return value;
 }
 
 type PropsFromRequestInput = { c: AppContext; devLog: DevLog | undefined };
@@ -1071,25 +1095,33 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     return html === null ? c.text("Not Found", 404) : c.html(html);
   });
 
-  // The stub names the build's entry, so it must never be cached; the entry
+  // It names the build's entry, so it must never be cached; the entry
   // itself is under `/assets/`, cached for good.
   app.get("/index.js", async (c) => {
     if (!options.loadEntryClient) return c.text("Not Found", 404);
     try {
       const code = await options.loadEntryClient();
       if (!code) return c.text("Not Found", 404);
-      const env = options.publicEnv ? await options.publicEnv() : {};
-      const key = serverKey(element, options.buildHash ?? "");
-      // Where the browser loads this server's droplets from: the URL the
-      // page loaded this very file from, prefix included.
-      const script = `${locationScript(key)}${Object.keys(env).length > 0 ? publicEnvScript(key, env) : ""}`;
       c.header("content-type", "application/javascript; charset=utf-8");
       c.header("cache-control", "no-store");
-      // First, so the values are there before the entry's body runs: in
-      // dev this route serves the entry itself (`/index.js?injectTool=true`).
-      return c.body(`${script}${code}`);
+      return c.body(code);
     } catch (error) {
       return failure({ c, options, error, as: "text", where: "/index.js" });
+    }
+  });
+
+  // Values that change without a build: apart from `/index.js`, cached for
+  // a while. It takes no input from the request.
+  app.get("/env.js", async (c) => {
+    if (!options.publicEnv) return c.text("Not Found", 404);
+    try {
+      const env = await options.publicEnv();
+      if (Object.keys(env).length === 0) return c.text("Not Found", 404);
+      c.header("content-type", "application/javascript; charset=utf-8");
+      c.header("cache-control", envCacheControl({ raw: readRuntimeEnv("DROPLETS_ENV_MAX_AGE"), devLog: options.devLog }));
+      return c.body(publicEnvScript(serverKey(element, options.buildHash ?? ""), env));
+    } catch (error) {
+      return failure({ c, options, error, as: "text", where: "/env.js" });
     }
   });
 

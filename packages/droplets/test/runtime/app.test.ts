@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } fr
 import { logger } from "../../src/core/logger.ts";
 import { createDropletsApp, type DropletsApp, type DropletsAppOptions } from "../../src/runtime/app.ts";
 import { createDevLog } from "../../src/runtime/dev-log.ts";
+import { publicEnvScript } from "../../src/runtime/server-records.ts";
 import { UnhandledDropletError } from "../../src/runtime/load.ts";
 import type { ApiModule, ApiRoute } from "../../src/runtime/routes.ts";
 import { matchRoute } from "../../src/runtime/routes.ts";
 import { error, json, redirect, type Handle, type LoadEvent, type TransformEvent } from "../../src/runtime/server.ts";
-import { locationScript } from "../../src/runtime/server-records.ts";
 
 const decode = (b64: string) => JSON.parse(Buffer.from(b64, "base64").toString("utf8")) as unknown;
 
@@ -90,50 +90,13 @@ describe("createDropletsApp: health and index", () => {
 });
 
 describe("createDropletsApp: assets", () => {
-  it("serves the entry client uncached", async () => {
-    const { app } = fakeApp();
+  it("serves /index.js as its loader gives it, uncached, with nothing added", async () => {
+    const { app } = fakeApp({ publicEnv: () => ({ PUBLIC_API: "https://api.test" }) });
     const res = await app.request("/index.js");
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("no-store");
     expect(res.headers.get("content-type")).toContain("javascript");
-    expect(await res.text()).toBe(`${locationScript("djs-droplet:abc123")}/* entry */`);
-  });
-
-  it("starts /index.js with where it was loaded from: the browser's anchor for this server", async () => {
-    const code = await (await fakeApp({ buildHash: "b1" }).app.request("/index.js")).text();
-    const script = locationScript("djs-droplet:b1");
-    expect(code.startsWith(script)).toBe(true);
-    // A module script: `import.meta.url` is the URL the page loaded it from.
-    const servers = Symbol.for("droplets.servers");
-    const global = globalThis as unknown as Record<symbol, Record<string, { origin?: string }> | undefined>;
-    for (const [url, location] of [
-      ["https://drops.test/index.js", "https://drops.test"],
-      ["https://shop.test/mfe/index.js?strategy=reload", "https://shop.test/mfe"],
-    ] as const) {
-      delete global[servers];
-      new Function("meta", script.replace("import.meta", "meta"))({ url });
-      expect(global[servers]?.["djs-droplet:b1"]?.origin).toBe(location);
-    }
-    delete global[servers];
-  });
-
-  it("ends /index.js with this server's public runtime variables, when there are any", async () => {
-    const values: Record<string, string | undefined> = { PUBLIC_API: "https://api</script>", PUBLIC_UNSET: undefined };
-    const { app } = fakeApp({ buildHash: "b1", publicEnv: () => values });
-    const code = await (await app.request("/index.js")).text();
-    // First, so the values are set before the entry (the dev route serves the entry itself).
-    const env =
-      '\n((globalThis[Symbol.for("droplets.servers")] ??= {})["djs-droplet:b1"] ??= {}).env = ' +
-      '{"PUBLIC_API":"https://api\\u003c/script>"};\n';
-    expect(code).toBe(`${locationScript("djs-droplet:b1")}${env}/* entry */`);
-    const servers = Symbol.for("droplets.servers");
-    new Function(env)();
-    const global = globalThis as unknown as Record<symbol, Record<string, { env: Record<string, string> }>>;
-    expect(global[servers]?.["djs-droplet:b1"]?.env).toEqual({ PUBLIC_API: "https://api</script>" });
-    delete global[servers];
-
-    const none = fakeApp({ buildHash: "b1", publicEnv: () => ({}) });
-    expect(await (await none.app.request("/index.js")).text()).toBe(`${locationScript("djs-droplet:b1")}/* entry */`);
+    expect(await res.text()).toBe("/* entry */");
   });
 
   it("knows the request's public origin in server code, through overlapping requests", async () => {
@@ -688,6 +651,75 @@ describe("createDropletsApp: _data", () => {
     const res = await app.request("/droplets/hello/_data");
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: { message: "Sorry" } });
+  });
+});
+
+describe("createDropletsApp: /env.js", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  const values = { PUBLIC_API: "https://api</script>", PUBLIC_UNSET: undefined };
+
+  it("serves the public runtime variables as a script under the server's key, cached ten minutes", async () => {
+    const { app } = fakeApp({ buildHash: "b1", publicEnv: () => values });
+    const res = await app.request("/env.js");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("javascript");
+    expect(res.headers.get("cache-control")).toBe("public, max-age=600");
+    expect(await res.text()).toBe(publicEnvScript("djs-droplet:b1", values));
+  });
+
+  it("answers 404 when no public variable is read at runtime, or there is no publicEnv", async () => {
+    expect((await fakeApp({ publicEnv: () => ({}) }).app.request("/env.js")).status).toBe(404);
+    expect((await fakeApp().app.request("/env.js")).status).toBe(404);
+  });
+
+  it("takes nothing from the request: a query string changes nothing", async () => {
+    const publicEnv = vi.fn(() => values);
+    const { app } = fakeApp({ buildHash: "b1", publicEnv });
+    const plain = await (await app.request("/env.js")).text();
+    for (const query of ["?PUBLIC_API=evil", "?__proto__[x]=1", "?c=other&t=1"]) {
+      expect(await (await app.request(`/env.js${query}`)).text(), query).toBe(plain);
+    }
+    expect(publicEnv).toHaveBeenCalledWith();
+  });
+
+  it("never runs handle, and carries the cors headers", async () => {
+    const handle = vi.fn<Handle>(({ event, resolve }) => resolve(event));
+    const { app } = fakeApp({ publicEnv: () => values, getHandle: () => handle, cors: { origin: "*" } });
+    const res = await app.request("/env.js", { headers: { origin: "https://host.test" } });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("access-control-allow-origin")).toBe("*");
+    expect(handle).not.toHaveBeenCalled();
+  });
+
+  it("takes its max-age from DROPLETS_ENV_MAX_AGE, 0 for no-store", async () => {
+    const { app } = fakeApp({ publicEnv: () => values });
+    for (const [raw, expected] of [
+      ["120", "public, max-age=120"],
+      [" 30 ", "public, max-age=30"],
+      ["0", "no-store"],
+      ["", "public, max-age=600"],
+    ] as const) {
+      vi.stubEnv("DROPLETS_ENV_MAX_AGE", raw);
+      expect((await app.request("/env.js")).headers.get("cache-control"), raw).toBe(expected);
+    }
+  });
+
+  it("falls back to 600 for an invalid DROPLETS_ENV_MAX_AGE, warning once per value under vite dev", async () => {
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const { app } = fakeApp({ publicEnv: () => values });
+    for (const raw of ["-5", "1.5", "ten", "1e3", "99999999999999999999", "-5"]) {
+      vi.stubEnv("DROPLETS_ENV_MAX_AGE", raw);
+      expect((await app.request("/env.js")).headers.get("cache-control"), raw).toBe("public, max-age=600");
+    }
+    expect(warn).toHaveBeenCalledTimes(5);
+    expect(warn).toHaveBeenCalledWith(
+      "framework",
+      'DROPLETS_ENV_MAX_AGE: ignoring "-5", not a whole number of seconds (0 or more); /env.js is sent with public, max-age=600',
+    );
   });
 });
 
@@ -2092,13 +2124,21 @@ describe("createDropletsApp: what a production server logs", () => {
     vi.unstubAllEnvs();
   });
 
-  it("warns about nothing without a dev log: '*', cors '*', untrusted locations, bad env entries, malformed props", async () => {
+  it("warns about nothing without a dev log: '*', cors '*', untrusted locations, bad env entries, malformed props, a bad DROPLETS_ENV_MAX_AGE", async () => {
     const quiet = vi.fn();
     for (const level of ["warn", "info", "debug", "log"] as const) vi.spyOn(console, level).mockImplementation(quiet);
     const logged = vi.spyOn(logger, "warn");
     vi.stubEnv("DROPLETS_ORIGIN", "https://shop.test,nope,*");
     vi.stubEnv("DROPLETS_TRUSTED_ORIGINS", "nope,*");
-    const { app } = fakeApp({ devLog: undefined, origin: ["*"], trustedOrigins: ["*"], cors: { origin: "*" } });
+    vi.stubEnv("DROPLETS_ENV_MAX_AGE", "soon");
+    const { app } = fakeApp({
+      devLog: undefined,
+      origin: ["*"],
+      trustedOrigins: ["*"],
+      cors: { origin: "*" },
+      publicEnv: () => ({ PUBLIC_A: "a" }),
+    });
+    expect((await app.request("/env.js")).headers.get("cache-control")).toBe("public, max-age=600");
     const headers = { "x-forwarded-host": "evil.example", "x-forwarded-proto": "https", "x-droplet-props": "%%%" };
     expect((await app.request("http://internal:8000/droplets/hello", { headers })).status).toBe(200);
     const strict = fakeApp({ devLog: undefined }).app;

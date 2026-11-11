@@ -5,8 +5,10 @@ import type { DropletsAdapter } from "../adapters.ts";
 import { shipsClient, type DropletEntry } from "../core/discover.ts";
 import { loadJsonFile, loadTextFile, writeTextFile } from "../core/fs.ts";
 import { logger } from "../core/logger.ts";
+import { dynamicPublicNames } from "../core/env.ts";
 import { entryClientPath, entryServerPath } from "../core/paths.ts";
 import type { HydrateMode } from "../renderer.ts";
+import { locationScript, serverKey } from "../runtime/server-records.ts";
 import type { DropletManifestEntry, DropletsManifest } from "../server/manifest.ts";
 import { externalsList, type PluginState } from "./state.ts";
 import { loadIndexHtml } from "./index-html.ts";
@@ -15,8 +17,11 @@ import { clientEntryId, STYLES_PLACEHOLDER, VIRTUAL_CSS } from "./virtual.ts";
 /** Named inputs, so the manifest can be read back by name rather than path. */
 export const ENTRY_CLIENT_NAME = "entry-client";
 export const GLOBAL_CSS_NAME = "droplets-css";
-/** What `/index.js` serves: one line that imports the hashed entry. */
+/** What `/index.js` serves: the location record and static imports of the runtime env and the hashed entry. */
 export const ENTRY_STUB_FILE = "index.js";
+
+/** The runtime public variables `/index.js` imports, served by the server per request. */
+export const ENV_SCRIPT_FILE = "env.js";
 
 /**
  * The element and the registry, cached for good under `/assets/`. Its
@@ -243,11 +248,17 @@ export function translateManifest({
   };
 }
 
-/** The stub `/index.js` serves: the entry, resolved against the stub's own URL. */
-type EntryStubCodeInput = { entryModule: string };
+type EntryStubCodeInput = { entryModule: string; key: string; hasRuntimeEnv: boolean };
 
-export function entryStubCode({ entryModule }: EntryStubCodeInput): string {
-  return `import(${JSON.stringify(`./${entryModule}`)});\n`;
+/**
+ * `/index.js`: static imports, so the browser fetches `env.js` and the entry
+ * at once and evaluates `env.js` first. The location record is written after
+ * the entry has run; the element reads the location lazily and, until then,
+ * finds the same one from the entry's own URL (`serverLocation`).
+ */
+export function entryStubCode({ entryModule, key, hasRuntimeEnv }: EntryStubCodeInput): string {
+  const env = hasRuntimeEnv ? `import ${JSON.stringify(`./${ENV_SCRIPT_FILE}`)};\n` : "";
+  return `${env}import ${JSON.stringify(`./${entryModule}`)};\n${locationScript(key)}`;
 }
 
 /** The droplets' stylesheets, written into the entry where the registry left room. */
@@ -310,7 +321,11 @@ export async function writeManifest(state: PluginState): Promise<string> {
     await writeFile(entryPath, fillStyles({ code: await readFile(entryPath, "utf8"), droplets: manifest.droplets }));
     await writeTextFile({
       path: resolve(clientRoot, manifest.__entryClient),
-      contents: entryStubCode({ entryModule: manifest.__entryModule }),
+      contents: entryStubCode({
+        entryModule: manifest.__entryModule,
+        key: serverKey(state.config.element, state.buildHash),
+        hasRuntimeEnv: dynamicPublicNames(state.env).length > 0,
+      }),
     });
   }
 

@@ -41,7 +41,7 @@ production server never carries it.
 | Key | Default | Validation |
 |---|---|---|
 | `dropletsFolder`, `apiFolder` | `src/droplets`, `src/api` | normalised: `\` to `/`, `.` and empty segments dropped, `..` pops one |
-| `health` | `/health` | starts with `/`; no `?`, `#`, whitespace; not `/`, `/index.js`, `/index.css`, nor under `/droplets`, `/assets`, `/api` |
+| `health` | `/health` | starts with `/`; no `?`, `#`, whitespace; not `/`, `/index.js`, `/env.js`, `/index.css`, nor under `/droplets`, `/assets`, `/api` |
 | `importMap` | `/importmap`, only when the client build has externals | same path rules; `health` may not equal it or `<importMap>.js` |
 | `index` | absent: root `index.html` or a placeholder | kept as given |
 | `element` | `djs-droplet` | `^[a-z][a-z0-9._]*-[a-z0-9._-]*$` |
@@ -92,7 +92,7 @@ builds and runs them.
 - `dropletsFolder` that normalises to nothing falls back to the default. `config.ts:231`
 - `health` defaults to `/health`; `false` turns it off. `config.ts:183`, `config.ts:352`
 - `health` and `importMap` paths must start with `/` and hold no `?`, `#` or whitespace, else `resolveConfig` throws. `config.ts:241`
-- `health` and `importMap` may not be `/`, `/index.js`, `/index.css` or under `/droplets`, `/assets`, `/api`. `config.ts:235`, `config.ts:236`
+- `health` and `importMap` may not be `/`, `/index.js`, `/env.js`, `/index.css` or under `/droplets`, `/assets`, `/api`. `config.ts:235`, `config.ts:236`
 - `health` equal to `importMap` or to `<importMap>.js` throws. `config.ts:360`
 - `importMap` defaults to `/importmap`; `auto` is true only when the key is unset (served only when the client build has externals). `config.ts:184`, `config.ts:358`
 - `importMap: false` turns the import map routes off. `config.ts:354`
@@ -114,7 +114,7 @@ builds and runs them.
 - `trustedOrigins` entries are bare origins (no path), resolved to `scheme://host[:port]`. `config.ts:275`, `config.ts:278`
 - `DROPLETS_ORIGIN` is not read in core: the runtime parses it per request with `normalizeOrigin`, skipping bad entries (a warning under `vite dev`). `../runtime/security.ts:89`
 - `DROPLETS_TRUSTED_ORIGINS` is not read in core: the runtime parses it per request with `normalizeTrustedOrigins`, skipping bad entries (a warning under `vite dev`). `../runtime/security.ts:58`
-- `"*"` warning (`trusts any forwarded location`) is the runtime's dev log, not core's. `../runtime/dev-log.ts:47`
+- `"*"` warning (`trusts any forwarded location`) is the runtime's dev log, not core's. `../runtime/dev-log.ts:49`
 - `fragmentCacheControl` defaults to `private, no-store`; `false` sends none. `config.ts:189`, `config.ts:315`
 - `fragmentCacheControl` must be a non-empty string without CR or LF; it is trimmed. `config.ts:316`, `config.ts:321`
 - `csrf.checkOrigin` defaults to `true`. `config.ts:378`

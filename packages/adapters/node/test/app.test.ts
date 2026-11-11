@@ -90,7 +90,7 @@ describe("createNodeServerApp", () => {
     // The stub, never cached, and the hashed entry, cached for good.
     const entry = await app.request("/index.js");
     expect(entry.headers.get("cache-control")).toBe("no-store");
-    expect((await entry.text()).endsWith(`import("./${manifest.__entryModule}");\n`)).toBe(true);
+    expect(await entry.text()).toContain(`import "./${manifest.__entryModule}";\n`);
     const module = await app.request(`/${manifest.__entryModule}`);
     expect(module.headers.get("cache-control")).toContain("immutable");
     expect(await module.text()).toContain("test-droplet");

@@ -232,7 +232,7 @@ export function normalizeDropletsFolder({ folder, fallback = DEFAULTS.dropletsFo
 }
 
 /** Paths the framework answers itself; the health check may not take them. */
-const RESERVED_EXACT = new Set(["/", "/index.js", "/index.css"]);
+const RESERVED_EXACT = new Set(["/", "/index.js", "/env.js", "/index.css"]);
 const RESERVED_PREFIXES = ["/droplets", "/assets", "/api"];
 
 /** A path the framework does not own, for `health` and `importMap`. */
@@ -240,7 +240,7 @@ function validateOwnPath({ option, path, example }: ValidateOwnPathInput): strin
   const reserved = RESERVED_EXACT.has(path) || RESERVED_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
   if (!path.startsWith("/") || /[?#\s]/.test(path) || reserved) {
     throw new Error(
-      `droplets: ${option} must be a path such as "${example}", outside /, /index.js, /index.css, /droplets/, /assets/ and /api/; got "${path}"`,
+      `droplets: ${option} must be a path such as "${example}", outside /, /index.js, /env.js, /index.css, /droplets/, /assets/ and /api/; got "${path}"`,
     );
   }
   return path;

@@ -743,10 +743,10 @@ export function rendererConformance({
         const stub = await get({ path: "/index.js" });
         expect(stub.headers.get("cache-control")).toBe("no-store");
         expect(manifest.__entryModule).toMatch(/^assets\/index\.[\w-]+\.js$/);
-        // After where it was loaded from and the public runtime variables.
+        // A static import of the entry, then where it was loaded from.
         const code = await stub.text();
+        expect(code).toContain(`import "./${manifest.__entryModule}";\n`);
         expect(code).toContain('.origin = new URL(/* @vite-ignore */ ".", import.meta.url).href');
-        expect(code.endsWith(`import("./${manifest.__entryModule}");\n`)).toBe(true);
         // A fragment announces the entry and, as hello hydrates at once, its bundle.
         const link = (await get({ path: "/droplets/hello?who=Ana" })).headers.get("link") ?? "";
         expect(link).toContain(`<${origin}/${manifest.__entryModule}>; rel=modulepreload`);

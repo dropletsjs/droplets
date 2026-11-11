@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { DropletEntry } from "../../src/core/discover.ts";
+import { locationScript } from "../../src/runtime/server-records.ts";
 import {
   buildOrder,
   collectCss,
@@ -248,8 +249,16 @@ describe("translateManifest", () => {
 });
 
 describe("the entry stub and the stylesheet registry", () => {
-  it("imports the entry relative to the stub's own URL", () => {
-    expect(entryStubCode({ entryModule: "assets/index.abc.js" })).toBe('import("./assets/index.abc.js");\n');
+  it("imports the entry statically, relative to its own URL, then records where it was loaded from", () => {
+    expect(entryStubCode({ entryModule: "assets/index.abc.js", key: "djs-droplet:b1", hasRuntimeEnv: false })).toBe(
+      `import "./assets/index.abc.js";\n${locationScript("djs-droplet:b1")}`,
+    );
+  });
+
+  it("imports env.js before the entry when public variables are read at runtime", () => {
+    expect(entryStubCode({ entryModule: "assets/index.abc.js", key: "djs-droplet:b1", hasRuntimeEnv: true })).toBe(
+      `import "./env.js";\nimport "./assets/index.abc.js";\n${locationScript("djs-droplet:b1")}`,
+    );
   });
 
   it("writes the droplets with stylesheets where the registry left room, whatever the quotes", () => {
@@ -303,7 +312,9 @@ describe("writeManifest", () => {
     expect(written.droplets.hello).toEqual({ client: "droplets/hello/client.js", css: ["assets/Badge.css", "assets/hello.css"] });
     // The stub, and the stylesheets in the entry.
     expect(written.__entryClient).toBe("index.js");
-    expect(await readFile(join(root, "client/index.js"), "utf8")).toBe('import("./assets/index.abc.js");\n');
+    expect(await readFile(join(root, "client/index.js"), "utf8")).toBe(
+      `import "./assets/index.abc.js";\n${locationScript("djs-droplet:abc")}`,
+    );
     expect(await readFile(join(root, "client/assets/index.abc.js"), "utf8")).toBe(
       `const styles=JSON.parse(${JSON.stringify(JSON.stringify({ hello: ["assets/Badge.css", "assets/hello.css"] }))});`,
     );

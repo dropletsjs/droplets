@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { createBuilder, createServer, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { entryClientPath } from "../../src/core/paths.ts";
+import { locationScript } from "../../src/runtime/server-records.ts";
 import { fakeRenderer } from "../../src/testing/index.ts";
 import { droplets, type DropletsAdapter } from "../../src/vite.ts";
 
@@ -60,9 +61,11 @@ describe("vite build", () => {
 
     const manifest = JSON.parse(await readFile(resolve(outDir, "client/droplets.json"), "utf8"));
     expect(manifest.__hash).toMatch(/^[0-9a-f]{6}$/);
-    // /index.js is a stub of the entry; the entry got the stylesheets.
+    // /index.js imports the runtime env and the entry; the entry got the stylesheets.
     expect(manifest.__entryModule).toMatch(/^assets\/index\.[\w-]+\.js$/);
-    expect(await readFile(resolve(outDir, "client/index.js"), "utf8")).toBe(`import("./${manifest.__entryModule}");\n`);
+    expect(await readFile(resolve(outDir, "client/index.js"), "utf8")).toBe(
+      `import "./env.js";\nimport "./${manifest.__entryModule}";\n${locationScript(`test-droplet:${manifest.__hash}`)}`,
+    );
     const entry = await readFile(resolve(outDir, "client", manifest.__entryModule), "utf8");
     expect(entry).not.toContain("__DROPLETS_STYLES__");
     const styles = Object.fromEntries(
@@ -260,13 +263,51 @@ describe("vite build", () => {
       await Promise.all(clientFiles.filter((f) => f.endsWith(".js")).map((f) => readFile(resolve(outDir, "client", f), "utf8")))
     ).join("\n");
     expect(clientCode).toContain("Fixture");
-    // Public but read at runtime: /index.js hands it over, the bundle never has it.
+    // Public but read at runtime: /env.js hands it over, the bundle never has it.
     expect(clientCode).not.toContain("public-at-runtime");
     expect(ssr).not.toContain("public-at-runtime");
     expect(ssr).toContain('"PUBLIC_FIXTURE_RUNTIME"');
     expect(clientCode).not.toContain("inlined-at-build");
     expect(clientCode).not.toContain("from-dotenv");
     expect(clientCode).not.toContain("FIXTURE_SECRET");
+  });
+
+  it("serves only the public runtime variables at /env.js, read at runtime, never a private one", async () => {
+    const { createServerApp, resolveConfig } = await import("../../src/index.ts");
+    const { setRuntimeEnv } = await import("../../src/runtime/env-store.ts");
+    const ssr = await import(pathToFileURL(resolve(outDir, "server/entry-server.js")).href);
+    const app = createServerApp({
+      ssr,
+      config: resolveConfig({ element: "test-droplet" }),
+      assets: {
+        buildHash: "x",
+        loadClientModule: async () => null,
+        loadEntryClient: async () => null,
+        entryModule: async () => null,
+        loadGlobalStyle: async () => null,
+        dropletStyles: async () => [],
+        loadIndex: async () => null,
+        externals: [],
+        assetHandler: (c) => c.text("Not Found", 404),
+      },
+    });
+    setRuntimeEnv({
+      FIXTURE_SECRET: "runtime-secret",
+      FIXTURE_STATIC: "runtime-static",
+      PUBLIC_FIXTURE_NAME: "runtime-name",
+      PUBLIC_FIXTURE_RUNTIME: "runtime-public",
+      PUBLIC_UNDECLARED: "undeclared",
+    });
+    try {
+      const res = await app.request("/env.js?FIXTURE_SECRET=1");
+      expect(res.status).toBe(200);
+      const code = await res.text();
+      expect(code).toBe(
+        '\n((globalThis[Symbol.for("droplets.servers")] ??= {})["test-droplet:x"] ??= {}).env = {"PUBLIC_FIXTURE_RUNTIME":"runtime-public"};\n',
+      );
+    } finally {
+      setRuntimeEnv(undefined);
+    }
   });
 
   it("refuses to build when a static variable has no value", async () => {
@@ -508,6 +549,15 @@ describe("vite dev", () => {
     expect(fragment.headers.get("link")).toBeNull();
     expect(await fragment.text()).not.toContain("data-droplet-style");
     expect((await fetch(`${origin}/droplets/static-note/style.css`)).status).toBe(404);
+  });
+
+  it("answers /env.js with the public runtime variables from .env, as a build's server does", async () => {
+    const res = await fetch(`${origin}/env.js`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("public, max-age=600");
+    const code = await res.text();
+    expect(code).toContain('.env = {"PUBLIC_FIXTURE_RUNTIME":"public-at-runtime"};');
+    expect(code).not.toContain("from-dotenv");
   });
 
   it("records where the dev /index.js came from, so a host page on another origin loads from the dev server", async () => {

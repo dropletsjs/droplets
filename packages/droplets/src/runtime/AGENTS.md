@@ -30,8 +30,10 @@
   Checked by: `../../test/runtime/actions.test.ts`, `../../test/runtime/form-token.test.ts`, `../../test/runtime/security.test.ts`.
 - The droplet location is resolved once per request in `resolveLocation` and trusted only against the allow-list (`origin`/`DROPLETS_ORIGIN`, `trustedOrigins`/`DROPLETS_TRUSTED_ORIGINS`, the request's own origin); `"*"` warns and is never refused.
   Checked by: `../../test/runtime/app.test.ts` ("createDropletsApp: the droplet location", `"*"`).
-- `handle` never runs for `/index.js` and `/assets/*`.
-  Checked by: `../../test/runtime/app.test.ts` ("never runs for files: /index.js and everything under /assets/").
+- `handle` never runs for `/index.js`, `/env.js` and `/assets/*`.
+  Checked by: `../../test/runtime/app.test.ts` ("never runs for files: /index.js and everything under /assets/", "createDropletsApp: /env.js").
+- `/env.js` takes no input from the request and holds only the declared `public: true` variables without `static`, read through `readRuntimeEnv`; `DROPLETS_ENV_MAX_AGE` warns only through `devLog`.
+  Checked by: `../../test/runtime/app.test.ts` ("createDropletsApp: /env.js"), `../../test/integration/vite.test.ts` ("/env.js").
 - Every URL a droplet emits for its own files (`client.js`, `style.css`, its CSS and entry preloads) is on the droplet location of the request.
   Checked by: `../../test/runtime/app.test.ts` ("createDropletsApp: file URLs of the server bundle"), `../../test/integration/assets.test.ts`.
 - The element, `$droplets/drop` and `$droplets/form` take the server location from `serverLocation` (`server-records.ts`), keyed `<element>:<build>`.

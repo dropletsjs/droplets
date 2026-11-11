@@ -167,7 +167,19 @@ describe("resolveConfig", () => {
   });
 
   it("rejects health paths the framework owns", () => {
-    for (const bad of ["/", "health", "/index.js", "/index.css", "/droplets", "/droplets/x", "/assets/h", "/api/health", "/h?x", "/a b"]) {
+    for (const bad of [
+      "/",
+      "health",
+      "/index.js",
+      "/env.js",
+      "/index.css",
+      "/droplets",
+      "/droplets/x",
+      "/assets/h",
+      "/api/health",
+      "/h?x",
+      "/a b",
+    ]) {
       expect(() => resolveConfig({ health: bad }), bad).toThrow(/health must be a path/);
     }
     expect(resolveConfig({ health: "/apix" }).health).toBe("/apix");

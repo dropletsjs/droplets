@@ -73,7 +73,7 @@ export default config({
 | `server.port` | `8000` | Port for `node dist/server.js` and `bun dist/server.js`. `deno serve` takes `--port` instead. |
 
 `health` and `importMap` must be paths the framework does not own: outside
-`/`, `/index.js`, `/index.css`, `/droplets/`, `/assets/` and `/api/`.
+`/`, `/index.js`, `/env.js`, `/index.css`, `/droplets/`, `/assets/` and `/api/`.
 
 ### The public location
 

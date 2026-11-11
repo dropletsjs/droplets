@@ -345,7 +345,7 @@ type DropletsAdapter = {
 ```
 
 `AssetLoaders` reads the client build through `droplets.json`:
-`loadEntryClient()` returns the `/index.js` stub (`__entryClient`),
+`loadEntryClient()` returns the `/index.js` file (`__entryClient`),
 `entryModule()` the path of the entry it imports (`__entryModule`, announced
 in fragments' `Link` header), and `dropletStyles(id)` the droplet's
 stylesheets (`css`, paths under `assets/`, shared chunks' first), which
@@ -510,5 +510,5 @@ by the element, for any renderer.
 
 `index.js` query parameters, in `vite dev` only: `strategy=hmr|remount|reload|manual`
 and `injectTool=true|false`. See [Development](/guides/development/). In a
-build, `/index.js` is a stub that imports `assets/index.<hash>.js`; see
+build, `/index.js` is a file that imports `assets/index.<hash>.js`; see
 [Caching](/guides/security/#caching).

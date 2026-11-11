@@ -121,22 +121,32 @@ asks each time, with `If-None-Match`, and gets a `304` with no body while the
 file is the same. Requests for files never pass through `handle` (see
 [`handle`](/guides/server/#handle)): anything under `/assets/` is public.
 
-`/index.js` is the exception: a small stub, always `no-store`, that imports
-the entry client under a name unique to the build, relative to its own URL:
+`/index.js` is the exception: a small file of the build, always `no-store`,
+that imports the entry client under a name unique to the build, relative to
+its own URL:
 
 ```js
+import "./env.js";
+import "./assets/index.C-iXBKI0.js";
+
 ((globalThis[Symbol.for("droplets.servers")] ??= {})["my-widgets:a151d9"] ??= {}).origin = new URL(/* @vite-ignore */ ".", import.meta.url).href.replace(/\/$/, "");
-((globalThis[Symbol.for("droplets.servers")] ??= {})["my-widgets:a151d9"] ??= {}).env = {"PUBLIC_BANNER":"…"};
-import("./assets/index.C-iXBKI0.js");
 ```
 
-The first line records where the page loaded `/index.js` from, prefix
-included: the elements load from there. The second is there only when
-`src/env.ts` declares dynamic public variables (`{ public: true }`): their
-current values. Both live under `<element>:<build>`. Servers sharing a page
-already need distinct `element` names, so each keeps its own values; the
-build hash tells two builds of one server apart. `$droplets/drop` reads the
-server's origin from the same record.
+The imports are static, so the browser fetches both at once and runs
+`env.js` first. `import "./env.js"` is there only when `src/env.ts` declares
+dynamic public variables (`{ public: true }`): `/env.js` hands the page their
+current values. The last line records where the page loaded `/index.js`
+from, prefix included: the elements load from there. It runs after the
+entry; an element that connects before it finds the same location from the
+entry's own URL. Both records live under `<element>:<build>`. Servers
+sharing a page already need distinct `element` names, so each keeps its own
+values; the build hash tells two builds of one server apart.
+`$droplets/drop` reads the server's origin from the same record.
+
+`/env.js` takes nothing from the request and holds only the variables
+declared `{ public: true }` without `static`, so a shared cache may keep it:
+`public, max-age=600` by default, `DROPLETS_ENV_MAX_AGE` seconds when set
+(`0` for `no-store`). `handle` never runs for it.
 
 `/index.js` must be served by the droplets server, under its prefix: its own
 URL is what the browser trusts. A CDN in front of it, pulling from the

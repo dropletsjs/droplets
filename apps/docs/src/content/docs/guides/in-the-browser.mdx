@@ -9,8 +9,8 @@ import LiveDroplet from "../../../components/LiveDroplet.astro";
 `/index.js` defines one custom element, `<djs-droplet>` by default (the
 `element` option renames it). Everything below is that element's work; setup
 of your own that must come first goes in
-[`src/hooks.client.ts`](#srchooksclientts). `/index.js` itself is a one-line
-stub, never cached, that imports the element under a name unique to the
+[`src/hooks.client.ts`](#srchooksclientts). `/index.js` itself is a few
+lines, never cached, that import the element under a name unique to the
 build, which is cached for good.
 
 ## `src/hooks.client.ts`
@@ -31,7 +31,8 @@ export const init: ClientInit = () => {
 ```
 
 - `/index.js` calls `init()` synchronously, first thing, before it defines
-  the droplet element: before any droplet hydrates or mounts.
+  the droplet element: before any droplet hydrates or mounts. The public
+  variables read at runtime (`$droplets/env/public`) are already there.
 - It may be async, but Droplets never waits for it. Its type is
   `() => void | Promise<void>`: `/index.js` calls it and carries on at once,
   and when it returns a promise, a rejection is only logged.

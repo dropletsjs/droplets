@@ -13,7 +13,7 @@ vite build
 dist/
   client/
     droplets.json          # manifest: build hash, entry, global CSS, per-droplet bundle and stylesheets
-    index.js               # the stub /index.js serves: imports assets/index.<hash>.js
+    index.js               # /index.js: imports env.js (with runtime public variables) and assets/index.<hash>.js
     droplets/<id>/client.js  # one bundle per droplet that hydrates
     assets/                # entry client (index.<hash>.js), stylesheets, shared chunks
   server/entry-server.js   # the SSR renderer
@@ -246,7 +246,7 @@ When a reverse proxy fronts the droplets server:
 ### `/index.js` and CDNs
 
 The elements load from where the page loaded `/index.js`, prefix included:
-the stub records its own URL. So `/index.js` must come from the droplets
+it records its own URL. So `/index.js` must come from the droplets
 server, under its prefix: `https://shop.example/mfe/index.js` makes the
 elements load from `https://shop.example/mfe`. A CDN in front works when it
 pulls from the server at the same URL (origin pull); `/index.js` is

@@ -30,7 +30,7 @@
   Checked by: `test/integration/server-only.test.ts`, `test/vite/renderer-graphs.test.ts`, `tests/dev-mixed`.
 - Every URL a droplet emits for its own files (`client.js`, `style.css`, its stylesheets, built and public files) is on the droplet location, so it works under any origin or prefix.
   Checked by: `test/integration/assets.test.ts`, `test/runtime/app.test.ts`.
-- `handle` never runs for `/index.js` and `/assets/*`, and the health check answers before `handle`.
+- `handle` never runs for `/index.js`, `/env.js` and `/assets/*`, and the health check answers before `handle`.
   Checked by: `test/runtime/app.test.ts` ("createDropletsApp: handle").
 - `build` runs tsdown, then the tests (`tsdown && vitest run`), because the integration tests build against `dist/`; `build:dist` only compiles.
   Checked by: `package.json`.

@@ -15,7 +15,8 @@ interface; anything that can make a request can host a droplet.
 | `GET`, `POST /droplets/:id/_data` | `{ "data": … }`: the server load only, no rendering; other methods answer `405` |
 | `GET /droplets/:id/client.js` | That droplet's bundle; `404` when it never hydrates |
 | `GET /droplets/:id/style.css` | That droplet's stylesheets, the shared one first, as `@import`s; `404` when it has none (nothing links to it then) |
-| `GET /index.js` | A small stub that imports the entry client, which defines the droplet element, and carries the dynamic public env |
+| `GET /index.js` | A small file of the build, `no-store`, that imports the entry client, which defines the droplet element, and `/env.js` when there are dynamic public variables |
+| `GET /env.js` | The [public variables read at runtime](/guides/server/#environment-variables), as a script `/index.js` imports; `public, max-age=600` (`DROPLETS_ENV_MAX_AGE`); `404` when `src/env.ts` declares none |
 | `GET /index.css` | The shared stylesheet, for pages that want to link it themselves; `404` when there is none or it is empty |
 | `GET /assets/*` | The entry client, shared chunks, stylesheets and imported files, cached for good |
 | `GET /assets/public/*` | The project's `public/` folder, `no-cache` with an `ETag` (`304` when `If-None-Match` matches) |

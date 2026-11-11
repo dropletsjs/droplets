@@ -147,7 +147,7 @@ export const load = ({ props }: LoadEvent) => {
 | `GET`, `POST /droplets/:id` | The fragment; a form body runs an action |
 | `GET`, `POST /droplets/:id/_data` | `{ "data": … }`; `PUT`, `PATCH`, `DELETE` answer `405` |
 | `GET /droplets/:id/client.js`, `/droplets/:id/style.css` | Bundle and styles |
-| `GET /index.js`, `/index.css` | Entry client stub, shared stylesheet |
+| `GET /index.js`, `/index.css` | The element loader, shared stylesheet |
 | `GET /assets/*` | Built files, cached for good (the adapter serves them) |
 | `ALL /api`, `/api/*` | `+server.ts` endpoints |
 | `GET /health` | `ok` (the `health` option; before `handle`) |
@@ -158,7 +158,7 @@ location in `x-droplet-location`, with its origin listed in `origin` (or
 `DROPLETS_ORIGIN`). Pages on other origins need `cors: true`. Every URL a
 droplet emits for its own files is on that droplet location, so a fragment
 works under any origin or path prefix the server is reached through. `handle`
-in `src/hooks.server.ts` never runs for `/index.js` and `/assets/*`.
+in `src/hooks.server.ts` never runs for `/index.js`, `/env.js` and `/assets/*`.
 
 ### Also in the box
 
@@ -292,7 +292,7 @@ renderer under `testing/`.
 - `rendererConformance` runs on `fakeRenderer()` and `test/fixtures/app` in this package. `test/conformance.test.ts:7`
 - `fakeRenderer()` is named `fake` and handles `.fake.js`. `src/testing/fake-renderer/index.ts:31`
 - `createServerApp` throws when the SSR bundle exports neither `renderDroplet` nor a default. `src/server/app.ts:81`
-- `cors` allowing every origin warns once under `vite dev` (`devLog`); `createServerApp` warns about nothing. `src/runtime/app.ts:817`, `src/runtime/dev-log.ts:64`
+- `cors` allowing every origin warns once under `vite dev` (`devLog`); `createServerApp` warns about nothing. `src/runtime/app.ts:841`, `src/runtime/dev-log.ts:66`
 - `createServerApp` mounts `/assets/*` on the adapter's `assetHandler`. `src/server/app.ts:120`
 - `AssetLoaders`: every loader returns `null` for something that does not exist. `src/server/app.ts:43`
 - `FALLBACK_MANIFEST` is the manifest a runtime answers with before the build is found: no droplets, `__entryClient` `index.js`. `src/server/manifest.ts:42`
@@ -313,16 +313,16 @@ renderer under `testing/`.
 - `validateRenderers` throws for a missing name, a duplicate name, no extensions, an extension without a dot, a core or script suffix, a shared extension where a renderer lists no `packages`, a missing `server`/`client` path. `src/renderer.ts:623`
 - `RENDERER_QUERY` is `droplets-renderer`: `…/Button.tsx?droplets-renderer=solid` marks a module for one renderer. `src/renderer.ts:576`
 - Adapter contract `DropletsAdapter`: `name`, `serverEntry`, `serverFile`, `separateSsrBundle`, optional `noExternal`, `environment`, `afterBuild`, `preview`. `src/adapters.ts:10`
-- `vite build` without an adapter throws, naming `@dropletsjs/adapter-node`. `src/vite/build.ts:84`
-- Health route answers `ok` and is mounted before `handle`. `src/runtime/app.ts:902`
-- `handle` never runs for `/index.js` and `/assets/*`. `src/runtime/app.ts:348`, `src/runtime/app.ts:950`
-- Routes: `/` `src/runtime/app.ts:1069`, `/index.js` `src/runtime/app.ts:1076`, `/index.css` `src/runtime/app.ts:1096`, `style.css` `src/runtime/app.ts:1109`, `client.js` `src/runtime/app.ts:1125`, `_data` `src/runtime/app.ts:1237`, the fragment `src/runtime/app.ts:1621`, `/api` `src/runtime/app.ts:1662`
-- `_data` answers `405` with `allow: GET, POST` for `PUT`, `PATCH`, `DELETE`. `src/runtime/app.ts:1233`
-- Droplet file URLs (the stylesheet, `client.js`, the `Link` preloads) are built on the request's droplet location. `src/runtime/app.ts:1280`
+- `vite build` without an adapter throws, naming `@dropletsjs/adapter-node`. `src/vite/build.ts:89`
+- Health route answers `ok` and is mounted before `handle`. `src/runtime/app.ts:926`
+- `handle` never runs for `/index.js`, `/env.js` and `/assets/*`. `src/runtime/app.ts:348`, `src/runtime/app.ts:974`
+- Routes: `/` `src/runtime/app.ts:1093`, `/index.js` `src/runtime/app.ts:1100`, `/index.css` `src/runtime/app.ts:1128`, `style.css` `src/runtime/app.ts:1141`, `client.js` `src/runtime/app.ts:1157`, `_data` `src/runtime/app.ts:1269`, the fragment `src/runtime/app.ts:1653`, `/api` `src/runtime/app.ts:1694`
+- `_data` answers `405` with `allow: GET, POST` for `PUT`, `PATCH`, `DELETE`. `src/runtime/app.ts:1265`
+- Droplet file URLs (the stylesheet, `client.js`, the `Link` preloads) are built on the request's droplet location. `src/runtime/app.ts:1312`
 - `style.css` imports each stylesheet as `../../<file>`, relative to itself. `src/runtime/app.ts:298`
 - Dev element code enters production code through one gate: `if (import.meta.env.DEV) installDevElement(...)`. `src/runtime/entry-client.ts:1374`
 - Client module dev hooks (`update`, the HMR fallback) are emitted only under `vite dev` or a non-production build. `src/vite/virtual.ts:713`
-- Build hash is random per plugin instance, so per build environment; the entry module is named `assets/index.[hash].js`, not after it. `src/vite/state.ts:96`, `src/vite/build.ts:27`
-- Dev serves no droplet stylesheets: a `hydrate = false` droplet renders without its component styles in dev. `src/vite/dev.ts:340`
+- Build hash is random per plugin instance, so per build environment; the entry module is named `assets/index.[hash].js`, not after it. `src/vite/state.ts:96`, `src/vite/build.ts:32`
+- Dev serves no droplet stylesheets: a `hydrate = false` droplet renders without its component styles in dev. `src/vite/dev.ts:346`
 - Flags are read from the droplet's component only; flags `+error.*` declares warn in dev and are ignored. `src/core/discover.ts:171`, `src/core/discover.ts:180`
 - Flag not a literal: warns and is ignored. `src/core/flags.ts:127`

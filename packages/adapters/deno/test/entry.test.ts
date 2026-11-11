@@ -62,7 +62,7 @@ describe.skipIf(!hasDeno)("deno entry", () => {
     const manifest = JSON.parse(await readFile(resolve(outDir, "client/droplets.json"), "utf8"));
     const entry = await fetch(`${origin}/index.js`);
     expect(entry.headers.get("cache-control")).toBe("no-store");
-    expect((await entry.text()).endsWith(`import("./${manifest.__entryModule}");\n`)).toBe(true);
+    expect(await entry.text()).toContain(`import "./${manifest.__entryModule}";\n`);
     const asset = await fetch(`${origin}/${manifest.__entryModule}`);
     expect(asset.status).toBe(200);
     expect(asset.headers.get("cache-control")).toContain("immutable");

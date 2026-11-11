@@ -38,7 +38,7 @@ export default defineConfig({
 | `plugin.ts` | `droplets()`: the core plugin's hooks (`config`, `configureServer`, `hotUpdate`, `generateBundle`, `buildApp`, `configurePreviewServer`), plus `DropletsPluginApi` for companion plugins such as `@dropletsjs/devtools`. |
 | `state.ts` | `PluginState`, shared by every plugin of one `droplets()` call. The `config` hook fills it. |
 | `virtual.ts` | Every virtual module: the registries (`virtual:droplets`), `$droplets/env`, `$droplets/env/public`, `$droplets/env/private`, `$droplets/server`, `$droplets/drop`, `$droplets/form`, one client module per droplet, the shared CSS, the bundled config, and `/index.js` under `vite dev`. |
-| `build.ts` | The `client`, `ssr` and `server` environments, the build order, `droplets.json`, the `/index.js` stub and the stylesheet registry. |
+| `build.ts` | The `client`, `ssr` and `server` environments, the build order, `droplets.json`, `index.js` and the stylesheet registry. |
 | `prerender.ts` | The renders of `prerender = true` droplets for their `entries`, run after the SSR build. |
 | `dev.ts` | The Hono app `vite dev` serves, the SSR module loader, and the classification of an edit (component, load or contract). |
 | `assets.ts` | File URLs on the droplet location (`renderBuiltUrl`, `new URL(…, import.meta.url)`), and `public/` at `assets/public/`. |
@@ -55,8 +55,8 @@ export default defineConfig({
 `buildApp` builds `client`, then `ssr` (only when the adapter has
 `separateSsrBundle` or a droplet prerenders), then `server`.
 
-- After `client`, the plugin writes `dist/client/droplets.json`, the stub
-  `/index.js` serves and the droplets' stylesheets, and copies `public/` to
+- After `client`, the plugin writes `dist/client/droplets.json`,
+  `dist/client/index.js` and the droplets' stylesheets, and copies `public/` to
   `dist/client/assets/public/`.
 - After `ssr`, the plugin prerenders. It then removes `dist/server/` when the
   adapter does not ship it.
@@ -135,24 +135,26 @@ restarts the server.
 - `DropletsPluginApi.renderers()` never lists the built-in `script` renderer. `plugin.ts:317`
 - `DropletsPluginApi.fetch` throws outside `vite dev`. `plugin.ts:321`
 - `DropletsPluginApi.loaderUrl` is `/index.js`. `plugin.ts:325`
-- Build environments are `client`, `ssr` and `server`, built in that order. `build.ts:81`
-- Build environment `ssr` builds only when the adapter has `separateSsrBundle` or a droplet has `prerender`. `build.ts:99`
-- `vite build` without an adapter throws, naming `node()` from `@dropletsjs/adapter-node`. `build.ts:86`
-- Build `client` writes to `<outDir>/client` and empties it; `ssr` writes to `<outDir>/server` and empties it; `server` writes to `<outDir>` with `emptyOutDir: false`. `build.ts:126`, `build.ts:150`, `build.ts:114`
-- Build environments all set `copyPublicDir: false`. `build.ts:116`, `build.ts:129`, `build.ts:152`
-- Build `client` writes Vite's manifest and keeps entry signatures (`exports-only`). `build.ts:130`, `build.ts:132`
-- Build `client` inputs: `entry-client`, `droplets-css` and one `droplets/<id>` per droplet. `build.ts:69`
-- Build file names: the entry module is `assets/index.[hash].js` (named by content, not by the build hash); a droplet bundle is `droplets/<id>/client.js`; chunks are `assets/chunks/[name]-[hash].js`; assets `assets/[name]-[hash][extname]`. `build.ts:28`, `build.ts:137`, `build.ts:138`, `build.ts:139`
-- `SERVER_NO_EXTERNAL`: `hono`, `hono/*`, `case-anything`, `@dropletsjs/droplets(/*)` and `@dropletsjs/renderer-*` are always bundled into server bundles. `build.ts:49`
-- Adapter `noExternal: true` bundles everything; a list is added to `SERVER_NO_EXTERNAL`. `build.ts:109`
-- Adapter `environment` options are merged over the server environment and win. `build.ts:161`
-- `droplets.json` is written to `dist/client/droplets.json`. `build.ts:311`
-- `droplets.json` lists, per droplet, `client` only when it ships a client and `css` only when it has stylesheets. `build.ts:230`, `build.ts:231`
-- `droplets.json` css: the shared stylesheet comes first, only when it is not empty, then the stylesheets of the chunks the droplet imports (depth first), then its own, each once. `build.ts:226`, `build.ts:172`, `build.ts:293`
-- `hydrate = false` droplet goes through the client build for its CSS; its `droplets/<id>/` folder is removed afterwards. `build.ts:297`
-- `/index.js` stub is one line, `import("./assets/index.<hash>.js")`, resolved against the stub's own URL. `build.ts:250`
-- Stylesheet registry: the droplets' stylesheets are written into the entry module after the client build; no room for them throws. `build.ts:304`, `build.ts:266`
-- Vite manifest missing: `writeManifest` warns and falls back to default CSS paths. `build.ts:278`
+- Build environments are `client`, `ssr` and `server`, built in that order. `build.ts:86`
+- Build environment `ssr` builds only when the adapter has `separateSsrBundle` or a droplet has `prerender`. `build.ts:104`
+- `vite build` without an adapter throws, naming `node()` from `@dropletsjs/adapter-node`. `build.ts:91`
+- Build `client` writes to `<outDir>/client` and empties it; `ssr` writes to `<outDir>/server` and empties it; `server` writes to `<outDir>` with `emptyOutDir: false`. `build.ts:131`, `build.ts:155`, `build.ts:119`
+- Build environments all set `copyPublicDir: false`. `build.ts:121`, `build.ts:134`, `build.ts:157`
+- Build `client` writes Vite's manifest and keeps entry signatures (`exports-only`). `build.ts:135`, `build.ts:137`
+- Build `client` inputs: `entry-client`, `droplets-css` and one `droplets/<id>` per droplet. `build.ts:74`
+- Build file names: the entry module is `assets/index.[hash].js` (named by content, not by the build hash); a droplet bundle is `droplets/<id>/client.js`; chunks are `assets/chunks/[name]-[hash].js`; assets `assets/[name]-[hash][extname]`. `build.ts:33`, `build.ts:142`, `build.ts:143`, `build.ts:144`
+- `SERVER_NO_EXTERNAL`: `hono`, `hono/*`, `case-anything`, `@dropletsjs/droplets(/*)` and `@dropletsjs/renderer-*` are always bundled into server bundles. `build.ts:54`
+- Adapter `noExternal: true` bundles everything; a list is added to `SERVER_NO_EXTERNAL`. `build.ts:114`
+- Adapter `environment` options are merged over the server environment and win. `build.ts:166`
+- `droplets.json` is written to `dist/client/droplets.json`. `build.ts:322`
+- `droplets.json` lists, per droplet, `client` only when it ships a client and `css` only when it has stylesheets. `build.ts:235`, `build.ts:236`
+- `droplets.json` css: the shared stylesheet comes first, only when it is not empty, then the stylesheets of the chunks the droplet imports (depth first), then its own, each once. `build.ts:231`, `build.ts:177`, `build.ts:304`
+- `hydrate = false` droplet goes through the client build for its CSS; its `droplets/<id>/` folder is removed afterwards. `build.ts:308`
+- `dist/client/index.js` is `import "./env.js"` (only when `src/env.ts` declares public variables read at runtime), a static `import` of `./assets/index.<hash>.js`, then the location record from its own URL. `build.ts:259`, `build.ts:327`
+- `dist/client/index.js` imports statically, so the browser fetches `env.js` and the entry at once and evaluates `env.js` first; the location record runs after the entry. `build.ts:259`, `../../test/integration/index-js.test.ts`
+- Before the location record runs, the element reads the same location from the entry's own URL (`serverLocation`). `../runtime/server-records.ts:48`, `../../test/integration/index-js.test.ts`
+- Stylesheet registry: the droplets' stylesheets are written into the entry module after the client build; no room for them throws. `build.ts:315`, `build.ts:277`
+- Vite manifest missing: `writeManifest` warns and falls back to default CSS paths. `build.ts:289`
 - `renderBuiltUrl`: the user's own `experimental.renderBuiltUrl` answers first. `assets.ts:50`
 - `renderBuiltUrl` server bundles: a file URL is `__DROPLETS_SERVER_LOCATION__/<file>` until the chunk renders, then the shared instance's location token. `assets.ts:53`, `assets.ts:167`
 - `renderBuiltUrl` browser JavaScript: `new URL("<relative>", import.meta.url).href`, relative to the file that names it. `assets.ts:59`
@@ -162,7 +164,7 @@ restarts the server.
 - `__DROPLETS_BUILD_ROOT__` in a browser bundle becomes the way back to the build's root (`../../` from `droplets/<id>/client.js`); under `vite dev` it becomes `/`. `assets.ts:170`, `assets.ts:152`
 - `new URL("./x", import.meta.url)` of an existing file, in a universal project file of a server bundle, becomes a `?url` import on the location token; server files keep theirs. `assets.ts:154`, `assets.ts:156`, `assets.ts:84`
 - `public/` is copied to `dist/client/assets/public/` and nowhere else. `assets.ts:100`
-- `public/` under `vite dev` is served at `/assets/public/*` with `cache-control: no-cache` and a sha1 `ETag`, 304 when it matches. `assets.ts:124`, `assets.ts:132`, `dev.ts:422`
+- `public/` under `vite dev` is served at `/assets/public/*` with `cache-control: no-cache` and a sha1 `ETag`, 304 when it matches. `assets.ts:124`, `assets.ts:132`, `dev.ts:428`
 - `public/` under `vite dev`: a path outside it, a folder or a missing file answers `404 Not Found`. `assets.ts:114`, `assets.ts:117`
 - `assetUrlsPlugin` is `sharedDuringBuild`: one location token nonce for every environment of a build. `assets.ts:144`
 - `buildHash` is 6 random hex characters, created per `droplets()` instance. `state.ts:96`, `state.ts:103`
@@ -180,6 +182,7 @@ restarts the server.
 - `@dropletsjs/droplets/server` is not in the server-only set; only the two `$droplets/*` ids are. `virtual.ts:48`
 - `virtual:droplets-ssr` resolves to `dist/runtime/entry-server.js`, and `virtual:droplets-manifest` to `<outDir>/client/droplets.json`. `virtual.ts:739`, `virtual.ts:740`
 - `/index.js` under `vite dev` is a virtual module: the location record, the public runtime variables, then a dynamic import of the entry client. `virtual.ts:741`, `virtual.ts:838`
+- The dev app's `/index.js` is the location record, the public runtime variables, then the transformed entry client. `dev.ts:323`, `dev.ts:328`
 - `virtual:droplets` is the client registry in client environments and the server registry in server environments. `virtual.ts:749`
 - Client registry exports `buildHash`, `elementName`, `dropletsById`, `dropletsHydrateById`, `dropletsServerLoadById`, `dropletsScriptById` and `dropletsStylesById`. `virtual.ts:471`
 - Client registry under `vite dev` imports the shared CSS; a build fills `dropletsStylesById` from the placeholder instead. `virtual.ts:468`, `virtual.ts:488`
@@ -222,20 +225,20 @@ restarts the server.
 - Flags come from `discoverDroplets`, read from the droplet's component only. `../core/discover.ts:171`, `../core/discover.ts:251`
 - Flags an error page declares are ignored (a warning in dev); the error page follows the droplet. `../core/discover.ts:181`
 - Script droplet flags are ignored with a warning, once per file and flag: it is always `ssr` false, `hydrate` true, `prerender` false. `../script/index.ts:51`, `../script/index.ts:64`
-- `classifyChange`: in a droplet folder, `+droplet.ts` is a universal load edit, `+droplet.server.ts` or a server file a load edit, anything else a component edit. `dev.ts:183`, `dev.ts:188`, `dev.ts:191`
-- `classifyChange`: a file outside the droplet folders is traced up the module graphs to the components and loads that import it. `dev.ts:196`
-- Dev SSR module is loaded through the ssr environment's runner (else `ssrLoadModule`), outside any request's info. `dev.ts:250`, `dev.ts:253`
-- Dev droplet rescan that fails (two components, an unknown extension) logs the error and keeps the previous list. `dev.ts:265`
-- Dev droplet rescan writes `.droplets/` again. `dev.ts:269`
-- Dev app: droplets have no stylesheets of their own; `style.css` answers 404 and fragments link none. `dev.ts:341`
-- Dev app: `/index.css` answers 404 without a shared stylesheet (`css.path` false or missing). `dev.ts:328`
-- Build: an empty shared stylesheet is removed from `dist/client/assets/`, and the 0-byte `droplets-css.js` chunk of its entry is never kept. `build.ts:295`, `build.ts:298`
-- Dev app sends no `Link` header. `dev.ts:412`
-- Dev app re-reads `handle`, `+server.ts` routes and `handleError` from the SSR module per request. `dev.ts:368`, `dev.ts:369`, `dev.ts:371`
-- Dev app renders listed `entries` props live; nothing is prerendered. `dev.ts:386`
-- Dev `handleError`: a form action's data that cannot travel as JSON answers with its message. `dev.ts:37`
-- Dev import map: each bare key gets a `/@id/<name>` alias too. `dev.ts:361`, `externalize.ts:28`
-- Dev import map warnings print once each, unless `warnImportMap: false`. `dev.ts:355`, `dev.ts:357`
+- `classifyChange`: in a droplet folder, `+droplet.ts` is a universal load edit, `+droplet.server.ts` or a server file a load edit, anything else a component edit. `dev.ts:184`, `dev.ts:189`, `dev.ts:192`
+- `classifyChange`: a file outside the droplet folders is traced up the module graphs to the components and loads that import it. `dev.ts:197`
+- Dev SSR module is loaded through the ssr environment's runner (else `ssrLoadModule`), outside any request's info. `dev.ts:251`, `dev.ts:254`
+- Dev droplet rescan that fails (two components, an unknown extension) logs the error and keeps the previous list. `dev.ts:266`
+- Dev droplet rescan writes `.droplets/` again. `dev.ts:270`
+- Dev app: droplets have no stylesheets of their own; `style.css` answers 404 and fragments link none. `dev.ts:347`
+- Dev app: `/index.css` answers 404 without a shared stylesheet (`css.path` false or missing). `dev.ts:334`
+- Build: an empty shared stylesheet is removed from `dist/client/assets/`, and the 0-byte `droplets-css.js` chunk of its entry is never kept. `build.ts:306`, `build.ts:309`
+- Dev app sends no `Link` header. `dev.ts:418`
+- Dev app re-reads `handle`, `+server.ts` routes and `handleError` from the SSR module per request. `dev.ts:374`, `dev.ts:375`, `dev.ts:377`
+- Dev app renders listed `entries` props live; nothing is prerendered. `dev.ts:392`
+- Dev `handleError`: a form action's data that cannot travel as JSON answers with its message. `dev.ts:38`
+- Dev import map: each bare key gets a `/@id/<name>` alias too. `dev.ts:367`, `externalize.ts:28`
+- Dev import map warnings print once each, unless `warnImportMap: false`. `dev.ts:361`, `dev.ts:363`
 - Import map check warns for an external the map does not map, a mapped name that is not external, and a version in the URL that differs from the installed one. `importmap-check.ts:53`, `importmap-check.ts:59`, `importmap-check.ts:66`
 - Client externals come from top-level `build.rolldownOptions.external` (or `rollupOptions`) and `environments.client.build`. `client-external.ts:18`, `client-external.ts:29`
 - Dev externalize plugin runs under `vite dev` only and keeps external only imports reached from a droplet's client module. `externalize.ts:57`, `externalize.ts:65`

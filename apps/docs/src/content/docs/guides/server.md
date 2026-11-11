@@ -19,7 +19,7 @@ Runs for every request except the health check and the files: fill
 `event.locals`, answer early without calling `resolve`, or change the
 response.
 
-`/index.js` and every path under `/assets/` (the bundles' chunks,
+`/index.js`, `/env.js` and every path under `/assets/` (the bundles' chunks,
 stylesheets, imported files and `public/` at `/assets/public/`) are answered
 without calling `handle`, on every adapter and in `vite dev`, as SvelteKit
 serves its static files. Fragments, `_data`, actions, `/droplets/<id>/client.js`
@@ -226,10 +226,15 @@ Like SvelteKit, a variable is private and dynamic unless it says otherwise:
   Node and the bindings on Workers.
 - A static variable without a value fails the build.
 - A dynamic public variable changes with a restart, not a rebuild. The server
-  puts the current values at the top of `/index.js`, keyed by element name and build, so the browser
-  has them before any droplet mounts; they never appear in a droplet bundle.
-  `/index.js` is never cached, so a page always gets the server's current
-  values.
+  answers `/env.js` with the current values, keyed by element name and build,
+  and `/index.js` imports it before the entry, so the browser has them before
+  `init()` runs and any droplet mounts; they never appear in a droplet bundle.
+  `/env.js` is sent with `cache-control: public, max-age=600`: a page picks up
+  a new value within ten minutes. `DROPLETS_ENV_MAX_AGE` sets the seconds
+  (read at runtime, `0` sends `no-store`); an invalid value keeps `600`, with
+  a warning under `vite dev`. Only `{ public: true }` variables without
+  `static` are in it, and the route reads nothing from the request. Without
+  such a variable, `/env.js` answers `404` and `/index.js` does not import it.
 - `$droplets/env/private` and `$droplets/server` can only be imported from
   server files (`*.server.*` names, `+server.*` routes, files under a `server/` folder).
 - Server files themselves never reach the browser: a `*.server.*` file

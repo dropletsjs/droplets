@@ -103,6 +103,16 @@ describe("worker", () => {
     expect(source).not.toContain("from-dotenv");
   });
 
+  it("answers /env.js with the public runtime variables of the bindings, never a secret", async () => {
+    const bindings = { ...env, PUBLIC_FIXTURE_RUNTIME: "from-binding-public", DROPLETS_ENV_MAX_AGE: "60" };
+    const res = await worker.default.fetch(new Request("http://drops.test/env.js"), bindings, {});
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("public, max-age=60");
+    const code = await res.text();
+    expect(code).toContain('.env = {"PUBLIC_FIXTURE_RUNTIME":"from-binding-public"};');
+    expect(code).not.toContain('from-binding"');
+  });
+
   it("reads prerendered renders through the assets binding, never from the bundle", async () => {
     const docs = await (await call({ path: "/droplets/docs?page=2" })).text();
     expect(docs).toContain("<h1>Page 2</h1>");
@@ -145,7 +155,7 @@ describe("worker", () => {
     // /index.js is the stub, never cached; the entry it imports is cached for good.
     const entry = await call({ path: "/index.js" });
     expect(entry.headers.get("cache-control")).toBe("no-store");
-    expect((await entry.text()).endsWith(`import("./${manifest.__entryModule}");\n`)).toBe(true);
+    expect(await entry.text()).toContain(`import "./${manifest.__entryModule}";\n`);
     const module = await call({ path: `/${manifest.__entryModule}` });
     expect(module.headers.get("cache-control")).toContain("immutable");
     expect(await module.text()).toContain("test-droplet");

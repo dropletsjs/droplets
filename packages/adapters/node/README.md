@@ -118,9 +118,9 @@ by path.
 - `node()` takes no options and returns the adapter named `node`. `src/index.ts:23`
 - `node()` serverEntry is `dist/entry.js` of this package, found by path. `src/index.ts:26`
 - `node()` serverFile: `vite build` writes the server as `dist/server.js`. `src/index.ts:27`
-- `node()` separateSsrBundle is true: the SSR bundle is its own file, `dist/server/entry-server.js`. `src/index.ts:28`, `../../droplets/src/vite/build.ts:151`
+- `node()` separateSsrBundle is true: the SSR bundle is its own file, `dist/server/entry-server.js`. `src/index.ts:28`, `../../droplets/src/vite/build.ts:156`
 - `node()` noExternal bundles `@hono/node-server` and `@dropletsjs/adapter-node` into `dist/server.js`. `src/index.ts:29`
-- Server bundle always bundles `hono`, `case-anything`, `@dropletsjs/droplets` and `@dropletsjs/renderer-*`; `dist/server.js` imports only `node:*`. `../../droplets/src/vite/build.ts:47`, `test/index.test.ts:25`
+- Server bundle always bundles `hono`, `case-anything`, `@dropletsjs/droplets` and `@dropletsjs/renderer-*`; `dist/server.js` imports only `node:*`. `../../droplets/src/vite/build.ts:52`, `test/index.test.ts:25`
 - `vite preview` calls `node().preview`, which serves `dist/client` and `dist/server/entry-server.js` through `createNodeServerApp`. `src/index.ts:30`, `../../droplets/src/vite/plugin.ts:550`
 - `dist/server.js` resolves `client/` and `server/entry-server.js` relative to its own file, not the working directory. `src/entry.ts:10`
 - `droplets.config.ts` is bundled into `dist/server.js` through `virtual:droplets-config`; it is not read at runtime. `src/entry.ts:4`, `test/index.test.ts:27`
@@ -144,17 +144,17 @@ by path.
 - `droplets.json` missing or malformed: `console.error` `droplets.json not found at <path>; did you build?` once, and the fallback manifest. `src/assets.ts:49`, `src/fs.ts:31`
 - `droplets.json` fallback stays for the life of the process: a build after startup needs a restart. `src/assets.ts:47`
 - Droplet lookup in the manifest uses `Object.hasOwn`: `__proto__` and other prototype names find nothing. `src/assets.ts:62`, `test/assets.test.ts:57`
-- Client bundles, the `/index.js` stub and the global CSS are read from disk per request, not cached. `src/assets.ts:71`, `src/assets.ts:75`, `src/assets.ts:83`
+- Client bundles, `/index.js` and the global CSS are read from disk per request, not cached. `src/assets.ts:71`, `src/assets.ts:75`, `src/assets.ts:83`
 - File read errors other than ENOENT are thrown, not turned into null. `src/fs.ts:19`
 - `/assets/*` is the only route that serves files from `dist/client`. `../../droplets/src/server/app.ts:120`
-- `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:330`, `../../droplets/src/runtime/app.ts:868`
+- `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:330`, `../../droplets/src/runtime/app.ts:892`
 - `/assets/*` serves from `dist/client/assets`. `src/static.ts:43`
 - `/assets/*` path resolving outside `dist/client/assets` answers `404 Not Found` before any read. `src/static.ts:52`
 - `/assets/*` missing file or directory answers `404 Not Found`. `src/static.ts:61`
 - `/assets/*` cache-control for hashed files is `public, max-age=2592000, immutable` (30 days). `src/static.ts:65`
 - `/assets/*` content type comes from a fixed extension table, case-insensitive; any other extension is `application/octet-stream`. `src/static.ts:6`, `src/static.ts:30`
 - `/assets/*` reads the whole file into memory per request: no streaming, no range requests. `src/static.ts:58`
-- `public/` is copied into `dist/client/assets/public/` only; Vite's own `copyPublicDir` is off. `../../droplets/src/vite/build.ts:125`, `../../droplets/src/vite/assets.ts:95`
+- `public/` is copied into `dist/client/assets/public/` only; Vite's own `copyPublicDir` is off. `../../droplets/src/vite/build.ts:130`, `../../droplets/src/vite/assets.ts:95`
 - `/assets/public/*` cache-control is `no-cache`, with an `ETag` of the file's SHA-1 in base64url. `src/static.ts:68`, `src/static.ts:69`
 - `/assets/public/*` answers `304` with no body when any `If-None-Match` tag equals the `ETag`. `src/static.ts:71`
 - `/assets/public/*` is the only path with an `ETag`; hashed files never revalidate. `src/static.ts:64`, `test/static.test.ts:61`
@@ -163,4 +163,4 @@ by path.
 - Node engine is `>=22`. `package.json:35`
 - Build script runs the tests before tsdown. `package.json:38`
 - Tests build the framework's fixture app and fail when `@dropletsjs/droplets` is not built. `test/build-fixture.ts:19`
-- A droplet without stylesheets has no `style.css` (404), and `/index.css` answers 404 without a shared stylesheet: the empty file is not in the build. `../../droplets/src/runtime/app.ts:1116`, `test/app.test.ts:179`
+- A droplet without stylesheets has no `style.css` (404), and `/index.css` answers 404 without a shared stylesheet: the empty file is not in the build. `../../droplets/src/runtime/app.ts:1148`, `test/app.test.ts:179`
