@@ -19,6 +19,7 @@
     "@dropletsjs/renderer-solid": "workspace:*",
     "@dropletsjs/renderer-svelte": "workspace:*",
     "@dropletsjs/renderer-vue": "workspace:*",
+    "@dropletsjs/shared": "workspace:*",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",

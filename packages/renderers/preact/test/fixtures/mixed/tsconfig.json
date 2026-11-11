@@ -1,7 +1,7 @@
 {
   // The JSX default of a project Preact came to first: React's droplets, and
   // the shared module they reach, must still compile for React.
-  "extends": "../../../../../../tsconfig.base.json",
+  "extends": "@dropletsjs/shared/tsconfig",
   "compilerOptions": {
     "types": ["node", "vite/client", "@dropletsjs/droplets/ambient"],
     "jsx": "react-jsx",

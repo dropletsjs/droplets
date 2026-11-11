@@ -1,5 +1,5 @@
 /**
- * @dropletsjs/config/tsdown on small samples: a `.css?inline` import
+ * @dropletsjs/shared/tsdown on small samples: a `.css?inline` import
  * inlined as text, what minifying keeps, and a client entry that reaches
  * server code failing the build.
  */
@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "tsdown";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { bareImport, base, cssInline, graphCheck, type GraphCheckOptions } from "@dropletsjs/config/tsdown";
+import { base, cssInline, graphCheck, type GraphCheckOptions } from "@dropletsjs/shared/tsdown";
 
 const fixtures = fileURLToPath(new URL("../fixtures/", import.meta.url));
 
@@ -18,7 +18,6 @@ const run = (dir: string, entry: string[], check: GraphCheckOptions, overrides: 
     ...base,
     cwd: dir,
     entry: entry.map((name) => `./src/${name}.ts`),
-    deps: { neverBundle: [bareImport] },
     plugins: [cssInline(), graphCheck(check)],
     config: false,
     logLevel: "silent",

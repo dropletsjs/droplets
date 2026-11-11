@@ -50,8 +50,8 @@
   },
   "devDependencies": {
     "@dropletsjs/adapter-node": "workspace:*",
-    "@dropletsjs/config": "workspace:*",
     "@dropletsjs/droplets": "workspace:*",
+    "@dropletsjs/shared": "workspace:*",
     "@types/node": "^24.9.0",
     "hono": "^4.13.16",
     "tsdown": "catalog:",

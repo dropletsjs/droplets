@@ -1,4 +1,4 @@
-// A sample for @dropletsjs/config/tsdown, built by test/build/tsdown.test.ts.
+// A sample for @dropletsjs/shared/tsdown, built by test/build/tsdown.test.ts.
 import styles from "./styles.css?inline";
 
 /** The stylesheet, as text. */

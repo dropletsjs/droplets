@@ -120,6 +120,9 @@ importers:
       '@dropletsjs/renderer-svelte':
         specifier: workspace:*
         version: link:../../packages/renderers/svelte
+      '@dropletsjs/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2
@@ -753,12 +756,12 @@ importers:
         specifier: workspace:^
         version: link:../node
     devDependencies:
-      '@dropletsjs/config':
-        specifier: workspace:*
-        version: link:../../config
       '@dropletsjs/droplets':
         specifier: workspace:*
         version: link:../../droplets
+      '@dropletsjs/shared':
+        specifier: workspace:*
+        version: link:../../shared
       '@types/node':
         specifier: ^24.9.0
         version: 24.19.2
@@ -780,12 +783,12 @@ importers:
 
   packages/adapters/cloudflare:
     devDependencies:
-      '@dropletsjs/config':
-        specifier: workspace:*
-        version: link:../../config
       '@dropletsjs/droplets':
         specifier: workspace:*
         version: link:../../droplets
+      '@dropletsjs/shared':
+        specifier: workspace:*
+        version: link:../../shared
       '@types/node':
         specifier: ^24.9.0
         version: 24.19.2
@@ -811,12 +814,12 @@ importers:
         specifier: workspace:^
         version: link:../node
     devDependencies:
-      '@dropletsjs/config':
-        specifier: workspace:*
-        version: link:../../config
       '@dropletsjs/droplets':
         specifier: workspace:*
         version: link:../../droplets
+      '@dropletsjs/shared':
+        specifier: workspace:*
+        version: link:../../shared
       '@types/node':
         specifier: ^24.9.0
         version: 24.19.2
@@ -842,12 +845,12 @@ importers:
         specifier: ^2.1.6
         version: 2.1.6(hono@4.13.16)
     devDependencies:
-      '@dropletsjs/config':
-        specifier: workspace:*
-        version: link:../../config
       '@dropletsjs/droplets':
         specifier: workspace:*
         version: link:../../droplets
+      '@dropletsjs/shared':
+        specifier: workspace:*
+        version: link:../../shared
       '@types/node':
         specifier: ^24.9.0
         version: 24.19.2
@@ -867,18 +870,6 @@ importers:
         specifier: ^5.1.0
         version: 5.1.0(@types/node@24.19.2)(happy-dom@21.0.4)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
-  packages/config:
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.19.2
-      tsdown:
-        specifier: 'catalog:'
-        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(tsx@4.23.15)(typescript@5.9.3)
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-
   packages/create-droplets:
     dependencies:
       '@clack/prompts':
@@ -888,6 +879,9 @@ importers:
       '@dropletsjs/droplets':
         specifier: workspace:*
         version: link:../droplets
+      '@dropletsjs/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@types/node':
         specifier: ^24.9.0
         version: 24.19.2
@@ -907,12 +901,12 @@ importers:
         specifier: ^4.13.16
         version: 4.13.16
     devDependencies:
-      '@dropletsjs/config':
-        specifier: workspace:*
-        version: link:../config
       '@dropletsjs/droplets':
         specifier: workspace:*
         version: link:../droplets
+      '@dropletsjs/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@types/node':
         specifier: ^24.9.0
         version: 24.19.2
@@ -950,9 +944,9 @@ importers:
         specifier: ^7.1.0
         version: 7.1.7
     devDependencies:
-      '@dropletsjs/config':
+      '@dropletsjs/shared':
         specifier: workspace:*
-        version: link:../config
+        version: link:../shared
       '@tailwindcss/vite':
         specifier: ^4.3.4
         version: 4.3.4(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
@@ -984,12 +978,12 @@ importers:
         specifier: ^4.7.10
         version: 4.7.10
     devDependencies:
-      '@dropletsjs/config':
-        specifier: workspace:*
-        version: link:../../config
       '@dropletsjs/droplets':
         specifier: workspace:*
         version: link:../../droplets
+      '@dropletsjs/shared':
+        specifier: workspace:*
+        version: link:../../shared
       '@types/node':
         specifier: ^24.9.0
         version: 24.19.2
@@ -1011,12 +1005,12 @@ importers:
 
   packages/renderers/hono-jsx:
     devDependencies:
-      '@dropletsjs/config':
-        specifier: workspace:*
-        version: link:../../config
       '@dropletsjs/droplets':
         specifier: workspace:*
         version: link:../../droplets
+      '@dropletsjs/shared':
+        specifier: workspace:*
+        version: link:../../shared
       '@types/node':
         specifier: ^24.9.0
         version: 24.19.2
@@ -1054,12 +1048,12 @@ importers:
       '@dropletsjs/adapter-cloudflare':
         specifier: workspace:*
         version: link:../../adapters/cloudflare
-      '@dropletsjs/config':
-        specifier: workspace:*
-        version: link:../../config
       '@dropletsjs/droplets':
         specifier: workspace:*
         version: link:../../droplets
+      '@dropletsjs/shared':
+        specifier: workspace:*
+        version: link:../../shared
       '@types/node':
         specifier: ^24.9.0
         version: 24.19.2
@@ -1091,15 +1085,15 @@ importers:
       '@dropletsjs/adapter-node':
         specifier: workspace:*
         version: link:../../adapters/node
-      '@dropletsjs/config':
-        specifier: workspace:*
-        version: link:../../config
       '@dropletsjs/droplets':
         specifier: workspace:*
         version: link:../../droplets
       '@dropletsjs/renderer-react':
         specifier: workspace:*
         version: link:../react
+      '@dropletsjs/shared':
+        specifier: workspace:*
+        version: link:../../shared
       '@types/node':
         specifier: ^24.9.0
         version: 24.19.2
@@ -1146,12 +1140,12 @@ importers:
         specifier: ^6.0.0
         version: 6.2.1(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
     devDependencies:
-      '@dropletsjs/config':
-        specifier: workspace:*
-        version: link:../../config
       '@dropletsjs/droplets':
         specifier: workspace:*
         version: link:../../droplets
+      '@dropletsjs/shared':
+        specifier: workspace:*
+        version: link:../../shared
       '@types/node':
         specifier: ^24.9.0
         version: 24.19.2
@@ -1189,12 +1183,12 @@ importers:
         specifier: ^2.11.0
         version: 2.11.15(solid-js@1.9.18)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
     devDependencies:
-      '@dropletsjs/config':
-        specifier: workspace:*
-        version: link:../../config
       '@dropletsjs/droplets':
         specifier: workspace:*
         version: link:../../droplets
+      '@dropletsjs/shared':
+        specifier: workspace:*
+        version: link:../../shared
       '@types/node':
         specifier: ^24.9.0
         version: 24.19.2
@@ -1223,12 +1217,12 @@ importers:
         specifier: ^7.3.1
         version: 7.3.1(svelte@5.57.3)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
     devDependencies:
-      '@dropletsjs/config':
-        specifier: workspace:*
-        version: link:../../config
       '@dropletsjs/droplets':
         specifier: workspace:*
         version: link:../../droplets
+      '@dropletsjs/shared':
+        specifier: workspace:*
+        version: link:../../shared
       '@types/node':
         specifier: ^24.9.0
         version: 24.19.2
@@ -1257,12 +1251,12 @@ importers:
         specifier: ^6.0.0
         version: 6.0.10(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(vue@3.5.44(typescript@5.9.3))
     devDependencies:
-      '@dropletsjs/config':
-        specifier: workspace:*
-        version: link:../../config
       '@dropletsjs/droplets':
         specifier: workspace:*
         version: link:../../droplets
+      '@dropletsjs/shared':
+        specifier: workspace:*
+        version: link:../../shared
       '@types/node':
         specifier: ^24.9.0
         version: 24.19.2
@@ -1284,6 +1278,21 @@ importers:
       vue:
         specifier: ^3.5.44
         version: 3.5.44(typescript@5.9.3)
+
+  packages/shared:
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.2
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.23.5(@volar/typescript@2.4.30(typescript@5.9.3))(tsx@4.23.15)(typescript@5.9.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@types/node@24.19.2)(happy-dom@21.0.4)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
   tests/create-droplets:
     devDependencies:
@@ -1491,6 +1500,9 @@ importers:
       '@dropletsjs/renderer-vue':
         specifier: workspace:*
         version: link:../../packages/renderers/vue
+      '@dropletsjs/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2
@@ -1539,6 +1551,9 @@ importers:
 
   tests/examples:
     devDependencies:
+      '@dropletsjs/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.61.1
@@ -1551,6 +1566,9 @@ importers:
 
   tests/hosts:
     devDependencies:
+      '@dropletsjs/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.61.1
@@ -1572,9 +1590,6 @@ importers:
       '@dropletsjs/adapter-node':
         specifier: workspace:*
         version: link:../../packages/adapters/node
-      '@dropletsjs/config':
-        specifier: workspace:*
-        version: link:../../packages/config
       '@dropletsjs/devtools':
         specifier: workspace:*
         version: link:../../packages/devtools
@@ -1605,6 +1620,9 @@ importers:
       '@dropletsjs/renderer-vue':
         specifier: workspace:*
         version: link:../../packages/renderers/vue
+      '@dropletsjs/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2

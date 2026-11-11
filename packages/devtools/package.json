@@ -44,8 +44,8 @@
     "vite": "^8.0.0"
   },
   "devDependencies": {
-    "@dropletsjs/config": "workspace:*",
     "@dropletsjs/droplets": "workspace:*",
+    "@dropletsjs/shared": "workspace:*",
     "@types/node": "^24.9.0",
     "tsdown": "catalog:",
     "typescript": "^5.9.3",

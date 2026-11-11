@@ -10,14 +10,21 @@ Droplets: server-rendered components any stack can embed, as a Vite 8 plugin on 
 - `packages/adapters/{node,cloudflare,bun,deno}`: `@dropletsjs/adapter-*`. `vite build` requires one.
 - `packages/renderers/{svelte,vue,react,preact,solid,hono-jsx,handlebars,lit}`: `@dropletsjs/renderer-*`.
 - `packages/create-droplets`: `create-droplets` (unscoped), `npm create droplets`.
-- `packages/config`: `@dropletsjs/config`, private, never published. The shared tsdown `base`, `cssInline()`, `graphCheck()`.
-  Import it by package name (`@dropletsjs/config/tsdown`), never by `../../` path.
+- `packages/shared`: `@dropletsjs/shared`, private, never published. `./tsdown` (`base`, `cssInline()`, `graphCheck()`), `./tsconfig`, `./vitest` (`rendererTests`, `adapterTests`, `happyDom`), `./env` (`loadEnvLocal()`).
 - `apps/docs`: the guide, Astro Starlight. `apps/demo`: the live droplets the guide embeds; it trusts only the docs' origins.
 - `examples/frameworks/*`: one project per renderer, the same three droplets each. A change to one usually belongs in all.
 - `examples/shop`, `examples/wp-shop`: the shop demo, on SQLite and on WordPress.
 - `examples/hosts/*`: host stacks, NOT in the pnpm workspace (own toolchains, Docker Compose).
 - `tests/*`: end-to-end tests across packages. A package's own tests live in its `test/`.
   `examples` (Playwright), `hosts` (Docker), `create-droplets`, `djs-add`, `dev-mixed` (`vite dev` + HMR, and the production build), `packages` (the packed tarballs).
+
+## Where things go
+
+- **Shared** (used by more than one package, app or test): `packages/shared`. Import it by package name (`@dropletsjs/shared/tsdown`), never by `../../` path.
+- **Unique** (used by one place): that place's own folder.
+- **Root**: repo management only. Workspace and lockfile, `.github`, `.changeset`, `LICENSE`, `README`, `CONTRIBUTING`, `SECURITY`, `CODE_OF_CONDUCT`, `AGENTS.md`, `CLAUDE.md`, ignore files, the root `package.json` scripts.
+  Also `DESIGN.md` (decisions across the packages), `.env.example` (the root `.env.local`, read by `tests/hosts`, the Bun and Deno suites and the shop's scripts) and `.dockerignore` (the Dockerfiles build from the root).
+- **Examples** (`examples/*`): standalone, because users copy them. They never depend on `packages/shared`.
 
 ## Verify a change
 

@@ -24,8 +24,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 make g+
 WORKDIR /repo
 
 # Install first, so dependency layers are cached across source changes.
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
-COPY packages/config/package.json packages/config/
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY packages/shared/package.json packages/shared/
 COPY packages/droplets/package.json packages/droplets/
 COPY packages/adapters/node/package.json packages/adapters/node/
 COPY packages/adapters/bun/package.json packages/adapters/bun/

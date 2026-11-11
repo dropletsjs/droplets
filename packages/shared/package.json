@@ -1,0 +1,23 @@
+{
+  "name": "@dropletsjs/shared",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "What more than one package, app or test uses: build config, tsconfig, test helpers. Never published.",
+  "exports": {
+    "./env": "./env.ts",
+    "./tsconfig": "./tsconfig.base.json",
+    "./tsdown": "./tsdown.ts",
+    "./vitest": "./vitest.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,8 +1,9 @@
 # tests/packages
 
-The fourteen published packages as npm packs them (`npm pack`, unpacked into
-a temporary folder), checked against each package's `tsdown.config.ts` (its
-entries, copies and `graphCheck` lists):
+Every published package that tsdown builds (all but create-droplets, a Vite
+build) as npm packs it (`npm pack`, unpacked into a temporary folder),
+checked against its `tsdown.config.ts` (its entries, copies and `graphCheck`
+lists):
 
 - every entry the code resolves by path is at its fixed place in `dist/`,
   with its `.d.ts`, and every `exports` and `bin` target is there;

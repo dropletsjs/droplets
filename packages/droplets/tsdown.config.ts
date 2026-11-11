@@ -1,5 +1,5 @@
 import { defineConfig } from "tsdown";
-import { base, bareImport, cssInline, graphCheck } from "@dropletsjs/config/tsdown";
+import { base, bareImport, cssInline, graphCheck } from "@dropletsjs/shared/tsdown";
 
 export default defineConfig({
   ...base,

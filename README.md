@@ -31,7 +31,7 @@ GET /index.js                 →  the one script that makes every droplet on th
 
 **Alpha.** 1.0.0-alpha is the first public release: the HTTP contract, the
 config and the renderer API are what the docs describe, but they may still
-change between alphas, and each alpha's changelog says how. All 13 packages
+change between alphas, and each alpha's changelog says how. The packages all
 share one version and publish under the `alpha` dist-tag. Try it, embed it,
 report what breaks; don't bet a production page on it yet.
 
@@ -158,7 +158,7 @@ same shop into a WordPress site that owns the data and the login.
 
 ## Packages
 
-All 14 share one version (1.0.0-alpha.*) and the `alpha` dist-tag.
+They all share one version (1.0.0-alpha.*) and the `alpha` dist-tag.
 
 | Package | Folder | What it is |
 | ------- | ------ | ---------- |

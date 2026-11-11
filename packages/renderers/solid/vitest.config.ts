@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
 import { defineConfig } from "vitest/config";
+import { happyDom } from "@dropletsjs/shared/vitest";
 
 const require = createRequire(import.meta.url);
 // The browser builds of Solid, for the client module's unit tests: under
@@ -7,13 +8,6 @@ const require = createRequire(import.meta.url);
 // `render` are not supported.
 const solidBrowser = require.resolve("solid-js/dist/solid.js");
 const solidWebBrowser = require.resolve("solid-js/web/dist/web.js");
-
-// Both DOM projects mount things in happy-dom; the conformance kit also
-// appends <link rel="stylesheet">, which must not throw.
-const happyDom = {
-  environment: "happy-dom" as const,
-  environmentOptions: { happyDOM: { settings: { handleDisabledFileLoadingAsSuccess: true } } },
-};
 
 export default defineConfig({
   test: {

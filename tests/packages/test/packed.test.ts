@@ -3,7 +3,7 @@
  * code resolves by path is there, server code is out of every client entry's
  * graph, nothing is imported that the consumer may not have, and no source
  * maps ship. The build checks the client graph itself (graphCheck of
- * @dropletsjs/config/tsdown); this checks the tarball.
+ * @dropletsjs/shared/tsdown); this checks the tarball.
  */
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
@@ -12,7 +12,7 @@ import { join, posix, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseAst } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { isServerPath, type GraphCheckOptions } from "@dropletsjs/config/tsdown";
+import { isServerPath, type GraphCheckOptions } from "@dropletsjs/shared/tsdown";
 import type { UserConfig } from "tsdown";
 
 const packagesDir = fileURLToPath(new URL("../../../packages/", import.meta.url));
@@ -111,6 +111,13 @@ describe.each(PACKAGES)("%s, packed", (path) => {
 
   it("ships no source maps", () => {
     expect(files.filter((file) => file.endsWith(".map"))).toEqual([]);
+  });
+
+  // The manifest's devDependencies name it, which the consumer never installs.
+  it("refers to no workspace-only config", () => {
+    for (const file of files.filter((file) => file !== "package.json")) {
+      expect(readFileSync(at(file), "utf8"), file).not.toMatch(/tsconfig\.base|@dropletsjs\/config/);
+    }
   });
 
   it("has every file `exports` and `bin` point at, and what the launchers import", () => {

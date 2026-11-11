@@ -1,15 +1,7 @@
-import { existsSync } from "node:fs";
-import { defineConfig } from "vitest/config";
+import { loadEnvLocal } from "@dropletsjs/shared/env";
+import { adapterTests } from "@dropletsjs/shared/vitest";
 
-// The repository's .env.local, when there is one (`DENO`: a deno binary off the
-// PATH); variables already set win.
-const envLocal = new URL("../../../.env.local", import.meta.url);
-if (existsSync(envLocal)) process.loadEnvFile(envLocal);
+// `DENO`: a deno binary off the PATH.
+loadEnvLocal();
 
-export default defineConfig({
-  test: {
-    include: ["test/**/*.test.ts"],
-    environment: "node",
-    testTimeout: 60_000,
-  },
-});
+export default adapterTests;

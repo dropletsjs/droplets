@@ -20,6 +20,7 @@ export const base: UserConfig = {
   report: false,
   exports: false,
   css: false,
+  deps: { neverBundle: [bareImport] },
   dts: { sourcemap: false },
   minify: {
     compress: { keepNames: { function: true, class: true } },

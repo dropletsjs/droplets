@@ -6,7 +6,7 @@ name: Release
 #      opens or updates the "Version Packages" PR. It has no id-token and no
 #      environment, so it cannot publish anything.
 #   2. `publish`: runs only when no changesets are pending AND at least one of
-#      the 13 public packages has a version that is not on npm yet (i.e. right
+#      the public packages has a version that is not on npm yet (i.e. right
 #      after the Version PR merged). It runs in the `npm-release` environment,
 #      which requires a reviewer's approval, and publishes through npm trusted
 #      publishing (OIDC): there is no NPM_TOKEN anywhere. Provenance is

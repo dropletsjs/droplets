@@ -8,6 +8,7 @@
     "e2e": "node run.mjs"
   },
   "devDependencies": {
+    "@dropletsjs/shared": "workspace:*",
     "@playwright/test": "catalog:",
     "@types/node": "catalog:"
   }

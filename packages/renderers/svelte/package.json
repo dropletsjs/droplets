@@ -64,8 +64,8 @@
     "vite": "^8.0.0"
   },
   "devDependencies": {
-    "@dropletsjs/config": "workspace:*",
     "@dropletsjs/droplets": "workspace:*",
+    "@dropletsjs/shared": "workspace:*",
     "@types/node": "^24.9.0",
     "happy-dom": "^21.0.4",
     "svelte": "^5.57.3",

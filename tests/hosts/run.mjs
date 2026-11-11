@@ -37,12 +37,12 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { loadEnvLocal } from "@dropletsjs/shared/env";
 
 const here = import.meta.dirname;
 const root = join(here, "..", "..");
 
-const envLocal = join(root, ".env.local");
-if (existsSync(envLocal)) process.loadEnvFile(envLocal);
+loadEnvLocal();
 
 /**
  * Host id → the shop's URL on it. The id names everything about a host:

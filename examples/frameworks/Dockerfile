@@ -18,7 +18,7 @@ WORKDIR /repo
 
 # Fetch first, so the dependency layer is cached across source changes.
 # `pnpm fetch` reads only the lockfile, so no workspace package is listed here.
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 RUN pnpm fetch --ignore-scripts
 
 ARG EXAMPLE=svelte
