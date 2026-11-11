@@ -8,14 +8,15 @@ export type Handle = () => void;
 /** Each handle's props setter, for `update` in dev. */
 export const setters = new WeakMap<Handle, (props: RenderProps) => void>();
 
+export type LiveProps = { props: Record<string, unknown>; set: (props: RenderProps) => void };
+
+type LivePropsInput = { props: RenderProps; children: () => JSX.Element };
+
 /**
  * The component's props as getters over one signal: a component reading
  * `props.data` follows it, and `update` sets it without a new instance.
  */
-export function liveProps(
-  props: RenderProps,
-  children: () => JSX.Element,
-): { props: Record<string, unknown>; set: (props: RenderProps) => void } {
+export function liveProps({ props, children }: LivePropsInput): LiveProps {
   const [current, setCurrent] = createSignal(props, { equals: false });
   const live: Record<string, unknown> = { children };
   for (const key of Object.keys(props)) {

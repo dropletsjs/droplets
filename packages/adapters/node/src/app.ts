@@ -20,9 +20,10 @@ export type NodeServerPaths = {
  * bundled `dist/server.js`.
  */
 export async function createNodeServerApp(paths: NodeServerPaths, config: ResolvedDropletsConfig) {
-  const ssr = (await import(paths.ssrEntryUrl)) as SsrModule;
-  const loaders = createAssetLoaders(paths.clientRoot, paths.serverRoot);
-  const manifest = await loaders.getManifest();
+  const { clientRoot, ssrEntryUrl, serverRoot } = paths;
+  const ssr = (await import(ssrEntryUrl)) as SsrModule;
+  const loaders = createAssetLoaders({ clientRoot, serverRoot });
+  const manifest = await loaders.loadManifest();
 
   return createServerApp({
     ssr,
@@ -37,7 +38,7 @@ export async function createNodeServerApp(paths: NodeServerPaths, config: Resolv
       loadIndex: loaders.loadIndex,
       loadPrerendered: loaders.loadPrerendered,
       externals: manifest.__externals ?? [],
-      assetHandler: createStaticHandler(paths.clientRoot),
+      assetHandler: createStaticHandler({ clientRoot }),
     },
   });
 }

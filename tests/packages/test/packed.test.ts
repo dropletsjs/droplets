@@ -160,7 +160,7 @@ describe.each(PACKAGES)("%s, packed", (path) => {
         if (seen.has(file)) continue;
         seen.add(file);
         const chain = via.join(" -> ");
-        expect(isServerPath(file), `server code reached: ${chain}`).toBe(false);
+        expect(isServerPath({ path: file }), `server code reached: ${chain}`).toBe(false);
         expect(serverEntries.has(file), `server entry reached: ${chain}`).toBe(false);
         expect(has(file), `missing: ${chain}`).toBe(true);
         if (!file.endsWith(".js")) continue; // an as-is component, compiled by the consumer

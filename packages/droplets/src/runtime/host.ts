@@ -17,22 +17,28 @@ import { isLocationPrefix, webUrl, withinTrusted } from "./web-url.ts";
 
 export { webUrl, withinTrusted };
 
+export type ParseHostInput = { value: unknown };
+
 /** A host from a string or a URL: a web URL (see `webUrl`), or `null`. */
-export function parseHost(value: unknown): URL | null {
-  return webUrl(value);
+export function parseHost({ value }: ParseHostInput): URL | null {
+  return webUrl({ value });
 }
+
+type WithPrefixInput = { origin: string; prefix: string | undefined };
 
 /**
  * `origin` with `prefix`, without a trailing slash: `https://shop.example/mfe`.
  * `origin` alone when the prefix is missing, is not an `isLocationPrefix`,
  * or would leave the origin once joined.
  */
-export function withPrefix(origin: string, prefix: string | undefined): string {
-  if (prefix === undefined || !isLocationPrefix(prefix)) return origin;
-  const url = webUrl(`${origin}${prefix}`);
-  if (!url || url.origin !== origin || url.search !== "" || !isLocationPrefix(url.pathname)) return origin;
+function withPrefix({ origin, prefix }: WithPrefixInput): string {
+  if (prefix === undefined || !isLocationPrefix({ prefix })) return origin;
+  const url = webUrl({ value: `${origin}${prefix}` });
+  if (!url || url.origin !== origin || url.search !== "" || !isLocationPrefix({ prefix: url.pathname })) return origin;
   return `${origin}${url.pathname.replace(/\/+$/, "")}`;
 }
+
+type ParseLocationInput = { value: unknown };
 
 /**
  * Where a droplets server is reached, from a URL: its origin and the path
@@ -40,21 +46,28 @@ export function withPrefix(origin: string, prefix: string | undefined): string {
  * trailing slash, query or hash. `null` unless it is a web URL; a path that
  * is no valid prefix is dropped (see `withPrefix`).
  */
-export function parseLocation(value: unknown): string | null {
-  const url = webUrl(value);
-  return url ? withPrefix(url.origin, url.pathname) : null;
+function parseLocation({ value }: ParseLocationInput): string | null {
+  const url = webUrl({ value });
+  return url ? withPrefix({ origin: url.origin, prefix: url.pathname }) : null;
 }
 
 /** The headers that can name where this server is reached, in the order they are tried. */
 export type LocationSource = "x-droplet-location" | "forwarded" | "x-forwarded-host";
 
+/** One location a request's headers name, and the header that named it. */
+export type HeaderLocation = { source: LocationSource; location: string };
+
 /** A host as a proxy writes it: a name or an IP literal, and a port. Nothing that a URL would read as more. */
 const AUTHORITY = /^(?:[a-z0-9_.-]+|\[[0-9a-f:.]+\])(?::\d{1,5})?$/i;
 
-function forwardedOrigin(proto: string, host: string | undefined): string | null {
+type ForwardedOriginInput = { proto: string; host: string | undefined };
+
+function forwardedOrigin({ proto, host }: ForwardedOriginInput): string | null {
   if (!host || !AUTHORITY.test(host)) return null;
-  return webUrl(`${proto}://${host}`)?.origin ?? null;
+  return webUrl({ value: `${proto}://${host}` })?.origin ?? null;
 }
+
+export type HeaderLocationsInput = { headers: Headers; requestUrl: URL };
 
 /**
  * The locations this request's headers name, in order: `x-droplet-location`
@@ -65,27 +78,28 @@ function forwardedOrigin(proto: string, host: string | undefined): string | null
  * the first proxy wrote them, the ones after it only appended. A header
  * that does not parse is left out. None of them is trusted yet.
  */
-export function headerLocations(headers: Headers, requestUrl: URL): { source: LocationSource; location: string }[] {
-  const found: { source: LocationSource; location: string }[] = [];
+export function headerLocations({ headers, requestUrl }: HeaderLocationsInput): HeaderLocation[] {
+  const found: HeaderLocation[] = [];
   const sent = headers.get("x-droplet-location");
-  const named = sent === null || sent.includes(",") ? null : parseLocation(sent.trim());
+  const named = sent === null || sent.includes(",") ? null : parseLocation({ value: sent.trim() });
   if (named) found.push({ source: "x-droplet-location", location: named });
 
   const protocol = requestUrl.protocol.replace(/:$/, "");
-  const prefix = firstValue(headers.get("x-forwarded-prefix"));
+  const prefix = firstValue({ value: headers.get("x-forwarded-prefix") });
   const forwarded = headers.get("forwarded");
   if (forwarded) {
-    const { host, proto } = parseForwarded(forwarded);
-    const origin = forwardedOrigin(proto ?? protocol, host);
-    if (origin) found.push({ source: "forwarded", location: withPrefix(origin, prefix) });
+    const { host, proto } = parseForwarded({ header: forwarded });
+    const origin = forwardedOrigin({ proto: proto ?? protocol, host });
+    if (origin) found.push({ source: "forwarded", location: withPrefix({ origin, prefix }) });
   }
-  const forwardedHost = firstValue(headers.get("x-forwarded-host"));
+  const forwardedHost = firstValue({ value: headers.get("x-forwarded-host") });
   if (forwardedHost) {
-    const port = firstValue(headers.get("x-forwarded-port"));
+    const port = firstValue({ value: headers.get("x-forwarded-port") });
     const withPort =
       port && /^\d{1,5}$/.test(port) && Number(port) <= 65535 && !/:\d+$/.test(forwardedHost) ? `${forwardedHost}:${port}` : forwardedHost;
-    const origin = forwardedOrigin(firstValue(headers.get("x-forwarded-proto")) ?? protocol, withPort);
-    if (origin) found.push({ source: "x-forwarded-host", location: withPrefix(origin, prefix) });
+    const proto = firstValue({ value: headers.get("x-forwarded-proto") }) ?? protocol;
+    const origin = forwardedOrigin({ proto, host: withPort });
+    if (origin) found.push({ source: "x-forwarded-host", location: withPrefix({ origin, prefix }) });
   }
   return found;
 }
@@ -99,12 +113,14 @@ export function headerLocations(headers: Headers, requestUrl: URL): { source: Lo
  */
 export type HostTokens = { host: string; path: string; location: string };
 
+export type HostTokensInput = { nonce?: string };
+
 /**
  * The tokens of one build. The nonce is random per build and stays on the
  * server, with the renders: content a user wrote cannot hold a token that
  * gets replaced.
  */
-export function hostTokens(nonce = ""): HostTokens {
+export function hostTokens({ nonce = "" }: HostTokensInput = {}): HostTokens {
   const suffix = nonce ? `_${nonce}` : "";
   return {
     host: `__$DROPLET_HOST${suffix}$__`,
@@ -126,10 +142,14 @@ export function tokenNonce(): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+type Forwarded = { host?: string; proto?: string };
+
+type ParseForwardedInput = { header: string };
+
 /** `host` and `proto` of the first element of an RFC 7239 `Forwarded` header. */
-function parseForwarded(header: string): { host?: string; proto?: string } {
+function parseForwarded({ header }: ParseForwardedInput): Forwarded {
   const first = header.split(",")[0] ?? "";
-  const found: { host?: string; proto?: string } = {};
+  const found: Forwarded = {};
   for (const pair of first.split(";")) {
     const at = pair.indexOf("=");
     if (at < 0) continue;
@@ -143,21 +163,25 @@ function parseForwarded(header: string): { host?: string; proto?: string } {
   return found;
 }
 
+type FirstValueInput = { value: string | null };
+
 /** The first value of a header a chain of proxies may have appended to. */
-function firstValue(value: string | null): string | undefined {
+function firstValue({ value }: FirstValueInput): string | undefined {
   const first = value?.split(",")[0]?.trim();
   return first ? first : undefined;
 }
+
+export type HostFromHeadersInput = { headers: Headers; location: URL };
 
 /**
  * The host page when the request body names none: its `Origin`, else
  * `location`, where this server is reached (an origin only: the path is
  * `/`). `Origin` must be a web URL, `null` is skipped.
  */
-export function hostFromHeaders(headers: Headers, location: URL): URL {
+export function hostFromHeaders({ headers, location }: HostFromHeadersInput): URL {
   const origin = headers.get("origin");
   if (origin && origin !== "null") {
-    const url = webUrl(origin);
+    const url = webUrl({ value: origin });
     if (url) return new URL(url.origin);
   }
   return new URL(location.origin);
@@ -175,7 +199,9 @@ export type HostProbe = { host: URL; violation: HostUrlPropsErrorInPrerender | u
 /** The fields of a URL that have no token: reading one needs the real host. */
 const URL_FIELDS = new Set(["hash", "host", "hostname", "password", "port", "protocol", "search", "searchParams", "username"]);
 
-export function prerenderHost(droplet: string, entry: string, tokens: HostTokens = hostTokens()): HostProbe {
+export type PrerenderHostInput = { droplet: string; entry: string; tokens?: HostTokens };
+
+export function prerenderHost({ droplet, entry, tokens = hostTokens() }: PrerenderHostInput): HostProbe {
   const href = `${tokens.host}${tokens.path}`;
   const allowed: Record<string, unknown> = {
     origin: tokens.host,
@@ -208,15 +234,24 @@ function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => ESCAPE_HTML[char] ?? char);
 }
 
-function escapeRegExp(value: string): string {
+type EscapeRegExpInput = { value: string };
+
+function escapeRegExp({ value }: EscapeRegExpInput): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+type SwapInput = {
+  text: string;
+  values: TokenValues;
+  tokens: HostTokens;
+  write: (value: string) => string;
+};
 
 /**
  * `text` with each token replaced by its value, written by `write`, plain
  * and `encodeURIComponent`d. One pass: a value is never read for tokens again.
  */
-function swap(text: string, { host, location }: TokenValues, tokens: HostTokens, write: (value: string) => string): string {
+function swap({ text, values: { host, location }, tokens, write }: SwapInput): string {
   if (!text.includes("DROPLET_")) return text;
   const values = new Map<string, string>();
   const pairs = [
@@ -228,9 +263,11 @@ function swap(text: string, { host, location }: TokenValues, tokens: HostTokens,
     values.set(token, write(value));
     values.set(encodeURIComponent(token), write(encodeURIComponent(value)));
   }
-  const pattern = new RegExp([...values.keys()].map(escapeRegExp).join("|"), "g");
+  const pattern = new RegExp([...values.keys()].map((value) => escapeRegExp({ value })).join("|"), "g");
   return text.replace(pattern, (token) => values.get(token) ?? token);
 }
+
+export type ReplaceHostTokensInput = { html: string; values: TokenValues; tokens?: HostTokens };
 
 /**
  * A build-time render's HTML for one request: tokens replaced, escaped for
@@ -239,14 +276,17 @@ function swap(text: string, { host, location }: TokenValues, tokens: HostTokens,
  * (`origin`, `pathname` and a location cannot carry `<`, `>` or `"`;
  * documented).
  */
-export function replaceHostTokens(html: string, values: TokenValues, tokens: HostTokens = hostTokens()): string {
-  return swap(html, values, tokens, escapeHtml);
+export function replaceHostTokens({ html, values, tokens = hostTokens() }: ReplaceHostTokensInput): string {
+  return swap({ text: html, values, tokens, write: escapeHtml });
 }
 
+export type ReplaceHostTokensInDataInput<T> = { data: T; values: TokenValues; tokens?: HostTokens };
+
 /** Build-time server data (or error) for one request: tokens replaced inside its strings. */
-export function replaceHostTokensInData<T>(data: T, values: TokenValues, tokens: HostTokens = hostTokens()): T {
+export function replaceHostTokensInData<T>({ data, values, tokens = hostTokens() }: ReplaceHostTokensInDataInput<T>): T {
   if (data === undefined) return data;
   const json = JSON.stringify(data);
   if (json === undefined || !json.includes("DROPLET_")) return data;
-  return JSON.parse(swap(json, values, tokens, (value) => JSON.stringify(value).slice(1, -1))) as T;
+  const write = (value: string): string => JSON.stringify(value).slice(1, -1);
+  return JSON.parse(swap({ text: json, values, tokens, write })) as T;
 }

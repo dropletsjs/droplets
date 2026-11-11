@@ -20,7 +20,9 @@ export type DropletScript<Data = unknown> = (data: Data, el: HTMLElement) => voi
 
 type Instance = { target: HTMLElement; cleanup: (() => void) | undefined };
 
-const isThenable = (value: unknown): value is PromiseLike<unknown> => typeof (value as PromiseLike<unknown> | null)?.then === "function";
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return typeof (value as PromiseLike<unknown> | null)?.then === "function";
+}
 
 export async function mount(
   module: ComponentModule,

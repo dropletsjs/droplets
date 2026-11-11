@@ -35,6 +35,7 @@ export type DropletErrorProps<Err = unknown, Children = unknown> = { error: Err;
 /**
  * What `+error.*` receives when a load failed with nothing to say: a
  * `throw undefined`, or no `handleError` to turn the error into something.
+ * An `Error` subclass: `+error.*` reads its name and message like any error's.
  */
 export class DropletRenderError extends Error {
   constructor(message = "Internal Error") {
@@ -45,15 +46,18 @@ export class DropletRenderError extends Error {
 
 const UNHANDLED = Symbol.for("droplets.unhandled");
 
+type UnhandledDropletErrorInput = { droplet: string; reason: string; cause: unknown };
+
 /**
  * A failure the droplet cannot show: it has no error page, or its
  * `handleError` threw. The server answers it as any unexpected error,
- * through `handleError` in `hooks.server.ts`.
+ * through `handleError` in `hooks.server.ts`. An `Error` subclass, recognised
+ * by its brand across bundles.
  */
 export class UnhandledDropletError extends Error {
   readonly [UNHANDLED] = true;
 
-  constructor(droplet: string, reason: string, cause: unknown) {
+  constructor({ droplet, reason, cause }: UnhandledDropletErrorInput) {
     super(`${droplet}: ${reason}`, { cause });
     this.name = "UnhandledDropletError";
   }
@@ -94,7 +98,7 @@ export async function settle(value: unknown): Promise<unknown> {
   const resolved: unknown = await value;
   if (typeof resolved !== "object" || resolved === null) return resolved;
   const entries = Object.entries(resolved);
-  if (!entries.some(([, field]) => isPromiseLike(field))) return resolved;
+  if (!entries.some(([, field]) => isPromiseLike({ value: field }))) return resolved;
   // Every field to the end, so none rejects later with nobody listening;
   // then the first rejection as it was thrown (`error()` stays an answer).
   const results = await Promise.allSettled(entries.map(([, field]) => field));
@@ -103,7 +107,9 @@ export async function settle(value: unknown): Promise<unknown> {
   return Object.fromEntries(entries.map(([key], index) => [key, (results[index] as PromiseFulfilledResult<unknown>).value]));
 }
 
-function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+type IsPromiseLikeInput = { value: unknown };
+
+function isPromiseLike({ value }: IsPromiseLikeInput): boolean {
   return (
     (typeof value === "object" || typeof value === "function") && value !== null && typeof (value as { then?: unknown }).then === "function"
   );

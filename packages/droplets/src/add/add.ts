@@ -23,7 +23,16 @@ import {
   type Note,
   type Target,
 } from "./flags.ts";
-import { coreVersion, detectPackageManager, installCommand, isInstalled, PACKAGE_MANAGERS, run, type PackageManager } from "./install.ts";
+import {
+  coreVersion,
+  detectPackageManager,
+  installCommand,
+  isInstalled,
+  PACKAGE_MANAGERS,
+  run,
+  type PackageManager,
+  type RunInput,
+} from "./install.ts";
 import { loadProject, type Project, type ProjectOptions } from "./project.ts";
 import { DROPLET_FILES, dropletFileChoices, dropletFiles, type DropletFile } from "./templates.ts";
 import { withJsx } from "./tsconfig.ts";
@@ -39,7 +48,7 @@ export type AddChoices = {
 export type AddSteps = {
   pm: PackageManager;
   /** Runs an install command; tests pass a fake. */
-  runner?: (command: [string, ...string[]], root: string) => Promise<void>;
+  runner?: (input: RunInput) => Promise<void>;
   log?: (message: string) => void;
 };
 
@@ -55,8 +64,24 @@ export type AddResult = {
   manual?: string;
 };
 
+export type NameProblemInput = { name: string; project: Pick<Project, "api"> };
+
+export type MissingPackagesInput = { root: string; framework: Framework; version?: string | undefined };
+
+export type MissingPackages = { dependencies: string[]; devDependencies: string[] };
+
+export type AddDropletInput = { project: Project; choices: AddChoices; steps: AddSteps };
+
+type OneOfInput<T extends string> = { value: string | undefined; allowed: readonly T[]; flag: string };
+
+type AnswerInput<T> = { value: T };
+
+export type RunAddInput = { name: string | undefined; flags: AddFlags };
+
+type ReportInput = { result: AddResult; dropletName: string; interactive: boolean };
+
 /** Why `name` cannot be a new droplet, or `undefined` when it can. */
-export function nameProblem(name: string, project: Pick<Project, "api">): string | undefined {
+export function nameProblem({ name, project }: NameProblemInput): string | undefined {
   if (!/^[A-Za-z][A-Za-z0-9-]*$/.test(name)) return "letters, digits and dashes, starting with a letter: hello-world";
   const id = kebabCase(name);
   if (project.api.droplets().some((droplet) => droplet.id === id)) return `a droplet with the id "${id}" exists already`;
@@ -68,12 +93,8 @@ export function nameProblem(name: string, project: Pick<Project, "api">): string
  * The packages `framework` needs that the project lacks, as dependencies and
  * dev dependencies. The renderer is pinned to `version`, the core's.
  */
-export function missingPackages(
-  root: string,
-  framework: Framework,
-  version: string | undefined = coreVersion(root),
-): { dependencies: string[]; devDependencies: string[] } {
-  const missing = (specs: string[]) => specs.filter((spec) => !isInstalled(root, packageName(spec)));
+export function missingPackages({ root, framework, version = coreVersion({ root }) }: MissingPackagesInput): MissingPackages {
+  const missing = (specs: string[]): string[] => specs.filter((spec) => !isInstalled({ root, name: packageName({ spec }) }));
   const renderer = version ? `${framework.package}@${version}` : framework.package;
   return {
     dependencies: missing(framework.dependencies),
@@ -82,7 +103,7 @@ export function missingPackages(
 }
 
 /** Installs and registers the framework when needed, writes the droplet and its `./$types`. */
-export async function addDroplet(project: Project, choices: AddChoices, steps: AddSteps): Promise<AddResult> {
+export async function addDroplet({ project, choices, steps }: AddDropletInput): Promise<AddResult> {
   const log = steps.log ?? (() => {});
   const runner = steps.runner ?? run;
   const { root, api } = project;
@@ -90,19 +111,21 @@ export async function addDroplet(project: Project, choices: AddChoices, steps: A
   const { framework } = choices;
 
   if (!framework.builtIn && !api.renderers().includes(framework.name)) {
-    const { dependencies, devDependencies } = missingPackages(root, framework);
-    for (const [specs, dev] of [
+    const { dependencies, devDependencies } = missingPackages({ root, framework });
+    for (const [specs, isDev] of [
       [dependencies, false],
       [devDependencies, true],
     ] as const) {
       if (specs.length === 0) continue;
-      const command = installCommand(steps.pm, specs, dev);
+      const command = installCommand({ pm: steps.pm, specs, isDev });
       log(`$ ${command.join(" ")}`);
-      await runner(command, root);
+      await runner({ argv: command, root });
       result.installed.push(...specs);
     }
     const configFile = project.configFile;
-    const edit = configFile ? addRenderer(await readFile(configFile, "utf8"), configFile, framework) : { manual: manualSteps(framework) };
+    const edit = configFile
+      ? addRenderer({ source: await readFile(configFile, "utf8"), file: configFile, framework })
+      : { manual: manualSteps({ framework }) };
     if ("code" in edit && configFile) {
       await writeFile(configFile, edit.code);
       result.edited.push(relative(root, configFile));
@@ -111,7 +134,7 @@ export async function addDroplet(project: Project, choices: AddChoices, steps: A
     }
     if (framework.jsxImportSource) {
       const tsconfig = join(root, "tsconfig.json");
-      const code = await withJsx(tsconfig, framework.jsxImportSource);
+      const code = await withJsx({ file: tsconfig, importSource: framework.jsxImportSource });
       if (code !== undefined) {
         await writeFile(tsconfig, code);
         result.edited.push("tsconfig.json");
@@ -144,16 +167,14 @@ export type AddFlags = ProjectOptions & {
   yes?: boolean;
 };
 
-const dim = (text: string) => styleText("dim", text);
-
-function oneOf<T extends string>(value: string | undefined, allowed: readonly T[], flag: string): T | undefined {
+function oneOf<T extends string>({ value, allowed, flag }: OneOfInput<T>): T | undefined {
   if (value === undefined) return undefined;
   if ((allowed as readonly string[]).includes(value)) return value as T;
   throw new Error(`--${flag} ${value}: expected ${allowed.join(", ")}`);
 }
 
 /** Ends the command when a prompt was cancelled (ctrl-c, escape). */
-function answer<T>(value: T): Exclude<T, symbol> {
+function answer<T>({ value }: AnswerInput<T>): Exclude<T, symbol> {
   if (prompts.isCancel(value)) {
     prompts.cancel("Nothing written.");
     process.exit(1);
@@ -162,25 +183,16 @@ function answer<T>(value: T): Exclude<T, symbol> {
 }
 
 /** The command: the flags, then prompts for the rest when the terminal is interactive. */
-export async function runAdd(name: string | undefined, flags: AddFlags): Promise<void> {
+export async function runAdd({ name, flags }: RunAddInput): Promise<void> {
   const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY) && !flags.yes;
   const project = await loadProject(flags);
   const configured = new Set(project.api.renderers());
-  const pm = oneOf(flags.pm, PACKAGE_MANAGERS, "pm") ?? detectPackageManager(project.root);
-  const target = oneOf(
-    flags.target,
-    TARGETS.map((t) => t.value),
-    "target",
-  );
-  const hydrate = oneOf(flags.hydrate, HYDRATE_CHOICES, "hydrate");
-  const files = flags.with?.split(",").flatMap(
-    (file) =>
-      oneOf(
-        file.trim(),
-        DROPLET_FILES.map((f) => f.value),
-        "with",
-      ) ?? [],
-  );
+  const pm = oneOf({ value: flags.pm, allowed: PACKAGE_MANAGERS, flag: "pm" }) ?? detectPackageManager({ root: project.root });
+  const target = oneOf({ value: flags.target, allowed: TARGETS.map((t) => t.value), flag: "target" });
+  const hydrate = oneOf({ value: flags.hydrate, allowed: HYDRATE_CHOICES, flag: "hydrate" });
+  const files = flags.with
+    ?.split(",")
+    .flatMap((file) => oneOf({ value: file.trim(), allowed: DROPLET_FILES.map((f) => f.value), flag: "with" }) ?? []);
   const needsAnswer = (what: string) => new Error(`${what} (or run djs add in a terminal to be asked)`);
 
   /** A warning: confirmed when interactive, accepted with --yes, an error otherwise. */
@@ -188,7 +200,7 @@ export async function runAdd(name: string | undefined, flags: AddFlags): Promise
     if (flags.yes) return prompts.log.warn(message);
     if (!interactive) throw needsAnswer(`${message}; pass --yes to go ahead`);
     prompts.log.warn(message);
-    if (!answer(await prompts.confirm({ message: "Go ahead?" }))) {
+    if (!answer({ value: await prompts.confirm({ message: "Go ahead?" }) })) {
       prompts.cancel("Nothing written.");
       process.exit(1);
     }
@@ -199,40 +211,40 @@ export async function runAdd(name: string | undefined, flags: AddFlags): Promise
   if (name === undefined && !interactive) throw needsAnswer("name the droplet: djs add <name>");
   const dropletName =
     name ??
-    answer(
-      await prompts.text({
+    answer({
+      value: await prompts.text({
         message: "Droplet name",
         placeholder: "hello-world",
-        validate: (value) => nameProblem(value ?? "", project),
+        validate: (value) => nameProblem({ name: value ?? "", project }),
       }),
-    );
-  const problem = nameProblem(dropletName, project);
+    });
+  const problem = nameProblem({ name: dropletName, project });
   if (problem) throw new Error(`${dropletName}: ${problem}`);
 
   let framework: Framework | undefined;
   if (flags.framework) {
-    framework = kindNamed(flags.framework);
+    framework = kindNamed({ name: flags.framework });
     if (!framework) throw new Error(`--framework ${flags.framework}: expected ${ADD_KINDS.map((f) => f.name).join(", ")}`);
   } else if (!interactive) {
     if (configured.size !== 1) throw needsAnswer(`pick a framework: --framework ${ADD_KINDS.map((f) => f.name).join("|")}`);
     const [only] = configured;
-    if (only !== undefined) framework = frameworkNamed(only);
+    if (only !== undefined) framework = frameworkNamed({ name: only });
   } else {
     const ordered = [...FRAMEWORKS].sort((a, b) => Number(configured.has(b.name)) - Number(configured.has(a.name)));
-    const picked = answer(
-      await prompts.select({
+    const picked = answer({
+      value: await prompts.select({
         message: "Framework",
         options: [
           ...ordered.map((f) =>
             configured.has(f.name)
               ? { value: f.name, label: f.label }
-              : { value: f.name, label: dim(f.label), hint: "not in vite.config: adds it" },
+              : { value: f.name, label: styleText("dim", f.label), hint: "not in vite.config: adds it" },
           ),
           { value: SCRIPT.name, label: SCRIPT.label, hint: "built in: runs in the browser with (data, el), renders nothing on the server" },
         ],
       }),
-    );
-    framework = kindNamed(picked);
+    });
+    framework = kindNamed({ name: picked });
   }
   if (!framework) throw new Error("no framework");
   if (framework.builtIn) {
@@ -242,38 +254,38 @@ export async function runAdd(name: string | undefined, flags: AddFlags): Promise
     const chosen =
       hydrate ??
       (interactive
-        ? answer(
-            await prompts.select({
+        ? answer({
+            value: await prompts.select({
               message: "Runs",
               options: SCRIPT_HYDRATE.map((h) => ({ ...h })),
               initialValue: "always" as HydrateChoice,
             }),
-          )
+          })
         : "always");
-    const flags = scriptFlags(chosen);
+    const flags = scriptFlags({ hydrate: chosen });
     if (files?.includes("error")) throw new Error("--with error: a script droplet has no error page; it renders nothing");
-    const choices = dropletFileChoices(framework);
+    const choices = dropletFileChoices({ framework });
     const chosenFiles =
       files ??
       (interactive
-        ? answer(
-            await prompts.multiselect({
+        ? answer({
+            value: await prompts.multiselect({
               message: "Optional files",
               options: choices.map((f) => ({ value: f.value, label: f.label, hint: f.hint })),
               required: false,
             }),
-          )
+          })
         : []);
-    const result = await addDroplet(
+    const result = await addDroplet({
       project,
-      { name: dropletName, framework, flags, files: new Set(chosenFiles) },
-      { pm, log: (message) => prompts.log.step(message) },
-    );
-    return report(result, dropletName, interactive);
+      choices: { name: dropletName, framework, flags, files: new Set(chosenFiles) },
+      steps: { pm, log: (message) => prompts.log.step(message) },
+    });
+    return report({ result, dropletName, interactive });
   }
   if (!configured.has(framework.name)) {
-    const { dependencies, devDependencies } = missingPackages(project.root, framework);
-    const specs = [...dependencies, ...devDependencies].map(packageName);
+    const { dependencies, devDependencies } = missingPackages({ root: project.root, framework });
+    const specs = [...dependencies, ...devDependencies].map((spec) => packageName({ spec }));
     const install = specs.length > 0 ? `this will install ${specs.join(", ")} and ` : "this will ";
     await accept(`${install}add ${framework.factory}() to renderers in vite.config`);
   }
@@ -281,40 +293,46 @@ export async function runAdd(name: string | undefined, flags: AddFlags): Promise
   const chosenTarget =
     target ??
     (interactive
-      ? answer(await prompts.select({ message: "Target", options: TARGETS.map((t) => ({ ...t })), initialValue: "full" as Target }))
+      ? answer({
+          value: await prompts.select({ message: "Target", options: TARGETS.map((t) => ({ ...t })), initialValue: "full" as Target }),
+        })
       : "full");
   let chosenHydrate: HydrateChoice | undefined = hydrate;
   if (chosenHydrate === undefined && chosenTarget === "full" && interactive) {
-    chosenHydrate = answer(
-      await prompts.select({ message: "Hydrate", options: FULL_HYDRATE.map((h) => ({ ...h })), initialValue: "always" as HydrateChoice }),
-    );
+    chosenHydrate = answer({
+      value: await prompts.select({
+        message: "Hydrate",
+        options: FULL_HYDRATE.map((h) => ({ ...h })),
+        initialValue: "always" as HydrateChoice,
+      }),
+    });
   }
-  const { flags: dropletFlags, notes } = flagsFor(chosenTarget, chosenHydrate);
+  const { flags: dropletFlags, notes } = flagsFor({ target: chosenTarget, hydrate: chosenHydrate });
   for (const note of notes.filter((n: Note) => n.level === "info")) prompts.log.info(note.message);
   for (const note of notes.filter((n: Note) => n.level === "warn")) await accept(note.message);
 
   const chosenFiles =
     files ??
     (interactive
-      ? answer(
-          await prompts.multiselect({
+      ? answer({
+          value: await prompts.multiselect({
             message: "Optional files",
             options: DROPLET_FILES.map((f) => ({ value: f.value, label: f.label, hint: f.hint })),
             required: false,
           }),
-        )
+        })
       : []);
 
-  const result = await addDroplet(
+  const result = await addDroplet({
     project,
-    { name: dropletName, framework, flags: dropletFlags, files: new Set(chosenFiles) },
-    { pm, log: (message) => prompts.log.step(message) },
-  );
-  report(result, dropletName, interactive);
+    choices: { name: dropletName, framework, flags: dropletFlags, files: new Set(chosenFiles) },
+    steps: { pm, log: (message) => prompts.log.step(message) },
+  });
+  report({ result, dropletName, interactive });
 }
 
 /** What was written and changed, and where to see the droplet. */
-function report(result: AddResult, dropletName: string, interactive: boolean): void {
+function report({ result, dropletName, interactive }: ReportInput): void {
   for (const file of result.edited) prompts.log.success(`updated ${file}`);
   for (const file of result.written) prompts.log.success(`created ${file}`);
   if (result.manual) {

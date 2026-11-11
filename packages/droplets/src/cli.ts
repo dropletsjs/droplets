@@ -33,7 +33,9 @@ async function sync(options: ProjectOptions): Promise<void> {
   console.log(`droplets: .droplets/ written for ${count} droplet${count === 1 ? "" : "s"}`);
 }
 
-async function main(argv: string[]): Promise<number> {
+type MainInput = { argv: string[] };
+
+async function main({ argv }: MainInput): Promise<number> {
   const { positionals, values } = parseArgs({
     args: argv,
     allowPositionals: true,
@@ -62,14 +64,14 @@ async function main(argv: string[]): Promise<number> {
   if (command === "add") {
     // Loaded here: the prompts are for `add` only.
     const { runAdd } = await import("./add/add.ts");
-    await runAdd(rest[0], values);
+    await runAdd({ name: rest[0], flags: values });
     return 0;
   }
   console.error(`djs: unknown command "${command}"\n\n${USAGE}`);
   return 1;
 }
 
-main(process.argv.slice(2)).then(
+main({ argv: process.argv.slice(2) }).then(
   (code) => process.exit(code),
   (error: unknown) => {
     console.error(`djs: ${error instanceof Error ? error.message : String(error)}`);

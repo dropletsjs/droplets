@@ -31,12 +31,12 @@ describe("normalizeDropletsFolder", () => {
     ["src//droplets", "src/droplets"],
     ["  src/droplets  ", "src/droplets"],
   ])("%s -> %s", (input, expected) => {
-    expect(normalizeDropletsFolder(input)).toBe(expected);
+    expect(normalizeDropletsFolder({ folder: input })).toBe(expected);
   });
 
   it("falls back to the default for empty values", () => {
-    expect(normalizeDropletsFolder("")).toBe(DEFAULTS.dropletsFolder);
-    expect(normalizeDropletsFolder("./")).toBe(DEFAULTS.dropletsFolder);
+    expect(normalizeDropletsFolder({ folder: "" })).toBe(DEFAULTS.dropletsFolder);
+    expect(normalizeDropletsFolder({ folder: "./" })).toBe(DEFAULTS.dropletsFolder);
   });
 });
 
@@ -57,7 +57,7 @@ describe("resolveConfig", () => {
       server: { port: DEFAULTS.serverPort },
     });
     // `dev` apart, for the Vite plugin: a production server never resolves it.
-    expect(resolveDevConfig({})).toEqual({ server: { port: DEFAULTS.devPort }, strategy: "hmr", injectTool: false });
+    expect(resolveDevConfig({ user: {} })).toEqual({ server: { port: DEFAULTS.devPort }, strategy: "hmr", injectTool: false });
   });
 
   it("normalizes origin to locations, a prefix allowed, and refuses anything else", () => {
@@ -113,9 +113,9 @@ describe("resolveConfig", () => {
   });
 
   it("takes a dev strategy and refuses an unknown one", () => {
-    expect(resolveDevConfig({ dev: { strategy: "reload" } }).strategy).toBe("reload");
-    expect(resolveDevConfig({ dev: { strategy: "manual" } }).strategy).toBe("manual");
-    expect(() => resolveDevConfig({ dev: { strategy: "hot" as never } })).toThrow(
+    expect(resolveDevConfig({ user: { dev: { strategy: "reload" } } }).strategy).toBe("reload");
+    expect(resolveDevConfig({ user: { dev: { strategy: "manual" } } }).strategy).toBe("manual");
+    expect(() => resolveDevConfig({ user: { dev: { strategy: "hot" as never } } })).toThrow(
       'droplets: dev.strategy is "hot"; use "hmr", "remount", "reload", "manual"',
     );
   });
@@ -130,7 +130,7 @@ describe("resolveConfig", () => {
 
   it("lets PORT override both ports", () => {
     const user = { dev: { server: { port: 3000 } }, server: { port: 4000 } };
-    expect(resolveDevConfig(user, { port: "9000" }).server.port).toBe(9000);
+    expect(resolveDevConfig({ user, env: { port: "9000" } }).server.port).toBe(9000);
     expect(resolveConfig(user, { port: "9000" }).server.port).toBe(9000);
   });
 

@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { readJsonFile, writeTextFile } from "../core/fs.ts";
+import { loadJsonFile, writeTextFile } from "../core/fs.ts";
 import { logger } from "../core/logger.ts";
 import { createDropletsApp } from "../runtime/app.ts";
 import { setRuntimeEnv } from "../runtime/env-store.ts";
@@ -24,7 +24,7 @@ type BuildRender = {
   error?: unknown;
   /** The nonce of the host tokens in a host-agnostic render. */
   nonce?: string;
-  /** What the load set with `setHeaders`. */
+  /** Set by the load's `setHeaders`. */
   headers?: Record<string, string>;
 };
 
@@ -35,7 +35,9 @@ export const PRERENDER_ORIGIN = "http://droplets.build";
 const PRERENDER_ERROR_HEADER = "x-droplets-prerender-error";
 
 /** Where a render is stored, relative to the renders' directory: one file per prop set, named after its key. */
-export function prerenderFile(droplet: string, key: string): string {
+type PrerenderFileInput = { droplet: string; key: string };
+
+export function prerenderFile({ droplet, key }: PrerenderFileInput): string {
   const hash = createHash("sha256").update(key).digest("hex").slice(0, 16);
   return `${droplet}/${hash}.json`;
 }
@@ -62,7 +64,9 @@ export function prerenderRoot(state: PluginState): { dir: string; assets?: strin
  * that reads more of `host` than it can have stops the build. Returns how
  * many renders it wrote.
  */
-export async function prerender(state: PluginState, ssrEntry: string): Promise<number> {
+type PrerenderInput = { state: PluginState; ssrEntry: string };
+
+export async function prerender({ state, ssrEntry }: PrerenderInput): Promise<number> {
   const targets = state.entries.filter((entry) => entry.prerender);
   const clientRoot = resolve(state.outDir, "client");
   await rm(resolve(clientRoot, PRERENDER_DIR), { recursive: true, force: true });
@@ -73,9 +77,9 @@ export async function prerender(state: PluginState, ssrEntry: string): Promise<n
     // The client is built and the server, which inlines the manifest, is
     // not yet: the name is written there and nowhere else.
     const manifestPath = resolve(clientRoot, "droplets.json");
-    const manifest = await readJsonFile<DropletsManifest>(manifestPath);
+    const manifest = await loadJsonFile<DropletsManifest>({ path: manifestPath });
     if (!manifest) throw new Error("droplets: cannot prerender before droplets.json is written");
-    await writeTextFile(manifestPath, `${JSON.stringify({ ...manifest, __prerendered: root.assets }, null, 2)}\n`);
+    await writeTextFile({ path: manifestPath, contents: `${JSON.stringify({ ...manifest, __prerendered: root.assets }, null, 2)}\n` });
   }
 
   const global = globalThis as { [BUILDING]?: boolean };
@@ -136,7 +140,7 @@ export async function prerender(state: PluginState, ssrEntry: string): Promise<n
         if (index[render.key]) continue;
         // A load that failed is stored as the render of +error.*, the
         // droplet's error boundary: answered 500 per request, as live.
-        const file = prerenderFile(entry.id, render.key);
+        const file = prerenderFile({ droplet: entry.id, key: render.key });
         const id = render.renderId ? { renderId: render.renderId } : {};
         // Kept with the render, never public: what its tokens look like.
         const nonce = render.nonce ? { nonce: render.nonce } : {};
@@ -145,11 +149,11 @@ export async function prerender(state: PluginState, ssrEntry: string): Promise<n
         const stored = render.failed
           ? { html: render.html, ...id, ...nonce, failed: true, error: render.error }
           : { html: render.html, ...id, ...nonce, ...headers, data: render.data };
-        await writeTextFile(resolve(root.dir, file), JSON.stringify(stored));
+        await writeTextFile({ path: resolve(root.dir, file), contents: JSON.stringify(stored) });
         index[render.key] = file;
         count += 1;
       }
-      await writeTextFile(resolve(root.dir, prerenderIndexPath(entry.id)), JSON.stringify(index));
+      await writeTextFile({ path: resolve(root.dir, prerenderIndexPath({ droplet: entry.id })), contents: JSON.stringify(index) });
       logger.debug("framework", "prerendered droplet", { droplet: entry.id, renders: Object.keys(index).length });
     }
     return count;

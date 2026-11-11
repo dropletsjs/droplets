@@ -4,12 +4,11 @@ import { join } from "node:path";
 import { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { hostTokens } from "../../src/runtime/host.ts";
-import { assetUrlsPlugin, builtUrl, publicFileHandler, rewriteFileUrls } from "../../src/vite/assets.ts";
+import { assetUrlsPlugin, type BuiltUrlContext, builtUrl, publicFileHandler, rewriteFileUrls } from "../../src/vite/assets.ts";
 import { createInitialState } from "../../src/vite/state.ts";
 
-type Context = Parameters<ReturnType<typeof builtUrl>>[1];
-const context = (fields: Partial<Context>): Context =>
-  ({ type: "asset", hostId: "droplets/pics/client.js", hostType: "js", ssr: false, ...fields }) as Context;
+const context = (fields: Partial<BuiltUrlContext>): BuiltUrlContext =>
+  ({ type: "asset", hostId: "droplets/pics/client.js", hostType: "js", ssr: false, ...fields }) as BuiltUrlContext;
 
 let dir: string;
 beforeAll(async () => {
@@ -51,7 +50,7 @@ describe("builtUrl", () => {
 });
 
 describe("rewriteFileUrls", () => {
-  const location = hostTokens("n1").location;
+  const location = hostTokens({ nonce: "n1" }).location;
 
   it("imports a file new URL(…, import.meta.url) names and puts it on the location token", () => {
     const code = 'const a = new URL("./logo.png", import.meta.url).href;\nconst b = new URL("./missing.png", import.meta.url);';
@@ -90,7 +89,7 @@ describe("assetUrlsPlugin", () => {
   it("writes the shared instance's location token in server bundles", () => {
     const render = hook<RenderChunk>(plugin.renderChunk);
     const out = render.call(env("server"), '"__DROPLETS_SERVER_LOCATION__/assets/a.png"', { fileName: "entry-server.js" });
-    expect(out?.code).toBe(JSON.stringify(`${hostTokens(state.tokenNonce).location}/assets/a.png`));
+    expect(out?.code).toBe(JSON.stringify(`${hostTokens({ nonce: state.tokenNonce }).location}/assets/a.png`));
   });
 
   it("rewrites new URL(…, import.meta.url) in universal files of a server bundle, never in server files", () => {

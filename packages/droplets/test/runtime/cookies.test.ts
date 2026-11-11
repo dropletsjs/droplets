@@ -1,15 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 import { createDropletsApp, type DropletsAppOptions } from "../../src/runtime/app.ts";
-import { createCookies, parseCookies, serializeCookie } from "../../src/runtime/cookies.ts";
+import { type CookieJar, createCookies, parseCookies, serializeCookie } from "../../src/runtime/cookies.ts";
 import { matchRoute } from "../../src/runtime/routes.ts";
 import { json, redirect, type Cookies, type Handle, type LoadEvent } from "../../src/runtime/server.ts";
 
-const jar = (cookie = "", url = "https://drops.example/droplets/x") =>
-  createCookies(new Request(url, { headers: { cookie } }), new URL(url));
+type JarInput = { cookie?: string; url?: string };
+
+function jar({ cookie = "", url = "https://drops.example/droplets/x" }: JarInput = {}): CookieJar {
+  return createCookies({ request: new Request(url, { headers: { cookie } }), url: new URL(url) });
+}
 
 describe("cookies: parse and serialize", () => {
   it("parses the Cookie header; the first of a name wins", () => {
-    expect([...parseCookies('a=1; b="two"; c=%F0%9F%8D%AA; a=3; junk; d=%E0')]).toEqual([
+    expect([...parseCookies({ header: 'a=1; b="two"; c=%F0%9F%8D%AA; a=3; junk; d=%E0' })]).toEqual([
       ["a", "1"],
       ["b", "two"],
       ["c", "🍪"],
@@ -18,7 +21,7 @@ describe("cookies: parse and serialize", () => {
   });
 
   it("does not let a cookie named __proto__ reach any prototype", () => {
-    const { cookies } = jar("__proto__=x; constructor=y");
+    const { cookies } = jar({ cookie: "__proto__=x; constructor=y" });
     expect(cookies.get("__proto__")).toBe("x");
     expect(cookies.getAll()).toEqual([
       { name: "__proto__", value: "x" },
@@ -29,16 +32,20 @@ describe("cookies: parse and serialize", () => {
 
   it("serializes with every attribute", () => {
     expect(
-      serializeCookie("s", "a b", {
-        path: "/",
-        domain: "shop.example",
-        maxAge: 60.9,
-        expires: new Date(0),
-        httpOnly: true,
-        secure: true,
-        sameSite: true,
-        partitioned: true,
-        priority: "high",
+      serializeCookie({
+        name: "s",
+        value: "a b",
+        options: {
+          path: "/",
+          domain: "shop.example",
+          maxAge: 60.9,
+          expires: new Date(0),
+          httpOnly: true,
+          secure: true,
+          sameSite: true,
+          partitioned: true,
+          priority: "high",
+        },
       }),
     ).toBe(
       "s=a%20b; Max-Age=60; Domain=shop.example; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure; Partitioned; Priority=High; SameSite=Strict",
@@ -46,25 +53,26 @@ describe("cookies: parse and serialize", () => {
   });
 
   it("refuses what a Set-Cookie header cannot carry", () => {
-    expect(serializeCookie("__Host-shop_admin", "1", { path: "/" })).toBe("__Host-shop_admin=1; Path=/");
-    expect(() => serializeCookie("a b", "x", { path: "/" })).toThrow("not a valid token");
-    expect(() => serializeCookie("a=b", "x", { path: "/" })).toThrow("not a valid token");
-    expect(() => serializeCookie("a", "x", { path: "/;evil", encode: (v) => v })).toThrow("invalid path");
-    expect(() => serializeCookie("a", "x;y", { path: "/", encode: (v) => v })).toThrow("cannot carry");
-    expect(() => serializeCookie("a", "x", { path: "/", domain: "a\r\nb" })).toThrow("invalid domain");
+    const raw = (value: string) => value;
+    expect(serializeCookie({ name: "__Host-shop_admin", value: "1", options: { path: "/" } })).toBe("__Host-shop_admin=1; Path=/");
+    expect(() => serializeCookie({ name: "a b", value: "x", options: { path: "/" } })).toThrow("not a valid token");
+    expect(() => serializeCookie({ name: "a=b", value: "x", options: { path: "/" } })).toThrow("not a valid token");
+    expect(() => serializeCookie({ name: "a", value: "x", options: { path: "/;evil", encode: raw } })).toThrow("invalid path");
+    expect(() => serializeCookie({ name: "a", value: "x;y", options: { path: "/", encode: raw } })).toThrow("cannot carry");
+    expect(() => serializeCookie({ name: "a", value: "x", options: { path: "/", domain: "a\r\nb" } })).toThrow("invalid domain");
   });
 });
 
 describe("cookies: the jar", () => {
   it("reads the request's cookies, decoded or by a custom decode", () => {
-    const { cookies } = jar("theme=dark%20blue");
+    const { cookies } = jar({ cookie: "theme=dark%20blue" });
     expect(cookies.get("theme")).toBe("dark blue");
     expect(cookies.get("theme", { decode: (v) => v })).toBe("dark%20blue");
     expect(cookies.get("missing")).toBeUndefined();
   });
 
   it("sets with SvelteKit's defaults and sees what it set", () => {
-    const { cookies, setCookies } = jar("theme=dark; cart=1");
+    const { cookies, setCookies } = jar({ cookie: "theme=dark; cart=1" });
     cookies.set("cart", "2", { path: "/" });
     expect(cookies.get("cart")).toBe("2");
     cookies.delete("theme", { path: "/" });
@@ -77,15 +85,15 @@ describe("cookies: the jar", () => {
   });
 
   it("is not Secure on http://localhost, and the defaults can be turned off", () => {
-    const local = jar("", "http://localhost:5173/droplets/x");
+    const local = jar({ url: "http://localhost:5173/droplets/x" });
     local.cookies.set("a", "1", { path: "/" });
     expect(local.setCookies()).toEqual(["a=1; Path=/; HttpOnly; SameSite=Lax"]);
     for (const url of ["http://127.0.0.1:8000/", "http://[::1]:8000/", "http://app.localhost/"]) {
-      const loopback = jar("", url);
+      const loopback = jar({ url });
       loopback.cookies.set("a", "1", { path: "/" });
       expect(loopback.setCookies(), url).toEqual(["a=1; Path=/; HttpOnly; SameSite=Lax"]);
     }
-    const lan = jar("", "http://192.168.1.5/");
+    const lan = jar({ url: "http://192.168.1.5/" });
     lan.cookies.set("a", "1", { path: "/" });
     expect(lan.setCookies()).toEqual(["a=1; Path=/; HttpOnly; Secure; SameSite=Lax"]);
     const { cookies, setCookies } = jar();
@@ -133,7 +141,9 @@ describe("cookies: on the response", () => {
     },
   ];
 
-  function fakeApp(overrides: Partial<DropletsAppOptions> = {}) {
+  type FakeAppInput = Partial<DropletsAppOptions>;
+
+  function fakeApp(overrides: FakeAppInput = {}) {
     const renderDroplet = vi.fn(async (_name: string, event: LoadEvent) => {
       return { html: `<p>${event.cookies.get("cart") ?? "none"}</p>`, serverData: {} };
     });
@@ -143,7 +153,7 @@ describe("cookies: on the response", () => {
         return { data: { cart: event.cookies.get("cart") ?? null, all: event.cookies.getAll().length } };
       },
       getDropletMeta: () => ({ exists: true, ssr: true, hydrate: true }),
-      matchApi: (pathname) => matchRoute(routes, pathname),
+      matchApi: (pathname) => matchRoute({ routes, pathname }),
       ...overrides,
     };
     return { app: createDropletsApp(options), renderDroplet };
@@ -187,7 +197,7 @@ describe("cookies: on the response", () => {
     expect(() => cookies.set("a", "1", { path: "/", sameSite: "none", secure: false })).toThrow('sameSite "none" needs secure');
     expect(cookies.serialize("a", "1", { path: "/", sameSite: "none" })).toBe("a=1; Path=/; HttpOnly; Secure; SameSite=None");
     // Over plain HTTP to localhost `secure` is off by default: say it.
-    const local = jar("", "http://localhost:5173/droplets/x").cookies;
+    const local = jar({ url: "http://localhost:5173/droplets/x" }).cookies;
     expect(() => local.set("a", "1", { path: "/", sameSite: "none" })).toThrow('sameSite "none" needs secure');
   });
 

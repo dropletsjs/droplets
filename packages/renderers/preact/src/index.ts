@@ -67,14 +67,14 @@ export type PreactRendererOptions = {
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 /** The Preact renderer, for `droplets({ renderers: [preact()] })`. */
-export function preact(options: PreactRendererOptions = {}): DropletRenderer {
+export function preact({ plugin }: PreactRendererOptions = {}): DropletRenderer {
   return {
     name: "preact",
     extensions: [".tsx", ".jsx"],
     packages: ["preact", "preact-render-to-string", "@dropletsjs/renderer-preact"],
     componentTypes: "@dropletsjs/renderer-preact",
     // With React, Solid or Hono JSX next to it, core says which `.tsx` modules are Preact's.
-    ...(options.plugin === false ? {} : { plugins: (scope) => [preactPlugin(scope.include)] }),
+    ...(plugin === false ? {} : { plugins: ({ include }) => [preactPlugin({ include })] }),
     server: resolve(packageRoot, "dist/server.js"),
     client: resolve(packageRoot, "dist/client.js"),
     clientDev: resolve(packageRoot, "dist/client-dev.js"),

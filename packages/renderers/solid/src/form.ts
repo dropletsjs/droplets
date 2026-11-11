@@ -42,7 +42,6 @@ export function enhanceDropletForm(form: HTMLFormElement, value?: Accessor<Enhan
 }
 
 declare module "solid-js" {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace JSX {
     // biome-ignore lint/style/useConsistentTypeDefinitions: an augmentation of Solid's directives; `type` cannot merge.
     interface Directives {

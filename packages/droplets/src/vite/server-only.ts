@@ -16,7 +16,11 @@ import type { PluginState } from "./state.ts";
 const SERVER_NAME = /(?:\.|^\+)server\.[^/]+$/;
 const FRAMEWORK_DIRS = [resolve(packageRoot, "dist"), resolve(packageRoot, "src")];
 
-const clean = (id: string) => id.replace(/[?#].*$/, "").replaceAll("\\", "/");
+type CleanInput = { id: string };
+
+function clean({ id }: CleanInput): string {
+  return id.replace(/[?#].*$/, "").replaceAll("\\", "/");
+}
 
 /**
  * Whether a path names a server file: `.server.` in its name before the
@@ -24,8 +28,10 @@ const clean = (id: string) => id.replace(/[?#].*$/, "").replaceAll("\\", "/");
  * folder on the way named exactly `server`. `observer.ts`,
  * `webserver.js` and `server-utils/x.ts` are not.
  */
-export function isServerPath(path: string): boolean {
-  const parts = clean(path).split("/");
+export type IsServerPathInput = { path: string };
+
+export function isServerPath({ path }: IsServerPathInput): boolean {
+  const parts = clean({ id: path }).split("/");
   return SERVER_NAME.test(parts.at(-1) ?? "") || parts.slice(0, -1).includes("server");
 }
 
@@ -34,9 +40,11 @@ export function isServerPath(path: string): boolean {
  * `null` when it is not the project's to check: virtual modules,
  * dependencies, the framework's own files and files outside the project.
  */
-export function projectPath(root: string, id: string): string | null {
+export type ProjectPathInput = { root: string; id: string };
+
+export function projectPath({ root, id }: ProjectPathInput): string | null {
   if (id.startsWith("\0") || id.startsWith("virtual:")) return null;
-  const file = clean(id);
+  const file = clean({ id });
   const rel = relative(root, file).replaceAll("\\", "/");
   if (!rel || rel.startsWith("..") || rel.startsWith("/") || /^[a-z]:/i.test(rel)) return null;
   if (rel.split("/").includes("node_modules")) return null;
@@ -45,23 +53,27 @@ export function projectPath(root: string, id: string): string | null {
 }
 
 /** Whether a module id is a project server file: by its name or a `server/` folder. */
-export function isServerOnlyFile(root: string, id: string): boolean {
-  const rel = projectPath(root, id);
-  return rel !== null && isServerPath(rel);
+export function isServerOnlyFile(input: ProjectPathInput): boolean {
+  const rel = projectPath(input);
+  return rel !== null && isServerPath({ path: rel });
 }
 
-function short(root: string, id: string): string {
-  const file = clean(id);
+type ShortInput = { root: string; id: string };
+
+function short({ root, id }: ShortInput): string {
+  const file = clean({ id });
   const prefix = `${root.replaceAll("\\", "/")}/`;
   return file.startsWith(prefix) ? file.slice(prefix.length) : file;
 }
 
-export function serverOnlyError(root: string, chain: string[]): Error {
+type ServerOnlyErrorInput = { root: string; chain: readonly string[] };
+
+export function serverOnlyError({ root, chain }: ServerOnlyErrorInput): Error {
   const file = chain.at(-1);
   if (file === undefined) throw new Error("droplets: an empty import chain");
-  const path = chain.map((id) => short(root, id)).join(" -> ");
+  const path = chain.map((id) => short({ root, id })).join(" -> ");
   return new Error(
-    `droplets: ${short(root, file)} is server code and cannot reach the browser: ${path}. ` +
+    `droplets: ${short({ root, id: file })} is server code and cannot reach the browser: ${path}. ` +
       `Files named *.server.* or under a server/ folder run on the server only: ` +
       `read them from +droplet.server.ts and pass what the browser needs as data.`,
   );
@@ -69,10 +81,16 @@ export function serverOnlyError(root: string, chain: string[]): Error {
 
 type GraphModule = { isEntry?: boolean; importedIds: readonly string[]; dynamicallyImportedIds: readonly string[] };
 
+type FindServerFileInput = {
+  root: string;
+  moduleIds: Iterable<string>;
+  getModule: (id: string) => GraphModule | null;
+};
+
 /** The chain from an entry to the first server file in a client build graph; `null` when there is none. */
-export function findServerFile(root: string, moduleIds: Iterable<string>, getModule: (id: string) => GraphModule | null): string[] | null {
+export function findServerFile({ root, moduleIds, getModule }: FindServerFileInput): string[] | null {
   const ids = [...moduleIds];
-  const serverFile = ids.find((id) => isServerOnlyFile(root, id));
+  const serverFile = ids.find((id) => isServerOnlyFile({ root, id }));
   if (serverFile === undefined) return null;
   const parent = new Map<string, string | null>();
   const queue: string[] = [];
@@ -85,7 +103,7 @@ export function findServerFile(root: string, moduleIds: Iterable<string>, getMod
   while (queue.length > 0) {
     const current = queue.shift();
     if (current === undefined) break;
-    if (isServerOnlyFile(root, current)) {
+    if (isServerOnlyFile({ root, id: current })) {
       const chain: string[] = [];
       for (let at: string | null = current; at; at = parent.get(at) ?? null) chain.unshift(at);
       return chain;
@@ -105,7 +123,9 @@ export function findServerFile(root: string, moduleIds: Iterable<string>, getMod
 type DevModule = { id: string | null; importers: Set<DevModule> };
 
 /** A chain of importers from a client module up to the module that has none. */
-function importerChain(start: DevModule | undefined, importer: string): string[] {
+type ImporterChainInput = { start: DevModule | undefined; importer: string };
+
+function importerChain({ start, importer }: ImporterChainInput): string[] {
   const chain = [importer];
   const seen = new Set<DevModule>();
   for (let module = start; module && !seen.has(module); ) {
@@ -137,18 +157,19 @@ export function serverOnlyPlugin(state: PluginState): Plugin {
         if (source.startsWith("\0") || importer.startsWith("\0")) return null;
         const resolved = await this.resolve(source, importer, { ...options, skipSelf: true });
         // Only refuses: resolving stays with the other plugins (renderer marks).
-        if (!resolved || resolved.external || !isServerOnlyFile(state.root, resolved.id)) return null;
+        if (!resolved || resolved.external || !isServerOnlyFile({ root: state.root, id: resolved.id })) return null;
         const environment = this.environment;
         const graph = "moduleGraph" in environment ? environment.moduleGraph : undefined;
         const module = graph?.getModuleById(importer) as DevModule | undefined;
-        this.error(serverOnlyError(state.root, [...importerChain(module, importer), resolved.id]).message);
+        const chain = [...importerChain({ start: module, importer }), resolved.id];
+        this.error(serverOnlyError({ root: state.root, chain }).message);
       },
     },
 
     buildEnd(error) {
       if (error || command !== "build" || this.environment.config.consumer !== "client") return;
-      const chain = findServerFile(state.root, this.getModuleIds(), (id) => this.getModuleInfo(id));
-      if (chain) this.error(serverOnlyError(state.root, chain).message);
+      const chain = findServerFile({ root: state.root, moduleIds: this.getModuleIds(), getModule: (id) => this.getModuleInfo(id) });
+      if (chain) this.error(serverOnlyError({ root: state.root, chain }).message);
     },
   };
 }

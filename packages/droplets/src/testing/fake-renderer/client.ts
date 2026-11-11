@@ -18,7 +18,9 @@ type Instance = {
   cleanup: (() => void) | undefined;
 };
 
-function html(module: ComponentModule, props: RenderProps, context: ClientRenderContext): string {
+type HtmlInput = { module: ComponentModule; props: RenderProps; context: ClientRenderContext };
+
+function html({ module, props, context }: HtmlInput): string {
   const component = module.default as FakeComponent | undefined;
   if (typeof component !== "function") {
     throw new Error(`${context.droplet}: a .fake.js ${context.kind} must export a default function`);
@@ -27,7 +29,9 @@ function html(module: ComponentModule, props: RenderProps, context: ClientRender
   return component({ ...props, children: () => MARKER, actionUrl: context.actionUrl });
 }
 
-function attach(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): Instance {
+type AttachInput = { module: ComponentModule; target: HTMLElement; props: RenderProps; context: ClientRenderContext };
+
+function attach({ module, target, props, context }: AttachInput): Instance {
   // When hydrating, the server's marker; when mounting, the one just written.
   const marker = context.markers()[0] ?? target.querySelector("[data-droplet-children]");
   if (marker) context.children.fill(marker);
@@ -37,12 +41,11 @@ function attach(module: ComponentModule, target: HTMLElement, props: RenderProps
   return { target, context, marker, cleanup };
 }
 
+type SettledInput = { module: ComponentModule; props: RenderProps; context: ClientRenderContext };
+type Shown = { module: ComponentModule; props: RenderProps };
+
 /** What to render once a droplet's `data` settled: the droplet, its error page, or nothing. */
-async function settled(
-  module: ComponentModule,
-  props: RenderProps,
-  context: ClientRenderContext,
-): Promise<{ module: ComponentModule; props: RenderProps } | null> {
+async function settled({ module, props, context }: SettledInput): Promise<Shown | null> {
   if (!("data" in props)) return { module, props };
   try {
     return { module, props: { ...props, data: await props.data } };
@@ -51,6 +54,7 @@ async function settled(
     try {
       return { module: context.error.module, props: { error: await context.error.handle(error) } };
     } catch {
+      // `handleError` itself failed: the contract renders nothing.
       return null;
     }
   }
@@ -62,16 +66,16 @@ export async function mount(
   props: RenderProps,
   context: ClientRenderContext,
 ): Promise<Instance> {
-  const shown = await settled(module, props, context);
+  const shown = await settled({ module, props, context });
   if (!shown) return { target, context, marker: null, cleanup: undefined };
   const head = typeof shown.module["head"] === "string" ? shown.module["head"] : "";
-  target.innerHTML = head + html(shown.module, shown.props, context);
-  return attach(shown.module, target, shown.props, context);
+  target.innerHTML = head + html({ module: shown.module, props: shown.props, context });
+  return attach({ module: shown.module, target, props: shown.props, context });
 }
 
 export function hydrate(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): Instance {
   // No virtual DOM to reconcile: the server markup stays as it is.
-  return attach(module, target, props, context);
+  return attach({ module, target, props, context });
 }
 
 export function unmount(instance: unknown): void {

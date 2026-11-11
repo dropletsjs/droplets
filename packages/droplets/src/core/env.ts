@@ -16,20 +16,35 @@ export type EnvState = {
   dependencies: string[];
 };
 
-export async function findEnvFile(root: string): Promise<string | null> {
+type FindEnvFileInput = { root: string };
+
+export type LoadEnvStateInput = { root: string; mode: string; envDir?: string };
+
+export type MissingStaticInput = Pick<EnvState, "declaration" | "values">;
+
+export type DynamicPublicNamesInput = Pick<EnvState, "declaration">;
+
+export type BuildPublicEnvCodeInput = {
+  env: Pick<EnvState, "declaration" | "values">;
+  target: { browser: true; serverKey: string } | { browser: false; envStorePath: string };
+};
+
+export type BuildPrivateEnvCodeInput = { env: Pick<EnvState, "declaration" | "values">; envStorePath: string };
+
+async function findEnvFile({ root }: FindEnvFileInput): Promise<string | null> {
   for (const file of ENV_FILES) {
     const path = resolve(root, file);
-    if (await fileExists(path)) return path;
+    if (await fileExists({ path })) return path;
   }
   return null;
 }
 
 /** Reads `src/env.ts` and the values for `mode`. */
-export async function loadEnvState(root: string, mode: string, envDir = root): Promise<EnvState> {
+export async function loadEnvState({ root, mode, envDir = root }: LoadEnvStateInput): Promise<EnvState> {
   // Every variable, not only VITE_*: the declaration decides what is exposed.
   // Vite itself restarts the dev server when a .env file changes.
   const values = loadEnv(mode, envDir, "");
-  const path = await findEnvFile(root);
+  const path = await findEnvFile({ root });
   if (!path) return { path: null, declaration: {}, values, dependencies: [] };
 
   const { module, dependencies } = await runnerImport<{ variables?: unknown }>(path, {
@@ -51,15 +66,15 @@ export async function loadEnvState(root: string, mode: string, envDir = root): P
 }
 
 /** Static variables (public or private) that have no value. */
-export function missingStatic(state: EnvState): string[] {
-  return Object.entries(state.declaration)
-    .filter(([name, options]) => options.static && state.values[name] === undefined)
+export function missingStatic({ declaration, values }: MissingStaticInput): string[] {
+  return Object.entries(declaration)
+    .filter(([name, options]) => options.static && values[name] === undefined)
     .map(([name]) => name);
 }
 
 /** Public variables read at runtime: `public: true` without `static`. */
-export function dynamicPublicNames(state: EnvState): string[] {
-  return Object.entries(state.declaration)
+export function dynamicPublicNames({ declaration }: DynamicPublicNamesInput): string[] {
+  return Object.entries(declaration)
     .filter(([, options]) => options.public && !options.static)
     .map(([name]) => name);
 }
@@ -70,15 +85,12 @@ export function dynamicPublicNames(state: EnvState): string[] {
  * ones; in the browser from what `/index.js` handed this server's record
  * (see `runtime/server-records.ts`), so `serverKey` names the record.
  */
-export function buildPublicEnvCode(
-  state: EnvState,
-  target: { browser: true; serverKey: string } | { browser: false; envStorePath: string },
-): string {
-  const members = Object.entries(state.declaration)
+export function buildPublicEnvCode({ env, target }: BuildPublicEnvCodeInput): string {
+  const members = Object.entries(env.declaration)
     .filter(([, options]) => options.public)
     .map(([name, options]) =>
       options.static
-        ? `  ${JSON.stringify(name)}: ${JSON.stringify(state.values[name])},`
+        ? `  ${JSON.stringify(name)}: ${JSON.stringify(env.values[name])},`
         : target.browser
           ? `  get ${JSON.stringify(name)}() { return runtime()?.[${JSON.stringify(name)}]; },`
           : `  get ${JSON.stringify(name)}() { return readRuntimeEnv(${JSON.stringify(name)}); },`,
@@ -93,12 +105,12 @@ export function buildPublicEnvCode(
  * `$droplets/env/private`: static ones inlined, the rest read at runtime.
  * Never generated for the browser.
  */
-export function buildPrivateEnvCode(state: EnvState, envStorePath: string): string {
-  const members = Object.entries(state.declaration)
+export function buildPrivateEnvCode({ env, envStorePath }: BuildPrivateEnvCodeInput): string {
+  const members = Object.entries(env.declaration)
     .filter(([, options]) => !options.public)
     .map(([name, options]) =>
       options.static
-        ? `  ${JSON.stringify(name)}: ${JSON.stringify(state.values[name])},`
+        ? `  ${JSON.stringify(name)}: ${JSON.stringify(env.values[name])},`
         : `  get ${JSON.stringify(name)}() { return readRuntimeEnv(${JSON.stringify(name)}); },`,
     );
   return [

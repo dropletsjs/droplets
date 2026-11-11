@@ -23,15 +23,15 @@ import { claimTag, componentOf, tagName, type Registry } from "./tags.ts";
 import { hostTemplate } from "./template.ts";
 
 /** The registry Lit's server build installed, read when rendering (after `lit` is evaluated). */
-const registry = (): Registry => (globalThis as unknown as { customElements: Registry }).customElements;
+function registry(): Registry {
+  return globalThis.customElements;
+}
 
-export async function renderComponent(
-  module: ComponentModule,
-  props: RenderProps,
-  context: ServerRenderContext,
-  prefix: string,
-): Promise<string> {
-  const component = componentOf(module, context.droplet, context.kind, LitElement);
-  const tag = claimTag(registry(), component, tagName(prefix, context.droplet, context.kind));
-  return collectResult(render(hostTemplate(tag, props, context.actionUrl), { deferHydration: true }));
+type RenderComponentInput = { module: ComponentModule; props: RenderProps; context: ServerRenderContext; prefix: string };
+
+export async function renderComponent({ module, props, context, prefix }: RenderComponentInput): Promise<string> {
+  const { droplet, kind, actionUrl } = context;
+  const component = componentOf({ module, droplet, kind, base: LitElement });
+  const tag = claimTag({ registry: registry(), component, tag: tagName({ prefix, droplet, kind }) });
+  return collectResult(render(hostTemplate({ tag, props, actionUrl }), { deferHydration: true }));
 }

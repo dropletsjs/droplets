@@ -25,33 +25,45 @@ type JsxOptions = Extract<NonNullable<OxcOptions["jsx"]>, object>;
 const DEFAULT_INCLUDE = /\.[tj]sx?$/;
 const DEFAULT_EXCLUDE = /\/node_modules\//;
 
-const clean = (id: string) => id.replace(/[?#].*$/, "");
+type FileOfInput = { id: string };
+
+type LangOfInput = { file: string };
+
+export type ReactRefreshPluginInput = {
+  /** The options of `@vitejs/plugin-react`, whose include, exclude and JSX source refresh follows. */
+  vitePlugin?: Options | undefined;
+  /**
+   * When set, matches the modules core assigns to React (another renderer
+   * claims `.tsx` too); it takes the place of plugin-react's own, as it does
+   * for plugin-react.
+   */
+  include?: RegExp | undefined;
+};
+
+type SharedOptions = { config: ResolvedConfig; oxc: OxcOptions; jsx: JsxOptions };
+
+const fileOf = ({ id }: FileOfInput): string => id.replace(/[?#].*$/, "");
 
 /** The `lang` of a module for oxc, by its extension; JavaScript (JSX allowed) otherwise. */
-function langOf(file: string): "ts" | "tsx" | "js" | "jsx" {
+function langOf({ file }: LangOfInput): "ts" | "tsx" | "js" | "jsx" {
   if (/\.[mc]?ts$/.test(file)) return "ts";
   if (file.endsWith(".tsx")) return "tsx";
   if (file.endsWith(".jsx")) return "jsx";
   return "js";
 }
 
-/**
- * `include`, when set, matches the modules core assigns to React (another
- * renderer claims `.tsx` too); it takes the place of plugin-react's own, as
- * it does for plugin-react.
- */
-export function reactRefreshPlugin(options: Options = {}, include?: RegExp): Plugin {
+export function reactRefreshPlugin({ vitePlugin = {}, include }: ReactRefreshPluginInput): Plugin {
   const filter = createFilter(
-    options.refreshInclude ?? include ?? options.include ?? DEFAULT_INCLUDE,
-    options.refreshExclude ?? options.exclude ?? DEFAULT_EXCLUDE,
+    vitePlugin.refreshInclude ?? include ?? vitePlugin.include ?? DEFAULT_INCLUDE,
+    vitePlugin.refreshExclude ?? vitePlugin.exclude ?? DEFAULT_EXCLUDE,
     { resolve: false },
   );
-  const importSource = options.jsxImportSource ?? "react";
+  const importSource = vitePlugin.jsxImportSource ?? "react";
   const runtimes = [`${importSource}/jsx-runtime`, `${importSource}/jsx-dev-runtime`];
   /** plugin-react turned refresh on in the shared options; this plugin took it back. */
   let requested = false;
   /** The resolved config and its shared options (refresh off), once refresh applies. */
-  let shared: { config: ResolvedConfig; oxc: OxcOptions; jsx: JsxOptions } | undefined;
+  let shared: SharedOptions | undefined;
 
   return {
     name: "droplets:react-refresh",
@@ -78,7 +90,7 @@ export function reactRefreshPlugin(options: Options = {}, include?: RegExp): Plu
 
     async transform(code, id) {
       if (!shared || this.environment.config.consumer !== "client") return null;
-      const file = clean(id);
+      const file = fileOf({ id });
       // Core's mark is a query; plugin-react's patterns match the file.
       if (!filter(include ? id : file)) return null;
       // Vite's own rule: refresh a module that has JSX or imports its runtime.
@@ -91,7 +103,7 @@ export function reactRefreshPlugin(options: Options = {}, include?: RegExp): Plu
         id,
         {
           ...oxc,
-          lang: langOf(file),
+          lang: langOf({ file }),
           jsx: { ...shared.jsx, refresh: true },
           sourcemap: true,
         },

@@ -8,9 +8,12 @@
  */
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { RendererScope } from "@dropletsjs/droplets";
+import { createServer, type PluginOption, transformWithOxc, type ViteDevServer } from "vite";
 import { afterEach, describe, expect, it } from "vitest";
-import { createServer, transformWithOxc, type PluginOption, type ViteDevServer } from "vite";
 import { react } from "../src/index.ts";
+
+type CodeInput = { url: string; environment: "client" | "ssr" };
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "fixtures/refresh");
 const COMPOSABLE = `import { ref } from "vue";
@@ -24,8 +27,8 @@ afterEach(async () => {
   server = undefined;
 });
 
-async function serve(scope: { include?: RegExp } = {}) {
-  const plugins = (react().plugins as (scope: { include?: RegExp }) => PluginOption[])(scope);
+async function serve(scope: RendererScope = {}): Promise<ViteDevServer> {
+  const plugins = (react().plugins as (scope: RendererScope) => PluginOption[])(scope);
   server = await createServer({
     root,
     configFile: false,
@@ -37,7 +40,7 @@ async function serve(scope: { include?: RegExp } = {}) {
   return server;
 }
 
-const code = async (url: string, environment: "client" | "ssr") =>
+const code = async ({ url, environment }: CodeInput): Promise<string> =>
   (await (server ?? expect.unreachable("the dev server")).environments[environment].transformRequest(url))?.code ?? "";
 
 describe("React Fast Refresh, in vite dev", () => {
@@ -52,16 +55,16 @@ describe("React Fast Refresh, in vite dev", () => {
 
   it("compiles React's components with it, in the browser only", async () => {
     await serve();
-    const client = await code("/Hello.tsx", "client");
+    const client = await code({ url: "/Hello.tsx", environment: "client" });
     expect(client).toContain("$RefreshReg$");
     expect(client).toContain("$RefreshSig$");
     expect(client).toContain("import.meta.hot");
-    expect(await code("/Hello.tsx", "ssr")).not.toMatch(/\$Refresh(?:Reg|Sig)\$/);
+    expect(await code({ url: "/Hello.tsx", environment: "ssr" })).not.toMatch(/\$Refresh(?:Reg|Sig)\$/);
   });
 
   it("compiles only the modules core marks as React's when another renderer shares .tsx", async () => {
     await serve({ include: /[?&]droplets-renderer=react(?:&|$)/ });
-    expect(await code("/Hello.tsx?droplets-renderer=react", "client")).toContain("$RefreshReg$");
-    expect(await code("/Hello.tsx?droplets-renderer=solid", "client")).not.toMatch(/\$Refresh(?:Reg|Sig)\$/);
+    expect(await code({ url: "/Hello.tsx?droplets-renderer=react", environment: "client" })).toContain("$RefreshReg$");
+    expect(await code({ url: "/Hello.tsx?droplets-renderer=solid", environment: "client" })).not.toMatch(/\$Refresh(?:Reg|Sig)\$/);
   });
 });

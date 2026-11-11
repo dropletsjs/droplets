@@ -13,8 +13,20 @@ type Node = { type: string; start: number; end: number; [key: string]: unknown }
 
 export type ConfigEdit = { code: string } | { manual: string };
 
+export type ManualStepsInput = { framework: Pick<Framework, "factory" | "package"> };
+
+type WalkInput = { root: Node };
+
+type KeyNameInput = { property: Node };
+
+type LocalNamesInput = { program: Node };
+
+type LocalNames = { droplets?: string; imports: Map<string, string>; lastImportEnd: number };
+
+export type AddRendererInput = { source: string; file: string; framework: Framework };
+
 /** What to write by hand when the config is not one `djs add` can edit. */
-export function manualSteps(framework: Framework): string {
+export function manualSteps({ framework }: ManualStepsInput): string {
   return [`import { ${framework.factory} } from "${framework.package}";`, `droplets({ renderers: [/* … */ ${framework.factory}()] })`].join(
     "\n",
   );
@@ -25,26 +37,26 @@ function isNode(value: unknown): value is Node {
 }
 
 /** Every node under `root`, depth first. */
-function* walk(root: Node): Generator<Node> {
+function* walk({ root }: WalkInput): Generator<Node> {
   yield root;
   for (const [key, value] of Object.entries(root)) {
     if (key === "parent") continue;
     for (const child of Array.isArray(value) ? value : [value]) {
-      if (isNode(child)) yield* walk(child);
+      if (isNode(child)) yield* walk({ root: child });
     }
   }
 }
 
-const keyName = (property: Node): string | undefined => {
+function keyName({ property }: KeyNameInput): string | undefined {
   const key = property["key"] as Node | undefined;
   if (!key || property["computed"]) return undefined;
   if (key.type === "Identifier") return key["name"] as string;
   if (key.type === "Literal" && typeof key["value"] === "string") return key["value"];
   return undefined;
-};
+}
 
 /** `droplets` as the config imports it: `import { droplets as d } from "@dropletsjs/droplets/vite"` → `d`. */
-function localNames(program: Node): { droplets?: string; imports: Map<string, string>; lastImportEnd: number } {
+function localNames({ program }: LocalNamesInput): LocalNames {
   const imports = new Map<string, string>();
   let droplets: string | undefined;
   let lastImportEnd = 0;
@@ -63,20 +75,21 @@ function localNames(program: Node): { droplets?: string; imports: Map<string, st
 }
 
 /** The config with `framework`'s renderer added, or what to add by hand. */
-export function addRenderer(source: string, file: string, framework: Framework): ConfigEdit {
-  const manual = { manual: manualSteps(framework) };
+export function addRenderer({ source, file, framework }: AddRendererInput): ConfigEdit {
+  const manual = { manual: manualSteps({ framework }) };
   let program: Node;
   try {
     program = parseAst(source, { lang: /\.[cm]?tsx?$/.test(file) ? "ts" : "js" }) as unknown as Node;
   } catch {
+    // A config that does not parse is not one to edit: the user adds the renderer by hand.
     return manual;
   }
-  const { droplets, imports, lastImportEnd } = localNames(program);
+  const { droplets, imports, lastImportEnd } = localNames({ program });
   if (!droplets) return manual;
   const taken = imports.get(framework.factory);
   if (taken !== undefined && taken !== framework.package) return manual;
 
-  const calls = [...walk(program)].filter(
+  const calls = [...walk({ root: program })].filter(
     (node) =>
       node.type === "CallExpression" && (node["callee"] as Node).type === "Identifier" && (node["callee"] as Node)["name"] === droplets,
   );
@@ -93,7 +106,7 @@ export function addRenderer(source: string, file: string, framework: Framework):
     const [options] = args;
     if (options === undefined || options.type !== "ObjectExpression") return manual;
     const properties = options["properties"] as Node[];
-    const renderers = properties.find((property) => keyName(property) === "renderers");
+    const renderers = properties.find((property) => keyName({ property }) === "renderers");
     if (!renderers) {
       // A spread may carry renderers; a list of our own would replace them.
       if (properties.some((property) => property.type !== "Property")) return manual;

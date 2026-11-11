@@ -36,7 +36,9 @@ export type DropletElementProps = {
 
 type Html = HtmlEscapedString | Promise<HtmlEscapedString>;
 
-function payloadScript(attribute: string, payload: string): Html | string {
+type PayloadScriptInput = { attribute: string; payload: string };
+
+function payloadScript({ attribute, payload }: PayloadScriptInput): Html | string {
   if (!payload) return "";
   // Payloads are base64, so there is nothing for HTML escaping to change.
   return html`<script type="application/text" ${raw(attribute)}>${raw(payload)}</script>`;
@@ -55,9 +57,11 @@ export function dropletElement(props: DropletElementProps): Html {
   // The tag name is validated in resolveConfig; it is never user input.
   const tag = raw(props.element);
   return html`<${tag} data-droplet="${props.droplet}"${buildAttribute}${renderAttribute}${contextAttribute}${errorAttribute}>${payloadScript(
-    "data-droplet-context",
-    props.dropletContext ?? "",
-  )}${payloadScript("data-droplet-data", props.dropletData)}${
+    {
+      attribute: "data-droplet-context",
+      payload: props.dropletContext ?? "",
+    },
+  )}${payloadScript({ attribute: "data-droplet-data", payload: props.dropletData })}${
     props.stylesheet ? html`<link rel="stylesheet" href="${props.stylesheet}" data-droplet-style>` : ""
   }<div style="display: contents" data-droplet-entry>${raw(props.html)}</div></${tag}>`;
 }

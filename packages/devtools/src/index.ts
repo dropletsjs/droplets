@@ -16,18 +16,24 @@ const toolFile = resolve(packageRoot, "dist/tool/panel.js");
 /** The droplets and their flags, for the dev tool on any page. */
 const TOOL_INFO = "/__droplets/devtools.json";
 
+type FsUrlInput = { path: string };
+
 /** An absolute path as a URL the Vite dev server transforms. */
-function fsUrl(path: string): string {
+function fsUrl({ path }: FsUrlInput): string {
   const normalized = path.replace(/\\/g, "/");
   return `/@fs${normalized.startsWith("/") ? "" : "/"}${normalized}`;
 }
 
-function originOf(req: Connect.IncomingMessage): string {
+type OriginOfInput = { req: Connect.IncomingMessage };
+
+function originOf({ req }: OriginOfInput): string {
   return `http://${req.headers.host ?? "localhost"}`;
 }
 
+type LoadImportMapBlockInput = { api: DropletsPluginApi; origin: string };
+
 /** The import map block, as a host would include it; `""` without one. */
-async function importMapBlock(api: DropletsPluginApi, origin: string): Promise<string> {
+async function loadImportMapBlock({ api, origin }: LoadImportMapBlockInput): Promise<string> {
   const path = api.importMapPath();
   if (!path) return "";
   const response = await api.fetch(new Request(`${origin}${path}`));
@@ -38,10 +44,12 @@ async function importMapBlock(api: DropletsPluginApi, origin: string): Promise<s
  * Server mode: fetch the fragment the way a host's server would, through the
  * droplets app and its hooks, then hand it to the page with its styles.
  */
-async function renderOnServer(api: DropletsPluginApi, origin: string, search: string): Promise<ServerRender | undefined> {
-  const state = readToolState(search, api.droplets());
+type RenderOnServerInput = { api: DropletsPluginApi; origin: string; search: string };
+
+async function renderOnServer({ api, origin, search }: RenderOnServerInput): Promise<ServerRender | undefined> {
+  const state = readToolState({ search, droplets: api.droplets() });
   if (!state.droplet) return undefined;
-  const { url, init } = fragmentRequest(state.droplet, state.method, state.props);
+  const { url, init } = fragmentRequest({ droplet: state.droplet, method: state.method, props: state.props });
   const started = performance.now();
   const response = await api.fetch(new Request(`${origin}${url}`, init));
   const html = await response.text();
@@ -91,7 +99,7 @@ export function dropletsDevtools(): Plugin {
       if (!api) {
         throw new Error("@dropletsjs/devtools: add droplets() from @dropletsjs/droplets/vite to the plugins too");
       }
-      api.setDevTool(fsUrl(toolFile));
+      api.setDevTool(fsUrl({ path: toolFile }));
     },
 
     configureServer(server) {
@@ -112,7 +120,7 @@ export function dropletsDevtools(): Plugin {
           return;
         }
         try {
-          const origin = originOf(req);
+          const origin = originOf({ req });
           const search = query ? `?${query}` : "";
           const serverMode = new URLSearchParams(search).has("droplet");
           // Added after Vite: it runs inline `<style>` through PostCSS, where
@@ -122,16 +130,16 @@ export function dropletsDevtools(): Plugin {
             renderDevtoolsPage({
               element: api.element(),
               droplets: api.droplets(),
-              importMap: await importMapBlock(api, origin),
+              importMap: await loadImportMapBlock({ api, origin }),
               loaderUrl: api.loaderUrl,
-              clientUrl: fsUrl(clientFile),
-              server: serverMode ? await renderOnServer(api, origin, search) : undefined,
+              clientUrl: fsUrl({ path: clientFile }),
+              server: serverMode ? await renderOnServer({ api, origin, search }) : undefined,
               strategy: api.strategy(),
               pageStyles: false,
             }),
             req.originalUrl,
           );
-          const html = withPageStyles(transformed);
+          const html = withPageStyles({ html: transformed });
           res.statusCode = 200;
           res.setHeader("content-type", "text/html; charset=utf-8");
           res.setHeader("cache-control", "no-store");

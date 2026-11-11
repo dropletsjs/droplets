@@ -11,7 +11,6 @@ import { setters } from "./live-props.ts";
 export async function update(instance: unknown, props: RenderProps): Promise<boolean> {
   const set = instance && typeof instance === "object" ? setters.get(instance) : undefined;
   if (!set) return false;
-  const value = !asyncMode && "data" in props ? { ...props, data: await props.data } : props;
-  set(value as RenderProps);
+  set(!asyncMode && "data" in props ? { ...props, data: await props.data } : props);
   return true;
 }

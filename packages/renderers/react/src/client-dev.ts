@@ -7,6 +7,6 @@ import { tree } from "./tree.ts";
 /** The same tree with new props: React reconciles it, and the component keeps its state. */
 export function update(instance: unknown, props: RenderProps): boolean {
   const { root, component, context } = instance as ReactInstance;
-  flushSync(() => root.render(tree(component, props, context)));
+  flushSync(() => root.render(tree({ component, props, context })));
   return true;
 }

@@ -25,7 +25,6 @@ export type PluginState = {
   tokenNonce: string;
   /** Vite's `publicDir`, absolute; `""` when it is turned off. */
   publicDir: string;
-  /** The user's project root. */
   root: string;
   /** Where `vite build` writes; `dist` unless the user changed `build.outDir`. */
   outDir: string;
@@ -147,9 +146,11 @@ export function rendererExtensions(state: PluginState): string[] {
   return state.renderers.flatMap((renderer) => renderer.extensions);
 }
 
+type RendererNamedInput = { renderers: readonly DropletRenderer[]; name: string };
+
 /** The renderer by name, or a clear error for a stale registry. */
-export function rendererNamed(state: Pick<PluginState, "renderers">, name: string): DropletRenderer {
-  const renderer = state.renderers.find((r) => r.name === name);
+export function rendererNamed({ renderers, name }: RendererNamedInput): DropletRenderer {
+  const renderer = renderers.find((r) => r.name === name);
   if (!renderer) throw new Error(`droplets: no renderer named "${name}" is configured`);
   return renderer;
 }
@@ -159,9 +160,11 @@ export function externalsList(state: PluginState): string[] {
   return [...new Set([...state.namedExternals, ...state.seenExternals])].sort();
 }
 
+type ApplyConfigInput = { state: PluginState; root: string; config: ResolvedDropletsConfig };
+
 /** Recomputes the folder-derived fields after the config has been resolved. */
-export function applyConfig(state: PluginState, root: string, config: ResolvedDropletsConfig): void {
-  const folder = normalizeDropletsFolder(config.dropletsFolder);
+export function applyConfig({ state, root, config }: ApplyConfigInput): void {
+  const folder = normalizeDropletsFolder({ folder: config.dropletsFolder });
   state.root = root;
   state.config = { ...config, buildHash: state.buildHash };
   state.dropletsRoot = resolve(root, folder);

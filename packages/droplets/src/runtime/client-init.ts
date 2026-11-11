@@ -27,15 +27,21 @@
  */
 export type ClientInit = () => void | Promise<void>;
 
-const isThenable = (value: unknown): value is PromiseLike<unknown> =>
-  (typeof value === "object" || typeof value === "function") && value !== null && typeof (value as { then?: unknown }).then === "function";
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return (
+    (typeof value === "object" || typeof value === "function") && value !== null && typeof (value as { then?: unknown }).then === "function"
+  );
+}
+
+/** The module `src/hooks.client.ts` compiles to, as `/index.js` imports it. */
+type ClientHooksModule = { readonly init?: unknown };
 
 /**
  * Calls `init` of `src/hooks.client.ts` (`file`, for the messages) and
  * returns at once. Never throws, so the droplets start in every case. A
  * file without `init` runs nothing.
  */
-export function runClientInit(hooks: { readonly init?: unknown }, file: string): void {
+export function runClientInit(hooks: ClientHooksModule, file: string): void {
   const init = hooks.init;
   if (init === undefined) return;
   if (typeof init !== "function") {

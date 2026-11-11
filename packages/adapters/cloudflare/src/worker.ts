@@ -1,7 +1,15 @@
 import userConfig from "virtual:droplets-config";
 import manifest from "virtual:droplets-manifest";
 import * as ssr from "virtual:droplets-ssr";
-import { createPrerenderedLoader, createServerApp, resolveConfig, setRuntimeEnv, type AssetLoaders } from "@dropletsjs/droplets";
+import {
+  type AssetLoaders,
+  createPrerenderedLoader,
+  createServerApp,
+  type DropletManifestEntry,
+  type DropletsApp,
+  resolveConfig,
+  setRuntimeEnv,
+} from "@dropletsjs/droplets";
 
 /** Injected by the adapter at build time (`rolldownOptions.output.intro`). */
 declare const __DROPLETS_ASSETS_BINDING__: string;
@@ -17,16 +25,26 @@ const config = resolveConfig(userConfig ?? {});
 
 // One app per assets binding. Bindings are stable within an isolate, so this
 // is a cache of one; a request without the binding still fails clearly.
-const apps = new WeakMap<AssetsFetcher, ReturnType<typeof createServerApp>>();
+const apps = new WeakMap<AssetsFetcher, DropletsApp>();
 
-/** A droplet's manifest entry; a name from a URL never reaches `Object.prototype`. */
-function dropletEntry(droplet: string) {
+type DropletEntryInput = { droplet: string };
+
+type AssetLoadersOptions = { assets: AssetsFetcher };
+
+type LoadFileInput = { path: string };
+
+type RevalidatedInput = { response: Response; ifNoneMatch: string | undefined };
+
+type AppOfInput = { env: Env };
+
+// A droplet name comes from the URL: it must never reach `Object.prototype`.
+function dropletEntry({ droplet }: DropletEntryInput): DropletManifestEntry | undefined {
   return Object.hasOwn(manifest.droplets, droplet) ? manifest.droplets[droplet] : undefined;
 }
 
-/** Reads a file of the client build through the assets binding. */
-function createLoaders(assets: AssetsFetcher): AssetLoaders {
-  const read = async (path: string): Promise<string | null> => {
+/** The client build's files, read through the assets binding. */
+function createAssetLoaders({ assets }: AssetLoadersOptions): AssetLoaders {
+  const loadFile = async ({ path }: LoadFileInput): Promise<string | null> => {
     // Only the pathname matters to the binding; the origin is a placeholder.
     const response = await assets.fetch(new URL(`/${path}`, "https://assets.invalid"));
     return response.ok ? response.text() : null;
@@ -35,19 +53,21 @@ function createLoaders(assets: AssetsFetcher): AssetLoaders {
   return {
     buildHash: manifest.__hash,
     loadClientModule: (droplet) => {
-      const entry = dropletEntry(droplet);
-      return entry?.client ? read(entry.client) : Promise.resolve(null);
+      const entry = dropletEntry({ droplet });
+      return entry?.client ? loadFile({ path: entry.client }) : Promise.resolve(null);
     },
-    loadEntryClient: () => read(manifest.__entryClient),
+    loadEntryClient: () => loadFile({ path: manifest.__entryClient }),
     entryModule: () => Promise.resolve(manifest.__entryModule ?? null),
-    loadGlobalStyle: () => read(manifest.__globalCss),
+    loadGlobalStyle: () => loadFile({ path: manifest.__globalCss }),
     loadIndex: () => Promise.resolve(manifest.__index ?? null),
     // Read through the binding on demand: never part of the Worker bundle.
     // Their directory's name is new every build and only this bundle has
     // it, so no one can guess a URL for them, whatever the assets config.
-    ...(manifest.__prerendered ? { loadPrerendered: createPrerenderedLoader((path) => read(`${manifest.__prerendered}/${path}`)) } : {}),
+    ...(manifest.__prerendered
+      ? { loadPrerendered: createPrerenderedLoader((path) => loadFile({ path: `${manifest.__prerendered}/${path}` })) }
+      : {}),
     externals: manifest.__externals ?? [],
-    dropletStyles: (droplet) => Promise.resolve(dropletEntry(droplet)?.css ?? []),
+    dropletStyles: (droplet) => Promise.resolve(dropletEntry({ droplet })?.css ?? []),
     // The entry, shared chunks and assets, from the binding, named by
     // their content and cached for good; `public/` under `/assets/public/`
     // keeps its names, so it is revalidated (the binding's ETag, its 304).
@@ -65,11 +85,8 @@ function createLoaders(assets: AssetsFetcher): AssetLoaders {
   };
 }
 
-/** A `public/` file from the binding, for `revalidated`. */
-type PublicAnswer = { response: Response; ifNoneMatch: string | undefined };
-
 /** `no-cache` with an `ETag`: the binding's, else one from the content, answered 304 when it matches. */
-async function revalidated({ response, ifNoneMatch }: PublicAnswer): Promise<Response> {
+async function revalidated({ response, ifNoneMatch }: RevalidatedInput): Promise<Response> {
   const headers = new Headers(response.headers);
   headers.set("cache-control", "no-cache");
   if (response.status === 304 || headers.has("etag")) return new Response(response.body, { status: response.status, headers });
@@ -87,7 +104,7 @@ async function revalidated({ response, ifNoneMatch }: PublicAnswer): Promise<Res
   return new Response(body, { status: response.status, headers });
 }
 
-function getApp(env: Env) {
+function appOf({ env }: AppOfInput) {
   const assets = env[__DROPLETS_ASSETS_BINDING__] as AssetsFetcher | undefined;
   if (!assets) {
     throw new Error(
@@ -96,7 +113,7 @@ function getApp(env: Env) {
   }
   let app = apps.get(assets);
   if (!app) {
-    app = createServerApp({ ssr, config, assets: createLoaders(assets) });
+    app = createServerApp({ ssr, config, assets: createAssetLoaders({ assets }) });
     apps.set(assets, app);
   }
   return app;
@@ -106,6 +123,6 @@ export default {
   fetch(request: Request, env: Env, ctx: unknown): Promise<Response> | Response {
     // Runtime private variables are the Worker's vars and secrets.
     setRuntimeEnv(env);
-    return getApp(env).fetch(request, env, ctx as never);
+    return appOf({ env }).fetch(request, env, ctx as never);
   },
 };

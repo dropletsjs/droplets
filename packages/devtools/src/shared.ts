@@ -3,27 +3,11 @@
  * the devtools page (`client/devtools-page.ts`) and the floating panel
  * (`tool/panel.ts`). No DOM, no Node: plain functions over plain data.
  */
+import type { DropletSummary } from "@dropletsjs/droplets/vite";
 
-/** One droplet, as the core plugin describes it. */
-export type DropletInfo = {
-  id: string;
-  folder: string;
-  ssr: boolean;
-  /** `true`, `"visible"` or `"interactive"`: when it hydrates; `false`: never. */
-  hydrate: boolean | "visible" | "interactive";
-  hasLoad: boolean;
-  hasServerLoad: boolean;
-  /** The component's file name, e.g. `+droplet.svelte`. */
-  file?: string;
-  /** The renderer that handles it. */
-  renderer?: string;
-  /** Has its own error page (`+error.<ext>`). */
-  hasError?: boolean;
-  /** The error page's file name, when it has one. */
-  errorFile?: string;
-  /** Rendered at build for `entries`; renders live in dev. */
-  prerender?: boolean;
-};
+/** One droplet, as the core plugin describes it; the fields after `hasServerLoad` may be missing. */
+export type DropletInfo = Pick<DropletSummary, "id" | "folder" | "ssr" | "hydrate" | "hasLoad" | "hasServerLoad"> &
+  Partial<Pick<DropletSummary, "file" | "renderer" | "hasError" | "errorFile" | "prerender">>;
 
 export type Method = "GET" | "POST";
 export type EditorMode = "builder" | "json";
@@ -48,8 +32,10 @@ export type RenderMode = {
   empty: boolean;
 };
 
+type DescribeModeInput = { droplet: Pick<DropletInfo, "ssr" | "hydrate" | "hasServerLoad"> };
+
 /** How `ssr` and `hydrate` combine for one droplet. */
-export function describeMode(droplet: DropletInfo): RenderMode {
+export function describeMode({ droplet }: DescribeModeInput): RenderMode {
   if (droplet.ssr && droplet.hydrate) {
     const when =
       droplet.hydrate === "visible"
@@ -86,21 +72,27 @@ export function describeMode(droplet: DropletInfo): RenderMode {
   };
 }
 
-function asText(value: unknown): string {
+type ToTextInput = { value: unknown };
+
+function toText({ value }: ToTextInput): string {
   return typeof value === "string" ? value : (JSON.stringify(value) ?? "");
 }
 
+type PropsToQueryInput = { props: Readonly<Props> };
+
 /** Props as a query string. Non-string values travel as JSON text. */
-export function propsToQuery(props: Props): string {
+export function propsToQuery({ props }: PropsToQueryInput): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(props)) {
-    if (key) params.append(key, asText(value));
+    if (key) params.append(key, toText({ value }));
   }
   return params.toString();
 }
 
+type PropsFromRowsInput = { rows: readonly Row[] };
+
 /** Builder rows -> props. Empty keys are skipped; later keys win. */
-export function propsFromRows(rows: Row[]): Props {
+export function propsFromRows({ rows }: PropsFromRowsInput): Props {
   const props: Props = {};
   for (const row of rows) {
     const key = row.key.trim();
@@ -109,15 +101,19 @@ export function propsFromRows(rows: Row[]): Props {
   return props;
 }
 
+type RowsFromPropsInput = { props: Readonly<Props> };
+
 /** Props -> builder rows, with non-string values shown as JSON. */
-export function rowsFromProps(props: Props): Row[] {
-  return Object.entries(props).map(([key, value]) => ({ key, value: asText(value) }));
+export function rowsFromProps({ props }: RowsFromPropsInput): Row[] {
+  return Object.entries(props).map(([key, value]) => ({ key, value: toText({ value }) }));
 }
 
 export type JsonResult = { ok: true; props: Props } | { ok: false; error: string };
 
+type ParseJsonPropsInput = { text: string };
+
 /** The JSON editor's text -> props, or why it is not a props object. */
-export function parseJsonProps(text: string): JsonResult {
+export function parseJsonProps({ text }: ParseJsonPropsInput): JsonResult {
   if (!text.trim()) return { ok: true, props: {} };
   let value: unknown;
   try {
@@ -131,8 +127,10 @@ export function parseJsonProps(text: string): JsonResult {
   return { ok: true, props: value as Props };
 }
 
+type PropWarningsInput = { props: Readonly<Props>; method: Method };
+
 /** Things worth telling the user about the props they are about to send. */
-export function propWarnings(props: Props, method: Method): string[] {
+export function propWarnings({ props, method }: PropWarningsInput): string[] {
   const warnings: string[] = [];
   const reserved = Object.keys(props).filter((key) => RESERVED_KEYS.has(key));
   if (reserved.length) {
@@ -146,8 +144,12 @@ export function propWarnings(props: Props, method: Method): string[] {
   return warnings;
 }
 
+export type FragmentRequest = { url: string; init: RequestInit };
+
+type FragmentRequestInput = { droplet: string; method: Method; props: Readonly<Props> };
+
 /** The fragment request the page makes for the current state. */
-export function fragmentRequest(droplet: string, method: Method, props: Props): { url: string; init: RequestInit } {
+export function fragmentRequest({ droplet, method, props }: FragmentRequestInput): FragmentRequest {
   const path = `/droplets/${encodeURIComponent(droplet)}`;
   if (method === "POST") {
     return {
@@ -159,16 +161,18 @@ export function fragmentRequest(droplet: string, method: Method, props: Props): 
       },
     };
   }
-  const query = propsToQuery(props);
+  const query = propsToQuery({ props });
   return { url: query ? `${path}?${query}` : path, init: { method: "GET" } };
 }
 
+type ReadToolStateInput = { search: string; droplets: ReadonlyArray<Pick<DropletInfo, "id">> };
+
 /** Reads the page's own query string, falling back to the first droplet. */
-export function readToolState(search: string, droplets: DropletInfo[]): ToolState {
+export function readToolState({ search, droplets }: ReadToolStateInput): ToolState {
   const params = new URLSearchParams(search);
   const wanted = params.get("droplet");
   const droplet = droplets.find((d) => d.id === wanted)?.id ?? droplets[0]?.id ?? null;
-  const parsed = parseJsonProps(params.get("props") ?? "");
+  const parsed = parseJsonProps({ text: params.get("props") ?? "" });
   return {
     droplet,
     method: params.get("method") === "POST" ? "POST" : "GET",
@@ -177,7 +181,9 @@ export function readToolState(search: string, droplets: DropletInfo[]): ToolStat
   };
 }
 
-export function writeToolState(state: ToolState): string {
+type WriteToolStateInput = { state: Readonly<ToolState> };
+
+export function writeToolState({ state }: WriteToolStateInput): string {
   const params = new URLSearchParams();
   if (state.droplet) params.set("droplet", state.droplet);
   if (state.method !== "GET") params.set("method", state.method);
@@ -190,13 +196,12 @@ export function writeToolState(state: ToolState): string {
 /** Where the floating panel sits, and whether it is folded into the pill. */
 export type PanelState = { x: number; y: number; collapsed: boolean };
 
+export type Size = { width: number; height: number };
+
+type ClampPanelInput = { state: PanelState; size: Size; viewport: Size; margin?: number };
+
 /** Keeps the panel reachable: at least `margin` px of it inside the viewport. */
-export function clampPanel(
-  state: PanelState,
-  size: { width: number; height: number },
-  viewport: { width: number; height: number },
-  margin = 12,
-): PanelState {
+export function clampPanel({ state, size, viewport, margin = 12 }: ClampPanelInput): PanelState {
   const maxX = Math.max(margin, viewport.width - size.width - margin);
   const maxY = Math.max(margin, viewport.height - Math.min(size.height, 48) - margin);
   return {
@@ -206,19 +211,24 @@ export function clampPanel(
   };
 }
 
+type ParsePanelStateInput = { raw: string | null };
+
 /** Reads a stored panel state, or `null` when there is nothing usable. */
-export function parsePanelState(raw: string | null): PanelState | null {
+export function parsePanelState({ raw }: ParsePanelStateInput): PanelState | null {
   if (!raw) return null;
   try {
     const value = JSON.parse(raw) as Partial<PanelState>;
     if (typeof value.x !== "number" || typeof value.y !== "number") return null;
     return { x: value.x, y: value.y, collapsed: value.collapsed === true };
   } catch {
+    // Stored text that is not JSON, or JSON `null`: nothing usable.
     return null;
   }
 }
 
+type FormatBytesInput = { bytes: number };
+
 /** `1.2 kB`, `840 B`. */
-export function formatBytes(bytes: number): string {
+export function formatBytes({ bytes }: FormatBytesInput): string {
   return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} kB`;
 }

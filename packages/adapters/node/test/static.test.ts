@@ -20,7 +20,7 @@ describe("createStaticHandler", () => {
     await mkdir(join(root, "assets/public/img"), { recursive: true });
     await writeFile(join(root, "assets/public/img/logo.svg"), "<svg/>");
     app = new Hono();
-    app.get("/assets/*", createStaticHandler(root));
+    app.get("/assets/*", createStaticHandler({ clientRoot: root }));
   });
   afterAll(async () => {
     await rm(root, { recursive: true, force: true });

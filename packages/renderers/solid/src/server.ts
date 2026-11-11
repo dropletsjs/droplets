@@ -13,9 +13,13 @@ import { renderToString, ssr } from "solid-js/web";
  * key it gives the root of a compiled template. A function, like its browser
  * counterpart, so a component can treat `children` the same on both sides.
  */
-const children = () => ssr('<div data-droplet-children style="display: contents"></div>');
+function children(): ReturnType<typeof ssr> {
+  return ssr('<div data-droplet-children style="display: contents"></div>');
+}
 
-function componentOf(module: ComponentModule, context: ServerRenderContext): Component<Record<string, unknown>> {
+type ComponentOfInput = { module: ComponentModule; context: Pick<ServerRenderContext, "droplet" | "kind"> };
+
+function componentOf({ module, context }: ComponentOfInput): Component<Record<string, unknown>> {
   const component = module.default;
   if (typeof component !== "function") {
     throw new Error(`${context.droplet}: the ${context.kind} component is not a Solid component`);
@@ -25,7 +29,7 @@ function componentOf(module: ComponentModule, context: ServerRenderContext): Com
 
 /** Rendered HTML, with hydration keys that start with `context.renderId`. */
 export function render(module: ComponentModule, props: RenderProps, context: ServerRenderContext): string {
-  const component = componentOf(module, context);
+  const component = componentOf({ module, context });
   // The hydration keys start with `renderId`; the browser hydrates with the
   // same id, so several droplets on one page never share keys.
   return renderToString(() => createComponent(component, { ...props, children }), {

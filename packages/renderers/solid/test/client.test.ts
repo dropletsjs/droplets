@@ -30,22 +30,31 @@ const hello = {
 };
 delegateEvents(["click"]);
 
+type ServerHtmlInput = { renderId: string; kid: string };
+
 /**
  * What the server would have sent for `hello`, keyed by `renderId` (the
  * component nests a hydration context: `<renderId>0<n>`), with the empty
  * children marker: the element took the host's container out before hydrating.
  */
-const serverHtml = (renderId: string, kid: string) =>
-  `<section data-hk="${renderId}00"><h1 data-testid="greeting">Hello ${kid}!</h1><button data-testid="count">0</button>` +
-  `<div data-testid="children"><div data-droplet-children style="display: contents"></div></div></section>`;
+function serverHtml({ renderId, kid }: ServerHtmlInput): string {
+  return (
+    `<section data-hk="${renderId}00"><h1 data-testid="greeting">Hello ${kid}!</h1><button data-testid="count">0</button>` +
+    `<div data-testid="children"><div data-droplet-children style="display: contents"></div></div></section>`
+  );
+}
 
-function host(): DropletChildrenHost & { filled: Element[]; emptied: Array<[Element, boolean]> } {
+type RecordingHost = DropletChildrenHost & { filled: Element[]; emptied: Array<[Element, boolean]> };
+
+function host(): RecordingHost {
   const filled: Element[] = [];
   const emptied: Array<[Element, boolean]> = [];
   return { filled, emptied, fill: (marker) => filled.push(marker), empty: (marker) => emptied.push([marker, marker.isConnected]) };
 }
 
-function contextFor(target: HTMLElement, renderId: string, children: DropletChildrenHost): ClientRenderContext {
+type ContextForInput = { target: HTMLElement; renderId: string; children: DropletChildrenHost };
+
+function contextFor({ target, renderId, children }: ContextForInput): ClientRenderContext {
   return {
     droplet: "hello",
     kind: "droplet",
@@ -56,8 +65,15 @@ function contextFor(target: HTMLElement, renderId: string, children: DropletChil
   };
 }
 
-const q = (root: ParentNode, id: string) => root.querySelector(`[data-testid=${id}]`) as HTMLElement;
-const hyState = () => (globalThis as { _$HY?: { done?: boolean } })._$HY;
+type ByTestIdInput = { root: ParentNode; id: string };
+
+function byTestId({ root, id }: ByTestIdInput): HTMLElement {
+  return root.querySelector<HTMLElement>(`[data-testid=${id}]`) ?? expect.unreachable(id);
+}
+
+function hydrationState(): { done?: boolean } | undefined {
+  return (globalThis as { _$HY?: { done?: boolean } })._$HY;
+}
 
 afterEach(() => {
   document.body.replaceChildren();
@@ -68,7 +84,7 @@ describe("mount()", () => {
     const target = document.createElement("div");
     document.body.append(target);
     const children = host();
-    const handle = mount(hello, target, { data: { greeting: "Hi" } }, contextFor(target, "m1", children));
+    const handle = mount(hello, target, { data: { greeting: "Hi" } }, contextFor({ target, renderId: "m1", children }));
 
     const marker = target.querySelector<HTMLElement>("[data-testid=children] > [data-droplet-children]");
     expect(marker).not.toBeNull();
@@ -77,8 +93,8 @@ describe("mount()", () => {
     expect(children.filled).toEqual([marker]);
     expect(children.emptied).toEqual([]);
 
-    q(target, "count").click();
-    expect(q(target, "count").textContent).toBe("1");
+    byTestId({ root: target, id: "count" }).click();
+    expect(byTestId({ root: target, id: "count" }).textContent).toBe("1");
 
     unmount(handle);
     // Emptied while the marker was still in the document.
@@ -98,7 +114,7 @@ describe("mount()", () => {
     const target = document.createElement("div");
     document.body.append(target);
     const children = host();
-    const handle = mount(toggling, target, { data: {} }, contextFor(target, "t1", children));
+    const handle = mount(toggling, target, { data: {} }, contextFor({ target, renderId: "t1", children }));
     const first = target.querySelector("[data-droplet-children]") ?? expect.unreachable("the children marker");
     expect(children.filled).toEqual([first]);
 
@@ -117,21 +133,21 @@ describe("mount()", () => {
 describe("hydrate()", () => {
   it("adopts the server markup and the server marker in place", () => {
     const target = document.createElement("div");
-    target.innerHTML = serverHtml("h1x", "kid-a");
+    target.innerHTML = serverHtml({ renderId: "h1x", kid: "kid-a" });
     document.body.append(target);
-    const greeting = q(target, "greeting");
+    const greeting = byTestId({ root: target, id: "greeting" });
     const marker = target.querySelector("[data-droplet-children]") ?? expect.unreachable("the children marker");
     const children = host();
 
-    const handle = hydrate(hello, target, { data: { greeting: "Hello kid-a!" } }, contextFor(target, "h1x", children));
+    const handle = hydrate(hello, target, { data: { greeting: "Hello kid-a!" } }, contextFor({ target, renderId: "h1x", children }));
 
-    expect(q(target, "greeting")).toBe(greeting);
+    expect(byTestId({ root: target, id: "greeting" })).toBe(greeting);
     expect(target.querySelector("[data-droplet-children]")).toBe(marker);
     expect(children.filled).toEqual([marker]);
     expect(target.querySelectorAll("[data-droplet-children]")).toHaveLength(1);
 
-    q(target, "count").click();
-    expect(q(target, "count").textContent).toBe("1");
+    byTestId({ root: target, id: "count" }).click();
+    expect(byTestId({ root: target, id: "count" }).textContent).toBe("1");
 
     unmount(handle);
     expect(children.emptied).toEqual([[marker, true]]);
@@ -139,44 +155,44 @@ describe("hydrate()", () => {
 
   it("hydrates a second droplet in place after Solid marked the page's hydration done", () => {
     const first = document.createElement("div");
-    first.innerHTML = serverHtml("aaa", "kid-1");
+    first.innerHTML = serverHtml({ renderId: "aaa", kid: "kid-1" });
     const second = document.createElement("div");
-    second.innerHTML = serverHtml("bbb", "kid-2");
+    second.innerHTML = serverHtml({ renderId: "bbb", kid: "kid-2" });
     document.body.append(first, second);
 
-    hydrate(hello, first, { data: { greeting: "Hello kid-1!" } }, contextFor(first, "aaa", host()));
+    hydrate(hello, first, { data: { greeting: "Hello kid-1!" } }, contextFor({ target: first, renderId: "aaa", children: host() }));
     // The first event after a hydration: Solid flags hydration as done for the page.
-    q(first, "count").click();
-    expect(q(first, "count").textContent).toBe("1");
-    expect(hyState()?.done).toBe(true);
+    byTestId({ root: first, id: "count" }).click();
+    expect(byTestId({ root: first, id: "count" }).textContent).toBe("1");
+    expect(hydrationState()?.done).toBe(true);
 
-    const greeting = q(second, "greeting");
+    const greeting = byTestId({ root: second, id: "greeting" });
     const marker = second.querySelector("[data-droplet-children]") ?? expect.unreachable("the children marker");
     const children = host();
-    hydrate(hello, second, { data: { greeting: "Hello kid-2!" } }, contextFor(second, "bbb", children));
+    hydrate(hello, second, { data: { greeting: "Hello kid-2!" } }, contextFor({ target: second, renderId: "bbb", children }));
 
     // Adopted, not re-rendered: the same nodes, keyed by its own renderId.
-    expect(q(second, "greeting")).toBe(greeting);
+    expect(byTestId({ root: second, id: "greeting" })).toBe(greeting);
     expect(second.querySelector("[data-droplet-children]")).toBe(marker);
     expect(children.filled).toEqual([marker]);
-    q(second, "count").click();
-    expect(q(second, "count").textContent).toBe("1");
+    byTestId({ root: second, id: "count" }).click();
+    expect(byTestId({ root: second, id: "count" }).textContent).toBe("1");
     // The first one is still alive on its own.
-    q(first, "count").click();
-    expect(q(first, "count").textContent).toBe("2");
+    byTestId({ root: first, id: "count" }).click();
+    expect(byTestId({ root: first, id: "count" }).textContent).toBe("2");
   });
 
   it("keys hydration by renderId: another id's markup is not adopted", () => {
     const target = document.createElement("div");
-    target.innerHTML = serverHtml("other", "kid-x");
+    target.innerHTML = serverHtml({ renderId: "other", kid: "kid-x" });
     document.body.append(target);
-    const greeting = q(target, "greeting");
+    const greeting = byTestId({ root: target, id: "greeting" });
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
-      hydrate(hello, target, { data: { greeting: "Hello kid-x!" } }, contextFor(target, "mine", host()));
+      hydrate(hello, target, { data: { greeting: "Hello kid-x!" } }, contextFor({ target, renderId: "mine", children: host() }));
     } finally {
       warn.mockRestore();
     }
-    expect(q(target, "greeting")).not.toBe(greeting);
+    expect(byTestId({ root: target, id: "greeting" })).not.toBe(greeting);
   });
 });

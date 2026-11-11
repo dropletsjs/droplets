@@ -313,7 +313,10 @@ const STATUS_TEXT: Record<number, string> = {
   503: "Service Unavailable",
 };
 
-/** Thrown by `error()`. Answered with its status, never logged as a crash. */
+/**
+ * Thrown by `error()`. Answered with its status, never logged as a crash.
+ * A class recognised by its brand, not an `Error`: no stack, the shape SvelteKit users know.
+ */
 export class HttpError {
   readonly [HTTP_ERROR] = true;
   readonly status: number;
@@ -329,7 +332,7 @@ export class HttpError {
   }
 }
 
-/** Thrown by `redirect()`. */
+/** Thrown by `redirect()`. A class recognised by its brand, not an `Error`: no stack. */
 export class Redirect {
   readonly [REDIRECT] = true;
   readonly status: number;
@@ -364,11 +367,13 @@ export function redirect(status: 300 | 301 | 302 | 303 | 307 | 308, location: st
     throw new Error(`redirect() needs a status between 300 and 308, got ${status}`);
   }
   const target = String(location);
-  if (!isRedirectTarget(target)) {
+  if (!isRedirectTarget({ target })) {
     throw new Error(`redirect() needs an http(s) URL or a path on this site, got ${JSON.stringify(target.slice(0, 200))}`);
   }
   throw new Redirect(status, target);
 }
+
+type IsRedirectTargetInput = { target: string };
 
 /**
  * An `http:`/`https:` URL, or a relative reference that stays on the site
@@ -377,15 +382,18 @@ export function redirect(status: 300 | 301 | 302 | 303 | 307 | 308, location: st
  * characters: a value a client influenced cannot become a script or a
  * header break.
  */
-function isRedirectTarget(target: string): boolean {
+function isRedirectTarget({ target }: IsRedirectTargetInput): boolean {
   if (target === "" || target !== target.trim() || /[\u0000-\u001f\u007f]/.test(target)) return false;
-  if (/^[a-z][a-z0-9+.-]*:/i.test(target)) return webUrl(target) !== null;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(target)) return webUrl({ value: target }) !== null;
   return !/^[\\/]{2}/.test(target);
 }
 
 const ACTION_FAILURE = Symbol.for("droplets.action-failure");
 
-/** What `fail()` returns: a form action that did not go through, with its data. */
+/**
+ * What `fail()` returns: a form action that did not go through, with its data.
+ * A class recognised by its brand, not an `Error`: it is returned, not thrown.
+ */
 export class ActionFailure<Data = undefined> {
   readonly [ACTION_FAILURE] = true;
   readonly status: number;
@@ -435,7 +443,7 @@ export function isRedirect(value: unknown): value is Redirect {
  * Thrown while prerendering when a droplet reads a field of `host` other
  * than `origin`, `pathname` and `href`, and no host was known for the entry.
  * It stops the build: it skips `handleError` and is never stored as the
- * `+error.*` render.
+ * `+error.*` render. An `Error` subclass, recognised by its brand across bundles.
  */
 export class HostUrlPropsErrorInPrerender extends Error {
   readonly [HOST_IN_PRERENDER] = true;
@@ -464,6 +472,7 @@ const COOKIES_IN_PRERENDER = Symbol.for("droplets.cookies-in-prerender");
  * Thrown while prerendering when anything uses `event.cookies`: a build-time
  * render has no request, so no cookies to read and no response to set them
  * on. Like `HostUrlPropsErrorInPrerender` it stops the build, caught or not.
+ * An `Error` subclass, recognised by its brand across bundles.
  */
 export class CookiesInPrerenderError extends Error {
   readonly [COOKIES_IN_PRERENDER] = true;
@@ -482,7 +491,9 @@ export function isCookiesInPrerenderError(value: unknown): value is CookiesInPre
   return typeof value === "object" && value !== null && COOKIES_IN_PRERENDER in value;
 }
 
-function withHeader(init: ResponseInit | undefined, name: string, value: string): ResponseInit {
+type WithHeaderInput = { init: ResponseInit | undefined; name: string; value: string };
+
+function withHeader({ init, name, value }: WithHeaderInput): ResponseInit {
   const headers = new Headers(init?.headers);
   if (!headers.has(name)) headers.set(name, value);
   return { ...init, headers };
@@ -490,23 +501,25 @@ function withHeader(init: ResponseInit | undefined, name: string, value: string)
 
 /** A JSON response. */
 export function json(data: unknown, init?: ResponseInit): Response {
-  return new Response(JSON.stringify(data), withHeader(init, "content-type", "application/json"));
+  return new Response(JSON.stringify(data), withHeader({ init, name: "content-type", value: "application/json" }));
 }
 
 /** A plain-text response. */
 export function text(body: string, init?: ResponseInit): Response {
-  return new Response(body, withHeader(init, "content-type", "text/plain; charset=utf-8"));
+  return new Response(body, withHeader({ init, name: "content-type", value: "text/plain; charset=utf-8" }));
 }
+
+type ApplyHandleInput = { index: number; event: RequestEvent };
 
 /** Chains several `handle` functions; each one's `resolve` calls the next. */
 export function sequence(...handlers: Handle[]): Handle {
   return ({ event, resolve }) => {
-    const apply = (index: number, current: RequestEvent): Promise<Response> => {
+    function apply({ index, event: current }: ApplyHandleInput): Promise<Response> {
       const handle = handlers[index];
       if (!handle) return resolve(current);
-      return Promise.resolve(handle({ event: current, resolve: (next) => apply(index + 1, next) }));
-    };
-    return apply(0, event);
+      return Promise.resolve(handle({ event: current, resolve: (next) => apply({ index: index + 1, event: next }) }));
+    }
+    return apply({ index: 0, event });
   };
 }
 
@@ -521,8 +534,8 @@ export function sequence(...handlers: Handle[]): Handle {
  * ```
  */
 export function hostFrom(value: unknown): URL | null {
-  const url = webUrl(value);
+  const url = webUrl({ value });
   if (!url) return null;
   const info = requestInfo();
-  return withinTrusted(url, info?.trustedOrigins ?? [], info?.ownOrigins ?? []) ? url : null;
+  return withinTrusted({ host: url, trusted: info?.trustedOrigins ?? [], own: info?.ownOrigins ?? [] }) ? url : null;
 }

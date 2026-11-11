@@ -15,7 +15,7 @@ export default defineConfig({
     projects: [
       {
         // The factory, the Vite plugin per environment and the server module.
-        test: { name: "node", include: ["test/renderer.test.ts", "test/server.test.ts"], environment: "node" },
+        test: { name: "node", include: ["test/index.test.ts", "test/server.test.ts"], environment: "node" },
       },
       {
         test: {

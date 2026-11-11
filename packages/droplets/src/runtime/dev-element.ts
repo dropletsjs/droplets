@@ -20,10 +20,26 @@
 import { strategy as configStrategy, injectTool as configInjectTool, toolUrl } from "virtual:droplets-dev";
 import type { DevStrategy } from "../core/config.ts";
 import type { HydrateMode } from "../renderer.ts";
-import { contractChanges, contractNotice, hydrateAction, readContract, type ElementLife, type RenderContract } from "./dev-contract.ts";
+import {
+  contractChanges,
+  contractNotice,
+  hydrateAction,
+  isHydrateMode,
+  readContract,
+  type ElementLife,
+  type RenderContract,
+} from "./dev-contract.ts";
 import { notify } from "./dev-notify.ts";
 import type { DevElementInfo, DevElementState, DevToolSource, DropletsDevTools } from "./dev-tool.ts";
-import type { DjsDropletElement, DropletClientModule, Payload } from "./entry-client.ts";
+import type {
+  DjsDropletElement,
+  DropletClientModule,
+  ImportModuleInput,
+  ModeOfInput,
+  Payload,
+  StartInput,
+  WaitForInput,
+} from "./entry-client.ts";
 import { withoutFormResults } from "./form.ts";
 import { settle } from "./load.ts";
 
@@ -120,11 +136,12 @@ type DevState = {
 };
 
 const STRATEGIES: readonly string[] = ["hmr", "remount", "reload", "manual"];
-const isStrategy = (value: string | null): value is DevStrategy => value !== null && STRATEGIES.includes(value);
+
+function isStrategy(value: string | null): value is DevStrategy {
+  return value !== null && STRATEGIES.includes(value);
+}
 
 const KINDS: readonly string[] = ["component", "load", "contract"];
-const isHydrateMode = (value: unknown): value is HydrateMode =>
-  value === true || value === false || value === "visible" || value === "interactive";
 
 /** A stylesheet module's update: it replaces itself, under every strategy. */
 const STYLESHEET = /\.(?:css|less|sass|scss|styl|stylus|pcss|postcss|sss)(?:$|\?)/;
@@ -137,9 +154,22 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 /** A settled promise of `value`, marked so React's `use()` reads it without suspending. */
-function settledPromise<T>(value: T): Promise<T> {
+type SettledPromiseInput<T> = { value: T };
+
+function settledPromise<T>({ value }: SettledPromiseInput<T>): Promise<T> {
   return Object.assign(Promise.resolve(value), { status: "fulfilled", value });
 }
+
+type SetStateInput = { element: DjsDropletElement; state: DevElementState };
+type FollowServerLoadInput = { droplet: string; payload: DropletUpdatePayload };
+type FollowHydrateInput = { droplet: string; hydrate: HydrateMode };
+type ArrivalInput = { element: DjsDropletElement; droplet: string };
+type ReadUpdateInput = { value: unknown };
+type HotUpdateInput = { element: DevDropletElement; droplet: string; payload: DropletUpdatePayload };
+type SubscribeInput = { element: DjsDropletElement; droplet: string };
+type DropletInput = { droplet: string };
+type OnContractInput = { payload: DropletUpdatePayload; shown: Set<string> };
+type FollowHotUpdatesInput = { hot: NonNullable<ImportMeta["hot"]> };
 
 /**
  * Adds to `DropletElement` (the entry's `DjsDropletElement`, before it is
@@ -155,14 +185,14 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
   /** The connected elements, for the dev tool. */
   const live = new Set<DjsDropletElement>();
   const states = new WeakMap<DjsDropletElement, DevState>();
-  const stateOf = (element: DjsDropletElement): DevState => {
+  function stateOf(element: DjsDropletElement): DevState {
     let state = states.get(element);
     if (!state) {
       state = { origin: null, state: "loading", mode: false, listener: null, props: {}, shape: "value" };
       states.set(element, state);
     }
     return state;
-  };
+  }
 
   /** Droplets whose files changed under `manual` and that have not loaded again since. */
   const changed = new Set<string>();
@@ -171,17 +201,17 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
   const noted = new Set<string>();
   /** The dev tool's listeners: told whenever what it shows may have changed. */
   const listeners = new Set<() => void>();
-  const devNotify = () => {
+  function devNotify(): void {
     for (const listener of listeners) listener();
-  };
-  const setState = (element: DjsDropletElement, state: DevElementState) => {
+  }
+  function setState({ element, state }: SetStateInput): void {
     stateOf(element).state = state;
     devNotify();
-  };
-  const reloadPage = () => {
+  }
+  function reloadPage(): void {
     if (!reloading) globalThis.location.reload();
     reloading = true;
-  };
+  }
 
   /**
    * What an element does when its droplet's files change: the dev tool's
@@ -189,7 +219,7 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
    * `dev.strategy` of the config. Only `index.js` reads it; nothing changes
    * in what the server sends.
    */
-  const activeStrategy = (): DevStrategy => {
+  function activeStrategy(): DevStrategy {
     let chosen: string | null = null;
     try {
       chosen = sessionStorage.getItem(strategyKey);
@@ -203,13 +233,13 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
       console.warn(`[droplets] index.js?strategy=${asked}: use hmr, remount, reload or manual; using ${configStrategy}`);
     }
     return configStrategy;
-  };
+  }
 
   /**
    * A `droplets:update` from the socket, checked: a known droplet, known
    * fields with the right types, own properties only. `null` otherwise.
    */
-  const readUpdate = (value: unknown): DropletUpdatePayload | null => {
+  function readUpdate({ value }: ReadUpdateInput): DropletUpdatePayload | null {
     if (!isObject(value) || !Object.hasOwn(value, "droplet")) return null;
     const droplet = value["droplet"];
     if (typeof droplet !== "string" || !env.droplets.has(droplet)) return null;
@@ -234,25 +264,25 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
       payload.serverLoad = value["serverLoad"];
     }
     if (payload.kind === "contract") {
-      const before = has("before") ? readContract(value["before"]) : null;
-      const after = has("after") ? readContract(value["after"]) : null;
+      const before = has("before") ? readContract({ value: value["before"] }) : null;
+      const after = has("after") ? readContract({ value: value["after"] }) : null;
       if (!before || !after) return null;
       payload.before = before;
       payload.after = after;
     }
     return payload;
-  };
+  }
 
-  const followServerLoad = (droplet: string, payload: DropletUpdatePayload) => {
+  function followServerLoad({ droplet, payload }: FollowServerLoadInput): void {
     if (typeof payload.serverLoad !== "boolean") return;
     if (payload.serverLoad) env.serverLoad.add(droplet);
     else env.serverLoad.delete(droplet);
-  };
+  }
 
-  const followHydrate = (droplet: string, hydrate: HydrateMode) => {
+  function followHydrate({ droplet, hydrate }: FollowHydrateInput): void {
     if (hydrate === false) env.hydration.delete(droplet);
     else env.hydration.set(droplet, hydrate);
-  };
+  }
 
   /**
    * How the element reached the page. A server fragment carries its context
@@ -260,13 +290,13 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
    * neither markup nor data for a droplet that hydrates, as an element the
    * host wrote itself.
    */
-  const arrival = (element: DjsDropletElement, droplet: string): "fragment" | "client" => {
-    const fromServer = element._readInline("[data-droplet-context]").found || element.dataset["context"] !== undefined;
+  function arrival({ element, droplet }: ArrivalInput): "fragment" | "client" {
+    const fromServer = element._readInline({ selector: "[data-droplet-context]" }).found || element.dataset["context"] !== undefined;
     if (!fromServer) return "client";
     const markup = element.querySelector(":scope > [data-droplet-entry]")?.childNodes.length ?? 0;
-    const clientOnly = env.hydration.has(droplet) && markup === 0 && !element._readInline("[data-droplet-data]").found;
+    const clientOnly = env.hydration.has(droplet) && markup === 0 && !element._readInline({ selector: "[data-droplet-data]" }).found;
     return clientOnly ? "client" : "fragment";
-  };
+  }
 
   const original = {
     connectedCallback: proto.connectedCallback,
@@ -283,12 +313,12 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
     const droplet = this.dataset["droplet"];
     if (!this._connected && droplet && env.droplets.has(droplet)) {
       const state = stateOf(this);
-      state.origin ??= arrival(this, droplet);
+      state.origin ??= arrival({ element: this, droplet });
       live.add(this);
       devNotify();
     }
     const started = await original.connectedCallback.call(this);
-    if (started && droplet && hot) subscribe(this, droplet);
+    if (started && droplet && hot) subscribe({ element: this, droplet });
     return started;
   };
 
@@ -317,9 +347,9 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
     original.pruneChildren.call(this);
   };
 
-  proto._modeOf = function (this: DjsDropletElement, flag: HydrateMode, hasMarkup: boolean): HydrateMode {
+  proto._modeOf = function (this: DjsDropletElement, input: ModeOfInput): HydrateMode {
     const asked = this.dataset["hydrate"];
-    if (flag !== false && asked !== undefined && !["", "true", "false", "visible", "interactive"].includes(asked)) {
+    if (input.flag !== false && asked !== undefined && !["", "true", "false", "visible", "interactive"].includes(asked)) {
       console.warn(`[droplets] data-hydrate="${asked}": use true, false, visible or interactive; using the droplet's own`);
     }
     if (asked === "false" && env.scripts.has(this.dataset["droplet"] ?? "")) {
@@ -327,43 +357,38 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
         `[droplets] data-hydrate="false" on the script droplet "${this.dataset["droplet"]}" is ignored: a script droplet only runs in the browser`,
       );
     }
-    return original.modeOf.call(this, flag, hasMarkup);
+    return original.modeOf.call(this, input);
   };
 
-  proto._waitFor = async function (this: DjsDropletElement, ...args: Parameters<DjsDropletElement["_waitFor"]>): Promise<boolean> {
-    setState(this, "waiting");
-    const ready = await original.waitFor.apply(this, args);
-    if (ready) setState(this, "loading");
+  proto._waitFor = async function (this: DjsDropletElement, input: WaitForInput): Promise<boolean> {
+    setState({ element: this, state: "waiting" });
+    const ready = await original.waitFor.call(this, input);
+    if (ready) setState({ element: this, state: "loading" });
     return ready;
   };
 
-  proto._start = async function (
-    this: DjsDropletElement,
-    droplet: string,
-    contentRoot: HTMLElement,
-    run: number,
-    cacheBust: boolean,
-  ): Promise<boolean | undefined> {
+  proto._start = async function (this: DjsDropletElement, input: StartInput): Promise<boolean | undefined> {
+    const { droplet, contentRoot } = input;
     const isError = this.dataset["dropletError"] !== undefined;
     const hasMarkup = contentRoot.childNodes.length > 0;
     const flag = env.hydration.get(droplet);
     // The unwrapped `_modeOf`: the element's own call warns, once.
-    stateOf(this).mode = flag === undefined ? false : original.modeOf.call(this, flag, hasMarkup);
-    setState(this, "loading");
-    const rendered = await original.start.call(this, droplet, contentRoot, run, cacheBust);
+    stateOf(this).mode = flag === undefined ? false : original.modeOf.call(this, { flag, hasMarkup });
+    setState({ element: this, state: "loading" });
+    const rendered = await original.start.call(this, input);
     if (rendered !== undefined) {
-      setState(
-        this,
-        rendered ? (isError ? "error" : hasMarkup ? "hydrated" : "mounted") : contentRoot.childNodes.length > 0 ? "static" : "empty",
-      );
+      setState({
+        element: this,
+        state: rendered ? (isError ? "error" : hasMarkup ? "hydrated" : "mounted") : contentRoot.childNodes.length > 0 ? "static" : "empty",
+      });
     }
     return rendered;
   };
 
   // What the droplet rendered with, for a load edit: its props after the
   // schema, and whether `data` was the value or a promise.
-  proto._importModule = async function (this: DjsDropletElement, droplet: string, cacheBust: boolean): Promise<DevClientModule | null> {
-    const mod: DevClientModule | null = await original.importModule.call(this, droplet, cacheBust);
+  proto._importModule = async function (this: DjsDropletElement, input: ImportModuleInput): Promise<DevClientModule | null> {
+    const mod: DevClientModule | null = await original.importModule.call(this, input);
     const render = mod?.default;
     if (!mod || !render) return mod;
     const element = this;
@@ -383,7 +408,7 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
     const done = original.updateForm.call(this, form);
     const run = this._run;
     await done;
-    if (hydrated && run === this._run) setState(this, this._hydrated ? "mounted" : "empty");
+    if (hydrated && run === this._run) setState({ element: this, state: this._hydrated ? "mounted" : "empty" });
   };
 
   /**
@@ -396,8 +421,8 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
   async function update(this: DjsDropletElement, payload: DropletUpdatePayload): Promise<void> {
     const droplet = this.dataset["droplet"];
     if (!droplet || payload.droplet !== droplet) return;
-    if (payload.hydrate !== undefined) followHydrate(droplet, payload.hydrate);
-    followServerLoad(droplet, payload);
+    if (payload.hydrate !== undefined) followHydrate({ droplet, hydrate: payload.hydrate });
+    followServerLoad({ droplet, payload });
     if (!this._connected) return;
 
     const run = ++this._run;
@@ -408,9 +433,9 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
     const contentRoot = this._contentRoot();
     const origin = stateOf(this).origin;
     // Asked first: an answer that is no fragment leaves the droplet as it is.
-    const fresh = origin === "fragment" ? await this._fetchFragment(droplet) : null;
+    const fresh = origin === "fragment" ? await this._fetchFragment({ droplet }) : null;
     if (run !== this._run || (origin === "fragment" && !fresh)) return;
-    await this._swap(droplet, contentRoot, fresh, run, true);
+    await this._swap({ droplet, contentRoot, fresh, run, cacheBust: true });
   }
   Object.defineProperty(proto, "update", { value: update, writable: true, configurable: true });
 
@@ -422,11 +447,12 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
    * the live component new data; a new render contract leaves the droplet
    * as it is, but for `hydrate` turning on.
    */
-  const hotUpdate = async (element: DevDropletElement, droplet: string, payload: DropletUpdatePayload): Promise<void> => {
-    if (payload.kind === "contract") return hotContract(element, droplet, payload);
-    if (payload.kind === "load") return hotData(element, droplet, payload);
-    if (!element._hydrated) return element.update(payload);
-  };
+  function hotUpdate(input: HotUpdateInput): Promise<void> {
+    const { element, payload } = input;
+    if (payload.kind === "contract") return hotContract(input);
+    if (payload.kind === "load") return hotData(input);
+    return element._hydrated ? Promise.resolve() : element.update(payload);
+  }
 
   /**
    * The loads ran again (`_data`, then `+droplet.ts`), and the live
@@ -434,8 +460,8 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
    * keeping its state. Anything it cannot take that way (no instance, no
    * `update`, an error page, a load that fails) loads again as a remount.
    */
-  const hotData = async (element: DevDropletElement, droplet: string, payload: DropletUpdatePayload): Promise<void> => {
-    followServerLoad(droplet, payload);
+  async function hotData({ element, droplet, payload }: HotUpdateInput): Promise<void> {
+    followServerLoad({ droplet, payload });
     if (!element._connected) return;
     const handle = element._instance;
     if (!element._hydrated || !handle || element.dataset["dropletError"] !== undefined) return element.update(payload);
@@ -443,14 +469,14 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
     element._dataRequest = null;
     // A new `+droplet.ts`: a fresh client module, for its load. The
     // component module is the same one, at the same URL.
-    const mod: DevClientModule | null = await element._importModule(droplet, payload.universal === true);
+    const mod: DevClientModule | null = await element._importModule({ droplet, cacheBust: payload.universal === true });
     if (run !== element._run) return;
     if (!mod?.update) return element.update(payload);
     const { props, shape } = stateOf(element);
     let value: unknown;
     try {
       const answer: Payload = env.serverLoad.has(droplet)
-        ? await element._serverData(droplet, { host: element._context.host, props }, true)
+        ? await element._serverData({ droplet, context: { host: element._context.host, props }, refresh: true })
         : { data: undefined };
       if (run !== element._run) return;
       if (answer.failed) return element.update(payload);
@@ -466,10 +492,10 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
       return element.update(payload);
     }
     if (run !== element._run) return;
-    const kept = await mod.update(handle, shape === "promise" ? settledPromise(value) : value);
+    const kept = await mod.update(handle, shape === "promise" ? settledPromise({ value }) : value);
     if (run !== element._run) return;
     if (!kept) return element.update(payload);
-  };
+  }
 
   /**
    * The droplet's `ssr`, `hydrate` or `prerender` changed. The registries
@@ -478,17 +504,21 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
    * still waits, which it then waits in. The page's notice is shown once
    * per droplet, by `onContract`.
    */
-  const hotContract = async (element: DevDropletElement, droplet: string, payload: DropletUpdatePayload): Promise<void> => {
+  async function hotContract({ element, droplet, payload }: HotUpdateInput): Promise<void> {
     const { before, after } = payload;
     if (!before || !after) return;
-    followHydrate(droplet, after.hydrate);
-    followServerLoad(droplet, payload);
+    followHydrate({ droplet, hydrate: after.hydrate });
+    followServerLoad({ droplet, payload });
     if (!element._connected) return;
     const contentRoot = element._contentRoot();
     const hasMarkup = contentRoot.childNodes.length > 0;
     const life: ElementLife = element._hydrated ? "live" : element._stopWaiting ? "waiting" : "static";
-    const action = hydrateAction(original.modeOf.call(element, before.hydrate, hasMarkup), element._modeOf(after.hydrate, hasMarkup), life);
-    if (action === "hydrate" && !element._readInline("[data-droplet-data]").found) {
+    const action = hydrateAction({
+      before: original.modeOf.call(element, { flag: before.hydrate, hasMarkup }),
+      after: element._modeOf({ flag: after.hydrate, hasMarkup }),
+      life,
+    });
+    if (action === "hydrate" && !element._readInline({ selector: "[data-droplet-data]" }).found) {
       // Markup that was never to hydrate came without its data: the server
       // renders it again with the data inline, and that hydrates.
       return element.update(payload);
@@ -497,20 +527,20 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
       const run = ++element._run;
       element._stopWaiting?.();
       element._dropClicks();
-      await element._start(droplet, contentRoot, run, true);
+      await element._start({ droplet, contentRoot, run, cacheBust: true });
     }
-  };
+  }
 
   /**
    * The plugin sends `droplets:update` over Vite's HMR socket when a file a
    * droplet depends on changes; what the element does is the page's
    * strategy. Updates only arrive from the origin that served this script.
    */
-  function subscribe(element: DjsDropletElement, droplet: string): void {
+  function subscribe({ element, droplet }: SubscribeInput): void {
     if (!hot) return;
     const dev = element as DevDropletElement;
     const listener = (raw: unknown) => {
-      const payload = readUpdate(raw);
+      const payload = readUpdate({ value: raw });
       if (!payload || payload.droplet !== droplet) return;
       const strategy = activeStrategy();
       if (strategy === "reload") return reloadPage();
@@ -522,7 +552,7 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
         devNotify();
         return;
       }
-      const done = strategy === "hmr" && payload.kind ? hotUpdate(dev, droplet, payload) : dev.update(payload);
+      const done = strategy === "hmr" && payload.kind ? hotUpdate({ element: dev, droplet, payload }) : dev.update(payload);
       done.catch((error: unknown) => {
         console.error("[droplets] failed to handle hmr event", error);
       });
@@ -531,8 +561,8 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
     hot.on("droplets:update", listener);
   }
 
-  const devElements = (): DevElementInfo[] =>
-    Array.from(live)
+  function devElements(): DevElementInfo[] {
+    return Array.from(live)
       .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))
       .map((element) => {
         const state = stateOf(element);
@@ -544,10 +574,11 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
           changed: changed.has(element.dataset["droplet"] ?? ""),
         };
       });
+  }
   Object.defineProperty(DropletElement, "devElements", { value: devElements, writable: true, configurable: true });
 
   /** Remounts the live elements of `droplet`; how many. */
-  const remountLive = (droplet: string): number => {
+  function remountLive({ droplet }: DropletInput): number {
     let count = 0;
     for (const element of live) {
       if (element.dataset["droplet"] !== droplet || !element._hydrated) continue;
@@ -555,47 +586,49 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
       (element as DevDropletElement).update({ droplet }).catch((error: unknown) => console.error("[droplets] remount failed", error));
     }
     return count;
-  };
-  const shows = (droplet: string): boolean => {
+  }
+  function shows({ droplet }: DropletInput): boolean {
     for (const element of live) if (element.dataset["droplet"] === droplet) return true;
     return false;
-  };
+  }
 
   /** What the dev tool reads from, and asks of, this loader. */
-  const toolSource = (): DevToolSource => ({
-    origin: env.location() ?? own,
-    element: env.elementName,
-    strategy: activeStrategy,
-    setStrategy: (strategy) => {
-      try {
-        sessionStorage.setItem(strategyKey, strategy);
-      } catch {
-        // Storage blocked: the choice lasts until the page reloads.
-      }
-      devNotify();
-    },
-    elements: devElements,
-    remount: (element) => {
-      const droplet = element.dataset["droplet"];
-      if (droplet && element instanceof DropletElement) {
-        (element as DevDropletElement).update({ droplet }).catch((error: unknown) => console.error("[droplets] remount failed", error));
-      }
-    },
-    reload: () => globalThis.location.reload(),
-    subscribe: (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-  });
+  function toolSource(): DevToolSource {
+    return {
+      origin: env.location() ?? own,
+      element: env.elementName,
+      strategy: activeStrategy,
+      setStrategy: (strategy) => {
+        try {
+          sessionStorage.setItem(strategyKey, strategy);
+        } catch {
+          // Storage blocked: the choice lasts until the page reloads.
+        }
+        devNotify();
+      },
+      elements: devElements,
+      remount: (element) => {
+        const droplet = element.dataset["droplet"];
+        if (droplet && element instanceof DropletElement) {
+          (element as DevDropletElement).update({ droplet }).catch((error: unknown) => console.error("[droplets] remount failed", error));
+        }
+      },
+      reload: () => globalThis.location.reload(),
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    };
+  }
 
   /** The page's notice of a droplet's new render contract, once per edit, when the page shows it. */
-  const onContract = (payload: DropletUpdatePayload, shown: Set<string>): void => {
+  function onContract({ payload, shown }: OnContractInput): void {
     const { droplet, before, after, timestamp } = payload;
-    if (!before || !after || !shows(droplet)) return;
+    if (!before || !after || !shows({ droplet })) return;
     const key = `${timestamp} ${droplet}`;
     if (shown.has(key)) return;
     shown.add(key);
-    const notice = contractNotice(droplet, before, after);
+    const notice = contractNotice({ droplet, before, after });
     if (!notice) return;
     if (!notice.toast) {
       console.info(`[droplets] ${notice.message}. ${notice.detail}`);
@@ -603,14 +636,14 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
     }
     // A later change of the same flags replaces this notice (ssr off, then on
     // again: the newer one); a change of another flag shows next to it.
-    const flags = contractChanges(before, after)
+    const flags = contractChanges({ before, after })
       .map((change) => change.flag)
       .join(",");
-    notify(
-      { key: `${own} ${droplet} contract ${flags}`, message: notice.message, detail: notice.detail, reload: notice.reload },
-      reloadPage,
-    );
-  };
+    notify({
+      notification: { key: `${own} ${droplet} contract ${flags}`, message: notice.message, detail: notice.detail, reload: notice.reload },
+      reload: reloadPage,
+    });
+  }
 
   /**
    * What the page as a whole does about an edit, once per loader.
@@ -624,20 +657,20 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
    * - `src/hooks.client.ts` changed: under `hmr` a notice with "Reload
    *   page", under `manual` a console line; `remount` and `reload` reload.
    */
-  const followHotUpdates = (hot: NonNullable<ImportMeta["hot"]>): void => {
+  function followHotUpdates({ hot }: FollowHotUpdatesInput): void {
     /** Timestamps of edits to droplets that Vite's updates for are not this page's to run. */
     const held = new Set<number>();
     /** Contract notices already shown, per edit and droplet. */
     const shown = new Set<string>();
 
     hot.on("droplets:update", (raw) => {
-      const payload = readUpdate(raw);
+      const payload = readUpdate({ value: raw });
       if (!payload || payload.timestamp === undefined) return;
       if (activeStrategy() !== "hmr") {
         held.add(payload.timestamp);
         return;
       }
-      if (payload.kind === "contract") onContract(payload, shown);
+      if (payload.kind === "contract") onContract({ payload, shown });
     });
 
     hot.on("vite:beforeUpdate", (update) => {
@@ -660,15 +693,15 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
       const strategy = activeStrategy();
       if (strategy === "manual") return console.info("[droplets] src/hooks.client.ts changed; reload the page to run its init again");
       if (strategy !== "hmr") return reloadPage();
-      notify(
-        {
+      notify({
+        notification: {
           key: `${own} hooks.client`,
           message: "src/hooks.client.ts changed",
           detail: "Its init runs once per page, before any droplet starts: reload the page to run it again.",
           reload: true,
         },
-        reloadPage,
-      );
+        reload: reloadPage,
+      });
     });
 
     globalThis.addEventListener("droplets:hot-fallback", (event) => {
@@ -677,18 +710,18 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
       const { droplet, origin } = detail;
       if (typeof droplet !== "string" || !env.droplets.has(droplet) || origin !== own) return;
       if (activeStrategy() !== "hmr") return;
-      if (remountLive(droplet) > 0) {
+      if (remountLive({ droplet }) > 0) {
         console.info(`[droplets] ${droplet}: no HMR of its framework took this edit; remounted in place`);
       }
     });
-  };
+  }
 
   /**
    * The dev tool, for `dev.injectTool` or `index.js?injectTool=true`
    * (`false` turns it off for the page). The tool's module comes from this
    * server; the first one on the page creates the tool, each registers.
    */
-  const injectDevTool = async (): Promise<void> => {
+  async function injectDevTool(): Promise<void> {
     if (!toolUrl) {
       console.warn("[droplets] injectTool: the dev tool comes with @dropletsjs/devtools; add dropletsDevtools() to the Vite plugins");
       return;
@@ -699,9 +732,9 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
     } catch (error) {
       console.error("[droplets] could not load the dev tool", error);
     }
-  };
+  }
 
   const asked = new URL(env.url).searchParams.get("injectTool");
   if (asked === null ? configInjectTool : asked !== "false") void injectDevTool();
-  if (hot) followHotUpdates(hot);
+  if (hot) followHotUpdates({ hot });
 }

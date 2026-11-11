@@ -27,7 +27,10 @@ export const RESERVED_QUERY_KEYS: ReadonlySet<string> = new Set(["__cb", "c", "t
 /** The prefix of the query keys kept for a no-JavaScript action's result. */
 export const FORM_RESULT_PREFIX = "__droplet_form_";
 
-export function isReservedQueryKey(key: string): boolean {
+type IsReservedQueryKeyInput = { key: string };
+
+/** A query key the framework owns: never a droplet prop. */
+export function isReservedQueryKey({ key }: IsReservedQueryKeyInput): boolean {
   return RESERVED_QUERY_KEYS.has(key) || key.startsWith("/") || key.startsWith(FORM_RESULT_PREFIX);
 }
 
@@ -44,11 +47,14 @@ export function formResultKey(droplet: string, build: string): string {
  * The key of a raw `name=value` query part, decoded as `URLSearchParams`
  * (and so a server) reads it: a malformed escape (`%E0`) never hides a key.
  */
-function queryPartKey(part: string): string {
+type QueryPartKeyInput = { part: string };
+
+function queryPartKey({ part }: QueryPartKeyInput): string {
   const name = part.split("=", 1)[0] ?? "";
   try {
     return decodeURIComponent(name.replace(/\+/g, " "));
   } catch {
+    // A malformed escape: `URLSearchParams` decodes what it can, as a server does.
     return new URLSearchParams(`${name}=`).keys().next().value ?? name;
   }
 }
@@ -58,13 +64,17 @@ function queryPartKey(part: string): string {
  * parts dropped, as `[key, raw part]`. Every other part stays as it was
  * written: no re-encoding. A new `URL`; `url` is left alone.
  */
-function dropQueryKeys(url: URL, drop: (key: string) => boolean): { url: URL; dropped: [string, string][] } {
+type DropQueryKeysInput = { url: URL; drop: (key: string) => boolean };
+
+type DroppedQueryKeys = { url: URL; dropped: Array<[string, string]> };
+
+function dropQueryKeys({ url, drop }: DropQueryKeysInput): DroppedQueryKeys {
   const copy = new URL(url.href);
-  const dropped: [string, string][] = [];
+  const dropped: Array<[string, string]> = [];
   if (copy.search === "") return { url: copy, dropped };
   const kept: string[] = [];
   for (const part of copy.search.slice(1).split("&")) {
-    const key = queryPartKey(part);
+    const key = queryPartKey({ part });
     if (drop(key)) dropped.push([key, part]);
     else kept.push(part);
   }
@@ -78,9 +88,11 @@ function dropQueryKeys(url: URL, drop: (key: string) => boolean): { url: URL; dr
  * the framework's, never the page's. Every other part of the query stays
  * as it was written: no re-encoding. A new `URL`; `url` is left alone.
  */
-export function splitFormResults(url: URL): { url: URL; results: Map<string, string> } {
+export type SplitFormResults = { url: URL; results: Map<string, string> };
+
+export function splitFormResults(url: URL): SplitFormResults {
   const results = new Map<string, string>();
-  const split = dropQueryKeys(url, (key) => key.startsWith(FORM_RESULT_PREFIX) || key === RETURN_KEY);
+  const split = dropQueryKeys({ url, drop: (key) => key.startsWith(FORM_RESULT_PREFIX) || key === RETURN_KEY });
   for (const [key, part] of split.dropped) {
     if (key === RETURN_KEY) continue;
     const raw = part.includes("=") ? part.slice(part.indexOf("=") + 1) : "";
@@ -104,7 +116,10 @@ export function withoutFormResults(url: URL): URL {
  * `?/name` key (a GET never lands on an action URL) and without its hash.
  */
 export function backUrl(page: URL): URL {
-  const url = dropQueryKeys(page, (key) => key.startsWith("/") || key.startsWith(FORM_RESULT_PREFIX) || key === RETURN_KEY).url;
+  const { url } = dropQueryKeys({
+    url: page,
+    drop: (key) => key.startsWith("/") || key.startsWith(FORM_RESULT_PREFIX) || key === RETURN_KEY,
+  });
   url.hash = "";
   return url;
 }
@@ -149,7 +164,7 @@ export function actionHref(
   const query: string[] = [];
   if (name !== undefined && name !== "default") query.push(`/${name}`);
   for (const [key, value] of Object.entries(props ?? {})) {
-    if (isReservedQueryKey(key)) continue;
+    if (isReservedQueryKey({ key })) continue;
     if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") continue;
     query.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
   }

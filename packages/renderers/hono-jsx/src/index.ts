@@ -75,7 +75,7 @@ export function honoJsx(options: HonoJsxRendererOptions = {}): DropletRenderer {
     packages: ["hono/jsx", "@dropletsjs/renderer-hono-jsx"],
     componentTypes: "@dropletsjs/renderer-hono-jsx",
     // With React or Solid next to it, core says which `.tsx` modules are Hono's.
-    ...(options.plugin === false ? {} : { plugins: (scope) => [honoJsxPlugin(scope.include)] }),
+    ...(options.plugin === false ? {} : { plugins: (scope) => [honoJsxPlugin({ include: scope.include })] }),
     server: resolve(packageRoot, "dist/server.js"),
     client: resolve(packageRoot, "dist/client.js"),
     clientDev: resolve(packageRoot, "dist/client-dev.js"),

@@ -34,20 +34,26 @@ export type DevtoolsPageInput = {
   pageStyles?: boolean;
 };
 
+type WithPageStylesInput = { html: string };
+
 /** The page's own `<style>`, last in `<head>`, as `renderDevtoolsPage` puts it. */
-export function withPageStyles(html: string): string {
+export function withPageStyles({ html }: WithPageStylesInput): string {
   return html.replace("</head>", () => `<style>${STYLES}</style></head>`);
 }
 
+type JsonForScriptInput = { value: unknown };
+
 /** JSON that cannot close the `<script>` it sits in. */
-function jsonForScript(value: unknown): string {
+function jsonForScript({ value }: JsonForScriptInput): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
-function Segmented(props: { id: string; options: Array<[string, string]> }) {
+type SegmentedProps = { id: string; options: Array<[string, string]> };
+
+function Segmented({ id, options }: SegmentedProps) {
   return (
-    <span class="dt-seg" id={props.id}>
-      {props.options.map(([value, label]) => (
+    <span class="dt-seg" id={id}>
+      {options.map(([value, label]) => (
         <button type="button" data-value={value}>
           {label}
         </button>
@@ -56,13 +62,15 @@ function Segmented(props: { id: string; options: Array<[string, string]> }) {
   );
 }
 
-function Panel(props: { element: string }) {
+type PanelProps = { element: string };
+
+function Panel({ element }: PanelProps) {
   return (
     <aside class="dt-panel" id="dt-panel" aria-label="Droplets devtools">
       <header class="dt-head" id="dt-head" title="Drag to move">
         <span class="dt-dot" id="dt-conn"></span>
         <h1>Droplets devtools</h1>
-        <code>{`<${props.element}>`}</code>
+        <code>{`<${element}>`}</code>
         <button type="button" class="dt-btn dt-icon" id="dt-collapse" title="Collapse (Alt+D)">
           –
         </button>
@@ -187,7 +195,7 @@ export function renderDevtoolsPage(input: DevtoolsPageInput): string {
         </button>
         <Panel element={input.element} />
         <script type="application/json" id="dt-data">
-          {raw(jsonForScript(data))}
+          {raw(jsonForScript({ value: data }))}
         </script>
         {/* The dev tool is always on here: the page is a host like any other.
             vite-ignore: the droplets app serves index.js, not Vite's module

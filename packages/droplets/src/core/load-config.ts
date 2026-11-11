@@ -18,17 +18,21 @@ export type LoadedDropletsConfig = {
   dependencies: string[];
 };
 
-export async function findConfigFile(root: string, configFile?: string): Promise<string | null> {
+export type FindConfigFileInput = { root: string; configFile?: string | undefined };
+
+export type LoadDropletsConfigInput = { root: string; configEnv: ConfigEnv; configFile?: string | undefined };
+
+export async function findConfigFile({ root, configFile }: FindConfigFileInput): Promise<string | null> {
   if (configFile) {
     const path = resolve(root, configFile);
-    if (!(await fileExists(path))) {
+    if (!(await fileExists({ path }))) {
       throw new Error(`droplets: config file not found at ${path}`);
     }
     return path;
   }
   for (const candidate of CONFIG_FILE_CANDIDATES) {
     const path = resolve(root, candidate);
-    if (await fileExists(path)) return path;
+    if (await fileExists({ path })) return path;
   }
   return null;
 }
@@ -37,9 +41,9 @@ export async function findConfigFile(root: string, configFile?: string): Promise
  * Loads `droplets.config.ts` the same way Vite loads its own config file, so
  * TypeScript and ESM imports work without any extra tooling.
  */
-export async function loadDropletsConfig(root: string, configEnv: ConfigEnv, configFile?: string): Promise<LoadedDropletsConfig> {
-  await ensureTypesTsconfig(root);
-  const path = await findConfigFile(root, configFile);
+export async function loadDropletsConfig({ root, configEnv, configFile }: LoadDropletsConfigInput): Promise<LoadedDropletsConfig> {
+  await ensureTypesTsconfig({ root });
+  const path = await findConfigFile({ root, configFile });
   let user: DropletsConfig = {};
   let dependencies: string[] = [];
 
@@ -52,5 +56,5 @@ export async function loadDropletsConfig(root: string, configEnv: ConfigEnv, con
   }
 
   const env = { port: process.env["PORT"] };
-  return { config: resolveConfig(user, env), dev: resolveDevConfig(user, env), path, dependencies };
+  return { config: resolveConfig(user, env), dev: resolveDevConfig({ user, env }), path, dependencies };
 }

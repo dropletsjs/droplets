@@ -12,7 +12,9 @@ import type { FC } from "hono/jsx";
 // The automatic runtime's `jsx(type, props)`, with `children` in `props`.
 import { jsx } from "hono/jsx/jsx-runtime";
 
-function componentOf(module: ComponentModule, context: ServerRenderContext): FC<Record<string, unknown>> {
+type ComponentOfInput = { module: ComponentModule; context: Pick<ServerRenderContext, "droplet" | "kind"> };
+
+function componentOf({ module, context }: ComponentOfInput): FC<Record<string, unknown>> {
   const component = module.default;
   if (typeof component !== "function") {
     throw new Error(`${context.droplet}: the ${context.kind} component is not a Hono JSX component`);
@@ -21,7 +23,7 @@ function componentOf(module: ComponentModule, context: ServerRenderContext): FC<
 }
 
 export async function render(module: ComponentModule, props: RenderProps, context: ServerRenderContext): Promise<string> {
-  const component = componentOf(module, context);
+  const component = componentOf({ module, context });
   const children = jsx("div", { "data-droplet-children": "", style: "display: contents" });
   return String(await jsx(component, { ...props, children }).toString());
 }

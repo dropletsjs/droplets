@@ -17,11 +17,19 @@ const SERVER_FILES = ["+server.ts", "+server.js"];
 /** URL prefix every API route lives under. */
 export const API_PREFIX = "/api";
 
+export type ParseSegmentInput = { folder: string; file: string };
+
+export type RouteFromFoldersInput = { folders: readonly string[]; file: string };
+
+type WalkInput = { dir: string; found: string[] };
+
+export type DiscoverApiRoutesInput = { apiRoot: string };
+
 /**
  * Turns one folder name into a route segment, SvelteKit style. `(group)`
  * folders organise files without adding to the URL and return `null`.
  */
-export function parseSegment(folder: string, file: string): RouteSegment | null {
+export function parseSegment({ folder, file }: ParseSegmentInput): RouteSegment | null {
   if (/^\(.+\)$/.test(folder)) return null;
 
   const rest = folder.match(/^\[\.\.\.([A-Za-z_$][\w$]*)\]$/);
@@ -39,11 +47,11 @@ export function parseSegment(folder: string, file: string): RouteSegment | null 
 }
 
 /** Folder path, relative to the API folder, -> route segments. */
-export function routeFromFolders(folders: string[], file: string): ApiRouteEntry {
+export function routeFromFolders({ folders, file }: RouteFromFoldersInput): ApiRouteEntry {
   const segments: RouteSegment[] = [];
   const names = new Set<string>();
   for (const folder of folders) {
-    const segment = parseSegment(folder, file);
+    const segment = parseSegment({ folder, file });
     if (!segment) continue;
     if (segment.type !== "static") {
       if (names.has(segment.name)) {
@@ -61,16 +69,17 @@ export function routeFromFolders(folders: string[], file: string): ApiRouteEntry
   return { id, file, segments: [{ type: "static", value: API_PREFIX.slice(1) }, ...segments] };
 }
 
-async function walk(dir: string, found: string[]): Promise<void> {
+async function walk({ dir, found }: WalkInput): Promise<void> {
   let entries: Dirent[];
   try {
     entries = await readdir(dir, { withFileTypes: true });
   } catch {
+    // No API folder, or one that cannot be read: no routes from it.
     return;
   }
   for (const entry of entries) {
     const full = join(dir, entry.name);
-    if (entry.isDirectory()) await walk(full, found);
+    if (entry.isDirectory()) await walk({ dir: full, found });
     else if (SERVER_FILES.includes(entry.name)) found.push(full);
   }
 }
@@ -79,16 +88,16 @@ async function walk(dir: string, found: string[]): Promise<void> {
  * Every `+server.ts` under `apiRoot`, as routes sorted most specific first.
  * Two files that map to the same URL are an error.
  */
-export async function discoverApiRoutes(apiRoot: string): Promise<ApiRouteEntry[]> {
+export async function discoverApiRoutes({ apiRoot }: DiscoverApiRoutesInput): Promise<ApiRouteEntry[]> {
   const files: string[] = [];
-  await walk(apiRoot, files);
+  await walk({ dir: apiRoot, found: files });
 
   const routes: ApiRouteEntry[] = [];
   const byShape = new Map<string, string>();
   for (const full of files) {
     const file = relative(apiRoot, full).split(sep).join("/");
     const folders = file.split("/").slice(0, -1);
-    const route = routeFromFolders(folders, file);
+    const route = routeFromFolders({ folders, file });
 
     // `[id]` and `[slug]` at the same place match the same URLs.
     const shape = route.segments.map((s) => (s.type === "static" ? s.value : s.type === "param" ? "[]" : "[...]")).join("/");

@@ -4,17 +4,13 @@
  */
 import type { ClientRenderContext, ComponentModule, RenderProps } from "@dropletsjs/droplets";
 import { Component, type ComponentChild, type ComponentChildren, type ComponentType, h } from "preact";
-import { childrenElement, ChildrenHostContext } from "./children.ts";
+import { ChildrenHostContext, childrenElement } from "./children.ts";
 
 export type AnyComponent = ComponentType<Record<string, unknown>>;
 
-export function componentOf(module: ComponentModule, context: ClientRenderContext): AnyComponent {
-  const component = module.default;
-  if (typeof component !== "function") {
-    throw new Error(`${context.droplet}: the ${context.kind} component is not a Preact component`);
-  }
-  return component as AnyComponent;
-}
+type ComponentOfInput = { module: ComponentModule; context: Pick<ClientRenderContext, "droplet" | "kind"> };
+
+export type TreeInput = { component: AnyComponent; props: RenderProps; context: ClientRenderContext };
 
 type BoundaryProps = {
   errorComponent: AnyComponent;
@@ -23,10 +19,19 @@ type BoundaryProps = {
 };
 type BoundaryState = { failed: boolean; shown?: { error: unknown } };
 
+export function componentOf({ module, context }: ComponentOfInput): AnyComponent {
+  const component = module.default;
+  if (typeof component !== "function") {
+    throw new Error(`${context.droplet}: the ${context.kind} component is not a Preact component`);
+  }
+  return component as AnyComponent;
+}
+
 /**
  * The error boundary of a mounted droplet: what throws while rendering
  * goes through `handle` (the droplet's `handleError`) into the error page,
  * rendered in its place; nothing while `handle` runs, or when it rejects.
+ * A class: Preact catches render errors only in class components.
  */
 class DropletBoundary extends Component<BoundaryProps, BoundaryState> {
   override state: BoundaryState = { failed: false };
@@ -38,6 +43,7 @@ class DropletBoundary extends Component<BoundaryProps, BoundaryState> {
   override componentDidCatch(error: unknown): void {
     this.props.handle(error).then(
       (shown) => this.setState({ shown: { error: shown } }),
+      // `handleError` rejected: the boundary shows nothing.
       () => undefined,
     );
   }
@@ -50,14 +56,15 @@ class DropletBoundary extends Component<BoundaryProps, BoundaryState> {
 }
 
 /** The component with its props, under the provider that gives `children` the element's host. */
-export function tree(component: AnyComponent, props: RenderProps, context: ClientRenderContext): ComponentChild {
+export function tree({ component, props, context }: TreeInput): ComponentChild {
   let node: ComponentChild = h(component, { ...props, children: childrenElement() });
   if (context.error) {
-    const errorComponent = componentOf(context.error.module, { ...context, kind: "error" });
+    const errorComponent = componentOf({ module: context.error.module, context: { ...context, kind: "error" } });
     node = h(DropletBoundary, { errorComponent, handle: context.error.handle }, node);
   }
   return h(ChildrenHostContext.Provider, { value: context.children }, node);
 }
 
-export const isThenable = (value: unknown): value is PromiseLike<unknown> =>
-  typeof (value as { then?: unknown } | null)?.then === "function";
+export function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return typeof (value as { then?: unknown } | null)?.then === "function";
+}

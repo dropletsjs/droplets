@@ -76,7 +76,9 @@ function fakeModule(overrides: Record<string, unknown> = {}) {
 }
 
 /** What the `n`th render got as `data`, settled: a promise when it mounted, the value when it hydrated. */
-async function dataOf(fake: { default: { mock: { calls: unknown[][] } } }, n = 0): Promise<LoadEvent> {
+type DataOfInput = { fake: { default: { mock: { calls: unknown[][] } } }; n?: number };
+
+async function dataOf({ fake, n = 0 }: DataOfInput): Promise<LoadEvent> {
   return (await fake.default.mock.calls[n]?.[1]) as LoadEvent;
 }
 
@@ -87,11 +89,14 @@ function deferredResponse() {
   return { promise, resolve };
 }
 
-const json = (body: unknown, init: ResponseInit = {}) =>
-  new Response(JSON.stringify(body), {
+type JsonInput = { body: unknown; init?: ResponseInit };
+
+function json({ body, init = {} }: JsonInput): Response {
+  return new Response(JSON.stringify(body), {
     ...init,
     headers: { "content-type": "application/json", ...(init.headers as Record<string, string>) },
   });
+}
 
 type Droplet = import("../../src/runtime/dev-element.ts").DevDropletElement;
 /** The element class as `installDevElement` leaves it under vitest, where `import.meta.env.DEV` is true. */
@@ -109,11 +114,11 @@ describe("decodeBase64Json", () => {
     const value = { who: "Șorin ✓", n: 1 };
     const encoded = encode(value);
     const spaced = `${encoded.slice(0, 4)}\n  ${encoded.slice(4)}`;
-    expect(mod.decodeBase64Json(spaced)).toEqual(value);
+    expect(mod.decodeBase64Json({ encoded: spaced })).toEqual(value);
   });
 
   it("throws on garbage", () => {
-    expect(() => mod.decodeBase64Json("!!")).toThrow();
+    expect(() => mod.decodeBase64Json({ encoded: "!!" })).toThrow();
   });
 });
 
@@ -150,7 +155,7 @@ describe("<djs-droplet>", () => {
   it("loads from where /index.js came from, whatever the markup says", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => json({ data: {} })),
+      vi.fn(async () => json({ body: { data: {} } })),
     );
     loadedFrom("https://shop.test/mfe");
     fakeModule();
@@ -163,7 +168,7 @@ describe("<djs-droplet>", () => {
   it("falls back to the root of the build its bundle came from, never the page's origin, when /index.js recorded nothing", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => json({ data: {} })),
+      vi.fn(async () => json({ body: { data: {} } })),
     );
     delete servers[SERVERS];
     fakeModule();
@@ -177,7 +182,7 @@ describe("<djs-droplet>", () => {
   });
 
   it("fetches _data with the attribute context when nothing is inlined", async () => {
-    const fetchSpy = vi.fn(async () => json({ data: { who: "Remote" } }));
+    const fetchSpy = vi.fn(async () => json({ body: { data: { who: "Remote" } } }));
     vi.stubGlobal("fetch", fetchSpy);
     const fake = fakeModule();
 
@@ -194,14 +199,14 @@ describe("<djs-droplet>", () => {
     expect(JSON.parse(String(init.body))).toEqual(context);
 
     // The context goes back as it came; the browser's load runs on the page.
-    const event = await dataOf(fake);
+    const event = await dataOf({ fake });
     expect(event?.host.href).toBe(globalThis.location.href);
     expect(event?.props).toEqual({ who: "Remote" });
     expect(event?.data).toEqual({ who: "Remote" });
   });
 
   it("never forwards the page's query string to _data: a page's ?code= is not a prop", async () => {
-    const fetchSpy = vi.fn(async () => json({ data: {} }));
+    const fetchSpy = vi.fn(async () => json({ body: { data: {} } }));
     vi.stubGlobal("fetch", fetchSpy);
     const page = globalThis.location.href;
     history.replaceState(null, "", "/checkout?code=secret&who=Eve#top");
@@ -218,7 +223,7 @@ describe("<djs-droplet>", () => {
       expect(body.props).toEqual({ who: "Ana" });
       // `host` is the page: path and query, never the fragment.
       expect(body.host).toBe(`${location.origin}/checkout?code=secret&who=Eve`);
-      const event = await dataOf(fake);
+      const event = await dataOf({ fake });
       expect(event?.props).toEqual({ who: "Ana" });
       expect(event?.host.hash).toBe("");
     } finally {
@@ -227,7 +232,7 @@ describe("<djs-droplet>", () => {
   });
 
   it("mounts with the form _data answers when the page carries a no-JavaScript result, and hides it from load", async () => {
-    const fetchSpy = vi.fn(async () => json({ data: { who: "Ana" }, form: { message: "Thanks" } }));
+    const fetchSpy = vi.fn(async () => json({ body: { data: { who: "Ana" }, form: { message: "Thanks" } } }));
     vi.stubGlobal("fetch", fetchSpy);
     const page = globalThis.location.href;
     history.replaceState(null, "", "/book?q=1&__droplet_form_hello_test01=abc.def");
@@ -243,7 +248,7 @@ describe("<djs-droplet>", () => {
       expect(fake.default).toHaveBeenCalledOnce();
       const info = (fake.default.mock.calls[0] ?? expect.unreachable("a mount call"))[3] as { form?: unknown };
       expect(info.form).toEqual({ message: "Thanks" });
-      const event = await dataOf(fake);
+      const event = await dataOf({ fake });
       expect(event.host.href).toBe(`${location.origin}/book?q=1`);
       expect(event.data).toEqual({ who: "Ana" });
     } finally {
@@ -252,7 +257,7 @@ describe("<djs-droplet>", () => {
   });
 
   it("sends the page's result with a server-fetched context that has none", async () => {
-    const fetchSpy = vi.fn(async () => json({ data: {}, form: { message: "Thanks" } }));
+    const fetchSpy = vi.fn(async () => json({ body: { data: {}, form: { message: "Thanks" } } }));
     vi.stubGlobal("fetch", fetchSpy);
     const page = globalThis.location.href;
     history.replaceState(null, "", "/book?__droplet_form_hello_test01=abc.def&__droplet_form_other_test01=x.y");
@@ -292,7 +297,7 @@ describe("<djs-droplet>", () => {
     mount(`<djs-droplet data-droplet="plain" data-context="${encode({ host: "https://host.test", props: { n: 1 } })}"></djs-droplet>`);
     await tick();
     expect(fetchSpy).not.toHaveBeenCalled();
-    const event = await dataOf(fake);
+    const event = await dataOf({ fake });
     expect(event?.props).toEqual({ n: 1 });
     expect(event?.data).toBeUndefined();
   });
@@ -302,7 +307,7 @@ describe("<djs-droplet>", () => {
     const fake = fakeModule();
     mount(`<djs-droplet data-droplet="plain" data-params='{"page":2}'></djs-droplet>`);
     await tick();
-    const event = await dataOf(fake);
+    const event = await dataOf({ fake });
     expect(event?.props).toEqual({ page: 2 });
     expect(event?.host.href).toBe(globalThis.location.href);
   });
@@ -314,11 +319,11 @@ describe("<djs-droplet>", () => {
       `<djs-droplet data-droplet="plain" data-context="${encode({ host: "https://a.test", props: { from: "context" } })}" data-params='{"from":"params"}'></djs-droplet>`,
     );
     await tick();
-    expect((await dataOf(fake)).props).toEqual({ from: "context" });
+    expect((await dataOf({ fake })).props).toEqual({ from: "context" });
   });
 
   it("validates props in the browser before _data, and sends the result", async () => {
-    const fetchSpy = vi.fn(async () => json({ data: "ok" }));
+    const fetchSpy = vi.fn(async () => json({ body: { data: "ok" } }));
     vi.stubGlobal("fetch", fetchSpy);
     const fake = fakeModule({ validate: vi.fn(async () => ({ page: 2 })) });
     mount(`<djs-droplet data-droplet="hello" data-params='{"page":"2"}'></djs-droplet>`);
@@ -327,7 +332,7 @@ describe("<djs-droplet>", () => {
     expect(fake.validate).toHaveBeenCalledWith({ page: "2" });
     const [, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
     expect(JSON.parse(String(init.body)).props).toEqual({ page: 2 });
-    expect((await dataOf(fake)).props).toEqual({ page: 2 });
+    expect((await dataOf({ fake })).props).toEqual({ page: 2 });
   });
 
   it("renders nothing when the schema refuses the props", async () => {
@@ -350,7 +355,7 @@ describe("<djs-droplet>", () => {
   it("shows +error.svelte for a { error } from _data, through handleError", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => json({ error: { message: "Sorry" } }, { status: 500 })),
+      vi.fn(async () => json({ body: { error: { message: "Sorry" } }, init: { status: 500 } })),
     );
     const fake = fakeModule({ handleError: vi.fn(async () => ({ message: "[hello] Sorry" })) });
     mount(`<djs-droplet data-droplet="hello" data-context="${encode({ props: {} })}"></djs-droplet>`);
@@ -366,8 +371,8 @@ describe("<djs-droplet>", () => {
   it("renders nothing for error(), a redirect or an unhandled answer from _data", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     for (const response of [
-      json({ message: "Forbidden" }, { status: 403 }),
-      json({ message: "Internal Server Error" }, { status: 500 }),
+      json({ body: { message: "Forbidden" }, init: { status: 403 } }),
+      json({ body: { message: "Internal Server Error" }, init: { status: 500 } }),
       new Response(null, { status: 0 }),
     ]) {
       const fetchSpy = vi.fn(async () => response);
@@ -485,7 +490,7 @@ describe("<djs-droplet>", () => {
   it("reports a stale build from the _data header and takes the droplet down", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => json({ data: {} }, { headers: { "x-droplets-build": "new999" } })),
+      vi.fn(async () => json({ body: { data: {} }, init: { headers: { "x-droplets-build": "new999" } } })),
     );
     const fake = fakeModule();
     const listener = vi.fn();
@@ -530,7 +535,7 @@ describe("<djs-droplet>", () => {
     expect(fake.default).toHaveBeenCalledOnce();
     const data = fake.default.mock.calls[0]?.[1];
     expect(data).toBeInstanceOf(Promise);
-    answer.resolve(json({ data: "Remote" }));
+    answer.resolve(json({ body: { data: "Remote" } }));
     const value = (await data) as { who: unknown; comments: unknown };
     expect(value.who).toBe("Remote");
     expect(value.comments).toBe(comments);
@@ -550,7 +555,7 @@ describe("<djs-droplet>", () => {
     await tick();
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(fake.validate).not.toHaveBeenCalled();
-    const event = await dataOf(fake);
+    const event = await dataOf({ fake });
     expect(event?.data).toEqual({ who: "Inline" });
     expect(event?.props).toEqual({ page: 2 });
     expect(event?.host.href).toBe(globalThis.location.href);
@@ -567,7 +572,7 @@ describe("<djs-droplet>", () => {
     );
     await tick();
     expect(fetchSpy).not.toHaveBeenCalled();
-    expect((await dataOf(fake)).data).toBeUndefined();
+    expect((await dataOf({ fake })).data).toBeUndefined();
   });
 });
 
@@ -614,10 +619,15 @@ const filledIn = (el: HTMLElement) =>
     (c) => c.closest("[data-droplet]") === el,
   ) ?? null;
 
-const ssrWithMarker = (droplet: string, extra = "") =>
-  `<djs-droplet data-droplet="${droplet}"${extra}>` +
-  `<script type="application/text" data-droplet-data>${encode({ data: {} })}</script>` +
-  '<div data-droplet-entry><article><h1>ssr</h1><div data-droplet-children style="display: contents"></div></article></div>';
+type SsrWithMarkerInput = { droplet: string; extra?: string };
+
+function ssrWithMarker({ droplet, extra = "" }: SsrWithMarkerInput): string {
+  return (
+    `<djs-droplet data-droplet="${droplet}"${extra}>` +
+    `<script type="application/text" data-droplet-data>${encode({ data: {} })}</script>` +
+    '<div data-droplet-entry><article><h1>ssr</h1><div data-droplet-children style="display: contents"></div></article></div>'
+  );
+}
 
 describe("the droplet's stylesheet", () => {
   /** Holds back `load` and `error` of the droplet's `style.css` until the test lets them through. */
@@ -626,7 +636,8 @@ describe("the droplet's stylesheet", () => {
     const dispatch = HTMLLinkElement.prototype.dispatchEvent;
     // happy-dom's dispatch goes through `this.dispatchEvent` again: let those through.
     let releasing = false;
-    const release = (link: HTMLLinkElement, event: Event) => {
+    type ReleaseInput = { link: HTMLLinkElement; event: Event };
+    const release = ({ link, event }: ReleaseInput) => {
       releasing = true;
       try {
         dispatch.call(link, event);
@@ -636,12 +647,12 @@ describe("the droplet's stylesheet", () => {
     };
     vi.spyOn(HTMLLinkElement.prototype, "dispatchEvent").mockImplementation(function (this: HTMLLinkElement, event: Event) {
       if (!releasing && this.hasAttribute("data-droplet-style") && (event.type === "load" || event.type === "error")) {
-        held.push(() => release(this, event));
+        held.push(() => release({ link: this, event }));
         return true;
       }
       return dispatch.call(this, event);
     });
-    return { held, fail: (link: HTMLLinkElement) => release(link, new Event("error")) };
+    return { held, fail: (link: HTMLLinkElement) => release({ link, event: new Event("error") }) };
   }
 
   it("links a host-written droplet's style.css inside itself, its stylesheets preloaded, and mounts once it loaded", async () => {
@@ -760,7 +771,7 @@ describe("children", () => {
       await new Promise<void>((r) => (release = r));
       return fake;
     }) as never;
-    const el = mount(`${ssrWithMarker("hello")}<div data-droplet-slot><p>kid</p></div></djs-droplet>`);
+    const el = mount(`${ssrWithMarker({ droplet: "hello" })}<div data-droplet-slot><p>kid</p></div></djs-droplet>`);
     // Synchronously: in the marker, shown, the same node the host wrote.
     const container = filledIn(el);
     expect(container).not.toBeNull();
@@ -790,7 +801,7 @@ describe("children", () => {
         return { marker, host };
       }),
     });
-    const el = mount(`${ssrWithMarker("hello")}<div data-droplet-slot><p>kid</p></div></djs-droplet>`);
+    const el = mount(`${ssrWithMarker({ droplet: "hello" })}<div data-droplet-slot><p>kid</p></div></djs-droplet>`);
     const container = filledIn(el) ?? expect.unreachable("the container");
     await tick();
     expect(fake.default).toHaveBeenCalledOnce();
@@ -952,7 +963,7 @@ describe("children", () => {
         () => {
           vi.stubGlobal(
             "fetch",
-            vi.fn(async () => json({ message: "Forbidden" }, { status: 403 })),
+            vi.fn(async () => json({ body: { message: "Forbidden" }, init: { status: 403 } })),
           );
           markerModule();
         },
@@ -963,7 +974,7 @@ describe("children", () => {
         () => {
           vi.stubGlobal(
             "fetch",
-            vi.fn(async () => json({ data: {} }, { headers: { "x-droplets-build": "new999" } })),
+            vi.fn(async () => json({ body: { data: {} }, init: { headers: { "x-droplets-build": "new999" } } })),
           );
           markerModule();
         },
@@ -1028,7 +1039,7 @@ describe("children", () => {
     );
     await tick();
     const [target] = fake.default.mock.calls[0] as unknown as [HTMLElement];
-    const event = await dataOf(fake);
+    const event = await dataOf({ fake });
     expect(target.parentElement).toBe(el);
     expect(event.props).toEqual({ from: "outer" });
     expect(event.data).toBeUndefined();
@@ -1144,18 +1155,18 @@ describe("_data per element", () => {
     await tick();
     expect(fetchSpy).toHaveBeenCalledOnce();
 
-    pending.resolve(json({ data: { who: "Late" } }));
+    pending.resolve(json({ body: { data: { who: "Late" } } }));
     await tick();
     // Each run mounted at once; the first went with the disconnect. Both
     // waited on the one request.
     expect(fake.default).toHaveBeenCalledTimes(2);
     expect(fake.unmount).toHaveBeenCalledOnce();
-    expect((await dataOf(fake, 1)).data).toEqual({ who: "Late" });
+    expect((await dataOf({ fake, n: 1 })).data).toEqual({ who: "Late" });
     expect(fake.validate).toHaveBeenCalledTimes(2);
   });
 
   it("reuses the answer on reconnect, and runs the cheap steps again", async () => {
-    const fetchSpy = vi.fn(async () => json({ data: { n: 1 } }));
+    const fetchSpy = vi.fn(async () => json({ body: { data: { n: 1 } } }));
     vi.stubGlobal("fetch", fetchSpy);
     const fake = fakeModule();
     const el = mount(`<djs-droplet data-droplet="hello" data-params='{"page":1}'></djs-droplet>`);
@@ -1168,11 +1179,11 @@ describe("_data per element", () => {
     expect(fake.unmount).toHaveBeenCalledOnce();
     expect(fake.load).toHaveBeenCalledTimes(2);
     expect(fake.default).toHaveBeenCalledTimes(2);
-    expect((await dataOf(fake, 1)).data).toEqual({ n: 1 });
+    expect((await dataOf({ fake, n: 1 })).data).toEqual({ n: 1 });
   });
 
   it("asks again when the context changed", async () => {
-    const fetchSpy = vi.fn(async () => json({ data: {} }));
+    const fetchSpy = vi.fn(async () => json({ body: { data: {} } }));
     vi.stubGlobal("fetch", fetchSpy);
     fakeModule();
     const el = mount(`<djs-droplet data-droplet="hello" data-params='{"page":1}'></djs-droplet>`);
@@ -1188,7 +1199,7 @@ describe("_data per element", () => {
   });
 
   it("asks again after an update", async () => {
-    const fetchSpy = vi.fn(async () => json({ data: {} }));
+    const fetchSpy = vi.fn(async () => json({ body: { data: {} } }));
     vi.stubGlobal("fetch", fetchSpy);
     fakeModule();
     const el = mount(`<djs-droplet data-droplet="hello" data-params='{"page":1}'></djs-droplet>`);
@@ -1204,7 +1215,7 @@ describe("_data per element", () => {
 
   it("asks again after an error answer or a failed request", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const failing = vi.fn(async () => json({ error: { message: "Sorry" } }, { status: 500 }));
+    const failing = vi.fn(async () => json({ body: { error: { message: "Sorry" } }, init: { status: 500 } }));
     vi.stubGlobal("fetch", failing);
     const fake = fakeModule();
     const el = mount(`<djs-droplet data-droplet="hello" data-params='{"page":1}'></djs-droplet>`);
@@ -1228,7 +1239,7 @@ describe("_data per element", () => {
   });
 
   it("never shares a request between elements", async () => {
-    const fetchSpy = vi.fn(async () => json({ data: {} }));
+    const fetchSpy = vi.fn(async () => json({ body: { data: {} } }));
     vi.stubGlobal("fetch", fetchSpy);
     fakeModule();
     mount(`<djs-droplet data-droplet="hello" data-params='{"page":1}'></djs-droplet>`);
@@ -1270,27 +1281,33 @@ describe("clicks before hydration", () => {
   }
 
   /** Dispatches a click as a user would; `false` when a listener prevented it. */
-  const click = (node: Element, init: MouseEventInit = {}) =>
-    node.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, composed: true, ...init }));
+  type ClickInput = { node: Element; init?: MouseEventInit };
+  function click({ node, init = {} }: ClickInput): boolean {
+    return node.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, composed: true, ...init }));
+  }
 
   const targets = (spy: ClickSpy) => spy.mock.calls.map((call) => call[0].target);
 
-  const ssr = (droplet: string, markup: string, extra = "") =>
-    `<djs-droplet data-droplet="${droplet}"${extra}>` +
-    `<script type="application/text" data-droplet-data>${encode({ data: {} })}</script>` +
-    `<div data-droplet-entry>${markup}</div></djs-droplet>`;
+  type SsrInput = { droplet: string; markup: string; extra?: string };
+  function ssr({ droplet, markup, extra = "" }: SsrInput): string {
+    return (
+      `<djs-droplet data-droplet="${droplet}"${extra}>` +
+      `<script type="application/text" data-droplet-data>${encode({ data: {} })}</script>` +
+      `<div data-droplet-entry>${markup}</div></djs-droplet>`
+    );
+  }
 
   it("holds clicks on server markup that hydrates, replays them in order, then steps aside", async () => {
     vi.stubGlobal("fetch", vi.fn());
     const spy = vi.fn<(event: Event) => void>();
     const { release } = slowModule({ default: listening(spy) });
-    const el = mount(ssr("hello", '<button id="a">a</button><button id="b">b</button>'));
+    const el = mount(ssr({ droplet: "hello", markup: '<button id="a">a</button><button id="b">b</button>' }));
     const a = el.querySelector("#a") ?? expect.unreachable("#a");
     const b = el.querySelector("#b") ?? expect.unreachable("#b");
 
-    expect(click(a)).toBe(false);
-    expect(click(b)).toBe(false);
-    expect(click(a)).toBe(false);
+    expect(click({ node: a })).toBe(false);
+    expect(click({ node: b })).toBe(false);
+    expect(click({ node: a })).toBe(false);
     await tick();
     expect(spy).not.toHaveBeenCalled();
 
@@ -1300,7 +1317,7 @@ describe("clicks before hydration", () => {
     expect((spy.mock.calls[0] ?? expect.unreachable("a click"))[0].bubbles).toBe(true);
 
     // Hydrated: the listener is gone, the component sees the click itself.
-    expect(click(a)).toBe(true);
+    expect(click({ node: a })).toBe(true);
     expect(spy).toHaveBeenCalledTimes(4);
   });
 
@@ -1316,13 +1333,13 @@ describe("clicks before hydration", () => {
     mod.DjsDropletElement.importModule = importSpy as never;
 
     // hydrate = false: the markup stays as the server made it.
-    const stays = mount(ssr("clock", '<button id="s">s</button>'));
+    const stays = mount(ssr({ droplet: "clock", markup: '<button id="s">s</button>' }));
     // Its +error.svelte does not hydrate either.
-    const error = mount(ssr("clock", '<button id="e">e</button>', " data-droplet-error"));
+    const error = mount(ssr({ droplet: "clock", markup: '<button id="e">e</button>', extra: " data-droplet-error" }));
     // Client-only: no server markup to click on.
     const clientOnly = mount('<djs-droplet data-droplet="plain"></djs-droplet>');
-    expect(click(stays.querySelector("#s") ?? expect.unreachable("#s"))).toBe(true);
-    expect(click(error.querySelector("#e") ?? expect.unreachable("#e"))).toBe(true);
+    expect(click({ node: stays.querySelector("#s") ?? expect.unreachable("#s") })).toBe(true);
+    expect(click({ node: error.querySelector("#e") ?? expect.unreachable("#e") })).toBe(true);
     await tick();
     expect(importSpy).toHaveBeenCalledOnce();
     expect(clientOnly.querySelector("[data-droplet-entry]")).not.toBeNull();
@@ -1341,12 +1358,12 @@ describe("clicks before hydration", () => {
         '<div data-droplet-entry><p>Sorry</p><button id="retry">0</button></div></djs-droplet>',
     );
     const retry = el.querySelector("#retry") ?? expect.unreachable("#retry");
-    expect(click(retry)).toBe(false);
+    expect(click({ node: retry })).toBe(false);
     release();
     await tick();
     expect(fake.default).not.toHaveBeenCalled();
     expect(targets(spy)).toEqual([retry]);
-    expect(click(retry)).toBe(true);
+    expect(click({ node: retry })).toBe(true);
   });
 
   it("ignores clicks on the host's children in their container and inside a nested droplet", async () => {
@@ -1355,7 +1372,7 @@ describe("clicks before hydration", () => {
     const { release } = slowModule({ default: listening(spy) });
     const nested = '<djs-droplet data-droplet="clock">' + '<div data-droplet-entry><button id="inner">inner</button></div></djs-droplet>';
     const el = mount(
-      ssr("hello", `<button id="own">own</button><div data-droplet-children></div>${nested}`).replace(
+      ssr({ droplet: "hello", markup: `<button id="own">own</button><div data-droplet-children></div>${nested}` }).replace(
         /<\/djs-droplet>$/,
         '<div data-droplet-slot><button id="kid">kid</button></div></djs-droplet>',
       ),
@@ -1365,9 +1382,9 @@ describe("clicks before hydration", () => {
     const inner = el.querySelector("#inner") ?? expect.unreachable("#inner");
     // The container moved into the marker at connect: the kid's click is still the host's.
     expect(kid.closest("[data-droplet-children]")).not.toBeNull();
-    expect(click(own)).toBe(false);
-    expect(click(kid)).toBe(true);
-    expect(click(inner)).toBe(true);
+    expect(click({ node: own })).toBe(false);
+    expect(click({ node: kid })).toBe(true);
+    expect(click({ node: inner })).toBe(true);
     release();
     await tick();
     // `listening` picked every button under the root, nested and hosted ones included.
@@ -1378,26 +1395,30 @@ describe("clicks before hydration", () => {
     vi.stubGlobal("fetch", vi.fn());
     const spy = vi.fn<(event: Event) => void>();
     const { release } = slowModule({ default: listening(spy) });
-    const el = mount(ssr("hello", '<button id="a">a</button><button id="moved">b</button>'));
+    const el = mount(ssr({ droplet: "hello", markup: '<button id="a">a</button><button id="moved">b</button>' }));
     const button = el.querySelector("#moved") as HTMLElement;
-    const rect = (left: number, top: number, width: number, height: number) =>
+    type RectInput = { left: number; top: number; width: number; height: number };
+    const rect = ({ left, top, width, height }: RectInput) =>
       ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
-    button.getBoundingClientRect = () => rect(100, 50, 200, 100);
+    button.getBoundingClientRect = () => rect({ left: 100, top: 50, width: 200, height: 100 });
     // A quarter of the way in, on both axes.
-    click(button, {
-      clientX: 150,
-      clientY: 75,
-      screenX: 1150,
-      screenY: 575,
-      button: 0,
-      buttons: 1,
-      shiftKey: true,
-      metaKey: true,
-      detail: 2,
+    click({
+      node: button,
+      init: {
+        clientX: 150,
+        clientY: 75,
+        screenX: 1150,
+        screenY: 575,
+        button: 0,
+        buttons: 1,
+        shiftKey: true,
+        metaKey: true,
+        detail: 2,
+      },
     });
 
     // The page shifted before hydration finished: the button is elsewhere, and smaller.
-    button.getBoundingClientRect = () => rect(300, 400, 100, 40);
+    button.getBoundingClientRect = () => rect({ left: 300, top: 400, width: 100, height: 40 });
     release();
     await tick();
     expect(spy).toHaveBeenCalledOnce();
@@ -1415,7 +1436,8 @@ describe("clicks before hydration", () => {
     let clock = 0;
     vi.spyOn(Date, "now").mockImplementation(() => clock);
     const spy = vi.fn<(event: Event) => void>();
-    const scenario = async (hydrateTakes: number, releaseAt: number) => {
+    type ScenarioInput = { hydrateTakes: number; releaseAt: number };
+    const scenario = async ({ hydrateTakes, releaseAt }: ScenarioInput) => {
       spy.mockClear();
       const { release } = slowModule({
         default: vi.fn((target: HTMLElement) => {
@@ -1426,14 +1448,16 @@ describe("clicks before hydration", () => {
           return {};
         }),
       });
-      const el = mount(ssr("hello", '<button id="old">o</button><button id="gone">g</button><button id="fresh">f</button>'));
+      const el = mount(
+        ssr({ droplet: "hello", markup: '<button id="old">o</button><button id="gone">g</button><button id="fresh">f</button>' }),
+      );
       const gone = el.querySelector("#gone") ?? expect.unreachable("#gone");
       const goneSpy = vi.spyOn(gone, "dispatchEvent");
       clock = 1_000;
-      click(el.querySelector("#old") ?? expect.unreachable("#old"));
+      click({ node: el.querySelector("#old") ?? expect.unreachable("#old") });
       clock = 1_400;
-      click(gone);
-      click(el.querySelector("#fresh") ?? expect.unreachable("#fresh"));
+      click({ node: gone });
+      click({ node: el.querySelector("#fresh") ?? expect.unreachable("#fresh") });
       goneSpy.mockClear();
       clock = releaseAt;
       release();
@@ -1444,11 +1468,11 @@ describe("clicks before hydration", () => {
       return replayed;
     };
     // A slow download is the framework's time: both clicks still count.
-    expect(await scenario(0, 8_000)).toEqual(["old", "fresh"]);
+    expect(await scenario({ hydrateTakes: 0, releaseAt: 8_000 })).toEqual(["old", "fresh"]);
     // An engine that takes over 1500 ms to hydrate: dropped.
-    expect(await scenario(1_600, 2_000)).toEqual([]);
+    expect(await scenario({ hydrateTakes: 1_600, releaseAt: 2_000 })).toEqual([]);
     // Over 10 s since the click, however it was held: dropped.
-    expect(await scenario(0, 11_200)).toEqual(["fresh"]);
+    expect(await scenario({ hydrateTakes: 0, releaseAt: 11_200 })).toEqual(["fresh"]);
   });
 
   it("replays a retry on the same node once, and keeps a double click", async () => {
@@ -1457,18 +1481,18 @@ describe("clicks before hydration", () => {
     vi.spyOn(Date, "now").mockImplementation(() => clock);
     const spy = vi.fn<(event: Event) => void>();
     const { release } = slowModule({ default: listening(spy) });
-    const el = mount(ssr("hello", '<button id="buy">b</button><button id="zoom">z</button>'));
+    const el = mount(ssr({ droplet: "hello", markup: '<button id="buy">b</button><button id="zoom">z</button>' }));
     const buy = el.querySelector("#buy") ?? expect.unreachable("#buy");
     const zoom = el.querySelector("#zoom") ?? expect.unreachable("#zoom");
     // Nothing happened, so the user clicked again: one purchase.
-    click(buy, { detail: 1, clientX: 1 });
+    click({ node: buy, init: { detail: 1, clientX: 1 } });
     clock = 1_600;
-    click(buy, { detail: 1, clientX: 2 });
+    click({ node: buy, init: { detail: 1, clientX: 2 } });
     // A double click: both.
     clock = 1_700;
-    click(zoom, { detail: 1 });
+    click({ node: zoom, init: { detail: 1 } });
     clock = 1_800;
-    click(zoom, { detail: 2 });
+    click({ node: zoom, init: { detail: 2 } });
     release();
     await tick();
     const calls = spy.mock.calls.map(([event]) => [(event.target as Element).id, (event as MouseEvent).detail]);
@@ -1491,19 +1515,19 @@ describe("clicks before hydration", () => {
         }),
       ),
     });
-    const el = mount(ssr("hello", '<button id="a">a</button>'));
+    const el = mount(ssr({ droplet: "hello", markup: '<button id="a">a</button>' }));
     const a = el.querySelector("#a") ?? expect.unreachable("#a");
-    expect(click(a)).toBe(false);
+    expect(click({ node: a })).toBe(false);
     release();
     await tick();
     // The engine is still rendering: the click waits, and so does the listener.
     expect(spy).not.toHaveBeenCalled();
-    expect(click(a)).toBe(false);
+    expect(click({ node: a })).toBe(false);
 
     handle.resolve({ live: true });
     await tick();
     expect(targets(spy)).toEqual([a, a]);
-    expect(click(a)).toBe(true);
+    expect(click({ node: a })).toBe(true);
   });
 
   it("drops the queue and unmounts the late handle when the element leaves mid-hydrate", async () => {
@@ -1516,8 +1540,8 @@ describe("clicks before hydration", () => {
         return handle.promise;
       }),
     });
-    const el = mount(ssr("hello", '<button id="a">a</button>'));
-    expect(click(el.querySelector("#a") ?? expect.unreachable("#a"))).toBe(false);
+    const el = mount(ssr({ droplet: "hello", markup: '<button id="a">a</button>' }));
+    expect(click({ node: el.querySelector("#a") ?? expect.unreachable("#a") })).toBe(false);
     release();
     await tick();
     expect(fake.default).toHaveBeenCalledOnce();
@@ -1538,8 +1562,8 @@ describe("clicks before hydration", () => {
       }),
       renderError: vi.fn(() => null),
     });
-    const el = mount(ssr("hello", '<button id="a">a</button>'));
-    expect(click(el.querySelector("#a") ?? expect.unreachable("#a"))).toBe(false);
+    const el = mount(ssr({ droplet: "hello", markup: '<button id="a">a</button>' }));
+    expect(click({ node: el.querySelector("#a") ?? expect.unreachable("#a") })).toBe(false);
     release();
     await tick();
     const root = el.querySelector("[data-droplet-entry]") ?? expect.unreachable("[data-droplet-entry]");
@@ -1547,31 +1571,51 @@ describe("clicks before hydration", () => {
     // Whatever shows up in the root from now on is not held back.
     const later = document.createElement("button");
     root.appendChild(later);
-    expect(click(later)).toBe(true);
+    expect(click({ node: later })).toBe(true);
   });
 });
 
 describe("dev remount", () => {
   const context = { host: "https://host.test/page", props: { page: 1 } };
   /** A fragment as the server answers it: markup, the context inline, the data when it hydrates. */
-  const fragment = (droplet: string, markup: string, options: { data?: unknown; error?: boolean; ssr?: boolean; style?: string } = {}) =>
-    `<djs-droplet data-droplet="${droplet}"` +
-    `${options.ssr === false ? ` data-context="${encode(context)}"` : ""}${options.error ? " data-droplet-error" : ""}>` +
-    `${options.ssr === false ? "" : `<script type="application/text" data-droplet-context>${encode(context)}</script>`}` +
-    `${"data" in options ? `<script type="application/text" data-droplet-data>${encode(options.data)}</script>` : ""}` +
-    `${options.style ? `<link rel="stylesheet" href="${options.style}" data-droplet-style>` : ""}` +
-    `<div style="display: contents" data-droplet-entry>${markup}</div></djs-droplet>`;
-  const html = (body: string, status = 200) => new Response(body, { status, headers: { "content-type": "text/html; charset=utf-8" } });
+  type FragmentInput = { droplet: string; markup: string; data?: unknown; error?: boolean; ssr?: boolean; style?: string };
+  function fragment(input: FragmentInput): string {
+    const { droplet, markup, error, ssr, style } = input;
+    return (
+      `<djs-droplet data-droplet="${droplet}"` +
+      `${ssr === false ? ` data-context="${encode(context)}"` : ""}${error ? " data-droplet-error" : ""}>` +
+      `${ssr === false ? "" : `<script type="application/text" data-droplet-context>${encode(context)}</script>`}` +
+      `${"data" in input ? `<script type="application/text" data-droplet-data>${encode(input.data)}</script>` : ""}` +
+      `${style ? `<link rel="stylesheet" href="${style}" data-droplet-style>` : ""}` +
+      `<div style="display: contents" data-droplet-entry>${markup}</div></djs-droplet>`
+    );
+  }
+  type HtmlInput = { body: string; status?: number };
+  function html({ body, status = 200 }: HtmlInput): Response {
+    return new Response(body, { status, headers: { "content-type": "text/html; charset=utf-8" } });
+  }
   const withSlot = (source: string) => source.replace("</djs-droplet>", "<div data-droplet-slot><p>kid</p></div></djs-droplet>");
 
   it("asks for a server fragment again, with its context, and hydrates the new markup with the value", async () => {
     const fetchSpy = vi.fn(async () =>
-      html(fragment("plain", '<h1>v2</h1><div data-droplet-children style="display: contents"></div>', { data: { data: { v: 2 } } })),
+      html({
+        body: fragment({
+          droplet: "plain",
+          markup: '<h1>v2</h1><div data-droplet-children style="display: contents"></div>',
+          data: { data: { v: 2 } },
+        }),
+      }),
     );
     vi.stubGlobal("fetch", fetchSpy);
     const fake = markerModule();
     const el = mount(
-      withSlot(fragment("plain", '<h1>v1</h1><div data-droplet-children style="display: contents"></div>', { data: { data: { v: 1 } } })),
+      withSlot(
+        fragment({
+          droplet: "plain",
+          markup: '<h1>v1</h1><div data-droplet-children style="display: contents"></div>',
+          data: { data: { v: 1 } },
+        }),
+      ),
     );
     await tick();
     const container = containerOf(el) ?? expect.unreachable("the container");
@@ -1587,7 +1631,7 @@ describe("dev remount", () => {
     expect(el.querySelector("h1")?.textContent).toBe("v2");
     // Hydrated again: the value, as the server rendered with it.
     expect(fake.default).toHaveBeenCalledTimes(2);
-    expect(((await dataOf(fake, 1)) as unknown as { data: unknown }).data).toEqual({ v: 2 });
+    expect(((await dataOf({ fake, n: 1 })) as unknown as { data: unknown }).data).toEqual({ v: 2 });
     expect(fake.default.mock.calls[1]?.[1]).not.toBeInstanceOf(Promise);
     expect(el.querySelectorAll(":scope > [data-droplet-data]").length).toBe(1);
     expect(filledIn(el)).toBe(container);
@@ -1597,11 +1641,20 @@ describe("dev remount", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
-        html(fragment("plain", "<p>v2</p>", { data: { data: {} }, style: "http://drops.test/droplets/plain/style.css?c=v2" })),
+        html({
+          body: fragment({
+            droplet: "plain",
+            markup: "<p>v2</p>",
+            data: { data: {} },
+            style: "http://drops.test/droplets/plain/style.css?c=v2",
+          }),
+        }),
       ),
     );
     markerModule();
-    const el = mount(fragment("plain", "<p>v1</p>", { data: { data: {} }, style: "http://drops.test/droplets/plain/style.css?c=v1" }));
+    const el = mount(
+      fragment({ droplet: "plain", markup: "<p>v1</p>", data: { data: {} }, style: "http://drops.test/droplets/plain/style.css?c=v1" }),
+    );
     await tick();
 
     await el.update({ droplet: "plain" });
@@ -1614,26 +1667,30 @@ describe("dev remount", () => {
   it("mounts in the browser when the new fragment has no markup (ssr turned off)", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => html(fragment("plain", "", { data: { data: { v: 2 } }, ssr: false }))),
+      vi.fn(async () => html({ body: fragment({ droplet: "plain", markup: "", data: { data: { v: 2 } }, ssr: false }) })),
     );
     const fake = markerModule();
     const el = mount(
-      fragment("plain", '<h1>v1</h1><div data-droplet-children style="display: contents"></div>', { data: { data: { v: 1 } } }),
+      fragment({
+        droplet: "plain",
+        markup: '<h1>v1</h1><div data-droplet-children style="display: contents"></div>',
+        data: { data: { v: 1 } },
+      }),
     );
     await tick();
 
     await el.update({ droplet: "plain" });
     expect(el.querySelector("h1")).toBeNull();
     expect(fake.default.mock.calls[1]?.[1]).toBeInstanceOf(Promise);
-    expect(((await dataOf(fake, 1)) as unknown as { data: unknown }).data).toEqual({ v: 2 });
+    expect(((await dataOf({ fake, n: 1 })) as unknown as { data: unknown }).data).toEqual({ v: 2 });
   });
 
   it("swaps the markup of a droplet that does not hydrate", async () => {
-    const fetchSpy = vi.fn(async () => html(fragment("clock", "<p>v2</p>")));
+    const fetchSpy = vi.fn(async () => html({ body: fragment({ droplet: "clock", markup: "<p>v2</p>" }) }));
     vi.stubGlobal("fetch", fetchSpy);
     const importSpy = vi.fn();
     mod.DjsDropletElement.importModule = importSpy as never;
-    const el = mount(fragment("clock", "<p>v1</p>"));
+    const el = mount(fragment({ droplet: "clock", markup: "<p>v1</p>" }));
     await tick();
 
     await el.update({ droplet: "clock" });
@@ -1644,10 +1701,12 @@ describe("dev remount", () => {
   it("unmounts and keeps the server markup when hydration is turned off, without reloading", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => html(fragment("plain", "<p>v2</p>"))),
+      vi.fn(async () => html({ body: fragment({ droplet: "plain", markup: "<p>v2</p>" }) })),
     );
     const fake = markerModule();
-    const el = mount(fragment("plain", '<p>v1</p><div data-droplet-children style="display: contents"></div>', { data: { data: {} } }));
+    const el = mount(
+      fragment({ droplet: "plain", markup: '<p>v1</p><div data-droplet-children style="display: contents"></div>', data: { data: {} } }),
+    );
     await tick();
 
     await el.update({ droplet: "plain", hydrate: false });
@@ -1658,7 +1717,7 @@ describe("dev remount", () => {
     // Back on, for the tests after this one.
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => html(fragment("plain", "<p>v3</p>", { data: { data: {} } }))),
+      vi.fn(async () => html({ body: fragment({ droplet: "plain", markup: "<p>v3</p>", data: { data: {} } }) })),
     );
     await el.update({ droplet: "plain", hydrate: true });
     expect(fake.default).toHaveBeenCalledTimes(2);
@@ -1668,10 +1727,15 @@ describe("dev remount", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => html(fragment("plain", "<p>sorry</p>", { data: { error: { message: "Sorry" } }, error: true }), 500)),
+      vi.fn(async () =>
+        html({
+          body: fragment({ droplet: "plain", markup: "<p>sorry</p>", data: { error: { message: "Sorry" } }, error: true }),
+          status: 500,
+        }),
+      ),
     );
     const fake = markerModule();
-    const el = mount(fragment("plain", "<p>v1</p>", { data: { data: {} } }));
+    const el = mount(fragment({ droplet: "plain", markup: "<p>v1</p>", data: { data: {} } }));
     await tick();
 
     await el.update({ droplet: "plain" });
@@ -1687,7 +1751,7 @@ describe("dev remount", () => {
       vi.fn(async () => new Response("Unauthorized", { status: 401 })),
     );
     const fake = markerModule();
-    const el = mount(fragment("plain", "<p>v1</p>", { data: { data: {} } }));
+    const el = mount(fragment({ droplet: "plain", markup: "<p>v1</p>", data: { data: {} } }));
     await tick();
 
     await el.update({ droplet: "plain" });
@@ -1697,7 +1761,7 @@ describe("dev remount", () => {
   });
 
   it("mounts an element the host wrote in the browser again, without asking for a fragment", async () => {
-    const fetchSpy = vi.fn(async () => json({ data: {} }));
+    const fetchSpy = vi.fn(async () => json({ body: { data: {} } }));
     vi.stubGlobal("fetch", fetchSpy);
     const fake = markerModule();
     const el = mount(`<djs-droplet data-droplet="hello" data-params='{"page":1}'></djs-droplet>`);
@@ -1743,7 +1807,7 @@ describe("lazy hydrate", () => {
   it("interactive: loads nothing until the first interaction with its own markup", async () => {
     vi.stubGlobal("fetch", vi.fn());
     const fake = markerModule();
-    const el = mount(withSlot(ssrWithMarker("plain", ' data-hydrate="interactive"')));
+    const el = mount(withSlot(ssrWithMarker({ droplet: "plain", extra: ' data-hydrate="interactive"' })));
     await tick();
     expect(mod.DjsDropletElement.importModule).not.toHaveBeenCalled();
 
@@ -1771,7 +1835,7 @@ describe("lazy hydrate", () => {
     vi.stubGlobal("fetch", vi.fn());
     const observers = fakeObserver();
     const fake = markerModule();
-    const el = mount(withSlot(ssrWithMarker("plain", ' data-hydrate="visible"')));
+    const el = mount(withSlot(ssrWithMarker({ droplet: "plain", extra: ' data-hydrate="visible"' })));
     await tick();
     expect(observers).toHaveLength(1);
     expect(observers[0]?.target).toBe(el);
@@ -1792,7 +1856,7 @@ describe("lazy hydrate", () => {
     vi.stubGlobal("fetch", vi.fn());
     const observers = fakeObserver();
     markerModule();
-    const el = mount(`${ssrWithMarker("plain", ' data-hydrate="visible"')}</djs-droplet>`);
+    const el = mount(`${ssrWithMarker({ droplet: "plain", extra: ' data-hydrate="visible"' })}</djs-droplet>`);
     await tick();
     el.remove();
     await tick();
@@ -1805,14 +1869,14 @@ describe("lazy hydrate", () => {
   it("lets the host turn hydration off, and warns about a value it does not know", async () => {
     vi.stubGlobal("fetch", vi.fn());
     const fake = markerModule();
-    const el = mount(withSlot(ssrWithMarker("plain", ' data-hydrate="false"')));
+    const el = mount(withSlot(ssrWithMarker({ droplet: "plain", extra: ' data-hydrate="false"' })));
     await tick();
     expect(mod.DjsDropletElement.importModule).not.toHaveBeenCalled();
     expect(el.querySelector("h1")?.textContent).toBe("ssr");
     expect(filledIn(el)?.querySelector("#kid")).not.toBeNull();
 
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    mount(`${ssrWithMarker("plain", ' data-hydrate="idle"')}</djs-droplet>`);
+    mount(`${ssrWithMarker({ droplet: "plain", extra: ' data-hydrate="idle"' })}</djs-droplet>`);
     await tick();
     expect(String(warn.mock.calls[0]?.[0])).toContain('data-hydrate="idle": use true, false, visible or interactive');
     expect(fake.default).toHaveBeenCalledOnce();
@@ -1821,7 +1885,7 @@ describe("lazy hydrate", () => {
   it('runs a script droplet whatever data-hydrate="false" says, warning in dev; other values still apply', async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => json({ data: {} })),
+      vi.fn(async () => json({ body: { data: {} } })),
     );
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const fake = fakeModule();
@@ -1852,11 +1916,11 @@ describe("what the dev tool sees", () => {
   it("lists the connected elements in document order, with where each one is", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => json({ data: {} })),
+      vi.fn(async () => json({ body: { data: {} } })),
     );
     markerModule();
-    const waiting = mount(`${ssrWithMarker("plain", ' data-hydrate="interactive"')}</djs-droplet>`);
-    const hydrated = mount(`${ssrWithMarker("plain")}</djs-droplet>`);
+    const waiting = mount(`${ssrWithMarker({ droplet: "plain", extra: ' data-hydrate="interactive"' })}</djs-droplet>`);
+    const hydrated = mount(`${ssrWithMarker({ droplet: "plain" })}</djs-droplet>`);
     const fixed = mount('<djs-droplet data-droplet="clock"><div data-droplet-entry><p>1</p></div></djs-droplet>');
     const mounted = mount(`<djs-droplet data-droplet="hello" data-params='{"page":1}'></djs-droplet>`);
     await tick();

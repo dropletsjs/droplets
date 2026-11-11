@@ -14,7 +14,9 @@ export type ScopeStylesOptions = {
 const ROOT_TAGS = new Set(["html", "body"]);
 const ROOT_PSEUDOS = new Set([":root", ":host"]);
 
-function isRootLike(node: selectorParser.Node | undefined): boolean {
+type IsRootLikeInput = { node: selectorParser.Node | undefined };
+
+function isRootLike({ node }: IsRootLikeInput): boolean {
   if (!node) return false;
   if (node.type === "tag") return ROOT_TAGS.has(node.value.toLowerCase());
   if (node.type === "pseudo") {
@@ -22,26 +24,32 @@ function isRootLike(node: selectorParser.Node | undefined): boolean {
     // Svelte's `:global(body)` means the document as much as `body` does.
     if (name === ":global") {
       const inner = node.nodes[0];
-      return inner?.nodes.length === 1 && isRootLike(inner.first);
+      return inner?.nodes.length === 1 && isRootLike({ node: inner.first });
     }
     return ROOT_PSEUDOS.has(name) || name.startsWith(":host");
   }
   return false;
 }
 
-function isDescendantCombinator(node: selectorParser.Node | undefined): boolean {
+type IsDescendantCombinatorInput = { node: selectorParser.Node | undefined };
+
+function isDescendantCombinator({ node }: IsDescendantCombinatorInput): boolean {
   return node?.type === "combinator" && node.value.trim() === "";
 }
 
+type GlobalElementInput = { element: string };
+
 /** `:global(<element>)`, which Svelte leaves alone while it hashes the rest. */
-function globalElement(element: string): selectorParser.Pseudo {
+function globalElement({ element }: GlobalElementInput): selectorParser.Pseudo {
   return selectorParser.pseudo({
     value: ":global",
     nodes: [selectorParser.selector({ value: "", nodes: [selectorParser.tag({ value: element })] })],
   });
 }
 
-function isElement(node: selectorParser.Node, element: string): boolean {
+type IsElementInput = { node: selectorParser.Node; element: string };
+
+function isElement({ node, element }: IsElementInput): boolean {
   if (node.type === "tag") return node.value === element;
   return node.type === "pseudo" && node.value === ":global" && String(node.nodes[0]).trim() === element;
 }
@@ -60,19 +68,19 @@ function isElement(node: selectorParser.Node, element: string): boolean {
  */
 export function scopeSelector(selector: string, element: string, svelte = false): string {
   const root = selectorParser().astSync(selector);
-  const scope = () => (svelte ? globalElement(element) : selectorParser.tag({ value: element }));
+  const scope = () => (svelte ? globalElement({ element }) : selectorParser.tag({ value: element }));
   root.each((sel) => {
     const first = sel.first;
     if (!first) return;
-    if (isElement(first, element)) return;
+    if (isElement({ node: first, element })) return;
     // Whitespace after a comma lives on the next selector's first node.
     first.spaces.before = "";
 
-    if (isRootLike(first)) {
+    if (isRootLike({ node: first })) {
       // `html body` and friends collapse into the element itself.
       let combinator = first.next();
       let rootLike = combinator?.next();
-      while (combinator && rootLike && isDescendantCombinator(combinator) && isRootLike(rootLike)) {
+      while (combinator && rootLike && isDescendantCombinator({ node: combinator }) && isRootLike({ node: rootLike })) {
         const after = rootLike.next();
         combinator.remove();
         rootLike.remove();
@@ -91,16 +99,20 @@ export function scopeSelector(selector: string, element: string, svelte = false)
   return root.nodes.map((sel) => sel.toString().trim()).join(", ");
 }
 
+type IsSvelteStyleInput = { file: string | undefined };
+
 /**
  * A Svelte `<style>` on its way into the compiler: Vite's preprocessor names
  * it `<file>.svelte.vite-preprocess.css`. What the compiler emits,
  * `<file>.svelte?svelte&type=style&lang.css`, is plain CSS again.
  */
-function isSvelteStyle(file: string | undefined): boolean {
+function isSvelteStyle({ file }: IsSvelteStyleInput): boolean {
   return file !== undefined && /\.svelte\.[^/\\?]+$/.test(file);
 }
 
-function insideKeyframes(rule: Rule): boolean {
+type InsideKeyframesInput = { rule: Rule };
+
+function insideKeyframes({ rule }: InsideKeyframesInput): boolean {
   let parent = rule.parent;
   while (parent && parent.type !== "root") {
     if (parent.type === "atrule" && /keyframes$/i.test((parent as { name: string }).name)) {
@@ -120,15 +132,14 @@ function insideKeyframes(rule: Rule): boolean {
  * is. `@keyframes`, `@font-face` and `@property` are left alone: they have
  * no selectors to scope.
  */
-export function scopeStylesPlugin(options: ScopeStylesOptions): PostcssPlugin {
-  const { element, include } = options;
+export function scopeStylesPlugin({ element, include }: ScopeStylesOptions): PostcssPlugin {
   return {
     postcssPlugin: "droplets:scope-styles",
     Once(root) {
       if (include && !include(root.source?.input.file)) return;
-      const svelte = isSvelteStyle(root.source?.input.file);
+      const svelte = isSvelteStyle({ file: root.source?.input.file });
       root.walkRules((rule) => {
-        if (insideKeyframes(rule)) return;
+        if (insideKeyframes({ rule })) return;
         rule.selectors = rule.selectors.map((selector) => scopeSelector(selector, element, svelte));
       });
     },

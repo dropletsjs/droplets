@@ -49,20 +49,26 @@ export const SCRIPT_HYDRATE: readonly { value: HydrateChoice; label: string; hin
   { value: "visible", label: "visible", hint: "when it is about to scroll into view" },
 ];
 
+export type ScriptFlagsInput = { hydrate?: HydrateChoice | undefined };
+
+export type TargetFlags = { flags: Flags; notes: Note[] };
+
 /**
  * The flags of a script droplet: no target to choose (nothing renders on
  * the server, it always runs in the browser), and only `always` or
  * `visible`. Throws for anything else.
  */
-export function scriptFlags(hydrate: HydrateChoice = "always"): Flags {
+export function scriptFlags({ hydrate = "always" }: ScriptFlagsInput = {}): Flags {
   if (hydrate !== "always" && hydrate !== "visible") {
     throw new Error(`--hydrate ${hydrate}: a script droplet always runs in the browser; use always or visible`);
   }
   return { ssr: true, hydrate: MODES[hydrate], prerender: false };
 }
 
+export type FlagsForInput = { target: Target; hydrate?: HydrateChoice | undefined };
+
 /** The flags for a target, and what to tell the user about the combination. Throws for `full` without hydration. */
-export function flagsFor(target: Target, hydrate?: HydrateChoice): { flags: Flags; notes: Note[] } {
+export function flagsFor({ target, hydrate }: FlagsForInput): TargetFlags {
   const choice = hydrate ?? DEFAULT_HYDRATE[target];
   const notes: Note[] = [];
   if (target === "full" && choice === "none") {

@@ -10,12 +10,14 @@ import type { ActionUrl, RenderProps } from "@dropletsjs/droplets";
 import type { TemplateResult } from "lit";
 import { html, unsafeStatic } from "lit/static-html.js";
 
+type HostTemplateInput = { tag: string; props: RenderProps; actionUrl: ActionUrl };
+
 /**
  * The element the component renders as, with `data` and `form` (a
  * droplet) or `error` (an error page), and `actionUrl`, the URL of one of
  * the droplet's form actions, as properties.
  */
-export function hostTemplate(tag: string, props: RenderProps, actionUrl: ActionUrl): TemplateResult {
+export function hostTemplate({ tag, props, actionUrl }: HostTemplateInput): TemplateResult {
   const element = unsafeStatic(tag);
   if ("error" in props) {
     return html`<${element} .error=${props.error}><div data-droplet-children style="display: contents"></div></${element}>`;

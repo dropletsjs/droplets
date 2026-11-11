@@ -68,9 +68,12 @@ function isFlagName(name: string): name is (typeof FLAG_NAMES)[number] {
   return (FLAG_NAMES as readonly string[]).includes(name);
 }
 
+type ProgramInput = { program: hbs.AST.Program };
+
 /** Every comment of a parsed template, nested blocks included, in order. */
-function commentsOf(program: hbs.AST.Program): hbs.AST.CommentStatement[] {
+function commentsOf({ program }: ProgramInput): hbs.AST.CommentStatement[] {
   const comments: hbs.AST.CommentStatement[] = [];
+  // A class: Handlebars walks its AST only through a `Visitor` subclass.
   class Comments extends Handlebars.Visitor {
     override CommentStatement(comment: hbs.AST.CommentStatement): void {
       comments.push(comment);
@@ -81,7 +84,7 @@ function commentsOf(program: hbs.AST.Program): hbs.AST.CommentStatement[] {
 }
 
 /** The comment a template opens with, whitespace aside; `undefined` without one. */
-function leadingComment(program: hbs.AST.Program): hbs.AST.CommentStatement | undefined {
+function leadingComment({ program }: ProgramInput): hbs.AST.CommentStatement | undefined {
   for (const node of program.body) {
     if (node.type === "ContentStatement" && !(node as hbs.AST.ContentStatement).value.trim()) continue;
     return node.type === "CommentStatement" ? (node as hbs.AST.CommentStatement) : undefined;
@@ -105,8 +108,8 @@ export function readTemplateFlags(source: string, where: string): Partial<Render
     return undefined;
   }
 
-  const leading = leadingComment(program);
-  for (const comment of commentsOf(program)) {
+  const leading = leadingComment({ program });
+  for (const comment of commentsOf({ program })) {
     if (comment !== leading && MENTIONS_FLAG.test(comment.value)) {
       throw new Error(`droplets: ${where}: flags go in the comment the template starts with, before anything else`);
     }

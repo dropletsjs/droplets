@@ -25,7 +25,7 @@
  * other renderer. On the server the directive renders nothing.
  */
 import { noChange, nothing, type ElementPart } from "lit";
-import { AsyncDirective, directive, PartType, type PartInfo } from "lit/async-directive.js";
+import { AsyncDirective, directive, PartType, type DirectiveResult, type PartInfo } from "lit/async-directive.js";
 import {
   enhanceDropletForm,
   type ActionEnhanceOptions,
@@ -34,6 +34,7 @@ import {
   type EnhanceOptions,
 } from "@dropletsjs/droplets/enhance";
 
+// A class: a Lit directive that outlives a render is an `AsyncDirective` subclass.
 class EnhanceDirective extends AsyncDirective {
   #form: HTMLFormElement | null = null;
   #options: EnhanceOptions | undefined;
@@ -88,8 +89,8 @@ class EnhanceDirective extends AsyncDirective {
 const enhanceDirective = directive(EnhanceDirective);
 
 /** Enhances the form it is on: a submit to any of the droplet's actions, or only to `options.action`. */
-export function enhance<A extends ActionMap = ActionMap>(options?: AnyEnhanceOptions<A>): ReturnType<typeof enhanceDirective>;
-export function enhance<A extends ActionMap = ActionMap>(options: ActionEnhanceOptions<A>): ReturnType<typeof enhanceDirective>;
-export function enhance(options?: EnhanceOptions): ReturnType<typeof enhanceDirective> {
+export function enhance<A extends ActionMap = ActionMap>(options?: AnyEnhanceOptions<A>): DirectiveResult<typeof EnhanceDirective>;
+export function enhance<A extends ActionMap = ActionMap>(options: ActionEnhanceOptions<A>): DirectiveResult<typeof EnhanceDirective>;
+export function enhance(options?: EnhanceOptions): DirectiveResult<typeof EnhanceDirective> {
   return enhanceDirective(options);
 }

@@ -57,7 +57,9 @@ type DropletRegistryEntry = {
 const registry = new Map(Object.entries(droplets as Record<string, DropletRegistryEntry>));
 const apiRoutes = api as ApiRoute[];
 
-function getEntry(name: string): DropletRegistryEntry | null {
+type FindEntryInput = { name: string };
+
+function findEntry({ name }: FindEntryInput): DropletRegistryEntry | null {
   return registry.get(name) ?? null;
 }
 
@@ -66,19 +68,24 @@ function createRenderId(): string {
   return Math.random().toString(36).slice(2, 8);
 }
 
+type RenderWithInput = {
+  renderer: RendererServerModule | undefined;
+  module: ComponentModule;
+  props: RenderProps;
+  droplet: string;
+  kind: ComponentKind;
+  /** The droplet's own props, for its `actionUrl()`; `props` is what the component renders with. */
+  dropletProps: Record<string, unknown>;
+};
+
+type RenderedComponent = { html: string; head: string | undefined; renderId: string };
+
 /**
  * Renders a component through its renderer. The `children` value the
  * component receives outputs the `[data-droplet-children]` marker, where the
  * element puts the host's children in the browser; the renderer builds it.
  */
-async function renderWith(
-  renderer: RendererServerModule | undefined,
-  module: ComponentModule,
-  props: RenderProps,
-  droplet: string,
-  kind: ComponentKind,
-  dropletProps: Record<string, unknown>,
-): Promise<{ html: string; head: string | undefined; renderId: string }> {
+async function renderWith({ renderer, module, props, droplet, kind, dropletProps }: RenderWithInput): Promise<RenderedComponent> {
   if (!renderer || typeof renderer.render !== "function") {
     throw new Error(`${droplet}: the ${kind} component has no renderer; the server registry is stale`);
   }
@@ -98,18 +105,20 @@ async function renderWith(
   return { html: output.html, head: output.head, renderId };
 }
 
+type IsAnswerInput = { error: unknown };
+
 /**
  * `error()` and `redirect()` are answers, not failures: they skip
  * `handleError`. So does a read of `host` the build cannot serve: it stops
  * the build instead of becoming the error page.
  */
-function isAnswer(error: unknown): boolean {
+function isAnswer({ error }: IsAnswerInput): boolean {
   return isHttpError(error) || isRedirect(error) || isHostUrlPropsErrorInPrerender(error);
 }
 
 /** Whether a droplet exists, and how it wants to be rendered. */
 export function getDropletMeta(name: string): DropletMeta {
-  const entry = getEntry(name);
+  const entry = findEntry({ name });
   if (!entry?.component) {
     logger.debug("framework", "unknown droplet", {
       droplet: name,
@@ -130,7 +139,7 @@ export function getDropletMeta(name: string): DropletMeta {
  * that do not match answer 400, before any load runs.
  */
 export async function validateDropletProps(name: string, props: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const mod = await getEntry(name)?.load?.();
+  const mod = await findEntry({ name })?.load?.();
   try {
     return await validateProps(name, mod?.props, props);
   } catch (error) {
@@ -150,7 +159,7 @@ const ENTRY_KEYS = new Set(["props", "host"]);
  * absolute URL string.
  */
 export async function getEntries(name: string): Promise<BuildEntry[]> {
-  const mod = await getEntry(name)?.serverLoad?.();
+  const mod = await findEntry({ name })?.serverLoad?.();
   if (typeof mod?.entries !== "function") return [{ props: {} }];
   const entries: unknown = await mod.entries();
   if (!Array.isArray(entries)) {
@@ -171,7 +180,7 @@ export async function getEntries(name: string): Promise<BuildEntry[]> {
       throw new Error(`${name}: an entry's props must be an object, got ${JSON.stringify(props)}`);
     }
     if (host === undefined) return { props: (props ?? {}) as Record<string, unknown> };
-    const url = parseHost(host);
+    const url = parseHost({ value: host });
     if (!url) throw new Error(`${name}: an entry's host must be an absolute URL, got ${JSON.stringify(String(host))}`);
     return { props: (props ?? {}) as Record<string, unknown>, host: url.href };
   });
@@ -182,7 +191,7 @@ export async function getEntries(name: string): Promise<BuildEntry[]> {
  * rendered HTML, prerendered or live. Without one, the HTML is unchanged.
  */
 export async function transformDroplet(name: string, event: TransformEvent): Promise<string> {
-  const mod = await getEntry(name)?.serverLoad?.();
+  const mod = await findEntry({ name })?.serverLoad?.();
   const transform = mod?.transform;
   if (!transform) return event.html;
   let html = event.html;
@@ -200,22 +209,28 @@ export async function transformDroplet(name: string, event: TransformEvent): Pro
  * Runs the load of `+droplet.server.ts`, settled: its fields that are
  * promises resolved. The result is what gets inlined for the client.
  */
-async function runServerLoad(name: string, event: LoadEvent): Promise<unknown> {
-  const mod = await getEntry(name)?.serverLoad?.();
+type RunServerLoadInput = { name: string; event: LoadEvent };
+
+async function runServerLoad({ name, event }: RunServerLoadInput): Promise<unknown> {
+  const mod = await findEntry({ name })?.serverLoad?.();
   if (typeof mod?.load !== "function") return undefined;
   return settle(checkLoadResult(name, "+droplet.server.ts", await mod.load(event)));
 }
+
+type ServerFailureInput = { name: string; error: unknown };
+
+type ServerFailure = { failed: true; error: unknown };
 
 /**
  * A load threw: the error goes through `handleError` in `+droplet.server.ts`
  * and comes out as it leaves the server. Without `+error.*`, or when
  * `handleError` throws, there is nothing to show: unhandled.
  */
-async function serverFailure(name: string, error: unknown): Promise<{ failed: true; error: unknown }> {
+async function serverFailure({ name, error }: ServerFailureInput): Promise<ServerFailure> {
   logger.error("drop", "droplet load failed", { droplet: name, error });
-  const entry = getEntry(name);
+  const entry = findEntry({ name });
   if (!entry?.error) {
-    throw new UnhandledDropletError(name, "load failed and there is no error page (+error.*)", error);
+    throw new UnhandledDropletError({ droplet: name, reason: "load failed and there is no error page (+error.*)", cause: error });
   }
   try {
     const mod = await entry.serverLoad?.();
@@ -227,7 +242,7 @@ async function serverFailure(name: string, error: unknown): Promise<{ failed: tr
         : await runHandleError(name, "+droplet.server.ts", mod?.handleError, error);
     return { failed: true, error: toWireError(shown) };
   } catch (handleError) {
-    throw new UnhandledDropletError(name, "handleError in +droplet.server.ts threw", handleError);
+    throw new UnhandledDropletError({ droplet: name, reason: "handleError in +droplet.server.ts threw", cause: handleError });
   }
 }
 
@@ -238,10 +253,10 @@ async function serverFailure(name: string, error: unknown): Promise<{ failed: tr
  */
 export async function loadDropletData(name: string, event: LoadEvent): Promise<DropletPayload> {
   try {
-    return { data: await runServerLoad(name, event) };
+    return { data: await runServerLoad({ name, event }) };
   } catch (error) {
-    if (isAnswer(error)) throw error;
-    return serverFailure(name, error);
+    if (isAnswer({ error })) throw error;
+    return serverFailure({ name, error });
   }
 }
 
@@ -254,7 +269,7 @@ export async function loadDropletData(name: string, event: LoadEvent): Promise<D
 export async function prerenderKeys(name: string, fallbackHost?: string): Promise<string[]> {
   const keys: string[] = [];
   for (const entry of await getEntries(name)) {
-    const host = parseHost(entry.host ?? fallbackHost) ?? undefined;
+    const host = parseHost({ value: entry.host ?? fallbackHost }) ?? undefined;
     keys.push(prerenderKey(propsKey(await validateDropletProps(name, entry.props)), host));
   }
   return keys;
@@ -264,8 +279,10 @@ export async function prerenderKeys(name: string, fallbackHost?: string): Promis
  * Runs the load of `+droplet.ts`, which shapes server data into the
  * component's `data`, settled as the browser settles it before hydrating.
  */
-async function runUniversalLoad(name: string, event: LoadEvent, serverData: unknown): Promise<unknown> {
-  const mod = await getEntry(name)?.load?.();
+type RunUniversalLoadInput = { name: string; event: LoadEvent; serverData: unknown };
+
+async function runUniversalLoad({ name, event, serverData }: RunUniversalLoadInput): Promise<unknown> {
+  const mod = await findEntry({ name })?.load?.();
   if (typeof mod?.load !== "function") return serverData;
   const result = await mod.load({ host: event.host, props: event.props, data: serverData });
   return settle(checkLoadResult(name, "+droplet.ts", result));
@@ -274,11 +291,16 @@ async function runUniversalLoad(name: string, event: LoadEvent, serverData: unkn
 /** An action name as `?/name` gives it: a plain identifier, never a key of `Object.prototype`. */
 const FORBIDDEN_ACTION_NAMES = new Set(["__proto__", "constructor", "prototype"]);
 
-/** An object literal: its prototype is `Object.prototype` or `null`, nothing a class or a proxy chose. */
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+type PlainObjectOfInput = { value: unknown };
+
+/**
+ * `value` when it is an object literal: its prototype is `Object.prototype`
+ * or `null`, nothing a class or a proxy chose. `null` otherwise.
+ */
+function plainObjectOf({ value }: PlainObjectOfInput): Record<string, unknown> | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const proto: unknown = Object.getPrototypeOf(value);
-  return proto === Object.prototype || proto === null;
+  return proto === Object.prototype || proto === null ? (value as Record<string, unknown>) : null;
 }
 
 /**
@@ -288,10 +310,10 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * never reaches anything else. `actions` must be a plain object.
  */
 export async function findAction(name: string, action: string): Promise<Action | "none" | "missing"> {
-  const mod = await getEntry(name)?.serverLoad?.();
-  const actions = mod?.actions;
-  if (actions === undefined) return "none";
-  if (!isPlainObject(actions)) {
+  const mod = await findEntry({ name })?.serverLoad?.();
+  if (mod?.actions === undefined) return "none";
+  const actions = plainObjectOf({ value: mod.actions });
+  if (!actions) {
     throw new Error(`${name}: actions in +droplet.server.ts must be a plain object of functions, { default, add, … }`);
   }
   if (!ACTION_NAME.test(action) || FORBIDDEN_ACTION_NAMES.has(action) || !Object.hasOwn(actions, action)) {
@@ -310,20 +332,27 @@ export type RenderOptions = { form?: unknown };
  * instead, for the error page. Returns `null` for an unknown droplet.
  */
 export async function renderDroplet(name: string, event: LoadEvent, options: RenderOptions = {}): Promise<RenderResult | null> {
-  const entry = getEntry(name);
+  const entry = findEntry({ name });
   if (!entry?.component) return null;
 
   let serverData: unknown;
   try {
-    serverData = await runServerLoad(name, event);
-    const data = await runUniversalLoad(name, event, serverData);
+    serverData = await runServerLoad({ name, event });
+    const data = await runUniversalLoad({ name, event, serverData });
     const props = options.form === undefined ? { data } : { data, form: options.form };
-    const { html, head, renderId } = await renderWith(entry.renderer, entry.component, props, name, "droplet", event.props);
+    const { html, head, renderId } = await renderWith({
+      renderer: entry.renderer,
+      module: entry.component,
+      props,
+      droplet: name,
+      kind: "droplet",
+      dropletProps: event.props,
+    });
     logger.debug("framework", "rendered droplet", { droplet: name, bodyLength: html.length });
     return { body: html, html, data, serverData, renderId, ...(head === undefined ? {} : { head }) };
   } catch (error) {
-    if (isAnswer(error)) throw error;
-    return serverFailure(name, error);
+    if (isAnswer({ error })) throw error;
+    return serverFailure({ name, error });
   }
 }
 
@@ -333,16 +362,23 @@ export async function renderDroplet(name: string, event: LoadEvent, options: Ren
  * droplet's, for its `actionUrl()`. `null` when the droplet has no error page.
  */
 export async function renderError(name: string, error: unknown, props: Record<string, unknown> = {}): Promise<RenderResult | null> {
-  const entry = getEntry(name);
+  const entry = findEntry({ name });
   if (!entry?.error) return null;
   let shown: unknown;
   try {
     const mod = await entry.load?.();
     shown = await runHandleError(name, "+droplet.ts", mod?.handleError, error);
   } catch (handleError) {
-    throw new UnhandledDropletError(name, "handleError in +droplet.ts threw", handleError);
+    throw new UnhandledDropletError({ droplet: name, reason: "handleError in +droplet.ts threw", cause: handleError });
   }
-  const { html, head, renderId } = await renderWith(entry.renderer, entry.error, { error: shown }, name, "error", props);
+  const { html, head, renderId } = await renderWith({
+    renderer: entry.renderer,
+    module: entry.error,
+    props: { error: shown },
+    droplet: name,
+    kind: "error",
+    dropletProps: props,
+  });
   return { body: html, html, renderId, ...(head === undefined ? {} : { head }) };
 }
 
@@ -353,23 +389,25 @@ export function publicEnv(): Record<string, string | undefined> {
   return Object.fromEntries(publicEnvNames.map((name) => [name, readRuntimeEnv(name)]));
 }
 
+type OptionalExportInput = { module: object; name: string };
+
 /**
  * An optional export, read by name: `hooks.handleError` written out makes
  * the bundler warn (IMPORT_IS_UNDEFINED) for every hooks file that leaves it out.
  */
-function optionalExport(module: object, name: string): unknown {
+function optionalExport({ module, name }: OptionalExportInput): unknown {
   return (module as Record<string, unknown>)[name];
 }
 
 /** The `handle` export of `src/hooks.server.ts`, when there is one. */
 export function getHandle(): Handle | undefined {
-  const handle = optionalExport(hooks, "handle");
+  const handle = optionalExport({ module: hooks, name: "handle" });
   return typeof handle === "function" ? (handle as Handle) : undefined;
 }
 
 /** The `handleError` export of `src/hooks.server.ts`, when there is one. */
 export function getHandleError(): HandleServerError | undefined {
-  const handleError = optionalExport(hooks, "handleError");
+  const handleError = optionalExport({ module: hooks, name: "handleError" });
   return typeof handleError === "function" ? (handleError as HandleServerError) : undefined;
 }
 
@@ -381,5 +419,5 @@ export function getImportMap(): ImportMapHandler | undefined {
 
 /** The `+server.ts` answering `pathname`. */
 export function matchApi(pathname: string): ApiMatch | null {
-  return matchRoute(apiRoutes, pathname);
+  return matchRoute({ routes: apiRoutes, pathname });
 }

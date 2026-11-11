@@ -19,6 +19,7 @@ const STATUS_TIMEOUT = 10_000;
 /** At most this many toasts at once: the oldest goes first. */
 const MAX_TOASTS = 3;
 
+// Shared on the page by every droplets server's `index.js`, whatever its version: the shape stays positional.
 type Toasts = { show(notification: DevNotification, reload: () => void): void };
 
 /** The page's toasts: one stack for every droplets server on it, made by the first `index.js` that needs it. */
@@ -104,7 +105,9 @@ function toasts(): Toasts {
  * Shows `notification`: in the dev tool when it is on the page and takes
  * them, else as a toast. One console line either way.
  */
-export function notify(notification: DevNotification, reload: () => void = () => globalThis.location.reload()): void {
+type NotifyInput = { notification: DevNotification; reload?: () => void };
+
+export function notify({ notification, reload = () => globalThis.location.reload() }: NotifyInput): void {
   console.info(`[droplets] ${notification.message}${notification.detail ? ` ${notification.detail}` : ""}`);
   const tool = (globalThis as { DropletsDevTools?: DropletsDevTools }).DropletsDevTools;
   if (typeof tool?.notify === "function") {

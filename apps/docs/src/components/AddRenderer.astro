@@ -33,7 +33,7 @@ const start = [
   `  plugins: [droplets({ adapter: node(), renderers: [${before.factory}()] })],`,
   "});",
 ].join("\n");
-const edit = addRenderer(start, "vite.config.ts", framework);
+const edit = addRenderer({ source: start, file: "vite.config.ts", framework });
 if (!("code" in edit)) throw new Error(`AddRenderer: djs add could not edit the sample config for ${name}`);
 const after = edit.code;
 const importLine = after.split("\n").findIndex((line) => line.includes(`from "${framework.package}"`)) + 1;
@@ -46,8 +46,8 @@ const install = [
 ];
 const flag = name === "hono-jsx" ? "hono-jsx" : name;
 const byHand = [
-  ...(framework.dependencies.length ? [`npm install ${framework.dependencies.map(packageName).join(" ")}`] : []),
-  `npm install -D ${framework.package}@alpha${framework.devDependencies.length ? " " + framework.devDependencies.map(packageName).join(" ") : ""}`,
+  ...(framework.dependencies.length ? [`npm install ${framework.dependencies.map((spec) => packageName({ spec })).join(" ")}`] : []),
+  `npm install -D ${framework.package}@alpha${framework.devDependencies.length ? " " + framework.devDependencies.map((spec) => packageName({ spec })).join(" ") : ""}`,
 ].join("\n");
 ---
 

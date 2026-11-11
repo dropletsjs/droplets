@@ -29,24 +29,30 @@ import type { PluginState } from "./state.ts";
 const SCRIPT = /\.[mc]?[jt]sx?$/;
 const MARK = new RegExp(`[?&]${RENDERER_QUERY}=([^&]+)`);
 
-const clean = (id: string) => id.replace(/[?#].*$/, "").replaceAll("\\", "/");
+type IdInput = { id: string };
+
+function clean({ id }: IdInput): string {
+  return id.replace(/[?#].*$/, "").replaceAll("\\", "/");
+}
 
 /** Vite's stylesheet languages, as a module id or a query that ends in one (`?lang.css`). */
 const STYLESHEET = /\.(?:css|less|sass|scss|styl|stylus|pcss|postcss|sss)(?:$|\?)/;
 const AS_STRING = /[?&](?:url|raw|inline)(?:&|$)/;
 
 /** Whether a module id is a stylesheet that styles the page. */
-export function isStylesheet(id: string): boolean {
+export function isStylesheet({ id }: IdInput): boolean {
   return STYLESHEET.test(id.replaceAll("\\", "/")) && !AS_STRING.test(id);
 }
 
 /** The renderer a module is marked with, if any. */
-export function markOf(id: string): string | null {
+export function markOf({ id }: IdInput): string | null {
   return id.match(MARK)?.[1] ?? null;
 }
 
+export type ComponentSpecifierInput = { path: string; renderer: string; shared: ReadonlySet<string> };
+
 /** A component import, marked when its renderer shares an extension. */
-export function componentSpecifier(path: string, renderer: string, shared: Set<string>): string {
+export function componentSpecifier({ path, renderer, shared }: ComponentSpecifierInput): string {
   return shared.has(renderer) ? `${path}?${RENDERER_QUERY}=${renderer}` : path;
 }
 
@@ -54,13 +60,15 @@ export function componentSpecifier(path: string, renderer: string, shared: Set<s
  * The renderers a module belongs to: by its suffix (component extensions
  * and the renderer's `suffixes`) or its package. Empty for neutral code.
  */
-export function ownersOf(id: string, renderers: DropletRenderer[]): string[] {
-  const file = clean(id);
+export type OwnersOfInput = { id: string; renderers: readonly DropletRenderer[] };
+
+export function ownersOf({ id, renderers }: OwnersOfInput): string[] {
+  const file = clean({ id });
   return renderers
     .filter(
       (renderer) =>
         [...renderer.extensions, ...(renderer.suffixes ?? [])].some((suffix) => file.endsWith(suffix)) ||
-        (renderer.packages ?? []).some((pkg) => inPackage(file, pkg)),
+        (renderer.packages ?? []).some((pkg) => inPackage({ file, pkg })),
     )
     .map((renderer) => renderer.name);
 }
@@ -70,17 +78,25 @@ export function ownersOf(id: string, renderers: DropletRenderer[]): string[] {
  * folder of that name anywhere in the package, however it lays out its
  * builds: `hono/dist/jsx/dom/index.js`.
  */
-function inPackage(file: string, pkg: string): boolean {
-  const name = packageOf(pkg);
+type InPackageInput = { file: string; pkg: string };
+
+function inPackage({ file, pkg }: InPackageInput): boolean {
+  const name = packageOf({ specifier: pkg });
   if (!name || name === pkg) return file.includes(`/node_modules/${pkg}/`);
   const sub = pkg.slice(name.length + 1);
-  return new RegExp(`/node_modules/${escapeRegExp(name)}/(?:[^/]+/)*${escapeRegExp(sub)}/`).test(file);
+  return new RegExp(`/node_modules/${escapeRegExp({ text: name })}/(?:[^/]+/)*${escapeRegExp({ text: sub })}/`).test(file);
 }
 
-const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+type EscapeRegExpInput = { text: string };
+
+function escapeRegExp({ text }: EscapeRegExpInput): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 /** The package a bare specifier names: `solid-js/web` -> `solid-js`, `@scope/pkg/x` -> `@scope/pkg`. */
-function packageOf(specifier: string): string | null {
+type PackageOfInput = { specifier: string };
+
+function packageOf({ specifier }: PackageOfInput): string | null {
   if (/^[./\\]|^[a-z]+:/i.test(specifier) || specifier.startsWith("$")) return null;
   const parts = specifier.split("/");
   const [first = ""] = parts;
@@ -92,13 +108,15 @@ function packageOf(specifier: string): string | null {
  * package it names: the dev server hands out pre-bundled copies
  * (`node_modules/.vite/deps/solid-js.js`) whose path says nothing.
  */
-export function ownersOfImport(source: string, resolved: string, renderers: DropletRenderer[]): string[] {
-  const byPackage = packageOf(source)
+export type OwnersOfImportInput = { source: string; resolved: string; renderers: readonly DropletRenderer[] };
+
+export function ownersOfImport({ source, resolved, renderers }: OwnersOfImportInput): string[] {
+  const byPackage = packageOf({ specifier: source })
     ? renderers
         .filter((renderer) => renderer.packages?.some((pkg) => source === pkg || source.startsWith(`${pkg}/`)))
         .map((renderer) => renderer.name)
     : [];
-  return [...new Set([...ownersOf(resolved, renderers), ...byPackage])];
+  return [...new Set([...ownersOf({ id: resolved, renderers }), ...byPackage])];
 }
 
 /**
@@ -106,7 +124,9 @@ export function ownersOfImport(source: string, resolved: string, renderers: Drop
  * JavaScript that may bring in anything (a third-party widget, whatever it
  * is built on): it owns nothing, and nothing it imports is foreign to it.
  */
-const checked = (state: PluginState): DropletRenderer[] => userRenderers(state.renderers);
+function checked(state: PluginState): DropletRenderer[] {
+  return userRenderers({ renderers: state.renderers });
+}
 
 /** Absolute component paths (droplet and error page) to their renderer; script droplets are not checked. */
 function componentRenderers(state: PluginState): Map<string, string> {
@@ -122,16 +142,25 @@ function componentRenderers(state: PluginState): Map<string, string> {
   return map;
 }
 
-const short = (state: PluginState, id: string) => {
-  const file = clean(id);
+type ShortInput = { root: string; id: string };
+
+function short({ root, id }: ShortInput): string {
+  const file = clean({ id });
   const pkg = file.lastIndexOf("/node_modules/");
   if (pkg !== -1) return file.slice(pkg + "/node_modules/".length);
-  const root = `${state.root.replaceAll("\\", "/")}/`;
-  return file.startsWith(root) ? file.slice(root.length) : file;
+  const prefix = `${root.replaceAll("\\", "/")}/`;
+  return file.startsWith(prefix) ? file.slice(prefix.length) : file;
+}
+
+type CrossImportErrorInput = {
+  root: string;
+  renderer: string;
+  chain: readonly string[];
+  owners: readonly string[];
 };
 
-function crossImportError(state: PluginState, renderer: string, chain: string[], owners: string[]): Error {
-  const path = chain.map((id) => short(state, id)).join(" -> ");
+function crossImportError({ root, renderer, chain, owners }: CrossImportErrorInput): Error {
+  const path = chain.map((id) => short({ root, id })).join(" -> ");
   return new Error(
     `droplets: a ${renderer} droplet imports ${owners.join("/")} code: ${path}. ` +
       `A droplet uses its own framework's modules and neutral code only.`,
@@ -150,28 +179,32 @@ function loadModules(state: PluginState): Map<string, string> {
   return map;
 }
 
-function loadCssError(state: PluginState, chain: [string, ...string[]]): Error {
-  const path = chain.map((id) => short(state, id)).join(" -> ");
+type LoadCssErrorInput = { root: string; chain: readonly [string, ...string[]] };
+
+function loadCssError({ root, chain }: LoadCssErrorInput): Error {
+  const path = chain.map((id) => short({ root, id })).join(" -> ");
   return new Error(
-    `droplets: ${short(state, chain[0])} imports CSS: ${path}. ` +
+    `droplets: ${short({ root, id: chain[0] })} imports CSS: ${path}. ` +
       `Styles belong to the component: import them from +droplet.<ext> or +error.<ext> (or a <style> block).`,
   );
 }
 
 type GraphModule = { importedIds: readonly string[]; dynamicallyImportedIds: readonly string[] };
 
-/** The path from `start` to the first module `found` accepts, through the graph; `null` when none does. */
-function findInGraph(
-  start: string,
-  getModule: (id: string) => GraphModule | null,
-  found: (id: string) => boolean,
-): [string, ...string[]] | null {
+type FindInGraphInput = {
+  start: string;
+  getModule: (id: string) => GraphModule | null;
+  isTarget: (id: string) => boolean;
+};
+
+/** The path from `start` to the first module `isTarget` accepts, through the graph; `null` when none does. */
+function findInGraph({ start, getModule, isTarget }: FindInGraphInput): [string, ...string[]] | null {
   const parent = new Map<string, string | null>([[start, null]]);
   const queue = [start];
   while (queue.length > 0) {
     const current = queue.shift();
     if (current === undefined) break;
-    if (found(current)) {
+    if (isTarget(current)) {
       const chain: [string, ...string[]] = [current];
       for (let at = parent.get(current) ?? null; at; at = parent.get(at) ?? null) chain.unshift(at);
       return chain;
@@ -191,23 +224,32 @@ function findInGraph(
  * Walks every droplet's module graph after a build and fails on the first
  * module another renderer owns, naming the import chain.
  */
-export function checkDropletGraphs(state: PluginState, moduleIds: Iterable<string>, getModule: (id: string) => GraphModule | null): void {
+export type CheckDropletGraphsInput = {
+  state: PluginState;
+  moduleIds: Iterable<string>;
+  getModule: (id: string) => GraphModule | null;
+};
+
+export function checkDropletGraphs({ state, moduleIds, getModule }: CheckDropletGraphsInput): void {
   const components = componentRenderers(state);
   const loads = loadModules(state);
+  const { root } = state;
   for (const id of moduleIds) {
-    const renderer = components.get(clean(id));
+    const renderer = components.get(clean({ id }));
     if (renderer) {
-      const foreign = (current: string) => {
-        const owners = ownersOf(current, checked(state));
+      const isForeign = (current: string) => {
+        const owners = ownersOf({ id: current, renderers: checked(state) });
         return owners.length > 0 && !owners.includes(renderer);
       };
-      const chain = findInGraph(id, getModule, foreign);
+      const chain = findInGraph({ start: id, getModule, isTarget: isForeign });
       const last = chain?.at(-1);
-      if (chain && last !== undefined) throw crossImportError(state, renderer, chain, ownersOf(last, checked(state)));
+      if (chain && last !== undefined) {
+        throw crossImportError({ root, renderer, chain, owners: ownersOf({ id: last, renderers: checked(state) }) });
+      }
     }
-    if (loads.has(clean(id))) {
-      const chain = findInGraph(id, getModule, isStylesheet);
-      if (chain) throw loadCssError(state, chain);
+    if (loads.has(clean({ id }))) {
+      const chain = findInGraph({ start: id, getModule, isTarget: (current) => isStylesheet({ id: current }) });
+      if (chain) throw loadCssError({ root, chain });
     }
   }
 }
@@ -215,8 +257,10 @@ export function checkDropletGraphs(state: PluginState, moduleIds: Iterable<strin
 type DevModule = { id: string | null; importers: Set<DevModule> };
 
 /** The first load module that reaches `id` through the dev module graph, `id` itself included. */
-function reachingLoad(loads: Map<string, string>, start: DevModule | undefined, id: string): string | undefined {
-  if (loads.has(clean(id))) return id;
+type ReachingLoadInput = { loads: ReadonlyMap<string, string>; start: DevModule | undefined; id: string };
+
+function reachingLoad({ loads, start, id }: ReachingLoadInput): string | undefined {
+  if (loads.has(clean({ id }))) return id;
   const seen = new Set<DevModule>();
   const queue = start ? [start] : [];
   while (queue.length > 0) {
@@ -224,18 +268,20 @@ function reachingLoad(loads: Map<string, string>, start: DevModule | undefined, 
     if (module === undefined) break;
     if (seen.has(module)) continue;
     seen.add(module);
-    if (module.id && loads.has(clean(module.id))) return module.id;
+    if (module.id && loads.has(clean({ id: module.id }))) return module.id;
     queue.push(...module.importers);
   }
   return undefined;
 }
 
 /** The renderers of the droplets that reach `id`, through the dev module graph. */
-function reachingRenderers(components: Map<string, string>, start: DevModule | undefined, id: string): Set<string> {
+type ReachingRenderersInput = { components: ReadonlyMap<string, string>; start: DevModule | undefined; id: string };
+
+function reachingRenderers({ components, start, id }: ReachingRenderersInput): Set<string> {
   const found = new Set<string>();
-  const direct = components.get(clean(id));
+  const direct = components.get(clean({ id }));
   if (direct) found.add(direct);
-  const marked = markOf(id);
+  const marked = markOf({ id });
   if (marked) found.add(marked);
   const seen = new Set<DevModule>();
   const queue = start ? [start] : [];
@@ -244,7 +290,7 @@ function reachingRenderers(components: Map<string, string>, start: DevModule | u
     if (module === undefined) break;
     if (seen.has(module)) continue;
     seen.add(module);
-    const renderer = module.id ? components.get(clean(module.id)) : undefined;
+    const renderer = module.id ? components.get(clean({ id: module.id })) : undefined;
     if (renderer) found.add(renderer);
     queue.push(...module.importers);
   }
@@ -268,17 +314,20 @@ export function rendererGraphsPlugin(state: PluginState): Plugin {
       order: "pre",
       async handler(source, importer, options) {
         if (!importer || source.startsWith("\0") || importer.startsWith("\0")) return null;
-        const mark = markOf(importer);
-        const checking = command === "serve" && !clean(importer).includes("/node_modules/");
+        const mark = markOf({ id: importer });
+        const checking = command === "serve" && !clean({ id: importer }).includes("/node_modules/");
         if (!mark && !checking) return null;
 
-        if (checking && isStylesheet(source)) {
+        if (checking && isStylesheet({ id: source })) {
           // The build walks whole graphs; the dev server checks each import as it is resolved.
           const environment = this.environment;
           const graph = environment && "moduleGraph" in environment ? environment.moduleGraph : undefined;
           const module = graph?.getModuleById(importer) as DevModule | undefined;
-          const load = reachingLoad(loadModules(state), module, importer);
-          if (load) this.error(loadCssError(state, load === importer ? [importer, source] : [load, importer, source]).message);
+          const load = reachingLoad({ loads: loadModules(state), start: module, id: importer });
+          if (load) {
+            const chain: [string, ...string[]] = load === importer ? [importer, source] : [load, importer, source];
+            this.error(loadCssError({ root: state.root, chain }).message);
+          }
         }
         if (source.includes("?")) return null;
 
@@ -287,16 +336,16 @@ export function rendererGraphsPlugin(state: PluginState): Plugin {
 
         if (checking) {
           // The build walks whole graphs; the dev server checks each import as it is resolved.
-          const owners = ownersOfImport(source, resolved.id, checked(state));
+          const owners = ownersOfImport({ source, resolved: resolved.id, renderers: checked(state) });
           if (owners.length > 0) {
             const environment = this.environment;
             const graph = environment && "moduleGraph" in environment ? environment.moduleGraph : undefined;
             const module = graph?.getModuleById(importer) as DevModule | undefined;
-            const renderers = reachingRenderers(componentRenderers(state), module, importer);
+            const renderers = reachingRenderers({ components: componentRenderers(state), start: module, id: importer });
             for (const renderer of renderers) {
               if (!owners.includes(renderer)) {
-                const target = packageOf(source) ? source : resolved.id;
-                this.error(crossImportError(state, renderer, [importer, target], owners).message);
+                const target = packageOf({ specifier: source }) ? source : resolved.id;
+                this.error(crossImportError({ root: state.root, renderer, chain: [importer, target], owners }).message);
               }
             }
           }
@@ -307,7 +356,7 @@ export function rendererGraphsPlugin(state: PluginState): Plugin {
         // the renderer's server module. In a workspace they resolve outside
         // node_modules, so the path alone does not tell.
         const rendererPackage =
-          packageOf(source) !== null &&
+          packageOf({ specifier: source }) !== null &&
           state.renderers.some((r) => r.packages?.some((pkg) => source === pkg || source.startsWith(`${pkg}/`)));
         if (!mark || rendererPackage || resolved.id.includes("?") || !SCRIPT.test(resolved.id) || resolved.id.includes("/node_modules/")) {
           return resolved;
@@ -320,7 +369,7 @@ export function rendererGraphsPlugin(state: PluginState): Plugin {
       // Every build: the client one has the components and +droplet.ts, the
       // SSR one (or the server one, without it) +droplet.server.ts too.
       if (error || command !== "build") return;
-      checkDropletGraphs(state, this.getModuleIds(), (id) => this.getModuleInfo(id));
+      checkDropletGraphs({ state, moduleIds: this.getModuleIds(), getModule: (id) => this.getModuleInfo(id) });
     },
   };
 }

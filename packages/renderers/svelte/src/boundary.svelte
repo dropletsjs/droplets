@@ -33,7 +33,7 @@
   const host = getContext<DropletChildrenHost | undefined>(CHILDREN_KEY);
   // The props of a mount: read once, before the component reads them.
   Promise.resolve(untrack(() => props["data"])).catch(() => {
-    const restore = releaseHost(host);
+    const restore = releaseHost({ host });
     setTimeout(restore);
   });
 </script>

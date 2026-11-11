@@ -11,12 +11,12 @@ export type ProjectOptions = { root?: string; config?: string; mode?: string };
 
 export type Project = { root: string; configFile: string | undefined; api: DropletsPluginApi };
 
-export async function loadProject(options: ProjectOptions): Promise<Project> {
-  const root = resolve(options.root ?? process.cwd());
+export async function loadProject({ root: rootOption, config: configOption, mode = "development" }: ProjectOptions): Promise<Project> {
+  const root = resolve(rootOption ?? process.cwd());
   const config = await resolveConfig(
-    { root, ...(options.config ? { configFile: resolve(root, options.config) } : {}), logLevel: "warn" },
+    { root, ...(configOption ? { configFile: resolve(root, configOption) } : {}), logLevel: "warn" },
     "serve",
-    options.mode ?? "development",
+    mode,
   );
   const plugin = config.plugins.find((p) => p.name === "droplets") as { api?: DropletsPluginApi } | undefined;
   if (!plugin?.api) throw new Error("no droplets() plugin in the Vite config");

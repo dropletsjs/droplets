@@ -12,15 +12,25 @@
  * rejected `await data` included.
  */
 import type { ClientRenderContext, ComponentModule, RenderProps } from "@dropletsjs/droplets";
-import { createApp, createSSRApp, defineComponent, h, onErrorCaptured, shallowRef, type App, type Component } from "vue";
+import { type App, type Component, createApp, createSSRApp, defineComponent, h, onErrorCaptured, shallowRef } from "vue";
 import { CHILDREN_KEY } from "./children.ts";
-import { live, suspended, type Live } from "./live-props.ts";
+import { type Live, liveStates, suspended } from "./live-props.ts";
 
 type WithStyles = { styles?: string[] };
 
+type ComponentOfInput = { module: ComponentModule; context: Pick<ClientRenderContext, "droplet" | "kind"> };
+
+type InjectStyleInput = { css: string };
+
+type AdoptHeadInput = { target: HTMLElement };
+
+type InjectComponentStylesInput = { component: Component; context: Pick<ClientRenderContext, "kind"> };
+
+type WithBoundaryInput = { root: Component; error: NonNullable<ClientRenderContext["error"]>; errorComponent: Component };
+
 const STYLE_MARK = "data-droplets-vue";
 
-function componentOf(module: ComponentModule, context: ClientRenderContext): Component {
+function componentOf({ module, context }: ComponentOfInput): Component {
   const component = module.default;
   if (!component || (typeof component !== "object" && typeof component !== "function")) {
     throw new Error(`${context.droplet}: the ${context.kind} component is not a Vue component`);
@@ -29,7 +39,7 @@ function componentOf(module: ComponentModule, context: ClientRenderContext): Com
 }
 
 /** Appends `css` to the document head, once per text. */
-function injectStyle(css: string): void {
+function injectStyle({ css }: InjectStyleInput): void {
   const existing = Array.from(document.head.querySelectorAll(`style[${STYLE_MARK}]`));
   if (existing.some((style) => style.textContent === css)) return;
   const style = document.createElement("style");
@@ -43,18 +53,18 @@ function injectStyle(css: string): void {
  * `head`) move to the document head: Vue's hydration walks the target's
  * children from the first one and would take them for a mismatch.
  */
-function adoptHead(target: HTMLElement): void {
+function adoptHead({ target }: AdoptHeadInput): void {
   for (const style of Array.from(target.querySelectorAll(":scope > style"))) {
     style.remove();
-    injectStyle(style.textContent ?? "");
+    injectStyle({ css: style.textContent ?? "" });
   }
 }
 
 /** An error page mounted in the browser brings its own CSS, like on the server. */
-function injectComponentStyles(component: Component, context: ClientRenderContext): void {
+function injectComponentStyles({ component, context }: InjectComponentStylesInput): void {
   if (context.kind !== "error") return;
   const styles = (component as WithStyles).styles;
-  if (Array.isArray(styles)) for (const css of styles) injectStyle(css);
+  if (Array.isArray(styles)) for (const css of styles) injectStyle({ css });
 }
 
 /**
@@ -62,7 +72,7 @@ function injectComponentStyles(component: Component, context: ClientRenderContex
  * goes through `handle` (the droplet's `handleError`) into the error page,
  * rendered in its place; nothing while `handle` runs, or when it rejects.
  */
-function withBoundary(root: Component, error: NonNullable<ClientRenderContext["error"]>, errorComponent: Component): Component {
+function withBoundary({ root, error, errorComponent }: WithBoundaryInput): Component {
   return defineComponent({
     name: "DropletBoundary",
     setup() {
@@ -73,6 +83,7 @@ function withBoundary(root: Component, error: NonNullable<ClientRenderContext["e
         failed.value = true;
         error.handle(caught).then(
           (value) => (shown.value = { error: value }),
+          // `handleError` rejected: the boundary shows nothing.
           () => undefined,
         );
         return false;
@@ -86,35 +97,35 @@ function withBoundary(root: Component, error: NonNullable<ClientRenderContext["e
 }
 
 export function mount(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): App {
-  const component = componentOf(module, context);
-  injectComponentStyles(component, context);
-  const current: Live = { props: shallowRef(props) };
-  let root = suspended(component, current);
+  const component = componentOf({ module, context });
+  injectComponentStyles({ component, context });
+  const state: Live = { props: shallowRef(props) };
+  let root = suspended({ component, state });
   if (context.error) {
     const errorContext = { ...context, kind: "error" as const };
-    const errorComponent = componentOf(context.error.module, errorContext);
-    injectComponentStyles(errorComponent, errorContext);
-    root = withBoundary(root, context.error, errorComponent);
+    const errorComponent = componentOf({ module: context.error.module, context: errorContext });
+    injectComponentStyles({ component: errorComponent, context: errorContext });
+    root = withBoundary({ root, error: context.error, errorComponent });
   }
   const app = createApp(root);
   app.provide(CHILDREN_KEY, context.children);
   app.mount(target);
-  live.set(app, current);
+  liveStates.set(app, state);
   return app;
 }
 
 export function hydrate(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): App {
-  const component = componentOf(module, context);
+  const component = componentOf({ module, context });
   // Vue compares the DOM with its virtual tree; the element took the host's
   // container out of the server-rendered marker before this call, and it
   // returns through `fill` once `DropletChildren` is mounted.
-  adoptHead(target);
-  injectComponentStyles(component, context);
-  const current: Live = { props: shallowRef(props) };
-  const app = createSSRApp(suspended(component, current));
+  adoptHead({ target });
+  injectComponentStyles({ component, context });
+  const state: Live = { props: shallowRef(props) };
+  const app = createSSRApp(suspended({ component, state }));
   app.provide(CHILDREN_KEY, context.children);
   app.mount(target);
-  live.set(app, current);
+  liveStates.set(app, state);
   return app;
 }
 

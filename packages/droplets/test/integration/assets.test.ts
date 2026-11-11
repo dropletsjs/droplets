@@ -71,7 +71,9 @@ async function files(dir: string): Promise<string[]> {
   return out;
 }
 
-const attr = (html: string, id: string, name: "src" | "href") => new RegExp(`id="${id}" ${name}="([^"]+)"`).exec(html)?.[1];
+type AttrInput = { html: string; id: string; name: "src" | "href" };
+
+const attr = ({ html, id, name }: AttrInput) => new RegExp(`id="${id}" ${name}="([^"]+)"`).exec(html)?.[1];
 
 const roots: string[] = [];
 afterAll(async () => {
@@ -122,18 +124,18 @@ describe("file URLs in a build", () => {
       (await app.request("http://drops.test/droplets/pics", { headers })).text();
 
     const own = await render();
-    expect(attr(own, "imported", "src")).toMatch(/^http:\/\/drops\.test\/assets\/logo-[\w-]+\.png$/);
-    expect(attr(own, "from-url", "src")).toBe(attr(own, "imported", "src"));
-    expect(attr(own, "drop", "href")).toBe(attr(own, "imported", "src"));
-    expect(attr(own, "robots", "href")).toBe("http://drops.test/assets/public/robots.txt");
+    expect(attr({ html: own, id: "imported", name: "src" })).toMatch(/^http:\/\/drops\.test\/assets\/logo-[\w-]+\.png$/);
+    expect(attr({ html: own, id: "from-url", name: "src" })).toBe(attr({ html: own, id: "imported", name: "src" }));
+    expect(attr({ html: own, id: "drop", name: "href" })).toBe(attr({ html: own, id: "imported", name: "src" }));
+    expect(attr({ html: own, id: "robots", name: "href" })).toBe("http://drops.test/assets/public/robots.txt");
 
     // A host page on another origin, behind a proxy's prefix.
     const prefixed = await render({ "x-droplet-location": "https://host.example/mfe" });
-    expect(attr(prefixed, "imported", "src")).toMatch(/^https:\/\/host\.example\/mfe\/assets\/logo-[\w-]+\.png$/);
-    expect(attr(prefixed, "from-url", "src")).toBe(attr(prefixed, "imported", "src"));
-    expect(attr(prefixed, "drop", "href")).toBe(attr(prefixed, "imported", "src"));
+    expect(attr({ html: prefixed, id: "imported", name: "src" })).toMatch(/^https:\/\/host\.example\/mfe\/assets\/logo-[\w-]+\.png$/);
+    expect(attr({ html: prefixed, id: "from-url", name: "src" })).toBe(attr({ html: prefixed, id: "imported", name: "src" }));
+    expect(attr({ html: prefixed, id: "drop", name: "href" })).toBe(attr({ html: prefixed, id: "imported", name: "src" }));
     // At the module's top level, outside any request: the token, replaced per response.
-    expect(attr(prefixed, "robots", "href")).toBe("https://host.example/mfe/assets/public/robots.txt");
+    expect(attr({ html: prefixed, id: "robots", name: "href" })).toBe("https://host.example/mfe/assets/public/robots.txt");
 
     for (const html of [own, prefixed]) {
       expect(html).not.toContain("file://");
@@ -215,13 +217,15 @@ describe("file URLs in vite dev", () => {
   it("renders file URLs absolute to the dev server, so a page on another origin loads them", async () => {
     const html = await (await fetch(`${origin}/droplets/pics`, { headers: { "x-droplet-location": "https://host.example/mfe" } })).text();
     const port = new URL(origin).port;
-    const imported = attr(html, "imported", "src");
+    const imported = attr({ html: html, id: "imported", name: "src" });
     expect(imported).toMatch(new RegExp(`^http://(localhost|127\\.0\\.0\\.1):${port}/src/droplets/pics/logo\\.png`));
-    expect(attr(html, "from-url", "src")).toMatch(new RegExp(`^http://(localhost|127\\.0\\.0\\.1):${port}/src/droplets/pics/logo\\.png`));
-    expect(attr(html, "robots", "href")).toBe("https://host.example/mfe/assets/public/robots.txt");
+    expect(attr({ html: html, id: "from-url", name: "src" })).toMatch(
+      new RegExp(`^http://(localhost|127\\.0\\.0\\.1):${port}/src/droplets/pics/logo\\.png`),
+    );
+    expect(attr({ html: html, id: "robots", name: "href" })).toBe("https://host.example/mfe/assets/public/robots.txt");
     // A module's top level runs outside any request: no first request's location sticks.
     const other = await (await fetch(`${origin}/droplets/pics`)).text();
-    expect(attr(other, "robots", "href")).toBe(`${origin}/assets/public/robots.txt`);
+    expect(attr({ html: other, id: "robots", name: "href" })).toBe(`${origin}/assets/public/robots.txt`);
     expect(html).not.toContain("file://");
     expect(html).not.toContain("DROPLET_");
     expect((await fetch((imported ?? expect.unreachable("#imported src")).replace("localhost", "127.0.0.1"))).status).toBe(200);

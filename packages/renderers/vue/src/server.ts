@@ -11,7 +11,9 @@ import { CHILDREN_KEY } from "./children.ts";
 /** A compiled error page in plugin-vue's custom-element mode: its CSS, inlined. */
 type WithStyles = { styles?: string[] };
 
-function componentOf(module: ComponentModule, context: ServerRenderContext): Component {
+type ComponentOfInput = { module: ComponentModule; context: Pick<ServerRenderContext, "droplet" | "kind"> };
+
+function componentOf({ module, context }: ComponentOfInput): Component {
   const component = module.default;
   if (!component || (typeof component !== "object" && typeof component !== "function")) {
     throw new Error(`${context.droplet}: the ${context.kind} component is not a Vue component`);
@@ -20,8 +22,8 @@ function componentOf(module: ComponentModule, context: ServerRenderContext): Com
 }
 
 export async function render(module: ComponentModule, props: RenderProps, context: ServerRenderContext): Promise<ServerRenderOutput> {
-  const component = componentOf(module, context);
-  const app = createSSRApp(component, props as Record<string, unknown>);
+  const component = componentOf({ module, context });
+  const app = createSSRApp(component, props);
   app.provide(CHILDREN_KEY, null);
   const html = await renderToString(app);
 

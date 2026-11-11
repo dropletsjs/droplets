@@ -46,11 +46,13 @@ export type ServerLocationInput = { key: string };
  * back to the root (`../../`), and `vite dev` with `/`.
  */
 export function serverLocation({ key }: ServerLocationInput): string {
-  return serverRecord(key).origin ?? buildRoot(import.meta.url);
+  return serverRecord(key).origin ?? buildRoot({ moduleUrl: import.meta.url });
 }
 
+type BuildRootInput = { moduleUrl: string };
+
 // Not `new URL("…", import.meta.url)`: Vite would take the marker for a file to bundle.
-function buildRoot(moduleUrl: string): string {
+function buildRoot({ moduleUrl }: BuildRootInput): string {
   return new URL("__DROPLETS_BUILD_ROOT__", moduleUrl).href.replace(/\/$/, "");
 }
 

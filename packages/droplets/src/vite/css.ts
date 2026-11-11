@@ -54,12 +54,14 @@ export type ResolvedCss = {
 
 export const DEFAULT_CSS_PATH = "./src/app.css";
 
+type ResolveCssInput = { options?: DropletsCssOptions | undefined; root: string };
+
 /** Fills in the `css` defaults; `./src/app.css` only when it exists. */
-export async function resolveCss(options: DropletsCssOptions = {}, root: string): Promise<ResolvedCss> {
+export async function resolveCss({ options = {}, root }: ResolveCssInput): Promise<ResolvedCss> {
   const path =
     options.path === false
       ? undefined
-      : (options.path ?? ((await fileExists(resolve(root, DEFAULT_CSS_PATH))) ? DEFAULT_CSS_PATH : undefined));
+      : (options.path ?? ((await fileExists({ path: resolve(root, DEFAULT_CSS_PATH) })) ? DEFAULT_CSS_PATH : undefined));
   return {
     ...(path ? { path } : {}),
     scoped: options.scoped ?? true,
@@ -82,7 +84,9 @@ const PREFLIGHT_IMPORT = /@import\s+(["'])tailwindcss\/preflight(?:\.css)?\1[^;]
  * (`prefix(tw)`, `important`, `source(…)`), and the preflight's own import
  * goes. `null` when there is nothing to change.
  */
-export function withoutPreflight(code: string): string | null {
+type WithoutPreflightInput = { code: string };
+
+export function withoutPreflight({ code }: WithoutPreflightInput): string | null {
   if (!code.includes("tailwindcss")) return null;
   const result = code
     .replace(PREFLIGHT_IMPORT, "")
@@ -101,7 +105,9 @@ export function withoutPreflight(code: string): string | null {
  * for `*`, `::before`, `::after` and `::backdrop`, in whatever spelling
  * Tailwind's optimizer left it.
  */
-export function hasPreflight(root: Root): boolean {
+type HasPreflightInput = { root: Root };
+
+export function hasPreflight({ root }: HasPreflightInput): boolean {
   let found = false;
   root.walkRules((rule) => {
     const selectors = new Set(rule.selectors.map((s) => s.replace(/\s+/g, "").replace(/::(before|after)\b/g, ":$1")));
@@ -125,7 +131,12 @@ export function hasPreflight(root: Root): boolean {
  * `@dropletsjs/droplets/postcss` themselves. `undefined` when there is
  * nothing to do.
  */
-export function createCssConfig(userConfig: UserConfig, state: PluginState): UserConfig["css"] | undefined {
+/** Vite's `css` option, as `createCssConfig` returns it. */
+export type CssConfig = NonNullable<UserConfig["css"]>;
+
+type CreateCssConfigInput = { userConfig: UserConfig; state: PluginState };
+
+export function createCssConfig({ userConfig, state }: CreateCssConfigInput): CssConfig | undefined {
   const plugins: PostcssPlugin[] = [];
   if (!state.css.twPreflight) {
     const warned = new Set<string>();
@@ -133,7 +144,7 @@ export function createCssConfig(userConfig: UserConfig, state: PluginState): Use
       postcssPlugin: "droplets:preflight-check",
       Once(root) {
         const file = root.source?.input.file ?? "a stylesheet";
-        if (warned.has(file) || !hasPreflight(root)) return;
+        if (warned.has(file) || !hasPreflight({ root })) return;
         warned.add(file);
         logger.warn(
           "framework",
@@ -157,8 +168,10 @@ const TAILWIND_PLUGIN = "@tailwindcss/vite";
 
 type Hook = (this: unknown, ...args: unknown[]) => unknown;
 
+type GatedInput = { plugin: Plugin; state: PluginState };
+
 /** A Tailwind plugin that only does its work when `css.tailwind` adds Tailwind. */
-function gated(plugin: Plugin, state: PluginState): Plugin {
+function gated({ plugin, state }: GatedInput): Plugin {
   const wrapped: Plugin = { ...plugin, name: plugin.name.replace(TAILWIND_PLUGIN, "droplets:tailwind") };
   const record = wrapped as unknown as Record<string, unknown>;
   for (const key of ["configResolved", "transform"] as const) {
@@ -180,7 +193,9 @@ function gated(plugin: Plugin, state: PluginState): Plugin {
   return wrapped;
 }
 
-function isModuleNotFound(error: unknown): boolean {
+type IsModuleNotFoundInput = { error: unknown };
+
+function isModuleNotFound({ error }: IsModuleNotFoundInput): boolean {
   const code = (error as { code?: unknown } | null)?.code;
   return code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND";
 }
@@ -197,7 +212,7 @@ export async function tailwindPlugins(state: PluginState): Promise<Plugin[]> {
     const { default: tailwindcss } = await import("@tailwindcss/vite");
     plugins = tailwindcss() as Plugin[];
   } catch (error) {
-    if (!isModuleNotFound(error)) throw error;
+    if (!isModuleNotFound({ error })) throw error;
   }
 
   const control: Plugin = {
@@ -216,11 +231,11 @@ export async function tailwindPlugins(state: PluginState): Promise<Plugin[]> {
       order: "pre",
       handler(code, id) {
         if (state.css.twPreflight || !tailwindActive(state) || !isCSSRequest(id)) return;
-        const rewritten = withoutPreflight(code);
+        const rewritten = withoutPreflight({ code });
         return rewritten === null ? undefined : { code: rewritten, map: null };
       },
     },
   };
   // In front of Tailwind's own, so the decision is made before they run.
-  return [control, ...(plugins ?? []).map((plugin) => gated(plugin, state))];
+  return [control, ...(plugins ?? []).map((plugin) => gated({ plugin, state }))];
 }

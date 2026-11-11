@@ -16,8 +16,10 @@ const ASSETS_IGNORE = "/droplets.json\n/.vite/\n";
 
 const WRANGLER_CONFIGS = ["wrangler.jsonc", "wrangler.json", "wrangler.toml"];
 
+type ToJsonInput = { text: string };
+
 /** JSON with comments and trailing commas, as wrangler reads it, to plain JSON. */
-function jsonc(text: string): string {
+function toJson({ text }: ToJsonInput): string {
   let out = "";
   for (let i = 0; i < text.length; i++) {
     const char = text.charAt(i);
@@ -41,17 +43,16 @@ function jsonc(text: string): string {
   return out.replace(/,(\s*[}\]])/g, "$1");
 }
 
-/** A wrangler config: its file name and its text. */
-type WranglerConfig = { file: string; text: string };
+type ReadRunWorkerFirstInput = { file: string; text: string };
 
 /** `assets.run_worker_first` of a wrangler config's text, `undefined` when it is not set; throws when the text does not parse. */
-function runWorkerFirst({ file, text }: WranglerConfig): unknown {
+function readRunWorkerFirst({ file, text }: ReadRunWorkerFirstInput): unknown {
   if (file.endsWith(".toml")) {
     const section = /^\[assets\]\s*$([\s\S]*?)(?=^\[|(?![\s\S]))/m.exec(text)?.[1] ?? "";
     const value = /^\s*run_worker_first\s*=\s*(.+?)\s*(?:#.*)?$/m.exec(section)?.[1];
     return value === undefined ? undefined : JSON.parse(value.replace(/'/g, '"'));
   }
-  const config = JSON.parse(jsonc(text)) as { assets?: { run_worker_first?: unknown } };
+  const config = JSON.parse(toJson({ text })) as { assets?: { run_worker_first?: unknown } };
   return config.assets?.run_worker_first;
 }
 
@@ -86,13 +87,15 @@ function touchesRoute({ pattern, route }: RoutePair): boolean {
   return literal.startsWith(prefix) || (pattern.includes("*") && prefix.startsWith(literal));
 }
 
+type CoversWorkerRoutesInput = { value: unknown };
+
 /** Whether a `run_worker_first` value sends every route of `WORKER_ROUTES` to the Worker: `true`, or a list that covers them and excludes none (`!`). */
-function coversWorkerRoutes({ value }: { value: unknown }): boolean {
+function coversWorkerRoutes({ value }: CoversWorkerRoutesInput): boolean {
   if (value === true) return true;
   if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) return false;
   const patterns: string[] = value;
-  const included = patterns.filter((p) => !p.startsWith("!"));
-  const excluded = patterns.filter((p) => p.startsWith("!")).map((p) => p.slice(1));
+  const included = patterns.filter((pattern) => !pattern.startsWith("!"));
+  const excluded = patterns.filter((pattern) => pattern.startsWith("!")).map((pattern) => pattern.slice(1));
   return WORKER_ROUTES.every(
     (route) => included.some((pattern) => coversRoute({ pattern, route })) && !excluded.some((pattern) => touchesRoute({ pattern, route })),
   );
@@ -145,7 +148,7 @@ export function cloudflare(options: CloudflareAdapterOptions = {}): DropletsAdap
       // config loads: "production" for `vite build` unless overridden.
       define: { "process.env.NODE_ENV": JSON.stringify(process.env["NODE_ENV"] || "production") },
       resolve: {
-        conditions: ["workerd", "worker", ...defaultServerConditions.filter((c) => c !== "node")],
+        conditions: ["workerd", "worker", ...defaultServerConditions.filter((condition) => condition !== "node")],
       },
       build: {
         target: "es2022",
@@ -169,8 +172,9 @@ export function cloudflare(options: CloudflareAdapterOptions = {}): DropletsAdap
       }
       let value: unknown;
       try {
-        value = runWorkerFirst({ file, text: await readFile(resolve(root, file), "utf8") });
+        value = readRunWorkerFirst({ file, text: await readFile(resolve(root, file), "utf8") });
       } catch {
+        // Text this reader does not parse (broken JSON, a TOML value JSON does not take): warn, never fail the build.
         logger.warn("framework", `could not read assets.run_worker_first in ${file}; set it to true, see ${RUN_WORKER_FIRST_DOCS}`);
         return;
       }

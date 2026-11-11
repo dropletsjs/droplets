@@ -2,7 +2,11 @@ import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-function findPackageRoot(start: string): string {
+type FindPackageRootInput = { start: string };
+
+export type ToViteFsPathInput = { filePath: string };
+
+function findPackageRoot({ start }: FindPackageRootInput): string {
   let dir = start;
   for (;;) {
     if (existsSync(join(dir, "package.json"))) return dir;
@@ -15,7 +19,7 @@ function findPackageRoot(start: string): string {
 }
 
 /** Root of the installed `@dropletsjs/droplets` package. */
-export const packageRoot = findPackageRoot(dirname(fileURLToPath(import.meta.url)));
+export const packageRoot = findPackageRoot({ start: dirname(fileURLToPath(import.meta.url)) });
 
 /**
  * The compiled package. Three of these files are not run by Node directly:
@@ -49,6 +53,6 @@ export const serverRecordsModulePath = resolve(packageDist, "runtime/server-reco
 export const clientInitModulePath = resolve(packageDist, "runtime/client-init.js");
 
 /** Turns an absolute path into a URL Vite can transform. */
-export function toViteFsPath(filePath: string): string {
+export function toViteFsPath({ filePath }: ToViteFsPathInput): string {
   return `/@fs/${filePath.replace(/\\/g, "/")}`;
 }

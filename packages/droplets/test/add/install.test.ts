@@ -11,20 +11,20 @@ describe("the package manager", () => {
     const top = mkdtempSync(join(tmpdir(), "djs-pm-"));
     const project = join(top, "apps", "web");
     mkdirSync(project, { recursive: true });
-    expect(detectPackageManager(project, "bun/1.4.4 npm/? node/v24.0.0 darwin arm64")).toBe("bun");
-    expect(detectPackageManager(project, "")).toBe("npm");
+    expect(detectPackageManager({ root: project, agent: "bun/1.4.4 npm/? node/v24.0.0 darwin arm64" })).toBe("bun");
+    expect(detectPackageManager({ root: project, agent: "" })).toBe("npm");
     writeFileSync(join(top, "pnpm-lock.yaml"), "");
-    expect(detectPackageManager(project, "")).toBe("pnpm");
+    expect(detectPackageManager({ root: project, agent: "" })).toBe("pnpm");
     writeFileSync(join(project, "deno.lock"), "{}");
-    expect(detectPackageManager(project, "")).toBe("deno");
+    expect(detectPackageManager({ root: project, agent: "" })).toBe("deno");
   });
 
   it("adds dependencies and dev dependencies in each one's words", () => {
-    expect(installCommand("npm", ["react@^19.0.0"], true)).toEqual(["npm", "install", "--save-dev", "react@^19.0.0"]);
-    expect(installCommand("pnpm", ["vue@^3.5.0"], false)).toEqual(["pnpm", "add", "vue@^3.5.0"]);
-    expect(installCommand("yarn", ["a"], true)).toEqual(["yarn", "add", "--dev", "a"]);
-    expect(installCommand("bun", ["a"], true)).toEqual(["bun", "add", "--dev", "a"]);
-    expect(installCommand("deno", ["hono@^4.13.0", "@types/react"], true)).toEqual([
+    expect(installCommand({ pm: "npm", specs: ["react@^19.0.0"], isDev: true })).toEqual(["npm", "install", "--save-dev", "react@^19.0.0"]);
+    expect(installCommand({ pm: "pnpm", specs: ["vue@^3.5.0"], isDev: false })).toEqual(["pnpm", "add", "vue@^3.5.0"]);
+    expect(installCommand({ pm: "yarn", specs: ["a"], isDev: true })).toEqual(["yarn", "add", "--dev", "a"]);
+    expect(installCommand({ pm: "bun", specs: ["a"], isDev: true })).toEqual(["bun", "add", "--dev", "a"]);
+    expect(installCommand({ pm: "deno", specs: ["hono@^4.13.0", "@types/react"], isDev: true })).toEqual([
       "deno",
       "add",
       "--dev",
@@ -38,8 +38,8 @@ describe("the package manager", () => {
     mkdirSync(join(top, "node_modules", "@scope", "pkg"), { recursive: true });
     writeFileSync(join(top, "node_modules", "@scope", "pkg", "package.json"), "{}");
     mkdirSync(join(top, "app"));
-    expect(isInstalled(join(top, "app"), "@scope/pkg")).toBe(true);
-    expect(isInstalled(join(top, "app"), "missing")).toBe(false);
+    expect(isInstalled({ root: join(top, "app"), name: "@scope/pkg" })).toBe(true);
+    expect(isInstalled({ root: join(top, "app"), name: "missing" })).toBe(false);
   });
 
   it("pins the renderer to the version of the core the project has installed", () => {
@@ -48,24 +48,25 @@ describe("the package manager", () => {
     mkdirSync(core, { recursive: true });
     writeFileSync(join(core, "package.json"), JSON.stringify({ name: "@dropletsjs/droplets", version: "1.0.0-alpha.3" }));
     mkdirSync(join(top, "app"));
-    expect(coreVersion(join(top, "app"))).toBe("1.0.0-alpha.3");
+    expect(coreVersion({ root: join(top, "app") })).toBe("1.0.0-alpha.3");
 
-    const react = frameworkNamed("react") ?? expect.unreachable("react");
-    expect(missingPackages(join(top, "app"), react)).toEqual({
+    const react = frameworkNamed({ name: "react" }) ?? expect.unreachable("react");
+    expect(missingPackages({ root: join(top, "app"), framework: react })).toEqual({
       dependencies: ["react@^19.0.0", "react-dom@^19.0.0"],
       devDependencies: ["@dropletsjs/renderer-react@1.0.0-alpha.3", "@types/react@^19.0.0", "@types/react-dom@^19.0.0"],
     });
+    const vue = frameworkNamed({ name: "vue" }) ?? expect.unreachable("vue");
     expect(
-      installCommand("npm", missingPackages(join(top, "app"), frameworkNamed("vue") ?? expect.unreachable("vue")).devDependencies, true),
+      installCommand({ pm: "npm", specs: missingPackages({ root: join(top, "app"), framework: vue }).devDependencies, isDev: true }),
     ).toEqual(["npm", "install", "--save-dev", "@dropletsjs/renderer-vue@1.0.0-alpha.3"]);
   });
 
   it("falls back to the version of the core running djs", () => {
     const own = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version: string };
     const lone = mkdtempSync(join(tmpdir(), "djs-lone-"));
-    expect(coreVersion(lone)).toBe(own.version);
-    expect(missingPackages(lone, frameworkNamed("svelte") ?? expect.unreachable("svelte")).devDependencies).toEqual([
-      `@dropletsjs/renderer-svelte@${own.version}`,
-    ]);
+    expect(coreVersion({ root: lone })).toBe(own.version);
+    expect(
+      missingPackages({ root: lone, framework: frameworkNamed({ name: "svelte" }) ?? expect.unreachable("svelte") }).devDependencies,
+    ).toEqual([`@dropletsjs/renderer-svelte@${own.version}`]);
   });
 });

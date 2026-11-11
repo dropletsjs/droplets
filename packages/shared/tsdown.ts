@@ -48,13 +48,28 @@ export function cssInline(): Plugin {
   };
 }
 
-export function isServerPath(path: string): boolean {
+type IsServerPathInput = { path: string };
+
+/** `*.server.*`, `+server.*`, or anything under a `server/` folder; a query or hash is ignored. */
+export function isServerPath({ path }: IsServerPathInput): boolean {
   const parts = path
     .replace(/[?#].*$/, "")
     .replaceAll("\\", "/")
     .split("/");
   return /(?:\.|^\+)server\.[^/]+$/.test(parts.at(-1) ?? "") || parts.slice(0, -1).includes("server");
 }
+
+type PackageNameOfInput = { id: string };
+
+/** `@scope/name/sub` → `@scope/name`, `name/sub` → `name`. */
+function packageNameOf({ id }: PackageNameOfInput): string {
+  return id
+    .split("/")
+    .slice(0, id.startsWith("@") ? 2 : 1)
+    .join("/");
+}
+
+type PackageManifest = { name: string; dependencies?: object; peerDependencies?: object };
 
 export type GraphCheckOptions = {
   /** Entries a browser bundle imports, as sources under `src/` without `.ts`. */
@@ -70,13 +85,13 @@ export type GraphCheckOptions = {
  */
 export function graphCheck({ client = [], server = [] }: GraphCheckOptions = {}): Plugin {
   let src = "";
-  let pkg: { name: string; dependencies?: object; peerDependencies?: object } = { name: "" };
+  let pkg: PackageManifest = { name: "" };
 
-  const isServer = (id: string) => {
+  function isServer(id: string): boolean {
     if (id.startsWith("\0")) return false;
     const path = relative(src, id).replaceAll("\\", "/");
-    return isServerPath(path) || server.some((name) => (name.endsWith("/") ? path.startsWith(name) : path === `${name}.ts`));
-  };
+    return isServerPath({ path }) || server.some((name) => (name.endsWith("/") ? path.startsWith(name) : path === `${name}.ts`));
+  }
 
   return {
     name: "droplets:graph-check",
@@ -96,18 +111,12 @@ export function graphCheck({ client = [], server = [] }: GraphCheckOptions = {})
     generateBundle(_, bundle) {
       const chunks = new Map(Object.values(bundle).flatMap((item) => (item.type === "chunk" ? [[item.fileName, item] as const] : [])));
       const allowed = new Set([pkg.name, ...Object.keys(pkg.dependencies ?? {}), ...Object.keys(pkg.peerDependencies ?? {})]);
-      const packageName = (id: string) =>
-        id
-          .split("/")
-          .slice(0, id.startsWith("@") ? 2 : 1)
-          .join("/");
-
       for (const chunk of chunks.values()) {
         for (const id of [...chunk.imports, ...chunk.dynamicImports]) {
           if (chunks.has(id) || !bareImport.test(id) || /^(node:|virtual:|\$droplets\/)/.test(id)) continue;
           // A copied file the package imports (`.svelte`) shows up by its name.
           if (statSync(resolve(src, id), { throwIfNoEntry: false })?.isFile()) continue;
-          if (!allowed.has(packageName(id)))
+          if (!allowed.has(packageNameOf({ id })))
             this.error(`${chunk.fileName} imports ${id}, which is not a dependency or peer dependency of ${pkg.name}`);
         }
       }

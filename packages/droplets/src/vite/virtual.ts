@@ -54,9 +54,11 @@ const SERVER_ONLY = new Set([VIRTUAL_SERVER, VIRTUAL_ENV_PRIVATE]);
  * Files outside the project (dependencies, the framework, virtual modules)
  * are not checked.
  */
-export function mayImportServerOnly(root: string, importer: string): boolean {
-  const rel = projectPath(root, importer);
-  return rel === null || isServerPath(rel);
+type MayImportServerOnlyInput = { root: string; importer: string };
+
+export function mayImportServerOnly({ root, importer }: MayImportServerOnlyInput): boolean {
+  const rel = projectPath({ root, id: importer });
+  return rel === null || isServerPath({ path: rel });
 }
 
 /** One build entry per droplet: `virtual:droplet-client?name=<folder>`. */
@@ -84,38 +86,41 @@ export const STYLES_PLACEHOLDER = "__DROPLETS_STYLES__";
 /** The loader's public URL; resolved so Vite can process it in dev pages. */
 const LOADER_URL = "/index.js";
 
+type IdInput = { id: string };
+
 /** Vite's convention: resolved virtual ids are prefixed with a NUL byte. */
-const resolved = (id: string) => `\0${id}`;
+function resolved({ id }: IdInput): string {
+  return `\0${id}`;
+}
 
-export const RESOLVED_VIRTUAL_DROPLETS = resolved(VIRTUAL_DROPLETS);
-const RESOLVED_DROPLETS_DEV = resolved(VIRTUAL_DROPLETS_DEV);
+export const RESOLVED_VIRTUAL_DROPLETS = resolved({ id: VIRTUAL_DROPLETS });
+const RESOLVED_DROPLETS_DEV = resolved({ id: VIRTUAL_DROPLETS_DEV });
 
-const RESOLVED_ENV = resolved(VIRTUAL_ENV);
-const RESOLVED_ENV_PUBLIC = resolved(VIRTUAL_ENV_PUBLIC);
-const RESOLVED_ENV_PRIVATE = resolved(VIRTUAL_ENV_PRIVATE);
-const RESOLVED_DROP = resolved(VIRTUAL_DROP);
-const RESOLVED_FORM = resolved(VIRTUAL_FORM);
-const RESOLVED_CSS = resolved(VIRTUAL_CSS);
-const RESOLVED_CSS_FILE = resolved(VIRTUAL_CSS_FILE);
-const RESOLVED_CONFIG = resolved(VIRTUAL_CONFIG);
-const RESOLVED_DROPS_CLIENT = resolved("droplets:loader");
-const RESOLVED_CLIENT_PREFIX = resolved(VIRTUAL_CLIENT);
+const RESOLVED_ENV = resolved({ id: VIRTUAL_ENV });
+const RESOLVED_ENV_PUBLIC = resolved({ id: VIRTUAL_ENV_PUBLIC });
+const RESOLVED_ENV_PRIVATE = resolved({ id: VIRTUAL_ENV_PRIVATE });
+const RESOLVED_DROP = resolved({ id: VIRTUAL_DROP });
+const RESOLVED_FORM = resolved({ id: VIRTUAL_FORM });
+const RESOLVED_CSS = resolved({ id: VIRTUAL_CSS });
+const RESOLVED_CSS_FILE = resolved({ id: VIRTUAL_CSS_FILE });
+const RESOLVED_CONFIG = resolved({ id: VIRTUAL_CONFIG });
+const RESOLVED_DROPS_CLIENT = resolved({ id: "droplets:loader" });
+const RESOLVED_CLIENT_PREFIX = resolved({ id: VIRTUAL_CLIENT });
 
-export function clientEntryId(folderName: string): string {
+type ClientEntryIdInput = { folderName: string };
+
+export function clientEntryId({ folderName }: ClientEntryIdInput): string {
   return `${VIRTUAL_CLIENT}?name=${encodeURIComponent(folderName)}`;
 }
 
-export function parseClientName(id: string): string | null {
+export function parseClientName({ id }: IdInput): string | null {
   const queryIndex = id.indexOf("?");
   if (queryIndex === -1) return null;
   const name = new URLSearchParams(id.slice(queryIndex + 1)).get("name");
   return name?.trim() ? name.trim() : null;
 }
 
-/**
- * The server registry: static imports so the bundler can see the whole graph,
- * with load functions wrapped in thunks so they stay lazy per request.
- */
+/** What `buildServerCode` needs beyond the droplets. */
 export type ServerCodeExtras = {
   apiRoutes?: ApiRouteEntry[];
   /** Root-relative API folder: `/src/api`. */
@@ -132,8 +137,10 @@ export type ServerCodeExtras = {
   tokenNonce?: string;
 };
 
+type ModulePathInput = { file: string };
+
 /** An absolute module path as an import specifier Vite resolves in any environment. */
-function modulePath(file: string): string {
+function modulePath({ file }: ModulePathInput): string {
   return JSON.stringify(file.replace(/\\/g, "/"));
 }
 
@@ -141,11 +148,13 @@ function modulePath(file: string): string {
  * One import per renderer module actually used, named `renderer_<n>`.
  * Returns the import lines and a lookup from renderer name to variable.
  */
-function rendererImports(
-  entries: DropletEntry[],
-  renderers: DropletRenderer[],
-  pick: (renderer: DropletRenderer) => string,
-): { imports: string[]; variable: (name: string) => string } {
+type RendererImportsInput = {
+  entries: readonly DropletEntry[];
+  renderers: readonly DropletRenderer[];
+  pick: (renderer: DropletRenderer) => string;
+};
+
+function rendererImports({ entries, renderers, pick }: RendererImportsInput): { imports: string[]; variable: (name: string) => string } {
   const imports: string[] = [];
   const variables = new Map<string, string>();
   const used = new Set<string>();
@@ -153,10 +162,10 @@ function rendererImports(
     used.add(entry.renderer);
   }
   for (const name of [...used].sort()) {
-    const renderer = rendererNamed({ renderers }, name);
+    const renderer = rendererNamed({ renderers, name });
     const variable = `renderer_${variables.size}`;
     variables.set(name, variable);
-    imports.push(`import * as ${variable} from ${modulePath(pick(renderer))};`);
+    imports.push(`import * as ${variable} from ${modulePath({ file: pick(renderer) })};`);
   }
   return {
     imports,
@@ -168,25 +177,41 @@ function rendererImports(
   };
 }
 
-export function buildServerCode(entries: DropletEntry[], globRoot: string, extras: ServerCodeExtras = {}): string {
+export type BuildServerCodeInput = ServerCodeExtras & { entries: readonly DropletEntry[]; globRoot: string };
+
+/**
+ * The server registry: static imports so the bundler can see the whole graph,
+ * with load functions wrapped in thunks so they stay lazy per request.
+ */
+export function buildServerCode({
+  entries,
+  globRoot,
+  apiRoutes = [],
+  apiGlobRoot = "/src/api",
+  hooksFile,
+  importMapFile,
+  renderers: configured = [],
+  publicEnvNames = [],
+  tokenNonce = "",
+}: BuildServerCodeInput): string {
   const members: string[] = [];
   const routes: string[] = [];
-  const renderers = rendererImports(entries, extras.renderers ?? [], (r) => r.server);
+  const renderers = rendererImports({ entries, renderers: configured, pick: (r) => r.server });
   const imports: string[] = [...renderers.imports];
-  const shared = sharingRenderers(extras.renderers ?? []);
-  const component = (path: string, renderer: string) => componentSpecifier(path, renderer, shared);
+  const shared = sharingRenderers({ renderers: configured });
+  const component = (path: string, renderer: string) => componentSpecifier({ path, renderer, shared });
 
-  (extras.apiRoutes ?? []).forEach((route, index) => {
+  apiRoutes.forEach((route, index) => {
     const variable = `api_${index}`;
-    imports.push(`import * as ${variable} from ${JSON.stringify(`${extras.apiGlobRoot ?? "/src/api"}/${route.file}`)};`);
+    imports.push(`import * as ${variable} from ${JSON.stringify(`${apiGlobRoot}/${route.file}`)};`);
     routes.push(`  { id: ${JSON.stringify(route.id)}, segments: ${JSON.stringify(route.segments)}, module: ${variable} },`);
   });
 
-  if (extras.hooksFile) {
-    imports.push(`import * as hooks from ${JSON.stringify(extras.hooksFile)};`);
+  if (hooksFile) {
+    imports.push(`import * as hooks from ${JSON.stringify(hooksFile)};`);
   }
-  if (extras.importMapFile) {
-    imports.push(`import * as importMapModule from ${JSON.stringify(extras.importMapFile)};`);
+  if (importMapFile) {
+    imports.push(`import * as importMapModule from ${JSON.stringify(importMapFile)};`);
   }
 
   entries.forEach((entry, index) => {
@@ -237,10 +262,10 @@ export function buildServerCode(entries: DropletEntry[], globRoot: string, extra
     "export const api = [",
     ...routes,
     "];",
-    extras.hooksFile ? "export { hooks };" : "export const hooks = {};",
-    extras.importMapFile ? "export { importMapModule };" : "export const importMapModule = {};",
-    `export const publicEnvNames = ${JSON.stringify(extras.publicEnvNames ?? [])};`,
-    `export const tokenNonce = ${JSON.stringify(extras.tokenNonce ?? "")};`,
+    hooksFile ? "export { hooks };" : "export const hooks = {};",
+    importMapFile ? "export { importMapModule };" : "export const importMapModule = {};",
+    `export const publicEnvNames = ${JSON.stringify(publicEnvNames)};`,
+    `export const tokenNonce = ${JSON.stringify(tokenNonce)};`,
     "",
   ].join("\n");
 }
@@ -262,9 +287,11 @@ const URL_OF = [JOIN, "const url = (base, path) => /^[a-z][a-z0-9+.-]*:/i.test(S
  * droplets from, as `/index.js` recorded it from its own URL; without it,
  * the root of the build the bundle belongs to (`serverLocation`).
  */
-export function buildDropClientCode(key: string, recordsModule: string = serverRecordsModulePath): string {
+type BuildDropClientCodeInput = { key: string; recordsModule?: string };
+
+export function buildDropClientCode({ key, recordsModule = serverRecordsModulePath }: BuildDropClientCodeInput): string {
   return [
-    `import { serverLocation } from ${modulePath(recordsModule)};`,
+    `import { serverLocation } from ${modulePath({ file: recordsModule })};`,
     `const origin = () => serverLocation({ key: ${JSON.stringify(key)} });`,
     URL_OF,
     "export const droplet = Object.freeze({",
@@ -283,9 +310,11 @@ export function buildDropClientCode(key: string, recordsModule: string = serverR
  * A path that starts with the token (a file the bundle imports) gets the
  * request's location in its place.
  */
-export function buildDropServerCode(requestStore: string, location: string): string {
+type BuildDropServerCodeInput = { requestStore: string; location: string };
+
+export function buildDropServerCode({ requestStore, location }: BuildDropServerCodeInput): string {
   return [
-    `import { requestInfo } from ${modulePath(requestStore)};`,
+    `import { requestInfo } from ${modulePath({ file: requestStore })};`,
     `const token = ${JSON.stringify(location)};`,
     "const origin = () => requestInfo()?.origin ?? token;",
     URL_OF,
@@ -305,13 +334,16 @@ export function buildDropServerCode(requestStore: string, location: string): str
 const NO_RENDER =
   "actionUrl() of $droplets/form knows the droplet only while one renders: call it as the component sets up (React, Preact and Hono JSX: useState(() => actionUrl(...))), or pass { droplet }";
 
+/** Expressions in the generated module, and the module `enhanceDropletForm` comes from. */
+type ActionUrlCodeInput = { current: string; location: string; page: string; enhanceModule: string };
+
 /**
  * `actionUrl()` of `$droplets/form`, shared by both variants: the droplet
  * and its props from the render in progress unless given; and
  * `enhanceDropletForm`, which only ever runs in the browser.
  */
-const ACTION_URL = (current: string, location: string, page: string, enhanceModule: string) =>
-  [
+function actionUrlCode({ current, location, page, enhanceModule }: ActionUrlCodeInput): string {
+  return [
     `export { enhanceDropletForm } from ${JSON.stringify(enhanceModule)};`,
     "export function actionUrl(name, options = {}) {",
     `  const render = ${current};`,
@@ -323,23 +355,26 @@ const ACTION_URL = (current: string, location: string, page: string, enhanceModu
     "export default actionUrl;",
     "",
   ].join("\n");
+}
 
 /**
  * `$droplets/form` in the browser: the render in progress, on the location
  * `/index.js` recorded (as `$droplets/drop`), for the page in
  * `window.location`.
  */
-export function buildFormClientCode(
-  key: string,
-  formModule: string,
-  enhanceModule: string = enhanceModulePath,
-  recordsModule: string = serverRecordsModulePath,
-): string {
+type BuildFormClientCodeInput = { key: string; formModule: string; enhanceModule?: string; recordsModule?: string };
+
+export function buildFormClientCode({
+  key,
+  formModule,
+  enhanceModule = enhanceModulePath,
+  recordsModule = serverRecordsModulePath,
+}: BuildFormClientCodeInput): string {
   return [
     `import { actionHref, browserPage, currentRender } from ${JSON.stringify(formModule)};`,
-    `import { serverLocation } from ${modulePath(recordsModule)};`,
+    `import { serverLocation } from ${modulePath({ file: recordsModule })};`,
     `const origin = () => serverLocation({ key: ${JSON.stringify(key)} });`,
-    ACTION_URL("currentRender()", "render?.location ?? origin()", "browserPage()", enhanceModule),
+    actionUrlCode({ current: "currentRender()", location: "render?.location ?? origin()", page: "browserPage()", enhanceModule }),
   ].join("\n");
 }
 
@@ -348,16 +383,23 @@ export function buildFormClientCode(
  * on its public location (a trusted location header, else the request's origin;
  * a token at build), for the page of `event.host` (tokens at build).
  */
-export function buildFormServerCode(
-  requestStore: string,
-  formModule: string,
-  location: string,
-  enhanceModule: string = enhanceModulePath,
-): string {
+type BuildFormServerCodeInput = { requestStore: string; formModule: string; location: string; enhanceModule?: string };
+
+export function buildFormServerCode({
+  requestStore,
+  formModule,
+  location,
+  enhanceModule = enhanceModulePath,
+}: BuildFormServerCodeInput): string {
   return [
     `import { requestInfo } from ${JSON.stringify(requestStore)};`,
     `import { actionHref } from ${JSON.stringify(formModule)};`,
-    ACTION_URL("requestInfo()?.render", `requestInfo()?.origin ?? ${JSON.stringify(location)}`, "requestInfo()?.page", enhanceModule),
+    actionUrlCode({
+      current: "requestInfo()?.render",
+      location: `requestInfo()?.origin ?? ${JSON.stringify(location)}`,
+      page: "requestInfo()?.page",
+      enhanceModule,
+    }),
   ].join("\n");
 }
 
@@ -365,11 +407,11 @@ export function buildFormServerCode(
 export type ClientDevOptions = { strategy: DevStrategy; injectTool: boolean; toolUrl: string | null };
 
 /** `virtual:droplets-dev`, imported by the entry's dev module alone, which a production build drops. */
-export function buildClientDevCode(dev: ClientDevOptions): string {
+export function buildClientDevCode({ strategy, injectTool, toolUrl }: ClientDevOptions): string {
   return [
-    `export const strategy = ${JSON.stringify(dev.strategy)};`,
-    `export const injectTool = ${JSON.stringify(dev.injectTool)};`,
-    `export const toolUrl = ${JSON.stringify(dev.toolUrl)};`,
+    `export const strategy = ${JSON.stringify(strategy)};`,
+    `export const injectTool = ${JSON.stringify(injectTool)};`,
+    `export const toolUrl = ${JSON.stringify(toolUrl)};`,
     "",
   ].join("\n");
 }
@@ -380,10 +422,12 @@ export function buildClientDevCode(dev: ClientDevOptions): string {
  * entry's body defines the element. Never awaited. Nothing at all without
  * the file.
  */
-export function clientInitCode(clientHooksFile: string, initModule: string = clientInitModulePath): string {
+type ClientInitCodeInput = { clientHooksFile: string; initModule?: string };
+
+export function clientInitCode({ clientHooksFile, initModule = clientInitModulePath }: ClientInitCodeInput): string {
   return [
     `import * as clientHooks from ${JSON.stringify(clientHooksFile)};`,
-    `import { runClientInit } from ${modulePath(initModule)};`,
+    `import { runClientInit } from ${modulePath({ file: initModule })};`,
     `runClientInit(clientHooks, ${JSON.stringify(clientHooksFile.replace(/^\//, ""))});`,
     "",
   ].join("\n");
@@ -394,13 +438,22 @@ export function clientInitCode(clientHooksFile: string, initModule: string = cli
  * here — each droplet is its own bundle, fetched on demand. With
  * `src/hooks.client.ts` (`clientHooksFile`, root-relative), its `init` too.
  */
-export function buildClientCode(
-  entries: DropletEntry[],
-  buildHash: string,
+export type BuildClientCodeInput = {
+  entries: readonly DropletEntry[];
+  buildHash: string;
+  elementName?: string;
+  /** `vite build`: the stylesheets come from the build, not the dev server. */
+  isBuilding?: boolean;
+  clientHooksFile?: string | null;
+};
+
+export function buildClientCode({
+  entries,
+  buildHash,
   elementName = "djs-droplet",
-  building = false,
-  clientHooksFile: string | null = null,
-): string {
+  isBuilding = false,
+  clientHooksFile = null,
+}: BuildClientCodeInput): string {
   const flag = (e: DropletEntry) => `  ${JSON.stringify(e.id)}: true,`;
   const ids = entries.map(flag);
   // `true`, `"visible"` or `"interactive"`: when the element hydrates.
@@ -412,7 +465,7 @@ export function buildClientCode(
   return [
     // Dev only: Vite injects the shared stylesheet and keeps it updated. A
     // build lists it first among each droplet's stylesheets instead.
-    ...(building ? [] : [`import ${JSON.stringify(VIRTUAL_CSS)};`]),
+    ...(isBuilding ? [] : [`import ${JSON.stringify(VIRTUAL_CSS)};`]),
     "const droplets = {};",
     "export default droplets;",
     `export const buildHash = ${JSON.stringify(buildHash)};`,
@@ -431,10 +484,10 @@ export function buildClientCode(
     "};",
     // Stylesheets per droplet, relative to the server: filled in once the
     // build is written. In dev, component styles come with the JavaScript.
-    building
+    isBuilding
       ? `export const dropletsStylesById = JSON.parse(${JSON.stringify(STYLES_PLACEHOLDER)});`
       : "export const dropletsStylesById = {};",
-    ...(clientHooksFile ? [clientInitCode(clientHooksFile)] : [""]),
+    ...(clientHooksFile ? [clientInitCode({ clientHooksFile })] : [""]),
   ].join("\n");
 }
 
@@ -454,6 +507,17 @@ export async function update(handle, data, info) {
 /** What `createClientModuleCode` needs to know about one droplet. */
 export type ClientModuleInput = Pick<DropletEntry, "id" | "name" | "file" | "renderer" | "hasError" | "errorFile">;
 
+export type CreateClientModuleCodeInput = {
+  globRoot: string;
+  entry: ClientModuleInput;
+  renderers: DropletRenderer[];
+  /** The dev parts: `update` for a load edit, the HMR fallback. */
+  isDev?: boolean;
+  propsModule?: string;
+  loadModule?: string;
+  formModule?: string;
+};
+
 /**
  * A single droplet's browser entry: the props schema, `load` and
  * `handleError` of `+droplet.ts`, the component with its renderer, and the
@@ -462,7 +526,7 @@ export type ClientModuleInput = Pick<DropletEntry, "id" | "name" | "file" | "ren
  * Exports, as the custom element (`entry-client`) calls them:
  * `default(target, data, host, info)` mounts or hydrates the droplet,
  * `renderError(target, error, host, info)` the error page, `unmount(handle)`
- * tears either down. With `dev`, the module also dispatches
+ * tears either down. With `isDev`, the module also dispatches
  * `droplets:hot-fallback` for an edit no framework HMR took, and with a
  * renderer that has a `clientDev` module exports `update(handle, data,
  * info)`, for a load edit. `host` is the
@@ -472,29 +536,31 @@ export type ClientModuleInput = Pick<DropletEntry, "id" | "name" | "file" | "ren
  * mounted with `data` still to come, `handleError`: the renderer's error
  * boundary then shows the error page in place of what fails to render.
  */
-export function createClientModuleCode(
-  globRoot: string,
-  entry: ClientModuleInput,
-  renderers: DropletRenderer[],
-  dev = false,
-  propsModule: string = propsModulePath,
-  loadModule: string = loadModulePath,
-  formModule: string = formModulePath,
-): string {
+export function createClientModuleCode({
+  globRoot,
+  entry,
+  renderers,
+  isDev = false,
+  propsModule = propsModulePath,
+  loadModule = loadModulePath,
+  formModule = formModulePath,
+}: CreateClientModuleCodeInput): string {
   const base = `${globRoot}/${entry.name}`;
   const loadFile = `${base}/+droplet.ts`;
   const id = JSON.stringify(entry.id);
-  const renderer = rendererNamed({ renderers }, entry.renderer);
+  const renderer = rendererNamed({ renderers, name: entry.renderer });
   const withError = entry.hasError && entry.errorFile;
-  const shared = sharingRenderers(renderers);
+  const shared = sharingRenderers({ renderers });
 
-  const componentModule = JSON.stringify(componentSpecifier(`${base}/${entry.file}`, entry.renderer, shared));
-  const errorModule = withError ? JSON.stringify(componentSpecifier(`${base}/${entry.errorFile}`, entry.renderer, shared)) : null;
-  const devModule = dev ? renderer.clientDev : undefined;
+  const componentModule = JSON.stringify(componentSpecifier({ path: `${base}/${entry.file}`, renderer: entry.renderer, shared }));
+  const errorModule = withError
+    ? JSON.stringify(componentSpecifier({ path: `${base}/${entry.errorFile}`, renderer: entry.renderer, shared }))
+    : null;
+  const devModule = isDev ? renderer.clientDev : undefined;
   const imports = [
-    ...(renderer.clientSetup ? [`import ${modulePath(renderer.clientSetup)};`] : []),
-    `import * as renderer from ${modulePath(renderer.client)};`,
-    ...(devModule ? [`import { update as updateInstance } from ${modulePath(devModule)};`] : []),
+    ...(renderer.clientSetup ? [`import ${modulePath({ file: renderer.clientSetup })};`] : []),
+    `import * as renderer from ${modulePath({ file: renderer.client })};`,
+    ...(devModule ? [`import { update as updateInstance } from ${modulePath({ file: devModule })};`] : []),
     `import * as component from ${componentModule};`,
     ...(errorModule ? [`import * as errorComponent from ${errorModule};`] : ["const errorComponent = undefined;"]),
   ];
@@ -578,7 +644,7 @@ export function renderError(target, error, host, info) {
 export function unmount(handle) {
   return handle?.engine?.unmount(handle.instance);
 }
-${devModule ? UPDATE_EXPORT : ""}${dev ? hotFallback([componentModule, ...(errorModule ? [errorModule] : [])], id) : ""}`;
+${devModule ? UPDATE_EXPORT : ""}${isDev ? hotFallback({ modules: [componentModule, ...(errorModule ? [errorModule] : [])], id }) : ""}`;
 }
 
 /**
@@ -586,7 +652,9 @@ ${devModule ? UPDATE_EXPORT : ""}${dev ? hotFallback([componentModule, ...(error
  * export the framework cannot swap) stops here rather than reloading the
  * host's page, and the element remounts the droplet in place.
  */
-function hotFallback(modules: string[], id: string): string {
+type HotFallbackInput = { modules: readonly string[]; id: string };
+
+function hotFallback({ modules, id }: HotFallbackInput): string {
   return `
 if (import.meta.hot) {
   import.meta.hot.accept([${modules.join(", ")}], () => {
@@ -599,7 +667,9 @@ if (import.meta.hot) {
 }
 
 /** The production server's view of `droplets.config.ts`. */
-export function buildConfigCode(configPath: string | null): string {
+type BuildConfigCodeInput = { configPath: string | null };
+
+export function buildConfigCode({ configPath }: BuildConfigCodeInput): string {
   if (!configPath) return "export default {};\n";
   return `import userConfig from ${JSON.stringify(configPath)};\nexport default userConfig ?? {};\n`;
 }
@@ -622,14 +692,14 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
   // the droplet list may have changed — so rescan then.
   const getEntries = (): Promise<DropletEntry[]> => {
     if (command === "serve" || !cached) {
-      cached = discoverDroplets(state.dropletsRoot, state.renderers, { dev: command === "serve" });
+      cached = discoverDroplets({ dropletsRoot: state.dropletsRoot, renderers: state.renderers, dev: command === "serve" });
     }
     return cached;
   };
 
   const findFile = async (candidates: string[]): Promise<string | null> => {
     for (const file of candidates) {
-      if (await fileExists(resolve(state.root, file))) return `/${file}`;
+      if (await fileExists({ path: resolve(state.root, file) })) return `/${file}`;
     }
     return null;
   };
@@ -649,7 +719,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
       if (id === VIRTUAL_ENV) return RESOLVED_ENV;
       if (
         SERVER_ONLY.has(id) &&
-        (this.environment.config.consumer === "client" || (importer && !mayImportServerOnly(state.root, importer)))
+        (this.environment.config.consumer === "client" || (importer && !mayImportServerOnly({ root: state.root, importer })))
       ) {
         this.error(
           `${id} can only be imported by server files: names with .server. in them (+droplet.server.ts, hooks.server.ts, *.server.*), +server.* routes or files under a server/ folder${
@@ -669,7 +739,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
       if (id === VIRTUAL_SSR) return entryServerPath;
       if (id === VIRTUAL_MANIFEST) return resolve(state.outDir, "client/droplets.json");
       if (id === LOADER_URL) return RESOLVED_DROPS_CLIENT;
-      if (id.startsWith(VIRTUAL_CLIENT)) return resolved(id);
+      if (id.startsWith(VIRTUAL_CLIENT)) return resolved({ id });
       return null;
     },
 
@@ -677,10 +747,18 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
       if (id === RESOLVED_VIRTUAL_DROPLETS) {
         const entries = await getEntries();
         if (this.environment.config.consumer !== "server") {
-          return buildClientCode(entries, state.buildHash, state.config.element, command === "build", await findFile(CLIENT_HOOKS_FILES));
+          return buildClientCode({
+            entries,
+            buildHash: state.buildHash,
+            elementName: state.config.element,
+            isBuilding: command === "build",
+            clientHooksFile: await findFile(CLIENT_HOOKS_FILES),
+          });
         }
-        return buildServerCode(entries, state.globRoot, {
-          apiRoutes: await discoverApiRoutes(state.apiRoot),
+        return buildServerCode({
+          entries,
+          globRoot: state.globRoot,
+          apiRoutes: await discoverApiRoutes({ apiRoot: state.apiRoot }),
           apiGlobRoot: state.apiGlobRoot,
           hooksFile: await findFile(HOOKS_FILES),
           importMapFile: await findFile(IMPORTMAP_FILES),
@@ -709,24 +787,29 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
       }
 
       if (id === RESOLVED_ENV_PUBLIC) {
-        return buildPublicEnvCode(
-          state.env,
-          this.environment.config.consumer === "client"
-            ? { browser: true, serverKey: serverKey(state.config.element, state.buildHash) }
-            : { browser: false, envStorePath },
-        );
+        return buildPublicEnvCode({
+          env: state.env,
+          target:
+            this.environment.config.consumer === "client"
+              ? { browser: true, serverKey: serverKey(state.config.element, state.buildHash) }
+              : { browser: false, envStorePath },
+        });
       }
       if (id === RESOLVED_DROP) {
         return this.environment.config.consumer === "client"
-          ? buildDropClientCode(serverKey(state.config.element, state.buildHash))
-          : buildDropServerCode(requestStorePath, hostTokens(state.tokenNonce).location);
+          ? buildDropClientCode({ key: serverKey(state.config.element, state.buildHash) })
+          : buildDropServerCode({ requestStore: requestStorePath, location: hostTokens({ nonce: state.tokenNonce }).location });
       }
       if (id === RESOLVED_FORM) {
         return this.environment.config.consumer === "client"
-          ? buildFormClientCode(serverKey(state.config.element, state.buildHash), formModulePath)
-          : buildFormServerCode(requestStorePath, formModulePath, hostTokens(state.tokenNonce).location);
+          ? buildFormClientCode({ key: serverKey(state.config.element, state.buildHash), formModule: formModulePath })
+          : buildFormServerCode({
+              requestStore: requestStorePath,
+              formModule: formModulePath,
+              location: hostTokens({ nonce: state.tokenNonce }).location,
+            });
       }
-      if (id === RESOLVED_ENV_PRIVATE) return buildPrivateEnvCode(state.env, envStorePath);
+      if (id === RESOLVED_ENV_PRIVATE) return buildPrivateEnvCode({ env: state.env, envStorePath });
 
       if (id === RESOLVED_CSS) {
         return state.css.path ? `import ${JSON.stringify(state.css.path)};\n` : `import ${JSON.stringify(VIRTUAL_CSS_FILE)};\n`;
@@ -741,7 +824,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
       }
 
       if (id === RESOLVED_CONFIG) {
-        return buildConfigCode(state.configPath);
+        return buildConfigCode({ configPath: state.configPath });
       }
 
       if (id === RESOLVED_DROPS_CLIENT) {
@@ -755,16 +838,16 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
         return (
           locationScript(key) +
           (names.length > 0 ? publicEnvScript(key, env) : "") +
-          `import(${JSON.stringify(toViteFsPath(state.entryClientPath))});\n`
+          `import(${JSON.stringify(toViteFsPath({ filePath: state.entryClientPath }))});\n`
         );
       }
 
       if (id.startsWith(RESOLVED_CLIENT_PREFIX)) {
-        const name = parseClientName(id);
+        const name = parseClientName({ id });
         if (!name) return null;
         const entry = (await getEntries()).find((e) => e.name === name);
         if (!entry) return null;
-        return createClientModuleCode(state.globRoot, entry, state.renderers, devHooks);
+        return createClientModuleCode({ globRoot: state.globRoot, entry, renderers: state.renderers, isDev: devHooks });
       }
 
       return null;

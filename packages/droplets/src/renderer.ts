@@ -327,7 +327,6 @@ export type RenderProps = { data: unknown; form?: unknown } | { error: unknown }
 
 /** What the server knows about one render. */
 export type ServerRenderContext = {
-  /** The droplet id. */
   droplet: string;
   kind: ComponentKind;
   /** Unique per render; the browser gets the same value when hydrating. */
@@ -376,7 +375,6 @@ export type DropletChildrenHost = {
 
 /** What the browser knows about one mount or hydration. */
 export type ClientRenderContext = {
-  /** The droplet id. */
   droplet: string;
   kind: ComponentKind;
   /** Where the host's children go: see the module documentation. */
@@ -579,7 +577,7 @@ export const RENDERER_QUERY = "droplets-renderer";
 
 /** Ids marked for `name`: `…/Button.tsx?droplets-renderer=solid`. */
 export function rendererScopeFilter(name: string): RegExp {
-  return new RegExp(`[?&]${RENDERER_QUERY}=${escapeRegExp(name)}(?:&|$)`);
+  return new RegExp(`[?&]${RENDERER_QUERY}=${escapeRegExp({ text: name })}(?:&|$)`);
 }
 
 /** Identity helper, for type checking and completion in a renderer package. */
@@ -671,8 +669,10 @@ export function validateRenderers(renderers: DropletRenderer[]): Map<string, Dro
   return byExtension;
 }
 
+type SharingRenderersInput = { renderers: DropletRenderer[] };
+
 /** The names of the renderers that share an extension with another one. */
-export function sharingRenderers(renderers: DropletRenderer[]): Set<string> {
+export function sharingRenderers({ renderers }: SharingRenderersInput): Set<string> {
   const shared = new Set<string>();
   for (const group of validateRenderers(renderers).values()) {
     if (group.length > 1) for (const renderer of group) shared.add(renderer.name);
@@ -680,7 +680,9 @@ export function sharingRenderers(renderers: DropletRenderer[]): Set<string> {
   return shared;
 }
 
-function escapeRegExp(text: string): string {
+type EscapeRegExpInput = { text: string };
+
+function escapeRegExp({ text }: EscapeRegExpInput): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
@@ -690,7 +692,7 @@ function escapeRegExp(text: string): string {
  * renderer before anything is compiled.
  */
 export function importsPackage(source: string, pkg: string): boolean {
-  const name = escapeRegExp(pkg);
+  const name = escapeRegExp({ text: pkg });
   const specifier = `(["'])${name}(?:/[^"']*)?\\1`;
   return (
     new RegExp(`(?:\\bfrom\\s*|\\bimport\\s*\\(?\\s*)${specifier}`).test(source) ||
@@ -698,13 +700,15 @@ export function importsPackage(source: string, pkg: string): boolean {
   );
 }
 
+type PickRendererInput = { candidates: DropletRenderer[]; source: string; file: string; fallback?: DropletRenderer | undefined };
+
 /**
  * The renderer of a component whose extension several renderers claim: the
  * one whose package it imports. `fallback` (the droplet's renderer, for an
  * error page) when none or several match and it is among them; else an
  * error that says what to add.
  */
-export function pickRenderer(candidates: DropletRenderer[], source: string, file: string, fallback?: DropletRenderer): DropletRenderer {
+export function pickRenderer({ candidates, source, file, fallback }: PickRendererInput): DropletRenderer {
   const [only] = candidates;
   if (only !== undefined && candidates.length === 1) return only;
   const matching = candidates.filter((r) => r.packages?.some((pkg) => importsPackage(source, pkg)));
@@ -714,18 +718,15 @@ export function pickRenderer(candidates: DropletRenderer[], source: string, file
     return fallback;
   }
   const two = candidates.length === 2;
-  const names = listOf(
-    candidates.map((r) => r.name),
-    "and",
-  );
-  const hints = listOf(
-    candidates.map((r) => {
+  const names = listOf({ items: candidates.map((r) => r.name), word: "and" });
+  const hints = listOf({
+    items: candidates.map((r) => {
       const pkg = r.packages?.[0];
       if (pkg === undefined) throw new Error(`droplets: renderer "${r.name}" shares an extension and lists no packages`);
       return pkg;
     }),
-    "or",
-  );
+    word: "or",
+  });
   const imports =
     matching.length === 0
       ? two
@@ -733,18 +734,17 @@ export function pickRenderer(candidates: DropletRenderer[], source: string, file
         : "imports none of them"
       : two
         ? "imports from both"
-        : `imports from ${listOf(
-            matching.map((r) => r.name),
-            "and",
-          )}`;
+        : `imports from ${listOf({ items: matching.map((r) => r.name), word: "and" })}`;
   throw new Error(
     `droplets: ${file}: ${names} ${two ? "both" : "all"} handle this file and it ${imports}; ` +
       `import from ${hints}, or add a /** @jsxImportSource <package> */ comment`,
   );
 }
 
+type ListOfInput = { items: string[]; word: "and" | "or" };
+
 /** `a and b`, `a, b and c`. */
-function listOf(items: string[], word: "and" | "or"): string {
+function listOf({ items, word }: ListOfInput): string {
   return items.length <= 2 ? items.join(` ${word} `) : `${items.slice(0, -1).join(", ")} ${word} ${items.at(-1)}`;
 }
 
@@ -760,8 +760,10 @@ const KNOWN_RENDERERS: Record<string, { pkg: string; factory: string }> = {
   ".lit.js": { pkg: "@dropletsjs/renderer-lit", factory: "lit()" },
 };
 
+type NoRendererMessageInput = { file: string; extension: string };
+
 /** The message for a component file no configured renderer handles. */
-export function noRendererMessage(file: string, extension: string): string {
+export function noRendererMessage({ file, extension }: NoRendererMessageInput): string {
   const last = extension.slice(extension.lastIndexOf("."));
   const known = (Object.hasOwn(KNOWN_RENDERERS, extension) ? KNOWN_RENDERERS[extension] : undefined) ?? KNOWN_RENDERERS[last];
   return known

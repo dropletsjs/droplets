@@ -6,7 +6,16 @@ import { fileURLToPath } from "node:url";
 import Handlebars from "handlebars";
 import { createServer, type RunnableDevEnvironment, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { compileTemplate, handlebarsPlugin, listPartials, partialName, runtimeModule, SETUP_ID, setupModuleCode } from "../src/plugin.ts";
+import {
+  compileTemplate,
+  handlebarsPlugin,
+  listPartials,
+  partialName,
+  runtimeModule,
+  SETUP_ID,
+  setupModuleCode,
+  type HandlebarsRendererOptions,
+} from "../src/plugin.ts";
 import type { env as Env } from "../src/runtime.ts";
 
 const fixture = resolve(dirname(fileURLToPath(import.meta.url)), "fixtures/app");
@@ -14,8 +23,10 @@ const fixture = resolve(dirname(fileURLToPath(import.meta.url)), "fixtures/app")
 type Template = (context: unknown, options?: unknown) => string;
 type RuntimeModule = { env: typeof Env };
 
+type DevServerInput = { root: string; options?: HandlebarsRendererOptions };
+
 /** A dev server on `root` with only the renderer's plugin, and its SSR runner. */
-async function devServer(root: string, options = {}): Promise<ViteDevServer> {
+async function devServer({ root, options = {} }: DevServerInput): Promise<ViteDevServer> {
   return createServer({
     root,
     configFile: false,
@@ -25,12 +36,15 @@ async function devServer(root: string, options = {}): Promise<ViteDevServer> {
   });
 }
 
-const load = <T>(server: ViteDevServer, file: string) =>
-  (server.environments.ssr as RunnableDevEnvironment).runner.import(file) as Promise<T>;
+type LoadInput = { server: ViteDevServer; file: string };
+
+function load<T>({ server, file }: LoadInput): Promise<T> {
+  return (server.environments.ssr as RunnableDevEnvironment).runner.import(file) as Promise<T>;
+}
 
 describe("compileTemplate", () => {
   it("precompiles into a module whose default is the template, built on the shared runtime", () => {
-    const code = compileTemplate("<p>{{data.title}}</p>", "/app/x.hbs", { setup: true });
+    const code = compileTemplate({ source: "<p>{{data.title}}</p>", file: "/app/x.hbs", setup: true });
     expect(code).toContain(`import { env } from ${JSON.stringify(runtimeModule.replace(/\\/g, "/"))};`);
     expect(code).toContain(`import "${SETUP_ID}";`);
     expect(code).toMatch(/export default env\.template\(\{.*"main":function/s);
@@ -43,13 +57,13 @@ describe("compileTemplate", () => {
   });
 
   it("leaves the setup import out of a partial and accepts HMR in dev", () => {
-    const code = compileTemplate("<p/>", "/app/src/partials/p.hbs", { setup: false, dev: true });
+    const code = compileTemplate({ source: "<p/>", file: "/app/src/partials/p.hbs", setup: false, dev: true });
     expect(code).not.toContain(SETUP_ID);
     expect(code).toContain("if (import.meta.hot) import.meta.hot.accept();");
   });
 
   it("passes precompile options through", () => {
-    const noEscape = compileTemplate("{{x}}", "/x.hbs", { setup: false, compile: { noEscape: true } });
+    const noEscape = compileTemplate({ source: "{{x}}", file: "/x.hbs", setup: false, compile: { noEscape: true } });
     const spec = new Function(
       `return ${(noEscape.match(/env\.template\((\{.*\})\);/s) ?? expect.unreachable("env.template(…)"))[1]}`,
     )() as never;
@@ -69,7 +83,7 @@ describe("setupModuleCode", () => {
     expect(code).toContain('env.registerPartial("card", partial_0);');
     expect(code).toContain('env.registerPartial("layout/header", partial_1);');
     expect(code).toContain('import * as helpers from "/app/src/handlebars.ts";');
-    expect(code).toContain("registerHelpers(env, helpers);");
+    expect(code).toContain("registerHelpers({ target: env, module: helpers });");
   });
 
   it("registers nothing when there is nothing", () => {
@@ -79,10 +93,10 @@ describe("setupModuleCode", () => {
   });
 
   it("names partials by their path under the folder", () => {
-    expect(partialName("/p", "/p/card.hbs")).toBe("card");
-    expect(partialName("/p", "/p/layout/header.hbs")).toBe("layout/header");
-    expect(listPartials("/nowhere/at/all")).toEqual([]);
-    expect(listPartials(resolve(fixture, "src/partials"))).toEqual([resolve(fixture, "src/partials/greeting.hbs")]);
+    expect(partialName({ dir: "/p", file: "/p/card.hbs" })).toBe("card");
+    expect(partialName({ dir: "/p", file: "/p/layout/header.hbs" })).toBe("layout/header");
+    expect(listPartials({ dir: "/nowhere/at/all" })).toEqual([]);
+    expect(listPartials({ dir: resolve(fixture, "src/partials") })).toEqual([resolve(fixture, "src/partials/greeting.hbs")]);
   });
 });
 
@@ -90,7 +104,7 @@ describe("the plugin in a Vite server, on the fixture", () => {
   let server: ViteDevServer;
 
   beforeAll(async () => {
-    server = await devServer(fixture);
+    server = await devServer({ root: fixture });
   });
 
   afterAll(async () => {
@@ -98,7 +112,7 @@ describe("the plugin in a Vite server, on the fixture", () => {
   });
 
   it("compiles a droplet template that uses a partial, a helper and {{{children}}}", async () => {
-    const mod = await load<{ default: Template }>(server, "/src/droplets/hello/+droplet.hbs");
+    const mod = await load<{ default: Template }>({ server, file: "/src/droplets/hello/+droplet.hbs" });
     const html = mod.default({ data: { greeting: "Hello Ana!", who: "Ana" } });
     expect(html).toContain('<h1 data-testid="greeting">Hello Ana!</h1>');
     expect(html).toContain('<p data-testid="shout">ANA</p>');
@@ -106,10 +120,10 @@ describe("the plugin in a Vite server, on the fixture", () => {
   });
 
   it("registers partials and helpers once, in the renderer's own environment", async () => {
-    await load(server, "/src/droplets/hello/+droplet.hbs");
-    await load(server, "/src/droplets/frame/+droplet.hbs");
-    await load(server, "/src/droplets/hello/+error.hbs");
-    const { env } = await load<RuntimeModule>(server, runtimeModule);
+    await load({ server, file: "/src/droplets/hello/+droplet.hbs" });
+    await load({ server, file: "/src/droplets/frame/+droplet.hbs" });
+    await load({ server, file: "/src/droplets/hello/+error.hbs" });
+    const { env } = await load<RuntimeModule>({ server, file: runtimeModule });
     expect(Object.keys(env.partials)).toEqual(["greeting"]);
     expect(typeof env.helpers["upper"]).toBe("function");
     expect(typeof env.helpers["repeat"]).toBe("function");
@@ -121,7 +135,7 @@ describe("the plugin in a Vite server, on the fixture", () => {
   });
 
   it("compiles a partial as a bare template, without the setup import", async () => {
-    const mod = await load<{ default: Template }>(server, "/src/partials/greeting.hbs");
+    const mod = await load<{ default: Template }>({ server, file: "/src/partials/greeting.hbs" });
     expect(mod.default({ data: { greeting: "Hi" } })).toBe('<h1 data-testid="greeting">Hi</h1>\n');
     const transformed = await server.environments.ssr.transformRequest("/src/partials/greeting.hbs");
     expect(transformed?.code).not.toContain(SETUP_ID);
@@ -147,9 +161,9 @@ describe("configurable partials and helpers", () => {
   });
 
   it("reads partials from the configured folder and helpers from the configured module", async () => {
-    const server = await devServer(root, { partials: "templates/parts", helpers: "lib/helpers.ts" });
+    const server = await devServer({ root, options: { partials: "templates/parts", helpers: "lib/helpers.ts" } });
     try {
-      const mod = await load<{ default: Template }>(server, "/templates/page.hbs");
+      const mod = await load<{ default: Template }>({ server, file: "/templates/page.hbs" });
       expect(mod.default({ data: { name: "new" } })).toBe(
         '<b class="badge">new!</b><div data-droplet-children style="display: contents"></div>',
       );
@@ -159,10 +173,10 @@ describe("configurable partials and helpers", () => {
   });
 
   it("registers nothing with partials: false and helpers: false", async () => {
-    const server = await devServer(root, { partials: false, helpers: false });
+    const server = await devServer({ root, options: { partials: false, helpers: false } });
     try {
-      const { env } = await load<RuntimeModule>(server, runtimeModule);
-      await load(server, "/templates/page.hbs");
+      const { env } = await load<RuntimeModule>({ server, file: runtimeModule });
+      await load({ server, file: "/templates/page.hbs" });
       expect(Object.keys(env.partials)).toEqual([]);
       expect(env.helpers["shout"]).toBeUndefined();
     } finally {

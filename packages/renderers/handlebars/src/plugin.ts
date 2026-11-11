@@ -56,42 +56,64 @@ const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 /** The built runtime module compiled templates import `env` from. */
 export const runtimeModule = resolve(packageRoot, "dist/runtime.js");
 
-/** An absolute path as an import specifier Vite resolves in any environment. */
-const specifier = (file: string): string => JSON.stringify(file.replace(/\\/g, "/"));
+type SpecifierInput = { file: string };
 
-const isInside = (dir: string, file: string): boolean => {
+/** An absolute path as an import specifier Vite resolves in any environment. */
+function specifier({ file }: SpecifierInput): string {
+  return JSON.stringify(file.replace(/\\/g, "/"));
+}
+
+type InFolderInput = { dir: string; file: string };
+
+function isInside({ dir, file }: InFolderInput): boolean {
   const rel = relative(dir, file);
   return rel !== "" && !rel.startsWith("..") && !rel.startsWith(sep) && !/^[A-Za-z]:/.test(rel);
-};
+}
 
 /** The partial name of a file under the partials folder. */
-export function partialName(dir: string, file: string): string {
+export function partialName({ dir, file }: InFolderInput): string {
   return relative(dir, file)
     .replace(/\\/g, "/")
     .replace(/\.hbs$/, "");
 }
 
+type ListPartialsInput = { dir: string | null };
+
 /** Every `.hbs` under `dir`, sorted; `[]` when the folder does not exist. */
-export function listPartials(dir: string | null): string[] {
+export function listPartials({ dir }: ListPartialsInput): string[] {
   if (!dir || !existsSync(dir)) return [];
-  const files: string[] = [];
-  const walk = (folder: string) => {
+  const found: string[] = [];
+  function walk(folder: string): void {
     for (const entry of readdirSync(folder, { withFileTypes: true })) {
       const path = resolve(folder, entry.name);
       if (entry.isDirectory()) walk(path);
-      else if (entry.isFile() && entry.name.endsWith(".hbs")) files.push(path);
+      else if (entry.isFile() && entry.name.endsWith(".hbs")) found.push(path);
     }
-  };
+  }
   walk(dir);
-  return files.sort();
+  return found.sort();
 }
 
+type StyleImportsInput = { file: string; styles: readonly StyleBlock[] };
+
 /** The imports of a template's `<style>` blocks, in order. */
-function styleImports(file: string, styles: StyleBlock[]): string[] {
+function styleImports({ file, styles }: StyleImportsInput): string[] {
   return styles.map((style, index) =>
-    style.kind === "src" ? `import ${JSON.stringify(style.src)};` : `import ${specifier(styleId(file, index, style.lang))};`,
+    style.kind === "src"
+      ? `import ${JSON.stringify(style.src)};`
+      : `import ${specifier({ file: styleId({ file, index, lang: style.lang }) })};`,
   );
 }
+
+type CompileTemplateInput = {
+  source: string;
+  file: string;
+  setup: boolean;
+  styles?: readonly StyleBlock[];
+  dev?: boolean;
+  compile?: PrecompileOptions | undefined;
+  runtime?: string;
+};
 
 /**
  * A `.hbs` source as a module: `default` is the template function. With
@@ -101,40 +123,44 @@ function styleImports(file: string, styles: StyleBlock[]): string[] {
  * module accepts its own HMR updates: core re-mounts the droplet on
  * `droplets:update`, so Vite has nothing more to do than swap the module.
  */
-export function compileTemplate(
-  source: string,
-  file: string,
-  options: { setup: boolean; styles?: StyleBlock[]; dev?: boolean; compile?: PrecompileOptions; runtime?: string },
-): string {
-  const spec = Handlebars.precompile(source, { ...options.compile, srcName: undefined }) as unknown as string;
+export function compileTemplate({
+  source,
+  file,
+  setup,
+  styles = [],
+  dev = false,
+  compile,
+  runtime = runtimeModule,
+}: CompileTemplateInput): string {
+  const spec = String(Handlebars.precompile(source, { ...compile, srcName: undefined }));
   return [
-    `import { env } from ${specifier(options.runtime ?? runtimeModule)};`,
-    ...(options.setup ? [`import ${JSON.stringify(SETUP_ID)};`] : []),
-    ...styleImports(file, options.styles ?? []),
+    `import { env } from ${specifier({ file: runtime })};`,
+    ...(setup ? [`import ${JSON.stringify(SETUP_ID)};`] : []),
+    ...styleImports({ file, styles }),
     `// ${file}`,
     `export default env.template(${spec});`,
-    ...(options.dev ? ["if (import.meta.hot) import.meta.hot.accept();"] : []),
+    ...(dev ? ["if (import.meta.hot) import.meta.hot.accept();"] : []),
     "",
   ].join("\n");
 }
 
-/** The setup module: registers the partials and the helpers into the runtime environment. */
-export function setupModuleCode(input: {
+type SetupModuleCodeInput = {
   partialsDir: string | null;
-  partials: string[];
+  partials: readonly string[];
   helpers: string | null;
   runtime?: string;
-}): string {
-  const lines = [`import { env, registerHelpers } from ${specifier(input.runtime ?? runtimeModule)};`];
-  input.partials.forEach((file, i) => {
-    lines.push(`import partial_${i} from ${specifier(file)};`);
-  });
-  if (input.helpers) lines.push(`import * as helpers from ${specifier(input.helpers)};`);
-  for (const [i, file] of input.partials.entries()) {
-    if (input.partialsDir === null) throw new Error("droplets: Handlebars partials without a partials folder");
-    lines.push(`env.registerPartial(${JSON.stringify(partialName(input.partialsDir, file))}, partial_${i});`);
+};
+
+/** The setup module: registers the partials and the helpers into the runtime environment. */
+export function setupModuleCode({ partialsDir, partials, helpers, runtime = runtimeModule }: SetupModuleCodeInput): string {
+  const lines = [`import { env, registerHelpers } from ${specifier({ file: runtime })};`];
+  for (const [i, file] of partials.entries()) lines.push(`import partial_${i} from ${specifier({ file })};`);
+  if (helpers) lines.push(`import * as helpers from ${specifier({ file: helpers })};`);
+  for (const [i, file] of partials.entries()) {
+    if (partialsDir === null) throw new Error("droplets: Handlebars partials without a partials folder");
+    lines.push(`env.registerPartial(${JSON.stringify(partialName({ dir: partialsDir, file }))}, partial_${i});`);
   }
-  if (input.helpers) lines.push("registerHelpers(env, helpers);");
+  if (helpers) lines.push("registerHelpers({ target: env, module: helpers });");
   lines.push("export { env };", "");
   return lines.join("\n");
 }
@@ -183,16 +209,16 @@ export function handlebarsPlugin(options: HandlebarsRendererOptions = {}): Plugi
     },
 
     async load(id) {
-      const style = parseStyleId(id);
+      const style = parseStyleId({ id });
       if (style) {
         // An inline `<style>` block: the CSS, read from the template now.
         this.addWatchFile(style.file);
-        const { styles } = extractStyles(await readFile(style.file, "utf8"), relative(root, style.file));
+        const { styles } = extractStyles({ source: await readFile(style.file, "utf8"), where: relative(root, style.file) });
         const block = styles[style.index];
         return block?.kind === "inline" ? { code: block.css, map: null } : "";
       }
       if (id !== RESOLVED_SETUP_ID) return;
-      const partials = listPartials(partialsDir);
+      const partials = listPartials({ dir: partialsDir });
       const helpers = helpersFile && existsSync(helpersFile) ? helpersFile : null;
       for (const file of [...partials, ...(helpers ? [helpers] : [])]) this.addWatchFile(file);
       return setupModuleCode({ partialsDir, partials, helpers });
@@ -200,14 +226,14 @@ export function handlebarsPlugin(options: HandlebarsRendererOptions = {}): Plugi
 
     transform(code, id) {
       const [file = id] = id.split("?");
-      if (!file.endsWith(".hbs") || parseStyleId(id)) return;
-      const partial = partialsDir !== null && isInside(partialsDir, file);
+      if (!file.endsWith(".hbs") || parseStyleId({ id })) return;
+      const partial = partialsDir !== null && isInside({ dir: partialsDir, file });
       const where = relative(root, file);
-      const { template, styles } = extractStyles(code, where);
+      const { template, styles } = extractStyles({ source: code, where });
       if (partial && styles.length > 0) {
         throw new Error(`droplets: ${where}: a partial has no <style>: put it in the droplet templates that use it`);
       }
-      return { code: compileTemplate(template, file, { setup: !partial, styles, dev, compile: options.compile }), map: null };
+      return { code: compileTemplate({ source: template, file, setup: !partial, styles, dev, compile: options.compile }), map: null };
     },
 
     hotUpdate({ file, type }) {
@@ -215,7 +241,7 @@ export function handlebarsPlugin(options: HandlebarsRendererOptions = {}): Plugi
       // setup module's imports are stale. An edit to either is an ordinary
       // module update, which core traces up to the droplets using it.
       const structural = type !== "update";
-      const partial = partialsDir !== null && isInside(partialsDir, file) && file.endsWith(".hbs");
+      const partial = partialsDir !== null && isInside({ dir: partialsDir, file }) && file.endsWith(".hbs");
       const helpers = helpersFile !== null && file === helpersFile;
       if (structural && (partial || helpers)) {
         const setup = this.environment.moduleGraph.getModuleById(RESOLVED_SETUP_ID);

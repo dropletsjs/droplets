@@ -30,7 +30,9 @@ afterAll(async () => {
 });
 
 /** A project with one droplet, `card`, its element named `element`, and the given files. */
-async function project(element: string, files: Record<string, string> = {}): Promise<string> {
+type ProjectInput = { element: string; files?: Record<string, string> };
+
+async function project({ element, files = {} }: ProjectInput): Promise<string> {
   const root = await mkdtemp(join(fixtures, ".hooks-client-"));
   roots.push(root);
   const all: Record<string, string> = {
@@ -66,7 +68,9 @@ const trace = () => ((globalThis as unknown as { __initTrace?: Trace }).__initTr
  * `init` for a project whose element is `element`: notes whether the
  * element was defined when it started, then does `body`.
  */
-const hooks = (element: string, body: string) =>
+type HooksInput = { element: string; body: string };
+
+const hooks = ({ element, body }: HooksInput) =>
   [
     "const trace = (globalThis.__initTrace ??= { steps: [] });",
     "export function init() {",
@@ -90,7 +94,7 @@ afterEach(() => {
 
 describe("without src/hooks.client.ts", () => {
   it("builds /index.js as before: the stub, and an entry without init", async () => {
-    const { manifest, read } = await build(await project("plain-el"));
+    const { manifest, read } = await build(await project({ element: "plain-el" }));
     expect(await read("index.js")).toBe(`import("./${manifest.__entryModule}");\n`);
     const entry = await read(manifest.__entryModule ?? "");
     expect(entry).toContain("customElements.define(");
@@ -100,8 +104,11 @@ describe("without src/hooks.client.ts", () => {
 
 describe("with src/hooks.client.ts", () => {
   it("calls init before the element is defined", async () => {
-    const root = await project("first-el", {
-      "src/hooks.client.ts": hooks("first-el", 'trace.steps.push("init: done");'),
+    const root = await project({
+      element: "first-el",
+      files: {
+        "src/hooks.client.ts": hooks({ element: "first-el", body: 'trace.steps.push("init: done");' }),
+      },
     });
     const { entry, read, manifest } = await build(root);
     expect(await read("index.js")).toBe(`import("./${manifest.__entryModule}");\n`);
@@ -112,8 +119,11 @@ describe("with src/hooks.client.ts", () => {
   }, 90_000);
 
   it("calls an init in hooks.client.js the same way", async () => {
-    const root = await project("js-el", {
-      "src/hooks.client.js": hooks("js-el", 'trace.steps.push("init: done");'),
+    const root = await project({
+      element: "js-el",
+      files: {
+        "src/hooks.client.js": hooks({ element: "js-el", body: 'trace.steps.push("init: done");' }),
+      },
     });
     await import(pathToFileURL((await build(root)).entry).href);
     expect(trace().steps).toEqual(["init: not defined", "init: done", "define js-el"]);
@@ -121,8 +131,11 @@ describe("with src/hooks.client.ts", () => {
 
   it("starts the droplets when init throws, and says so", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    const root = await project("throw-el", {
-      "src/hooks.client.ts": hooks("throw-el", 'throw new Error("no queue today");'),
+    const root = await project({
+      element: "throw-el",
+      files: {
+        "src/hooks.client.ts": hooks({ element: "throw-el", body: 'throw new Error("no queue today");' }),
+      },
     });
     await import(pathToFileURL((await build(root)).entry).href);
     expect(trace().steps).toEqual(["init: not defined", "define throw-el"]);
@@ -134,11 +147,14 @@ describe("with src/hooks.client.ts", () => {
 
   it("does not wait for a promise init returns, and logs its rejection", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    const root = await project("promise-el", {
-      "src/hooks.client.ts": hooks(
-        "promise-el",
-        'return new Promise((_, reject) => setTimeout(() => { trace.steps.push("init: rejected"); reject(new Error("too late")); }, 50));',
-      ),
+    const root = await project({
+      element: "promise-el",
+      files: {
+        "src/hooks.client.ts": hooks({
+          element: "promise-el",
+          body: 'return new Promise((_, reject) => setTimeout(() => { trace.steps.push("init: rejected"); reject(new Error("too late")); }, 50));',
+        }),
+      },
     });
     await import(pathToFileURL((await build(root)).entry).href);
     // Defined at once, the promise still pending.
@@ -159,7 +175,10 @@ describe("in vite dev", () => {
   let root: string;
 
   beforeAll(async () => {
-    root = await project("dev-el", { "src/hooks.client.ts": "export const init = () => {};\n" });
+    root = await project({
+      element: "dev-el",
+      files: { "src/hooks.client.ts": "export const init = () => {};\n" },
+    });
     server = await createServer({
       root,
       logLevel: "silent",
@@ -207,7 +226,7 @@ describe("in vite dev", () => {
   });
 
   it("has no init in the registry of a project without the file", async () => {
-    const plain = await project("dev-plain-el");
+    const plain = await project({ element: "dev-plain-el" });
     const other = await createServer({
       root: plain,
       logLevel: "silent",

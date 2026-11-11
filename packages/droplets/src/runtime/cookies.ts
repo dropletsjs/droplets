@@ -15,12 +15,15 @@ function tryDecode(value: string): string {
   try {
     return decodeURIComponent(value);
   } catch {
+    // A malformed escape: the raw value, as SvelteKit reads it.
     return value;
   }
 }
 
+export type ParseCookiesInput = { header: string; decode?: (value: string) => string };
+
 /** The `Cookie` header as name → value; the first of a repeated name wins. */
-export function parseCookies(header: string, decode: (value: string) => string = tryDecode): Map<string, string> {
+export function parseCookies({ header, decode = tryDecode }: ParseCookiesInput): Map<string, string> {
   const cookies = new Map<string, string>();
   for (const pair of header.split(";")) {
     const at = pair.indexOf("=");
@@ -37,8 +40,10 @@ export function parseCookies(header: string, decode: (value: string) => string =
 const SAME_SITE = { strict: "Strict", lax: "Lax", none: "None" } as const;
 const PRIORITY = { low: "Low", medium: "Medium", high: "High" } as const;
 
+export type SerializeCookieInput = { name: string; value: string; options: CookieSerializeOptions };
+
 /** One `Set-Cookie` value. Throws for a name, value or attribute a header cannot carry. */
-export function serializeCookie(name: string, value: string, options: CookieSerializeOptions): string {
+export function serializeCookie({ name, value, options }: SerializeCookieInput): string {
   if (!COOKIE_NAME.test(name)) throw new TypeError(`cookie name ${JSON.stringify(name)} is not a valid token`);
   const encoded = (options.encode ?? encodeURIComponent)(value);
   if (!COOKIE_VALUE.test(encoded)) throw new TypeError(`cookie ${name}: the encoded value has characters a cookie cannot carry`);
@@ -71,18 +76,23 @@ export function serializeCookie(name: string, value: string, options: CookieSeri
   return cookie;
 }
 
-/** `path` must be there and absolute: the response may reach the browser through a host, under its URLs. */
-function checkPath(options: CookieSerializeOptions | undefined): asserts options is CookieSerializeOptions {
+type CheckedOptionsInput = { options: CookieSerializeOptions | undefined };
+
+/** `options`, once `path` is there and absolute: the response may reach the browser through a host, under its URLs. */
+function checkedOptions({ options }: CheckedOptionsInput): CookieSerializeOptions {
   if (typeof options?.path !== "string") {
     throw new Error("You must specify a `path` when setting, deleting or serializing cookies");
   }
   if (!options.path.startsWith("/")) {
     throw new Error(`cookie path must be absolute ("/" or "/admin"), got ${JSON.stringify(options.path)}`);
   }
+  return options;
 }
 
+type IsLoopbackInput = { hostname: string };
+
 /** `localhost` and the loopback addresses: plain HTTP there is a dev server. */
-function isLoopback(hostname: string): boolean {
+function isLoopback({ hostname }: IsLoopbackInput): boolean {
   return hostname === "localhost" || hostname.endsWith(".localhost") || hostname === "[::1]" || /^127(?:\.\d{1,3}){3}$/.test(hostname);
 }
 
@@ -92,36 +102,42 @@ export type CookieJar = {
   setCookies(): string[];
 };
 
+/** `url`: the request as the browser reached this server. */
+export type CookiesOptions = { request: Request; url: URL };
+
+type OutgoingCookie = { name: string; value: string; expired: boolean; header: string };
+
+type FindLatestInput = { name: string };
+
 /**
  * The cookies of one request. Defaults as in SvelteKit: `httpOnly`,
  * `sameSite: "lax"`, and `secure` except over plain HTTP to `localhost` or
- * a loopback address, judged by `url` (the request as the browser reached
- * this server).
+ * a loopback address, judged by `url`.
  */
-export function createCookies(request: Request, url: URL): CookieJar {
+export function createCookies({ request, url }: CookiesOptions): CookieJar {
   const header = request.headers.get("cookie") ?? "";
   const defaults = {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: !(url.protocol === "http:" && isLoopback(url.hostname)),
+    secure: !(url.protocol === "http:" && isLoopback({ hostname: url.hostname })),
   };
   /** Set in this request, by domain, path and name: the last one wins. */
-  const outgoing = new Map<string, { name: string; value: string; expired: boolean; header: string }>();
+  const outgoing = new Map<string, OutgoingCookie>();
 
-  const latest = (name: string) => {
-    let found: { value: string; expired: boolean } | undefined;
+  function findLatest({ name }: FindLatestInput): OutgoingCookie | undefined {
+    let found: OutgoingCookie | undefined;
     for (const cookie of outgoing.values()) if (cookie.name === name) found = cookie;
     return found;
-  };
+  }
 
   const cookies: Cookies = {
     get(name, options) {
-      const set = latest(name);
+      const set = findLatest({ name });
       if (set) return set.expired ? undefined : set.value;
-      return parseCookies(header, options?.decode).get(name);
+      return parseCookies({ header, decode: options?.decode }).get(name);
     },
     getAll(options) {
-      const all = parseCookies(header, options?.decode);
+      const all = parseCookies({ header, decode: options?.decode });
       for (const cookie of outgoing.values()) {
         if (cookie.expired) all.delete(cookie.name);
         else all.set(cookie.name, cookie.value);
@@ -129,25 +145,26 @@ export function createCookies(request: Request, url: URL): CookieJar {
       return [...all].map(([name, value]) => ({ name, value }));
     },
     set(name, value, options) {
-      checkPath(options);
-      const merged = { ...defaults, ...options };
-      const cookieHeader = serializeCookie(name, value, merged);
+      const merged = { ...defaults, ...checkedOptions({ options }) };
+      const cookieHeader = serializeCookie({ name, value, options: merged });
       const expired = merged.maxAge !== undefined && merged.maxAge <= 0;
       const key = `${merged.domain ?? ""};${merged.path};${name}`;
       outgoing.delete(key);
       outgoing.set(key, { name, value, expired, header: cookieHeader });
     },
     delete(name, options) {
-      checkPath(options);
-      cookies.set(name, "", { ...options, maxAge: 0 });
+      cookies.set(name, "", { ...checkedOptions({ options }), maxAge: 0 });
     },
     serialize(name, value, options) {
-      checkPath(options);
-      return serializeCookie(name, value, { ...defaults, ...options });
+      return serializeCookie({ name, value, options: { ...defaults, ...checkedOptions({ options }) } });
     },
   };
   return { cookies, setCookies: () => [...outgoing.values()].map((cookie) => cookie.header) };
 }
+
+export type ReadonlyCookiesInput = { cookies: Cookies };
+
+type RefuseInput = { method: string };
 
 /**
  * The cookies a droplet's `load` and `transform` see: read only. A droplet
@@ -155,36 +172,43 @@ export function createCookies(request: Request, url: URL): CookieJar {
  * reach the browser only if that host passed it on. Cookies are set where a
  * request is the user's own: `handle`, `+server.ts` (and form actions).
  */
-export function readonlyCookies(cookies: Cookies): ReadonlyCookies {
-  const refuse = (method: string) => () => {
-    throw new Error(
-      `cookies.${method}() is not available in a droplet's load or transform: cookies are read there, and set in form actions, handle or +server.ts`,
-    );
-  };
+export function readonlyCookies({ cookies }: ReadonlyCookiesInput): ReadonlyCookies {
+  function refuse({ method }: RefuseInput): () => never {
+    return () => {
+      throw new Error(
+        `cookies.${method}() is not available in a droplet's load or transform: cookies are read there, and set in form actions, handle or +server.ts`,
+      );
+    };
+  }
   return {
     get: (name, options) => cookies.get(name, options),
     getAll: (options) => cookies.getAll(options),
     // Not in the type; there for JavaScript, with the reason.
-    ...({ set: refuse("set"), delete: refuse("delete"), serialize: refuse("serialize") } as object),
+    ...({ set: refuse({ method: "set" }), delete: refuse({ method: "delete" }), serialize: refuse({ method: "serialize" }) } as object),
   };
 }
+
+/** `where` names the render in the error; `record` keeps the error for the build to check. */
+export type PrerenderCookiesInput = { where: string; record: (error: Error) => void };
 
 /**
  * The cookies of a build-time render: every method throws
  * `CookiesInPrerenderError` and records it, so a `try`/`catch` cannot hide
  * it from the build.
  */
-export function prerenderCookies(where: string, record: (error: Error) => void): Cookies {
-  const refuse = (method: string) => () => {
-    const error = new CookiesInPrerenderError(where, method);
-    record(error);
-    throw error;
-  };
+export function prerenderCookies({ where, record }: PrerenderCookiesInput): Cookies {
+  function refuse({ method }: RefuseInput): () => never {
+    return () => {
+      const error = new CookiesInPrerenderError(where, method);
+      record(error);
+      throw error;
+    };
+  }
   return {
-    get: refuse("get"),
-    getAll: refuse("getAll"),
-    set: refuse("set"),
-    delete: refuse("delete"),
-    serialize: refuse("serialize"),
+    get: refuse({ method: "get" }),
+    getAll: refuse({ method: "getAll" }),
+    set: refuse({ method: "set" }),
+    delete: refuse({ method: "delete" }),
+    serialize: refuse({ method: "serialize" }),
   };
 }

@@ -17,14 +17,33 @@ export const PRERENDER_DIR = "_prerendered";
 /** `<droplet>/index.json`: `propsKey` -> file, both relative to the renders' directory. */
 export type PrerenderIndex = Record<string, string>;
 
+type PrerenderIndexPathInput = { droplet: string };
+
 /** The index file of one droplet, relative to the renders' directory. */
-export function prerenderIndexPath(droplet: string): string {
+export function prerenderIndexPath({ droplet }: PrerenderIndexPathInput): string {
   return `${droplet}/index.json`;
 }
 
+type IsDropletNameInput = { droplet: string };
+
 /** A droplet name is one path segment: anything else reads no file. */
-function isDropletName(droplet: string): boolean {
+function isDropletName({ droplet }: IsDropletNameInput): boolean {
   return droplet !== "" && droplet !== "." && droplet !== ".." && !/[/\\\0]/.test(droplet);
+}
+
+/** A prerendered render of `droplet` for a `propsKey`; `null` when there is none. */
+export type PrerenderedLoader = (droplet: string, key: string) => Promise<PrerenderedDroplet | null>;
+
+type ParseJsonInput = { text: string | null };
+
+function parseJson<T>({ text }: ParseJsonInput): T | null {
+  if (text === null) return null;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    // A file the build did not write whole: as if there were no render.
+    return null;
+  }
 }
 
 /**
@@ -35,29 +54,20 @@ function isDropletName(droplet: string): boolean {
  * index is read once; the renders themselves on demand, so a large site
  * does not sit in memory or in the Worker bundle.
  */
-export function createPrerenderedLoader(read: (path: string) => Promise<string | null>) {
+export function createPrerenderedLoader(read: (path: string) => Promise<string | null>): PrerenderedLoader {
   const indexes = new Map<string, Promise<PrerenderIndex | null>>();
 
-  const parse = <T>(text: string | null): T | null => {
-    if (text === null) return null;
-    try {
-      return JSON.parse(text) as T;
-    } catch {
-      return null;
-    }
-  };
-
   return async (droplet: string, key: string): Promise<PrerenderedDroplet | null> => {
-    if (!isDropletName(droplet)) return null;
+    if (!isDropletName({ droplet })) return null;
     let index = indexes.get(droplet);
     if (!index) {
-      index = read(prerenderIndexPath(droplet)).then((text) => parse<PrerenderIndex>(text));
+      index = read(prerenderIndexPath({ droplet })).then((text) => parseJson<PrerenderIndex>({ text }));
       indexes.set(droplet, index);
     }
     const found = await index;
     const file = found && typeof found === "object" && !Array.isArray(found) && Object.hasOwn(found, key) ? found[key] : undefined;
     if (typeof file !== "string" || !file) return null;
-    const render = parse<PrerenderedDroplet>(await read(file));
+    const render = parseJson<PrerenderedDroplet>({ text: await read(file) });
     return render && typeof render === "object" && typeof render.html === "string" ? render : null;
   };
 }

@@ -39,6 +39,18 @@ type Context = DropletSpec & {
   hasMessage: boolean;
 };
 
+type DropletFileChoicesInput = { framework: Pick<Framework, "name"> };
+
+type FlagLineInput = { name: string; value: string };
+
+type FlagLinesInput = { flags: Flags; form: (line: FlagLineInput) => string };
+
+type HeadingInput = { context: Pick<Context, "hasData" | "name">; value: string };
+
+type StylesheetInput = Pick<Context, "className">;
+
+type StyleBlockInput = { context: Pick<Context, "files" | "className">; tag: string };
+
 const CSS_FILE = "style.css";
 
 /** Every file of the droplet, by name inside its folder. */
@@ -65,7 +77,7 @@ export function dropletFiles(spec: DropletSpec): Record<string, string> {
 }
 
 /** The optional files a droplet of `framework` can have: a script droplet has no error page. */
-export function dropletFileChoices(framework: Framework): readonly (typeof DROPLET_FILES)[number][] {
+export function dropletFileChoices({ framework }: DropletFileChoicesInput): readonly (typeof DROPLET_FILES)[number][] {
   return framework.name === "script" ? DROPLET_FILES.filter((file) => file.value !== "error") : DROPLET_FILES;
 }
 
@@ -118,13 +130,15 @@ function universalModule(context: Context): string {
 }
 
 /** `export const ssr = true;` lines, `prerender` only when on. */
-function flagLines(flags: Flags, form: (name: string, value: string) => string): string[] {
-  const lines = [form("ssr", JSON.stringify(flags.ssr)), form("hydrate", JSON.stringify(flags.hydrate))];
-  if (flags.prerender) lines.push(form("prerender", "true"));
+function flagLines({ flags, form }: FlagLinesInput): string[] {
+  const lines = [form({ name: "ssr", value: JSON.stringify(flags.ssr) }), form({ name: "hydrate", value: JSON.stringify(flags.hydrate) })];
+  if (flags.prerender) lines.push(form({ name: "prerender", value: "true" }));
   return lines;
 }
 
-const constant = (name: string, value: string) => `export const ${name} = ${value};`;
+function constant({ name, value }: FlagLineInput): string {
+  return `export const ${name} = ${value};`;
+}
 
 function component(context: Context): string {
   switch (context.framework.name) {
@@ -144,6 +158,10 @@ function component(context: Context): string {
       return litComponent(context);
     case "script":
       return scriptComponent(context);
+    default: {
+      const unreachable: never = context.framework.name;
+      return unreachable;
+    }
   }
 }
 
@@ -165,18 +183,25 @@ function errorComponent(context: Context): string {
       return hooksError(context);
     case "lit":
       return litError(context);
+    default: {
+      const unreachable: never = context.framework.name;
+      return unreachable;
+    }
   }
 }
 
-const heading = (context: Context, value: string) => (context.hasData ? value : context.name);
+function heading({ context, value }: HeadingInput): string {
+  return context.hasData ? value : context.name;
+}
+
 const MESSAGE = "Something went wrong.";
 
-function stylesheet(context: Context): string {
-  return `.${context.className} {\n  font-family: system-ui, sans-serif;\n}\n`;
+function stylesheet({ className }: StylesheetInput): string {
+  return `.${className} {\n  font-family: system-ui, sans-serif;\n}\n`;
 }
 
 /** A `<style>` block for the formats that have one: Svelte, Vue, Handlebars. */
-function styleBlock(context: Context, tag: string): string[] {
+function styleBlock({ context, tag }: StyleBlockInput): string[] {
   if (!context.files.has("css")) return [];
   return [
     "",
@@ -192,7 +217,7 @@ function styleBlock(context: Context, tag: string): string[] {
 function svelteComponent(context: Context): string {
   return [
     '<script module lang="ts">',
-    ...flagLines(context.flags, constant).map((line) => `  ${line}`),
+    ...flagLines({ flags: context.flags, form: constant }).map((line) => `  ${line}`),
     "</script>",
     "",
     '<script lang="ts">',
@@ -205,7 +230,7 @@ function svelteComponent(context: Context): string {
     ...(context.hasData ? ["  {#await data then { greeting }}", "    <h1>{greeting}</h1>", "  {/await}"] : [`  <h1>${context.name}</h1>`]),
     "  {@render children?.()}",
     "</section>",
-    ...styleBlock(context, "style"),
+    ...styleBlock({ context, tag: "style" }),
     "",
   ].join("\n");
 }
@@ -227,7 +252,7 @@ function svelteError(context: Context): string {
 function vueComponent(context: Context): string {
   return [
     '<script lang="ts">',
-    ...flagLines(context.flags, constant),
+    ...flagLines({ flags: context.flags, form: constant }),
     "</script>",
     "",
     '<script setup lang="ts">',
@@ -245,11 +270,11 @@ function vueComponent(context: Context): string {
     "",
     "<template>",
     `  <section class="${context.className}">`,
-    `    <h1>${heading(context, "{{ greeting }}")}</h1>`,
+    `    <h1>${heading({ context, value: "{{ greeting }}" })}</h1>`,
     "    <DropletChildren />",
     "  </section>",
     "</template>",
-    ...styleBlock(context, "style scoped"),
+    ...styleBlock({ context, tag: "style scoped" }),
     "",
   ].join("\n");
 }
@@ -287,7 +312,7 @@ function hooksComponent(context: Context): string {
     ...(context.files.has("css") ? [`import "./${CSS_FILE}";`] : []),
     'import type { DropletProps } from "./$types";',
     "",
-    ...flagLines(context.flags, constant),
+    ...flagLines({ flags: context.flags, form: constant }),
     "",
     `export default function ${context.component}({ ${context.hasData ? "data, " : ""}children }: DropletProps) {`,
     ...(waits
@@ -300,7 +325,7 @@ function hooksComponent(context: Context): string {
         : []),
     "  return (",
     `    <section ${classAttribute}="${context.className}">`,
-    `      <h1>${heading(context, "{greeting}")}</h1>`,
+    `      <h1>${heading({ context, value: "{greeting}" })}</h1>`,
     "      {children}",
     "    </section>",
     "  );",
@@ -336,7 +361,7 @@ function solidComponent(context: Context): string {
     ...(context.files.has("css") ? [`import "./${CSS_FILE}";`] : []),
     'import type { DropletProps } from "./$types";',
     "",
-    ...flagLines(context.flags, constant),
+    ...flagLines({ flags: context.flags, form: constant }),
     "",
     `export default function ${context.component}(props: DropletProps) {`,
     ...(context.hasData
@@ -348,7 +373,7 @@ function solidComponent(context: Context): string {
       : []),
     "  return (",
     `    <section class="${context.className}">`,
-    `      <h1>${heading(context, "{value()?.greeting}")}</h1>`,
+    `      <h1>${heading({ context, value: "{value()?.greeting}" })}</h1>`,
     "      {props.children}",
     "    </section>",
     "  );",
@@ -377,13 +402,13 @@ function solidError(context: Context): string {
 function handlebarsComponent(context: Context): string {
   return [
     "{{!--",
-    ...flagLines(context.flags, (name, value) => `export ${name} = ${value}`),
+    ...flagLines({ flags: context.flags, form: ({ name, value }) => `export ${name} = ${value}` }),
     "--}}",
     `<section class="${context.className}">`,
-    `  <h1>${heading(context, "{{data.greeting}}")}</h1>`,
+    `  <h1>${heading({ context, value: "{{data.greeting}}" })}</h1>`,
     "  {{{children}}}",
     "</section>",
-    ...styleBlock(context, "style"),
+    ...styleBlock({ context, tag: "style" }),
     "",
   ].join("\n");
 }
@@ -433,7 +458,7 @@ function litComponent(context: Context): string {
     'import { DropletElement } from "@dropletsjs/renderer-lit/element";',
     'import type { DropletProps } from "./$types";',
     "",
-    ...flagLines(context.flags, constant),
+    ...flagLines({ flags: context.flags, form: constant }),
     "",
     `export default class ${context.component} extends DropletElement<DropletProps> {`,
     ...(styled
@@ -450,7 +475,7 @@ function litComponent(context: Context): string {
     "  override render() {",
     "    return html`",
     `      <section class="${context.className}">`,
-    `        <h1>${heading(context, "${this.data.greeting}")}</h1>`,
+    `        <h1>${heading({ context, value: "${this.data.greeting}" })}</h1>`,
     "        <slot></slot>",
     "      </section>",
     "    `;",

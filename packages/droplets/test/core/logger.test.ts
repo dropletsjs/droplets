@@ -10,7 +10,7 @@ describe("resolveLevel", () => {
     ["verbose", "info"],
     [undefined, "info"],
   ])("%s -> %s", (input, expected) => {
-    expect(resolveLevel(input)).toBe(expected);
+    expect(resolveLevel({ raw: input })).toBe(expected);
   });
 });
 

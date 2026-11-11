@@ -44,7 +44,7 @@ describe("generated modules", () => {
       { browser: true as const, serverKey: "djs:b1" },
       { browser: false as const, envStorePath: "/s.js" },
     ]) {
-      const code = buildPublicEnvCode(state(), target);
+      const code = buildPublicEnvCode({ env: state(), target: target });
       expect(code).toContain('"PUBLIC_NAME": "Site"');
       expect(code).not.toContain("secret");
       expect(code).not.toContain("BUILD_FLAG");
@@ -55,13 +55,13 @@ describe("generated modules", () => {
   });
 
   it("$droplets/env/public reads runtime values from the environment on the server", () => {
-    const code = buildPublicEnvCode(state(), { browser: false, envStorePath: "/pkg/env-store.js" });
+    const code = buildPublicEnvCode({ env: state(), target: { browser: false, envStorePath: "/pkg/env-store.js" } });
     expect(code).toContain('import { readRuntimeEnv } from "/pkg/env-store.js";');
     expect(code).toContain('get "PUBLIC_API"() { return readRuntimeEnv("PUBLIC_API"); }');
   });
 
   it("$droplets/env/public reads runtime values from this server's record in the browser", async () => {
-    const code = buildPublicEnvCode(state(), { browser: true, serverKey: "djs:b1" });
+    const code = buildPublicEnvCode({ env: state(), target: { browser: true, serverKey: "djs:b1" } });
     const { env } = (await import(`data:text/javascript,${encodeURIComponent(code)}`)) as {
       env: Record<string, string | undefined>;
     };
@@ -83,7 +83,7 @@ describe("generated modules", () => {
   });
 
   it("$droplets/env/private inlines static values and reads the rest at runtime", () => {
-    const code = buildPrivateEnvCode(state(), "/pkg/dist/runtime/env-store.js");
+    const code = buildPrivateEnvCode({ env: state(), envStorePath: "/pkg/dist/runtime/env-store.js" });
     expect(code).toContain('import { readRuntimeEnv } from "/pkg/dist/runtime/env-store.js";');
     expect(code).toContain('"BUILD_FLAG": "on"');
     expect(code).toContain('get "API_KEY"() { return readRuntimeEnv("API_KEY"); }');
@@ -93,9 +93,9 @@ describe("generated modules", () => {
   });
 
   it("evaluates to frozen objects", async () => {
-    const code = buildPublicEnvCode(state({ declaration: { PUBLIC_NAME: { public: true, static: true } } }), {
-      browser: true,
-      serverKey: "djs:b1",
+    const code = buildPublicEnvCode({
+      env: state({ declaration: { PUBLIC_NAME: { public: true, static: true } } }),
+      target: { browser: true, serverKey: "djs:b1" },
     });
     const { env } = (await import(`data:text/javascript,${encodeURIComponent(code)}`)) as { env: Record<string, string> };
     expect(env).toEqual({ PUBLIC_NAME: "Site" });
@@ -126,7 +126,7 @@ describe("loadEnvState", () => {
     await writeFile(join(root, ".env"), "A=1\nPUBLIC_B=2\nOTHER=3\n");
     await writeFile(join(root, ".env.production"), "A=prod\n");
 
-    const loaded = await loadEnvState(root, "production");
+    const loaded = await loadEnvState({ root, mode: "production" });
     expect(loaded.path).toBe(join(root, "src/env.ts"));
     expect(loaded.declaration).toEqual({ A: {}, PUBLIC_B: { public: true } });
     expect(loaded.values).toMatchObject({ A: "prod", PUBLIC_B: "2", OTHER: "3" });
@@ -134,13 +134,13 @@ describe("loadEnvState", () => {
   });
 
   it("works without a declaration", async () => {
-    const loaded = await loadEnvState(root, "development");
+    const loaded = await loadEnvState({ root, mode: "development" });
     expect(loaded.path).toBeNull();
     expect(loaded.declaration).toEqual({});
   });
 
   it("insists on a `variables` export", async () => {
     await writeFile(join(root, "src/env.ts"), "export const vars = {};\n");
-    await expect(loadEnvState(root, "development")).rejects.toThrow(/must export `variables`/);
+    await expect(loadEnvState({ root, mode: "development" })).rejects.toThrow(/must export `variables`/);
   });
 });

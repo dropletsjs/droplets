@@ -1,6 +1,7 @@
 import type { Handler } from "hono";
 import {
   createDropletsApp,
+  type DropletsApp,
   type FindAction,
   type GetDropletMeta,
   type GetHandle,
@@ -78,7 +79,7 @@ let warnedCors = false;
  * supplies rendering, hooks and API routes, the loaders supply assets.
  * Adapters wire it to a filesystem or a static-assets binding.
  */
-export function createServerApp({ ssr, assets, config }: ServerAppOptions) {
+export function createServerApp({ ssr, assets, config }: ServerAppOptions): DropletsApp {
   const renderDroplet = ssr.renderDroplet ?? ssr.default;
   if (!renderDroplet) {
     throw new Error("The SSR bundle does not export renderDroplet.");

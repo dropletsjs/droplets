@@ -1,6 +1,6 @@
 import postcss from "postcss";
 import { describe, expect, it } from "vitest";
-import { scopeSelector, scopeStylesPlugin } from "../../src/css/scope.ts";
+import { type ScopeStylesOptions, scopeSelector, scopeStylesPlugin } from "../../src/css/scope.ts";
 
 const el = "my-droplet";
 
@@ -32,8 +32,8 @@ describe("scopeSelector", () => {
 });
 
 describe("scopeStylesPlugin", () => {
-  const run = (css: string, options: Parameters<typeof scopeStylesPlugin>[0], from?: string) =>
-    postcss([scopeStylesPlugin(options)]).process(css, { from }).css;
+  type RunInput = { css: string; options: ScopeStylesOptions; from?: string };
+  const run = ({ css, options, from }: RunInput) => postcss([scopeStylesPlugin(options)]).process(css, { from }).css;
 
   it("scopes rules inside layers, media and supports but not keyframes", () => {
     const input = [
@@ -45,7 +45,7 @@ describe("scopeStylesPlugin", () => {
       "@property --x { syntax: '<length>'; inherits: false; initial-value: 0px }",
       ".p-4 { padding: 1rem }",
     ].join("\n");
-    const out = run(input, { element: el });
+    const out = run({ css: input, options: { element: el } });
     expect(out).toContain("my-droplet, my-droplet { --color-x: red }");
     expect(out).toContain("my-droplet *, my-droplet ::before { margin: 0 }");
     expect(out).toContain("my-droplet { line-height: 1.5 }");
@@ -60,9 +60,9 @@ describe("scopeStylesPlugin", () => {
   it("only touches files the include filter accepts", () => {
     const css = ".x { color: red }";
     const include = (file: string | undefined) => file?.endsWith("app.css") ?? false;
-    expect(run(css, { element: el, include }, "/proj/src/app.css")).toBe("my-droplet .x { color: red }");
-    expect(run(css, { element: el, include }, "/proj/src/droplets/a/+droplet.svelte")).toBe(css);
-    expect(run(css, { element: el, include })).toBe(css);
+    expect(run({ css, options: { element: el, include }, from: "/proj/src/app.css" })).toBe("my-droplet .x { color: red }");
+    expect(run({ css, options: { element: el, include }, from: "/proj/src/droplets/a/+droplet.svelte" })).toBe(css);
+    expect(run({ css, options: { element: el, include } })).toBe(css);
   });
 
   it("is a PostCSS plugin", () => {
@@ -72,18 +72,21 @@ describe("scopeStylesPlugin", () => {
 });
 
 describe("Svelte styles", () => {
-  const run = (css: string, from: string) => postcss([scopeStylesPlugin({ element: el })]).process(css, { from }).css;
+  type RunInput = { css: string; from: string };
+  const run = ({ css, from }: RunInput) => postcss([scopeStylesPlugin({ element: el })]).process(css, { from }).css;
 
   it("scope with :global(element) before Svelte compiles them, plainly after", () => {
-    const before = run(":root { color: red } .note { font-style: italic }", "/p/Note.svelte.vite-preprocess.css");
+    const before = run({ css: ":root { color: red } .note { font-style: italic }", from: "/p/Note.svelte.vite-preprocess.css" });
     expect(before).toBe(":global(my-droplet) { color: red } :global(my-droplet) .note { font-style: italic }");
-    expect(run(":global(body) .x { margin: 0 }", "/p/A.svelte.vite-preprocess.css")).toBe(":global(my-droplet) .x { margin: 0 }");
+    expect(run({ css: ":global(body) .x { margin: 0 }", from: "/p/A.svelte.vite-preprocess.css" })).toBe(
+      ":global(my-droplet) .x { margin: 0 }",
+    );
     // Running again, or on what Svelte emits from it, changes nothing.
-    expect(run(before, "/p/Note.svelte.vite-preprocess.css")).toBe(before);
-    expect(run("my-droplet .note.svelte-x1 { font-style: italic }", "/p/Note.svelte?svelte&type=style&lang.css")).toBe(
+    expect(run({ css: before, from: "/p/Note.svelte.vite-preprocess.css" })).toBe(before);
+    expect(run({ css: "my-droplet .note.svelte-x1 { font-style: italic }", from: "/p/Note.svelte?svelte&type=style&lang.css" })).toBe(
       "my-droplet .note.svelte-x1 { font-style: italic }",
     );
-    expect(run(".note.svelte-x1 { font-style: italic }", "/p/Note.svelte?svelte&type=style&lang.css")).toBe(
+    expect(run({ css: ".note.svelte-x1 { font-style: italic }", from: "/p/Note.svelte?svelte&type=style&lang.css" })).toBe(
       "my-droplet .note.svelte-x1 { font-style: italic }",
     );
   });

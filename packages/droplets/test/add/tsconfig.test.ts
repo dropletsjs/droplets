@@ -15,19 +15,21 @@ describe("withJsx()", () => {
     const root = project({
       "tsconfig.json": `{\n  // Mine.\n  "compilerOptions": {\n    "strict": true, // on\n  },\n  "include": ["src/**/*.ts", "src/**/*.svelte"],\n}\n`,
     });
-    const code = await withJsx(join(root, "tsconfig.json"), "solid-js");
+    const code = await withJsx({ file: join(root, "tsconfig.json"), importSource: "solid-js" });
     expect(code).toContain("// Mine.");
     expect(code).toContain('"include": ["src/**/*.tsx", "src/**/*.ts"');
-    const parsed = JSON.parse(stripJsonc(code ?? expect.unreachable("tsconfig.json"))) as { compilerOptions: Record<string, unknown> };
+    const parsed = JSON.parse(stripJsonc({ text: code ?? expect.unreachable("tsconfig.json") })) as {
+      compilerOptions: Record<string, unknown>;
+    };
     expect(parsed.compilerOptions).toEqual({ jsx: "react-jsx", jsxImportSource: "solid-js", strict: true });
   });
 
   it("adds compilerOptions when there are none, into an empty object too", async () => {
     const root = project({ "tsconfig.json": `{ "include": ["src"] }`, "empty.json": `{ "compilerOptions": {} }` });
     const parsed = (code: string | undefined) =>
-      JSON.parse(stripJsonc(code ?? expect.unreachable("tsconfig.json"))) as { compilerOptions: Record<string, unknown> };
-    expect(parsed(await withJsx(join(root, "tsconfig.json"), "react")).compilerOptions.jsx).toBe("react-jsx");
-    expect(parsed(await withJsx(join(root, "empty.json"), "react")).compilerOptions).toEqual({
+      JSON.parse(stripJsonc({ text: code ?? expect.unreachable("tsconfig.json") })) as { compilerOptions: Record<string, unknown> };
+    expect(parsed(await withJsx({ file: join(root, "tsconfig.json"), importSource: "react" })).compilerOptions.jsx).toBe("react-jsx");
+    expect(parsed(await withJsx({ file: join(root, "empty.json"), importSource: "react" })).compilerOptions).toEqual({
       jsx: "react-jsx",
       jsxImportSource: "react",
     });
@@ -39,12 +41,12 @@ describe("withJsx()", () => {
       "tsconfig.json": `{ "extends": ["./base"], "include": ["src/**/*"] }`,
       "own.json": `{ "compilerOptions": { "jsx": "react-jsx" } }`,
     });
-    expect(await withJsx(join(root, "tsconfig.json"), "react")).toBeUndefined();
-    expect(await withJsx(join(root, "own.json"), "react")).toBeUndefined();
-    expect(await withJsx(join(root, "missing.json"), "react")).toBeUndefined();
+    expect(await withJsx({ file: join(root, "tsconfig.json"), importSource: "react" })).toBeUndefined();
+    expect(await withJsx({ file: join(root, "own.json"), importSource: "react" })).toBeUndefined();
+    expect(await withJsx({ file: join(root, "missing.json"), importSource: "react" })).toBeUndefined();
   });
 
   it("strips comments, not what looks like them inside strings", () => {
-    expect(JSON.parse(stripJsonc(`{ "a": "//x", /* b */ "c": [1, 2,], }`))).toEqual({ a: "//x", c: [1, 2] });
+    expect(JSON.parse(stripJsonc({ text: `{ "a": "//x", /* b */ "c": [1, 2,], }` }))).toEqual({ a: "//x", c: [1, 2] });
   });
 });

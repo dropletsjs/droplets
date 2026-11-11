@@ -28,7 +28,7 @@ import type { ActionUrl } from "@dropletsjs/droplets";
  * A `+droplet.lit.ts` component. `P` is the droplet's `DropletProps` from
  * `./$types`: `data` is what the loads returned (always a value: the
  * renderer waits for it), `form` what the last form action returned or
- * `fail()`ed with.
+ * `fail()`ed with. A class: a Lit component extends `LitElement`.
  */
 export class DropletElement<P extends { data?: unknown; form?: unknown } = { data: unknown; form?: unknown }> extends LitElement {
   static override properties: PropertyDeclarations = {
@@ -47,7 +47,10 @@ export class DropletElement<P extends { data?: unknown; form?: unknown } = { dat
   declare actionUrl: ActionUrl;
 }
 
-/** A `+error.lit.ts` component. `P` is the droplet's `DropletErrorProps` from `./$types`. */
+/**
+ * A `+error.lit.ts` component. `P` is the droplet's `DropletErrorProps` from
+ * `./$types`. A class: a Lit component extends `LitElement`.
+ */
 export class DropletErrorElement<P extends { error?: unknown } = { error: unknown }> extends LitElement {
   static override properties: PropertyDeclarations = {
     error: { attribute: false },

@@ -13,6 +13,6 @@ export async function update(instance: unknown, props: RenderProps): Promise<boo
   const { target, component, context } = instance as PreactInstance;
   if (!component || !context) return false;
   const next = "data" in props && isThenable(props.data) ? { ...props, data: await props.data } : props;
-  preactRender(tree(component, next, context), target);
+  preactRender(tree({ component, props: next, context }), target);
   return true;
 }

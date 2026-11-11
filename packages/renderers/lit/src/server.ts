@@ -9,5 +9,5 @@ import { prefix } from "virtual:droplets-renderer-lit";
 import { renderComponent } from "./render.ts";
 
 export function render(module: ComponentModule, props: RenderProps, context: ServerRenderContext): Promise<string> {
-  return renderComponent(module, props, context, prefix);
+  return renderComponent({ module, props, context, prefix });
 }

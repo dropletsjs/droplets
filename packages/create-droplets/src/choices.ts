@@ -8,7 +8,9 @@ import { FRAMEWORKS, frameworkNamed, isValidElementName, PACKAGE_MANAGERS, type 
 
 export type Adapter = "node" | "cloudflare" | "bun" | "deno";
 
-export const ADAPTERS: readonly { value: Adapter; label: string; hint: string; package: string; factory: string }[] = [
+export type AdapterOption = { value: Adapter; label: string; hint: string; package: string; factory: string };
+
+export const ADAPTERS: readonly AdapterOption[] = [
   { value: "node", label: "Node", hint: "dist/server.js for node", package: "@dropletsjs/adapter-node", factory: "node" },
   {
     value: "cloudflare",
@@ -40,8 +42,12 @@ export type Choices = {
   pm: PackageManager;
 };
 
+export type Commands = { install: string; run: string; djs: string };
+
+type CommandsInput = Pick<Choices, "pm">;
+
 /** How each package manager runs a script and a local binary: `pnpm run dev`, `pnpm exec djs`. */
-export function commands(pm: PackageManager): { install: string; run: string; djs: string } {
+export function commands({ pm }: CommandsInput): Commands {
   switch (pm) {
     case "npm":
       return { install: "npm install", run: "npm run", djs: "npx djs" };
@@ -57,21 +63,27 @@ export function commands(pm: PackageManager): { install: string; run: string; dj
   }
 }
 
+type StarterNameInput = { framework: Framework };
+
 /** The starter droplet's folder: `hello-svelte`, `hello-hono`. */
-export function starterName(framework: Framework): string {
+export function starterName({ framework }: StarterNameInput): string {
   return `hello-${framework.name === "hono-jsx" ? "hono" : framework.name}`;
 }
 
+type DefaultAdapterInput = { adapters: readonly Adapter[] };
+
 /** The adapter `vite build` uses without `DROPLETS_ADAPTER`: node when chosen, else the first. */
-export function defaultAdapter(adapters: readonly Adapter[]): Adapter {
+export function defaultAdapter({ adapters }: DefaultAdapterInput): Adapter {
   if (adapters.includes("node")) return "node";
   const [first] = adapters;
   if (first === undefined) throw new Error("create-droplets: no adapter chosen");
   return first;
 }
 
+type PackageNameForInput = { folder: string };
+
 /** A package name from the folder: `My Widgets` → `my-widgets`. */
-export function packageNameFor(folder: string): string {
+export function packageNameFor({ folder }: PackageNameForInput): string {
   const name = basename(folder)
     .toLowerCase()
     .replace(/[^a-z0-9._-]+/g, "-")
@@ -79,15 +91,19 @@ export function packageNameFor(folder: string): string {
   return name || "droplets";
 }
 
+type SuggestElementInput = { folder: string };
+
 /** The element the folder suggests: its name, or `<name>-droplets` when that has no hyphen. */
-export function suggestElement(folder: string): string {
-  const name = packageNameFor(folder).replace(/^[^a-z]+/, "");
+export function suggestElement({ folder }: SuggestElementInput): string {
+  const name = packageNameFor({ folder }).replace(/^[^a-z]+/, "");
   if (!name) return "my-droplets";
   return isValidElementName(name) ? name : `${name.replace(/-+$/, "")}-droplets`;
 }
 
+type ElementProblemInput = { element: string };
+
 /** Why `element` cannot name the custom element, or `undefined` when it can. */
-export function elementProblem(element: string): string | undefined {
+export function elementProblem({ element }: ElementProblemInput): string | undefined {
   return isValidElementName(element) ? undefined : "lowercase letters, digits and a hyphen, starting with a letter: my-widgets";
 }
 
@@ -119,7 +135,14 @@ export const USAGE = `Usage: npm create droplets [folder] [options]
   --no-git                no git init
   --yes, -y               ask nothing: the folder and --frameworks are then required`;
 
-function list<T>(value: string | undefined, flag: string, pick: (item: string) => T | undefined, allowed: string[]): T[] | undefined {
+type ListInput<T> = {
+  value: string | undefined;
+  flag: string;
+  pick: (item: string) => T | undefined;
+  allowed: readonly string[];
+};
+
+function list<T>({ value, flag, pick, allowed }: ListInput<T>): T[] | undefined {
   if (value === undefined) return undefined;
   const items = value
     .split(",")
@@ -134,8 +157,10 @@ function list<T>(value: string | undefined, flag: string, pick: (item: string) =
   return [...new Set(picked)];
 }
 
+type ParseFlagsInput = { argv: string[] };
+
 /** The command line, checked: unknown values are errors, unset ones stay `undefined`. */
-export function parseFlags(argv: string[]): Flags {
+export function parseFlags({ argv }: ParseFlagsInput): Flags {
   const { positionals, values } = parseArgs({
     args: argv,
     allowPositionals: true,
@@ -157,13 +182,18 @@ export function parseFlags(argv: string[]): Flags {
   if (positionals.length > 1) throw new Error(`one folder, not ${positionals.length}: ${positionals.join(" ")}`);
   const frameworkNames = FRAMEWORKS.map((f) => f.name);
   const adapterNames = ADAPTERS.map((a) => a.value);
-  const frameworks = list(values.frameworks, "frameworks", frameworkNamed, frameworkNames);
-  const adapters = list(values.adapters, "adapters", (a) => adapterNames.find((name) => name === a), adapterNames);
+  const frameworks = list({ value: values.frameworks, flag: "frameworks", pick: (name) => frameworkNamed({ name }), allowed: frameworkNames });
+  const adapters = list({
+    value: values.adapters,
+    flag: "adapters",
+    pick: (a) => adapterNames.find((name) => name === a),
+    allowed: adapterNames,
+  });
   if (values.pm !== undefined && !(PACKAGE_MANAGERS as readonly string[]).includes(values.pm)) {
     throw new Error(`--pm ${values.pm}: expected ${PACKAGE_MANAGERS.join(", ")}`);
   }
   if (values.element !== undefined) {
-    const problem = elementProblem(values.element);
+    const problem = elementProblem({ element: values.element });
     if (problem) throw new Error(`--element ${values.element}: ${problem}`);
   }
   return {

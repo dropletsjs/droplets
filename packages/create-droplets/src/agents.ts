@@ -30,13 +30,15 @@ const STYLES_WHERE: Record<Framework["name"], string> = {
   script: '`import "./style.css"` in the script',
 };
 
-export function agentsMd(choices: Choices): string {
-  const { run, djs } = commands(choices.pm);
-  const main = defaultAdapter(choices.adapters);
-  const frameworks = choices.frameworks.map((f) => f.label).join(", ");
-  const adapters = ADAPTERS.filter((a) => choices.adapters.includes(a.value)).map((a) => a.value);
-  const jsx = choices.frameworks.filter((f) => f.jsxImportSource);
-  const [example] = choices.frameworks;
+type AgentsMdInput = Pick<Choices, "pm" | "adapters" | "frameworks" | "tailwind">;
+
+export function agentsMd({ pm, adapters: chosen, frameworks, tailwind }: AgentsMdInput): string {
+  const { run, djs } = commands({ pm });
+  const main = defaultAdapter({ adapters: chosen });
+  const labels = frameworks.map((f) => f.label).join(", ");
+  const adapters = ADAPTERS.filter((a) => chosen.includes(a.value)).map((a) => a.value);
+  const jsx = frameworks.filter((f) => f.jsxImportSource);
+  const [example] = frameworks;
   if (example === undefined) throw new Error("create-droplets: no framework chosen");
   const lines: string[] = [
     "# AGENTS.md",
@@ -45,7 +47,7 @@ export function agentsMd(choices: Choices): string {
     "any page can embed. Each droplet is one component with its own URL,",
     "`/droplets/<id>`, served by a small Hono server that Vite builds.",
     "",
-    `Frameworks: ${frameworks}. Adapters: ${adapters.join(", ")} (\`vite build\` targets ${main}).`,
+    `Frameworks: ${labels}. Adapters: ${adapters.join(", ")} (\`vite build\` targets ${main}).`,
     "",
     "## The first rule: one framework per droplet",
     "",
@@ -87,7 +89,7 @@ export function agentsMd(choices: Choices): string {
     `1. \`${run} typecheck\`: types, each droplet's \`./$types\` included.`,
     `2. \`${run} build\`: also catches cross-framework imports and CSS in load modules.`,
     `3. \`${run} dev\`, then http://localhost:5173/: pick the droplet, set its props, watch it`,
-    `   render. One fragment alone: http://localhost:5173/droplets/${starterName(example)}?who=Ana.`,
+    `   render. One fragment alone: http://localhost:5173/droplets/${starterName({ framework: example })}?who=Ana.`,
     "",
     "## Layout",
     "",
@@ -117,7 +119,7 @@ export function agentsMd(choices: Choices): string {
     '| `hydrate` | `true` | `false`: no JavaScript; `"visible"` or `"interactive"`: later |',
     "| `prerender` | `false` | `true`: rendered at build for the events `entries` returns (`{ props, host }`) |",
     "",
-    ...choices.frameworks.map((f) => `- ${f.label}: ${FLAGS_WHERE[f.name]}`),
+    ...frameworks.map((f) => `- ${f.label}: ${FLAGS_WHERE[f.name]}`),
     "",
     "Values must be literals (`export const ssr = !dev` is ignored, with a warning).",
     "Flags live only in the component and are read from there; one exported from `+droplet.ts` or `+droplet.server.ts` is ignored.",
@@ -167,8 +169,8 @@ export function agentsMd(choices: Choices): string {
     "`+droplet.server.ts` (or anything they import): the build fails. Every",
     "stylesheet is scoped to the droplet element, so it never restyles the host page.",
     "",
-    ...choices.frameworks.map((f) => `- ${f.label}: ${STYLES_WHERE[f.name]}`),
-    ...(choices.tailwind ? ["- Tailwind classes work in every droplet; `src/app.css` imports Tailwind."] : []),
+    ...frameworks.map((f) => `- ${f.label}: ${STYLES_WHERE[f.name]}`),
+    ...(tailwind ? ["- Tailwind classes work in every droplet; `src/app.css` imports Tailwind."] : []),
     "",
     "## Adding a droplet",
     "",

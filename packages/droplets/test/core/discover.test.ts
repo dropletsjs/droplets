@@ -31,7 +31,7 @@ describe("dropletId", () => {
     ["hello_world", "hello-world"],
     ["user profile", "user-profile"],
   ])("%s -> %s", (folder, id) => {
-    expect(dropletId(folder)).toBe(id);
+    expect(dropletId({ folderName: folder })).toBe(id);
   });
 });
 
@@ -85,11 +85,11 @@ describe("readExportedFlag", () => {
 
   it("parses the source in its language", () => {
     const tsx = "export const ssr = false;\nexport default () => <p>hi</p>;";
-    expect(readExportedFlags(tsx, "x", langOfFile("+droplet.tsx"))).toEqual({ ssr: false });
+    expect(readExportedFlags(tsx, "x", langOfFile({ file: "+droplet.tsx" }))).toEqual({ ssr: false });
     const ts = "export const ssr = false;\nconst id = <T,>(x: T) => x;\nlet n = <number>id(1);";
-    expect(readExportedFlags(ts, "x", langOfFile("+droplet.lit.ts"))).toEqual({ ssr: false });
-    expect(langOfFile("+droplet.script.js")).toBe("js");
-    expect(langOfFile("+droplet.jsx")).toBe("jsx");
+    expect(readExportedFlags(ts, "x", langOfFile({ file: "+droplet.lit.ts" }))).toEqual({ ssr: false });
+    expect(langOfFile({ file: "+droplet.script.js" })).toBe("js");
+    expect(langOfFile({ file: "+droplet.jsx" })).toBe("jsx");
   });
 
   it("warns about a flag exported in any form but export const <literal>", () => {
@@ -121,8 +121,8 @@ describe("validateRenderers", () => {
 
   it("lets renderers share an extension when each lists its packages", () => {
     expect(validateRenderers([react, solid]).get(".tsx")).toEqual([react, solid]);
-    expect([...sharingRenderers([svelte, react, solid])]).toEqual(["react", "solid"]);
-    expect([...sharingRenderers([svelte, react])]).toEqual([]);
+    expect([...sharingRenderers({ renderers: [svelte, react, solid] })]).toEqual(["react", "solid"]);
+    expect([...sharingRenderers({ renderers: [svelte, react] })]).toEqual([]);
   });
 
   it("refuses two renderers on one extension, duplicate names and core suffixes", () => {
@@ -152,32 +152,50 @@ describe("importsPackage", () => {
 
 describe("pickRenderer", () => {
   it("picks the renderer whose package the component imports", () => {
-    expect(pickRenderer([react, solid], 'import { useState } from "react";', "a/+droplet.tsx")).toBe(react);
-    expect(pickRenderer([react, solid], 'import { createSignal } from "solid-js";', "a/+droplet.tsx")).toBe(solid);
-    expect(pickRenderer([svelte], "", "a/+droplet.svelte")).toBe(svelte);
+    expect(pickRenderer({ candidates: [react, solid], source: 'import { useState } from "react";', file: "a/+droplet.tsx" })).toBe(react);
+    expect(pickRenderer({ candidates: [react, solid], source: 'import { createSignal } from "solid-js";', file: "a/+droplet.tsx" })).toBe(
+      solid,
+    );
+    expect(pickRenderer({ candidates: [svelte], source: "", file: "a/+droplet.svelte" })).toBe(svelte);
   });
 
   it("falls back to the droplet's renderer for an error page", () => {
-    expect(pickRenderer([react, solid], "export default () => <p/>", "a/+error.tsx", solid)).toBe(solid);
+    expect(pickRenderer({ candidates: [react, solid], source: "export default () => <p/>", file: "a/+error.tsx", fallback: solid })).toBe(
+      solid,
+    );
   });
 
   it("says what to add when the imports do not decide", () => {
-    expect(() => pickRenderer([react, solid], "export default () => <p/>", "a/+droplet.tsx")).toThrow(
+    expect(() => pickRenderer({ candidates: [react, solid], source: "export default () => <p/>", file: "a/+droplet.tsx" })).toThrow(
       "a/+droplet.tsx: react and solid both handle this file and it imports neither; import from react or solid-js, " +
         "or add a /** @jsxImportSource <package> */ comment",
     );
-    expect(() => pickRenderer([react, solid], 'import "react";\nimport "solid-js";', "a/+droplet.tsx")).toThrow("imports from both");
+    expect(() =>
+      pickRenderer({ candidates: [react, solid], source: 'import "react";\nimport "solid-js";', file: "a/+droplet.tsx" }),
+    ).toThrow("imports from both");
   });
 
   it("names a component that two of three renderers claim, as Hono JSX next to React and Solid", () => {
     const hono = { ...solid, name: "hono-jsx", packages: ["hono/jsx"] };
-    expect(pickRenderer([react, solid, hono], 'import { useState } from "hono/jsx";', "a/+droplet.tsx")).toBe(hono);
-    expect(pickRenderer([react, solid, hono], "/** @jsxImportSource hono/jsx */\nexport default () => <p/>", "a/+droplet.tsx")).toBe(hono);
-    expect(() => pickRenderer([react, solid, hono], 'import "react";\nimport "hono/jsx";', "a/+droplet.tsx")).toThrow(
+    expect(pickRenderer({ candidates: [react, solid, hono], source: 'import { useState } from "hono/jsx";', file: "a/+droplet.tsx" })).toBe(
+      hono,
+    );
+    expect(
+      pickRenderer({
+        candidates: [react, solid, hono],
+        source: "/** @jsxImportSource hono/jsx */\nexport default () => <p/>",
+        file: "a/+droplet.tsx",
+      }),
+    ).toBe(hono);
+    expect(() =>
+      pickRenderer({ candidates: [react, solid, hono], source: 'import "react";\nimport "hono/jsx";', file: "a/+droplet.tsx" }),
+    ).toThrow(
       "a/+droplet.tsx: react, solid and hono-jsx all handle this file and it imports from react and hono-jsx; " +
         "import from react, solid-js or hono/jsx, or add a /** @jsxImportSource <package> */ comment",
     );
-    expect(() => pickRenderer([react, solid, hono], "export default () => <p/>", "a/+droplet.tsx")).toThrow("imports none of them");
+    expect(() => pickRenderer({ candidates: [react, solid, hono], source: "export default () => <p/>", file: "a/+droplet.tsx" })).toThrow(
+      "imports none of them",
+    );
   });
 });
 
@@ -201,7 +219,7 @@ describe("discoverDroplets", () => {
   });
 
   it("returns [] for a missing folder", async () => {
-    expect(await discoverDroplets(join(root, "missing"), [svelte])).toEqual([]);
+    expect(await discoverDroplets({ dropletsRoot: join(root, "missing"), renderers: [svelte] })).toEqual([]);
   });
 
   it("finds components, their renderer, flags and load files, sorted by id", async () => {
@@ -228,7 +246,7 @@ describe("discoverDroplets", () => {
       "+droplet.ts": "export const load = (e) => e.data;",
     });
 
-    const entries = await discoverDroplets(root, [svelte, vue]);
+    const entries = await discoverDroplets({ dropletsRoot: root, renderers: [svelte, vue] });
 
     expect(entries.map((e) => e.id)).toEqual(["alpha-beta", "drops", "zeta"]);
 
@@ -275,14 +293,14 @@ describe("discoverDroplets", () => {
       "<script module>export const hydrate = true;\nexport const prerender = true;</script><p></p>",
     );
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const [built] = await discoverDroplets(other, [svelte]);
+    const [built] = await discoverDroplets({ dropletsRoot: other, renderers: [svelte] });
     expect(built).toMatchObject({ hasError: true, hydrate: false, prerender: false });
     expect(warn).not.toHaveBeenCalled();
 
-    const [dev] = await discoverDroplets(other, [svelte], { dev: true });
+    const [dev] = await discoverDroplets({ dropletsRoot: other, renderers: [svelte], dev: true });
     expect(dev).toMatchObject({ hydrate: false, prerender: false });
     // A rescan says it once.
-    await discoverDroplets(other, [svelte], { dev: true });
+    await discoverDroplets({ dropletsRoot: other, renderers: [svelte], dev: true });
     const messages = warn.mock.calls.map((call) => String(call[0])).filter((m) => m.includes("+error.svelte"));
     expect(messages).toHaveLength(1);
     expect(messages[0]).toContain(
@@ -303,7 +321,9 @@ describe("discoverDroplets", () => {
         return source.includes("hydrate=false") ? { hydrate: false, ssr: true } : undefined;
       },
     });
-    const [entry] = await discoverDroplets(root, [handlebars, svelte, vue]).then((all) => all.filter((e) => e.id === "tpl"));
+    const [entry] = await discoverDroplets({ dropletsRoot: root, renderers: [handlebars, svelte, vue] }).then((all) =>
+      all.filter((e) => e.id === "tpl"),
+    );
     expect(entry).toMatchObject({
       renderer: "handlebars",
       hydrate: false,
@@ -317,7 +337,7 @@ describe("discoverDroplets", () => {
     await mkdir(join(other, "card"));
     await writeFile(join(other, "card", "+droplet.tsx"), "// export const ssr = false\nexport default () => <p/>;\n");
     await writeFile(join(other, "card", "+droplet.ts"), "/* export const ssr = false */\nexport const load = () => ({});\n");
-    const [card] = await discoverDroplets(other, [renderer("react", [".tsx"])]);
+    const [card] = await discoverDroplets({ dropletsRoot: other, renderers: [renderer("react", [".tsx"])] });
     expect(card).toMatchObject({ ssr: true, hydrate: true, prerender: false });
   });
 
@@ -332,7 +352,7 @@ describe("discoverDroplets", () => {
     await writeFile(join(other, "card", file), load);
     await writeFile(join(other, "plain", file), load);
     for (const options of [{}, { dev: true }]) {
-      const [card, plain] = await discoverDroplets(other, [svelte], options);
+      const [card, plain] = await discoverDroplets({ dropletsRoot: other, renderers: [svelte], ...options });
       expect(card).toMatchObject({ id: "card", ssr: true, hydrate: false, prerender: false });
       expect(plain).toMatchObject({ id: "plain", ssr: true, hydrate: true, prerender: false });
     }
@@ -342,17 +362,19 @@ describe("discoverDroplets", () => {
     const other = await mkdtemp(join(tmpdir(), "droplets-discover-"));
     await mkdir(join(other, "docs"));
     await writeFile(join(other, "docs", "+droplet.hbs"), "<p></p>");
-    await expect(discoverDroplets(other, [svelte])).rejects.toThrow(
+    await expect(discoverDroplets({ dropletsRoot: other, renderers: [svelte] })).rejects.toThrow(
       "docs/+droplet.hbs: no renderer for .hbs; install @dropletsjs/renderer-handlebars and add handlebars() to renderers",
     );
     await writeFile(join(other, "docs", "+droplet.hbs"), "");
     await rm(join(other, "docs", "+droplet.hbs"));
     await writeFile(join(other, "docs", "+droplet.weird"), "");
-    await expect(discoverDroplets(other, [svelte])).rejects.toThrow(/docs\/\+droplet\.weird: no renderer for \.weird; add a renderer/);
+    await expect(discoverDroplets({ dropletsRoot: other, renderers: [svelte] })).rejects.toThrow(
+      /docs\/\+droplet\.weird: no renderer for \.weird; add a renderer/,
+    );
     // A two-part suffix is known by itself, not by its last part.
     await rm(join(other, "docs", "+droplet.weird"));
     await writeFile(join(other, "docs", "+droplet.lit.ts"), "");
-    await expect(discoverDroplets(other, [svelte])).rejects.toThrow(
+    await expect(discoverDroplets({ dropletsRoot: other, renderers: [svelte] })).rejects.toThrow(
       "docs/+droplet.lit.ts: no renderer for .lit.ts; install @dropletsjs/renderer-lit and add lit() to renderers",
     );
     await rm(join(other, "docs", "+droplet.lit.ts"));
@@ -362,7 +384,7 @@ describe("discoverDroplets", () => {
     await writeFile(join(other, "docs", "+droplet.svelte"), "");
     await writeFile(join(other, "docs", "+error.vue"), "");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const [docs] = await discoverDroplets(other, [svelte], { dev: true });
+    const [docs] = await discoverDroplets({ dropletsRoot: other, renderers: [svelte], dev: true });
     expect(docs).toMatchObject({ id: "docs", hasError: false });
     expect(warn.mock.calls.map((call) => String(call[0])).join("\n")).toContain(
       "docs/+error.vue is not a svelte component like the droplet; ignored",
@@ -376,7 +398,7 @@ describe("discoverDroplets", () => {
     await mkdir(join(other, "twice"));
     await writeFile(join(other, "twice", "+droplet.svelte"), "");
     await writeFile(join(other, "twice", "+droplet.vue"), "");
-    await expect(discoverDroplets(other, [svelte, vue])).rejects.toThrow(
+    await expect(discoverDroplets({ dropletsRoot: other, renderers: [svelte, vue] })).rejects.toThrow(
       "twice/ has 2 droplet components (+droplet.svelte, +droplet.vue); keep one",
     );
     await rm(other, { recursive: true, force: true });
@@ -391,7 +413,7 @@ describe("discoverDroplets", () => {
     await writeFile(join(other, "s", "+droplet.tsx"), 'import { createSignal } from "solid-js";');
     await writeFile(join(other, "s", "+error.tsx"), 'import { useState } from "react";');
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const entries = await discoverDroplets(other, [react, solid], { dev: true });
+    const entries = await discoverDroplets({ dropletsRoot: other, renderers: [react, solid], dev: true });
     expect(entries.map((e) => [e.id, e.renderer, e.errorFile ?? null])).toEqual([
       ["r", "react", "+error.tsx"],
       ["s", "solid", null],

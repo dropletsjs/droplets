@@ -1,26 +1,33 @@
 import { readFile } from "node:fs/promises";
 
-function isNotFound(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "ENOENT";
+type IsNotFoundInput = { error: unknown };
+
+export type LoadTextFileInput = { path: string };
+
+export type LoadJsonFileInput = { path: string };
+
+function isNotFound({ error }: IsNotFoundInput): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
 }
 
-/** Reads a UTF-8 file, returning `null` when it does not exist. */
-export async function readTextFile(path: string): Promise<string | null> {
+/** A UTF-8 file's text; `null` when it does not exist. */
+export async function loadTextFile({ path }: LoadTextFileInput): Promise<string | null> {
   try {
     return await readFile(path, "utf8");
   } catch (error) {
-    if (isNotFound(error)) return null;
+    if (isNotFound({ error })) return null;
     throw error;
   }
 }
 
-/** Parses a JSON file; `null` when missing or malformed. */
-export async function readJsonFile<T>(path: string): Promise<T | null> {
-  const raw = await readTextFile(path);
+/** A JSON file, parsed; `null` when missing or malformed. */
+export async function loadJsonFile<T>({ path }: LoadJsonFileInput): Promise<T | null> {
+  const raw = await loadTextFile({ path });
   if (raw === null) return null;
   try {
     return JSON.parse(raw) as T;
   } catch {
+    // Malformed reads as missing: the caller falls back to its default.
     return null;
   }
 }

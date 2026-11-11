@@ -11,7 +11,7 @@ export function render(module: ComponentModule, props: RenderProps, context: Ser
   // The context is the props as they are: `{{data.title}}`, `{{error.message}}`.
   // The render's ids travel as data variables: `{{@droplet}}`, `{{@renderId}}`;
   // `actionUrl` with them, for `{{action}}`.
-  return templateOf(module, context)(props, {
+  return templateOf({ module, where: context })(props, {
     data: { droplet: context.droplet, kind: context.kind, renderId: context.renderId, actionUrl: context.actionUrl },
   });
 }

@@ -16,6 +16,8 @@
  * @module
  */
 
+export { isReservedQueryKey } from "./form.ts";
+
 /** The encodings an action takes; a `text/plain` form is left to the browser (the server answers `415`). */
 const ENCTYPES = new Set(["application/x-www-form-urlencoded", "multipart/form-data"]);
 
@@ -119,7 +121,9 @@ export function submitterOf(event: Event, form: HTMLFormElement): HTMLButtonElem
   return submitter.form === form ? submitter : null;
 }
 
-function attribute(element: Element | null, name: string): string | null {
+type AttributeInput = { element: Element | null; name: string };
+
+function attribute({ element, name }: AttributeInput): string | null {
   return element?.hasAttribute(name) ? element.getAttribute(name) : null;
 }
 
@@ -128,12 +132,14 @@ function attribute(element: Element | null, name: string): string | null {
  * missing action is the document's URL, as in the browser.
  */
 export function submission(form: HTMLFormElement, submitter: HTMLButtonElement | HTMLInputElement | null, base: string): Submission {
-  const pick = (own: string, inherited: string) => attribute(submitter, own) ?? attribute(form, inherited);
+  const pick = (own: string, inherited: string) =>
+    attribute({ element: submitter, name: own }) ?? attribute({ element: form, name: inherited });
   const raw = pick("formaction", "action");
   let action: URL | null = null;
   try {
     action = new URL(raw === null || raw === "" ? base : raw, base);
   } catch {
+    // An action no URL takes: nothing of the droplet's, so never enhanced.
     action = null;
   }
   const enctype = (pick("formenctype", "enctype") ?? "").trim().toLowerCase();
@@ -167,6 +173,7 @@ export function ownAction(action: URL | null, location: string, droplet: string)
   try {
     own = new URL(`${location.replace(/\/+$/, "")}/droplets/${encodeURIComponent(droplet)}`);
   } catch {
+    // A location that is no URL has no actions to match.
     return null;
   }
   if (action.origin !== own.origin || action.pathname !== own.pathname) return null;
@@ -245,7 +252,9 @@ export function plainCopy(data: unknown): unknown {
  * shadow roots it sits in: a form a component renders in its shadow root
  * (Lit) belongs to the droplet element around that component.
  */
-function closestThrough(node: Element, selector: string): Element | null {
+type ClosestThroughInput = { node: Element; selector: string };
+
+function closestThrough({ node, selector }: ClosestThroughInput): Element | null {
   let current: Element | null = node;
   while (current) {
     const found = current.closest(selector);
@@ -257,13 +266,15 @@ function closestThrough(node: Element, selector: string): Element | null {
 }
 
 /** The droplet element `form` belongs to: the nearest one, when the form is its own (not the host's children). */
-function hostOf(form: HTMLFormElement): DropletFormHost | null {
-  const host = closestThrough(form, "[data-droplet]");
+type HostOfInput = { form: HTMLFormElement };
+
+function hostOf({ form }: HostOfInput): DropletFormHost | null {
+  const host = closestThrough({ node: form, selector: "[data-droplet]" });
   if (!host) return null;
   const candidate = host as Partial<DropletFormHost>;
   if (typeof candidate.actionTarget !== "function" || typeof candidate.updateForm !== "function") return null;
   // The host page's children, in their container: someone else's form.
-  const slot = closestThrough(form, "[data-droplet-slot]");
+  const slot = closestThrough({ node: form, selector: "[data-droplet-slot]" });
   if (slot && host.contains(slot)) return null;
   return host as DropletFormHost;
 }
@@ -279,7 +290,7 @@ const inFlight = new WeakSet<HTMLFormElement>();
  */
 export function enhanceSubmit(event: Event, form: HTMLFormElement, options: EnhanceOptions = {}): void {
   if (event.defaultPrevented) return;
-  const host = hostOf(form);
+  const host = hostOf({ form });
   const target = host?.actionTarget();
   if (!host || !target) return;
   const submitter = submitterOf(event, form);
@@ -295,7 +306,7 @@ export function enhanceSubmit(event: Event, form: HTMLFormElement, options: Enha
   options.onSubmit?.({ form, formData, cancel: () => void (cancelled = true) });
   if (cancelled) return;
   inFlight.add(form);
-  void send(host, target.droplet, action, formBody(formData, submit.enctype), options).finally(() => {
+  void send({ host, droplet: target.droplet, action, body: formBody(formData, submit.enctype), options }).finally(() => {
     inFlight.delete(form);
   });
 }
@@ -306,13 +317,15 @@ export function enhanceSubmit(event: Event, form: HTMLFormElement, options: Enha
  * page. An answer that is no result (an `error()`, a crash, a network
  * failure) is reported in the console and applies nothing.
  */
-async function send(
-  host: DropletFormHost,
-  droplet: string,
-  action: ActionTarget,
-  body: FormData | URLSearchParams,
-  options: EnhanceOptions,
-): Promise<void> {
+type SendInput = {
+  host: DropletFormHost;
+  droplet: string;
+  action: ActionTarget;
+  body: FormData | URLSearchParams;
+  options: EnhanceOptions;
+};
+
+async function send({ host, droplet, action, body, options }: SendInput): Promise<void> {
   let answer: ActionAnswer | null = null;
   try {
     const response = await fetch(action.url, {
@@ -364,6 +377,8 @@ async function send(
  */
 export function enhanceDropletForm<A extends ActionMap = ActionMap>(form: HTMLFormElement, options?: AnyEnhanceOptions<A>): () => void;
 export function enhanceDropletForm<A extends ActionMap = ActionMap>(form: HTMLFormElement, options: ActionEnhanceOptions<A>): () => void;
+/** Untyped options as a wrapper forwards them: any action, any `data`. */
+export function enhanceDropletForm(form: HTMLFormElement, options?: EnhanceOptions): () => void;
 export function enhanceDropletForm(form: HTMLFormElement, options?: EnhanceOptions): () => void {
   const listener = (event: Event) => enhanceSubmit(event, form, options);
   form.addEventListener("submit", listener);

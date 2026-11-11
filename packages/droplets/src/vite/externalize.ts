@@ -2,11 +2,15 @@ import type { Plugin } from "vite";
 import type { PluginState } from "./state.ts";
 import { VIRTUAL_CLIENT } from "./virtual.ts";
 
-function normalizePath(value: string): string {
+type NormalizePathInput = { value: string };
+
+function normalizePath({ value }: NormalizePathInput): string {
   return value.replace(/\\/g, "/");
 }
 
-function isBareSpecifier(value: string): boolean {
+type IsBareSpecifierInput = { value: string };
+
+function isBareSpecifier({ value }: IsBareSpecifierInput): boolean {
   return !/^(\.{1,2}\/|\/|https?:\/\/|data:|file:)/.test(value);
 }
 
@@ -14,12 +18,14 @@ function isBareSpecifier(value: string): boolean {
  * Vite rewrites bare imports to `/@id/<pkg>` in dev, so externalised packages
  * need both spellings in the import map for the browser to resolve them.
  */
-export function withViteIdAliases(importMap: Record<string, string> | undefined): Record<string, string> | undefined {
+type WithViteIdAliasesInput = { importMap: Readonly<Record<string, string>> | undefined };
+
+export function withViteIdAliases({ importMap }: WithViteIdAliasesInput): Record<string, string> | undefined {
   if (!importMap) return undefined;
   const entries: Array<[string, string]> = [];
   for (const [key, value] of Object.entries(importMap)) {
     entries.push([key, value]);
-    if (!key.startsWith("/@id/") && isBareSpecifier(key)) {
+    if (!key.startsWith("/@id/") && isBareSpecifier({ value: key })) {
       entries.push([`/@id/${key}`, value]);
     }
   }
@@ -37,7 +43,7 @@ export function externalizePlugin(state: PluginState): Plugin {
 
   const cleanId = (id: string) => id.replace(/[#?].*$/, "").replace(/\\/g, "/");
 
-  const isDropletEntry = (id: string) => normalizePath(id).includes(VIRTUAL_CLIENT);
+  const isDropletEntry = (id: string) => normalizePath({ value: id }).includes(VIRTUAL_CLIENT);
 
   const inDropletGraph = (importer?: string | undefined) => {
     if (!importer) return false;
@@ -55,7 +61,7 @@ export function externalizePlugin(state: PluginState): Plugin {
       if (this.environment.config.consumer === "server") return null;
 
       const reachedFromDroplet = inDropletGraph(importer);
-      if (isBareSpecifier(source) && isExternal(source, importer)) {
+      if (isBareSpecifier({ value: source }) && isExternal(source, importer)) {
         if (!reachedFromDroplet) return null;
         state.seenExternals.add(source);
         return { id: source, external: true };

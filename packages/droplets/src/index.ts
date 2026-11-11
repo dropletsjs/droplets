@@ -1,13 +1,14 @@
-export { config, isValidElementName, resolveConfig } from "./core/config.ts";
+export { config, DEV_STRATEGIES, isValidElementName, resolveConfig } from "./core/config.ts";
 export { logger, setLogLevel } from "./core/logger.ts";
 export type { LogLevel, LogSource } from "./core/logger.ts";
 export type {
   BodyLimits,
+  DevStrategy,
   DropletsConfig,
   DropletsCorsOptions,
   ResolvedDropletsConfig,
 } from "./core/config.ts";
-export type { DropletMeta, DropletPayload, PrerenderedDroplet, RenderResult } from "./runtime/app.ts";
+export type { DropletMeta, DropletPayload, DropletsApp, PrerenderedDroplet, RenderResult } from "./runtime/app.ts";
 export { DropletRenderError } from "./runtime/load.ts";
 export type { DropletErrorProps, DropletProps } from "./runtime/load.ts";
 export type { DropletScript } from "./script/client.ts";

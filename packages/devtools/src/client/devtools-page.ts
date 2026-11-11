@@ -3,6 +3,8 @@
  * dev server for its fragment, exactly as a host page would, and re-renders
  * whenever the droplet or the registry changes.
  */
+import type { DropletRegistryPayload } from "@dropletsjs/droplets/vite";
+import type { ServerRender } from "../page.tsx";
 import {
   clampPanel,
   describeMode,
@@ -19,6 +21,7 @@ import {
   type EditorMode,
   type Method,
   type PanelState,
+  type Props,
   type Row,
 } from "../shared.ts";
 
@@ -27,7 +30,7 @@ type PageData = {
   droplets: DropletInfo[];
   /** `server`: the page arrived with the droplet already rendered in it. */
   mode: "client" | "server";
-  server?: { status: number; ms: number; bytes: number; method: Method };
+  server?: Pick<ServerRender, "status" | "ms" | "bytes" | "method">;
   /** `dev.strategy` of the config. */
   strategy?: string;
 };
@@ -35,17 +38,19 @@ type PageData = {
 declare module "vite/types/customEvent.d.ts" {
   // biome-ignore lint/style/useConsistentTypeDefinitions: an augmentation of Vite's map; `type` cannot merge.
   interface CustomEventMap {
-    "droplets:registry": { droplets: DropletInfo[] };
+    "droplets:registry": DropletRegistryPayload;
   }
 }
 
-function byId<T extends HTMLElement>(id: string): T {
+type ByIdInput = { id: string };
+
+function byId<T extends HTMLElement>({ id }: ByIdInput): T {
   const el = document.getElementById(id);
   if (!el) throw new Error(`devtools: #${id} is missing`);
   return el as T;
 }
 
-const data = JSON.parse(byId("dt-data").textContent ?? "{}") as PageData;
+const data = JSON.parse(byId({ id: "dt-data" }).textContent ?? "{}") as PageData;
 let droplets = data.droplets;
 const serverMode = data.mode === "server";
 /** Client mode keeps its setup here; the URL is server mode's. */
@@ -55,46 +60,49 @@ function readStored(): string {
   try {
     return localStorage.getItem(CLIENT_KEY) ?? "";
   } catch {
+    // Storage blocked: start from the defaults.
     return "";
   }
 }
 
-const state = readToolState(serverMode ? location.search : readStored(), droplets);
-let rows: Row[] = rowsFromProps(state.props);
+const state = readToolState({ search: serverMode ? location.search : readStored(), droplets });
+let rows: Row[] = rowsFromProps({ props: state.props });
 let jsonText = Object.keys(state.props).length ? JSON.stringify(state.props, null, 2) : "{\n  \n}";
 let renderSeq = 0;
 let renderTimer: ReturnType<typeof setTimeout> | undefined;
 
 const ui = {
-  conn: byId("dt-conn"),
-  panel: byId("dt-panel"),
-  head: byId("dt-head"),
-  collapse: byId<HTMLButtonElement>("dt-collapse"),
-  pill: byId<HTMLButtonElement>("dt-pill"),
-  pillDot: byId("dt-pill-dot"),
-  pillStatus: byId("dt-pill-status"),
-  select: byId<HTMLSelectElement>("dt-droplet"),
-  method: byId("dt-method"),
-  methodHint: byId("dt-method-hint"),
-  mode: byId("dt-mode"),
-  builder: byId("dt-builder"),
-  addRow: byId<HTMLButtonElement>("dt-add-row"),
-  json: byId<HTMLTextAreaElement>("dt-json"),
-  jsonError: byId("dt-json-error"),
-  warnings: byId("dt-warnings"),
-  modeText: byId("dt-mode-text"),
-  info: byId("dt-info"),
-  links: byId("dt-links"),
-  refresh: byId<HTMLButtonElement>("dt-refresh"),
-  status: byId("dt-status"),
-  stage: byId("dt-stage"),
+  conn: byId({ id: "dt-conn" }),
+  panel: byId({ id: "dt-panel" }),
+  head: byId({ id: "dt-head" }),
+  collapse: byId<HTMLButtonElement>({ id: "dt-collapse" }),
+  pill: byId<HTMLButtonElement>({ id: "dt-pill" }),
+  pillDot: byId({ id: "dt-pill-dot" }),
+  pillStatus: byId({ id: "dt-pill-status" }),
+  select: byId<HTMLSelectElement>({ id: "dt-droplet" }),
+  method: byId({ id: "dt-method" }),
+  methodHint: byId({ id: "dt-method-hint" }),
+  mode: byId({ id: "dt-mode" }),
+  builder: byId({ id: "dt-builder" }),
+  addRow: byId<HTMLButtonElement>({ id: "dt-add-row" }),
+  json: byId<HTMLTextAreaElement>({ id: "dt-json" }),
+  jsonError: byId({ id: "dt-json-error" }),
+  warnings: byId({ id: "dt-warnings" }),
+  modeText: byId({ id: "dt-mode-text" }),
+  info: byId({ id: "dt-info" }),
+  links: byId({ id: "dt-links" }),
+  refresh: byId<HTMLButtonElement>({ id: "dt-refresh" }),
+  status: byId({ id: "dt-status" }),
+  stage: byId({ id: "dt-stage" }),
 };
 
-function el<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  props: Partial<HTMLElementTagNameMap[K]> = {},
-  children: Array<Node | string> = [],
-): HTMLElementTagNameMap[K] {
+type ElInput<K extends keyof HTMLElementTagNameMap> = {
+  tag: K;
+  props?: Partial<HTMLElementTagNameMap[K]>;
+  children?: Array<Node | string>;
+};
+
+function el<K extends keyof HTMLElementTagNameMap>({ tag, props = {}, children = [] }: ElInput<K>): HTMLElementTagNameMap[K] {
   const node = Object.assign(document.createElement(tag), props);
   node.append(...children);
   return node;
@@ -107,7 +115,7 @@ function current(): DropletInfo | undefined {
 function persist(): void {
   if (serverMode) return;
   try {
-    localStorage.setItem(CLIENT_KEY, writeToolState(state));
+    localStorage.setItem(CLIENT_KEY, writeToolState({ state }));
   } catch {
     // Not remembered across reloads; the page still works.
   }
@@ -115,10 +123,12 @@ function persist(): void {
 
 /** The server-mode URL for the current setup. */
 function serverUrl(): string {
-  return `/${writeToolState(state)}`;
+  return `/${writeToolState({ state })}`;
 }
 
-function scheduleRender(delay = 250): void {
+type ScheduleRenderInput = { delay?: number };
+
+function scheduleRender({ delay = 250 }: ScheduleRenderInput = {}): void {
   // In server mode every render is a page load: wait for "Render again".
   if (serverMode) {
     ui.refresh.textContent = "Apply and render";
@@ -131,9 +141,11 @@ function scheduleRender(delay = 250): void {
 // --- Droplet picker -------------------------------------------------------
 
 function renderSelect(): void {
-  ui.select.replaceChildren(...droplets.map((d) => el("option", { value: d.id, textContent: d.id, selected: d.id === state.droplet })));
+  ui.select.replaceChildren(
+    ...droplets.map((d) => el({ tag: "option", props: { value: d.id, textContent: d.id, selected: d.id === state.droplet } })),
+  );
   ui.select.disabled = droplets.length === 0;
-  if (!droplets.length) ui.select.append(el("option", { textContent: "No droplets found" }));
+  if (!droplets.length) ui.select.append(el({ tag: "option", props: { textContent: "No droplets found" } }));
 }
 
 ui.select.addEventListener("change", () => {
@@ -179,29 +191,33 @@ function renderMode(): void {
 function renderRows(): void {
   ui.builder.replaceChildren(
     ...rows.map((row, index) => {
-      const key = el("input", { className: "dt-field", value: row.key, placeholder: "name", spellcheck: false });
-      const value = el("input", { className: "dt-field", value: row.value, placeholder: "value", spellcheck: false });
-      const remove = el("button", { type: "button", className: "dt-btn dt-icon", title: "Remove", textContent: "×" });
-      key.addEventListener("input", () => updateRow(index, { key: key.value }));
-      value.addEventListener("input", () => updateRow(index, { value: value.value }));
+      const key = el({ tag: "input", props: { className: "dt-field", value: row.key, placeholder: "name", spellcheck: false } });
+      const value = el({ tag: "input", props: { className: "dt-field", value: row.value, placeholder: "value", spellcheck: false } });
+      const remove = el({ tag: "button", props: { type: "button", className: "dt-btn dt-icon", title: "Remove", textContent: "×" } });
+      key.addEventListener("input", () => updateRow({ index, patch: { key: key.value } }));
+      value.addEventListener("input", () => updateRow({ index, patch: { value: value.value } }));
       remove.addEventListener("click", () => {
         rows.splice(index, 1);
         renderRows();
-        propsChanged(propsFromRows(rows));
+        propsChanged({ props: propsFromRows({ rows }) });
       });
-      return el("div", { className: "dt-row" }, [key, value, remove]);
+      return el({ tag: "div", props: { className: "dt-row" }, children: [key, value, remove] });
     }),
   );
 }
 
-function updateRow(index: number, patch: Partial<Row>): void {
+type UpdateRowInput = { index: number; patch: Partial<Row> };
+
+function updateRow({ index, patch }: UpdateRowInput): void {
   const row = rows[index];
   if (!row) return;
   rows[index] = { ...row, ...patch };
-  propsChanged(propsFromRows(rows));
+  propsChanged({ props: propsFromRows({ rows }) });
 }
 
-function propsChanged(props: Record<string, unknown>): void {
+type PropsChangedInput = { props: Props };
+
+function propsChanged({ props }: PropsChangedInput): void {
   state.props = props;
   persist();
   renderWarnings();
@@ -211,7 +227,9 @@ function propsChanged(props: Record<string, unknown>): void {
 
 function renderWarnings(): void {
   ui.warnings.replaceChildren(
-    ...propWarnings(state.props, state.method).map((text) => el("p", { className: "dt-note", textContent: text })),
+    ...propWarnings({ props: state.props, method: state.method }).map((text) =>
+      el({ tag: "p", props: { className: "dt-note", textContent: text } }),
+    ),
   );
 }
 
@@ -229,13 +247,13 @@ ui.mode.addEventListener("click", (event) => {
     jsonText = JSON.stringify(state.props, null, 2);
     ui.json.value = jsonText;
   } else {
-    const parsed = parseJsonProps(ui.json.value);
+    const parsed = parseJsonProps({ text: ui.json.value });
     if (!parsed.ok) {
       ui.jsonError.hidden = false;
       ui.jsonError.textContent = `Fix the JSON before switching: ${parsed.error}`;
       return;
     }
-    rows = rowsFromProps(parsed.props);
+    rows = rowsFromProps({ props: parsed.props });
     renderRows();
   }
   state.mode = value;
@@ -245,23 +263,27 @@ ui.mode.addEventListener("click", (event) => {
 
 ui.json.addEventListener("input", () => {
   jsonText = ui.json.value;
-  const parsed = parseJsonProps(jsonText);
+  const parsed = parseJsonProps({ text: jsonText });
   ui.jsonError.hidden = parsed.ok;
   if (!parsed.ok) {
     ui.jsonError.textContent = parsed.error;
     return;
   }
-  propsChanged(parsed.props);
+  propsChanged({ props: parsed.props });
 });
 
 // --- Info panel -----------------------------------------------------------
 
-function flag(on: boolean | string): HTMLElement {
-  return el("span", { className: on ? "dt-on" : "dt-off", textContent: typeof on === "string" ? on : on ? "on" : "off" });
+type FlagInput = { on: boolean | string };
+
+function flag({ on }: FlagInput): HTMLElement {
+  return el({ tag: "span", props: { className: on ? "dt-on" : "dt-off", textContent: typeof on === "string" ? on : on ? "on" : "off" } });
 }
 
-function link(label: string, href: string): HTMLAnchorElement {
-  return el("a", { href, target: "_blank", rel: "noopener", textContent: label });
+type LinkInput = { label: string; href: string };
+
+function link({ label, href }: LinkInput): HTMLAnchorElement {
+  return el({ tag: "a", props: { href, target: "_blank", rel: "noopener", textContent: label } });
 }
 
 function renderInfo(): void {
@@ -272,35 +294,38 @@ function renderInfo(): void {
     ui.links.replaceChildren();
     return;
   }
-  const mode = describeMode(droplet);
-  ui.modeText.replaceChildren(el("strong", { textContent: mode.label }), mode.detail);
+  const mode = describeMode({ droplet });
+  ui.modeText.replaceChildren(el({ tag: "strong", props: { textContent: mode.label } }), mode.detail);
   ui.info.replaceChildren(
-    el("dt", { textContent: "ssr" }),
-    el("dd", {}, [flag(droplet.ssr)]),
-    el("dt", { textContent: "hydrate" }),
-    el("dd", {}, [flag(droplet.hydrate)]),
-    el("dt", { textContent: "prerender" }),
-    el("dd", {}, [flag(droplet.prerender === true)]),
-    el("dt", { textContent: "+droplet.server.ts" }),
-    el("dd", {}, [flag(droplet.hasServerLoad)]),
-    el("dt", { textContent: "+droplet.ts" }),
-    el("dd", {}, [flag(droplet.hasLoad)]),
-    el("dt", { textContent: droplet.errorFile ?? "+error.*" }),
-    el("dd", {}, [flag(droplet.hasError === true)]),
-    el("dt", { textContent: "folder" }),
-    el("dd", { textContent: droplet.folder }),
+    el({ tag: "dt", props: { textContent: "ssr" } }),
+    el({ tag: "dd", children: [flag({ on: droplet.ssr })] }),
+    el({ tag: "dt", props: { textContent: "hydrate" } }),
+    el({ tag: "dd", children: [flag({ on: droplet.hydrate })] }),
+    el({ tag: "dt", props: { textContent: "prerender" } }),
+    el({ tag: "dd", children: [flag({ on: droplet.prerender === true })] }),
+    el({ tag: "dt", props: { textContent: "+droplet.server.ts" } }),
+    el({ tag: "dd", children: [flag({ on: droplet.hasServerLoad })] }),
+    el({ tag: "dt", props: { textContent: "+droplet.ts" } }),
+    el({ tag: "dd", children: [flag({ on: droplet.hasLoad })] }),
+    el({ tag: "dt", props: { textContent: droplet.errorFile ?? "+error.*" } }),
+    el({ tag: "dd", children: [flag({ on: droplet.hasError === true })] }),
+    el({ tag: "dt", props: { textContent: "folder" } }),
+    el({ tag: "dd", props: { textContent: droplet.folder } }),
     ...(droplet.renderer
-      ? [el("dt", { textContent: "renderer" }), el("dd", { textContent: `${droplet.renderer} (${droplet.file ?? ""})` })]
+      ? [
+          el({ tag: "dt", props: { textContent: "renderer" } }),
+          el({ tag: "dd", props: { textContent: `${droplet.renderer} (${droplet.file ?? ""})` } }),
+        ]
       : []),
   );
 
   const base = `/droplets/${encodeURIComponent(droplet.id)}`;
-  const get = fragmentRequest(droplet.id, "GET", state.props).url;
+  const get = fragmentRequest({ droplet: droplet.id, method: "GET", props: state.props }).url;
   ui.links.replaceChildren(
-    link(get, get),
-    ...(droplet.hydrate ? [link(`${base}/client.js`, `${base}/client.js`)] : []),
-    link(`${base}/style.css`, `${base}/style.css`),
-    ...(droplet.hasServerLoad ? [link(`${base}/_data`, get.replace(base, `${base}/_data`))] : []),
+    link({ label: get, href: get }),
+    ...(droplet.hydrate ? [link({ label: `${base}/client.js`, href: `${base}/client.js` })] : []),
+    link({ label: `${base}/style.css`, href: `${base}/style.css` }),
+    ...(droplet.hasServerLoad ? [link({ label: `${base}/_data`, href: get.replace(base, `${base}/_data`) })] : []),
   );
 }
 
@@ -308,7 +333,9 @@ ui.refresh.addEventListener("click", () => void render());
 
 // --- Rendering ------------------------------------------------------------
 
-function setStatus(text: string, ok: boolean | null): void {
+type SetStatusInput = { text: string; ok: boolean | null };
+
+function setStatus({ text, ok }: SetStatusInput): void {
   ui.status.textContent = text;
   ui.pillStatus.textContent = state.droplet ? `${state.droplet} · ${text}` : text;
   if (ok === null) delete ui.status.dataset["ok"];
@@ -316,8 +343,10 @@ function setStatus(text: string, ok: boolean | null): void {
   ui.pillStatus.dataset["ok"] = ui.status.dataset["ok"] ?? "";
 }
 
-function placeholder(text: string): HTMLElement {
-  return el("p", { className: "dt-placeholder", textContent: text });
+type PlaceholderInput = { text: string };
+
+function placeholder({ text }: PlaceholderInput): HTMLElement {
+  return el({ tag: "p", props: { className: "dt-placeholder", textContent: text } });
 }
 
 async function render(): Promise<void> {
@@ -330,16 +359,16 @@ async function render(): Promise<void> {
   const droplet = current();
   if (!droplet) {
     ui.stage.replaceChildren(
-      placeholder(
-        droplets.length ? "Pick a droplet." : "No droplets yet: add src/droplets/<name>/+droplet.<ext> for a configured renderer.",
-      ),
+      placeholder({
+        text: droplets.length ? "Pick a droplet." : "No droplets yet: add src/droplets/<name>/+droplet.<ext> for a configured renderer.",
+      }),
     );
-    setStatus("—", null);
+    setStatus({ text: "—", ok: null });
     return;
   }
 
   const seq = ++renderSeq;
-  const { url, init } = fragmentRequest(droplet.id, state.method, state.props);
+  const { url, init } = fragmentRequest({ droplet: droplet.id, method: state.method, props: state.props });
   const started = performance.now();
   let response: Response;
   let body: string;
@@ -348,26 +377,31 @@ async function render(): Promise<void> {
     body = await response.text();
   } catch (error) {
     if (seq !== renderSeq) return;
-    setStatus("Request failed", false);
-    ui.stage.replaceChildren(el("pre", { className: "dt-failure", textContent: String(error) }));
+    setStatus({ text: "Request failed", ok: false });
+    ui.stage.replaceChildren(el({ tag: "pre", props: { className: "dt-failure", textContent: String(error) } }));
     return;
   }
   // A newer render started while this one was in flight.
   if (seq !== renderSeq) return;
 
   const ms = Math.round(performance.now() - started);
-  setStatus(`${init.method} ${response.status} · ${ms} ms · ${formatBytes(new TextEncoder().encode(body).length)}`, response.ok);
+  setStatus({
+    text: `${init.method} ${response.status} · ${ms} ms · ${formatBytes({ bytes: new TextEncoder().encode(body).length })}`,
+    ok: response.ok,
+  });
 
   // A failing droplet with an error page still answers its element: show it.
   const isHtml = (response.headers.get("content-type") ?? "").includes("text/html");
   if (!response.ok && !isHtml) {
-    ui.stage.replaceChildren(el("pre", { className: "dt-failure", textContent: `${response.status} ${response.statusText}\n\n${body}` }));
+    ui.stage.replaceChildren(
+      el({ tag: "pre", props: { className: "dt-failure", textContent: `${response.status} ${response.statusText}\n\n${body}` } }),
+    );
     return;
   }
   // The loader picks the element up as soon as it is in the document.
   ui.stage.innerHTML = body;
-  if (describeMode(droplet).empty) {
-    ui.stage.append(placeholder("Empty by design: ssr and hydrate are both off."));
+  if (describeMode({ droplet }).empty) {
+    ui.stage.append(placeholder({ text: "Empty by design: ssr and hydrate are both off." }));
   }
 }
 
@@ -389,11 +423,20 @@ function strategy(): string {
   return data.strategy ?? "hmr";
 }
 
+type ShowConnectionInput = { isOn: boolean };
+
+function showConnection({ isOn }: ShowConnectionInput): void {
+  for (const dot of [ui.conn, ui.pillDot]) {
+    dot.dataset["state"] = isOn ? "on" : "off";
+    dot.title = isOn ? "Connected to the dev server" : "Dev server disconnected";
+  }
+}
+
 if (import.meta.hot) {
   import.meta.hot.on("droplets:update", (payload) => {
     if (payload.droplet !== state.droplet || strategy() === "hmr") return;
     if (serverMode) location.reload();
-    else scheduleRender(50);
+    else scheduleRender({ delay: 50 });
   });
 
   import.meta.hot.on("droplets:registry", (payload) => {
@@ -405,23 +448,17 @@ if (import.meta.hot) {
     renderInfo();
     if (JSON.stringify(current() ?? null) === before || strategy() === "hmr") return;
     if (serverMode) location.reload();
-    else scheduleRender(50);
+    else scheduleRender({ delay: 50 });
   });
 
-  const connection = (on: boolean) => {
-    for (const dot of [ui.conn, ui.pillDot]) {
-      dot.dataset["state"] = on ? "on" : "off";
-      dot.title = on ? "Connected to the dev server" : "Dev server disconnected";
-    }
-  };
-  import.meta.hot.on("vite:ws:disconnect", () => connection(false));
-  import.meta.hot.on("vite:ws:connect", () => connection(true));
+  import.meta.hot.on("vite:ws:disconnect", () => showConnection({ isOn: false }));
+  import.meta.hot.on("vite:ws:connect", () => showConnection({ isOn: true }));
 }
 
 // --- Client or server rendering -------------------------------------------
 
-const renderToggle = byId("dt-render");
-const renderHint = byId("dt-render-hint");
+const renderToggle = byId({ id: "dt-render" });
+const renderHint = byId({ id: "dt-render-hint" });
 
 function renderRenderMode(): void {
   for (const button of renderToggle.querySelectorAll("button")) {
@@ -441,7 +478,7 @@ renderToggle.addEventListener("click", (event) => {
   }
   // Carry the setup over to client mode, then leave the server URL.
   try {
-    localStorage.setItem(CLIENT_KEY, writeToolState(state));
+    localStorage.setItem(CLIENT_KEY, writeToolState({ state }));
   } catch {
     // Starts from defaults instead.
   }
@@ -455,7 +492,7 @@ const PANEL_KEY = "droplets-devtools:panel";
 function readPanel(): PanelState {
   let stored: PanelState | null = null;
   try {
-    stored = parsePanelState(localStorage.getItem(PANEL_KEY));
+    stored = parsePanelState({ raw: localStorage.getItem(PANEL_KEY) });
   } catch {
     // Storage can be unavailable; the default position is fine.
   }
@@ -482,14 +519,16 @@ function savePanel(): void {
 function placePanel(): void {
   const target = panel.collapsed ? ui.pill : ui.panel;
   const rect = target.getBoundingClientRect();
-  panel = clampPanel(panel, rect, { width: innerWidth, height: innerHeight });
+  panel = clampPanel({ state: panel, size: rect, viewport: { width: innerWidth, height: innerHeight } });
   for (const node of [ui.panel, ui.pill]) {
     node.style.left = `${panel.x}px`;
     node.style.top = `${panel.y}px`;
   }
 }
 
-function setCollapsed(collapsed: boolean): void {
+type SetCollapsedInput = { collapsed: boolean };
+
+function setCollapsed({ collapsed }: SetCollapsedInput): void {
   panel = { ...panel, collapsed };
   ui.panel.hidden = collapsed;
   ui.pill.hidden = !collapsed;
@@ -497,8 +536,10 @@ function setCollapsed(collapsed: boolean): void {
   savePanel();
 }
 
+type DraggableInput = { handle: HTMLElement; onClick?: () => void };
+
 /** Drags `handle`, moving the panel; a click without movement is left alone. */
-function draggable(handle: HTMLElement, onClick?: () => void): void {
+function draggable({ handle, onClick }: DraggableInput): void {
   handle.addEventListener("pointerdown", (down) => {
     if ((down.target as HTMLElement).closest("button") && handle !== ui.pill) return;
     const start = { x: down.clientX, y: down.clientY, panelX: panel.x, panelY: panel.y };
@@ -525,21 +566,21 @@ function draggable(handle: HTMLElement, onClick?: () => void): void {
   });
 }
 
-draggable(ui.head);
-draggable(ui.pill, () => setCollapsed(false));
-ui.collapse.addEventListener("click", () => setCollapsed(true));
+draggable({ handle: ui.head });
+draggable({ handle: ui.pill, onClick: () => setCollapsed({ collapsed: false }) });
+ui.collapse.addEventListener("click", () => setCollapsed({ collapsed: true }));
 addEventListener("resize", placePanel);
 addEventListener("keydown", (event) => {
   if (event.altKey && event.code === "KeyD") {
     event.preventDefault();
-    setCollapsed(!panel.collapsed);
+    setCollapsed({ collapsed: !panel.collapsed });
   }
 });
 
 // --- Start ----------------------------------------------------------------
 
 ui.json.value = jsonText;
-setCollapsed(panel.collapsed);
+setCollapsed({ collapsed: panel.collapsed });
 renderSelect();
 renderMethod();
 renderMode();
@@ -549,10 +590,10 @@ renderInfo();
 renderRenderMode();
 if (serverMode && data.server) {
   const { method, status, ms, bytes } = data.server;
-  setStatus(`${method} ${status} · ${ms} ms (server) · ${formatBytes(bytes)}`, status < 400);
+  setStatus({ text: `${method} ${status} · ${ms} ms (server) · ${formatBytes({ bytes })}`, ok: status < 400 });
   const droplet = current();
-  if (droplet && describeMode(droplet).empty) {
-    ui.stage.append(placeholder("Empty by design: ssr and hydrate are both off."));
+  if (droplet && describeMode({ droplet }).empty) {
+    ui.stage.append(placeholder({ text: "Empty by design: ssr and hydrate are both off." }));
   }
 } else {
   void render();

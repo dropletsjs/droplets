@@ -21,25 +21,29 @@ export type Instance = {
   module?: ComponentModule;
 };
 
+type MarkersInInput = { target: HTMLElement };
+
 /** The template's own children markers in `target`, not those of a droplet nested in its markup. */
-export function markersIn(target: HTMLElement): Element[] {
+export function markersIn({ target }: MarkersInInput): Element[] {
   return [...target.querySelectorAll("[data-droplet-children]")].filter((marker) => {
     const owner = marker.closest("[data-droplet]");
     return !owner || !target.contains(owner);
   });
 }
 
-function attach(target: HTMLElement, context: ClientRenderContext, markers: Element[]): Instance {
+type AttachInput = { target: HTMLElement; context: ClientRenderContext; markers: Element[] };
+
+function attach({ target, context, markers }: AttachInput): Instance {
   for (const marker of markers) context.children.fill(marker);
   return { target, context, markers };
 }
 
+type SettledInput = { module: ComponentModule; props: RenderProps; context: ClientRenderContext };
+
+type Settled = { module: ComponentModule; props: RenderProps; kind: ClientRenderContext["kind"] };
+
 /** What to render once a droplet's `data` settled: the droplet, its error page, or nothing. */
-async function settled(
-  module: ComponentModule,
-  props: RenderProps,
-  context: ClientRenderContext,
-): Promise<{ module: ComponentModule; props: RenderProps; kind: ClientRenderContext["kind"] } | null> {
+async function settled({ module, props, context }: SettledInput): Promise<Settled | null> {
   if (!("data" in props)) return { module, props, kind: context.kind };
   try {
     return { module, props: { ...props, data: await props.data }, kind: context.kind };
@@ -59,13 +63,13 @@ export async function mount(
   props: RenderProps,
   context: ClientRenderContext,
 ): Promise<Instance> {
-  const shown = await settled(module, props, context);
+  const shown = await settled({ module, props, context });
   if (!shown) return { target, context, markers: [] };
   const rendering = { ...context, kind: shown.kind };
-  target.innerHTML = templateOf(shown.module, rendering)(shown.props, {
+  target.innerHTML = templateOf({ module: shown.module, where: rendering })(shown.props, {
     data: { droplet: context.droplet, kind: shown.kind, renderId: context.renderId, actionUrl: context.actionUrl },
   });
-  const instance = attach(target, context, markersIn(target));
+  const instance = attach({ target, context, markers: markersIn({ target }) });
   return shown.kind === "droplet" ? { ...instance, module } : instance;
 }
 
@@ -74,7 +78,7 @@ export function hydrate(module: ComponentModule, target: HTMLElement, _props: Re
   // in its marker at connect and took it out before this call: `fill` puts
   // it back.
   const markers = context.markers();
-  const instance = attach(target, context, markers.length > 0 ? markers : markersIn(target));
+  const instance = attach({ target, context, markers: markers.length > 0 ? markers : markersIn({ target }) });
   return context.kind === "droplet" ? { ...instance, module } : instance;
 }
 

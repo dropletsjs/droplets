@@ -18,6 +18,7 @@ import { logger } from "../core/logger.ts";
 import { packageRoot } from "../core/paths.ts";
 import type { DropletsAdapter } from "../adapters.ts";
 import type { DevStrategy } from "../core/config.ts";
+import type { DropletsApp } from "../runtime/app.ts";
 import { rendererScopeFilter, sharingRenderers, validateRenderers, type DropletRenderer, type HydrateMode } from "../renderer.ts";
 import { buildOrder, createBuildEnvironments, requireAdapter, SERVER_NO_EXTERNAL, writeManifest } from "./build.ts";
 import {
@@ -157,8 +158,10 @@ function summarize(state: PluginState): DropletSummary[] {
   }));
 }
 
+type RendererDirsInput = { renderers: readonly DropletRenderer[] };
+
 /** The folders the renderers' modules live in, for the dev server's `fs.allow`. */
-function rendererDirs(renderers: DropletRenderer[]): string[] {
+function rendererDirs({ renderers }: RendererDirsInput): string[] {
   const dirs = new Set<string>();
   for (const renderer of renderers) {
     for (const file of [renderer.server, renderer.client, renderer.clientSetup, renderer.clientDev]) {
@@ -168,8 +171,10 @@ function rendererDirs(renderers: DropletRenderer[]): string[] {
   return [...dirs];
 }
 
+type StylesheetsOfInput = { modules: readonly EnvironmentModuleNode[] };
+
 /** The stylesheets among the modules and their importers: what can update without a reload. */
-function stylesheetsOf(modules: EnvironmentModuleNode[]): EnvironmentModuleNode[] {
+function stylesheetsOf({ modules }: StylesheetsOfInput): EnvironmentModuleNode[] {
   const found = new Set<EnvironmentModuleNode>();
   for (const mod of modules) {
     for (const candidate of [mod, ...mod.importers]) {
@@ -188,11 +193,15 @@ type UpdatePlan = {
   contract: boolean;
 };
 
-function contractOf(entry: Pick<DropletEntry, "ssr" | "hydrate" | "prerender">): RenderContract {
-  return { ssr: entry.ssr, hydrate: entry.hydrate, prerender: entry.prerender };
+type ContractOfInput = Pick<DropletEntry, "ssr" | "hydrate" | "prerender">;
+
+function contractOf({ ssr, hydrate, prerender }: ContractOfInput): RenderContract {
+  return { ssr, hydrate, prerender };
 }
 
-function isInside(root: string, file: string): boolean {
+type IsInsideInput = { root: string; file: string };
+
+function isInside({ root, file }: IsInsideInput): boolean {
   return file === root || file.startsWith(`${root}/`) || file.startsWith(`${root}\\`);
 }
 
@@ -215,7 +224,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
   state.adapter = options.adapter ?? null;
   // Script droplets (`+droplet.script.ts`) are core's: their renderer is
   // always there, after the user's.
-  state.renderers = withScriptRenderer(options.renderers ?? []);
+  state.renderers = withScriptRenderer({ renderers: options.renderers ?? [] });
   if (options.prerender?.host !== undefined) {
     const host = options.prerender.host;
     try {
@@ -237,26 +246,32 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
    * with their render contract before and after; each hears of it once, as
    * `droplets:update`, before Vite sends its own update.
    */
-  const planUpdate = async (server: ViteDevServer, file: string, timestamp: number): Promise<UpdatePlan> => {
+  type PlanUpdateInput = { server: ViteDevServer; file: string; timestamp: number };
+
+  const planUpdate = async ({ server, file, timestamp }: PlanUpdateInput): Promise<UpdatePlan> => {
     const plan: UpdatePlan = { changes: new Map(), component: false, contract: false };
     if (!runtime) return plan;
     const before = new Map(state.entries.map((entry) => [entry.id, contractOf(entry)]));
-    if (dropletForFile(state.dropletsRoot, file)) {
+    if (dropletForFile({ dropletsRoot: state.dropletsRoot, file })) {
       // Flags are read from source, so any edit may change the registry.
       await runtime.refreshDropletMap();
       const registry = JSON.stringify(summarize(state));
       if (registry !== lastRegistry) {
         lastRegistry = registry;
-        invalidateRegistry(server);
+        invalidateRegistry({ server });
         server.hot.send("droplets:registry", { droplets: summarize(state) });
       }
     }
     const modules = Object.values(server.environments).flatMap((environment) => [
       ...(environment.moduleGraph.getModulesByFile(file) ?? []),
     ]);
-    plan.changes = classifyChange(state.dropletsRoot, file, modules, rendererExtensions(state), (path) =>
-      isServerOnlyFile(state.root, path),
-    );
+    plan.changes = classifyChange({
+      dropletsRoot: state.dropletsRoot,
+      file,
+      modules,
+      extensions: rendererExtensions(state),
+      isServerFile: (path) => isServerOnlyFile({ root: state.root, id: path }),
+    });
 
     for (const [droplet, change] of plan.changes) {
       const entry = state.entries.find((e) => e.id === droplet);
@@ -293,13 +308,13 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
   let lastRegistry = "";
 
   /** The dev app, once the droplets are scanned; `null` outside `vite dev`. */
-  let devApp: Promise<ReturnType<typeof createDevApp>> | null = null;
+  let devApp: Promise<DropletsApp> | null = null;
 
   const api: DropletsPluginApi = {
     element: () => state.config.element,
     strategy: () => state.dev.strategy,
     droplets: () => summarize(state),
-    renderers: () => userRenderers(state.renderers).map((renderer) => renderer.name),
+    renderers: () => userRenderers({ renderers: state.renderers }).map((renderer) => renderer.name),
     dropletsRoot: () => state.dropletsRoot,
     importMapPath: () => (state.config.importMap ? state.config.importMap.path : false),
     fetch: async (request) => {
@@ -321,12 +336,12 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
 
     async config(userConfig, env) {
       const root = resolve(userConfig.root ?? process.cwd());
-      const loaded = await loadDropletsConfig(root, env, options.configFile);
-      applyConfig(state, root, loaded.config);
+      const loaded = await loadDropletsConfig({ root, configEnv: env, configFile: options.configFile });
+      applyConfig({ state, root, config: loaded.config });
       state.dev = loaded.dev;
-      state.css = await resolveCss(options.css, root);
+      state.css = await resolveCss({ options: options.css, root });
       state.configPath = loaded.path;
-      state.env = await loadEnvState(root, env.mode, userConfig.envDir ? resolve(root, userConfig.envDir) : root);
+      state.env = await loadEnvState({ root, mode: env.mode, envDir: userConfig.envDir ? resolve(root, userConfig.envDir) : root });
       state.configDependencies = [...loaded.dependencies, ...state.env.dependencies];
       const missing = missingStatic(state.env);
       if (missing.length) {
@@ -336,15 +351,19 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
         logger.warn("framework", message);
       }
       state.outDir = resolve(root, userConfig.build?.outDir ?? "dist");
-      state.entries = await discoverDroplets(state.dropletsRoot, state.renderers, { dev: env.command === "serve" });
+      state.entries = await discoverDroplets({
+        dropletsRoot: state.dropletsRoot,
+        renderers: state.renderers,
+        dev: env.command === "serve",
+      });
       await syncTypes(state);
 
-      const clientExternal = readClientExternal(userConfig);
-      state.clientExternal = createExternalMatcher(clientExternal);
+      const clientExternal = readClientExternal({ config: userConfig });
+      state.clientExternal = createExternalMatcher({ externals: clientExternal });
       // Pre-bundling would inline them in dev; keep them out, as the build does.
-      const external = namedExternals(clientExternal);
+      const external = namedExternals({ externals: clientExternal });
       state.namedExternals = external;
-      const css = createCssConfig(userConfig, state);
+      const css = createCssConfig({ userConfig, state });
       const result: UserConfig = {
         appType: "custom",
         ...(css ? { css } : {}),
@@ -353,7 +372,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
           // outside the project root. Listing any directory turns off Vite's
           // default (the workspace root), so it has to be listed again or the
           // project's own files answer 403 when a stylesheet @imports them.
-          fs: { allow: [searchForWorkspaceRoot(root), packageRoot, ...rendererDirs(state.renderers)] },
+          fs: { allow: [searchForWorkspaceRoot(root), packageRoot, ...rendererDirs({ renderers: state.renderers })] },
           ...(userConfig.server?.port === undefined ? { port: state.dev.server.port } : {}),
           // Asset URLs on the dev server itself, so a host page on another
           // origin loads them; corrected once it listens (another port).
@@ -388,7 +407,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
     },
 
     configureServer(server) {
-      runtime = createDevRuntime(server, state);
+      runtime = createDevRuntime({ server, state });
       const origin = server.config.server.origin;
       if (origin?.startsWith("http://localhost:") && server.httpServer) {
         server.httpServer.once("listening", () => {
@@ -412,7 +431,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
         const app = (async () => {
           await devRuntime.refreshDropletMap();
           lastRegistry = JSON.stringify(summarize(state));
-          return createDevApp(server, state, devRuntime);
+          return createDevApp({ server, state, runtime: devRuntime });
         })();
         devApp = app;
         const ready = app.then((created) => getRequestListener(created.fetch));
@@ -435,9 +454,9 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
 
       const structural = type !== "update";
       const isHooks = HOOKS_FILES.some((hooks) => resolve(state.root, hooks) === file);
-      if (structural && (isHooks || isInside(state.apiRoot, file))) {
+      if (structural && (isHooks || isInside({ root: state.apiRoot, file }))) {
         // A route or the hooks file appeared or went away.
-        invalidateRegistry(server);
+        invalidateRegistry({ server });
       }
 
       // `init` ran once, before the droplets started: only a new page runs
@@ -445,7 +464,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
       // page: never the host's page behind its back under `hmr`.
       if (CLIENT_HOOKS_FILES.some((hooks) => resolve(state.root, hooks) === file)) {
         if (this.environment.name !== "client") return [];
-        if (structural) invalidateRegistry(server);
+        if (structural) invalidateRegistry({ server });
         for (const mod of modules) this.environment.moduleGraph.invalidateModule(mod, new Set(), timestamp, true);
         const hooks: DropletHooksPayload = { reason: "hooks.client", timestamp };
         server.hot.send("droplets:hooks-client", hooks);
@@ -456,7 +475,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
       // what changed, for which droplets, and what the pages hear of it.
       let plan = plans.get(timestamp);
       if (!plan) {
-        plan = await planUpdate(server, file, timestamp);
+        plan = await planUpdate({ server, file, timestamp });
         plans.set(timestamp, plan);
         for (const key of plans.keys()) {
           if (key < timestamp - 10_000) plans.delete(key);
@@ -471,7 +490,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
       const graph = this.environment.moduleGraph;
       for (const droplet of plan.changes.keys()) {
         const folder = runtime.folderById().get(droplet);
-        const client = folder ? graph.getModuleById(`\0${clientEntryId(folder)}`) : undefined;
+        const client = folder ? graph.getModuleById(`\0${clientEntryId({ folderName: folder })}`) : undefined;
         if (client) graph.invalidateModule(client, invalidated, timestamp, true);
       }
       // A new render contract never reaches the page's instance, and a load
@@ -480,7 +499,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
       // update the Vite way: they replace themselves, nothing reloads.
       if (plan.contract || !plan.component) {
         for (const mod of modules) graph.invalidateModule(mod, invalidated, timestamp, true);
-        return stylesheetsOf(modules);
+        return stylesheetsOf({ modules });
       }
       // A component edit: Vite's own HMR, so the framework's runs (Fast
       // Refresh, Prefresh, Vue, Svelte, Solid). Each droplet's client module
@@ -526,7 +545,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
         }
         // Before the server: a Worker reads the renders through its assets.
         if (name === "ssr") {
-          const renders = await prerender(state, resolve(state.outDir, "server/entry-server.js"));
+          const renders = await prerender({ state, ssrEntry: resolve(state.outDir, "server/entry-server.js") });
           if (renders > 0) logger.info("framework", "prerendered", { renders });
           // Built only to prerender: an adapter that inlines the renderer
           // does not ship it.
@@ -573,7 +592,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
   plugins.push(tailwindPlugins(state), serverOnlyPlugin(state), rendererGraphsPlugin(state));
   // Each renderer compiles its own component files; when another renderer
   // shares an extension, only the modules marked for it.
-  const shared = sharingRenderers(state.renderers);
+  const shared = sharingRenderers({ renderers: state.renderers });
   for (const renderer of state.renderers) {
     const scope = shared.has(renderer.name) ? { include: rendererScopeFilter(renderer.name) } : {};
     const own = typeof renderer.plugins === "function" ? renderer.plugins(scope) : renderer.plugins;

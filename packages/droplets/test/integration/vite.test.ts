@@ -157,7 +157,9 @@ describe("vite build", () => {
         loadPrerendered: createPrerenderedLoader(read),
       },
     });
-    const post = (props: Record<string, unknown>, host = "https://host.test/docs") =>
+    type PostInput = { props: Record<string, unknown>; host?: string };
+
+    const post = ({ props, host = "https://host.test/docs" }: PostInput) =>
       app.request("http://drops.test/droplets/docs", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -168,7 +170,7 @@ describe("vite build", () => {
       return match ? JSON.parse(Buffer.from(match, "base64").toString()) : undefined;
     };
 
-    const stored = await (await post({ page: "2" })).text();
+    const stored = await (await post({ props: { page: "2" } })).text();
     expect(stored).toContain("<h1>Page 2</h1>");
     expect(stored).toContain("<p>host.test</p>");
     // The tokens, replaced by this request's host before transform ran.
@@ -176,15 +178,15 @@ describe("vite build", () => {
     expect(stored).not.toContain("DROPLET_");
     expect(dataOf(stored)).toEqual({ data: { page: 2, building: true, hooked: true, home: "https://host.test/home" } });
 
-    const live = await (await post({ page: 3 })).text();
+    const live = await (await post({ props: { page: 3 } })).text();
     expect(live).toContain("<h1>Page 3</h1>");
     expect(dataOf(live)).toEqual({ data: { page: 3, building: false, hooked: true, home: "https://host.test/home" } });
 
     // A render made for one host is served to that host (origin and path),
     // and rendered live for any other.
-    const forHost = await (await post({ page: 5 }, "https://fixed.test/docs?ref=x")).text();
+    const forHost = await (await post({ props: { page: 5 }, host: "https://fixed.test/docs?ref=x" })).text();
     expect(dataOf(forHost)).toEqual({ data: { page: 5, building: true, hooked: true, home: "https://fixed.test/home" } });
-    const elsewhere = await (await post({ page: 5 }, "https://fixed.test/other")).text();
+    const elsewhere = await (await post({ props: { page: 5 }, host: "https://fixed.test/other" })).text();
     expect(dataOf(elsewhere)).toEqual({ data: { page: 5, building: false, hooked: true, home: "https://fixed.test/home" } });
     // Without a body host: Origin, then the location; forwarded headers no trusted list names are not one.
     const fromOrigin = await app.request("http://drops.test/droplets/docs?page=2", { headers: { origin: "https://shop.test" } });
@@ -194,10 +196,10 @@ describe("vite build", () => {
     });
     expect(dataOf(await forwarded.text())).toMatchObject({ data: { page: 2, home: "http://drops.test/home" } });
 
-    const refused = await post({ page: "x" });
+    const refused = await post({ props: { page: "x" } });
     expect(refused.status).toBe(400);
 
-    const broken = await post({ page: 99 });
+    const broken = await post({ props: { page: 99 } });
     expect(broken.status).toBe(500);
     const brokenHtml = await broken.text();
     expect(brokenHtml).toContain("data-droplet-error");
@@ -206,7 +208,7 @@ describe("vite build", () => {
     expect(dataOf(brokenHtml)).toEqual({ error: { message: "This page is unavailable" } });
 
     // error() at build was not stored: it answers live, as an endpoint.
-    const missing = await post({ page: 404 });
+    const missing = await post({ props: { page: 404 } });
     expect(missing.status).toBe(404);
     expect(await missing.text()).toBe("No such page");
   });

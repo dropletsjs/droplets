@@ -17,22 +17,25 @@ import {
   type RequestEvent,
 } from "../../src/runtime/server.ts";
 
-const thrown = (fn: () => unknown): unknown => {
+type ThrownInput = { run: () => unknown };
+
+/** What `run` throws: `error()` and `redirect()` throw values that are not `Error`s. */
+function thrown({ run }: ThrownInput): unknown {
   try {
-    fn();
+    run();
   } catch (value) {
     return value;
   }
   throw new Error("expected a throw");
-};
+}
 
 describe("error()", () => {
   it("throws an HttpError with a default message per status", () => {
-    const value = thrown(() => error(404));
+    const value = thrown({ run: () => error(404) });
     expect(isHttpError(value)).toBe(true);
     expect(value).toMatchObject({ status: 404, body: { message: "Not Found" } });
-    expect(thrown(() => error(418, "teapot"))).toMatchObject({ body: { message: "teapot" } });
-    expect(thrown(() => error(499))).toMatchObject({ body: { message: "Error 499" } });
+    expect(thrown({ run: () => error(418, "teapot") })).toMatchObject({ body: { message: "teapot" } });
+    expect(thrown({ run: () => error(499) })).toMatchObject({ body: { message: "Error 499" } });
   });
 
   it("rejects statuses outside 400-599", () => {
@@ -60,7 +63,7 @@ describe("fail()", () => {
 
 describe("redirect()", () => {
   it("throws a Redirect with the location as a string", () => {
-    const value = thrown(() => redirect(303, new URL("https://x.test/next")));
+    const value = thrown({ run: () => redirect(303, new URL("https://x.test/next")) });
     expect(isRedirect(value)).toBe(true);
     expect(value).toMatchObject({ status: 303, location: "https://x.test/next" });
   });
@@ -71,10 +74,7 @@ describe("redirect()", () => {
 
   it("takes http(s) URLs and paths on the site, nothing else", () => {
     for (const ok of ["/next", "/a?b=1#c", "./x", "?q=1", "next", "https://x.test/next", "http://x.test"]) {
-      expect(
-        thrown(() => redirect(303, ok)),
-        ok,
-      ).toMatchObject({ location: ok });
+      expect(thrown({ run: () => redirect(303, ok) }), ok).toMatchObject({ location: ok });
     }
     for (const bad of [
       "javascript:alert(1)",
@@ -93,6 +93,8 @@ describe("redirect()", () => {
   });
 });
 
+type WithinInput = { value: string; trustedOrigins: string[] };
+
 describe("hostFrom()", () => {
   it("takes web URLs only, without credentials or hash", () => {
     expect(hostFrom("https://shop.test/p?q=1#x")?.href).toBe("https://shop.test/p?q=1");
@@ -103,15 +105,16 @@ describe("hostFrom()", () => {
   });
 
   it("keeps within trustedOrigins and this server, when the request has a list", () => {
-    const within = (value: string, trustedOrigins: string[]) =>
-      withRequestInfo(
+    function within({ value, trustedOrigins }: WithinInput): string | null {
+      return withRequestInfo(
         { origin: "https://drops.test", trustedOrigins, ownOrigins: ["https://drops.test"] },
         () => hostFrom(value)?.href ?? null,
       );
-    expect(within("https://shop.test/p", ["https://shop.test"])).toBe("https://shop.test/p");
-    expect(within("https://drops.test/p", ["https://shop.test"])).toBe("https://drops.test/p");
-    expect(within("https://evil.test/p", ["https://shop.test"])).toBeNull();
-    expect(within("https://evil.test/p", [])).toBe("https://evil.test/p");
+    }
+    expect(within({ value: "https://shop.test/p", trustedOrigins: ["https://shop.test"] })).toBe("https://shop.test/p");
+    expect(within({ value: "https://drops.test/p", trustedOrigins: ["https://shop.test"] })).toBe("https://drops.test/p");
+    expect(within({ value: "https://evil.test/p", trustedOrigins: ["https://shop.test"] })).toBeNull();
+    expect(within({ value: "https://evil.test/p", trustedOrigins: [] })).toBe("https://evil.test/p");
   });
 });
 
@@ -142,6 +145,8 @@ describe("json() and text()", () => {
   });
 });
 
+type StepInput = { name: string };
+
 describe("sequence()", () => {
   const event = {
     request: new Request("http://x.test/"),
@@ -153,9 +158,8 @@ describe("sequence()", () => {
 
   it("runs handles in order, each resolving into the next", async () => {
     const order: string[] = [];
-    const step =
-      (name: string): Handle =>
-      async ({ event, resolve }) => {
+    function step({ name }: StepInput): Handle {
+      return async ({ event, resolve }) => {
         order.push(`${name}:in`);
         event.locals[name] = true;
         const response = await resolve(event);
@@ -163,7 +167,8 @@ describe("sequence()", () => {
         response.headers.append("x-steps", name);
         return response;
       };
-    const handle = sequence(step("a"), step("b"));
+    }
+    const handle = sequence(step({ name: "a" }), step({ name: "b" }));
     const response = await handle({
       event,
       resolve: async (final) => {

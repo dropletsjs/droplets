@@ -14,7 +14,9 @@ import { h, type ComponentType } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { childrenElement } from "./children.ts";
 
-function componentOf(module: ComponentModule, context: ServerRenderContext): ComponentType<Record<string, unknown>> {
+type ComponentOfInput = { module: ComponentModule; context: Pick<ServerRenderContext, "droplet" | "kind"> };
+
+function componentOf({ module, context }: ComponentOfInput): ComponentType<Record<string, unknown>> {
   const component = module.default;
   if (typeof component !== "function") {
     throw new Error(`${context.droplet}: the ${context.kind} component is not a Preact component`);
@@ -23,6 +25,6 @@ function componentOf(module: ComponentModule, context: ServerRenderContext): Com
 }
 
 export function render(module: ComponentModule, props: RenderProps, context: ServerRenderContext): ServerRenderOutput {
-  const component = componentOf(module, context);
+  const component = componentOf({ module, context });
   return renderToString(h(component, { ...props, children: childrenElement() }));
 }

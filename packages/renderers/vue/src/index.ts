@@ -30,10 +30,10 @@ import { parse } from "vue/compiler-sfc";
  * The flags of a component: the exports of its plain `<script>` block, the
  * only one that can export (`<script setup>` cannot).
  */
-export function readFlags(input: ReadFlagsInput): Partial<RenderFlags> | undefined {
-  const script = parse(input.source, { filename: input.file }).descriptor.script;
+export function readFlags({ kind, source, file, droplet }: ReadFlagsInput): Partial<RenderFlags> | undefined {
+  const script = parse(source, { filename: file }).descriptor.script;
   if (!script) return undefined;
-  const where = input.kind === "droplet" ? input.droplet : `${input.droplet}/${input.file}`;
+  const where = kind === "droplet" ? droplet : `${droplet}/${file}`;
   // TypeScript parses plain JavaScript too; JSX needs its own language.
   return readExportedFlags(script.content, where, script.lang === "tsx" || script.lang === "jsx" ? "tsx" : "ts");
 }
@@ -70,16 +70,18 @@ const ERROR_COMPONENT = /[\\/]\+[Ee]rror\.vue$/;
 
 type CustomElement = NonNullable<Options["features"]>["customElement"];
 
+type WithErrorComponentsInput = { customElement: CustomElement };
+
 /** The error page pattern plus whatever the user matches. */
-function withErrorComponents(user: CustomElement): CustomElement {
-  if (user === undefined || user === false) return ERROR_COMPONENT;
-  if (user === true) return true;
-  return [ERROR_COMPONENT, ...(Array.isArray(user) ? user : [user])];
+function withErrorComponents({ customElement }: WithErrorComponentsInput): CustomElement {
+  if (customElement === undefined || customElement === false) return ERROR_COMPONENT;
+  if (customElement === true) return true;
+  return [ERROR_COMPONENT, ...(Array.isArray(customElement) ? customElement : [customElement])];
 }
 
 /** The Vue renderer, for `droplets({ renderers: [vue()] })`. */
-export function vue(options: VueRendererOptions = {}): DropletRenderer {
-  const user = options.vitePlugin ?? {};
+export function vue({ plugin, vitePlugin = {} }: VueRendererOptions = {}): DropletRenderer {
+  const { customElement, ...user } = vitePlugin;
   const pluginOptions: Options = {
     ...user,
     features: {
@@ -88,10 +90,9 @@ export function vue(options: VueRendererOptions = {}): DropletRenderer {
       // the browser injected when mounted, since a failed droplet's
       // stylesheet may not be the one they need. Custom-element mode is how
       // plugin-vue inlines a component's styles (`styles` on the component).
-      customElement: withErrorComponents(user.features?.customElement ?? user.customElement),
+      customElement: withErrorComponents({ customElement: user.features?.customElement ?? customElement }),
     },
   };
-  delete pluginOptions.customElement;
 
   return {
     name: "vue",
@@ -99,7 +100,7 @@ export function vue(options: VueRendererOptions = {}): DropletRenderer {
     readFlags,
     packages: ["vue", "@dropletsjs/renderer-vue"],
     componentTypes: "@dropletsjs/renderer-vue",
-    ...(options.plugin === false ? {} : { plugins: [vuePlugin(pluginOptions)] }),
+    ...(plugin === false ? {} : { plugins: [vuePlugin(pluginOptions)] }),
     server: resolve(packageRoot, "dist/server.js"),
     client: resolve(packageRoot, "dist/client.js"),
     clientDev: resolve(packageRoot, "dist/client-dev.js"),

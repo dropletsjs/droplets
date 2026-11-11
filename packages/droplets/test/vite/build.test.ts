@@ -17,6 +17,8 @@ import {
 } from "../../src/vite/build.ts";
 import { createInitialState, type PluginState } from "../../src/vite/state.ts";
 
+import { clientEntryId, VIRTUAL_CSS } from "../../src/vite/virtual.ts";
+
 const fakeAdapter = (over: Partial<PluginState["adapter"] & object> = {}) => ({
   name: "fake",
   serverEntry: "/adapters/entry.js",
@@ -24,9 +26,10 @@ const fakeAdapter = (over: Partial<PluginState["adapter"] & object> = {}) => ({
   separateSsrBundle: true,
   ...over,
 });
-import { clientEntryId, VIRTUAL_CSS } from "../../src/vite/virtual.ts";
 
-const entry = (id: string, name = id): DropletEntry => ({
+type EntryInput = { id: string; name?: string };
+
+const entry = ({ id, name = id }: EntryInput): DropletEntry => ({
   id,
   name,
   file: "+droplet.svelte",
@@ -41,10 +44,10 @@ const entry = (id: string, name = id): DropletEntry => ({
 
 describe("createClientInputs", () => {
   it("has one named input per droplet plus the entry client and global css", () => {
-    const inputs = createClientInputs([entry("hello", "Hello"), entry("clock")]);
+    const inputs = createClientInputs({ entries: [entry({ id: "hello", name: "Hello" }), entry({ id: "clock" })] });
     expect(Object.keys(inputs)).toEqual([ENTRY_CLIENT_NAME, GLOBAL_CSS_NAME, "droplets/hello", "droplets/clock"]);
     expect(inputs[GLOBAL_CSS_NAME]).toBe(VIRTUAL_CSS);
-    expect(inputs["droplets/hello"]).toBe(clientEntryId("Hello"));
+    expect(inputs["droplets/hello"]).toBe(clientEntryId({ folderName: "Hello" }));
     expect(inputs[ENTRY_CLIENT_NAME]).toMatch(/entry-client\.js$/);
   });
 });
@@ -54,7 +57,7 @@ describe("createBuildEnvironments", () => {
     const state = createInitialState();
     state.adapter = fakeAdapter();
     state.outDir = "/proj/out";
-    state.entries = [entry("hello")];
+    state.entries = [entry({ id: "hello" })];
 
     const envs = createBuildEnvironments(state);
     expect(envs["client"]?.build?.outDir).toBe(resolve("/proj/out/client"));
@@ -137,10 +140,14 @@ describe("translateManifest", () => {
   };
 
   it("maps droplets to bundles and stylesheets by input name", () => {
-    const manifest = translateManifest(viteManifest, "h4sh", [
-      { id: "hello", name: "Hello" },
-      { id: "plain", name: "plain" },
-    ]);
+    const manifest = translateManifest({
+      viteManifest,
+      buildHash: "h4sh",
+      entries: [
+        { id: "hello", name: "Hello" },
+        { id: "plain", name: "plain" },
+      ],
+    });
     expect(manifest).toEqual({
       __hash: "h4sh",
       __globalCss: "assets/droplets-css-def.css",
@@ -157,13 +164,18 @@ describe("translateManifest", () => {
   });
 
   it("leaves an empty shared stylesheet out of the droplets' lists", () => {
-    const manifest = translateManifest(viteManifest, "h4sh", [{ id: "hello", name: "Hello" }], null, [], false);
+    const manifest = translateManifest({
+      viteManifest,
+      buildHash: "h4sh",
+      entries: [{ id: "hello", name: "Hello" }],
+      sharedCss: false,
+    });
     expect(manifest.__globalCss).toBe("assets/droplets-css-def.css");
     expect(manifest.droplets["hello"]?.css).toEqual(["assets/hello-abc.css"]);
   });
 
   it("falls back to default paths without a Vite manifest", () => {
-    const manifest = translateManifest(null, "x", [{ id: "a", name: "a" }]);
+    const manifest = translateManifest({ viteManifest: null, buildHash: "x", entries: [{ id: "a", name: "a" }] });
     expect(manifest.__globalCss).toBe(`assets/${GLOBAL_CSS_NAME}.css`);
     expect(manifest.__entryClient).toBe("index.js");
     // No entry to name: /index.js has nothing to import.
@@ -172,23 +184,25 @@ describe("translateManifest", () => {
   });
 
   it("lists no client bundle for hydrate = false, keeping its stylesheet", () => {
-    const manifest = translateManifest(
-      { "virtual:droplet-client?name=clock": { name: "droplets/clock", css: ["assets/clock.css"] } },
-      "x",
-      [{ id: "clock", name: "clock", hydrate: false }],
-    );
+    const manifest = translateManifest({
+      viteManifest: { "virtual:droplet-client?name=clock": { name: "droplets/clock", css: ["assets/clock.css"] } },
+      buildHash: "x",
+      entries: [{ id: "clock", name: "clock", hydrate: false }],
+    });
     expect(manifest.droplets["clock"]).toEqual({ css: ["assets/clock.css"] });
   });
 
   it("carries the index page, or null", () => {
-    expect(translateManifest(null, "x", []).__index).toBeNull();
-    expect(translateManifest(null, "x", [], "<p>home</p>").__index).toBe("<p>home</p>");
+    expect(translateManifest({ viteManifest: null, buildHash: "x", entries: [] }).__index).toBeNull();
+    expect(translateManifest({ viteManifest: null, buildHash: "x", entries: [], index: "<p>home</p>" }).__index).toBe("<p>home</p>");
   });
 
   it("falls back to path-shaped keys when names are missing", () => {
-    const manifest = translateManifest({ "virtual:droplet-client?name=Hello": { css: ["assets/h.css"] } }, "x", [
-      { id: "hello", name: "Hello" },
-    ]);
+    const manifest = translateManifest({
+      viteManifest: { "virtual:droplet-client?name=Hello": { css: ["assets/h.css"] } },
+      buildHash: "x",
+      entries: [{ id: "hello", name: "Hello" }],
+    });
     expect(manifest.droplets["hello"]?.css).toEqual(["assets/h.css"]);
   });
 
@@ -215,32 +229,38 @@ describe("translateManifest", () => {
       },
       "_Icon-4.js": { file: "assets/chunks/Icon-4.js", name: "Icon", imports: ["_Badge-2.js"], css: ["assets/Icon-4.css"] },
     };
-    const manifest = translateManifest(shared, "x", [
-      { id: "counter", name: "counter" },
-      { id: "hello", name: "hello" },
-    ]);
+    const manifest = translateManifest({
+      viteManifest: shared,
+      buildHash: "x",
+      entries: [
+        { id: "counter", name: "counter" },
+        { id: "hello", name: "hello" },
+      ],
+    });
     expect(manifest.droplets["counter"]?.css).toEqual(["assets/Icon-4.css", "assets/Badge-2.css", "assets/counter-3.css"]);
     expect(manifest.droplets["hello"]?.css).toEqual(["assets/Icon-4.css", "assets/Badge-2.css"]);
     // An import missing from the manifest is skipped, a cycle walked once.
-    expect(collectCss(shared, { imports: ["_gone.js", "_Icon-4.js"] })).toEqual(["assets/Badge-2.css", "assets/Icon-4.css"]);
+    expect(collectCss({ viteManifest: shared, entry: { imports: ["_gone.js", "_Icon-4.js"] } })).toEqual([
+      "assets/Badge-2.css",
+      "assets/Icon-4.css",
+    ]);
   });
 });
 
 describe("the entry stub and the stylesheet registry", () => {
   it("imports the entry relative to the stub's own URL", () => {
-    expect(entryStubCode("assets/index.abc.js")).toBe('import("./assets/index.abc.js");\n');
+    expect(entryStubCode({ entryModule: "assets/index.abc.js" })).toBe('import("./assets/index.abc.js");\n');
   });
 
   it("writes the droplets with stylesheets where the registry left room, whatever the quotes", () => {
     const droplets = { a: { css: ["assets/a.css"] }, b: { client: "droplets/b.js" } };
     for (const quote of ['"', "'", "`"]) {
       const code = `const s=JSON.parse(${quote}__DROPLETS_STYLES__${quote});`;
-      const filled = fillStyles(code, droplets);
+      const filled = fillStyles({ code, droplets });
       expect(filled).not.toContain("__DROPLETS_STYLES__");
-      // eslint-disable-next-line no-new-func
       expect(new Function(`${filled} return s;`)()).toEqual({ a: ["assets/a.css"] });
     }
-    expect(() => fillStyles("const s = {};", droplets)).toThrow(/no room/);
+    expect(() => fillStyles({ code: "const s = {};", droplets })).toThrow(/no room/);
   });
 });
 
@@ -275,7 +295,7 @@ describe("writeManifest", () => {
     state.root = root;
     state.outDir = root;
     state.buildHash = "abc";
-    state.entries = [entry("hello")];
+    state.entries = [entry({ id: "hello" })];
     const path = await writeManifest(state);
     expect(path).toBe(join(root, "client/droplets.json"));
     const written = JSON.parse(await readFile(path, "utf8"));

@@ -58,7 +58,7 @@ async function built(files: Record<string, string>): Promise<string> {
 }
 
 describe("isServerOnlyFile", () => {
-  const server = (path: string) => isServerOnlyFile("/proj", `/proj/${path}`);
+  const server = (path: string) => isServerOnlyFile({ root: "/proj", id: `/proj/${path}` });
 
   it("takes .server. with any extension, +server.* routes and server/ folders", () => {
     for (const path of ["src/lib/db.server.tsx", "src/lib/a.server.mjs", "src/lib/x.server.cts", "src/server/x.ts", "src/api/+server.ts"]) {

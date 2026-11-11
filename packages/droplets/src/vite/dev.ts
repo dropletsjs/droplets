@@ -7,6 +7,7 @@ import { entryServerPath, toViteFsPath } from "../core/paths.ts";
 import { CORE_SUFFIXES } from "../renderer.ts";
 import {
   createDropletsApp,
+  type DropletsApp,
   isActionDataError,
   type GetDropletMeta,
   type LoadClientModule,
@@ -19,7 +20,7 @@ import { withoutRequestInfo } from "../runtime/request-store.ts";
 import { PUBLIC_PATH, publicFileHandler } from "./assets.ts";
 import { withViteIdAliases } from "./externalize.ts";
 import { checkImportMap } from "./importmap-check.ts";
-import { readIndexHtml } from "./index-html.ts";
+import { loadIndexHtml } from "./index-html.ts";
 import { externalsList, fallbackPrerenderHost, type PluginState } from "./state.ts";
 import { syncTypes } from "./sync-types.ts";
 import { clientEntryId, RESOLVED_VIRTUAL_DROPLETS } from "./virtual.ts";
@@ -29,24 +30,34 @@ import { clientEntryId, RESOLVED_VIRTUAL_DROPLETS } from "./virtual.ts";
  * as JSON is the developer's bug, so the answer names it, not only the log.
  * Kept out of the runtime app, which production servers bundle.
  */
-export function devHandleError(handleError: HandleServerError | undefined): HandleServerError {
+export type DevHandleErrorInput = { handleError: HandleServerError | undefined };
+
+export function devHandleError({ handleError }: DevHandleErrorInput): HandleServerError {
   return (input) => (isActionDataError(input.error) ? { message: input.error.message } : handleError?.(input));
 }
 
+export type TransformImportMapInput = { map: ImportMap; externals: string[] };
+
+type DevImportMapInput = {
+  handler: ImportMapHandler | undefined;
+  transform: (input: TransformImportMapInput) => ImportMap;
+};
+
 /** `importmap` under `vite dev`, its map passed through `transform`; anything else is left for the app to refuse. */
-export function devImportMap(
-  handler: ImportMapHandler | undefined,
-  transform: (map: ImportMap, externals: string[]) => ImportMap,
-): ImportMapHandler | undefined {
+export function devImportMap({ handler, transform }: DevImportMapInput): ImportMapHandler | undefined {
   if (!handler) return undefined;
   return async (event) => {
     const externals = [...event.externals];
     const map: unknown = await handler(event);
-    return typeof map === "object" && map !== null && !Array.isArray(map) ? transform(map as ImportMap, externals) : (map as ImportMap);
+    return typeof map === "object" && map !== null && !Array.isArray(map)
+      ? transform({ map: map as ImportMap, externals })
+      : (map as ImportMap);
   };
 }
 
-function normalizePath(value: string): string {
+type NormalizePathInput = { value: string };
+
+function normalizePath({ value }: NormalizePathInput): string {
   return value.replace(/\\/g, "/");
 }
 
@@ -55,21 +66,25 @@ function normalizePath(value: string): string {
  * `extensions`, only component suffixes a renderer handles match; without,
  * any suffix that is not a load file's (`+droplet.ts`, `+droplet.server.ts`).
  */
-export function extractDropletIdFromModuleId(id: string, extensions?: string[]): string | null {
-  const match = normalizePath(id.split("?")[0] ?? "").match(/\/([^/]+)\/\+[Dd]roplet(\.[^/]+)$/);
+export type ExtractDropletIdFromModuleIdInput = { id: string; extensions?: readonly string[] | undefined };
+
+export function extractDropletIdFromModuleId({ id, extensions }: ExtractDropletIdFromModuleIdInput): string | null {
+  const match = normalizePath({ value: id.split("?")[0] ?? "" }).match(/\/([^/]+)\/\+[Dd]roplet(\.[^/]+)$/);
   if (!match?.[1] || !match[2]) return null;
   const suffix = match[2];
   if (CORE_SUFFIXES.has(suffix)) return null;
   if (extensions && !extensions.includes(suffix)) return null;
-  return dropletId(match[1]);
+  return dropletId({ folderName: match[1] });
 }
 
 /** The droplet folder a file belongs to, if it is inside the droplets root. */
-export function dropletForFile(dropletsRoot: string, file: string): string | null {
+export type DropletForFileInput = { dropletsRoot: string; file: string };
+
+export function dropletForFile({ dropletsRoot, file }: DropletForFileInput): string | null {
   const rel = relative(dropletsRoot, file);
   if (!rel || rel.startsWith("..") || rel.includes(`..${sep}`)) return null;
   const folder = rel.split(sep)[0];
-  return folder ? dropletId(folder) : null;
+  return folder ? dropletId({ folderName: folder }) : null;
 }
 
 /**
@@ -78,15 +93,17 @@ export function dropletForFile(dropletsRoot: string, file: string): string | nul
  * is traced upwards through the module graph until droplet entries are
  * found, so editing a shared file refreshes every droplet using it.
  */
-export function affectedDroplets(
-  dropletsRoot: string,
-  file: string,
-  modules: Iterable<EnvironmentModuleNode>,
-  extensions?: string[],
-): Set<string> {
+export type AffectedDropletsInput = {
+  dropletsRoot: string;
+  file: string;
+  modules: Iterable<EnvironmentModuleNode>;
+  extensions?: readonly string[];
+};
+
+export function affectedDroplets({ dropletsRoot, file, modules, extensions }: AffectedDropletsInput): Set<string> {
   const found = new Set<string>();
 
-  const direct = dropletForFile(dropletsRoot, file);
+  const direct = dropletForFile({ dropletsRoot, file });
   if (direct) {
     found.add(direct);
     return found;
@@ -100,7 +117,7 @@ export function affectedDroplets(
     visited.add(mod);
 
     if (mod.id) {
-      const droplet = extractDropletIdFromModuleId(mod.id, extensions);
+      const droplet = extractDropletIdFromModuleId({ id: mod.id, extensions });
       if (droplet) found.add(droplet);
     }
     for (const importer of mod.importers) {
@@ -112,10 +129,12 @@ export function affectedDroplets(
 }
 
 /** `/src/droplets/Hello/+droplet.server.ts` -> `{ droplet: "hello", server: true }`: a droplet's load file. */
-export function extractLoadFromModuleId(id: string): { droplet: string; server: boolean } | null {
-  const match = normalizePath(id.split("?")[0] ?? "").match(/\/([^/]+)\/\+[Dd]roplet(\.server)?\.[cm]?[jt]s$/);
+export type ExtractLoadFromModuleIdInput = { id: string };
+
+export function extractLoadFromModuleId({ id }: ExtractLoadFromModuleIdInput): { droplet: string; server: boolean } | null {
+  const match = normalizePath({ value: id.split("?")[0] ?? "" }).match(/\/([^/]+)\/\+[Dd]roplet(\.server)?\.[cm]?[jt]s$/);
   if (!match?.[1]) return null;
-  return { droplet: dropletId(match[1]), server: match[2] !== undefined };
+  return { droplet: dropletId({ folderName: match[1] }), server: match[2] !== undefined };
 }
 
 /** What an edit touches in one droplet: its component side, its loads, and which. */
@@ -136,13 +155,21 @@ export type DropletChange = {
  * server's): reaching a component makes it a component edit of that droplet,
  * reaching `+droplet.ts` or `+droplet.server.ts` a load edit.
  */
-export function classifyChange(
-  dropletsRoot: string,
-  file: string,
-  modules: Iterable<EnvironmentModuleNode>,
-  extensions?: string[],
-  isServerFile: (file: string) => boolean = () => false,
-): Map<string, DropletChange> {
+export type ClassifyChangeInput = {
+  dropletsRoot: string;
+  file: string;
+  modules: Iterable<EnvironmentModuleNode>;
+  extensions?: readonly string[];
+  isServerFile?: (file: string) => boolean;
+};
+
+export function classifyChange({
+  dropletsRoot,
+  file,
+  modules,
+  extensions,
+  isServerFile = () => false,
+}: ClassifyChangeInput): Map<string, DropletChange> {
   const changes = new Map<string, DropletChange>();
   const at = (droplet: string): DropletChange => {
     let change = changes.get(droplet);
@@ -150,9 +177,9 @@ export function classifyChange(
     return change;
   };
 
-  const direct = dropletForFile(dropletsRoot, file);
+  const direct = dropletForFile({ dropletsRoot, file });
   if (direct) {
-    const load = extractLoadFromModuleId(file);
+    const load = extractLoadFromModuleId({ id: file });
     const change = at(direct);
     if (load) {
       change.load = true;
@@ -172,9 +199,9 @@ export function classifyChange(
     if (!mod || visited.has(mod)) continue;
     visited.add(mod);
     if (mod.id) {
-      const component = extractDropletIdFromModuleId(mod.id, extensions);
+      const component = extractDropletIdFromModuleId({ id: mod.id, extensions });
       if (component) at(component).component = true;
-      const load = extractLoadFromModuleId(mod.id);
+      const load = extractLoadFromModuleId({ id: mod.id });
       if (load) {
         const change = at(load.droplet);
         change.load = true;
@@ -193,7 +220,9 @@ export function classifyChange(
  * when a droplet folder appears or disappears, since the registry is derived
  * from the filesystem rather than from any import.
  */
-export function invalidateRegistry(server: ViteDevServer): void {
+type InvalidateRegistryInput = { server: ViteDevServer };
+
+export function invalidateRegistry({ server }: InvalidateRegistryInput): void {
   for (const env of Object.values(server.environments)) {
     const mod = env.moduleGraph.getModuleById(RESOLVED_VIRTUAL_DROPLETS);
     if (mod) env.moduleGraph.invalidateModule(mod);
@@ -207,7 +236,9 @@ export type DevRuntime = {
   folderById: () => Map<string, string>;
 };
 
-export function createDevRuntime(server: ViteDevServer, state: PluginState): DevRuntime {
+export type DevRuntimeOptions = { server: ViteDevServer; state: PluginState };
+
+export function createDevRuntime({ server, state }: DevRuntimeOptions): DevRuntime {
   let folderById = new Map<string, string>();
 
   const ssrEnvironment = (): DevEnvironment | undefined => server.environments["ssr"];
@@ -220,13 +251,13 @@ export function createDevRuntime(server: ViteDevServer, state: PluginState): Dev
       if (env && isRunnableDevEnvironment(env)) {
         return (await env.runner.import(entryServerPath)) as SsrModule;
       }
-      return (await server.ssrLoadModule(toViteFsPath(entryServerPath))) as SsrModule;
+      return (await server.ssrLoadModule(toViteFsPath({ filePath: entryServerPath }))) as SsrModule;
     });
 
   const refreshDropletMap = async () => {
     let entries: DropletEntry[];
     try {
-      entries = await discoverDroplets(state.dropletsRoot, state.renderers, { dev: true });
+      entries = await discoverDroplets({ dropletsRoot: state.dropletsRoot, renderers: state.renderers, dev: true });
     } catch (error) {
       // A folder in a bad state (two components, an unknown extension):
       // keep serving what was there and say what is wrong.
@@ -250,7 +281,9 @@ export function createDevRuntime(server: ViteDevServer, state: PluginState): Dev
  * The Hono app for `vite dev`: Vite transforms modules on demand, the SSR
  * module is re-evaluated per request so edits show up without a restart.
  */
-export function createDevApp(server: ViteDevServer, state: PluginState, runtime: DevRuntime) {
+export type DevAppOptions = { server: ViteDevServer; state: PluginState; runtime: DevRuntime };
+
+export function createDevApp({ server, state, runtime }: DevAppOptions): DropletsApp {
   const { config } = state;
 
   const renderDroplet: RenderDroplet = async (name, event, options) => {
@@ -278,12 +311,12 @@ export function createDevApp(server: ViteDevServer, state: PluginState, runtime:
   const loadClientModule: LoadClientModule = async (name) => {
     if (!runtime.folderById().has(name)) await runtime.refreshDropletMap();
     const folder = runtime.folderById().get(name) ?? name;
-    const result = await clientEnvironment().transformRequest(clientEntryId(folder));
+    const result = await clientEnvironment().transformRequest(clientEntryId({ folderName: folder }));
     return result?.code ?? null;
   };
 
   const loadEntryClient = async () => {
-    const result = await clientEnvironment().transformRequest(toViteFsPath(state.entryClientPath));
+    const result = await clientEnvironment().transformRequest(toViteFsPath({ filePath: state.entryClientPath }));
     return result?.code ?? null;
   };
 
@@ -305,7 +338,7 @@ export function createDevApp(server: ViteDevServer, state: PluginState, runtime:
    */
   const dropletStyles = (): string[] => [];
 
-  /** Warnings already printed, so an unchanged map does not repeat them. */
+  // Printed once each, so an unchanged map does not repeat them.
   const warned = new Set<string>();
 
   const app = createDropletsApp({
@@ -314,15 +347,18 @@ export function createDevApp(server: ViteDevServer, state: PluginState, runtime:
     importMap: config.importMap,
     // Vite serves bare imports as `/@id/<name>` in dev; map both spellings.
     getImportMap: async () =>
-      devImportMap((await runtime.loadSsrModule()).getImportMap?.(), (map, externals) => {
-        if (config.warnImportMap) {
-          for (const warning of checkImportMap(map, externals, state.root)) {
-            if (warned.has(warning)) continue;
-            warned.add(warning);
-            logger.warn("framework", `importmap: ${warning} (warnImportMap: false hides this)`);
+      devImportMap({
+        handler: (await runtime.loadSsrModule()).getImportMap?.(),
+        transform: ({ map, externals }) => {
+          if (config.warnImportMap) {
+            for (const warning of checkImportMap({ map, externals, root: state.root })) {
+              if (warned.has(warning)) continue;
+              warned.add(warning);
+              logger.warn("framework", `importmap: ${warning} (warnImportMap: false hides this)`);
+            }
           }
-        }
-        return { ...map, imports: withViteIdAliases(map.imports) ?? {} };
+          return { ...map, imports: withViteIdAliases({ importMap: map.imports }) ?? {} };
+        },
       }),
     externals: () => externalsList(state),
     // Re-read per request, so editing hooks.server.ts or a +server.ts shows
@@ -330,7 +366,7 @@ export function createDevApp(server: ViteDevServer, state: PluginState, runtime:
     getHandle: async () => (await runtime.loadSsrModule()).getHandle?.(),
     matchApi: async (pathname) => (await runtime.loadSsrModule()).matchApi?.(pathname) ?? null,
     renderError: async (name, error) => (await runtime.loadSsrModule()).renderError?.(name, error) ?? null,
-    getHandleError: async () => devHandleError((await runtime.loadSsrModule()).getHandleError?.()),
+    getHandleError: async () => devHandleError({ handleError: (await runtime.loadSsrModule()).getHandleError?.() }),
     validateProps: async (name, props) => {
       const mod = await runtime.loadSsrModule();
       return mod.validateDropletProps ? mod.validateDropletProps(name, props) : props;
@@ -360,7 +396,7 @@ export function createDevApp(server: ViteDevServer, state: PluginState, runtime:
       };
     },
     // The devtools answer `/` before this app when they are installed.
-    loadIndex: () => readIndexHtml(state.root, config.index),
+    loadIndex: () => loadIndexHtml({ root: state.root, index: config.index }),
     renderDroplet,
     loadDropletData,
     getDropletMeta,

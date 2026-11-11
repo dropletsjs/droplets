@@ -28,12 +28,15 @@ function pageUrl(): string {
   return url.href;
 }
 
+type FormResultHostInput = { host: string; droplet: string };
+
 /** Whether `host` has a `__droplet_form_<droplet>_*` key: a result `_data` may answer with. */
-function carriesFormResult(host: string, droplet: string): boolean {
+function carriesFormResult({ host, droplet }: FormResultHostInput): boolean {
   try {
     const prefix = `${FORM_RESULT_PREFIX}${droplet}_`;
     return [...splitFormResults(new URL(host)).results.keys()].some((key) => key.startsWith(prefix));
   } catch {
+    // A host that is no URL carries nothing.
     return false;
   }
 }
@@ -42,15 +45,16 @@ function carriesFormResult(host: string, droplet: string): boolean {
  * `host` with the page's own `__droplet_form_<droplet>_*` result added, when
  * the page's URL has one and `host` has none: the server verifies it.
  */
-function withPageResult(host: string, droplet: string): string {
+function withPageResult({ host, droplet }: FormResultHostInput): string {
   try {
     const prefix = `${FORM_RESULT_PREFIX}${droplet}_`;
     const own = [...splitFormResults(new URL(pageUrl())).results].filter(([key]) => key.startsWith(prefix));
-    if (own.length === 0 || carriesFormResult(host, droplet)) return host;
+    if (own.length === 0 || carriesFormResult({ host, droplet })) return host;
     const url = new URL(host);
     for (const [key, value] of own) url.searchParams.append(key, value);
     return url.href;
   } catch {
+    // A host that is no URL goes back as it came: the server decides.
     return host;
   }
 }
@@ -132,9 +136,10 @@ export type DropletClientModule = {
  * props the schema refused, an answer from `_data` that is not a payload.
  * Logged, and the droplet stays empty.
  */
+// A class: an error the element branches on, the stale build one included.
 class NothingToRender extends Error {}
 
-/** The server answered from another build; already reported, not a droplet error. */
+/** The server answered from another build; already reported, not a droplet error. A class: the element branches on it. */
 class StaleBuildError extends NothingToRender {}
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -161,8 +166,10 @@ const STYLE_LINK = "link[data-droplet-style]";
 /** What can hold focus in a droplet's markup, to put focus back after a form action renders it again. */
 const FOCUSABLE = "a[href],button,input,select,textarea,[tabindex]";
 
+type StylesheetSettledInput = { link: HTMLLinkElement };
+
 /** Settles once the stylesheet has loaded or failed; its listeners go on before it is inserted. */
-function stylesheetSettled(link: HTMLLinkElement): Promise<void> {
+function stylesheetSettled({ link }: StylesheetSettledInput): Promise<void> {
   return new Promise((resolve) => {
     link.addEventListener("load", () => resolve(), { once: true });
     link.addEventListener("error", () => resolve(), { once: true });
@@ -193,7 +200,9 @@ type Movable = Element & { moveBefore?: (node: Node, child: Node | null) => void
  * (or both detached), and older browsers lack it: then the nodes are
  * re-inserted, which disconnects and reconnects them.
  */
-function moveInto(parent: Element, nodes: Iterable<Node>): void {
+type MoveIntoInput = { parent: Element; nodes: Iterable<Node> };
+
+function moveInto({ parent, nodes }: MoveIntoInput): void {
   for (const node of Array.from(nodes)) {
     const movable = parent as Movable;
     if (typeof movable.moveBefore === "function") {
@@ -244,10 +253,49 @@ const CLICK_REPLAY_HARD_CAP = 10_000;
  */
 const CLICK_RETRY_GAP = 400;
 
+type InlinePayload<T> = { found: boolean; data: T | undefined };
+type ReadInlineInput = { selector: string };
+type WithCacheBustInput = { url: string; token?: string | undefined };
+type EnsureDropletStyleInput = { droplet: string; contentRoot: HTMLElement };
+type ContentRootInput = { contentRoot: HTMLElement };
+type MarkerInput = { marker: Element };
+type RenderInfoInput = { contentRoot: HTMLElement; props?: Record<string, unknown> };
+type CaptureClicksInput = { root: HTMLElement };
+type QueuedClickInput = { node: Element; event: MouseEvent };
+type ReportStaleInput = { droplet: string; served: string };
+type FetchServerDataInput = { droplet: string; context: WireContext };
+type ServerDataInput = FetchServerDataInput & { refresh: boolean };
+export type ImportModuleInput = { droplet: string; cacheBust: boolean };
+type RenderInput = {
+  droplet: string;
+  contentRoot: HTMLElement;
+  run: number;
+  cacheBust: boolean;
+  reset: boolean;
+  refresh: boolean;
+  form?: { value: unknown };
+};
+type GiveUpInput = { contentRoot: HTMLElement; mod: DropletClientModule; run: number; mounted: () => Promise<unknown> };
+type BoundaryHandlerInput = GiveUpInput & { droplet: string };
+type ShowErrorInput = { droplet: string; contentRoot: HTMLElement; mod: DropletClientModule; error: unknown; reset: boolean; run: number };
+export type StartInput = { droplet: string; contentRoot: HTMLElement; run: number; cacheBust: boolean };
+type DiscardOrphanInput = { unmount: DropletClientModule["unmount"]; instance: unknown };
+type DestroyInstanceInput = { fallbackUnmount?: DropletClientModule["unmount"] };
+type HydrateModeInput = { droplet: string; hasMarkup: boolean };
+export type ModeOfInput = { flag: HydrateMode; hasMarkup: boolean };
+export type WaitForInput = { mode: "visible" | "interactive"; contentRoot: HTMLElement; hasMarkup: boolean };
+type SwapInput = { droplet: string; contentRoot: HTMLElement; fresh: Element | null; run: number; cacheBust: boolean };
+type OnSubmitInput = { event: Event };
+/** Where focus was in the droplet's own markup: its control's place among them, and its tag. */
+type FocusSpot = { index: number; tag: string };
+type RestoreFocusInput = { contentRoot: HTMLElement; spot: FocusSpot | null };
+type FetchFragmentInput = { droplet: string; action?: { form: unknown } };
+type AdoptInput = { fresh: Element; contentRoot: HTMLElement };
+
 /**
  * Hosts one droplet. The element is self-sufficient: it knows which origin to
  * load its JS, CSS and data from, so a page can embed droplets served by
- * several different processes.
+ * several different processes. A class: the platform's custom element.
  */
 export class DjsDropletElement extends HTMLElement {
   // The members named `_…` are internal, not `#private`: under `vite dev`,
@@ -293,7 +341,7 @@ export class DjsDropletElement extends HTMLElement {
     super();
     // On the element, in the bubbling phase: the component's own handlers
     // run first, and a submit one of them prevented is left alone.
-    this.addEventListener("submit", (event) => this.#onSubmit(event));
+    this.addEventListener("submit", (event) => this.#onSubmit({ event }));
   }
 
   /** Imports a droplet's browser entry. Replaceable, for tests. */
@@ -321,7 +369,7 @@ export class DjsDropletElement extends HTMLElement {
     return serverLocation({ key: serverKey(elementName, buildHash) });
   }
 
-  #withCacheBust(url: string, token?: string): string {
+  #withCacheBust({ url, token }: WithCacheBustInput): string {
     const parsed = new URL(url, this.#location());
     if (buildHash) parsed.searchParams.set("c", buildHash);
     if (token) parsed.searchParams.set("t", token);
@@ -335,7 +383,7 @@ export class DjsDropletElement extends HTMLElement {
    * imports preloaded beside it, so they download at once rather than after
    * it. All of it alongside the bundle and the data.
    */
-  #ensureDropletStyle(droplet: string, contentRoot: HTMLElement): void {
+  #ensureDropletStyle({ droplet, contentRoot }: EnsureDropletStyleInput): void {
     const files = styleRegistry.get(droplet);
     if (!files?.length || this.querySelector(`:scope > ${STYLE_LINK}`)) return;
     const base = this.#location().replace(/\/$/, "");
@@ -349,9 +397,9 @@ export class DjsDropletElement extends HTMLElement {
     }
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = this.#withCacheBust(`${base}/droplets/${encodeURIComponent(droplet)}/style.css`);
+    link.href = this.#withCacheBust({ url: `${base}/droplets/${encodeURIComponent(droplet)}/style.css` });
     link.setAttribute("data-droplet-style", "");
-    this.#ownStyle = { link, ready: stylesheetSettled(link) };
+    this.#ownStyle = { link, ready: stylesheetSettled({ link }) };
     this.insertBefore(link, contentRoot);
   }
 
@@ -367,17 +415,17 @@ export class DjsDropletElement extends HTMLElement {
     if (this.#ownStyle?.link === link) return this.#ownStyle.ready;
     if (link.sheet) return Promise.resolve();
     const fresh = link.cloneNode() as HTMLLinkElement;
-    this.#ownStyle = { link: fresh, ready: stylesheetSettled(fresh) };
+    this.#ownStyle = { link: fresh, ready: stylesheetSettled({ link: fresh }) };
     link.replaceWith(fresh);
     return this.#ownStyle.ready;
   }
 
   /** An inline payload of this element, never of a droplet nested in it. */
-  _readInline<T>(selector: string): { found: boolean; data: T | undefined } {
+  _readInline<T>({ selector }: ReadInlineInput): InlinePayload<T> {
     const raw = this.querySelector(`:scope > ${selector}`)?.textContent?.trim();
     if (!raw) return { found: false, data: undefined };
     try {
-      return { found: true, data: decodeBase64Json<T>(raw) };
+      return { found: true, data: decodeBase64Json<T>({ encoded: raw }) };
     } catch (error) {
       console.error(`[droplets] failed to parse ${selector}`, error);
       return { found: true, data: undefined };
@@ -402,13 +450,13 @@ export class DjsDropletElement extends HTMLElement {
       };
     };
 
-    const inline = this._readInline<unknown>("[data-droplet-context]");
+    const inline = this._readInline<unknown>({ selector: "[data-droplet-context]" });
     if (inline.found) return complete(inline.data) ?? { host: here, props: {} };
 
     const attr = this.dataset["context"];
     if (attr) {
       try {
-        return complete(decodeBase64Json(attr)) ?? { host: here, props: {} };
+        return complete(decodeBase64Json({ encoded: attr })) ?? { host: here, props: {} };
       } catch (error) {
         console.error("[droplets] failed to parse data-context", error);
       }
@@ -453,7 +501,7 @@ export class DjsDropletElement extends HTMLElement {
    * The markers the server rendered for this droplet: those under the
    * content root that belong to no nested droplet element.
    */
-  #serverMarkers(contentRoot: HTMLElement): Element[] {
+  #serverMarkers({ contentRoot }: ContentRootInput): Element[] {
     return Array.from(contentRoot.querySelectorAll(MARKER)).filter((marker) => marker.closest("[data-droplet]") === this);
   }
 
@@ -463,11 +511,11 @@ export class DjsDropletElement extends HTMLElement {
    * under a false `if`, or rendered nothing yet) it waits as a hidden direct
    * child, in the document, so droplets among the children load meanwhile.
    */
-  #placeContainer(contentRoot: HTMLElement): void {
+  #placeContainer({ contentRoot }: ContentRootInput): void {
     const container = this.#container;
     if (!container) return;
-    const marker = this.#serverMarkers(contentRoot)[0];
-    if (marker) this.#fillMarker(marker);
+    const [marker] = this.#serverMarkers({ contentRoot });
+    if (marker) this.#fillMarker({ marker });
     else this.#parkContainer();
   }
 
@@ -475,28 +523,28 @@ export class DjsDropletElement extends HTMLElement {
   #parkContainer(): void {
     const container = this.#container;
     if (!container) return;
-    if (container.parentNode !== this) moveInto(this, [container]);
+    if (container.parentNode !== this) moveInto({ parent: this, nodes: [container] });
     container.hidden = true;
   }
 
   /** The container into `marker`, shown. */
-  #fillMarker(marker: Element): void {
+  #fillMarker({ marker }: MarkerInput): void {
     const container = this.#container;
     if (!container) return;
-    if (container.parentNode !== marker) moveInto(marker, [container]);
+    if (container.parentNode !== marker) moveInto({ parent: marker, nodes: [container] });
     container.hidden = false;
   }
 
   /** Nothing rendered at all: the host's children show, under the element as they were. */
-  #revealChildren(contentRoot: HTMLElement): void {
+  #revealChildren({ contentRoot }: ContentRootInput): void {
     const container = this.#container;
     if (container && container.parentNode === this && contentRoot.childNodes.length === 0) container.hidden = false;
   }
 
-  #renderInfo(contentRoot: HTMLElement, props: Record<string, unknown> = this._context.props): DropletRenderInfo {
+  #renderInfo({ contentRoot, props = this._context.props }: RenderInfoInput): DropletRenderInfo {
     return {
       renderId: this.dataset["renderId"],
-      markers: () => this.#serverMarkers(contentRoot),
+      markers: () => this.#serverMarkers({ contentRoot }),
       location: this.#location(),
       props,
     };
@@ -507,8 +555,8 @@ export class DjsDropletElement extends HTMLElement {
     return {
       fill: (marker) => {
         this.#markers.add(marker);
-        if (marker.isConnected) this.#fillMarker(marker);
-        else this.#fillOnceConnected(marker);
+        if (marker.isConnected) this.#fillMarker({ marker });
+        else this.#fillOnceConnected({ marker });
       },
       empty: (marker) => {
         this.#markers.delete(marker);
@@ -524,13 +572,13 @@ export class DjsDropletElement extends HTMLElement {
    * marker would disconnect it; it waits under the element instead, and goes
    * in once the marker is in the document, where `moveBefore` keeps it alive.
    */
-  #fillOnceConnected(marker: Element): void {
+  #fillOnceConnected({ marker }: MarkerInput): void {
     this.#pendingMarkers.add(marker);
     this.#markerWatcher ??= new MutationObserver(() => {
       for (const pending of Array.from(this.#pendingMarkers)) {
         if (!pending.isConnected) continue;
         this.#pendingMarkers.delete(pending);
-        this.#fillMarker(pending);
+        this.#fillMarker({ marker: pending });
       }
       if (this.#pendingMarkers.size === 0) {
         this.#markerWatcher?.disconnect();
@@ -563,7 +611,7 @@ export class DjsDropletElement extends HTMLElement {
    * children in their container are the host's business, and a nested
    * droplet holds its own.
    */
-  #captureClicks(root: HTMLElement): void {
+  #captureClicks({ root }: CaptureClicksInput): void {
     const listener = (event: Event) => {
       const target = event.target instanceof Element ? event.target : null;
       if (!target || target.closest("[data-droplet]") !== this || target.closest(CONTAINER)) return;
@@ -573,7 +621,7 @@ export class DjsDropletElement extends HTMLElement {
       // it hit, which hydration keeps.
       const hit = event.composedPath()[0];
       const node = hit instanceof Element ? hit : target;
-      const click = this.#queuedClick(node, event as MouseEvent);
+      const click = this.#queuedClick({ node, event: event as MouseEvent });
       const last = this.#clickQueue.at(-1);
       const retry = last?.node === node && last.detail === 1 && click.detail === 1 && click.time - last.time > CLICK_RETRY_GAP;
       if (retry) this.#clickQueue[this.#clickQueue.length - 1] = click;
@@ -583,7 +631,7 @@ export class DjsDropletElement extends HTMLElement {
     this.#clickCapture = { root, listener };
   }
 
-  #queuedClick(node: Element, event: MouseEvent): QueuedClick {
+  #queuedClick({ node, event }: QueuedClickInput): QueuedClick {
     const rect = node.getBoundingClientRect();
     return {
       node,
@@ -660,7 +708,7 @@ export class DjsDropletElement extends HTMLElement {
   connectedMoveCallback(): void {}
 
   /** Tells the page this loader is older (or newer) than the server. */
-  #reportStale(droplet: string, served: string): void {
+  #reportStale({ droplet, served }: ReportStaleInput): void {
     const detail: DropletStaleDetail = { element: elementName, droplet, loaded: buildHash, served };
     this.dispatchEvent(new CustomEvent(STALE_EVENT, { bubbles: true, composed: true, detail }));
   }
@@ -670,7 +718,7 @@ export class DjsDropletElement extends HTMLElement {
    * Anything else (`error()`, a redirect, an unhandled failure) is an
    * endpoint's answer, not something the droplet can show.
    */
-  async #fetchServerData(droplet: string, context: WireContext): Promise<Payload> {
+  async #fetchServerData({ droplet, context }: FetchServerDataInput): Promise<Payload> {
     const base = this.#location().replace(/\/$/, "");
     const url = new URL(`${base}/droplets/${encodeURIComponent(droplet)}/_data`);
     // The cache-buster only: props travel in the body's context, and the
@@ -686,7 +734,7 @@ export class DjsDropletElement extends HTMLElement {
     });
     const served = response.headers.get("x-droplets-build");
     if (buildHash && served && served !== buildHash) {
-      this.#reportStale(droplet, served);
+      this.#reportStale({ droplet, served });
       throw new StaleBuildError(`${droplet}: served by build ${served}, this page runs ${buildHash}`);
     }
     const payload: unknown = await response.json().catch(() => undefined);
@@ -708,13 +756,13 @@ export class DjsDropletElement extends HTMLElement {
    * when the context is the same, else a new one. A request that fails or
    * answers an error is forgotten, so the next connect asks again.
    */
-  _serverData(droplet: string, context: WireContext, refresh: boolean): Promise<Payload> {
+  _serverData({ droplet, context, refresh }: ServerDataInput): Promise<Payload> {
     const key = `${droplet}\n${context.host}\n${propsKey(context.props)}`;
     if (!refresh && this._dataRequest?.key === key) return this._dataRequest.promise;
     const forget = () => {
       if (this._dataRequest?.promise === promise) this._dataRequest = null;
     };
-    const promise: Promise<Payload> = this.#fetchServerData(droplet, context).then(
+    const promise: Promise<Payload> = this.#fetchServerData({ droplet, context }).then(
       (payload) => {
         if (payload.failed) forget();
         return payload;
@@ -729,13 +777,13 @@ export class DjsDropletElement extends HTMLElement {
   }
 
   /** The droplet's browser entry; `null` (logged) when it cannot load. */
-  async _importModule(droplet: string, cacheBust: boolean): Promise<DropletClientModule | null> {
+  async _importModule({ droplet, cacheBust }: ImportModuleInput): Promise<DropletClientModule | null> {
     try {
       const base = this.#location().replace(/\/$/, "");
-      const clientUrl = this.#withCacheBust(
-        `${base}/droplets/${encodeURIComponent(droplet)}/client.js`,
-        cacheBust ? Date.now().toString() : undefined,
-      );
+      const clientUrl = this.#withCacheBust({
+        url: `${base}/droplets/${encodeURIComponent(droplet)}/client.js`,
+        token: cacheBust ? Date.now().toString() : undefined,
+      });
       return await DjsDropletElement.importModule(clientUrl);
     } catch (error) {
       console.error("[droplets] failed to render droplet", error);
@@ -753,13 +801,8 @@ export class DjsDropletElement extends HTMLElement {
    * rejection that reaches it. The schema runs first where no server did.
    * `false` when nothing rendered, or when `run` is over.
    */
-  async #render(
-    droplet: string,
-    contentRoot: HTMLElement,
-    options: { cacheBust: boolean; reset: boolean; refresh: boolean; form?: { value: unknown } },
-    run: number,
-  ): Promise<boolean> {
-    const mod = await this._importModule(droplet, options.cacheBust);
+  async #render({ droplet, contentRoot, run, cacheBust, reset, refresh, form: action }: RenderInput): Promise<boolean> {
+    const mod = await this._importModule({ droplet, cacheBust });
     if (run !== this._run) return false;
     if (!mod) {
       contentRoot.replaceChildren();
@@ -771,14 +814,14 @@ export class DjsDropletElement extends HTMLElement {
     try {
       const context = this._context;
       let props = context.props;
-      const inline = options.refresh ? { found: false, data: undefined } : this._readInline<unknown>("[data-droplet-data]");
+      const inline = refresh ? { found: false, data: undefined } : this._readInline<unknown>({ selector: "[data-droplet-data]" });
       const inlinePayload = (): Payload =>
         isObject(inline.data) && "error" in inline.data
           ? { failed: true, error: inline.data["error"] }
           : { data: isObject(inline.data) ? inline.data["data"] : undefined };
       // After a form action the server rendered with `form`: so does the browser.
-      let form: { form?: unknown } = options.form
-        ? { form: options.form.value }
+      let form: { form?: unknown } = action
+        ? { form: action.value }
         : inline.found && isObject(inline.data) && inline.data["form"] !== undefined
           ? { form: inline.data["form"] }
           : {};
@@ -799,22 +842,22 @@ export class DjsDropletElement extends HTMLElement {
         return mod.load ? mod.load({ host, props, data: payload.data }) : payload.data;
       };
 
-      if (inline.found && !options.reset && contentRoot.childNodes.length > 0) {
+      if (inline.found && !reset && contentRoot.childNodes.length > 0) {
         const payload = inlinePayload();
-        if (payload.failed) return this.#showError(droplet, contentRoot, mod, payload.error, true, run);
+        if (payload.failed) return this.#showError({ droplet, contentRoot, mod, error: payload.error, reset: true, run });
         // What the server rendered with: hydration must see the same values.
         const data = await settle(load(payload));
         if (run !== this._run) return false;
-        await this.#destroyInstance(mod.unmount);
+        await this.#destroyInstance({ fallbackUnmount: mod.unmount });
         if (run !== this._run) return false;
         // An engine comparing the server markup with its own tree would take
         // the container in the marker for a mismatch: out before, back in
         // through `fill` as it hydrates, in one task, so nothing paints between.
         this.#parkContainer();
         this.#hydrateAttempt = Date.now();
-        const instance = await render(contentRoot, data, this.#childrenHost(), { ...this.#renderInfo(contentRoot, props), ...form });
+        const instance = await render(contentRoot, data, this.#childrenHost(), { ...this.#renderInfo({ contentRoot, props }), ...form });
         // The run ended while the engine was still at it: nothing owns the handle.
-        if (run !== this._run) return this.#discardOrphan(mod.unmount, instance);
+        if (run !== this._run) return this.#discardOrphan({ unmount: mod.unmount, instance });
         this._instance = instance;
         this.#unmount = mod.unmount ?? null;
         return true;
@@ -824,20 +867,20 @@ export class DjsDropletElement extends HTMLElement {
       // A no-JavaScript action's result for this droplet in the page's URL
       // goes to `_data` with the context's host (a server-fetched fragment's
       // context never has it), and the droplet waits for both.
-      const dataHost = options.form ? context.host : withPageResult(context.host, droplet);
+      const dataHost = action ? context.host : withPageResult({ host: context.host, droplet });
       const payload: Promise<Payload> = inline.found
         ? Promise.resolve(inlinePayload())
         : serverLoadRegistry.has(droplet)
-          ? this._serverData(droplet, { host: dataHost, props }, options.refresh)
+          ? this._serverData({ droplet, context: { host: dataHost, props }, refresh })
           : Promise.resolve({ data: undefined });
-      const carried = !options.form && !inline.found && serverLoadRegistry.has(droplet) && carriesFormResult(dataHost, droplet);
+      const carried = !action && !inline.found && serverLoadRegistry.has(droplet) && carriesFormResult({ host: dataHost, droplet });
       let data: unknown;
-      if (options.form || carried) {
+      if (action || carried) {
         // After a form action: the loads first, then the component, in one
         // task, so the droplet never shows a pending state in between.
         const answered = await payload;
         if (run !== this._run) return false;
-        if (answered.failed) return this.#showError(droplet, contentRoot, mod, answered.error, true, run);
+        if (answered.failed) return this.#showError({ droplet, contentRoot, mod, error: answered.error, reset: true, run });
         if (carried && answered.form !== undefined) form = { form: answered.form };
         data = await settle(load(answered));
         if (run !== this._run) return false;
@@ -847,36 +890,36 @@ export class DjsDropletElement extends HTMLElement {
           // Nothing the component could show (a stale build, an answer that is
           // no payload): the droplet goes, and `data` never settles.
           if (!(error instanceof StaleBuildError)) console.error(`[droplets] ${droplet}:`, error.message);
-          void this.#giveUp(contentRoot, mod, run, () => mounted);
+          void this.#giveUp({ contentRoot, mod, run, mounted: () => mounted });
           return new Promise<never>(() => {});
         });
       }
       await this.#stylesheetReady();
       if (run !== this._run) return false;
-      await this.#destroyInstance(mod.unmount);
+      await this.#destroyInstance({ fallbackUnmount: mod.unmount });
       if (run !== this._run) return false;
       this.#parkContainer();
       contentRoot.replaceChildren();
       const info = {
-        ...this.#renderInfo(contentRoot, props),
+        ...this.#renderInfo({ contentRoot, props }),
         ...form,
-        handleError: this.#boundaryHandler(droplet, contentRoot, mod, run, () => mounted),
+        handleError: this.#boundaryHandler({ droplet, contentRoot, mod, run, mounted: () => mounted }),
       };
       mounted = Promise.resolve(render(contentRoot, data, this.#childrenHost(), info));
       const instance = await mounted;
-      if (run !== this._run) return this.#discardOrphan(mod.unmount, instance);
+      if (run !== this._run) return this.#discardOrphan({ unmount: mod.unmount, instance });
       this._instance = instance;
       this.#unmount = mod.unmount ?? null;
     } catch (error) {
       if (run !== this._run) return false;
       if (error instanceof NothingToRender) {
         if (!(error instanceof StaleBuildError)) console.error(`[droplets] ${droplet}:`, error.message);
-        await this.#destroyInstance(mod.unmount);
+        await this.#destroyInstance({ fallbackUnmount: mod.unmount });
         contentRoot.replaceChildren();
         return false;
       }
       console.error(`[droplets] ${droplet} failed`, error);
-      return this.#showError(droplet, contentRoot, mod, error, true, run);
+      return this.#showError({ droplet, contentRoot, mod, error, reset: true, run });
     }
     return true;
   }
@@ -887,13 +930,7 @@ export class DjsDropletElement extends HTMLElement {
    * when there is nothing to show: the run is over, or `handleError` threw,
    * and then the droplet goes as one that renders nothing.
    */
-  #boundaryHandler(
-    droplet: string,
-    contentRoot: HTMLElement,
-    mod: DropletClientModule,
-    run: number,
-    mounted: () => Promise<unknown>,
-  ): (error: unknown) => Promise<unknown> {
+  #boundaryHandler({ droplet, contentRoot, mod, run, mounted }: BoundaryHandlerInput): (error: unknown) => Promise<unknown> {
     return async (error) => {
       if (run !== this._run) throw error;
       console.error(`[droplets] ${droplet} failed`, error);
@@ -901,7 +938,7 @@ export class DjsDropletElement extends HTMLElement {
         return mod.handleError ? await mod.handleError(error) : error;
       } catch (handleError) {
         console.error(`[droplets] ${droplet}: handleError threw`, handleError);
-        void this.#giveUp(contentRoot, mod, run, mounted);
+        void this.#giveUp({ contentRoot, mod, run, mounted });
         throw handleError;
       }
     };
@@ -912,16 +949,17 @@ export class DjsDropletElement extends HTMLElement {
    * or `handleError` threw): taken down once its mount is through, the
    * host's children back as they were.
    */
-  async #giveUp(contentRoot: HTMLElement, mod: DropletClientModule, run: number, mounted: () => Promise<unknown>): Promise<void> {
+  async #giveUp({ contentRoot, mod, run, mounted }: GiveUpInput): Promise<void> {
+    // A mount that failed is the boundary's to report; the droplet goes either way.
     await mounted().catch(() => undefined);
     // After `#render` took the handle, which waits on the same promise.
     await Promise.resolve();
     if (run !== this._run) return;
-    await this.#destroyInstance(mod.unmount);
+    await this.#destroyInstance({ fallbackUnmount: mod.unmount });
     if (run !== this._run) return;
     contentRoot.replaceChildren();
     this._hydrated = false;
-    this.#revealChildren(contentRoot);
+    this.#revealChildren({ contentRoot });
   }
 
   /**
@@ -930,17 +968,10 @@ export class DjsDropletElement extends HTMLElement {
    * no error page in the browser, or when `handleError` throws. `reset`
    * clears what is there first; hydrating server markup keeps it.
    */
-  async #showError(
-    droplet: string,
-    contentRoot: HTMLElement,
-    mod: DropletClientModule,
-    error: unknown,
-    reset: boolean,
-    run: number,
-  ): Promise<boolean> {
+  async #showError({ droplet, contentRoot, mod, error, reset, run }: ShowErrorInput): Promise<boolean> {
     if (reset || contentRoot.childNodes.length === 0) await this.#stylesheetReady();
     if (run !== this._run) return false;
-    await this.#destroyInstance(mod.unmount);
+    await this.#destroyInstance({ fallbackUnmount: mod.unmount });
     if (run !== this._run) return false;
     if (reset) contentRoot.replaceChildren();
     let shown: unknown;
@@ -955,8 +986,8 @@ export class DjsDropletElement extends HTMLElement {
     if (run !== this._run) return false;
     try {
       this.#parkContainer();
-      const instance = (await mod.renderError?.(contentRoot, shown, this.#childrenHost(), this.#renderInfo(contentRoot))) ?? null;
-      if (run !== this._run) return this.#discardOrphan(mod.unmount, instance);
+      const instance = (await mod.renderError?.(contentRoot, shown, this.#childrenHost(), this.#renderInfo({ contentRoot }))) ?? null;
+      if (run !== this._run) return this.#discardOrphan({ unmount: mod.unmount, instance });
       this._instance = instance;
       this.#unmount = this._instance ? (mod.unmount ?? null) : null;
     } catch (renderError) {
@@ -974,12 +1005,12 @@ export class DjsDropletElement extends HTMLElement {
    * The server rendered (or, with `ssr = false`, left room for) the
    * droplet's `+error.*`: hydrate or mount it from the inline error.
    */
-  async #renderServerError(droplet: string, contentRoot: HTMLElement, run: number, cacheBust: boolean): Promise<boolean> {
-    const inline = this._readInline<unknown>("[data-droplet-data]");
+  async #renderServerError({ droplet, contentRoot, run, cacheBust }: StartInput): Promise<boolean> {
+    const inline = this._readInline<unknown>({ selector: "[data-droplet-data]" });
     if (!inline.found || !isObject(inline.data) || !("error" in inline.data)) return false;
-    const mod = await this._importModule(droplet, cacheBust);
+    const mod = await this._importModule({ droplet, cacheBust });
     if (!mod || run !== this._run) return false;
-    return this.#showError(droplet, contentRoot, mod, inline.data["error"], false, run);
+    return this.#showError({ droplet, contentRoot, mod, error: inline.data["error"], reset: false, run });
   }
 
   /**
@@ -987,7 +1018,7 @@ export class DjsDropletElement extends HTMLElement {
    * or updated while the engine rendered): unmounted here, since no later
    * `#destroyInstance` will see it. Always `false`: nothing rendered.
    */
-  async #discardOrphan(unmount: DropletClientModule["unmount"], instance: unknown): Promise<false> {
+  async #discardOrphan({ unmount, instance }: DiscardOrphanInput): Promise<false> {
     if (instance === null || instance === undefined) return false;
     try {
       await unmount?.(instance);
@@ -998,7 +1029,7 @@ export class DjsDropletElement extends HTMLElement {
   }
 
   /** Unmounts the component, with the host's container out of its markers first. */
-  async #destroyInstance(fallbackUnmount?: DropletClientModule["unmount"]): Promise<void> {
+  async #destroyInstance({ fallbackUnmount }: DestroyInstanceInput = {}): Promise<void> {
     this.#emptyMarkers();
     if (!this._instance) return;
     const unmount = this.#unmount ?? fallbackUnmount;
@@ -1017,27 +1048,27 @@ export class DjsDropletElement extends HTMLElement {
    * held meanwhile, or stays as the server rendered it; anything else
    * mounts. With nothing to show, the host's children show as they were.
    */
-  async _start(droplet: string, contentRoot: HTMLElement, run: number, cacheBust: boolean): Promise<boolean | undefined> {
+  async _start({ droplet, contentRoot, run, cacheBust }: StartInput): Promise<boolean | undefined> {
     // A load failed on the server: +error.*, the droplet's error boundary,
     // stands in for it and hydrates as the droplet would.
     const isError = this.dataset["dropletError"] !== undefined;
     const hasMarkup = contentRoot.childNodes.length > 0;
-    const mode = this.#hydrateMode(droplet, hasMarkup);
+    const mode = this.#hydrateMode({ droplet, hasMarkup });
     // Server markup that is about to hydrate: hold its clicks until it has.
     // Nothing to hold for a client-only droplet, nor for one that stays as
     // the server rendered it.
     const handleEventsUntilHydrate = mode !== false && hasMarkup;
-    if (handleEventsUntilHydrate) this.#captureClicks(contentRoot);
+    if (handleEventsUntilHydrate) this.#captureClicks({ root: contentRoot });
     // Nothing loads before then: no bundle, no `_data`.
     if (mode === "visible" || mode === "interactive") {
-      if (!(await this._waitFor(mode, contentRoot, hasMarkup)) || run !== this._run) return;
+      if (!(await this._waitFor({ mode, contentRoot, hasMarkup })) || run !== this._run) return;
     }
 
     let rendered = false;
     if (mode !== false) {
       rendered = isError
-        ? await this.#renderServerError(droplet, contentRoot, run, cacheBust)
-        : await this.#render(droplet, contentRoot, { cacheBust, reset: false, refresh: false }, run);
+        ? await this.#renderServerError({ droplet, contentRoot, run, cacheBust })
+        : await this.#render({ droplet, contentRoot, run, cacheBust, reset: false, refresh: false });
     }
     if (run !== this._run) return;
     this._hydrated = rendered;
@@ -1045,7 +1076,7 @@ export class DjsDropletElement extends HTMLElement {
     else {
       // The droplet has nothing to show: the host's children stand as they were.
       this._dropClicks();
-      this.#revealChildren(contentRoot);
+      this.#revealChildren({ contentRoot });
     }
     return rendered;
   }
@@ -1056,14 +1087,14 @@ export class DjsDropletElement extends HTMLElement {
    * it ships no bundle. Without server markup there is nothing to interact
    * with, so `"interactive"` is at once.
    */
-  #hydrateMode(droplet: string, hasMarkup: boolean): HydrateMode {
+  #hydrateMode({ droplet, hasMarkup }: HydrateModeInput): HydrateMode {
     const flag = hydrationRegistry.get(droplet);
     if (flag === undefined) return false;
-    return this._modeOf(flag, hasMarkup);
+    return this._modeOf({ flag, hasMarkup });
   }
 
   /** The mode the droplet's `hydrate` flag gives this element: its `data-hydrate` over the flag. */
-  _modeOf(flag: HydrateMode, hasMarkup: boolean): HydrateMode {
+  _modeOf({ flag, hasMarkup }: ModeOfInput): HydrateMode {
     if (flag === false) return false;
     let mode: HydrateMode = flag;
     const asked = this.dataset["hydrate"];
@@ -1089,7 +1120,7 @@ export class DjsDropletElement extends HTMLElement {
    * (`"interactive"`; the host's children and nested droplets are not its
    * own); `false` when the element left or updated first.
    */
-  _waitFor(mode: "visible" | "interactive", contentRoot: HTMLElement, hasMarkup: boolean): Promise<boolean> {
+  _waitFor({ mode, contentRoot, hasMarkup }: WaitForInput): Promise<boolean> {
     return new Promise((resolve) => {
       let cleanup = () => {};
       const done = (value: boolean) => {
@@ -1137,18 +1168,18 @@ export class DjsDropletElement extends HTMLElement {
     const contentRoot = this._contentRoot();
     this.#container = this.#findContainer();
     this._pruneChildren();
-    this.#placeContainer(contentRoot);
-    this.#ensureDropletStyle(droplet, contentRoot);
+    this.#placeContainer({ contentRoot });
+    this.#ensureDropletStyle({ droplet, contentRoot });
 
     // A deploy happened while the page stayed open: this loader's bundles
     // are from another build. Keep the server HTML, tell the page.
     const served = this.dataset["build"];
     if (buildHash && served && served !== buildHash) {
-      this.#reportStale(droplet, served);
+      this.#reportStale({ droplet, served });
       return false;
     }
 
-    await this._start(droplet, contentRoot, run, false);
+    await this._start({ droplet, contentRoot, run, cacheBust: false });
     return run === this._run;
   }
 
@@ -1157,14 +1188,14 @@ export class DjsDropletElement extends HTMLElement {
    * (`fresh`), or nothing, to mount in the browser; then it comes alive as
    * on connect. The host's children are carried over.
    */
-  async _swap(droplet: string, contentRoot: HTMLElement, fresh: Element | null, run: number, cacheBust: boolean): Promise<void> {
+  async _swap({ droplet, contentRoot, fresh, run, cacheBust }: SwapInput): Promise<void> {
     await this.#destroyInstance();
     if (run !== this._run) return;
-    if (fresh) this.#adopt(fresh, contentRoot);
+    if (fresh) this.#adopt({ fresh, contentRoot });
     else contentRoot.replaceChildren();
-    this.#ensureDropletStyle(droplet, contentRoot);
-    this.#placeContainer(contentRoot);
-    await this._start(droplet, contentRoot, run, cacheBust);
+    this.#ensureDropletStyle({ droplet, contentRoot });
+    this.#placeContainer({ contentRoot });
+    await this._start({ droplet, contentRoot, run, cacheBust });
   }
 
   /**
@@ -1199,26 +1230,29 @@ export class DjsDropletElement extends HTMLElement {
     this._stopWaiting?.();
     this._dropClicks();
     const contentRoot = this._contentRoot();
-    const focus = this.#focusSpot(contentRoot);
+    const spot = this.#focusSpot({ contentRoot });
     if (this._hydrated) {
-      const rendered = await this.#render(
+      const rendered = await this.#render({
         droplet,
         contentRoot,
-        { cacheBust: false, reset: true, refresh: true, form: { value: form } },
         run,
-      );
+        cacheBust: false,
+        reset: true,
+        refresh: true,
+        form: { value: form },
+      });
       if (run !== this._run) return;
       this._hydrated = rendered;
-      if (!rendered) this.#revealChildren(contentRoot);
+      if (!rendered) this.#revealChildren({ contentRoot });
     } else {
       // Nothing in the browser renders it: the server does, with the
       // context the droplet was rendered with and the action's result.
-      const fresh = await this._fetchFragment(droplet, { form });
+      const fresh = await this._fetchFragment({ droplet, action: { form } });
       if (run !== this._run || !fresh) return;
-      await this._swap(droplet, contentRoot, fresh, run, false);
+      await this._swap({ droplet, contentRoot, fresh, run, cacheBust: false });
       if (run !== this._run) return;
     }
-    this.#restoreFocus(contentRoot, focus);
+    this.#restoreFocus({ contentRoot, spot });
   }
 
   /**
@@ -1227,7 +1261,7 @@ export class DjsDropletElement extends HTMLElement {
    * use `enhanceDropletForm`): enhanced as `enhanceDropletForm` would.
    * Every other form is left alone.
    */
-  #onSubmit(event: Event): void {
+  #onSubmit({ event }: OnSubmitInput): void {
     const form = event.target;
     if (!(form instanceof HTMLFormElement) || !form.hasAttribute("data-droplets-enhance")) return;
     if (form.closest("[data-droplet]") !== this) return;
@@ -1235,18 +1269,17 @@ export class DjsDropletElement extends HTMLElement {
   }
 
   /** This droplet's own focusable controls, in document order: not the host's children, not a nested droplet's. */
-  #focusables(contentRoot: HTMLElement): Element[] {
+  #focusables({ contentRoot }: ContentRootInput): Element[] {
     return Array.from(contentRoot.querySelectorAll(FOCUSABLE)).filter((node) => {
       const slot = node.closest(CONTAINER);
       return node.closest("[data-droplet]") === this && !(slot && this.contains(slot));
     });
   }
 
-  /** Where focus is in the droplet's own markup: its control's place among them, and its tag. */
-  #focusSpot(contentRoot: HTMLElement): { index: number; tag: string } | null {
+  #focusSpot({ contentRoot }: ContentRootInput): FocusSpot | null {
     const active = document.activeElement;
     if (!active || !contentRoot.contains(active)) return null;
-    const index = this.#focusables(contentRoot).indexOf(active);
+    const index = this.#focusables({ contentRoot }).indexOf(active);
     return index < 0 ? null : { index, tag: active.localName };
   }
 
@@ -1255,11 +1288,11 @@ export class DjsDropletElement extends HTMLElement {
    * to the control in the same place when it is the same kind of control,
    * without scrolling. Focus that moved on meanwhile stays where it is.
    */
-  #restoreFocus(contentRoot: HTMLElement, spot: { index: number; tag: string } | null): void {
+  #restoreFocus({ contentRoot, spot }: RestoreFocusInput): void {
     if (!spot) return;
     const active = document.activeElement;
     if (active && active !== document.body && active.isConnected) return;
-    const control = this.#focusables(contentRoot)[spot.index];
+    const control = this.#focusables({ contentRoot })[spot.index];
     if (control instanceof HTMLElement && control.localName === spot.tag) control.focus({ preventScroll: true });
   }
 
@@ -1269,7 +1302,7 @@ export class DjsDropletElement extends HTMLElement {
    * that has not hydrated, with the action's result as `form`. `null`,
    * logged, when the answer is no fragment of this droplet.
    */
-  async _fetchFragment(droplet: string, action?: { form: unknown }): Promise<Element | null> {
+  async _fetchFragment({ droplet, action }: FetchFragmentInput): Promise<Element | null> {
     const base = this.#location().replace(/\/$/, "");
     const { host, props } = this._context;
     try {
@@ -1294,7 +1327,7 @@ export class DjsDropletElement extends HTMLElement {
   }
 
   /** The server's new answer in place of the old one, the host's container kept. */
-  #adopt(fresh: Element, contentRoot: HTMLElement): void {
+  #adopt({ fresh, contentRoot }: AdoptInput): void {
     for (const name of ["data-build", "data-render-id", "data-context", "data-droplet-error"]) {
       const value = fresh.getAttribute(name);
       if (value === null) this.removeAttribute(name);

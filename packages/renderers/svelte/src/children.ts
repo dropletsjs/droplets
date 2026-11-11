@@ -11,8 +11,10 @@
  * removal, and `|global` makes it run when any ancestor block goes, not only
  * the marker's own. Zero duration: Svelte completes it synchronously.
  */
-import { getContext } from "svelte";
 import type { DropletChildrenHost } from "@dropletsjs/droplets";
+import { getContext } from "svelte";
+
+type ReleaseHostInput = { host: DropletChildrenHost | undefined };
 
 /** The context key the renderer provides the element's children host under. */
 export const CHILDREN_KEY = Symbol.for("droplets:svelte:children");
@@ -20,21 +22,21 @@ export const CHILDREN_KEY = Symbol.for("droplets:svelte:children");
 /** The host each marker was filled from, for its release. */
 const hosts = new WeakMap<Element, DropletChildrenHost>();
 /** The marker each host last filled, for {@link releaseHost}. */
-const filled = new WeakMap<DropletChildrenHost, Element>();
+const lastMarkers = new WeakMap<DropletChildrenHost, Element>();
 
 /** `use:fill`: the marker is in the DOM, the host's container goes in. */
 export function fill(marker: Element): void {
   const host = getContext<DropletChildrenHost | undefined>(CHILDREN_KEY);
   if (!host) return;
   hosts.set(marker, host);
-  filled.set(host, marker);
+  lastMarkers.set(host, marker);
   host.fill(marker);
 }
 
 /** `out:release|global`: the marker is about to go, the container comes out first. */
 export function release(marker: Element): { duration: number } {
   const host = hosts.get(marker);
-  if (host && filled.get(host) === marker) filled.delete(host);
+  if (host && lastMarkers.get(host) === marker) lastMarkers.delete(host);
   host?.empty(marker);
   return { duration: 0 };
 }
@@ -45,13 +47,13 @@ export function release(marker: Element): { duration: number } {
  * out transitions, and only then calls anything of ours. Returns a function
  * that puts the container back if the marker is still there after all.
  */
-export function releaseHost(host: DropletChildrenHost | undefined): () => void {
-  const marker = host && filled.get(host);
+export function releaseHost({ host }: ReleaseHostInput): () => void {
+  const marker = host && lastMarkers.get(host);
   if (!host || !marker) return () => {};
   host.empty(marker);
   return () => {
     if (marker.isConnected) {
-      filled.set(host, marker);
+      lastMarkers.set(host, marker);
       host.fill(marker);
     }
   };

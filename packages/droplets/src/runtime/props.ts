@@ -32,13 +32,15 @@ type StandardIssue = {
 
 type StandardResult = { readonly value: unknown; readonly issues?: undefined } | { readonly issues: ReadonlyArray<StandardIssue> };
 
+type PropsErrorInput = { issues: ReadonlyArray<StandardIssue> };
+
 /** Thrown when props do not match the droplet's schema. Answered as a 400. */
 export class PropsError extends Error {
   readonly status = 400;
   readonly issues: ReadonlyArray<StandardIssue>;
 
-  constructor(issues: ReadonlyArray<StandardIssue>) {
-    super(formatIssues(issues));
+  constructor({ issues }: PropsErrorInput) {
+    super(formatIssues({ issues }));
     this.name = "PropsError";
     this.issues = issues;
   }
@@ -51,7 +53,9 @@ export function isStandardSchema(value: unknown): value is StandardSchema {
   return typeof standard?.validate === "function";
 }
 
-function formatIssues(issues: ReadonlyArray<StandardIssue>): string {
+type FormatIssuesInput = { issues: ReadonlyArray<StandardIssue> };
+
+function formatIssues({ issues }: FormatIssuesInput): string {
   const parts = issues.map((issue) => {
     const path = (issue.path ?? []).map((segment) => String(typeof segment === "object" ? segment.key : segment)).join(".");
     return path ? `${path}: ${issue.message}` : issue.message;
@@ -70,7 +74,7 @@ export async function validateProps(droplet: string, schema: unknown, props: Rec
     throw new Error(`${droplet}: \`props\` in +droplet.ts must be a Standard Schema (zod, valibot, arktype…)`);
   }
   const result = await schema["~standard"].validate(props);
-  if (result.issues) throw new PropsError(result.issues);
+  if (result.issues) throw new PropsError({ issues: result.issues });
   const value = result.value;
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`${droplet}: the props schema must produce an object`);
@@ -84,7 +88,7 @@ export async function validateProps(droplet: string, schema: unknown, props: Rec
  * once the schema has coerced them to the same value.
  */
 export function propsKey(props: Record<string, unknown>): string {
-  return JSON.stringify(sortKeys(props));
+  return JSON.stringify(sortKeys({ value: props }));
 }
 
 /**
@@ -96,14 +100,16 @@ export function prerenderKey(key: string, host?: URL): string {
   return host ? `${key} ${host.origin}${host.pathname}` : key;
 }
 
-function sortKeys(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortKeys);
+type SortKeysInput = { value: unknown };
+
+function sortKeys({ value }: SortKeysInput): unknown {
+  if (Array.isArray(value)) return value.map((item: unknown) => sortKeys({ value: item }));
   if (typeof value !== "object" || value === null) return value;
   if (typeof (value as { toJSON?: unknown }).toJSON === "function") return value;
   // No prototype: a `__proto__` key is a key like any other.
   const sorted: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
   for (const key of Object.keys(value).sort()) {
-    sorted[key] = sortKeys((value as Record<string, unknown>)[key]);
+    sorted[key] = sortKeys({ value: (value as Record<string, unknown>)[key] });
   }
   return sorted;
 }

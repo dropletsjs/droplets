@@ -38,6 +38,9 @@ const SERVER_LOCATION = "__DROPLETS_SERVER_LOCATION__";
 
 type RenderBuiltUrl = NonNullable<NonNullable<UserConfig["experimental"]>["renderBuiltUrl"]>;
 
+/** What Vite tells `renderBuiltUrl` about the file that names a URL; Vite does not export it. */
+export type BuiltUrlContext = Parameters<RenderBuiltUrl>[1];
+
 /** What `builtUrl` needs: the user's own `renderBuiltUrl`, which goes first. */
 export type BuiltUrlInput = { user: RenderBuiltUrl | undefined };
 
@@ -59,7 +62,9 @@ export function builtUrl({ user }: BuiltUrlInput): RenderBuiltUrl {
 }
 
 /** What a browser bundle at `fileName` writes for `BUILD_ROOT`: `../../` from `droplets/<id>/client.js`. */
-function rootFrom(fileName: string): string {
+type RootFromInput = { fileName: string };
+
+function rootFrom({ fileName }: RootFromInput): string {
   const up = posix.relative(posix.dirname(fileName), "");
   return up ? `${up}/` : "./";
 }
@@ -102,7 +107,7 @@ export type PublicFilesInput = { publicDir: string };
  * `/assets/public/*` under `vite dev`, as the adapters serve it in a build:
  * the file, `no-cache` with an `ETag`, 304 when it matches.
  */
-export function publicFileHandler({ publicDir }: PublicFilesInput) {
+export function publicFileHandler({ publicDir }: PublicFilesInput): (c: Context) => Promise<Response> {
   const root = resolve(publicDir);
   return async (c: Context): Promise<Response> => {
     const file = resolve(root, c.req.path.slice(`/${PUBLIC_PATH}/`.length));
@@ -112,6 +117,7 @@ export function publicFileHandler({ publicDir }: PublicFilesInput) {
       if (!(await stat(file)).isFile()) return c.text("Not Found", 404);
       body = await readFile(file);
     } catch {
+      // Gone between the stat and the read, or unreadable: not a file the browser gets.
       return c.text("Not Found", 404);
     }
     const etag = `"${createHash("sha1").update(body).digest("base64url")}"`;
@@ -146,18 +152,22 @@ export function assetUrlsPlugin(state: PluginState): Plugin {
         return { code: code.replace(BUILD_ROOT_LITERAL, '"/"'), map: null };
       }
       if (!code.includes("import.meta.url")) return null;
-      const rel = projectPath(state.root, id);
-      if (rel === null || isServerPath(rel)) return null;
-      const rewritten = rewriteFileUrls({ code, file: id.replace(/[?#].*$/, ""), location: hostTokens(state.tokenNonce).location });
+      const rel = projectPath({ root: state.root, id });
+      if (rel === null || isServerPath({ path: rel })) return null;
+      const rewritten = rewriteFileUrls({
+        code,
+        file: id.replace(/[?#].*$/, ""),
+        location: hostTokens({ nonce: state.tokenNonce }).location,
+      });
       return rewritten === null ? null : { code: rewritten, map: null };
     },
     renderChunk(code, chunk) {
       if (this.environment.config.consumer !== "client") {
         if (!code.includes(SERVER_LOCATION)) return null;
-        return { code: code.replaceAll(SERVER_LOCATION, hostTokens(state.tokenNonce).location), map: null };
+        return { code: code.replaceAll(SERVER_LOCATION, hostTokens({ nonce: state.tokenNonce }).location), map: null };
       }
       if (!code.includes(BUILD_ROOT)) return null;
-      return { code: code.replace(BUILD_ROOT_LITERAL, JSON.stringify(rootFrom(chunk.fileName))), map: null };
+      return { code: code.replace(BUILD_ROOT_LITERAL, JSON.stringify(rootFrom({ fileName: chunk.fileName }))), map: null };
     },
   };
 }

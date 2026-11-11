@@ -99,9 +99,9 @@ describe("actionHref", () => {
 describe("reserved query keys", () => {
   it("covers the framework's keys, action names and the no-JS result prefix", () => {
     for (const key of ["c", "t", "__cb", "noSSR", "clientOnly", "/add", "__droplet_form_cart_b1", "__droplet_return"]) {
-      expect(isReservedQueryKey(key), key).toBe(true);
+      expect(isReservedQueryKey({ key }), key).toBe(true);
     }
-    for (const key of ["page", "productId"]) expect(isReservedQueryKey(key), key).toBe(false);
+    for (const key of ["page", "productId"]) expect(isReservedQueryKey({ key }), key).toBe(false);
   });
 });
 
@@ -125,7 +125,7 @@ describe("withRender", () => {
 describe("no-JavaScript results in a URL", () => {
   it("keys a result by droplet and build", () => {
     expect(formResultKey("product-page", "abc123")).toBe("__droplet_form_product-page_abc123");
-    expect(isReservedQueryKey(formResultKey("cart", "x"))).toBe(true);
+    expect(isReservedQueryKey({ key: formResultKey("cart", "x") })).toBe(true);
   });
 
   it("takes every __droplet_form_* key out, encoded ones too, and leaves the rest as written", () => {

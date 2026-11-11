@@ -6,7 +6,7 @@
  */
 import { agentsMd } from "./agents.ts";
 import { ADAPTERS, commands, defaultAdapter, starterName, type Adapter, type Choices } from "./choices.ts";
-import { dropletFiles, flagsFor, packageName, VERSIONS, versionOf, type PackageManager } from "./shared.ts";
+import { dropletFiles, flagsFor, packageName, VERSIONS, versionOf } from "./shared.ts";
 
 const START: Record<Adapter, string> = {
   node: "node dist/server.js",
@@ -15,9 +15,11 @@ const START: Record<Adapter, string> = {
   deno: "deno serve -A dist/server.js",
 };
 
+type ScriptsInput = Pick<Choices, "adapters">;
+
 /** The scripts: `build` and `start` for the default adapter, `build:<a>` and `start:<a>` for the others. */
-export function scripts(choices: Choices): Record<string, string> {
-  const main = defaultAdapter(choices.adapters);
+export function scripts({ adapters }: ScriptsInput): Record<string, string> {
+  const main = defaultAdapter({ adapters });
   const scripts: Record<string, string> = {
     dev: "vite",
     build: "vite build",
@@ -25,7 +27,7 @@ export function scripts(choices: Choices): Record<string, string> {
     start: START[main],
   };
   if (main === "cloudflare") scripts["deploy"] = "wrangler deploy";
-  for (const adapter of choices.adapters.filter((a) => a !== main)) {
+  for (const adapter of adapters.filter((a) => a !== main)) {
     scripts[`build:${adapter}`] = `DROPLETS_ADAPTER=${adapter} vite build`;
     scripts[`start:${adapter}`] = START[adapter];
     if (adapter === "cloudflare") scripts["deploy:cloudflare"] = "wrangler deploy";
@@ -39,39 +41,63 @@ export function scripts(choices: Choices): Record<string, string> {
   };
 }
 
-const sorted = (entries: [string, string][]) => Object.fromEntries(entries.sort(([a], [b]) => a.localeCompare(b)));
-const spec = (name: string): [string, string] => [name, versionOf(name)];
+type SortedInput = { entries: Array<[string, string]> };
+
+function sorted({ entries }: SortedInput): Record<string, string> {
+  return Object.fromEntries(entries.toSorted(([a], [b]) => a.localeCompare(b)));
+}
+
+type SpecInput = { name: string };
+
+function spec({ name }: SpecInput): [string, string] {
+  return [name, versionOf({ name })];
+}
+
+type FromCatalogInput = { entry: string };
+
 /** `react@^19.0.0` → `["react", "^19.0.0"]`. */
-const fromCatalog = (entry: string): [string, string] => [packageName(entry), entry.slice(packageName(entry).length + 1)];
+function fromCatalog({ entry }: FromCatalogInput): [string, string] {
+  const name = packageName({ spec: entry });
+  return [name, entry.slice(name.length + 1)];
+}
 
 export function packageJson(choices: Choices): string {
-  const dependencies = sorted([spec("@dropletsjs/droplets"), ...choices.frameworks.flatMap((f) => f.dependencies.map(fromCatalog))]);
-  const devDependencies = sorted([
-    spec("@dropletsjs/devtools"),
-    ...ADAPTERS.filter((a) => choices.adapters.includes(a.value)).map((a) => spec(a.package)),
-    ...choices.frameworks.map((f) => spec(f.package)),
-    // The catalog's types (`@types/react`) at the version the example is tested with.
-    ...choices.frameworks.flatMap((f) => f.devDependencies.map((entry) => spec(packageName(entry)))),
-    spec("vite"),
-    spec("typescript"),
-    spec("@types/node"),
-    ...(choices.tailwind ? [spec("tailwindcss"), spec("@tailwindcss/vite")] : []),
-    ...(choices.adapters.includes("cloudflare") ? [spec("wrangler")] : []),
-  ]);
+  const dependencies = sorted({
+    entries: [
+      spec({ name: "@dropletsjs/droplets" }),
+      ...choices.frameworks.flatMap((f) => f.dependencies.map((entry) => fromCatalog({ entry }))),
+    ],
+  });
+  const devDependencies = sorted({
+    entries: [
+      spec({ name: "@dropletsjs/devtools" }),
+      ...ADAPTERS.filter((a) => choices.adapters.includes(a.value)).map((a) => spec({ name: a.package })),
+      ...choices.frameworks.map((f) => spec({ name: f.package })),
+      // The catalog's types (`@types/react`) at the version the example is tested with.
+      ...choices.frameworks.flatMap((f) => f.devDependencies.map((entry) => spec({ name: packageName({ spec: entry }) }))),
+      spec({ name: "vite" }),
+      spec({ name: "typescript" }),
+      spec({ name: "@types/node" }),
+      ...(choices.tailwind ? [spec({ name: "tailwindcss" }), spec({ name: "@tailwindcss/vite" })] : []),
+      ...(choices.adapters.includes("cloudflare") ? [spec({ name: "wrangler" })] : []),
+    ],
+  });
   const pkg = { name: choices.name, private: true, type: "module", scripts: scripts(choices), dependencies, devDependencies };
   return `${JSON.stringify(pkg, null, 2)}\n`;
 }
 
-export function viteConfig(choices: Choices): string {
-  const adapters = ADAPTERS.filter((a) => choices.adapters.includes(a.value));
-  const main = defaultAdapter(choices.adapters);
+type ViteConfigInput = Pick<Choices, "adapters" | "frameworks" | "tailwind">;
+
+export function viteConfig({ adapters: chosen, frameworks, tailwind }: ViteConfigInput): string {
+  const adapters = ADAPTERS.filter((a) => chosen.includes(a.value));
+  const main = defaultAdapter({ adapters: chosen });
   const [only] = adapters;
   const imports = [
     'import { defineConfig } from "vite";',
     'import { droplets } from "@dropletsjs/droplets/vite";',
     'import { dropletsDevtools } from "@dropletsjs/devtools";',
     ...adapters.map((a) => `import { ${a.factory} } from "${a.package}";`),
-    ...choices.frameworks.map((f) => `import { ${f.factory} } from "${f.package}";`),
+    ...frameworks.map((f) => `import { ${f.factory} } from "${f.package}";`),
   ];
   const select =
     adapters.length === 1
@@ -84,8 +110,8 @@ export function viteConfig(choices: Choices): string {
         ];
   const options = [
     only !== undefined && adapters.length === 1 ? `      adapter: ${only.factory}(),` : "      adapter,",
-    `      renderers: [${choices.frameworks.map((f) => `${f.factory}()`).join(", ")}],`,
-    ...(choices.tailwind ? ["      // src/app.css is the shared stylesheet; Tailwind compiles it.", "      css: { tailwind: true },"] : []),
+    `      renderers: [${frameworks.map((f) => `${f.factory}()`).join(", ")}],`,
+    ...(tailwind ? ["      // src/app.css is the shared stylesheet; Tailwind compiles it.", "      css: { tailwind: true },"] : []),
   ];
   return [
     ...imports,
@@ -104,17 +130,19 @@ export function viteConfig(choices: Choices): string {
   ].join("\n");
 }
 
-export function dropletsConfig(choices: Choices): string {
+type DropletsConfigInput = Pick<Choices, "element" | "injectTool">;
+
+export function dropletsConfig({ element, injectTool }: DropletsConfigInput): string {
   return [
     'import { config } from "@dropletsjs/droplets";',
     "",
     "export default config({",
     "  // The custom element every droplet renders in. Named after the project,",
     "  // so it never collides with droplets from other servers on one page.",
-    `  element: ${JSON.stringify(choices.element)},`,
+    `  element: ${JSON.stringify(element)},`,
     "  // Pages on other origins may load these droplets and their bundles.",
     "  cors: true,",
-    ...(choices.injectTool
+    ...(injectTool
       ? ["  // Under `vite dev`, the dev tool on every page that loads index.js, not only on `/`.", "  dev: { injectTool: true },"]
       : []),
     "});",
@@ -122,8 +150,10 @@ export function dropletsConfig(choices: Choices): string {
   ].join("\n");
 }
 
-export function tsconfig(choices: Choices): string {
-  const jsx = choices.frameworks.find((f) => f.jsxImportSource);
+type TsconfigInput = Pick<Choices, "frameworks">;
+
+export function tsconfig({ frameworks }: TsconfigInput): string {
+  const jsx = frameworks.find((f) => f.jsxImportSource);
   const options: Record<string, unknown> = {
     target: "ES2023",
     lib: ["ES2023", "DOM", "DOM.Iterable"],
@@ -151,7 +181,9 @@ export function tsconfig(choices: Choices): string {
   );
 }
 
-export function appCss(choices: Choices): string {
+type AppCssInput = Pick<Choices, "tailwind">;
+
+export function appCss({ tailwind }: AppCssInput): string {
   const head = [
     "/*",
     " * The stylesheet every droplet shares (`css.path`), linked before each",
@@ -161,7 +193,7 @@ export function appCss(choices: Choices): string {
   ];
   return [
     ...head,
-    ...(choices.tailwind ? ['@import "tailwindcss";', ""] : []),
+    ...(tailwind ? ['@import "tailwindcss";', ""] : []),
     ":root {",
     "  display: block;",
     "  font-family: system-ui, sans-serif;",
@@ -181,11 +213,13 @@ const GITIGNORE = [
   "",
 ].join("\n");
 
-function wrangler(choices: Choices): string {
+type WranglerInput = Pick<Choices, "name">;
+
+function wrangler({ name }: WranglerInput): string {
   return `${JSON.stringify(
     {
       $schema: "node_modules/wrangler/config-schema.json",
-      name: choices.name,
+      name,
       main: "dist/worker.js",
       compatibility_date: "2025-10-01",
       compatibility_flags: ["nodejs_compat"],
@@ -207,17 +241,19 @@ const SVELTE_CONFIG = [
   "",
 ].join("\n");
 
-function readme(choices: Choices): string {
-  const { run, djs } = commands(choices.pm);
+type ReadmeInput = Pick<Choices, "name" | "pm" | "adapters">;
+
+function readme({ name, pm, adapters }: ReadmeInput): string {
+  const { run, djs } = commands({ pm });
   return [
-    `# ${choices.name}`,
+    `# ${name}`,
     "",
     "Droplets: server-rendered components any page can embed. Each one lives in",
     "`src/droplets/<name>/` and is served at `/droplets/<name>`.",
     "",
     "```bash",
     `${run} dev        # http://localhost:5173: the devtools page`,
-    `${run} build      # dist/, for ${defaultAdapter(choices.adapters)}`,
+    `${run} build      # dist/, for ${defaultAdapter({ adapters })}`,
     `${run} typecheck  # djs sync, then tsc`,
     `${djs} add <name>   # a new droplet`,
     "```",
@@ -237,7 +273,9 @@ const DROPLETS_PACKAGES = Object.keys(VERSIONS)
  * least 7 days ago. Bun and Deno document no name pattern for the
  * exemption, so they list every `@dropletsjs/*` package, `djs add`'s too.
  */
-export function packageManagerFiles(pm: PackageManager): Record<string, string> {
+type PackageManagerFilesInput = Pick<Choices, "pm">;
+
+export function packageManagerFiles({ pm }: PackageManagerFilesInput): Record<string, string> {
   switch (pm) {
     case "pnpm":
       return {
@@ -305,14 +343,14 @@ export function projectFiles(choices: Choices): Record<string, string> {
     ".gitignore": GITIGNORE,
     "AGENTS.md": agentsMd(choices),
     "README.md": readme(choices),
-    ...packageManagerFiles(choices.pm),
+    ...packageManagerFiles(choices),
   };
   if (choices.claude) files["CLAUDE.md"] = "@AGENTS.md\n";
   if (choices.adapters.includes("cloudflare")) files["wrangler.jsonc"] = wrangler(choices);
   if (choices.frameworks.some((f) => f.name === "svelte")) files["svelte.config.js"] = SVELTE_CONFIG;
   for (const framework of choices.frameworks) {
-    const name = starterName(framework);
-    const droplet = dropletFiles({ name, framework, flags: flagsFor("full", "always").flags, files: new Set(["server"]) });
+    const name = starterName({ framework });
+    const droplet = dropletFiles({ name, framework, flags: flagsFor({ target: "full", hydrate: "always" }).flags, files: new Set(["server"]) });
     for (const [file, content] of Object.entries(droplet)) files[`src/droplets/${name}/${file}`] = content;
   }
   return files;

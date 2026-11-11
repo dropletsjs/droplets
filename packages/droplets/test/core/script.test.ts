@@ -21,7 +21,7 @@ const svelte: DropletRenderer = {
   server: "/r/svelte/server.js",
   client: "/r/svelte/client.js",
 };
-const renderers = withScriptRenderer([svelte]);
+const renderers = withScriptRenderer({ renderers: [svelte] });
 
 const temps: string[] = [];
 afterEach(async () => {
@@ -51,7 +51,7 @@ describe("discovering script droplets", () => {
       "tracker/+droplet.server.ts": "export const load = () => ({ views: 1 });\n",
       "widget/+droplet.script.js": RUN,
     });
-    const entries = await discoverDroplets(root, renderers);
+    const entries = await discoverDroplets({ dropletsRoot: root, renderers });
     expect(entries).toEqual([
       expect.objectContaining({
         id: "tracker",
@@ -76,7 +76,7 @@ describe("discovering script droplets", () => {
       "card/+droplet.lit.ts": "export default class {}\n",
       "hello/+droplet.tsx": "export default () => null;\n",
     });
-    const entries = await discoverDroplets(root, withScriptRenderer([tsx, lit]));
+    const entries = await discoverDroplets({ dropletsRoot: root, renderers: withScriptRenderer({ renderers: [tsx, lit] }) });
     expect(entries.map((e) => [e.id, e.renderer])).toEqual([
       ["card", "lit"],
       ["hello", "preact"],
@@ -90,19 +90,19 @@ describe("discovering script droplets", () => {
       "loads/+droplet.server.ts": "export const load = () => ({});\n",
       "loads/+droplet.js": "export const load = () => ({});\n",
     });
-    expect(await discoverDroplets(root, renderers)).toEqual([]);
+    expect(await discoverDroplets({ dropletsRoot: root, renderers })).toEqual([]);
   });
 
   it("refuses a script next to another component", async () => {
     const root = await folder({ "both/+droplet.script.ts": RUN, "both/+droplet.svelte": "<p>hi</p>" });
-    await expect(discoverDroplets(root, renderers)).rejects.toThrow(/both\/ has 2 droplet components/);
+    await expect(discoverDroplets({ dropletsRoot: root, renderers })).rejects.toThrow(/both\/ has 2 droplet components/);
   });
 
   it("ignores an error page, with a word in dev", async () => {
     setLogLevel("warn");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const root = await folder({ "tracker/+droplet.script.ts": RUN, "tracker/+error.script.ts": RUN });
-    const [entry] = await discoverDroplets(root, renderers, { dev: true });
+    const [entry] = await discoverDroplets({ dropletsRoot: root, renderers, dev: true });
     expect(entry).toMatchObject({ hasError: false });
     expect(entry?.errorFile).toBeUndefined();
     expect(warn.mock.calls.flat().join(" ")).toContain("a script droplet has no error page");
@@ -112,7 +112,7 @@ describe("discovering script droplets", () => {
     const root = await folder({
       "later/+droplet.script.ts": `export const hydrate = "visible";\nexport const prerender = true;\n${RUN}`,
     });
-    const [entry] = await discoverDroplets(root, renderers);
+    const [entry] = await discoverDroplets({ dropletsRoot: root, renderers });
     expect(entry).toMatchObject({ hydrate: "visible", prerender: true, ssr: true });
   });
 });
@@ -129,7 +129,7 @@ describe("the flags of a script droplet", () => {
 
   it("stop discovery, and so the build", async () => {
     const root = await folder({ "off/+droplet.script.ts": `export const hydrate = false;\n${RUN}` });
-    await expect(discoverDroplets(root, renderers)).rejects.toThrow(/hydrate = false would never run it/);
+    await expect(discoverDroplets({ dropletsRoot: root, renderers })).rejects.toThrow(/hydrate = false would never run it/);
   });
 
   it('take true and "visible"', () => {
@@ -142,17 +142,17 @@ describe("the flags of a script droplet", () => {
 describe("the built-in renderer", () => {
   it("comes after the user's, and is not among them", () => {
     expect(renderers.map((r) => r.name)).toEqual(["svelte", "script"]);
-    expect(userRenderers(renderers)).toEqual([svelte]);
+    expect(userRenderers({ renderers })).toEqual([svelte]);
     expect(scriptRenderer().extensions).toEqual([".script.ts", ".script.js"]);
   });
 
   it("keeps its suffixes and its name", () => {
     const greedy = { ...svelte, name: "greedy", extensions: [".script.ts"] };
-    expect(() => validateRenderers(withScriptRenderer([greedy]))).toThrow(
+    expect(() => validateRenderers(withScriptRenderer({ renderers: [greedy] }))).toThrow(
       'renderer "greedy" cannot claim ".script.ts"; +droplet.script.ts is a script droplet, built in',
     );
     const named = { ...svelte, name: "script", extensions: [".js.txt"] };
-    expect(() => validateRenderers(withScriptRenderer([named]))).toThrow(/"script" is the built-in renderer/);
+    expect(() => validateRenderers(withScriptRenderer({ renderers: [named] }))).toThrow(/"script" is the built-in renderer/);
   });
 });
 
@@ -171,7 +171,7 @@ const tracker = {
 
 describe("the registries", () => {
   it("never import the script on the server, and keep its loads there", () => {
-    const code = buildServerCode([tracker], "/src/droplets", { renderers });
+    const code = buildServerCode({ entries: [tracker], globRoot: "/src/droplets", renderers });
     expect(code).not.toContain("+droplet.script.ts");
     expect(code).toContain("const component_0 = Object.freeze({});");
     expect(code).toContain('"/src/droplets/tracker/+droplet.ts"');
@@ -180,7 +180,7 @@ describe("the registries", () => {
   });
 
   it("import it in its browser entry, with the built-in renderer and +droplet.ts, never the server load", () => {
-    const code = createClientModuleCode("/src/droplets", tracker, renderers);
+    const code = createClientModuleCode({ globRoot: "/src/droplets", entry: tracker, renderers });
     expect(code).toContain('import * as component from "/src/droplets/tracker/+droplet.script.ts";');
     expect(code).toContain(`import * as renderer from ${JSON.stringify(scriptRenderer().client)};`);
     expect(code).toContain('"/src/droplets/tracker/+droplet.ts"');
@@ -190,18 +190,23 @@ describe("the registries", () => {
 
 describe("./$types of a script droplet", () => {
   it("type its default export by the loads' data", () => {
-    const code = dropletTypesCode(
-      tracker,
-      scriptRenderer(),
-      "/p/.droplets/types/src/droplets/tracker/$types.d.ts",
-      "/p/src/droplets/tracker",
-    );
+    const code = dropletTypesCode({
+      entry: tracker,
+      renderer: scriptRenderer(),
+      typesFile: "/p/.droplets/types/src/droplets/tracker/$types.d.ts",
+      folder: "/p/src/droplets/tracker",
+    });
     expect(code).toContain('import type { DropletScript as BaseDropletScript } from "@dropletsjs/droplets";');
     expect(code).toContain("export type DropletScript = BaseDropletScript<Data>;");
   });
 
   it("are not there for other droplets", () => {
-    const code = dropletTypesCode({ ...tracker, renderer: "svelte", file: "+droplet.svelte" }, svelte, "/p/a/$types.d.ts", "/p/b");
+    const code = dropletTypesCode({
+      entry: { ...tracker, renderer: "svelte", file: "+droplet.svelte" },
+      renderer: svelte,
+      typesFile: "/p/a/$types.d.ts",
+      folder: "/p/b",
+    });
     expect(code).not.toContain("DropletScript");
   });
 });

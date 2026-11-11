@@ -4,7 +4,7 @@ import { extractStyles, parseStyleId, styleId } from "../src/styles.ts";
 describe("extractStyles()", () => {
   it("takes inline and src blocks out, in order, keeping the lines", () => {
     const source = `<p class="a">{{data.x}}</p>\n<style>\n  .a { color: red; }\n</style>\n<style src="./b.css"></style>\n<style lang="scss">.c { d: e }</style>\n<i>{{y}}</i>\n`;
-    const { template, styles } = extractStyles(source, "x/+droplet.hbs");
+    const { template, styles } = extractStyles({ source, where: "x/+droplet.hbs" });
     expect(styles).toEqual([
       { kind: "inline", css: "\n  .a { color: red; }\n", lang: "css" },
       { kind: "src", src: "./b.css" },
@@ -17,23 +17,25 @@ describe("extractStyles()", () => {
   });
 
   it("leaves a template without blocks, and a commented-out one, as it is", () => {
-    expect(extractStyles("<p>{{x}}</p>", "x")).toEqual({ template: "<p>{{x}}</p>", styles: [] });
+    expect(extractStyles({ source: "<p>{{x}}</p>", where: "x" })).toEqual({ template: "<p>{{x}}</p>", styles: [] });
     const commented = "{{!-- <style>.a{}</style> --}}<p/>";
-    expect(extractStyles(commented, "x")).toEqual({ template: commented, styles: [] });
+    expect(extractStyles({ source: commented, where: "x" })).toEqual({ template: commented, styles: [] });
   });
 
   it("refuses a block that is not static", () => {
-    expect(() => extractStyles("{{#if x}}<style>.a{}</style>{{/if}}", "t.hbs")).toThrow(/t\.hbs:1: a <style> block goes at the top/);
-    expect(() => extractStyles("<style>.a { color: {{c}} }</style>", "t.hbs")).toThrow(/cannot contain \{\{…\}\}/);
-    expect(() => extractStyles('<style src="./a.css">.b{}</style>', "t.hbs")).toThrow(/leave the block empty/);
+    expect(() => extractStyles({ source: "{{#if x}}<style>.a{}</style>{{/if}}", where: "t.hbs" })).toThrow(
+      /t\.hbs:1: a <style> block goes at the top/,
+    );
+    expect(() => extractStyles({ source: "<style>.a { color: {{c}} }</style>", where: "t.hbs" })).toThrow(/cannot contain \{\{…\}\}/);
+    expect(() => extractStyles({ source: '<style src="./a.css">.b{}</style>', where: "t.hbs" })).toThrow(/leave the block empty/);
   });
 });
 
 describe("style ids", () => {
   it("are .css ids of the template, and read back", () => {
-    const id = styleId("/app/src/droplets/a/+droplet.hbs", 2, "css");
+    const id = styleId({ file: "/app/src/droplets/a/+droplet.hbs", index: 2, lang: "css" });
     expect(id).toBe("/app/src/droplets/a/+droplet.hbs?droplets-style=2&lang.css");
-    expect(parseStyleId(id)).toEqual({ file: "/app/src/droplets/a/+droplet.hbs", index: 2 });
-    expect(parseStyleId("/app/a.hbs")).toBeUndefined();
+    expect(parseStyleId({ id })).toEqual({ file: "/app/src/droplets/a/+droplet.hbs", index: 2 });
+    expect(parseStyleId({ id: "/app/a.hbs" })).toBeUndefined();
   });
 });

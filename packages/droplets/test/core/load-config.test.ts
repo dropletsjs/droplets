@@ -17,18 +17,18 @@ describe("findConfigFile", () => {
   });
 
   it("returns null when nothing is there", async () => {
-    expect(await findConfigFile(root)).toBeNull();
+    expect(await findConfigFile({ root })).toBeNull();
   });
 
   it("throws for an explicit file that is missing", async () => {
-    await expect(findConfigFile(root, "custom.config.ts")).rejects.toThrow(/config file not found/);
+    await expect(findConfigFile({ root, configFile: "custom.config.ts" })).rejects.toThrow(/config file not found/);
   });
 
   it("prefers candidates in order", async () => {
     await writeFile(join(root, "droplets.config.js"), "export default {};");
-    expect(await findConfigFile(root)).toBe(join(root, "droplets.config.js"));
+    expect(await findConfigFile({ root })).toBe(join(root, "droplets.config.js"));
     await writeFile(join(root, "droplets.config.ts"), "export default {};");
-    expect(await findConfigFile(root)).toBe(join(root, CONFIG_FILE_CANDIDATES[0]));
+    expect(await findConfigFile({ root })).toBe(join(root, CONFIG_FILE_CANDIDATES[0]));
   });
 });
 
@@ -46,7 +46,7 @@ describe("loadDropletsConfig", () => {
   });
 
   it("resolves defaults when there is no config file", async () => {
-    const loaded = await loadDropletsConfig(root, env);
+    const loaded = await loadDropletsConfig({ root, configEnv: env });
     expect(loaded.path).toBeNull();
     expect(loaded.dependencies).toEqual([]);
     expect(loaded.config.dropletsFolder).toBe("src/droplets");
@@ -65,7 +65,7 @@ describe("loadDropletsConfig", () => {
       ].join("\n"),
     );
 
-    const loaded = await loadDropletsConfig(root, env);
+    const loaded = await loadDropletsConfig({ root, configEnv: env });
     expect(loaded.path).toBe(join(root, "droplets.config.ts"));
     expect(loaded.config.dropletsFolder).toBe("src/droplets");
     expect(loaded.config.cors).toEqual({ origin: "*" });
@@ -75,7 +75,7 @@ describe("loadDropletsConfig", () => {
 
   it("honours an explicit configFile", async () => {
     await writeFile(join(root, "other.config.ts"), 'export default { dropletsFolder: "widgets" };\n');
-    const loaded = await loadDropletsConfig(root, env, "other.config.ts");
+    const loaded = await loadDropletsConfig({ root, configEnv: env, configFile: "other.config.ts" });
     expect(loaded.config.dropletsFolder).toBe("widgets");
   });
 });

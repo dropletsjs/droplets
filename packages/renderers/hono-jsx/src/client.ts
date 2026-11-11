@@ -22,9 +22,9 @@ import { componentOf, tree } from "./tree.ts";
 export type HonoInstance = { root: Root; component: FC<Record<string, unknown>>; context: ClientRenderContext };
 
 export function mount(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): HonoInstance {
-  const component = componentOf(module, context);
+  const component = componentOf({ module, context });
   const root = createRoot(target);
-  root.render(tree(component, props, context));
+  root.render(tree({ component, props, context }));
   return { root, component, context };
 }
 

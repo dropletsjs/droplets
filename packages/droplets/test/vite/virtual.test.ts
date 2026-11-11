@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { DropletEntry } from "../../src/core/discover.ts";
 import type { DropletRenderer } from "../../src/renderer.ts";
 import { locationScript, serverKey } from "../../src/runtime/server-records.ts";
-import { createInitialState } from "../../src/vite/state.ts";
+import { createInitialState, type PluginState } from "../../src/vite/state.ts";
 import {
   buildClientCode,
   buildClientDevCode,
@@ -57,29 +57,29 @@ const renderers = [svelte, vue];
 
 describe("client entry ids", () => {
   it("round-trip the folder name", () => {
-    const id = clientEntryId("Hello World");
+    const id = clientEntryId({ folderName: "Hello World" });
     expect(id).toBe(`${VIRTUAL_CLIENT}?name=Hello%20World`);
-    expect(parseClientName(id)).toBe("Hello World");
-    expect(parseClientName(`\0${id}`)).toBe("Hello World");
+    expect(parseClientName({ id: id })).toBe("Hello World");
+    expect(parseClientName({ id: `\0${id}` })).toBe("Hello World");
   });
 
   it("returns null without a name", () => {
-    expect(parseClientName(VIRTUAL_CLIENT)).toBeNull();
-    expect(parseClientName(`${VIRTUAL_CLIENT}?name=`)).toBeNull();
-    expect(parseClientName(`${VIRTUAL_CLIENT}?other=x`)).toBeNull();
+    expect(parseClientName({ id: VIRTUAL_CLIENT })).toBeNull();
+    expect(parseClientName({ id: `${VIRTUAL_CLIENT}?name=` })).toBeNull();
+    expect(parseClientName({ id: `${VIRTUAL_CLIENT}?other=x` })).toBeNull();
   });
 });
 
 describe("buildServerCode", () => {
   it("imports every file a droplet has, its renderer, and wraps loads in thunks", () => {
-    const code = buildServerCode(
-      [
+    const code = buildServerCode({
+      entries: [
         entry({ id: "hello", name: "Hello", hasLoad: true, hasServerLoad: true }),
         entry({ id: "upper", name: "upper", file: "+Droplet.vue", renderer: "vue", hydrate: false }),
       ],
-      "/src/droplets",
-      { renderers },
-    );
+      globRoot: "/src/droplets",
+      renderers,
+    });
     expect(code).toContain('import * as renderer_0 from "/r/svelte/server.js";');
     expect(code).toContain('import * as renderer_1 from "/r/vue/server.js";');
     expect(code).toContain('import * as component_0 from "/src/droplets/Hello/+droplet.svelte";');
@@ -102,11 +102,15 @@ describe("buildServerCode", () => {
   });
 
   it("refuses an entry whose renderer is not configured", () => {
-    expect(() => buildServerCode([entry({ renderer: "gone" })], "/src/droplets", { renderers })).toThrow(/no renderer named "gone"/);
+    expect(() => buildServerCode({ entries: [entry({ renderer: "gone" })], globRoot: "/src/droplets", renderers })).toThrow(
+      /no renderer named "gone"/,
+    );
   });
 
   it("imports API routes and the hooks file", () => {
-    const code = buildServerCode([], "/src/droplets", {
+    const code = buildServerCode({
+      entries: [],
+      globRoot: "/src/droplets",
       apiGlobRoot: "/src/api",
       apiRoutes: [
         {
@@ -131,8 +135,8 @@ describe("buildServerCode", () => {
   });
 
   it("imports each droplet's own error page, rendered by the droplet's renderer", () => {
-    const code = buildServerCode(
-      [
+    const code = buildServerCode({
+      entries: [
         entry({
           id: "hello",
           name: "hello",
@@ -140,9 +144,9 @@ describe("buildServerCode", () => {
           errorFile: "+error.svelte",
         }),
       ],
-      "/src/droplets",
-      { renderers },
-    );
+      globRoot: "/src/droplets",
+      renderers,
+    });
     expect(code).toContain('import * as error_0 from "/src/droplets/hello/+error.svelte";');
     expect(code).toContain("error: error_0,");
     expect(code).not.toContain("errorRenderer");
@@ -151,7 +155,7 @@ describe("buildServerCode", () => {
   });
 
   it("emits an empty registry when there are no droplets", () => {
-    const code = buildServerCode([], "/src");
+    const code = buildServerCode({ entries: [], globRoot: "/src" });
     expect(code).toContain("const droplets = {\n};");
   });
 });
@@ -167,20 +171,22 @@ describe("buildClientDevCode", () => {
 
 describe("buildClientCode", () => {
   it("lists ids and hydration flags with the build hash", () => {
-    const code = buildClientCode([entry({ id: "a" }), entry({ id: "b", hydrate: false })], "h4sh");
+    const code = buildClientCode({ entries: [entry({ id: "a" }), entry({ id: "b", hydrate: false })], buildHash: "h4sh" });
     expect(code).toContain('export const buildHash = "h4sh";');
     expect(code).toContain('export const elementName = "djs-droplet";');
-    expect(buildClientCode([], "x", "acme-widget")).toContain('export const elementName = "acme-widget";');
+    expect(buildClientCode({ entries: [], buildHash: "x", elementName: "acme-widget" })).toContain(
+      'export const elementName = "acme-widget";',
+    );
     // What only `vite dev` reads is in `virtual:droplets-dev`, which nothing but the dev module imports.
     expect(code).not.toMatch(/strategy|injectTool|toolUrl/i);
     expect(code).toContain('export const dropletsById = {\n  "a": true,\n  "b": true,\n};');
     expect(code).toContain('export const dropletsHydrateById = {\n  "a": true,\n};');
-    expect(buildClientCode([entry({ id: "v", hydrate: "visible" }), entry({ id: "i", hydrate: "interactive" })], "h")).toContain(
-      'export const dropletsHydrateById = {\n  "v": "visible",\n  "i": "interactive",\n};',
-    );
+    expect(
+      buildClientCode({ entries: [entry({ id: "v", hydrate: "visible" }), entry({ id: "i", hydrate: "interactive" })], buildHash: "h" }),
+    ).toContain('export const dropletsHydrateById = {\n  "v": "visible",\n  "i": "interactive",\n};');
     // Dev: Vite injects the shared stylesheet with the registry. A build lists it per droplet.
     expect(code).toMatch(/^import "virtual:droplets-css";\n/);
-    const built = buildClientCode([entry({ id: "a" })], "h", "djs-droplet", true);
+    const built = buildClientCode({ entries: [entry({ id: "a" })], buildHash: "h", elementName: "djs-droplet", isBuilding: true });
     expect(built).not.toContain("import ");
     expect(code).not.toContain("clientHooks");
   });
@@ -204,16 +210,30 @@ describe("buildClientCode", () => {
       'export const dropletsStylesById = JSON.parse("__DROPLETS_STYLES__");',
       "",
     ].join("\n");
-    expect(buildClientCode([entry({ id: "a" })], "h", "djs-droplet", true)).toBe(built);
-    expect(buildClientCode([entry({ id: "a" })], "h", "djs-droplet", true, null)).toBe(built);
+    expect(buildClientCode({ entries: [entry({ id: "a" })], buildHash: "h", elementName: "djs-droplet", isBuilding: true })).toBe(built);
+    expect(
+      buildClientCode({
+        entries: [entry({ id: "a" })],
+        buildHash: "h",
+        elementName: "djs-droplet",
+        isBuilding: true,
+        clientHooksFile: null,
+      }),
+    ).toBe(built);
   });
 
   it("imports src/hooks.client.ts and calls its init, last, when there is one", () => {
-    const plain = buildClientCode([entry({ id: "a" })], "h", "djs-droplet", true);
-    const code = buildClientCode([entry({ id: "a" })], "h", "djs-droplet", true, "/src/hooks.client.ts");
+    const plain = buildClientCode({ entries: [entry({ id: "a" })], buildHash: "h", elementName: "djs-droplet", isBuilding: true });
+    const code = buildClientCode({
+      entries: [entry({ id: "a" })],
+      buildHash: "h",
+      elementName: "djs-droplet",
+      isBuilding: true,
+      clientHooksFile: "/src/hooks.client.ts",
+    });
     expect(code.startsWith(plain)).toBe(true);
-    expect(code.slice(plain.length)).toBe(clientInitCode("/src/hooks.client.ts"));
-    expect(clientInitCode("/src/hooks.client.mjs", "/pkg/client-init.js")).toBe(
+    expect(code.slice(plain.length)).toBe(clientInitCode({ clientHooksFile: "/src/hooks.client.ts" }));
+    expect(clientInitCode({ clientHooksFile: "/src/hooks.client.mjs", initModule: "/pkg/client-init.js" })).toBe(
       [
         'import * as clientHooks from "/src/hooks.client.mjs";',
         'import { runClientInit } from "/pkg/client-init.js";',
@@ -224,18 +244,18 @@ describe("buildClientCode", () => {
   });
 
   it("has no registry of its own for error pages, which hydrate with their droplet", () => {
-    const code = buildClientCode([entry({ id: "a", hasError: true })], "h");
+    const code = buildClientCode({ entries: [entry({ id: "a", hasError: true })], buildHash: "h" });
     expect(code).not.toContain("dropletsErrorHydrateById");
   });
 });
 
 describe("createClientModuleCode", () => {
   it("imports the component, its renderer's client module and the client load", () => {
-    const code = createClientModuleCode(
-      "/src/droplets",
-      entry({ id: "hello", name: "Hello", hasError: true, errorFile: "+error.svelte" }),
+    const code = createClientModuleCode({
+      globRoot: "/src/droplets",
+      entry: entry({ id: "hello", name: "Hello", hasError: true, errorFile: "+error.svelte" }),
       renderers,
-    );
+    });
     expect(code).toContain('import * as renderer from "/r/svelte/client.js";');
     expect(code).not.toContain("errorRenderer");
     expect(code).toContain('import * as component from "/src/droplets/Hello/+droplet.svelte";');
@@ -254,27 +274,30 @@ describe("createClientModuleCode", () => {
   });
 
   it("leaves the error page out when the droplet has none", () => {
-    const code = createClientModuleCode("/src/droplets", entry({ name: "Hello" }), renderers);
+    const code = createClientModuleCode({ globRoot: "/src/droplets", entry: entry({ name: "Hello" }), renderers });
     expect(code).not.toContain("+error.");
     expect(code).toContain("const errorComponent = undefined;");
   });
 
   it("marks the component with its renderer when another renderer shares its extension", () => {
-    const jsx = (name: string, pkg: string): DropletRenderer => ({
+    type JsxInput = { name: string; pkg: string };
+
+    const jsx = ({ name, pkg }: JsxInput): DropletRenderer => ({
       name,
       extensions: [".tsx"],
       packages: [pkg],
       server: `/r/${name}/server.js`,
       client: `/r/${name}/client.js`,
     });
-    const both = [jsx("react", "react"), jsx("solid", "solid-js")];
+    const both = [jsx({ name: "react", pkg: "react" }), jsx({ name: "solid", pkg: "solid-js" })];
     const droplet = entry({ name: "s", file: "+droplet.tsx", renderer: "solid", hasError: true, errorFile: "+error.tsx" });
-    const code = createClientModuleCode("/src/droplets", droplet, both);
+    const code = createClientModuleCode({ globRoot: "/src/droplets", entry: droplet, renderers: both });
     expect(code).toContain('import * as component from "/src/droplets/s/+droplet.tsx?droplets-renderer=solid";');
     expect(code).toContain('import * as errorComponent from "/src/droplets/s/+error.tsx?droplets-renderer=solid";');
-    const server = buildServerCode([droplet], "/src/droplets", { renderers: both });
+    const server = buildServerCode({ entries: [droplet], globRoot: "/src/droplets", renderers: both });
     expect(server).toContain('from "/src/droplets/s/+droplet.tsx?droplets-renderer=solid";');
-    expect(createClientModuleCode("/src/droplets", droplet, [both[1] ?? expect.unreachable("the solid renderer")])).toContain(
+    const solidOnly = [both[1] ?? expect.unreachable("the solid renderer")];
+    expect(createClientModuleCode({ globRoot: "/src/droplets", entry: droplet, renderers: solidOnly })).toContain(
       'import * as component from "/src/droplets/s/+droplet.tsx";',
     );
   });
@@ -282,13 +305,13 @@ describe("createClientModuleCode", () => {
   it("exports update only with dev and a renderer's clientDev module", () => {
     const withDev = [{ ...svelte, clientDev: "/r/svelte/client-dev.js" }, vue];
     const hello = entry({ name: "Hello" });
-    const dev = createClientModuleCode("/src/droplets", hello, withDev, true);
+    const dev = createClientModuleCode({ globRoot: "/src/droplets", entry: hello, renderers: withDev, isDev: true });
     expect(dev).toContain('import { update as updateInstance } from "/r/svelte/client-dev.js";');
     expect(dev).toContain("export async function update(handle, data, info)");
     expect(dev).toContain("updateInstance(handle.instance, props)");
     for (const code of [
-      createClientModuleCode("/src/droplets", hello, withDev),
-      createClientModuleCode("/src/droplets", hello, renderers, true),
+      createClientModuleCode({ globRoot: "/src/droplets", entry: hello, renderers: withDev }),
+      createClientModuleCode({ globRoot: "/src/droplets", entry: hello, renderers, isDev: true }),
     ]) {
       expect(code).not.toContain("client-dev");
       expect(code).not.toContain("function update(");
@@ -297,8 +320,10 @@ describe("createClientModuleCode", () => {
 
   it("accepts its component's HMR update with dev only, for the remount in place", () => {
     const hello = entry({ name: "Hello" });
-    expect(createClientModuleCode("/src/droplets", hello, renderers, true)).toContain('new CustomEvent("droplets:hot-fallback"');
-    const built = createClientModuleCode("/src/droplets", hello, renderers);
+    expect(createClientModuleCode({ globRoot: "/src/droplets", entry: hello, renderers, isDev: true })).toContain(
+      'new CustomEvent("droplets:hot-fallback"',
+    );
+    const built = createClientModuleCode({ globRoot: "/src/droplets", entry: hello, renderers });
     expect(built).not.toContain("import.meta.hot");
     expect(built).not.toContain("droplets:hot-fallback");
   });
@@ -306,7 +331,7 @@ describe("createClientModuleCode", () => {
 
 describe("mayImportServerOnly", () => {
   it("allows server files and files under server/, in the project only", () => {
-    const ok = (file: string) => mayImportServerOnly("/proj", file);
+    const ok = (file: string) => mayImportServerOnly({ root: "/proj", importer: file });
     expect(ok("/proj/src/api/+server.ts")).toBe(true);
     expect(ok("/proj/src/hooks.server.ts")).toBe(true);
     expect(ok("/proj/src/droplets/a/+droplet.server.ts")).toBe(true);
@@ -337,8 +362,8 @@ describe("mayImportServerOnly", () => {
 
 describe("buildConfigCode", () => {
   it("imports the user's config or exports an empty object", () => {
-    expect(buildConfigCode(null)).toBe("export default {};\n");
-    expect(buildConfigCode("/p/droplets.config.ts")).toContain('import userConfig from "/p/droplets.config.ts";');
+    expect(buildConfigCode({ configPath: null })).toBe("export default {};\n");
+    expect(buildConfigCode({ configPath: "/p/droplets.config.ts" })).toContain('import userConfig from "/p/droplets.config.ts";');
   });
 });
 
@@ -369,7 +394,7 @@ describe("virtualModulesPlugin", () => {
     expect(resolveId(VIRTUAL_CSS)).toBe(`\0${VIRTUAL_CSS}`);
     expect(resolveId(VIRTUAL_CONFIG)).toBe(`\0${VIRTUAL_CONFIG}`);
     expect(resolveId("/index.js")).toBe("\0droplets:loader");
-    expect(resolveId(clientEntryId("x"))).toBe(`\0${clientEntryId("x")}`);
+    expect(resolveId(clientEntryId({ folderName: "x" }))).toBe(`\0${clientEntryId({ folderName: "x" })}`);
     expect(resolveId("./src/thing.ts")).toBeNull();
     expect(resolveId("svelte")).toBeNull();
   });
@@ -442,7 +467,7 @@ describe("virtualModulesPlugin", () => {
   });
 
   it("falls back to Tailwind when there is no project stylesheet, and to nothing without Tailwind", async () => {
-    const sheet = async (setup: (state: ReturnType<typeof createInitialState>) => void) => {
+    const sheet = async (setup: (state: PluginState) => void) => {
       const state = createInitialState();
       setup(state);
       const plugin = virtualModulesPlugin(state);
@@ -481,7 +506,7 @@ describe("virtualModulesPlugin", () => {
 
   it("generates a client module per discovered droplet folder", async () => {
     // Nothing on disk for this state: unknown folders answer nothing.
-    expect(await load.call(client, `\0${clientEntryId("Widget")}`)).toBeNull();
+    expect(await load.call(client, `\0${clientEntryId({ folderName: "Widget" })}`)).toBeNull();
     expect(await load.call(client, `\0${VIRTUAL_CLIENT}`)).toBeNull();
   });
 });
@@ -509,7 +534,7 @@ describe("$droplets/drop", () => {
       "djs:b1": { origin: "https://drops.example/prefix" },
       "other:b1": { origin: "https://other.example" },
     };
-    const droplet = await load(buildDropClientCode("djs:b1", `file://${records}`));
+    const droplet = await load(buildDropClientCode({ key: "djs:b1", recordsModule: `file://${records}` }));
     expect(droplet.origin).toBe("https://drops.example/prefix");
     expect(droplet.url("/api/counter")).toBe("https://drops.example/prefix/api/counter");
     expect(droplet.url("api/counter")).toBe("https://drops.example/prefix/api/counter");
@@ -521,7 +546,7 @@ describe("$droplets/drop", () => {
 
   it("answers the request's public location on the server, the location token outside a request", async () => {
     const { withRequestInfo } = await import(store);
-    const droplet = await load(buildDropServerCode(`file://${store}`, TOKEN));
+    const droplet = await load(buildDropServerCode({ requestStore: `file://${store}`, location: TOKEN }));
     // A module's top level: the token, which each response replaces.
     expect(droplet.origin).toBe(TOKEN);
     expect(droplet.url("/api/x")).toBe(`${TOKEN}/api/x`);
@@ -552,7 +577,14 @@ describe("$droplets/form", () => {
 
   it("answers the rendering droplet's action URL on the server, on the request's public location", async () => {
     const { withRequestInfo } = await import(store);
-    const actionUrl = await load(buildFormServerCode(`file://${store}`, `file://${form}`, TOKEN, `file://${enhance}`));
+    const actionUrl = await load(
+      buildFormServerCode({
+        requestStore: `file://${store}`,
+        formModule: `file://${form}`,
+        location: TOKEN,
+        enhanceModule: `file://${enhance}`,
+      }),
+    );
     // Outside a render it needs the droplet.
     expect(() => actionUrl("add")).toThrow(/knows the droplet only while one renders/);
     expect(actionUrl("add", { droplet: "cart" })).toBe(`${TOKEN}/droplets/cart?/add`);
@@ -580,7 +612,14 @@ describe("$droplets/form", () => {
     const servers = Symbol.for("droplets.servers");
     const global = globalThis as unknown as Record<symbol, Record<string, { origin?: string }> | undefined>;
     global[servers] = { "djs:b1": { origin: "https://drops.example/prefix/" } };
-    const actionUrl = await load(buildFormClientCode("djs:b1", `file://${form}`, `file://${enhance}`, `file://${records}`));
+    const actionUrl = await load(
+      buildFormClientCode({
+        key: "djs:b1",
+        formModule: `file://${form}`,
+        enhanceModule: `file://${enhance}`,
+        recordsModule: `file://${records}`,
+      }),
+    );
     expect(() => actionUrl()).toThrow(/call it as the component sets up/);
     expect(actionUrl("add", { droplet: "cart" })).toBe("https://drops.example/prefix/droplets/cart?/add");
     withRender({ droplet: "cart", location: "https://drops.example/prefix/", props: { page: 2 } }, () => {
@@ -606,9 +645,9 @@ describe("$droplets/form", () => {
 
 describe("buildServerCode: public runtime variables", () => {
   it("lists their names for /index.js", () => {
-    expect(buildServerCode([], "/src/droplets", { publicEnvNames: ["PUBLIC_API"] })).toContain(
+    expect(buildServerCode({ entries: [], globRoot: "/src/droplets", publicEnvNames: ["PUBLIC_API"] })).toContain(
       'export const publicEnvNames = ["PUBLIC_API"];',
     );
-    expect(buildServerCode([], "/src/droplets")).toContain("export const publicEnvNames = [];");
+    expect(buildServerCode({ entries: [], globRoot: "/src/droplets" })).toContain("export const publicEnvNames = [];");
   });
 });

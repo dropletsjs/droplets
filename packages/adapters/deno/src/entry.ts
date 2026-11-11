@@ -1,15 +1,12 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import userConfig from "virtual:droplets-config";
-import { resolveConfig } from "@dropletsjs/droplets";
+import { type DropletsApp, resolveConfig } from "@dropletsjs/droplets";
 import { createNodeServerApp } from "@dropletsjs/adapter-node";
 
-/**
- * The bundled production server for Deno, emitted as `dist/server.js` next
- * to `client/` and `server/`; paths resolve from this file, not the working
- * directory. `deno serve` owns the port, so `server.port` and `PORT` do not
- * apply here.
- */
+// Bundled as `dist/server.js`, next to `client/` and `server/`: paths are
+// relative to this file, not to the working directory. `deno serve` owns the
+// port, so `server.port` and `PORT` do not apply.
 const runtimeRoot = dirname(fileURLToPath(import.meta.url));
 
 const paths = {
@@ -19,16 +16,16 @@ const paths = {
 
 const config = resolveConfig(userConfig ?? {});
 
-let appPromise: ReturnType<typeof createNodeServerApp> | null = null;
+let appPromise: Promise<DropletsApp> | null = null;
 
-function getApp() {
+function loadApp(): Promise<DropletsApp> {
   appPromise ??= createNodeServerApp(paths, config);
   return appPromise;
 }
 
 export default {
   fetch: async (request: Request): Promise<Response> => {
-    const app = await getApp();
+    const app = await loadApp();
     return app.fetch(request);
   },
 };

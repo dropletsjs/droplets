@@ -20,14 +20,14 @@ describe("the framework catalog", () => {
   });
 
   it("finds a framework by renderer name, and Hono JSX as hono too", () => {
-    expect(frameworkNamed("react")?.factory).toBe("react");
-    expect(frameworkNamed("hono")?.name).toBe("hono-jsx");
-    expect(frameworkNamed("angular")).toBeUndefined();
+    expect(frameworkNamed({ name: "react" })?.factory).toBe("react");
+    expect(frameworkNamed({ name: "hono" })?.name).toBe("hono-jsx");
+    expect(frameworkNamed({ name: "angular" })).toBeUndefined();
   });
 
   it("reads the package name out of a spec", () => {
-    expect(packageName("react@^19.0.0")).toBe("react");
-    expect(packageName("@types/react@^19.0.0")).toBe("@types/react");
-    expect(packageName("@dropletsjs/renderer-vue")).toBe("@dropletsjs/renderer-vue");
+    expect(packageName({ spec: "react@^19.0.0" })).toBe("react");
+    expect(packageName({ spec: "@types/react@^19.0.0" })).toBe("@types/react");
+    expect(packageName({ spec: "@dropletsjs/renderer-vue" })).toBe("@dropletsjs/renderer-vue");
   });
 });

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import postcss, { type AcceptedPlugin } from "postcss";
 import type { Plugin, ResolvedConfig } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createCssConfig, hasPreflight, resolveCss, tailwindPlugins, withoutPreflight } from "../../src/vite/css.ts";
+import { type CssConfig, createCssConfig, hasPreflight, resolveCss, tailwindPlugins, withoutPreflight } from "../../src/vite/css.ts";
 import { createInitialState } from "../../src/vite/state.ts";
 
 describe("resolveCss", () => {
@@ -17,16 +17,16 @@ describe("resolveCss", () => {
   });
 
   it("applies defaults, ./src/app.css only when it exists", async () => {
-    expect(await resolveCss({}, root)).toEqual({ scoped: true, tailwind: false, twPreflight: true });
+    expect(await resolveCss({ options: {}, root })).toEqual({ scoped: true, tailwind: false, twPreflight: true });
     await mkdir(join(root, "src"), { recursive: true });
     await writeFile(join(root, "src/app.css"), "");
-    expect((await resolveCss({}, root)).path).toBe("./src/app.css");
-    expect((await resolveCss({ path: "./styles/x.css" }, root)).path).toBe("./styles/x.css");
-    expect((await resolveCss({ path: false }, root)).path).toBeUndefined();
+    expect((await resolveCss({ options: {}, root })).path).toBe("./src/app.css");
+    expect((await resolveCss({ options: { path: "./styles/x.css" }, root })).path).toBe("./styles/x.css");
+    expect((await resolveCss({ options: { path: false }, root })).path).toBeUndefined();
   });
 
   it("takes every option", async () => {
-    expect(await resolveCss({ scoped: false, tailwind: true, twPreflight: false }, root)).toMatchObject({
+    expect(await resolveCss({ options: { scoped: false, tailwind: true, twPreflight: false }, root })).toMatchObject({
       scoped: false,
       tailwind: true,
       twPreflight: false,
@@ -36,10 +36,10 @@ describe("resolveCss", () => {
 
 describe("withoutPreflight", () => {
   it('splits @import "tailwindcss" into theme and utilities, options kept', () => {
-    expect(withoutPreflight('@import "tailwindcss";\n.x { color: red }')).toBe(
+    expect(withoutPreflight({ code: '@import "tailwindcss";\n.x { color: red }' })).toBe(
       '@layer theme, base, components, utilities;\n@import "tailwindcss/theme.css" layer(theme);\n@import "tailwindcss/utilities.css" layer(utilities);\n.x { color: red }',
     );
-    expect(withoutPreflight("@import 'tailwindcss' prefix(tw) important;")).toBe(
+    expect(withoutPreflight({ code: "@import 'tailwindcss' prefix(tw) important;" })).toBe(
       '@layer theme, base, components, utilities;\n@import "tailwindcss/theme.css" layer(theme) prefix(tw) important;\n@import "tailwindcss/utilities.css" layer(utilities) prefix(tw) important;',
     );
   });
@@ -47,16 +47,16 @@ describe("withoutPreflight", () => {
   it("drops an import of the preflight, and leaves the rest alone", () => {
     const split =
       '@import "tailwindcss/theme.css" layer(theme);\n@import "tailwindcss/preflight.css" layer(base);\n@import "tailwindcss/utilities.css" layer(utilities);\n';
-    expect(withoutPreflight(split)).toBe(
+    expect(withoutPreflight({ code: split })).toBe(
       '@import "tailwindcss/theme.css" layer(theme);\n@import "tailwindcss/utilities.css" layer(utilities);\n',
     );
-    expect(withoutPreflight('@import "tailwindcss/utilities.css";')).toBeNull();
-    expect(withoutPreflight(".x { color: red }")).toBeNull();
+    expect(withoutPreflight({ code: '@import "tailwindcss/utilities.css";' })).toBeNull();
+    expect(withoutPreflight({ code: ".x { color: red }" })).toBeNull();
   });
 });
 
 describe("hasPreflight", () => {
-  const check = (css: string) => hasPreflight(postcss.parse(css));
+  const check = (css: string) => hasPreflight({ root: postcss.parse(css) });
 
   it("finds the preflight as Tailwind writes it, and as its optimizer leaves it", () => {
     expect(check("@layer base { *, ::after, ::before, ::backdrop, ::file-selector-button { box-sizing: border-box; margin: 0 } }")).toBe(
@@ -68,7 +68,9 @@ describe("hasPreflight", () => {
 });
 
 describe("createCssConfig", () => {
-  const run = (config: ReturnType<typeof createCssConfig>, css: string) => {
+  type RunInput = { config: CssConfig | undefined; css: string };
+
+  const run = ({ config, css }: RunInput) => {
     const plugins = (config?.postcss as { plugins: AcceptedPlugin[] } | undefined)?.plugins ?? [];
     return postcss(plugins).process(css, { from: "/p/src/droplets/a/style.css" }).css;
   };
@@ -76,25 +78,27 @@ describe("createCssConfig", () => {
   it("scopes every stylesheet, keeping the user's inline PostCSS plugins", () => {
     const state = createInitialState();
     const own = { postcssPlugin: "own" };
-    const config = createCssConfig({ css: { postcss: { plugins: [own] } } }, state) ?? expect.unreachable("a css config");
+    const config = createCssConfig({ userConfig: { css: { postcss: { plugins: [own] } } }, state }) ?? expect.unreachable("a css config");
     const plugins = (config.postcss as { plugins: unknown[] }).plugins;
     expect(plugins[0]).toBe(own);
-    expect(run(config, ".x { color: red }")).toBe("djs-droplet .x { color: red }");
+    expect(run({ config, css: ".x { color: red }" })).toBe("djs-droplet .x { color: red }");
   });
 
   it("checks for a stray preflight without twPreflight, and does nothing when there is nothing to do", () => {
     const state = createInitialState();
     state.css = { ...state.css, scoped: false, twPreflight: false };
     const names = (
-      (createCssConfig({}, state) ?? expect.unreachable("a css config")).postcss as { plugins: Array<{ postcssPlugin: string }> }
+      (createCssConfig({ userConfig: {}, state }) ?? expect.unreachable("a css config")).postcss as {
+        plugins: Array<{ postcssPlugin: string }>;
+      }
     ).plugins.map((p) => p.postcssPlugin);
     expect(names).toEqual(["droplets:preflight-check"]);
     state.css = { ...state.css, twPreflight: true };
-    expect(createCssConfig({}, state)).toBeUndefined();
+    expect(createCssConfig({ userConfig: {}, state })).toBeUndefined();
   });
 
   it("leaves a PostCSS config file alone", () => {
-    expect(createCssConfig({ css: { postcss: "./postcss.config.js" } }, createInitialState())).toBeUndefined();
+    expect(createCssConfig({ userConfig: { css: { postcss: "./postcss.config.js" } }, state: createInitialState() })).toBeUndefined();
   });
 });
 

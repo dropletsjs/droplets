@@ -7,7 +7,9 @@ import type { DropletEntry } from "../../src/core/discover.ts";
 import type { DropletRenderer } from "../../src/renderer.ts";
 import { dropletTypesCode, syncDropletTypes } from "../../src/vite/sync-types.ts";
 
-const entry = (name: string, extra: Partial<DropletEntry> = {}): DropletEntry => ({
+type EntryInput = Pick<DropletEntry, "name"> & Partial<DropletEntry>;
+
+const entry = ({ name, ...extra }: EntryInput): DropletEntry => ({
   id: name,
   name,
   file: "+droplet.svelte",
@@ -35,19 +37,24 @@ afterEach(async () => {
 
 describe("dropletTypesCode", () => {
   it("reads the droplet's own files, relative to where the types land", () => {
-    const code = dropletTypesCode(
-      entry("hello", { hasLoad: true, hasServerLoad: true }),
-      svelte,
-      "/app/.droplets/types/src/droplets/hello/$types.d.ts",
-      "/app/src/droplets/hello",
-    );
+    const code = dropletTypesCode({
+      entry: entry({ name: "hello", hasLoad: true, hasServerLoad: true }),
+      renderer: svelte,
+      typesFile: "/app/.droplets/types/src/droplets/hello/$types.d.ts",
+      folder: "/app/src/droplets/hello",
+    });
     expect(code).toContain('type Universal = typeof import("../../../../../src/droplets/hello/+droplet.ts");');
     expect(code).toContain('type Server = typeof import("../../../../../src/droplets/hello/+droplet.server.ts");');
     expect(code).toContain('from "@dropletsjs/renderer-svelte";');
   });
 
   it("has nothing to import without load files, and neutral component types without a renderer's", () => {
-    const code = dropletTypesCode(entry("bare"), undefined, "/app/.droplets/types/x/$types.d.ts", "/app/x");
+    const code = dropletTypesCode({
+      entry: entry({ name: "bare" }),
+      renderer: undefined,
+      typesFile: "/app/.droplets/types/x/$types.d.ts",
+      folder: "/app/x",
+    });
     expect(code).toContain("type Universal = {};");
     expect(code).toContain("type Server = {};");
     expect(code).toContain('DropletProps as ComponentProps } from "@dropletsjs/droplets";');
@@ -60,7 +67,7 @@ describe("syncDropletTypes", () => {
     temps.push(root);
     const input = { root, dropletsRoot: resolve(root, "src/droplets"), renderers: [svelte] };
 
-    const first = await syncDropletTypes({ ...input, entries: [entry("a"), entry("b")] });
+    const first = await syncDropletTypes({ ...input, entries: [entry({ name: "a" }), entry({ name: "b" })] });
     expect(first.written.map((file) => file.slice(root.length))).toEqual([
       "/.droplets/types/src/droplets/a/$types.d.ts",
       "/.droplets/types/src/droplets/b/$types.d.ts",
@@ -70,9 +77,9 @@ describe("syncDropletTypes", () => {
       compilerOptions: { module: "esnext", moduleResolution: "bundler", rootDirs: ["..", "./types"] },
     });
 
-    expect((await syncDropletTypes({ ...input, entries: [entry("a"), entry("b")] })).written).toEqual([]);
+    expect((await syncDropletTypes({ ...input, entries: [entry({ name: "a" }), entry({ name: "b" })] })).written).toEqual([]);
 
-    await syncDropletTypes({ ...input, entries: [entry("a")] });
+    await syncDropletTypes({ ...input, entries: [entry({ name: "a" })] });
     await expect(readFile(resolve(root, ".droplets/types/src/droplets/b/$types.d.ts"), "utf8")).rejects.toThrow();
     await expect(readFile(resolve(root, ".droplets/types/src/droplets/a/$types.d.ts"), "utf8")).resolves.toContain("export type Data");
   });
@@ -86,10 +93,10 @@ describe("syncDropletTypes", () => {
     const input = { root, dropletsRoot: resolve(root, "src/droplets"), renderers: [] };
     const tsconfig = async () => JSON.parse(await readFile(resolve(root, ".droplets/tsconfig.json"), "utf8"));
 
-    await syncDropletTypes({ ...input, entries: [entry("alone", { file: "+droplet.tsx", renderer: "react" })] });
+    await syncDropletTypes({ ...input, entries: [entry({ name: "alone", file: "+droplet.tsx", renderer: "react" })] });
     expect(await tsconfig()).not.toHaveProperty("files");
 
-    await syncDropletTypes({ ...input, entries: [entry("pair", { file: "+droplet.tsx", renderer: "react", hasLoad: true })] });
+    await syncDropletTypes({ ...input, entries: [entry({ name: "pair", file: "+droplet.tsx", renderer: "react", hasLoad: true })] });
     expect(await tsconfig()).toMatchObject({
       include: ["${configDir}/**/*"],
       files: ["../src/droplets/pair/+droplet.tsx"],
@@ -183,7 +190,7 @@ describe("./$types, as TypeScript reads them", () => {
       root,
       dropletsRoot: resolve(root, "src/droplets"),
       renderers: [],
-      entries: [entry("card", { hasLoad: true, hasServerLoad: true }), entry("bare")],
+      entries: [entry({ name: "card", hasLoad: true, hasServerLoad: true }), entry({ name: "bare" })],
     });
     expect(diagnostics(root, ["src/droplets/card/check.ts", "src/droplets/bare/check.ts"])).toEqual([]);
   });
@@ -250,7 +257,7 @@ describe("./$types, as TypeScript reads them", () => {
       root,
       dropletsRoot: resolve(root, "src/droplets"),
       renderers: [],
-      entries: [entry("card", { hasServerLoad: true }), entry("bare")],
+      entries: [entry({ name: "card", hasServerLoad: true }), entry({ name: "bare" })],
     });
     const ambient = resolve(import.meta.dirname, "../../ambient.d.ts");
     expect(diagnostics(root, [ambient, "src/droplets/card/check.ts", "src/droplets/bare/check.ts"])).toEqual([]);
@@ -281,7 +288,7 @@ describe("./$types, as TypeScript reads them", () => {
       root,
       dropletsRoot: resolve(root, "src/droplets"),
       renderers: [],
-      entries: [entry("tracker", { file: "+droplet.script.ts", renderer: "script", hasServerLoad: true })],
+      entries: [entry({ name: "tracker", file: "+droplet.script.ts", renderer: "script", hasServerLoad: true })],
     });
     expect(diagnostics(root, ["src/droplets/tracker/+droplet.script.ts"])).toEqual([]);
   });
@@ -314,7 +321,7 @@ describe("./$types, as TypeScript reads them", () => {
         root,
         dropletsRoot: resolve(root, "src/droplets"),
         renderers: [],
-        entries: [entry("card", { file: "+droplet.tsx", renderer: "react", hasLoad: true })],
+        entries: [entry({ name: "card", file: "+droplet.tsx", renderer: "react", hasLoad: true })],
       });
       const parsed = ts.getParsedCommandLineOfConfigFile(
         resolve(root, "tsconfig.json"),

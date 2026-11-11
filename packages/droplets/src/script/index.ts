@@ -37,14 +37,16 @@ import { langOfFile, readExportedFlags } from "../core/flags.ts";
 import { packageDist } from "../core/paths.ts";
 import { SCRIPT_RENDERER, SCRIPT_SUFFIXES, type DropletRenderer, type ReadFlagsInput, type RenderFlags } from "../renderer.ts";
 
+type ReadScriptFlagsInput = Pick<ReadFlagsInput, "source" | "file" | "droplet">;
+
 /**
  * The flags of a script droplet: `hydrate` (`true`, the default, or
  * `"visible"`) and `prerender`. Anything that would keep it from running
  * in the browser, or that it cannot have, is an error naming the fix.
  */
-export function readScriptFlags(input: Pick<ReadFlagsInput, "source" | "file" | "droplet">): Partial<RenderFlags> {
-  const where = `${input.droplet}/${input.file}`;
-  const flags = readExportedFlags(input.source, input.droplet, langOfFile(input.file));
+export function readScriptFlags({ source, file, droplet }: ReadScriptFlagsInput): Partial<RenderFlags> {
+  const where = `${droplet}/${file}`;
+  const flags = readExportedFlags(source, droplet, langOfFile({ file }));
   if (flags.ssr !== undefined) {
     throw new Error(`droplets: ${where}: a script droplet renders nothing on the server, so it has no ssr flag; remove export const ssr`);
   }
@@ -74,17 +76,23 @@ export function scriptRenderer(): DropletRenderer {
   };
 }
 
+type WithScriptRendererInput = { renderers: readonly DropletRenderer[] };
+
 /** The user's renderers, with the built-in one for script droplets after them. */
-export function withScriptRenderer(renderers: readonly DropletRenderer[]): DropletRenderer[] {
+export function withScriptRenderer({ renderers }: WithScriptRendererInput): DropletRenderer[] {
   return [...renderers, scriptRenderer()];
 }
 
+type UserRenderersInput = { renderers: readonly DropletRenderer[] };
+
 /** The renderers the user configured: every one but the built-in. */
-export function userRenderers(renderers: readonly DropletRenderer[]): DropletRenderer[] {
+export function userRenderers({ renderers }: UserRenderersInput): DropletRenderer[] {
   return renderers.filter((renderer) => renderer.name !== SCRIPT_RENDERER);
 }
 
+type IsScriptDropletInput = { renderer: string };
+
 /** Whether a droplet's renderer is the built-in script one. */
-export function isScriptDroplet(entry: { renderer: string }): boolean {
-  return entry.renderer === SCRIPT_RENDERER;
+export function isScriptDroplet({ renderer }: IsScriptDropletInput): boolean {
+  return renderer === SCRIPT_RENDERER;
 }

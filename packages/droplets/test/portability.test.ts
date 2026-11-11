@@ -21,12 +21,14 @@ const FORBIDDEN: Array<[string, RegExp]> = [
   ["__dirname", /\b__dirname\b/],
 ];
 
-async function files(path: string): Promise<string[]> {
-  const entries = await readdir(path, { withFileTypes: true });
+type FilesInput = { dir: string };
+
+async function files({ dir }: FilesInput): Promise<string[]> {
+  const entries = await readdir(dir, { withFileTypes: true });
   const out: string[] = [];
   for (const entry of entries) {
-    const full = join(path, entry.name);
-    if (entry.isDirectory()) out.push(...(await files(full)));
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...(await files({ dir: full })));
     else if (entry.name.endsWith(".ts")) out.push(full);
   }
   return out;
@@ -37,7 +39,7 @@ describe("runtime portability", () => {
     const offenders: string[] = [];
     for (const target of NEUTRAL) {
       const path = join(src, target);
-      const list = target.endsWith(".ts") ? [path] : await files(path);
+      const list = target.endsWith(".ts") ? [path] : await files({ dir: path });
       for (const file of list) {
         const text = await readFile(file, "utf8");
         for (const [label, pattern] of FORBIDDEN) {

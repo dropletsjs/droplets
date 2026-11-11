@@ -5,7 +5,7 @@
  */
 import type { SetHeaders } from "./server.ts";
 
-/** An HTTP field name (RFC 9110 `token`). */
+/** RFC 9110 `token`. */
 const FIELD_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
 /** What would split or end a header: no value may carry it. */
 const FORBIDDEN_VALUE = /[\r\n\0]/;
@@ -16,8 +16,10 @@ export type LoadHeaders = {
   headers: Headers;
 };
 
+type CreateLoadHeadersInput = { droplet: string };
+
 /** A `setHeaders` for `droplet`, and the headers it collects. */
-export function loadHeaders(droplet: string): LoadHeaders {
+export function createLoadHeaders({ droplet }: CreateLoadHeadersInput): LoadHeaders {
   const headers = new Headers();
   const setHeaders: SetHeaders = (values) => {
     if (typeof values !== "object" || values === null || Array.isArray(values)) {
@@ -40,8 +42,10 @@ export function loadHeaders(droplet: string): LoadHeaders {
   return { setHeaders, headers };
 }
 
+type StoredHeadersInput = { value: unknown };
+
 /** Stored headers back as a list, keeping only string values with valid names. */
-export function storedHeaders(value: unknown): Array<[string, string]> {
+export function storedHeaders({ value }: StoredHeadersInput): Array<[string, string]> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return [];
   const found: Array<[string, string]> = [];
   for (const name of Object.keys(value)) {

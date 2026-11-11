@@ -34,6 +34,8 @@ function createMarker(): HTMLElement {
   return marker;
 }
 
+type ChildrenOfInput = { host: DropletChildrenHost; adopt: () => Element | undefined };
+
 /**
  * The `children` value: a function Solid calls where the component inserts
  * it, inside a render effect, so `onMount` and `onCleanup` have an owner.
@@ -47,7 +49,7 @@ function createMarker(): HTMLElement {
  * nothing is re-created or moved. When mounting, or once they are used up,
  * a fresh marker is created.
  */
-function childrenOf(host: DropletChildrenHost, adopt: () => Element | undefined): () => JSX.Element {
+function childrenOf({ host, adopt }: ChildrenOfInput): () => JSX.Element {
   return () => {
     const marker = adopt() ?? createMarker();
     onMount(() => host.fill(marker));
@@ -56,7 +58,9 @@ function childrenOf(host: DropletChildrenHost, adopt: () => Element | undefined)
   };
 }
 
-function componentOf(module: ComponentModule, context: ClientRenderContext): Component<Record<string, unknown>> {
+type ComponentOfInput = { module: ComponentModule; context: Pick<ClientRenderContext, "droplet" | "kind"> };
+
+function componentOf({ module, context }: ComponentOfInput): Component<Record<string, unknown>> {
   const component = module.default;
   if (typeof component !== "function") {
     throw new Error(`${context.droplet}: the ${context.kind} component is not a Solid component`);
@@ -64,35 +68,39 @@ function componentOf(module: ComponentModule, context: ClientRenderContext): Com
   return component as Component<Record<string, unknown>>;
 }
 
+type ThrownInput = { caught: unknown };
+
 /**
  * What was thrown: Solid's boundary hands over anything that is not an
  * `Error` wrapped in one, `new Error("Unknown error", { cause })` (or the
  * string as message), and `handleError` must see it as it was.
  */
-function thrown(caught: unknown): unknown {
+function thrown({ caught }: ThrownInput): unknown {
   if (!(caught instanceof Error) || caught.constructor !== Error || !("cause" in caught)) return caught;
   const cause = caught.cause;
   if (cause instanceof Error) return caught;
   return caught.message === "Unknown error" || caught.message === cause ? cause : caught;
 }
 
+type WithBoundaryInput = {
+  render: () => JSX.Element;
+  error: NonNullable<ClientRenderContext["error"]>;
+  children: () => JSX.Element;
+  context: ClientRenderContext;
+};
+
 /**
  * The error boundary of a mounted droplet: what throws while rendering
  * goes through `handle` (the droplet's `handleError`) into the error page,
  * rendered in its place; nothing while `handle` runs, or when it rejects.
  */
-function withBoundary(
-  render: () => JSX.Element,
-  error: NonNullable<ClientRenderContext["error"]>,
-  children: () => JSX.Element,
-  context: ClientRenderContext,
-): () => JSX.Element {
-  const errorComponent = componentOf(error.module, { ...context, kind: "error" });
+function withBoundary({ render, error, children, context }: WithBoundaryInput): () => JSX.Element {
+  const errorComponent = componentOf({ module: error.module, context: { ...context, kind: "error" } });
   return () =>
     createComponent(ErrorBoundary, {
       fallback: (caught: unknown) => {
         const [shown, setShown] = createSignal<{ error: unknown }>();
-        error.handle(thrown(caught)).then(
+        error.handle(thrown({ caught })).then(
           (value) => setShown({ error: value }),
           () => undefined,
         );
@@ -117,19 +125,19 @@ function withBoundary(
 }
 
 export function mount(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): unknown {
-  const component = componentOf(module, context);
-  const children = childrenOf(context.children, () => undefined);
-  const live = liveProps(props, children);
+  const component = componentOf({ module, context });
+  const children = childrenOf({ host: context.children, adopt: () => undefined });
+  const live = liveProps({ props, children });
   const render = () => createComponent(component, live.props);
-  const handle = solidRender(context.error ? withBoundary(render, context.error, children, context) : render, target);
+  const handle = solidRender(context.error ? withBoundary({ render, error: context.error, children, context }) : render, target);
   setters.set(handle, live.set);
   return handle;
 }
 
 export function hydrate(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): unknown {
-  const component = componentOf(module, context);
+  const component = componentOf({ module, context });
   const serverMarkers = context.markers();
-  const children = childrenOf(context.children, () => serverMarkers.shift());
+  const children = childrenOf({ host: context.children, adopt: () => serverMarkers.shift() });
 
   // Solid marks hydration as done for the whole page on the first event
   // after a hydration, and every later `hydrate()` then falls back to a
@@ -139,7 +147,7 @@ export function hydrate(module: ComponentModule, target: HTMLElement, props: Ren
   state.done = false;
   sharedConfig.done = false;
 
-  const live = liveProps(props, children);
+  const live = liveProps({ props, children });
   try {
     const handle = solidHydrate(() => createComponent(component, live.props), target, {
       renderId: context.renderId,

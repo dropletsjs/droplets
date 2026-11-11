@@ -20,7 +20,20 @@
  * leaves these modules here.
  */
 import { fileURLToPath } from "node:url";
-import { transformWithOxc, type Plugin } from "vite";
+import { type Plugin, transformWithOxc } from "vite";
+
+type PreludeInput = { core: string; utils: string; file: string };
+
+type CompileInput = { code: string; file: string; refresh: boolean };
+
+export type PreactPluginInput = {
+  /**
+   * When set, matches the modules this renderer compiles (another renderer
+   * claims `.tsx` too); unset, it compiles every `.tsx` / `.jsx` outside
+   * `node_modules`.
+   */
+  include?: RegExp | undefined;
+};
 
 const JSX_FILE = /\.[jt]sx$/;
 const PACKAGE = "@dropletsjs/renderer-preact";
@@ -28,7 +41,7 @@ const PACKAGE = "@dropletsjs/renderer-preact";
 const here = fileURLToPath(import.meta.url);
 
 /** Registers the module's components with Prefresh while it runs; one line, so the source map stays in step. */
-const prelude = (core: string, utils: string, file: string) =>
+const prelude = ({ core, utils, file }: PreludeInput): string =>
   `import ${JSON.stringify(core)};import { flush as __prefresh_flush__ } from ${JSON.stringify(utils)};` +
   "let __prefresh_reg__, __prefresh_sig__;" +
   "if (import.meta.hot) {" +
@@ -57,12 +70,16 @@ if (import.meta.hot) {
 }
 `;
 
-/**
- * `include`, when set, matches the modules this renderer compiles (another
- * renderer claims `.tsx` too); unset, it compiles every `.tsx` / `.jsx`
- * outside `node_modules`.
- */
-export function preactPlugin(include?: RegExp): Plugin {
+/** A module compiled for Preact's automatic JSX runtime, with oxc's refresh transform when `refresh`. */
+function compile({ code, file, refresh }: CompileInput): ReturnType<typeof transformWithOxc> {
+  return transformWithOxc(code, file, {
+    lang: file.endsWith(".tsx") ? "tsx" : "jsx",
+    jsx: { runtime: "automatic", importSource: "preact", ...(refresh ? { refresh: true } : {}) },
+    sourcemap: true,
+  });
+}
+
+export function preactPlugin({ include }: PreactPluginInput = {}): Plugin {
   /** Under `vite dev`, with HMR on: Prefresh in the browser. */
   let refresh = false;
 
@@ -84,32 +101,23 @@ export function preactPlugin(include?: RegExp): Plugin {
       if (!JSX_FILE.test(file) || file.includes("/node_modules/")) return null;
       if (include && !include.test(id)) return null;
       const hot = refresh && this.environment.config.consumer === "client";
-      const result = await transformWithOxc(code, file, {
-        lang: file.endsWith(".tsx") ? "tsx" : "jsx",
-        jsx: { runtime: "automatic", importSource: "preact", ...(hot ? { refresh: true } : {}) },
-        sourcemap: true,
-      });
+      const result = await compile({ code, file, refresh: hot });
       const map = result.map ?? null;
       if (!hot || !/\$Refresh(?:Reg|Sig)\$\(/.test(result.code)) return { code: result.code, map };
       // Resolved for each module, not once: the pre-bundled copy's URL
       // carries Vite's hash of the optimized dependencies, which changes
       // when Vite optimizes them again.
       const [core, utils] = await Promise.all([this.resolve("@prefresh/core", here), this.resolve("@prefresh/utils", here)]);
-      const found = core && utils ? { core: core.id, utils: utils.id } : null;
-      if (!found) {
+      if (!core || !utils) {
         this.warn("Prefresh's runtime (@prefresh/core, @prefresh/utils) did not resolve: Preact droplets remount on an edit");
         refresh = false;
-        const plain = await transformWithOxc(code, file, {
-          lang: file.endsWith(".tsx") ? "tsx" : "jsx",
-          jsx: { runtime: "automatic", importSource: "preact" },
-          sourcemap: true,
-        });
+        const plain = await compile({ code, file, refresh: false });
         return { code: plain.code, map: plain.map ?? null };
       }
       // A module with hooks only (`$RefreshSig$`) is no boundary of its own:
       // its update reaches the component that uses it.
       const registers = /\$RefreshReg\$\(/.test(result.code);
-      return { code: `${prelude(found.core, found.utils, file)}${result.code}${registers ? footer : ""}`, map };
+      return { code: `${prelude({ core: core.id, utils: utils.id, file })}${result.code}${registers ? footer : ""}`, map };
     },
   };
 }

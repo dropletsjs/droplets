@@ -14,18 +14,20 @@ import { transformWithOxc, type Plugin } from "vite";
 const JSX_FILE = /\.[jt]sx$/;
 
 /** `hono/jsx` and its runtimes, to what the browser uses instead. */
-const DOM_BUILDS: Record<string, string> = {
-  "hono/jsx": "hono/jsx/dom",
-  "hono/jsx/jsx-runtime": "hono/jsx/dom/jsx-runtime",
-  "hono/jsx/jsx-dev-runtime": "hono/jsx/dom/jsx-dev-runtime",
-};
+const DOM_BUILDS = new Map([
+  ["hono/jsx", "hono/jsx/dom"],
+  ["hono/jsx/jsx-runtime", "hono/jsx/dom/jsx-runtime"],
+  ["hono/jsx/jsx-dev-runtime", "hono/jsx/dom/jsx-dev-runtime"],
+]);
+
+export type HonoJsxPluginOptions = { include?: RegExp | undefined };
 
 /**
  * `include`, when set, matches the modules this renderer compiles (another
  * renderer claims `.tsx` too); unset, it compiles every `.tsx` / `.jsx`
  * outside `node_modules`.
  */
-export function honoJsxPlugin(include?: RegExp): Plugin {
+export function honoJsxPlugin({ include }: HonoJsxPluginOptions = {}): Plugin {
   return {
     name: "droplets:hono-jsx",
     enforce: "pre",
@@ -33,7 +35,7 @@ export function honoJsxPlugin(include?: RegExp): Plugin {
     resolveId: {
       order: "pre",
       async handler(source, importer, options) {
-        const dom = DOM_BUILDS[source];
+        const dom = DOM_BUILDS.get(source);
         if (!dom || this.environment.config.consumer !== "client") return null;
         return this.resolve(dom, importer, { ...options, skipSelf: true });
       },

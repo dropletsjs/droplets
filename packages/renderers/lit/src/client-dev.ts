@@ -13,6 +13,6 @@ export async function update(instance: unknown, props: RenderProps): Promise<boo
   const { target, tag, actionUrl } = instance as Instance;
   if (!tag || !actionUrl || !(target as LitContainer)._$litPart$) return false;
   const next = "data" in props ? { ...props, data: await props.data } : props;
-  render(hostTemplate(tag, next, actionUrl), target);
+  render(hostTemplate({ tag, props: next, actionUrl }), target);
   return true;
 }

@@ -45,8 +45,10 @@ env.registerHelper("action", function (this: unknown, ...args: unknown[]) {
 /** The helpers the renderer owns: a project's own by these names are left out. */
 const OWN_HELPERS = new Set(["children", "action"]);
 
+type TemplateOfInput = { module: { default?: unknown }; where: { droplet: string; kind: string } };
+
 /** The template of a compiled module, or a clear error naming the file. */
-export function templateOf(module: { default?: unknown }, where: { droplet: string; kind: string }): Template {
+export function templateOf({ module, where }: TemplateOfInput): Template {
   const template = module.default;
   if (typeof template !== "function") {
     throw new Error(`${where.droplet}: +${where.kind}.hbs did not compile to a template function`);
@@ -54,7 +56,11 @@ export function templateOf(module: { default?: unknown }, where: { droplet: stri
   return template as Template;
 }
 
-const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+type RegisterHelpersInput = { target: HandlebarsEnvironment; module: Record<string, unknown> };
 
 /**
  * Registers the helpers a user module exports: every named export that is a
@@ -62,7 +68,7 @@ const isObject = (value: unknown): value is Record<string, unknown> => typeof va
  * functions (named exports win). `children` and `action` are the
  * renderer's and are left alone.
  */
-export function registerHelpers(target: HandlebarsEnvironment, module: Record<string, unknown>): void {
+export function registerHelpers({ target, module }: RegisterHelpersInput): void {
   const fromDefault = isObject(module["default"]) ? module["default"] : {};
   const entries: Record<string, unknown> = { ...fromDefault, ...module };
   for (const [name, fn] of Object.entries(entries)) {

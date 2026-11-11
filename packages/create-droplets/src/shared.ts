@@ -15,8 +15,10 @@ declare const __VERSIONS__: Record<string, string>;
 /** The version ranges a generated project asks for, baked in at build. */
 export const VERSIONS: Readonly<Record<string, string>> = __VERSIONS__;
 
+type VersionOfInput = { name: string };
+
 /** `VERSIONS[name]`, or an error naming what the build left out. */
-export function versionOf(name: string): string {
+export function versionOf({ name }: VersionOfInput): string {
   const version = VERSIONS[name];
   if (!version) throw new Error(`create-droplets: no version for ${name}`);
   return version;

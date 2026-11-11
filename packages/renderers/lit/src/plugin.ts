@@ -38,13 +38,15 @@ export const SERVER_BUNDLED = [
 const WITH_SERVER_BUILD = /^(lit-html|@lit\/reactive-element)(?:\/|$)/;
 const BROWSER_FILE = /^(.*\/node_modules\/(?:lit-html|@lit\/reactive-element))\/(?!node\/)(.+\.js)$/;
 
+type ServerBuildOfInput = { file: string; exists?: (path: string) => boolean };
+
 /**
  * The server build of a resolved browser-build file of `lit-html` or
  * `@lit/reactive-element`: `…/lit-html/directive.js` →
  * `…/lit-html/node/directive.js` (`development/` keeps its place under
  * `node/`). `null` when it is no such file or has no twin on disk.
  */
-export function serverBuildOf(file: string, exists: (path: string) => boolean = existsSync): string | null {
+export function serverBuildOf({ file, exists = existsSync }: ServerBuildOfInput): string | null {
   const match = BROWSER_FILE.exec(file.replaceAll("\\", "/"));
   if (!match) return null;
   const twin = `${match[1]}/node/${match[2]}`;
@@ -53,7 +55,9 @@ export function serverBuildOf(file: string, exists: (path: string) => boolean = 
 
 type CorePlugin = { name?: string; api?: { element?: () => string } };
 
-export function litPlugin(options: { prefix?: string } = {}): Plugin {
+export type LitPluginOptions = { prefix?: string };
+
+export function litPlugin(options: LitPluginOptions = {}): Plugin {
   let prefix = options.prefix;
   return {
     name: "droplets:lit",
@@ -80,7 +84,7 @@ export function litPlugin(options: { prefix?: string } = {}): Plugin {
         if (environment.consumer === "client" || environment.resolve.conditions.includes("node")) return null;
         const resolved = await this.resolve(source, importer, { ...resolveOptions, skipSelf: true });
         if (!resolved || resolved.external) return resolved;
-        const twin = serverBuildOf(resolved.id.replace(/[?#].*$/, ""));
+        const twin = serverBuildOf({ file: resolved.id.replace(/[?#].*$/, "") });
         return twin ? { ...resolved, id: twin } : resolved;
       },
     },

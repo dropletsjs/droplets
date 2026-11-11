@@ -35,14 +35,14 @@ describe("createAssetLoaders", () => {
   });
 
   it("reads the manifest once", async () => {
-    const assets = createAssetLoaders(root);
-    const first = await assets.getManifest();
+    const assets = createAssetLoaders({ clientRoot: root });
+    const first = await assets.loadManifest();
     expect(first.__hash).toBe("h4sh");
-    expect(await assets.getManifest()).toBe(first);
+    expect(await assets.loadManifest()).toBe(first);
   });
 
   it("loads bundles, styles and the entry client by manifest path", async () => {
-    const assets = createAssetLoaders(root);
+    const assets = createAssetLoaders({ clientRoot: root });
     expect(await assets.loadClientModule("hello")).toBe("hello");
     expect(await assets.loadEntryClient()).toBe("entry");
     expect(await assets.entryModule()).toBe("assets/index.h4sh.js");
@@ -53,15 +53,15 @@ describe("createAssetLoaders", () => {
   });
 
   it("finds only droplets in the manifest, never prototype members", async () => {
-    const assets = createAssetLoaders(root);
+    const assets = createAssetLoaders({ clientRoot: root });
     for (const id of ["__proto__", "constructor", "toString", "hasOwnProperty"]) {
       expect(await assets.loadClientModule(id), id).toBeNull();
       expect(await assets.dropletStyles(id), id).toEqual([]);
     }
   });
 
-  it("distinguishes 'no styles' from 'unknown droplet'", async () => {
-    const assets = createAssetLoaders(root);
+  it("answers no styles and no bundle for a droplet without them and for an unknown one", async () => {
+    const assets = createAssetLoaders({ clientRoot: root });
     expect(await assets.dropletStyles("plain")).toEqual([]);
     expect(await assets.dropletStyles("nope")).toEqual([]);
     expect(await assets.loadClientModule("nope")).toBeNull();
@@ -74,8 +74,8 @@ describe("createAssetLoaders", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const empty = await mkdtemp(join(tmpdir(), "droplets-manifest-empty-"));
     try {
-      const assets = createAssetLoaders(empty);
-      const manifest = await assets.getManifest();
+      const assets = createAssetLoaders({ clientRoot: empty });
+      const manifest = await assets.loadManifest();
       expect(manifest.droplets).toEqual({});
       expect(manifest.__entryClient).toBe("index.js");
       expect(warn).toHaveBeenCalledOnce();

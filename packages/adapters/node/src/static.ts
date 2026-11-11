@@ -1,32 +1,36 @@
 import { createHash } from "node:crypto";
 import { resolve, sep } from "node:path";
 import { readFile } from "node:fs/promises";
-import type { Context } from "hono";
+import type { Handler } from "hono";
 
-const CONTENT_TYPES: Record<string, string> = {
-  ".js": "application/javascript; charset=utf-8",
-  ".mjs": "application/javascript; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".map": "application/json; charset=utf-8",
-  ".svg": "image/svg+xml",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".gif": "image/gif",
-  ".webp": "image/webp",
-  ".avif": "image/avif",
-  ".ico": "image/x-icon",
-  ".woff": "font/woff",
-  ".woff2": "font/woff2",
-  ".ttf": "font/ttf",
-  ".otf": "font/otf",
-};
+const CONTENT_TYPES = new Map([
+  [".js", "application/javascript; charset=utf-8"],
+  [".mjs", "application/javascript; charset=utf-8"],
+  [".css", "text/css; charset=utf-8"],
+  [".json", "application/json; charset=utf-8"],
+  [".map", "application/json; charset=utf-8"],
+  [".svg", "image/svg+xml"],
+  [".png", "image/png"],
+  [".jpg", "image/jpeg"],
+  [".jpeg", "image/jpeg"],
+  [".gif", "image/gif"],
+  [".webp", "image/webp"],
+  [".avif", "image/avif"],
+  [".ico", "image/x-icon"],
+  [".woff", "font/woff"],
+  [".woff2", "font/woff2"],
+  [".ttf", "font/ttf"],
+  [".otf", "font/otf"],
+]);
 
-function contentTypeFor(path: string): string {
+export type StaticHandlerOptions = { clientRoot: string };
+
+type ContentTypeOfInput = { path: string };
+
+function contentTypeOf({ path }: ContentTypeOfInput): string {
   const dot = path.lastIndexOf(".");
   const ext = dot === -1 ? "" : path.slice(dot).toLowerCase();
-  return CONTENT_TYPES[ext] ?? "application/octet-stream";
+  return CONTENT_TYPES.get(ext) ?? "application/octet-stream";
 }
 
 /**
@@ -35,16 +39,16 @@ function contentTypeFor(path: string): string {
  * `public/` under `/assets/public/`, whose names stay: revalidated on every
  * use (`no-cache`, an `ETag`, 304 when it matches).
  */
-export function createStaticHandler(clientRoot: string) {
+export function createStaticHandler({ clientRoot }: StaticHandlerOptions): Handler {
   const assetsRoot = resolve(clientRoot, "assets");
   const assetsPrefix = assetsRoot + sep;
   const publicPrefix = resolve(assetsRoot, "public") + sep;
 
-  return async (c: Context): Promise<Response> => {
+  return async (c) => {
     const relativePath = c.req.path.replace(/^\/assets\//, "");
     const filePath = resolve(assetsRoot, relativePath);
 
-    // Reject anything that escapes the assets directory.
+    // The path comes from the URL and `resolve` has applied its `..`: outside the folder, read nothing.
     if (filePath !== assetsRoot && !filePath.startsWith(assetsPrefix)) {
       return c.text("Not Found", 404);
     }
@@ -53,9 +57,10 @@ export function createStaticHandler(clientRoot: string) {
     try {
       body = await readFile(filePath);
     } catch {
+      // Missing, a directory or unreadable: a 404, never the error.
       return c.text("Not Found", 404);
     }
-    c.header("content-type", contentTypeFor(filePath));
+    c.header("content-type", contentTypeOf({ path: filePath }));
     if (!filePath.startsWith(publicPrefix)) {
       c.header("cache-control", "public, max-age=2592000, immutable");
       return c.body(new Uint8Array(body));

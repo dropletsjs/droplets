@@ -9,8 +9,18 @@
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
+export type StripJsoncInput = { text: string };
+
+type LoadTsConfigInput = { file: string };
+
+type SetsJsxInput = { file: string; seen?: Set<string> };
+
+type CoversTsxInput = { pattern: string };
+
+export type WithJsxInput = { file: string; importSource: string };
+
 /** JSON with comments and trailing commas, as tsconfig allows, to plain JSON. */
-export function stripJsonc(text: string): string {
+export function stripJsonc({ text }: StripJsoncInput): string {
   let out = "";
   for (let i = 0; i < text.length; i++) {
     const char = text.charAt(i);
@@ -34,51 +44,54 @@ export function stripJsonc(text: string): string {
 
 type TsConfig = { extends?: string | string[]; include?: string[]; compilerOptions?: { jsx?: string } };
 
-async function readTsConfig(file: string): Promise<TsConfig | undefined> {
+async function loadTsConfig({ file }: LoadTsConfigInput): Promise<TsConfig | undefined> {
   const text = await readFile(file, "utf8").catch(() => undefined);
   if (text === undefined) return undefined;
   try {
-    return JSON.parse(stripJsonc(text)) as TsConfig;
+    return JSON.parse(stripJsonc({ text })) as TsConfig;
   } catch {
+    // Not one this can read: it is left alone.
     return undefined;
   }
 }
 
 /** Whether `file` or a config it extends by a relative path sets `jsx`. */
-async function setsJsx(file: string, seen = new Set<string>()): Promise<boolean> {
+async function setsJsx({ file, seen = new Set<string>() }: SetsJsxInput): Promise<boolean> {
   if (seen.has(file)) return false;
   seen.add(file);
-  const config = await readTsConfig(file);
+  const config = await loadTsConfig({ file });
   if (!config) return false;
   if (config.compilerOptions?.jsx) return true;
   const parents = typeof config.extends === "string" ? [config.extends] : (config.extends ?? []);
   for (const parent of parents.filter((path) => path.startsWith("."))) {
     const path = resolve(dirname(file), parent.endsWith(".json") ? parent : `${parent}.json`);
-    if (await setsJsx(path, seen)) return true;
+    if (await setsJsx({ file: path, seen })) return true;
   }
   return false;
 }
 
 /** A pattern that takes `.tsx` files: `src`, `src/**\/*`, `**\/*.tsx`. */
-const coversTsx = (pattern: string) => pattern.endsWith(".tsx") || pattern.endsWith("*") || !/\.[^/]*$/.test(pattern);
+function coversTsx({ pattern }: CoversTsxInput): boolean {
+  return pattern.endsWith(".tsx") || pattern.endsWith("*") || !/\.[^/]*$/.test(pattern);
+}
 
 /**
  * `tsconfig.json`'s text with JSX turned on for `importSource`, or
  * `undefined` when it needs nothing (or is not one this can edit).
  */
-export async function withJsx(file: string, importSource: string): Promise<string | undefined> {
+export async function withJsx({ file, importSource }: WithJsxInput): Promise<string | undefined> {
   const text = await readFile(file, "utf8").catch(() => undefined);
-  const config = await readTsConfig(file);
+  const config = await loadTsConfig({ file });
   if (text === undefined || !config) return undefined;
   let code = text;
-  if (config.include && !config.include.some(coversTsx)) {
+  if (config.include && !config.include.some((pattern) => coversTsx({ pattern }))) {
     const include = /"include"\s*:\s*\[/.exec(code);
     if (include) {
       const at = include.index + include[0].length;
       code = `${code.slice(0, at)}"src/**/*.tsx", ${code.slice(at)}`;
     }
   }
-  if (!(await setsJsx(file))) {
+  if (!(await setsJsx({ file }))) {
     const options = `"jsx": "react-jsx", "jsxImportSource": "${importSource}"`;
     const compilerOptions = /"compilerOptions"\s*:\s*\{/.exec(code);
     if (compilerOptions) {

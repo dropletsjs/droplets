@@ -24,8 +24,10 @@ export type Registry = {
 /** A valid custom element name, as far as droplet ids and element names go: lowercase, a hyphen, no spaces. */
 const VALID_TAG = /^[a-z][a-z0-9._]*(?:-[a-z0-9._]*)+$/;
 
+type TagNameInput = { prefix: string; droplet: string; kind: ComponentKind };
+
 /** `<prefix>-<droplet>` for a droplet, `<prefix>-<droplet>--error` for its error page. */
-export function tagName(prefix: string, droplet: string, kind: ComponentKind): string {
+export function tagName({ prefix, droplet, kind }: TagNameInput): string {
   const tag = `${prefix}-${droplet}${kind === "error" ? "--error" : ""}`;
   if (!VALID_TAG.test(tag)) {
     throw new Error(
@@ -36,13 +38,10 @@ export function tagName(prefix: string, droplet: string, kind: ComponentKind): s
   return tag;
 }
 
+type ComponentOfInput = { module: ComponentModule; droplet: string; kind: ComponentKind; base: abstract new () => object };
+
 /** The component class of a Lit module, or an error that says what is expected. */
-export function componentOf(
-  module: ComponentModule,
-  droplet: string,
-  kind: ComponentKind,
-  base: abstract new () => object,
-): CustomElementConstructor {
+export function componentOf({ module, droplet, kind, base }: ComponentOfInput): CustomElementConstructor {
   const component = module.default;
   if (typeof component !== "function" || !(component.prototype instanceof base)) {
     throw new Error(
@@ -56,12 +55,14 @@ export function componentOf(
 /** The tags this module defined, by class: a class is defined once, under one name. */
 const claimed = new WeakMap<CustomElementConstructor, string>();
 
+type TagInput = { registry: Registry; component: CustomElementConstructor; tag: string };
+
 /**
  * Defines `component` under `tag`; the name the registry has it under
  * after. A class the page already defined itself (`@customElement`) keeps
  * its own name, when the registry can tell it.
  */
-function define(registry: Registry, tag: string, component: CustomElementConstructor): string {
+function define({ registry, tag, component }: TagInput): string {
   try {
     registry.define(tag, component);
     return tag;
@@ -77,14 +78,14 @@ function define(registry: Registry, tag: string, component: CustomElementConstru
  * `tag` when free or already its own, else the first free `tag--v<n>`.
  * For a server render and for a mount in the browser.
  */
-export function claimTag(registry: Registry, component: CustomElementConstructor, tag: string): string {
+export function claimTag({ registry, component, tag }: TagInput): string {
   const known = claimed.get(component);
   if (known) return known;
   for (let n = 1; ; n++) {
     const candidate = n === 1 ? tag : `${tag}--v${n}`;
     const holder = registry.get(candidate);
     if (holder && holder !== component) continue;
-    const name = holder ? candidate : define(registry, candidate, component);
+    const name = holder ? candidate : define({ registry, tag: candidate, component });
     claimed.set(component, name);
     return name;
   }
@@ -97,12 +98,12 @@ export function claimTag(registry: Registry, component: CustomElementConstructor
  * with the same element name on the page), or when `component` is defined
  * under another name already: the markup cannot be adopted then.
  */
-export function adoptTag(registry: Registry, component: CustomElementConstructor, tag: string): boolean {
+export function adoptTag({ registry, component, tag }: TagInput): boolean {
   const holder = registry.get(tag);
   if (holder) return holder === component;
   const known = claimed.get(component);
   if (known) return known === tag;
-  const name = define(registry, tag, component);
+  const name = define({ registry, tag, component });
   claimed.set(component, name);
   return name === tag;
 }

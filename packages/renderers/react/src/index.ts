@@ -71,7 +71,7 @@ export type ReactRendererOptions = {
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 /** The React renderer, for `droplets({ renderers: [react()] })`. */
-export function react(options: ReactRendererOptions = {}): DropletRenderer {
+export function react({ plugin, vitePlugin }: ReactRendererOptions = {}): DropletRenderer {
   return {
     name: "react",
     extensions: [".tsx", ".jsx"],
@@ -81,16 +81,16 @@ export function react(options: ReactRendererOptions = {}): DropletRenderer {
     // modules are React's, and they compile for `react` whatever JSX source
     // tsconfig.json names (a project that started with Preact says `preact`).
     // Fast Refresh compiles those alone: never another renderer's modules.
-    ...(options.plugin === false
+    ...(plugin === false
       ? {}
       : {
-          plugins: (scope) => [
+          plugins: ({ include }) => [
             reactPlugin({
-              ...(scope.include ? { jsxImportSource: "react" } : {}),
-              ...options.vitePlugin,
-              ...(scope.include ? { include: scope.include } : {}),
+              ...(include ? { jsxImportSource: "react" } : {}),
+              ...vitePlugin,
+              ...(include ? { include } : {}),
             }),
-            reactRefreshPlugin(options.vitePlugin, scope.include),
+            reactRefreshPlugin({ vitePlugin, include }),
           ],
         }),
     server: resolve(packageRoot, "dist/server.js"),

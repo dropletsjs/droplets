@@ -24,7 +24,6 @@ export type RenderContract = { ssr: boolean; hydrate: HydrateMode; prerender: bo
 
 export type ContractFlag = keyof RenderContract;
 
-/** One flag that changed. */
 export type ContractChange = { flag: ContractFlag; from: RenderContract[ContractFlag]; to: RenderContract[ContractFlag] };
 
 /** What the page shows for a droplet's new contract: once per droplet, however many elements show it. */
@@ -44,34 +43,41 @@ export type ContractNotice = {
 
 const FLAGS: readonly ContractFlag[] = ["ssr", "hydrate", "prerender"];
 
-const isMode = (value: unknown): value is HydrateMode =>
-  value === true || value === false || value === "visible" || value === "interactive";
+export function isHydrateMode(value: unknown): value is HydrateMode {
+  return value === true || value === false || value === "visible" || value === "interactive";
+}
+
+type ReadContractInput = { value: unknown };
 
 /** A contract from the socket, checked: plain data with known flags only, else `null`. */
-export function readContract(value: unknown): RenderContract | null {
+export function readContract({ value }: ReadContractInput): RenderContract | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
   if (!FLAGS.every((flag) => Object.hasOwn(record, flag))) return null;
   const { ssr, hydrate, prerender } = record;
-  if (typeof ssr !== "boolean" || typeof prerender !== "boolean" || !isMode(hydrate)) return null;
+  if (typeof ssr !== "boolean" || typeof prerender !== "boolean" || !isHydrateMode(hydrate)) return null;
   return { ssr, hydrate, prerender };
 }
 
+type ContractChangesInput = { before: RenderContract; after: RenderContract };
+
 /** The flags that differ, in the order `ssr`, `hydrate`, `prerender`. */
-export function contractChanges(before: RenderContract, after: RenderContract): ContractChange[] {
+export function contractChanges({ before, after }: ContractChangesInput): ContractChange[] {
   return FLAGS.filter((flag) => before[flag] !== after[flag]).map((flag) => ({ flag, from: before[flag], to: after[flag] }));
 }
 
-const word = (value: RenderContract[ContractFlag]) => String(value);
+type FormatChangesInput = { changes: readonly ContractChange[] };
 
 /** `ssr false → true, hydrate true → false`. */
-export function formatChanges(changes: readonly ContractChange[]): string {
-  return changes.map((change) => `${change.flag} ${word(change.from)} → ${word(change.to)}`).join(", ");
+export function formatChanges({ changes }: FormatChangesInput): string {
+  return changes.map((change) => `${change.flag} ${String(change.from)} → ${String(change.to)}`).join(", ");
 }
 
+type ContractNoticeInput = { droplet: string; before: RenderContract; after: RenderContract };
+
 /** What the page says about `droplet`'s new contract; `null` when nothing changed. */
-export function contractNotice(droplet: string, before: RenderContract, after: RenderContract): ContractNotice | null {
-  const changes = contractChanges(before, after);
+export function contractNotice({ droplet, before, after }: ContractNoticeInput): ContractNotice | null {
+  const changes = contractChanges({ before, after });
   if (changes.length === 0) return null;
   const details: string[] = [];
   let reload = false;
@@ -106,7 +112,7 @@ export function contractNotice(droplet: string, before: RenderContract, after: R
     }
   }
   return {
-    message: `${droplet} changed its render contract: ${formatChanges(changes)}`,
+    message: `${droplet} changed its render contract: ${formatChanges({ changes })}`,
     detail: details.join(" "),
     reload,
     toast,
@@ -124,7 +130,9 @@ export type ElementLife = "live" | "waiting" | "static";
  */
 export type HydrateAction = "hydrate" | "rewait" | "note" | "keep" | "none";
 
-export function hydrateAction(before: HydrateMode, after: HydrateMode, life: ElementLife): HydrateAction {
+type HydrateActionInput = { before: HydrateMode; after: HydrateMode; life: ElementLife };
+
+export function hydrateAction({ before, after, life }: HydrateActionInput): HydrateAction {
   if (before === after) return "none";
   if (after === false) return "keep";
   if (before === false || life === "static") return life === "live" ? "note" : "hydrate";

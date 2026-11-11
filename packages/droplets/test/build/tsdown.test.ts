@@ -13,7 +13,9 @@ import { base, cssInline, graphCheck, type GraphCheckOptions } from "@dropletsjs
 
 const fixtures = fileURLToPath(new URL("../fixtures/", import.meta.url));
 
-const run = (dir: string, entry: string[], check: GraphCheckOptions, overrides: Parameters<typeof build>[0] = {}) =>
+type RunInput = { dir: string; entry: string[]; check: GraphCheckOptions; overrides?: Parameters<typeof build>[0] };
+
+const run = ({ dir, entry, check, overrides = {} }: RunInput) =>
   build({
     ...base,
     cwd: dir,
@@ -29,7 +31,7 @@ describe("a .css?inline import", () => {
   let code = "";
 
   beforeAll(async () => {
-    await run(dir, ["index"], { client: ["index"] });
+    await run({ dir, entry: ["index"], check: { client: ["index"] } });
     code = await readFile(join(dir, "dist/index.js"), "utf8");
   });
   afterAll(() => rm(join(dir, "dist"), { recursive: true, force: true }));
@@ -89,7 +91,7 @@ describe("a client entry", () => {
   };
   it("builds when it shares only client-safe code with the server", async () => {
     await entries(`import { shared } from "./shared.ts";\nexport const hydrate = () => shared();\n`);
-    await run(dir, ["client", "server"], { client: ["client"] }, { dts: false });
+    await run({ dir, entry: ["client", "server"], check: { client: ["client"] }, overrides: { dts: false } });
     expect(await readFile(join(dir, "dist/client.js"), "utf8")).not.toContain("secret");
   });
 
@@ -108,6 +110,8 @@ describe("a client entry", () => {
     ["a Node built-in", `import { join } from "node:path";\nexport const hydrate = () => join("a", "b");\n`, /imports a Node built-in/],
   ])("fails the build when it reaches %s", async (_, client, message) => {
     await entries(client);
-    await expect(run(dir, ["client", "server"], { client: ["client"], server: ["app"] }, { dts: false })).rejects.toThrow(message);
+    await expect(
+      run({ dir, entry: ["client", "server"], check: { client: ["client"], server: ["app"] }, overrides: { dts: false } }),
+    ).rejects.toThrow(message);
   });
 });

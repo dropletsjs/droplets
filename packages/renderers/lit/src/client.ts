@@ -44,32 +44,36 @@ export type Instance = { target: HTMLElement; tag?: string; actionUrl?: ClientRe
 /** Where Lit keeps the part it rendered into a container; cleared with the container. */
 export type LitContainer = HTMLElement & { _$litPart$?: unknown };
 
+type AttachShadowRootsInput = { root: ParentNode };
+
 /** The `<template shadowrootmode>` under `root` the parser left inert, attached, the innermost first. */
-export function attachShadowRoots(root: ParentNode): void {
+export function attachShadowRoots({ root }: AttachShadowRootsInput): void {
   for (const template of Array.from(root.querySelectorAll<HTMLTemplateElement>("template[shadowrootmode]"))) {
     const host = template.parentElement;
     const mode = template.getAttribute("shadowrootmode");
     if (!host || host.shadowRoot || (mode !== "open" && mode !== "closed")) continue;
-    attachShadowRoots(template.content);
+    attachShadowRoots({ root: template.content });
     host.attachShadow({ mode, delegatesFocus: template.hasAttribute("shadowrootdelegatesfocus") }).append(template.content);
     template.remove();
   }
 }
 
+type MarkersInInput = { target: HTMLElement };
+
 /** The renderer's own children markers in `target`: not those of a droplet nested in its children. */
-function markersIn(target: HTMLElement): Element[] {
+function markersIn({ target }: MarkersInInput): Element[] {
   return [...target.querySelectorAll("[data-droplet-children]")].filter((marker) => {
     const owner = marker.closest("[data-droplet]");
     return !owner || !target.contains(owner);
   });
 }
 
+type SettledInput = { module: ComponentModule; props: RenderProps; context: ClientRenderContext };
+
+type Settled = { module: ComponentModule; props: RenderProps; kind: ClientRenderContext["kind"] };
+
 /** What to render once a droplet's `data` settled: the droplet, its error page, or nothing. */
-async function settled(
-  module: ComponentModule,
-  props: RenderProps,
-  context: ClientRenderContext,
-): Promise<{ module: ComponentModule; props: RenderProps; kind: ClientRenderContext["kind"] } | null> {
+async function settled({ module, props, context }: SettledInput): Promise<Settled | null> {
   if (!("data" in props)) return { module, props, kind: context.kind };
   try {
     return { module, props: { ...props, data: await props.data }, kind: context.kind };
@@ -89,18 +93,19 @@ export async function mount(
   props: RenderProps,
   context: ClientRenderContext,
 ): Promise<Instance> {
-  const shown = await settled(module, props, context);
+  const shown = await settled({ module, props, context });
   if (!shown) return { target };
-  const component = componentOf(shown.module, context.droplet, shown.kind, LitElement);
+  const { droplet, actionUrl } = context;
+  const component = componentOf({ module: shown.module, droplet, kind: shown.kind, base: LitElement });
   let tag = "";
   const draw = () => {
-    tag = claimTag(customElements, component, tagName(prefix, context.droplet, shown.kind));
-    render(hostTemplate(tag, shown.props, context.actionUrl), target);
+    tag = claimTag({ registry: customElements, component, tag: tagName({ prefix, droplet, kind: shown.kind }) });
+    render(hostTemplate({ tag, props: shown.props, actionUrl }), target);
   };
   // After the await: `actionUrl()` of `$droplets/form` knows the droplet again inside `rendering`.
   if (context.rendering) context.rendering(draw);
   else draw();
-  for (const marker of markersIn(target)) context.children.fill(marker);
+  for (const marker of markersIn({ target })) context.children.fill(marker);
   // An error page takes no new data.
   return shown.kind === context.kind ? { target, tag, actionUrl: context.actionUrl } : { target };
 }
@@ -112,10 +117,10 @@ export function hydrate(
   context: ClientRenderContext,
 ): Instance | Promise<Instance> {
   hydrateShadowRoots(target);
-  attachShadowRoots(target);
-  const component = componentOf(module, context.droplet, context.kind, LitElement);
+  attachShadowRoots({ root: target });
+  const component = componentOf({ module, droplet: context.droplet, kind: context.kind, base: LitElement });
   const element = target.firstElementChild;
-  if (!element || !adoptTag(customElements, component, element.localName)) {
+  if (!element || !adoptTag({ registry: customElements, component, tag: element.localName })) {
     if (element) {
       console.warn(
         `[droplets] ${context.droplet}: <${element.localName}> is defined by another class on this page ` +
@@ -126,10 +131,10 @@ export function hydrate(
     target.replaceChildren();
     return mount(module, target, props, context);
   }
-  hydrateTemplate(hostTemplate(element.localName, props, context.actionUrl), target);
+  hydrateTemplate(hostTemplate({ tag: element.localName, props, actionUrl: context.actionUrl }), target);
   element.removeAttribute("defer-hydration");
   const markers = context.markers();
-  for (const marker of markers.length > 0 ? markers : markersIn(target)) context.children.fill(marker);
+  for (const marker of markers.length > 0 ? markers : markersIn({ target })) context.children.fill(marker);
   return { target, tag: element.localName, actionUrl: context.actionUrl };
 }
 

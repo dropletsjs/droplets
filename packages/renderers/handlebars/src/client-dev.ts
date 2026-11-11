@@ -14,13 +14,13 @@ export async function update(instance: unknown, props: RenderProps): Promise<boo
   const data = await props.data;
   const { target, context } = handle;
   for (const marker of handle.markers) context.children.empty(marker);
-  target.innerHTML = templateOf(handle.module, context)(
+  target.innerHTML = templateOf({ module: handle.module, where: context })(
     { ...props, data },
     {
       data: { droplet: context.droplet, kind: context.kind, renderId: context.renderId, actionUrl: context.actionUrl },
     },
   );
-  handle.markers = markersIn(target);
+  handle.markers = markersIn({ target });
   for (const marker of handle.markers) context.children.fill(marker);
   return true;
 }

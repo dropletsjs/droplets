@@ -122,19 +122,25 @@ export const SCRIPT: Framework = {
 /** What `djs add` offers: every renderer, then script droplets. */
 export const ADD_KINDS: readonly Framework[] = [...FRAMEWORKS, SCRIPT];
 
+export type KindNamedInput = { name: string };
+
 /** A droplet kind `djs add` offers, by name: a framework (see `frameworkNamed`) or `script`. */
-export function kindNamed(name: string): Framework | undefined {
-  return name === SCRIPT.name ? SCRIPT : frameworkNamed(name);
+export function kindNamed({ name }: KindNamedInput): Framework | undefined {
+  return name === SCRIPT.name ? SCRIPT : frameworkNamed({ name });
 }
 
+export type FrameworkNamedInput = { name: string };
+
 /** The framework by renderer name, or by a common alias (`hono`). */
-export function frameworkNamed(name: string): Framework | undefined {
+export function frameworkNamed({ name }: FrameworkNamedInput): Framework | undefined {
   const wanted = name === "hono" ? "hono-jsx" : name;
   return FRAMEWORKS.find((framework) => framework.name === wanted);
 }
 
+export type PackageNameInput = { spec: string };
+
 /** `react@^19.0.0` → `react`; `@types/react@^19.0.0` → `@types/react`. */
-export function packageName(spec: string): string {
+export function packageName({ spec }: PackageNameInput): string {
   const at = spec.indexOf("@", 1);
   return at === -1 ? spec : spec.slice(0, at);
 }

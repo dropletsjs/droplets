@@ -3,13 +3,13 @@ import { resolve } from "node:path";
 import { mergeConfig, type UserConfig } from "vite";
 import type { DropletsAdapter } from "../adapters.ts";
 import { shipsClient, type DropletEntry } from "../core/discover.ts";
-import { readJsonFile, readTextFile, writeTextFile } from "../core/fs.ts";
+import { loadJsonFile, loadTextFile, writeTextFile } from "../core/fs.ts";
 import { logger } from "../core/logger.ts";
 import { entryClientPath, entryServerPath } from "../core/paths.ts";
 import type { HydrateMode } from "../renderer.ts";
 import type { DropletManifestEntry, DropletsManifest } from "../server/manifest.ts";
 import { externalsList, type PluginState } from "./state.ts";
-import { readIndexHtml } from "./index-html.ts";
+import { loadIndexHtml } from "./index-html.ts";
 import { clientEntryId, STYLES_PLACEHOLDER, VIRTUAL_CSS } from "./virtual.ts";
 
 /** Named inputs, so the manifest can be read back by name rather than path. */
@@ -32,7 +32,9 @@ export const ENTRY_MODULE_FILE = "assets/index.[hash].js";
  * imports are relative (`../../assets/chunks/…`), so they only resolve when
  * the file sits as deep as the URL it is served at.
  */
-export function dropletClientFile(id: string): string {
+type DropletClientFileInput = { id: string };
+
+export function dropletClientFile({ id }: DropletClientFileInput): string {
   return `droplets/${id}/client.js`;
 }
 
@@ -53,7 +55,7 @@ export const SERVER_NO_EXTERNAL = [
   /^@dropletsjs\/renderer-/,
 ];
 
-type ViteManifestEntry = {
+export type ViteManifestEntry = {
   file?: string;
   name?: string;
   src?: string;
@@ -61,14 +63,16 @@ type ViteManifestEntry = {
   imports?: string[];
 };
 
+type CreateClientInputsInput = { entries: readonly DropletEntry[] };
+
 /** One client entry per droplet: each becomes an independently fetched bundle. */
-export function createClientInputs(entries: DropletEntry[]): Record<string, string> {
+export function createClientInputs({ entries }: CreateClientInputsInput): Record<string, string> {
   const inputs: Record<string, string> = {
     [ENTRY_CLIENT_NAME]: entryClientPath,
     [GLOBAL_CSS_NAME]: VIRTUAL_CSS,
   };
   for (const entry of entries) {
-    inputs[`droplets/${entry.id}`] = clientEntryId(entry.name);
+    inputs[`droplets/${entry.id}`] = clientEntryId({ folderName: entry.name });
   }
   return inputs;
 }
@@ -127,7 +131,7 @@ export function createBuildEnvironments(state: PluginState): NonNullable<UserCon
         rolldownOptions: {
           preserveEntrySignatures: "exports-only",
           // `external` comes from the user's own Vite config, merged in.
-          input: createClientInputs(state.entries),
+          input: createClientInputs({ entries: state.entries }),
           output: {
             entryFileNames: (chunk) =>
               chunk.name === ENTRY_CLIENT_NAME ? ENTRY_MODULE_FILE : chunk.name.startsWith("droplets/") ? "[name]/client.js" : "[name].js",
@@ -163,7 +167,9 @@ export function createBuildEnvironments(state: PluginState): NonNullable<UserCon
  * first, then its own, each once. A component two droplets share has its
  * styles in its own chunk, which only shows up through `imports`.
  */
-export function collectCss(viteManifest: Record<string, ViteManifestEntry>, entry: ViteManifestEntry): string[] {
+type CollectCssInput = { viteManifest: Readonly<Record<string, ViteManifestEntry>>; entry: ViteManifestEntry };
+
+export function collectCss({ viteManifest, entry }: CollectCssInput): string[] {
   const found = new Set<string>();
   const seen = new Set<ViteManifestEntry>();
   const walk = (current: ViteManifestEntry) => {
@@ -183,15 +189,24 @@ export function collectCss(viteManifest: Record<string, ViteManifestEntry>, entr
  * Translates Vite's manifest into the lookup the server uses at runtime:
  * droplet id -> client bundle + every stylesheet it needs.
  */
-export function translateManifest(
-  viteManifest: Record<string, ViteManifestEntry> | null,
-  buildHash: string,
-  entries: Array<{ id: string; name: string; hydrate?: HydrateMode }>,
-  index: string | null = null,
-  externals: string[] = [],
+export type TranslateManifestInput = {
+  viteManifest: Readonly<Record<string, ViteManifestEntry>> | null;
+  buildHash: string;
+  entries: ReadonlyArray<{ id: string; name: string; hydrate?: HydrateMode }>;
+  index?: string | null;
+  externals?: string[];
   /** `false` when the shared stylesheet came out empty: not worth a request. */
+  sharedCss?: boolean;
+};
+
+export function translateManifest({
+  viteManifest,
+  buildHash,
+  entries,
+  index = null,
+  externals = [],
   sharedCss = true,
-): DropletsManifest {
+}: TranslateManifestInput): DropletsManifest {
   // Index by input name: stable, unlike the path-shaped manifest keys.
   const byName = new Map<string, ViteManifestEntry>();
   for (const entry of Object.values(viteManifest ?? {})) {
@@ -206,13 +221,13 @@ export function translateManifest(
   const globalCss = lookup(GLOBAL_CSS_NAME, VIRTUAL_CSS)?.css?.[0];
   const droplets: Record<string, DropletManifestEntry> = {};
   for (const entry of entries) {
-    const manifestEntry = lookup(`droplets/${entry.id}`, clientEntryId(entry.name));
-    const own = manifestEntry && viteManifest ? collectCss(viteManifest, manifestEntry) : [];
+    const manifestEntry = lookup(`droplets/${entry.id}`, clientEntryId({ folderName: entry.name }));
+    const own = manifestEntry && viteManifest ? collectCss({ viteManifest, entry: manifestEntry }) : [];
     const css = [...new Set([...(globalCss && sharedCss ? [globalCss] : []), ...own])];
     droplets[entry.id] = {
       // Built for its stylesheet only when the droplet does not hydrate;
       // the JavaScript is never shipped then.
-      ...(shipsClient({ hydrate: entry.hydrate !== false }) ? { client: dropletClientFile(entry.id) } : {}),
+      ...(shipsClient({ hydrate: entry.hydrate !== false }) ? { client: dropletClientFile({ id: entry.id }) } : {}),
       ...(css.length ? { css } : {}),
     };
   }
@@ -229,12 +244,16 @@ export function translateManifest(
 }
 
 /** The stub `/index.js` serves: the entry, resolved against the stub's own URL. */
-export function entryStubCode(entryModule: string): string {
+type EntryStubCodeInput = { entryModule: string };
+
+export function entryStubCode({ entryModule }: EntryStubCodeInput): string {
   return `import(${JSON.stringify(`./${entryModule}`)});\n`;
 }
 
 /** The droplets' stylesheets, written into the entry where the registry left room. */
-export function fillStyles(code: string, droplets: DropletsManifest["droplets"]): string {
+type FillStylesInput = { code: string; droplets: DropletsManifest["droplets"] };
+
+export function fillStyles({ code, droplets }: FillStylesInput): string {
   const styles: Record<string, string[]> = {};
   for (const [id, entry] of Object.entries(droplets)) {
     if (entry.css?.length) styles[id] = entry.css;
@@ -254,33 +273,43 @@ export function fillStyles(code: string, droplets: DropletsManifest["droplets"])
  */
 export async function writeManifest(state: PluginState): Promise<string> {
   const clientRoot = resolve(state.outDir, "client");
-  const viteManifest = await readJsonFile<Record<string, ViteManifestEntry>>(resolve(clientRoot, ".vite/manifest.json"));
+  const viteManifest = await loadJsonFile<Record<string, ViteManifestEntry>>({ path: resolve(clientRoot, ".vite/manifest.json") });
   if (!viteManifest) {
     logger.warn("framework", "vite manifest missing; CSS paths will fall back and /index.js has no entry");
   }
 
-  const index = await readIndexHtml(state.root, state.config.index);
+  const index = await loadIndexHtml({ root: state.root, index: state.config.index });
   const translate = (sharedCss: boolean) =>
-    translateManifest(viteManifest, state.buildHash, state.entries, index, externalsList(state), sharedCss);
+    translateManifest({
+      viteManifest,
+      buildHash: state.buildHash,
+      entries: state.entries,
+      index,
+      externals: externalsList(state),
+      sharedCss,
+    });
   const full = translate(true);
   // Nothing to share (no stylesheet, no Tailwind): no droplet asks for it.
-  const sharedCss = Boolean((await readTextFile(resolve(clientRoot, full.__globalCss)))?.trim());
+  const sharedCss = Boolean((await loadTextFile({ path: resolve(clientRoot, full.__globalCss) }))?.trim());
   const manifest = sharedCss ? full : translate(false);
   // A droplet that never runs in the browser goes through the client build
   // only so its <style> is extracted. Its JavaScript is removed from the output.
   for (const entry of state.entries) {
     if (shipsClient(entry)) continue;
-    await rm(resolve(clientRoot, dropletClientFile(entry.id), ".."), { recursive: true, force: true });
+    await rm(resolve(clientRoot, dropletClientFile({ id: entry.id }), ".."), { recursive: true, force: true });
   }
 
   if (manifest.__entryModule) {
     const entryPath = resolve(clientRoot, manifest.__entryModule);
-    await writeFile(entryPath, fillStyles(await readFile(entryPath, "utf8"), manifest.droplets));
-    await writeTextFile(resolve(clientRoot, manifest.__entryClient), entryStubCode(manifest.__entryModule));
+    await writeFile(entryPath, fillStyles({ code: await readFile(entryPath, "utf8"), droplets: manifest.droplets }));
+    await writeTextFile({
+      path: resolve(clientRoot, manifest.__entryClient),
+      contents: entryStubCode({ entryModule: manifest.__entryModule }),
+    });
   }
 
   const manifestPath = resolve(clientRoot, "droplets.json");
-  await writeTextFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  await writeTextFile({ path: manifestPath, contents: `${JSON.stringify(manifest, null, 2)}\n` });
   logger.debug("framework", "wrote droplet manifest", {
     path: manifestPath,
     droplets: Object.keys(manifest.droplets),

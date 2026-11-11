@@ -18,27 +18,31 @@
  */
 import type { ClientRenderContext, ComponentModule, RenderProps } from "@dropletsjs/droplets";
 import { hydrate as preactHydrate, render as preactRender } from "preact";
-import { componentOf, isThenable, tree, type AnyComponent } from "./tree.ts";
+import { type AnyComponent, componentOf, isThenable, type TreeInput, tree } from "./tree.ts";
 
 /** What `mount` and `hydrate` return, for `unmount`, and for `update` in dev what they rendered. */
 export type PreactInstance = { target: HTMLElement; component?: AnyComponent; context?: ClientRenderContext };
 
+type SettledInput = {
+  component: AnyComponent;
+  props: Extract<RenderProps, { data: unknown }>;
+  data: PromiseLike<unknown>;
+  context: ClientRenderContext;
+};
+
 /** The page with its props once `data` settled: the droplet, its error page, or `null` for nothing. */
-async function settled(
-  component: AnyComponent,
-  props: RenderProps & { data: PromiseLike<unknown> },
-  context: ClientRenderContext,
-): Promise<{ component: AnyComponent; props: RenderProps; context: ClientRenderContext } | null> {
+async function settled({ component, props, data, context }: SettledInput): Promise<TreeInput | null> {
   try {
-    return { component, props: { ...props, data: await props.data }, context };
+    return { component, props: { ...props, data: await data }, context };
   } catch (error) {
     if (!context.error) throw error;
-    const errorComponent = componentOf(context.error.module, { ...context, kind: "error" });
+    const errorComponent = componentOf({ module: context.error.module, context: { ...context, kind: "error" } });
     // The error page is the boundary's: it gets none of its own.
     const { error: _boundary, ...rest } = context;
     try {
       return { component: errorComponent, props: { error: await context.error.handle(error) }, context: { ...rest, kind: "error" } };
     } catch {
+      // `handleError` rejected: there is no error to show.
       return null;
     }
   }
@@ -50,14 +54,14 @@ export function mount(
   props: RenderProps,
   context: ClientRenderContext,
 ): PreactInstance | Promise<PreactInstance> {
-  const component = componentOf(module, context);
+  const component = componentOf({ module, context });
   if (!("data" in props) || !isThenable(props.data)) {
-    preactRender(tree(component, props, context), target);
+    preactRender(tree({ component, props, context }), target);
     return { target, component, context };
   }
-  return settled(component, props as RenderProps & { data: PromiseLike<unknown> }, context).then((shown) => {
+  return settled({ component, props, data: props.data, context }).then((shown) => {
     if (shown) {
-      const run = () => preactRender(tree(shown.component, shown.props, shown.context), target);
+      const run = () => preactRender(tree(shown), target);
       // After the `await`: `actionUrl()` of `$droplets/form` must still know the droplet.
       if (context.rendering) context.rendering(run);
       else run();
@@ -69,11 +73,11 @@ export function mount(
 }
 
 export function hydrate(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): PreactInstance {
-  const component = componentOf(module, context);
+  const component = componentOf({ module, context });
   // Preact adopts the server's nodes as they are; the element emptied the
   // marker before this call, and the container returns through `fill` once
   // the adopted marker is committed.
-  preactHydrate(tree(component, props, context), target);
+  preactHydrate(tree({ component, props, context }), target);
   return { target, component, context };
 }
 

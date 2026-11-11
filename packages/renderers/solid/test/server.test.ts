@@ -1,3 +1,4 @@
+import type { ServerRenderContext } from "@dropletsjs/droplets";
 import { describe, expect, it } from "vitest";
 import { escape as solidEscape, ssr, ssrHydrationKey } from "solid-js/web";
 import { render } from "../src/server.ts";
@@ -23,35 +24,39 @@ const oops = {
 };
 
 const actionUrl = (name?: string) => `https://drops.test/droplets/hello${name ? `?/${name}` : ""}`;
-const context = (renderId: string, kind: "droplet" | "error" = "droplet") => ({ droplet: "hello", kind, renderId, actionUrl });
+type ContextOfInput = { renderId: string; kind?: ServerRenderContext["kind"] };
+
+function contextOf({ renderId, kind = "droplet" }: ContextOfInput): ServerRenderContext {
+  return { droplet: "hello", kind, renderId, actionUrl };
+}
 
 describe("render()", () => {
   it("renders the children marker exactly, without hydration attributes on it", () => {
-    const html = render(hello, { data: { greeting: "Hello Ana!" } }, context("r1"));
+    const html = render(hello, { data: { greeting: "Hello Ana!" } }, contextOf({ renderId: "r1" }));
     expect(html).toContain('<h1 data-testid="greeting">Hello Ana!</h1>');
     expect(html).toContain('<div data-testid="children"><div data-droplet-children style="display: contents"></div></div>');
     expect(html.match(/data-droplet-children/g)).toHaveLength(1);
   });
 
   it("keys the hydration ids by core's renderId, so droplets on one page never share keys", () => {
-    const one = render(hello, { data: { greeting: "one" } }, context("abc123"));
-    const two = render(hello, { data: { greeting: "two" } }, context("xyz789"));
+    const one = render(hello, { data: { greeting: "one" } }, contextOf({ renderId: "abc123" }));
+    const two = render(hello, { data: { greeting: "two" } }, contextOf({ renderId: "xyz789" }));
     // The component nests a hydration context under the root: `<renderId>0<n>`.
     expect(one).toMatch(/^<section data-hk="abc12300">/);
     expect(two).toMatch(/^<section data-hk="xyz78900">/);
   });
 
   it("renders an error page with several roots, each keyed", () => {
-    const html = render(oops, { error: { message: "Sorry" } }, context("e1", "error"));
+    const html = render(oops, { error: { message: "Sorry" } }, contextOf({ renderId: "e1", kind: "error" }));
     expect(html).toBe('<p data-hk="e100">Sorry</p><div data-hk="e101"><div data-droplet-children style="display: contents"></div></div>');
   });
 
   it("escapes what the loads return", () => {
-    const html = render(hello, { data: { greeting: "<b>&</b>" } }, context("r2"));
+    const html = render(hello, { data: { greeting: "<b>&</b>" } }, contextOf({ renderId: "r2" }));
     expect(html).toContain("&lt;b>&amp;&lt;/b>");
   });
 
   it("refuses a module without a component", () => {
-    expect(() => render({ default: 42 }, { data: {} }, context("r3"))).toThrow(/not a Solid component/);
+    expect(() => render({ default: 42 }, { data: {} }, contextOf({ renderId: "r3" }))).toThrow(/not a Solid component/);
   });
 });

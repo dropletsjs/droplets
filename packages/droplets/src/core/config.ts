@@ -142,10 +142,11 @@ export type BodyLimits = {
   props: number;
 };
 
-/** See `DropletsConfig["dev"]["strategy"]`. */
-export type DevStrategy = "hmr" | "remount" | "reload" | "manual";
+/** The values `dev.strategy` takes. */
+export const DEV_STRATEGIES = ["hmr", "remount", "reload", "manual"] as const;
 
-export const DEV_STRATEGIES: readonly DevStrategy[] = ["hmr", "remount", "reload", "manual"];
+/** See `DropletsConfig["dev"]["strategy"]`. */
+export type DevStrategy = (typeof DEV_STRATEGIES)[number];
 
 export type ResolvedDropletsConfig = {
   dropletsFolder: string;
@@ -196,12 +197,28 @@ export function config(options: DropletsConfig): DropletsConfig {
   return options;
 }
 
+export type NormalizeDropletsFolderInput = { folder: string; fallback?: string };
+
+type ValidateOwnPathInput = { option: string; path: string; example: string };
+
+export type NormalizeTrustedOriginsInput = { origins: unknown };
+
+type LocationOfInput = { value: unknown };
+
+export type NormalizeOriginInput = { value: unknown };
+
+type ResolveCacheControlInput = { value: unknown };
+
+type ResolveLimitsInput = { limits: Partial<BodyLimits> | undefined };
+
+export type ResolveDevConfigInput = { user: DropletsConfig; env?: ResolveConfigEnv };
+
 /**
  * Trims `./`, `..`, repeated and trailing slashes down to a clean folder
  * name. Written out rather than taken from `node:path` so this module runs
  * on any runtime.
  */
-export function normalizeDropletsFolder(folder: string, fallback: string = DEFAULTS.dropletsFolder): string {
+export function normalizeDropletsFolder({ folder, fallback = DEFAULTS.dropletsFolder }: NormalizeDropletsFolderInput): string {
   const segments: string[] = [];
   for (const segment of folder.replace(/\\/g, "/").trim().split("/")) {
     if (segment === "" || segment === ".") continue;
@@ -219,7 +236,7 @@ const RESERVED_EXACT = new Set(["/", "/index.js", "/index.css"]);
 const RESERVED_PREFIXES = ["/droplets", "/assets", "/api"];
 
 /** A path the framework does not own, for `health` and `importMap`. */
-export function validateOwnPath(option: string, path: string, example: string): string {
+function validateOwnPath({ option, path, example }: ValidateOwnPathInput): string {
   const reserved = RESERVED_EXACT.has(path) || RESERVED_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
   if (!path.startsWith("/") || /[?#\s]/.test(path) || reserved) {
     throw new Error(
@@ -227,10 +244,6 @@ export function validateOwnPath(option: string, path: string, example: string): 
     );
   }
   return path;
-}
-
-export function validateHealthPath(path: string): string {
-  return validateOwnPath("health", path, "/health");
 }
 
 /**
@@ -245,7 +258,7 @@ export function isValidElementName(name: string): boolean {
 }
 
 /** Each origin as `scheme://host[:port]`, `"*"` kept; throws for anything else. */
-export function normalizeTrustedOrigins(origins: unknown): string[] {
+export function normalizeTrustedOrigins({ origins }: NormalizeTrustedOriginsInput): string[] {
   if (origins === undefined) return [];
   if (!Array.isArray(origins)) {
     throw new Error(`droplets: trustedOrigins must be a list of origins such as ["https://shop.example"]`);
@@ -256,6 +269,7 @@ export function normalizeTrustedOrigins(origins: unknown): string[] {
     try {
       url = typeof origin === "string" ? new URL(origin) : undefined;
     } catch {
+      // Not a URL: refused with the message below.
       url = undefined;
     }
     if (!url || url.origin === "null" || url.href.replace(/\/$/, "") !== url.origin) {
@@ -266,7 +280,7 @@ export function normalizeTrustedOrigins(origins: unknown): string[] {
 }
 
 /** `value` as a location, `scheme://host[:port][/prefix]`; `null` unless it is exactly that. */
-function locationOf(value: unknown): string | null {
+function locationOf({ value }: LocationOfInput): string | null {
   if (typeof value !== "string" || /[\\#?]/.test(value)) return null;
   let url: URL;
   try {
@@ -278,15 +292,15 @@ function locationOf(value: unknown): string | null {
   // No wildcards: `https://*.example` parses, as a host named `*.example`.
   if (url.username !== "" || url.password !== "" || url.hostname.includes("*")) return null;
   if (url.pathname === "/") return url.origin;
-  return isLocationPrefix(url.pathname) ? `${url.origin}${url.pathname.replace(/\/+$/, "")}` : null;
+  return isLocationPrefix({ prefix: url.pathname }) ? `${url.origin}${url.pathname.replace(/\/+$/, "")}` : null;
 }
 
 /** `origin` as a list of locations, `"*"` kept; throws for anything else. */
-export function normalizeOrigin(value: unknown): string[] {
+export function normalizeOrigin({ value }: NormalizeOriginInput): string[] {
   if (value === undefined) return [];
   const entries: unknown[] = typeof value === "string" ? [value] : Array.isArray(value) ? value : [null];
   return entries.map((entry) => {
-    const location = entry === "*" ? entry : locationOf(entry);
+    const location = entry === "*" ? entry : locationOf({ value: entry });
     if (location === null) {
       throw new Error(
         `droplets: origin takes this server's public URL, an origin with an optional path prefix such as "https://shop.example" or "https://shop.example/mfe" (or "*"), got ${JSON.stringify(entry)}`,
@@ -296,7 +310,7 @@ export function normalizeOrigin(value: unknown): string[] {
   });
 }
 
-function resolveCacheControl(value: unknown): string | false {
+function resolveCacheControl({ value }: ResolveCacheControlInput): string | false {
   if (value === undefined) return DEFAULTS.fragmentCacheControl;
   if (value === false) return false;
   if (typeof value !== "string" || !value.trim() || /[\r\n]/.test(value)) {
@@ -307,14 +321,14 @@ function resolveCacheControl(value: unknown): string | false {
   return value.trim();
 }
 
-function resolveLimits(user: Partial<BodyLimits> | undefined): BodyLimits {
-  const limits: BodyLimits = { ...DEFAULTS.limits, ...user };
-  for (const [name, value] of Object.entries(limits)) {
+function resolveLimits({ limits }: ResolveLimitsInput): BodyLimits {
+  const resolved: BodyLimits = { ...DEFAULTS.limits, ...limits };
+  for (const [name, value] of Object.entries(resolved)) {
     if (typeof value !== "number" || !(value > 0)) {
       throw new Error(`droplets: limits.${name} must be a positive number of bytes, got ${String(value)}`);
     }
   }
-  return limits;
+  return resolved;
 }
 
 export type ResolveConfigEnv = {
@@ -324,7 +338,7 @@ export type ResolveConfigEnv = {
 
 /** Fills in defaults. Pure, so the same code runs at build time and at runtime. */
 export function resolveConfig(user: DropletsConfig, env: ResolveConfigEnv = {}): ResolvedDropletsConfig {
-  const dropletsFolder = normalizeDropletsFolder(user.dropletsFolder ?? DEFAULTS.dropletsFolder);
+  const dropletsFolder = normalizeDropletsFolder({ folder: user.dropletsFolder ?? DEFAULTS.dropletsFolder });
 
   const element = user.element ?? DEFAULTS.element;
   if (!isValidElementName(element)) {
@@ -334,12 +348,13 @@ export function resolveConfig(user: DropletsConfig, env: ResolveConfigEnv = {}):
   const envPort = Number(env.port) || 0;
   const cors = user.cors === true ? { origin: "*" } : user.cors && typeof user.cors === "object" ? user.cors : undefined;
 
-  const health = user.health === false ? false : validateHealthPath(user.health ?? DEFAULTS.health);
+  const health =
+    user.health === false ? false : validateOwnPath({ option: "health", path: user.health ?? DEFAULTS.health, example: "/health" });
   const importMap =
     user.importMap === false
       ? false
       : {
-          path: validateOwnPath("importMap", user.importMap ?? DEFAULTS.importMap, "/importmap"),
+          path: validateOwnPath({ option: "importMap", path: user.importMap ?? DEFAULTS.importMap, example: "/importmap" }),
           auto: user.importMap === undefined,
         };
   if (importMap && health && (health === importMap.path || health === `${importMap.path}.js`)) {
@@ -350,24 +365,24 @@ export function resolveConfig(user: DropletsConfig, env: ResolveConfigEnv = {}):
 
   return {
     dropletsFolder,
-    apiFolder: normalizeDropletsFolder(user.apiFolder ?? DEFAULTS.apiFolder, DEFAULTS.apiFolder),
+    apiFolder: normalizeDropletsFolder({ folder: user.apiFolder ?? DEFAULTS.apiFolder, fallback: DEFAULTS.apiFolder }),
     health,
     ...(user.index === undefined ? {} : { index: user.index }),
     element,
     importMap,
     warnImportMap: user.warnImportMap ?? true,
     ...(cors ? { cors } : {}),
-    origin: normalizeOrigin(user.origin),
-    trustedOrigins: normalizeTrustedOrigins(user.trustedOrigins),
-    fragmentCacheControl: resolveCacheControl(user.fragmentCacheControl),
+    origin: normalizeOrigin({ value: user.origin }),
+    trustedOrigins: normalizeTrustedOrigins({ origins: user.trustedOrigins }),
+    fragmentCacheControl: resolveCacheControl({ value: user.fragmentCacheControl }),
     csrf: { checkOrigin: user.csrf?.checkOrigin ?? true },
-    limits: resolveLimits(user.limits),
+    limits: resolveLimits({ limits: user.limits }),
     server: { port: envPort || user.server?.port || DEFAULTS.serverPort },
   };
 }
 
 /** `dev` of the config, with defaults; `PORT` wins over `dev.server.port`. */
-export function resolveDevConfig(user: DropletsConfig, env: ResolveConfigEnv = {}): ResolvedDevConfig {
+export function resolveDevConfig({ user, env = {} }: ResolveDevConfigInput): ResolvedDevConfig {
   const strategy = user.dev?.strategy ?? "hmr";
   if (!DEV_STRATEGIES.includes(strategy)) {
     throw new Error(`droplets: dev.strategy is "${String(strategy)}"; use ${DEV_STRATEGIES.map((s) => `"${s}"`).join(", ")}`);

@@ -3,38 +3,42 @@ import { flagsFor, scriptFlags } from "../../src/add/flags.ts";
 
 describe("flagsFor()", () => {
   it("full hydrates always unless told when, and never not at all", () => {
-    expect(flagsFor("full")).toEqual({ flags: { ssr: true, hydrate: true, prerender: false }, notes: [] });
-    expect(flagsFor("full", "visible").flags.hydrate).toBe("visible");
-    expect(flagsFor("full", "interactive").flags.hydrate).toBe("interactive");
-    expect(() => flagsFor("full", "none")).toThrow(/--target ssr/);
+    expect(flagsFor({ target: "full" })).toEqual({ flags: { ssr: true, hydrate: true, prerender: false }, notes: [] });
+    expect(flagsFor({ target: "full", hydrate: "visible" }).flags.hydrate).toBe("visible");
+    expect(flagsFor({ target: "full", hydrate: "interactive" }).flags.hydrate).toBe("interactive");
+    expect(() => flagsFor({ target: "full", hydrate: "none" })).toThrow(/--target ssr/);
   });
 
   it("ssr ships no JavaScript; asked to hydrate, it says that is full", () => {
-    expect(flagsFor("ssr")).toEqual({ flags: { ssr: true, hydrate: false, prerender: false }, notes: [] });
-    expect(flagsFor("ssr", "visible")).toEqual({
+    expect(flagsFor({ target: "ssr" })).toEqual({ flags: { ssr: true, hydrate: false, prerender: false }, notes: [] });
+    expect(flagsFor({ target: "ssr", hydrate: "visible" })).toEqual({
       flags: { ssr: true, hydrate: "visible", prerender: false },
       notes: [{ level: "info", message: expect.stringContaining("--target full --hydrate visible") }],
     });
   });
 
   it("client renders in the browser; without hydration it warns of a blank component", () => {
-    expect(flagsFor("client")).toEqual({ flags: { ssr: false, hydrate: true, prerender: false }, notes: [] });
-    expect(flagsFor("client", "none").notes).toEqual([{ level: "warn", message: expect.stringContaining("blank component") }]);
-    expect(flagsFor("client", "interactive").notes).toEqual([{ level: "warn", message: expect.stringContaining("mounts at once") }]);
-    expect(flagsFor("client", "visible").notes).toEqual([]);
+    expect(flagsFor({ target: "client" })).toEqual({ flags: { ssr: false, hydrate: true, prerender: false }, notes: [] });
+    expect(flagsFor({ target: "client", hydrate: "none" }).notes).toEqual([
+      { level: "warn", message: expect.stringContaining("blank component") },
+    ]);
+    expect(flagsFor({ target: "client", hydrate: "interactive" }).notes).toEqual([
+      { level: "warn", message: expect.stringContaining("mounts at once") },
+    ]);
+    expect(flagsFor({ target: "client", hydrate: "visible" }).notes).toEqual([]);
   });
 
   it("ssg prerenders and hydrates, or stays static with none", () => {
-    expect(flagsFor("ssg")).toEqual({ flags: { ssr: true, hydrate: true, prerender: true }, notes: [] });
-    expect(flagsFor("ssg", "none")).toEqual({ flags: { ssr: true, hydrate: false, prerender: true }, notes: [] });
+    expect(flagsFor({ target: "ssg" })).toEqual({ flags: { ssr: true, hydrate: true, prerender: true }, notes: [] });
+    expect(flagsFor({ target: "ssg", hydrate: "none" })).toEqual({ flags: { ssr: true, hydrate: false, prerender: true }, notes: [] });
   });
 });
 
 describe("scriptFlags()", () => {
   it("runs a script droplet at once or when visible, and refuses the rest", () => {
     expect(scriptFlags()).toEqual({ ssr: true, hydrate: true, prerender: false });
-    expect(scriptFlags("visible").hydrate).toBe("visible");
-    expect(() => scriptFlags("none")).toThrow(/a script droplet always runs in the browser/);
-    expect(() => scriptFlags("interactive")).toThrow(/use always or visible/);
+    expect(scriptFlags({ hydrate: "visible" }).hydrate).toBe("visible");
+    expect(() => scriptFlags({ hydrate: "none" })).toThrow(/a script droplet always runs in the browser/);
+    expect(() => scriptFlags({ hydrate: "interactive" })).toThrow(/use always or visible/);
   });
 });

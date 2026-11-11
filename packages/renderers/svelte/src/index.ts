@@ -31,12 +31,12 @@ import { preprocess } from "svelte/compiler";
  * The flags of a component: the exports of its `<script module>` block (or
  * `<script context="module">`), and of nothing else in the file.
  */
-export async function readFlags(input: ReadFlagsInput): Promise<Partial<RenderFlags> | undefined> {
+export async function readFlags({ kind, source, file, droplet }: ReadFlagsInput): Promise<Partial<RenderFlags> | undefined> {
   let module: string | undefined;
   // Svelte's own block split: it skips HTML comments and leaves the markup and
   // styles unparsed, so a stylesheet in another language does not get in the way.
   await preprocess(
-    input.source,
+    source,
     {
       script: ({ content, attributes }) => {
         if (attributes["module"] === true || attributes["context"] === "module") {
@@ -44,10 +44,10 @@ export async function readFlags(input: ReadFlagsInput): Promise<Partial<RenderFl
         }
       },
     },
-    { filename: input.file },
+    { filename: file },
   );
   if (module === undefined) return undefined;
-  const where = input.kind === "droplet" ? input.droplet : `${input.droplet}/${input.file}`;
+  const where = kind === "droplet" ? droplet : `${droplet}/${file}`;
   // TypeScript parses plain JavaScript too, whatever the block's `lang`.
   return readExportedFlags(module, where, "ts");
 }
@@ -86,6 +86,9 @@ const ERROR_COMPONENT = /[\\/]\+[Ee]rror\.svelte$/;
 /** What the browser side reads to know whether the components were compiled in async mode. */
 const OPTIONS_ID = "virtual:droplets-renderer-svelte/options";
 
+/** What this renderer reads of vite-plugin-svelte's `api`, which Vite types as `any`. */
+type SveltePluginApi = { options?: { compilerOptions?: { experimental?: { async?: boolean } } } };
+
 /**
  * Hands the browser side the mode the components compile in, as
  * vite-plugin-svelte resolved it (`svelte.config.js` included). The renderer
@@ -99,7 +102,7 @@ function optionsPlugin(): Plugin {
     name: "droplets:svelte-options",
     configResolved(config) {
       const core = config.plugins.find((plugin) => plugin.name === "vite-plugin-svelte:config");
-      const api = core?.api as { options?: { compilerOptions?: { experimental?: { async?: boolean } } } } | undefined;
+      const api = core?.api as SveltePluginApi | undefined;
       asyncMode = api?.options?.compilerOptions?.experimental?.async === true;
     },
     resolveId: (id) => (id === OPTIONS_ID ? `\0${OPTIONS_ID}` : null),
@@ -108,8 +111,7 @@ function optionsPlugin(): Plugin {
 }
 
 /** The Svelte renderer, for `droplets({ renderers: [svelte()] })`. */
-export function svelte(options: SvelteRendererOptions = {}): DropletRenderer {
-  const user = options.vitePlugin ?? {};
+export function svelte({ plugin, vitePlugin: user = {} }: SvelteRendererOptions = {}): DropletRenderer {
   const preprocess =
     user.preprocess === undefined
       ? vitePreprocess()
@@ -138,7 +140,7 @@ export function svelte(options: SvelteRendererOptions = {}): DropletRenderer {
     componentTypes: "@dropletsjs/renderer-svelte",
     // Rune modules only work inside Svelte.
     suffixes: [".svelte.ts", ".svelte.js"],
-    plugins: [...(options.plugin === false ? [] : [sveltePlugin(pluginOptions)]), optionsPlugin()],
+    plugins: [...(plugin === false ? [] : [sveltePlugin(pluginOptions)]), optionsPlugin()],
     server: resolve(packageRoot, "dist/server.js"),
     client: resolve(packageRoot, "dist/client.js"),
     clientDev: resolve(packageRoot, "dist/client-dev.js"),

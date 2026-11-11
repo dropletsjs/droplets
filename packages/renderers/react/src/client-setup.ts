@@ -24,12 +24,14 @@ import "@vitejs/plugin-react/preamble";
 
 type IgnoredExports = (info: { id: string }) => string[];
 
+type RefreshGlobals = { __getReactRefreshIgnoredExports?: IgnoredExports; __dropletsReactRefresh?: true };
+
 const FLAGS = ["ssr", "hydrate", "prerender"];
 const COMPONENT_FILE = /[\\/]\+(?:[Dd]roplet|[Ee]rror)\.[jt]sx?(?:\?|$)/;
 
 /** Adds the flags to the exports Fast Refresh ignores for droplet component files. Idempotent. */
 export function ignoreFlagExports(): void {
-  const global = globalThis as { __getReactRefreshIgnoredExports?: IgnoredExports; __dropletsReactRefresh?: true };
+  const global = globalThis as RefreshGlobals;
   if (global.__dropletsReactRefresh) return;
   global.__dropletsReactRefresh = true;
   const previous = global.__getReactRefreshIgnoredExports;
