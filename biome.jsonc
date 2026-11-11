@@ -1,0 +1,80 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": {
+    "includes": [
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.js",
+      "**/*.mjs",
+      "**/*.cjs",
+      "**/*.json",
+      "**/*.jsonc",
+      "**/*.css",
+      "!!examples/hosts",
+      "!**/CHANGELOG.md",
+      "!pnpm-lock.yaml",
+      "!.changeset/pre.json",
+      "!examples/*/data/*.json"
+    ]
+  },
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 140
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all",
+      "arrowParentheses": "always"
+    }
+  },
+  "css": {
+    "parser": { "tailwindDirectives": true }
+  },
+  "assist": { "enabled": false },
+  "linter": {
+    "enabled": true,
+    "rules": { "recommended": true }
+  },
+  "overrides": [
+    {
+      // docs/style/code.md
+      "includes": ["packages/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "error",
+            "noDoubleEquals": "error"
+          },
+          "style": {
+            "noNonNullAssertion": "error",
+            "useImportType": "error",
+            "noEnum": "error",
+            "useConst": "error",
+            "noDefaultExport": "error",
+            "useConsistentTypeDefinitions": { "level": "error", "options": { "style": "type" } }
+          }
+        }
+      }
+    },
+    {
+      // The default exports the consumer fixes: adapter entries, config files,
+      // the types/ twins of $droplets/* and their test stubs, fixture projects.
+      "includes": [
+        "packages/adapters/*/src/entry.ts",
+        "packages/adapters/cloudflare/src/worker.ts",
+        "packages/droplets/src/testing/conformance-entry.ts",
+        "packages/**/*.config.ts",
+        "packages/**/*.config.js",
+        "packages/droplets/src/types/**",
+        "packages/droplets/test/stubs/**",
+        "packages/**/test/fixtures/**",
+        "packages/renderers/svelte/src/*.svelte.d.ts"
+      ],
+      "linter": { "rules": { "style": { "noDefaultExport": "off" } } }
+    }
+  ]
+}

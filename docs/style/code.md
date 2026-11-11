@@ -179,7 +179,8 @@ promise it does not await is a plain function that returns a promise.
 
 Biome is the linter and the formatter: what it decides about the layout of
 the code, this guide does not state, and a review never comments on it.
-(Biome is not set up yet; a separate step adds it.)
+`pnpm format` writes it, `pnpm lint` reports, and `pnpm check` runs
+`biome ci`, which fails on both.
 
 ## Folders
 

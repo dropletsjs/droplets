@@ -23,7 +23,9 @@
     "docs:preview": "pnpm --filter @dropletsjs/docs preview",
     "docs:check-csp": "node apps/docs/scripts/csp-hashes.mjs",
     "typecheck": "pnpm -r typecheck",
-    "check": "pnpm build && pnpm typecheck && pnpm test:integration && pnpm build:examples && pnpm build:examples:cloudflare && pnpm build:example:shop && pnpm test:example:shop && pnpm test:example:wp-shop && pnpm build:demo && pnpm test:demo",
+    "lint": "biome lint",
+    "format": "biome format --write",
+    "check": "biome ci && pnpm build && pnpm typecheck && pnpm test:integration && pnpm build:examples && pnpm build:examples:cloudflare && pnpm build:example:shop && pnpm test:example:shop && pnpm test:example:wp-shop && pnpm build:demo && pnpm test:demo",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "pnpm build && changeset publish",
@@ -39,6 +41,7 @@
     "typecheck:hosts": "pnpm --filter @dropletsjs/tests-hosts typecheck:hosts"
   },
   "devDependencies": {
+    "@biomejs/biome": "catalog:",
     "@changesets/cli": "^3.0.3",
     "tsdown": "catalog:",
     "typescript": "catalog:"
