@@ -236,7 +236,8 @@ Like SvelteKit, a variable is private and dynamic unless it says otherwise:
   (`db.server.ts`, `+droplet.server.ts`), a `+server.*` route or anything
   under a `server/` folder (`src/lib/server/db.ts`) that client code reaches,
   directly or through other modules, fails the build and is refused by the
-  dev server, with the import chain in the message. Keep connection strings
+  dev server, with the import chain in the message. Case does not matter:
+  `src/lib/Server/db.ts` and `db.SERVER.ts` are server files too. Keep connection strings
   and keys in those files and read them from `+droplet.server.ts`; a
   universal `+droplet.ts` runs in the browser and cannot import them.
 - Never return a private value from a load: load results are inlined into

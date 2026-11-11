@@ -74,6 +74,9 @@ describe("a client entry", () => {
 
   beforeAll(async () => {
     await mkdir(join(dir, "src/server"), { recursive: true });
+    await mkdir(join(dir, "src/lib/Server"), { recursive: true });
+    await writeFile(join(dir, "src/lib/Server/upper.ts"), `export const upper = () => "upper";\n`);
+    await writeFile(join(dir, "src/token.SERVER.ts"), `export const token = () => "token";\n`);
     await writeFile(join(dir, "package.json"), `{ "name": "client-graph-fixture", "type": "module" }\n`);
     await writeFile(join(dir, "src/shared.ts"), `export const shared = () => "shared";\n`);
     await writeFile(join(dir, "src/db.server.ts"), `export const secret = () => "secret";\n`);
@@ -102,6 +105,16 @@ describe("a client entry", () => {
       /reaches server code db\.server\.ts/,
     ],
     ["a module under server/", `export const hydrate = () => import("./server/keys.ts");\n`, /reaches server code server\/keys\.ts/],
+    [
+      "a module under lib/Server/",
+      `export const hydrate = () => import("./lib/Server/upper.ts");\n`,
+      /reaches server code lib\/Server\/upper\.ts/,
+    ],
+    [
+      "a *.SERVER.* module",
+      `import { token } from "./token.SERVER.ts";\nexport const hydrate = () => token();\n`,
+      /reaches server code token\.SERVER\.ts/,
+    ],
     [
       "a module named server code",
       `import { app } from "./app.ts";\nexport const hydrate = () => app();\n`,

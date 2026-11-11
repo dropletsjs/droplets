@@ -66,6 +66,18 @@ describe("isServerOnlyFile", () => {
     }
   });
 
+  it("ignores case in the name and the folder", () => {
+    for (const path of [
+      "src/lib/Server/db.ts",
+      "src/SERVER/x.ts",
+      "src/lib/foo.SERVER.ts",
+      "src/lib/db.Server.tsx",
+      "src/api/+Server.ts",
+    ]) {
+      expect(server(path), path).toBe(true);
+    }
+  });
+
   it("does not take a name or folder that merely ends or starts with server", () => {
     for (const path of ["src/lib/observer.ts", "src/lib/webserver.js", "src/myserver/x.ts", "src/server-utils/x.ts", "src/server.tsx"]) {
       expect(server(path), path).toBe(false);
@@ -93,6 +105,20 @@ describe("server files in the client build", () => {
       "src/lib/server/keys.js": SECRET,
     });
     await expect(build(root)).rejects.toThrow(/src\/lib\/server\/keys\.js is server code/);
+  }, 90_000);
+
+  it("fails on a Server/ folder or a *.SERVER.* name in any case", async () => {
+    const folder = await built({
+      "src/droplets/card/+droplet.fake.js":
+        "import { secret } from '../../lib/Server/keys.js';\nexport default () => `<p>${secret.length}</p>`;\n",
+      "src/lib/Server/keys.js": SECRET,
+    });
+    await expect(build(folder)).rejects.toThrow(/src\/lib\/Server\/keys\.js is server code/);
+    const name = await built({
+      "src/droplets/card/+droplet.ts": "import { secret } from './db.SERVER.ts';\nexport const load = () => ({ n: secret.length });\n",
+      "src/droplets/card/db.SERVER.ts": SECRET,
+    });
+    await expect(build(name)).rejects.toThrow(/src\/droplets\/card\/db\.SERVER\.ts is server code/);
   }, 90_000);
 
   it("fails through a chain of neutral modules, naming every step", async () => {
@@ -211,6 +237,10 @@ describe("server files in the client build", () => {
         "src/lib/reply.server.mjs": USES_SERVER,
         "src/hooks.client.ts": "import { secret } from './lib/session.server.ts';\nexport const init = () => { void secret; };\n",
         "src/lib/session.server.ts": SECRET,
+        "src/droplets/card/upper.js": "import { n } from '../../shared/SERVER/count.js';\nexport const upper = n;\n",
+        "src/shared/SERVER/count.js": "export const n = 1;\n",
+        "src/droplets/card/mixed.js": "import { secret } from './keys.Server.ts';\nexport const mixed = secret;\n",
+        "src/droplets/card/keys.Server.ts": SECRET,
       });
       server = await createServer({
         root,
@@ -234,6 +264,15 @@ describe("server files in the client build", () => {
     it("refuses a server/ folder import", async () => {
       await expect(server.environments.client.transformRequest("/src/droplets/card/view.js")).rejects.toThrow(
         /src\/lib\/server\/count\.js is server code/,
+      );
+    });
+
+    it("refuses a SERVER/ folder and a *.Server.* name, in any case", async () => {
+      await expect(server.environments.client.transformRequest("/src/droplets/card/upper.js")).rejects.toThrow(
+        /src\/shared\/SERVER\/count\.js is server code/,
+      );
+      await expect(server.environments.client.transformRequest("/src/droplets/card/mixed.js")).rejects.toThrow(
+        /src\/droplets\/card\/keys\.Server\.ts is server code/,
       );
     });
 

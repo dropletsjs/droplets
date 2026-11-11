@@ -50,8 +50,8 @@ Declared by `@dropletsjs/droplets/ambient` (add it to `compilerOptions.types`).
 | `$droplets/form` | `actionUrl(name?, options?)`: where a form posts for one of the droplet's actions; `enhanceDropletForm(form, options?)` | anywhere |
 | `$droplets/server` | everything [`@dropletsjs/droplets/server`](#dropletsjsdropletsserver) exports: `json`, `text`, `error`, `redirect`, `fail`, `sequence`, `hostFrom`, the event and hook types | server files only |
 
-Server files are those whose name ends in `server.ts` / `server.js`, and files
-under a `server/` folder. Importing a server-only module anywhere else fails
+Server files are those named `*.server.*`, `+server.*` routes, and files
+under a `server/` folder, in any case (`Server/`, `db.SERVER.ts`). Importing a server-only module anywhere else fails
 the build, and no `*.server.*` file, `+server.*` route or file under a
 `server/` folder may reach a browser bundle. See
 [Server-only code](/guides/security/#server-only-code).

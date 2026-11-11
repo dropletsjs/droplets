@@ -76,7 +76,7 @@ build, so run `pnpm build` after it.
 - `base` minifies and keeps function and class names. `tsdown.ts:25`
 - `base` keeps legal and annotation comments in the output and drops JSDoc. `tsdown.ts:30`
 - `cssInline()` loads `<file>.css?inline` as the file's text (module type `text`) and watches the file. `tsdown.ts:37`
-- `isServerPath({ path })` is true for a file name containing `.server.` or starting with `+server.`, and for a path with a `server` folder segment. `tsdown.ts:53`
+- `isServerPath({ path })` is true for a file name containing `.server.` or starting with `+server.`, and for a path with a `server` folder segment, in any case (`Server/`, `x.SERVER.ts`). `tsdown.ts:53`, `tsdown.ts:59`
 - `isServerPath` ignores a query or hash and reads `\` as `/`; it is case-sensitive. `tsdown.ts:54`
 - `graphCheck` `client` and `server` are paths under `src/` without `.ts`; a `server` entry ending in `/` matches a folder prefix. `tsdown.ts:74`, `tsdown.ts:93`
 - `graphCheck` resolves `client` entries as `src/<name>.ts`: a `.tsx` client entry is not checked. `tsdown.ts:124`

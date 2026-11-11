@@ -204,11 +204,12 @@ restarts the server.
 - `virtual:droplets-config` is the raw default export of `droplets.config.ts`, or `{}`. `virtual.ts:674`, `virtual.ts:673`
 - Shared CSS module imports `css.path`; without one, Tailwind's full import when scoped with preflight, theme and utilities otherwise, nothing without Tailwind. `virtual.ts:815`, `virtual.ts:822`, `virtual.ts:823`
 - Droplet discovery in virtual modules: cached once under `vite build`, rescanned on each load under `vite dev`. `virtual.ts:694`
-- Server file: a project file named `*.server.*`, a `+server.*` route, or one with a folder named exactly `server` on its path. `server-only.ts:16`, `server-only.ts:35`
-- Server file check skips virtual ids, files outside the root, `node_modules` and the framework's own `dist/` and `src/`. `server-only.ts:46`, `server-only.ts:49`, `server-only.ts:50`, `server-only.ts:51`
-- Server file under `vite build`: the client environment's `buildEnd` walks the graph from the entries and fails on the first server file, naming the chain. `server-only.ts:169`, `server-only.ts:91`
-- Server file under `vite dev`: `resolveId` in the client environment refuses an import that resolves to one, naming the importer chain. `server-only.ts:156`, `server-only.ts:165`
-- Server file error message: `<file> is server code and cannot reach the browser: <chain>`. `server-only.ts:76`
+- Server file: a project file named `*.server.*`, a `+server.*` route, or one with a folder named `server` on its path. `server-only.ts:17`, `server-only.ts:36`
+- Server file names and folders match in any case: `Server/`, `SERVER/`, `db.SERVER.ts` and `+Server.ts` are server files. `server-only.ts:17`, `server-only.ts:36`
+- Server file check skips virtual ids, files outside the root, `node_modules` and the framework's own `dist/` and `src/`. `server-only.ts:47`, `server-only.ts:50`, `server-only.ts:51`, `server-only.ts:52`
+- Server file under `vite build`: the client environment's `buildEnd` walks the graph from the entries and fails on the first server file, naming the chain. `server-only.ts:170`, `server-only.ts:92`
+- Server file under `vite dev`: `resolveId` in the client environment refuses an import that resolves to one, naming the importer chain. `server-only.ts:157`, `server-only.ts:166`
+- Server file error message: `<file> is server code and cannot reach the browser: <chain>`. `server-only.ts:77`
 - Renderer ownership: a module belongs to a renderer by its `extensions`, its `suffixes`, or a file inside one of its `packages`. `renderer-graphs.ts:65`
 - Renderer ownership: a subpath package (`hono/jsx`) owns that folder at any depth of the package. `renderer-graphs.ts:83`
 - Cross-framework check skips script droplets, and the script renderer owns nothing. `renderer-graphs.ts:128`, `renderer-graphs.ts:138`

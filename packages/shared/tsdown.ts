@@ -50,13 +50,13 @@ export function cssInline(): Plugin {
 
 type IsServerPathInput = { path: string };
 
-/** `*.server.*`, `+server.*`, or anything under a `server/` folder; a query or hash is ignored. */
+/** `*.server.*`, `+server.*`, or anything under a `server/` folder, in any case; a query or hash is ignored. */
 export function isServerPath({ path }: IsServerPathInput): boolean {
   const parts = path
     .replace(/[?#].*$/, "")
     .replaceAll("\\", "/")
     .split("/");
-  return /(?:\.|^\+)server\.[^/]+$/.test(parts.at(-1) ?? "") || parts.slice(0, -1).includes("server");
+  return /(?:\.|^\+)server\.[^/]+$/i.test(parts.at(-1) ?? "") || parts.slice(0, -1).some((part) => part.toLowerCase() === "server");
 }
 
 type PackageNameOfInput = { id: string };

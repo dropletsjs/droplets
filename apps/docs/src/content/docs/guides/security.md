@@ -269,8 +269,9 @@ changes them. See [Body limits](/integrate/http-contract/#body-limits).
 - Server files never reach the browser. A `*.server.*` file, a `+server.*`
   route or anything under a `server/` folder that client code reaches,
   directly or through other modules, fails `vite build` and is refused by
-  `vite dev`, with the import chain. A universal `+droplet.ts` runs in the
-  browser and cannot import them. Dependencies in `node_modules` are not
+  `vite dev`, with the import chain. Case does not matter: `Server/`,
+  `SERVER/` and `db.Server.ts` count as server files. A universal
+  `+droplet.ts` runs in the browser and cannot import them. Dependencies in `node_modules` are not
   checked: keep secrets in your own server files.
 - Load results are inlined into the page. Never return a private value, a
   token or a password hash from a load.

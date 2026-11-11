@@ -7,13 +7,14 @@ import type { PluginState } from "./state.ts";
  * Server files never reach a browser bundle. A project file whose name has
  * `.server.` in it (`db.server.ts`, `+droplet.server.ts`, `hooks.server.ts`,
  * `query.server.js`), a `+server.*` route, or any file under a `server/`
- * folder (`src/lib/server/db.ts`) is server code: the client build fails when
+ * folder (`src/lib/server/db.ts`) is server code, in any case (`Server/`,
+ * `db.SERVER.ts`): the client build fails when
  * its graph reaches one, through any chain, and the dev server refuses the
  * import, naming the chain. Dependencies and the framework's own files are
  * not checked.
  */
 
-const SERVER_NAME = /(?:\.|^\+)server\.[^/]+$/;
+const SERVER_NAME = /(?:\.|^\+)server\.[^/]+$/i;
 const FRAMEWORK_DIRS = [resolve(packageRoot, "dist"), resolve(packageRoot, "src")];
 
 type CleanInput = { id: string };
@@ -25,14 +26,14 @@ function clean({ id }: CleanInput): string {
 /**
  * Whether a path names a server file: `.server.` in its name before the
  * extension (`db.server.tsx`, `a.server.mjs`), a `+server.*` route, or a
- * folder on the way named exactly `server`. `observer.ts`,
+ * folder on the way named `server`, in any case. `observer.ts`,
  * `webserver.js` and `server-utils/x.ts` are not.
  */
 export type IsServerPathInput = { path: string };
 
 export function isServerPath({ path }: IsServerPathInput): boolean {
   const parts = clean({ id: path }).split("/");
-  return SERVER_NAME.test(parts.at(-1) ?? "") || parts.slice(0, -1).includes("server");
+  return SERVER_NAME.test(parts.at(-1) ?? "") || parts.slice(0, -1).some((part) => part.toLowerCase() === "server");
 }
 
 /**
