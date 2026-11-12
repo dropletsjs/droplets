@@ -5,7 +5,7 @@ import type { DropletsPluginApi } from "@dropletsjs/droplets/vite";
 import { renderDevtoolsPage, withPageStyles, type ServerRender } from "./page.tsx";
 import { fragmentRequest, readToolState } from "./shared.ts";
 
-export { renderDevtoolsPage, type DevtoolsPageInput, type ServerRender } from "./page.tsx";
+export type { DevtoolsPageInput, ServerRender } from "./page.tsx";
 
 // `src/` and `dist/` both sit directly under the package root.
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");

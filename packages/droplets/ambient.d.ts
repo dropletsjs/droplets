@@ -22,7 +22,7 @@ declare module "$droplets/env" {
 /**
  * Variables declared with `public: true` in `src/env.ts`: inlined at build
  * when `static`, else read at runtime (the server hands them to the page
- * with `/index.js`). Anywhere. Typed once the declaration is registered
+ * as `/env.js`, which `/index.js` imports). Anywhere. Typed once the declaration is registered
  * (see `defineEnvVars`).
  */
 declare module "$droplets/env/public" {
@@ -42,9 +42,12 @@ declare module "$droplets/drop" {
   export const droplet: {
     /**
      * Where the page loads the droplets from (the URL it loaded `/index.js`
-     * from), or on the server the request's public location (a trusted
-     * `x-droplet-location` or forwarded header, an `http(s)` URL). May carry a path when a proxy serves the droplets
-     * under one. `""` on the server outside a request.
+     * from), or on the server the request's droplet location (`location` of
+     * the config, else a trusted `x-droplet-location` or forwarded header,
+     * else the request's own origin). May carry a path when a proxy serves
+     * the droplets under one. On the server outside a request: `location`
+     * when the config sets it, else the bundle's location token, which
+     * every fragment and its data replace with the request's location.
      */
     readonly origin: string;
     /** `path` on the droplets server; a relative `fetch("/api/…")` would go to the host page. */
@@ -139,6 +142,9 @@ declare module "virtual:droplets-ssr" {
   export const getEntries: import("@dropletsjs/droplets").SsrModule["getEntries"];
   export const prerenderKeys: import("@dropletsjs/droplets").SsrModule["prerenderKeys"];
   export const publicEnv: import("@dropletsjs/droplets").SsrModule["publicEnv"];
+  export const findAction: import("@dropletsjs/droplets").SsrModule["findAction"];
+  export const tokenNonce: import("@dropletsjs/droplets").SsrModule["tokenNonce"];
+  export const tokens: import("@dropletsjs/droplets").SsrModule["tokens"];
 }
 
 /** `dist/client/droplets.json`, for adapter entries that bundle it. */

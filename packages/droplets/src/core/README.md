@@ -159,7 +159,7 @@ builds and runs them.
 - Flags in `+droplet.ts` or `+droplet.server.ts` are never read: discovery opens no other file for flags. `discover.ts:168`
 - Flag defaults: `ssr` true, `hydrate` true, `prerender` false. `../renderer.ts:597`
 - Flags an `+error.*` declares are ignored: the error page follows the droplet's flags. `discover.ts:191`
-- Error page flags and an error page in another framework warn in dev only, once per file and reason. `discover.ts:111`, `discover.ts:182`
+- An error page in another framework warns once per file in build and dev; the flags an error page declares warn in dev only, once per file. `discover.ts:110`, `discover.ts:143`, `discover.ts:182`
 - Error page is looked for only among files the droplet's renderer handles; another framework's is ignored. `discover.ts:146`
 - Error page next to a script droplet is ignored, with a dev warning. `discover.ts:226`
 - `shipsClient` is true unless `hydrate` is `false`. `discover.ts:78`
@@ -170,7 +170,7 @@ builds and runs them.
 - Flags parser skips `export type` and `declare` exports. `flags.ts:86`, `flags.ts:89`
 - `ssr` and `prerender` take a boolean literal; any other value or form warns `must be a literal true or false; ignoring it` and keeps the default. `flags.ts:126`, `flags.ts:127`
 - `hydrate` takes `true`, `false`, `"visible"` or `"interactive"`; anything else warns and keeps the default. `flags.ts:138`, `flags.ts:139`
-- `readExportedFlag`, `readExportedHydrate` and `readExportedFlags` are exported from `@dropletsjs/droplets/vite` for renderers. `../vite.ts:14`
+- `readExportedFlag`, `readExportedHydrate` and `readExportedFlags` are exported from `@dropletsjs/droplets/vite` for renderers; `readFlagExports` lists every flag export with its literal, if one, and how it is written, warning about nothing, for the script renderer. `../vite.ts:14`, `flags.ts:202`
 - Env declaration files: `src/env.ts`, then `src/env.js`. `env.ts:7`
 - Env values are every variable Vite's `loadEnv` sees for the mode (`.env` files and `process.env`), with no prefix filter. `env.ts:46`
 - Env declaration is loaded with Vite's `runnerImport`; it and its imports are returned as `dependencies`. `env.ts:50`, `env.ts:64`
@@ -197,7 +197,7 @@ builds and runs them.
 - `DEV_DROPLETS_LOG` is case-insensitive; an unknown value falls back to `info`. `logger.ts:28`, `logger.ts:29`
 - Logger has no top-level work, so it tree-shakes out of a bundle that never calls it. `logger.ts:32`
 - Logger messages print through `console[level]` with the prefix `[droplets:<source>]`, source `framework` or `drop`. `logger.ts:11`, `logger.ts:47`
-- `setLogLevel` changes the level for the process. `logger.ts:36`
+- `setLogLevel` changes the level for the process; `logger` and `setLogLevel` are exported from `@dropletsjs/droplets/vite` for adapters and plugins at build time. `logger.ts:36`, `../vite.ts:16`
 - `logger.ts` is Node-free: it touches `process` only behind `typeof process`. `logger.ts:25`
 - Package root is found by walking up from the compiled module to the nearest `package.json`. `paths.ts:9`, `paths.ts:22`
 - Paths into `dist/`: `runtime/entry-client.js`, `entry-server.js`, `server.js`, `props.js`, `load.js`, `env-store.js`, `request-store.js`, `form.js`, `enhance.js`, `server-records.js`, `client-init.js`. `paths.ts:31`, `paths.ts:56`

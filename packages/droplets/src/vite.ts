@@ -13,4 +13,5 @@ export type {
 export type { DropletRenderer } from "./renderer.ts";
 export { readExportedFlag, readExportedFlags, readExportedHydrate } from "./core/flags.ts";
 export type { FlagSourceLang } from "./core/flags.ts";
+export { logger, setLogLevel } from "./core/logger.ts";
 export type { DropletsCssOptions } from "./vite/css.ts";

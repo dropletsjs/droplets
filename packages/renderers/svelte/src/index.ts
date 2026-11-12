@@ -21,40 +21,20 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { svelte as sveltePlugin, vitePreprocess, type Options } from "@sveltejs/vite-plugin-svelte";
-import type { DropletRenderer, ReadFlagsInput, RenderFlags } from "@dropletsjs/droplets";
-import { readExportedFlags } from "@dropletsjs/droplets/vite";
+import type { DropletRenderer } from "@dropletsjs/droplets";
 import type { Plugin } from "vite";
 import type { Snippet } from "svelte";
-import { preprocess } from "svelte/compiler";
+import { readFlags } from "./flags.ts";
 
-/**
- * The flags of a component: the exports of its `<script module>` block (or
- * `<script context="module">`), and of nothing else in the file.
- */
-export async function readFlags({ kind, source, file, droplet }: ReadFlagsInput): Promise<Partial<RenderFlags> | undefined> {
-  let module: string | undefined;
-  // Svelte's own block split: it skips HTML comments and leaves the markup and
-  // styles unparsed, so a stylesheet in another language does not get in the way.
-  await preprocess(
-    source,
-    {
-      script: ({ content, attributes }) => {
-        if (attributes["module"] === true || attributes["context"] === "module") {
-          module = content;
-        }
-      },
-    },
-    { filename: file },
-  );
-  if (module === undefined) return undefined;
-  const where = kind === "droplet" ? droplet : `${droplet}/${file}`;
-  // TypeScript parses plain JavaScript too, whatever the block's `lang`.
-  return readExportedFlags(module, where, "ts");
-}
-
-/** The props of `+droplet.svelte`: `data` from the loads (a promise when mounted, the value when hydrated) and the `children` snippet. */
+/** The props of `+droplet.svelte`: `data` from the loads and the `children` snippet. */
 export type DropletProps<Data = unknown, Form = unknown> = {
-  data: Data | Promise<Data>;
+  /**
+   * What the loads returned: the value, read directly. Only with
+   * `experimental.async` on does a droplet mounted from scratch get a
+   * promise instead; `await data` is then the way, and it type-checks on
+   * the value too.
+   */
+  data: Data;
   /** After a form action, what it returned or `fail()`ed with; absent otherwise. */
   form?: Form;
   children?: Snippet;

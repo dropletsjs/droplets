@@ -54,7 +54,9 @@ export function prerenderRoot(state: PluginState): { dir: string; assets?: strin
  * Renders every droplet with `prerender = true` for each event its
  * `entries` lists, and stores HTML and server data in the renders'
  * directory (`prerenderRoot`). A load that fails is stored as its
- * `+error.*` render only when that page has `prerender = true`. Requests go through the built SSR bundle and
+ * `+error.*` render, answered 500 per request; `error()`, `redirect()` and
+ * a failure without an error page are not stored and render live. Requests
+ * go through the built SSR bundle and
  * through `handle`, with `building` true. An entry renders for its `host`,
  * else `host` of the config, else host-agnostic; a render
  * that reads more of `host` than it can have stops the build. Returns how

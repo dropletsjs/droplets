@@ -33,7 +33,7 @@ const server = createServerApp({
     },
     loadEntryClient: () => read(manifest.__entryClient),
     entryModule: async () => manifest.__entryModule ?? null,
-    loadGlobalStyle: () => read(manifest.__globalCss),
+    loadGlobalStyle: () => read(manifest.__globalStyle),
     dropletStyles: async (id) => manifest.droplets[id]?.css ?? [],
     loadIndex: async () => manifest.__index,
     externals: manifest.__externals,

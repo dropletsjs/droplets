@@ -363,17 +363,16 @@ to `http://localhost:8000`:
   <match url="^(index\.js|droplets/.*|assets/.*|api/.*)$" />
   <action type="Rewrite" url="http://localhost:8000/{R:0}" />
   <serverVariables>
-    <set name="HTTP_X_HOST" value="https://www.example.com" />
+    <set name="HTTP_X_DROPLET_LOCATION" value="https://www.example.com" />
   </serverVariables>
 </rule>
 ```
 
-As written, the rule sets an `X-Host` request header, which the droplets
-server does not read: the header it reads is `x-droplet-location`. To use
-the sketch, set the server variable `HTTP_X_DROPLET_LOCATION` to the site's
-public URL, written out, never built from the request's `Host`; allow that
-variable in `applicationHost.config`; enable "proxy" in ARR's server
-settings; and list the URL's origin in the droplets server's
+The server variable `HTTP_X_DROPLET_LOCATION` is the `x-droplet-location`
+request header the droplets server reads: the site's public URL, written
+out, never built from the request's `Host`. To use the sketch, allow that
+variable in `applicationHost.config`, enable "proxy" in ARR's server
+settings, and list the URL's origin in the droplets server's
 `DROPLETS_TRUSTED_ORIGINS`.
 
 IIS cannot include arbitrary URLs server-side. Pair it with a page that

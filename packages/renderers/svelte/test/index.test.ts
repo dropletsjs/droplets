@@ -2,7 +2,8 @@ import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { validateRenderers, type ReadFlagsInput } from "@dropletsjs/droplets";
-import { readFlags, svelte } from "../src/index.ts";
+import { readFlags } from "../src/flags.ts";
+import { svelte } from "../src/index.ts";
 
 type InputOfInput = { source: string };
 

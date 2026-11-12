@@ -48,6 +48,7 @@ describe("compileTemplate", () => {
     expect(code).toContain(`import { env } from ${JSON.stringify(runtimeModule.replace(/\\/g, "/"))};`);
     expect(code).toContain(`import "${SETUP_ID}";`);
     expect(code).toMatch(/export default env\.template\(\{.*"main":function/s);
+    // No HMR of its own: an edit propagates to the droplet's client module, which remounts in place.
     expect(code).not.toContain("import.meta.hot");
     // The spec is what Handlebars' own runtime understands.
     const spec = new Function(
@@ -56,10 +57,10 @@ describe("compileTemplate", () => {
     expect(Handlebars.template(spec)({ data: { title: "A <b>" } })).toBe("<p>A &lt;b&gt;</p>");
   });
 
-  it("leaves the setup import out of a partial and accepts HMR in dev", () => {
-    const code = compileTemplate({ source: "<p/>", file: "/app/src/partials/p.hbs", setup: false, dev: true });
+  it("leaves the setup import out of a partial", () => {
+    const code = compileTemplate({ source: "<p/>", file: "/app/src/partials/p.hbs", setup: false });
     expect(code).not.toContain(SETUP_ID);
-    expect(code).toContain("if (import.meta.hot) import.meta.hot.accept();");
+    expect(code).not.toContain("import.meta.hot");
   });
 
   it("passes precompile options through", () => {

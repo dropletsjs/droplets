@@ -104,7 +104,7 @@ http://localhost:8002 and takes the stack down. It needs Docker.
 - Shop proxy sends `x-droplet-location: SHOP_ORIGIN`, never the request's Host. `shop.rb:76`
 - Shop proxy forwards only `accept`, `accept-language`, `content-type`, `cookie`, `if-none-match`, `origin`, `referer`, `user-agent`, `x-droplet-props`, `x-droplets-build`. `shop.rb:29`
 - Shop proxy drops hop-by-hop response headers and passes `Set-Cookie` untouched. `shop.rb:35`, `shop.rb:90`
-- Shop proxy paths: `/index.js`, `/droplets/*`, `/assets/*`, `/api/*`, for GET, POST, PUT, PATCH, DELETE and OPTIONS. `shop.rb:216`, `shop.rb:217`
+- Shop proxy paths: `/index.js`, `/droplets/*`, `/assets/*`, `/api/*`, for GET (and HEAD, which Sinatra's `get` answers too), POST, PUT, PATCH, DELETE and OPTIONS. `shop.rb:216`, `shop.rb:217`
 - Shop proxy concatenates the path onto the shop's base, never resolves it. `shop.rb:62`
 - Shop proxy asks for `accept-encoding: identity`. `shop.rb:63`
 - Shop proxy timeouts: open 5 seconds, read 10 seconds. `shop.rb:65`

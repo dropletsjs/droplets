@@ -13,7 +13,8 @@
  * through its framework's own HMR, so React (Fast Refresh), Preact
  * (Prefresh) and Vue keep the component's state; Svelte and Solid swap the
  * component in place with their own HMR; Lit and Hono JSX, which have none,
- * remount in place; Handlebars gets its fragment again; a script droplet
+ * remount in place; Handlebars gets its fragment again when it does not
+ * hydrate and remounts in place when it does; a script droplet
  * runs its cleanup and then its function again, on the same element. A load
  * edit brings new data to the live component, its state kept. A new render
  * contract (`ssr`, `hydrate`, `prerender`) leaves the droplet as it is and
@@ -42,10 +43,11 @@ const DROPLETS = [
   "lit-hello",
   "hono-hello",
   "hbs-hello",
+  "hbs-live",
   "script-hello",
   "contract",
 ] as const;
-/** The droplets that hydrate, by the `data-testid` of their section. */
+/** The droplets that hydrate and say so, by the `data-testid` of their section. */
 const LIVE = ["react", "preact", "vue", "solid", "svelte", "lit", "hono"] as const;
 
 let server: ChildProcess | undefined;
@@ -108,9 +110,19 @@ async function open(query = ""): Promise<Opened> {
   for (const name of LIVE) {
     await page.locator(`[data-testid=${name}][data-hydrated=true]`).waitFor({ timeout: 30_000 });
   }
+  await hydratedElement(page, "hbs-live");
   await page.locator("[data-testid=script]").waitFor();
   await page.evaluate(() => ((window as { loaded?: string }).loaded = "once"));
   return { page, errors, logs, posts };
+}
+
+/** A template's markup says nothing of hydration: the element itself does. */
+async function hydratedElement(page: Page, droplet: string) {
+  await page.waitForFunction(
+    (id) => (document.querySelector(`[data-droplet="${id}"]`) as { _hydrated?: boolean } | null)?._hydrated === true,
+    droplet,
+    { timeout: 30_000 },
+  );
 }
 
 /** The page is the one `open` loaded: nothing reloaded it. */
@@ -330,6 +342,19 @@ describe("every renderer under vite dev", () => {
     edit("src/droplets/hbs-hello/+droplet.hbs", "Handlebars greets", "Handlebars waves to");
     await expect.poll(() => text(page, "hbs"), { timeout: 15_000 }).toBe("Handlebars waves to the host");
     expect(posts).toContain("/droplets/hbs-hello");
+    await notReloaded(page);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it("remounts a hydrated Handlebars droplet in place: a template has no HMR of its own", async () => {
+    const { page, errors, logs } = await open();
+    edit("src/droplets/hbs-live/+droplet.hbs", "Handlebars live greets", "Handlebars live waves to");
+    await expect.poll(() => text(page, "hbs-live"), { timeout: 15_000 }).toBe("Handlebars live waves to the host");
+    await hydratedElement(page, "hbs-live");
+    await expect
+      .poll(() => logs.some((line) => line.includes("hbs-live: no HMR of its framework took this edit; remounted in place")))
+      .toBe(true);
     await notReloaded(page);
     expect(errors).toEqual([]);
     await page.close();

@@ -65,9 +65,16 @@ export function Droplet({ id, props = {}, mode = "fragment", origin = DROPLETS_U
     const url = new URL(`/droplets/${encodeURIComponent(id)}`, origin);
     for (const [key, value] of Object.entries(props)) url.searchParams.set(key, String(value));
 
-    fetch(url, { signal: controller.signal })
+    fetch(url, { signal: controller.signal, redirect: "manual", headers: { accept: "text/html" } })
       .then(async (response) => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        // Never followed: a redirect's target is opaque in the browser and
+        // could be a page, not a fragment.
+        if (response.type === "opaqueredirect") throw new Error("redirected");
+        // Only an HTML answer is a fragment (a 500 carries the droplet's error
+        // page); a 400 or 404 is text that may echo the props: never insert it.
+        const isFragment =
+          (response.ok || response.status === 500) && (response.headers.get("content-type") ?? "").startsWith("text/html");
+        if (!isFragment) throw new Error(`HTTP ${response.status}`);
         // Parsing through a <template> lets the custom element upgrade on insert.
         const template = document.createElement("template");
         template.innerHTML = await response.text();

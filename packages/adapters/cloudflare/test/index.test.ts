@@ -2,7 +2,8 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { logger, resolveConfig } from "@dropletsjs/droplets";
+import { resolveConfig } from "@dropletsjs/droplets";
+import { logger } from "@dropletsjs/droplets/vite";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
 import { cloudflare } from "../src/index.ts";
 import { buildFixture, FIXTURE_ROOT } from "./build-fixture.ts";
@@ -54,6 +55,7 @@ function adapterHeaders(publicRule: string): string {
     `${path}\n  Access-Control-Allow-Origin: *\n  ! Cache-Control\n  Cache-Control: ${cacheControl}\n`;
   return (
     files("/index.js", "no-store") +
+    files("/index.css", "no-store") +
     files("/assets/*", IMMUTABLE) +
     publicRule +
     files("/droplets/:id/client.js", IMMUTABLE) +
@@ -124,10 +126,11 @@ describe("cloudflare: afterBuild", () => {
     });
 
     it("warns, never fails, over Cloudflare's limits: 100 rules, 2,000 characters a line", async () => {
-      await writeFile(join(root, "_headers"), Array.from({ length: 95 }, (_, i) => `/r${i}\n  X-Rule: ${i}\n`).join(""));
+      // The adapter's own six rules count.
+      await writeFile(join(root, "_headers"), Array.from({ length: 94 }, (_, i) => `/r${i}\n  X-Rule: ${i}\n`).join(""));
       await expect(afterBuild()).resolves.toBeUndefined();
       expect(messages()).toEqual([]);
-      await writeFile(join(root, "_headers"), Array.from({ length: 96 }, (_, i) => `/r${i}\n  X-Rule: ${i}\n`).join(""));
+      await writeFile(join(root, "_headers"), Array.from({ length: 95 }, (_, i) => `/r${i}\n  X-Rule: ${i}\n`).join(""));
       await expect(afterBuild()).resolves.toBeUndefined();
       expect(messages()).toEqual([expect.stringContaining("dist/client/_headers has 101 rules: Cloudflare takes up to 100 rules")]);
       warn.mockClear();
@@ -145,7 +148,7 @@ describe("cloudflare: afterBuild", () => {
         '{ "directory": "dist/client" }',
         '{ "run_worker_first": false }',
         '{ "run_worker_first": ["/api/*"] }',
-        '{ "run_worker_first": ["/*", "!/index.js", "!/assets/*", "!/droplets/*"] }',
+        '{ "run_worker_first": ["/*", "!/index.js", "!/index.css", "!/assets/*", "!/droplets/*"] }',
       ]) {
         await writeFile(join(root, "wrangler.json"), `{ "assets": ${assets} }`);
         await expect(afterBuild(), assets).resolves.toBeUndefined();
@@ -171,7 +174,12 @@ describe("cloudflare: afterBuild", () => {
           '["/droplets/*/client.js"]',
           "/droplets/x/client.js",
         ],
-        ["wrangler.json", '{ "assets": { "run_worker_first": ["/*", "!/index.js"] } }', '["/*","!/index.js"]', "/assets/index.js"],
+        [
+          "wrangler.json",
+          '{ "assets": { "run_worker_first": ["/*", "!/index.js"] } }',
+          '["/*","!/index.js"]',
+          "/index.css, /assets/index.js",
+        ],
         ["wrangler.toml", '[assets]\ndirectory = "dist/client"\nrun_worker_first = true # always\n', "true", "/index.js"],
       ] as const;
       for (const [file, text, value, path] of cases) {

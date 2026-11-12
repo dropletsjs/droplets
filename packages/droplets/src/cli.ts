@@ -21,7 +21,7 @@ const USAGE = `Usage: djs <command> [--root <dir>] [--config <vite config>] [--m
                  script (+droplet.script.ts, plain browser code) is built in
     --target     full (default) | ssr | client | ssg; not for script
     --hydrate    always | visible | interactive | none
-                 full asks; the other targets imply it; script: always | visible
+                 full asks; the other targets imply it; not for script
     --with       server,universal,error,css: the optional files
     --pm         npm | pnpm | yarn | bun | deno (default: the one running djs)
     --yes        ask nothing; accept the warnings`;

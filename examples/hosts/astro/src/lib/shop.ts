@@ -71,8 +71,6 @@ const DROPPED_RESPONSE_HEADERS = new Set([
 /** Statuses that carry no body. */
 const NO_BODY = new Set([101, 204, 205, 304]);
 
-export const PROXIED = /^\/(?:index\.js$|droplets(?:\/|$)|assets(?:\/|$)|api(?:\/|$))/;
-
 export const escapeHtml = (value: unknown) =>
   String(value).replace(
     /[&<>"']/g,

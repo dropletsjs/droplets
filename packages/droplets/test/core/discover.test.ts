@@ -419,6 +419,24 @@ describe("discoverDroplets", () => {
     await rm(other, { recursive: true, force: true });
   });
 
+  it("warns once about an error page in another framework in a build too, and never fails it", async () => {
+    const other = await mkdtemp(join(tmpdir(), "droplets-discover-"));
+    await mkdir(join(other, "docs"));
+    await writeFile(join(other, "docs", "+droplet.svelte"), "");
+    await writeFile(join(other, "docs", "+error.vue"), "");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // A build scans once per environment.
+    for (let i = 0; i < 2; i += 1) {
+      const [docs] = await discoverDroplets({ dropletsRoot: other, renderers: [svelte, vue] });
+      expect(docs).toMatchObject({ id: "docs", hasError: false });
+    }
+    expect(warn.mock.calls.map((call) => String(call[0])).filter((m) => m.includes("+error.vue"))).toEqual([
+      "[droplets:framework] docs/+error.vue is not a svelte component like the droplet; ignored, the error page is written in the droplet's framework",
+    ]);
+    warn.mockRestore();
+    await rm(other, { recursive: true, force: true });
+  });
+
   it("refuses two components in one folder", async () => {
     const other = await mkdtemp(join(tmpdir(), "droplets-discover-"));
     await mkdir(join(other, "twice"));

@@ -152,6 +152,14 @@ function short({ root, id }: ShortInput): string {
   return file.startsWith(prefix) ? file.slice(prefix.length) : file;
 }
 
+type ChainTextInput = { root: string; chain: readonly string[] };
+
+/** The chain as the user reads it: a file's sub-modules (`+droplet.vue?vue&type=script`) fold into the file. */
+function chainText({ root, chain }: ChainTextInput): string {
+  const files = chain.map((id) => short({ root, id }));
+  return files.filter((file, i) => i === 0 || file !== files[i - 1]).join(" -> ");
+}
+
 type CrossImportErrorInput = {
   root: string;
   renderer: string;
@@ -160,7 +168,7 @@ type CrossImportErrorInput = {
 };
 
 function crossImportError({ root, renderer, chain, owners }: CrossImportErrorInput): Error {
-  const path = chain.map((id) => short({ root, id })).join(" -> ");
+  const path = chainText({ root, chain });
   return new Error(
     `droplets: a ${renderer} droplet imports ${owners.join("/")} code: ${path}. ` +
       `A droplet uses its own framework's modules and neutral code only.`,
@@ -182,7 +190,7 @@ function loadModules(state: PluginState): Map<string, string> {
 type LoadCssErrorInput = { root: string; chain: readonly [string, ...string[]] };
 
 function loadCssError({ root, chain }: LoadCssErrorInput): Error {
-  const path = chain.map((id) => short({ root, id })).join(" -> ");
+  const path = chainText({ root, chain });
   return new Error(
     `droplets: ${short({ root, id: chain[0] })} imports CSS: ${path}. ` +
       `Styles belong to the component: import them from +droplet.<ext> or +error.<ext> (or a <style> block).`,

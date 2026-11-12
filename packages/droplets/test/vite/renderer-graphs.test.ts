@@ -143,6 +143,18 @@ describe("checkDropletGraphs", () => {
     );
   });
 
+  it("names a file once in the chain when its sub-modules are the way through (a Vue script block)", () => {
+    const edges = {
+      "/app/src/droplets/s/+droplet.svelte": ["/app/src/droplets/s/+droplet.svelte?svelte&type=script&lang.ts"],
+      "/app/src/droplets/s/+droplet.svelte?svelte&type=script&lang.ts": ["/app/src/lib/index.ts"],
+      "/app/src/lib/index.ts": ["/app/node_modules/.pnpm/react@19/node_modules/react/index.js"],
+    };
+    expect(() => checkDropletGraphs({ state: state, moduleIds: Object.keys(edges), getModule: graph(edges) })).toThrow(
+      "droplets: a svelte droplet imports react code: src/droplets/s/+droplet.svelte -> src/lib/index.ts -> " +
+        "react/index.js. A droplet uses its own framework's modules and neutral code only.",
+    );
+  });
+
   it("fails on a rune module in a React droplet", () => {
     const edges = {
       "/app/src/droplets/r/+droplet.tsx?droplets-renderer=react": ["/app/src/lib/count.svelte.ts?droplets-renderer=react"],

@@ -153,6 +153,7 @@ describe("translateManifest", () => {
     expect(manifest).toEqual({
       __hash: "h4sh",
       __globalCss: "assets/droplets-css-def.css",
+      __globalStyle: "index.css",
       __entryClient: "index.js",
       __entryModule: "assets/index.h4sh.js",
       __index: null,

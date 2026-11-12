@@ -69,9 +69,8 @@ droplets with their flags, which the tool reads from each server.
 
 - `dropletsDevtools()`: the Vite plugin. It takes no options and needs
   `droplets()` in the same plugin list.
-- `renderDevtoolsPage(input)`: the page's HTML, as the plugin serves it, for a
-  host that wants to serve it itself. `DevtoolsPageInput` and `ServerRender`
-  type its input.
+- The types `DevtoolsPageInput` and `ServerRender`: what the page renders
+  from.
 
 ### Changing this package
 
@@ -117,7 +116,7 @@ droplets with their flags, which the tool reads from each server.
 - Devtools page loads `<loaderUrl>?injectTool=true`: the dev tool is always on there. `src/page.tsx:203`
 - Devtools page marks the loader script `vite-ignore`, so Vite does not pre-transform `index.js`; the attribute is gone after `transformIndexHtml`. `src/page.tsx:203`, `test/index.test.ts:81`
 - Devtools page title is `Droplets devtools`. `src/page.tsx:182`
-- `renderDevtoolsPage` is exported with `DevtoolsPageInput` and `ServerRender`. `src/index.ts:8`
+- The package entry exports `dropletsDevtools` and the types `DevtoolsPageInput` and `ServerRender`; `renderDevtoolsPage` lives in `src/page.tsx`, which the plugin alone calls. `src/index.ts:8`, `src/index.ts:135`
 - `renderDevtoolsPage` with `pageStyles: false` leaves the page's `<style>` out for `withPageStyles`. `src/page.tsx:187`
 - Client mode keeps its setup in `localStorage["droplets-devtools:client"]`; server mode keeps it in the URL. `src/client/devtools-page.ts:57`, `src/client/devtools-page.ts:68`
 - Client mode renders again 250 ms after the last props edit. `src/client/devtools-page.ts:131`

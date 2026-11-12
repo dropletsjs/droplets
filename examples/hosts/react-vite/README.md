@@ -119,8 +119,9 @@ flow against the compose stack (needs Docker).
 - `VITE_DROPLETS_URL` defaults to `http://localhost:8000`, `VITE_DROPLETS_ELEMENT` to `djs-svelte`. `src/droplets.tsx:5`, `src/droplets.tsx:9`
 - `ensureDropletsClient()` adds `<origin>/index.js` once per page. `src/droplets.tsx:14`
 - `<Droplet>` client mode sets `data-droplet` and `data-context` (base64 JSON `{ props }`). `src/droplets.tsx:24`, `src/droplets.tsx:58`, `src/droplets.tsx:59`
-- `<Droplet>` fragment mode fetches `/droplets/<id>` with props as query parameters and inserts it through a `<template>`. `src/droplets.tsx:65`, `src/droplets.tsx:72`
-- `<Droplet>` that fails renders `<p className="error">`. `src/droplets.tsx:90`
+- `<Droplet>` fragment mode fetches `/droplets/<id>` with props as query parameters, `accept: text/html` and `redirect: "manual"`, and inserts it through a `<template>`. `src/droplets.tsx:65`, `src/droplets.tsx:68`, `src/droplets.tsx:80`
+- `<Droplet>` fragment mode inserts only a `text/html` answer that is 2xx or 500 (the droplet's error page); a redirect or any other answer is an error. `src/droplets.tsx:72`, `src/droplets.tsx:75`
+- `<Droplet>` that fails renders `<p className="error">`. `src/droplets.tsx:97`
 - Basic page: `ssr-hydrate` and `ssr-nohydrate` as fragments, `client` in client mode, `who` defaulting to `React`. `src/App.tsx:5`, `src/App.tsx:8`, `src/App.tsx:25`
 - Router: shop paths are `/gallery`, `/login`, `/admin`, `/product/<slug>`; everything else is the basic page. `src/shop/ShopApp.tsx:10`, `src/main.tsx:10`
 - Router re-renders on `popstate`; `navigate()` pushes and dispatches `popstate`. `src/router.ts:10`, `src/router.ts:23`

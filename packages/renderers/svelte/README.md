@@ -101,6 +101,9 @@ options.
   rejection mounts `+error.svelte` instead, or nothing when `handleError`
   rejects too.
 - A hydrated droplet always gets the value.
+- `DropletProps` types `data` as the value: `{data.greeting}` type-checks,
+  and so do `{(await data).greeting}` and `{#await data then …}`, which read
+  it in both modes.
 
 Under `vite dev`, a load edit reaches a live droplet through `update`: its
 `data` and `form` change in place and the component keeps its state.
@@ -128,9 +131,10 @@ mode and without it, on a copy of the fixture in `test/fixtures/.app-sync`.
 - `vitePlugin.compilerOptions` is spread over `{ runes: true }`: runes mode is on unless set otherwise. `src/index.ts:124`
 - `vitePlugin.preprocess` runs after `vitePreprocess()`, as an array or a single preprocessor. `src/index.ts:115`
 - `+error.svelte` (or `+Error.svelte`) compiles with `css: "injected"`; the user's `dynamicCompileOptions` result is spread after it. `src/index.ts:84`, `src/index.ts:129`
-- `readFlags` reads only the `<script module>` or `<script context="module">` block, split by Svelte's `preprocess`. `src/index.ts:38`, `src/index.ts:42`
-- `readFlags` parses the module block as TypeScript, whatever its `lang`. `src/index.ts:52`
-- `readFlags` returns `undefined` for a component without a module block. `src/index.ts:49`
+- `readFlags` lives in `src/flags.ts` and reaches core on the renderer object; the package entry does not export it. `src/flags.ts:9`, `src/index.ts:118`
+- `readFlags` reads only the `<script module>` or `<script context="module">` block, split by Svelte's `preprocess`. `src/flags.ts:13`, `src/flags.ts:17`
+- `readFlags` parses the module block as TypeScript, whatever its `lang`. `src/flags.ts:27`
+- `readFlags` returns `undefined` for a component without a module block. `src/flags.ts:24`
 - `readFlags` ignores flags in HTML comments, JS comments, the instance `<script>`, the markup and `<style>`. `test/index.test.ts:47`
 - Flags exported from `+droplet.ts` or `+droplet.server.ts` are ignored, in a build and in `vite dev`. `test/integration/flags.test.ts:77`
 - `experimental.async` is never set by the renderer; `droplets:svelte-options` reads it in `configResolved` from the `vite-plugin-svelte:config` plugin's `api.options`. `src/index.ts:103`
@@ -168,5 +172,6 @@ mode and without it, on a copy of the fixture in `test/fixtures/.app-sync`.
 - Build script runs tsdown, then the tests. `package.json:51`
 - Typecheck is `svelte-check --fail-on-warnings`. `package.json:55`
 - `svelte.config.js` in this package turns async mode on for `svelte-check` only; Vite reads none of it. `svelte.config.js:3`
+- `DropletProps.data` is `Data`, the value; `test/types/droplet-props.svelte` reads it directly, with `await` and with `{#await}`, under `svelte-check`. `src/index.ts:63`, `test/types/droplet-props.svelte:9`
 - Conformance runs with async mode in `test/conformance.test.ts` and without it in `test/conformance-sync.test.ts`, on a copy of the fixture in `test/fixtures/.app-sync`. `test/conformance.test.ts:11`, `test/conformance-sync.test.ts:11`
 - Suite runs on `rendererTests` from `@dropletsjs/shared/vitest` (happy-dom). `vitest.config.ts:1`

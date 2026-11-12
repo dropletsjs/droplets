@@ -130,8 +130,9 @@ export const load = ({ props }: LoadEvent) => {
   `303` back to the host page with the result signed in its URL (set
   `DROPLETS_SECRET`, 32+ bytes); `enhanceDropletForm` posts by `fetch`.
 - A script droplet (`+droplet.script.ts`) default-exports `(data, el)` and
-  runs only in the browser; the server renders nothing for it. `ssr`,
-  `hydrate = false` and `hydrate = "interactive"` on it fail the build.
+  runs only in the browser; the server renders nothing for it. A flag it
+  exports (`ssr`, `hydrate`, `prerender`) is ignored with a warning, once
+  per file: it stays client only.
 
 ### Embed it
 
@@ -147,8 +148,10 @@ export const load = ({ props }: LoadEvent) => {
 | `GET`, `POST /droplets/:id` | The fragment; a form body runs an action |
 | `GET`, `POST /droplets/:id/_data` | `{ "data": … }`; `PUT`, `PATCH`, `DELETE` answer `405` |
 | `GET /droplets/:id/client.js`, `/droplets/:id/style.css` | Bundle and styles |
-| `GET /index.js`, `/index.css` | The element loader, shared stylesheet |
+| `GET /index.js`, `/index.css` | The element loader and the shared stylesheet's import: files of the build, `no-store` |
+| `GET /env.js` | The public variables read at runtime, as a script `/index.js` imports; `404` without one |
 | `GET /assets/*` | Built files, cached for good (the adapter serves them) |
+| `GET /assets/public/*` | The project's `public/` folder, `publicCacheControl` with an `ETag` |
 | `ALL /api`, `/api/*` | `+server.ts` endpoints |
 | `GET /health` | `ok` (the `health` option; before `handle`) |
 | `GET /` | The index page when the build has one, else `404` |
@@ -158,7 +161,7 @@ location in `x-droplet-location`, with its origin listed in `trustedOrigins`
 (or `DROPLETS_TRUSTED_ORIGINS`). Pages on other origins need `cors: true`. Every URL a
 droplet emits for its own files is on that droplet location, so a fragment
 works under any origin or path prefix the server is reached through. `handle`
-in `src/hooks.server.ts` never runs for `/index.js`, `/env.js` and `/assets/*`.
+in `src/hooks.server.ts` never runs for `/index.js`, `/index.css`, `/env.js` and `/assets/*`.
 
 ### Also in the box
 
@@ -274,12 +277,12 @@ renderer under `testing/`.
 - vitest aliases the virtual modules to `test/stubs/*` and runs `test/**/*.test.ts` in Node with `test/setup.ts`. `vitest.config.ts:8`, `vitest.config.ts:17`
 - Portability: `test/portability.test.ts` NEUTRAL list is `runtime`, `server`, `core/config.ts`, `core/logger.ts`. `test/portability.test.ts:14`
 - Portability forbids in NEUTRAL files: `node:` imports, `Buffer`, `process.argv/cwd/exit`, an unguarded `process.env`, `__dirname`. `test/portability.test.ts:16`
-- Entry `.` exports `config`, `isValidElementName`, `resolveConfig`, `logger`, `setLogLevel`, and the type `DevStrategy`; `DEV_STRATEGIES` stays internal. `src/index.ts:1`, `src/index.ts:2`, `src/index.ts:6`
+- Entry `.` exports `config`, `isValidElementName`, `resolveConfig`, and the types `LogLevel`, `LogSource` and `DevStrategy`; `DEV_STRATEGIES` stays internal. `src/index.ts:1`, `src/index.ts:2`, `src/index.ts:5`
 - Entry `.` exports `DropletsApp`, the type of the Hono app `createServerApp` returns. `src/index.ts:11`
 - Entry `.` exports `createServerApp`, `createPrerenderedLoader`, `PRERENDER_DIR`, `setRuntimeEnv`, `FALLBACK_MANIFEST` for adapters. `src/index.ts:85`, `src/index.ts:86`, `src/index.ts:87`, `src/index.ts:47`
 - Entry `.` exports the renderer helpers `defineRenderer`, `importsPackage`, `parseHydrateMode`, `RENDERER_QUERY`, `rendererScopeFilter`, `validateRenderers`, `withFlagDefaults`. `src/index.ts:57`
 - Entry `.` exports `ActionFailure`, `CookiesInPrerenderError`, `HostUrlPropsErrorInPrerender`, `DropletRenderError`. `src/index.ts:46`, `src/index.ts:12`
-- Entry `./vite` exports `droplets()` and `readExportedFlag`, `readExportedFlags`, `readExportedHydrate`. `src/vite.ts:1`, `src/vite.ts:14`
+- Entry `./vite` exports `droplets()`, `readExportedFlag`, `readExportedFlags`, `readExportedHydrate`, and `logger`, `setLogLevel` for adapters and plugins at build time. `src/vite.ts:1`, `src/vite.ts:14`, `src/vite.ts:16`
 - `droplets()` takes `DropletsPluginOptions` (default `{}`) and returns Vite plugins. `src/vite/plugin.ts:211`
 - Entry `./env`: `defineEnvVars` validates and returns the declaration unchanged. `src/env.ts:74`
 - Env variable names match `^[A-Za-z_][A-Za-z0-9_]*$`, and each needs an options object; otherwise `validateEnvDeclaration` throws. `src/env.ts:59`, `src/env.ts:62`
@@ -307,8 +310,8 @@ renderer under `testing/`.
 - `createPrerenderedLoader` looks a props key up with `Object.hasOwn`; a malformed file counts as no render. `src/server/prerendered.ts:68`, `src/server/prerendered.ts:44`
 - Script droplet renderer is built in, named `script`, for `+droplet.script.ts` and `+droplet.script.js`; core adds it after the user's renderers. `src/renderer.ts:614`, `src/renderer.ts:616`, `src/script/index.ts:81`
 - Script droplet is client only: `ssr` false, `hydrate` true, `prerender` false, whatever the file exports. `src/script/index.ts:42`, `src/script/index.ts:64`
-- Script droplet flag never fails the build: `hydrate = true` warns `exports hydrate = true; a script droplet is always hydrated (locked to true)`, any other flag `exports <name> = <value>; this is ignored, a script droplet is client only`. `src/script/index.ts:60`, `src/script/index.ts:61`
-- Script droplet flag warnings come once per file and flag, across rescans and environments; non-flag exports say nothing. `src/script/index.ts:45`, `src/script/index.ts:55`
+- Script droplet flag never fails the build: `hydrate = true` warns `exports hydrate = true; a script droplet is always hydrated (locked to true)`, any other flag `exports <name> = <value>; this is ignored, a script droplet is client only`, with the value as the file writes it when it is no literal (`ssr = !dev`), never the generic `must be a literal` warning. `src/script/index.ts:57`, `src/script/index.ts:61`, `src/script/index.ts:62`
+- Script droplet flag warnings come once per file and flag, across rescans and environments; non-flag exports say nothing. `src/script/index.ts:45`, `src/script/index.ts:55`, `src/core/flags.ts:202`
 - `djs add --framework script` writes no flag and refuses `--target` and `--hydrate`. `src/add/flags.ts:49`, `src/add/add.ts:251`, `src/add/add.ts:252`
 - Script droplet server render is `""`: the fragment is the element, its data payload and an empty content root. `src/script/server.ts:9`
 - Script droplet `hydrate` is `mount`; `mount` throws when the file has no default function. `src/script/client.ts:46`, `src/script/client.ts:34`
@@ -321,7 +324,7 @@ renderer under `testing/`.
 - `AdapterBuildContext`, what `afterBuild` gets: `root`, `outDir`, `manifestPath`, `serverPath` and the resolved `config`. `src/adapters.ts:47`, `src/adapters.ts:57`
 - `vite build` without an adapter throws, naming `@dropletsjs/adapter-node`. `src/vite/build.ts:96`
 - Health route answers `ok` and is mounted before `handle`. `src/runtime/app.ts:934`
-- `handle` never runs for `/index.js`, `/env.js` and `/assets/*`. `src/runtime/app.ts:356`, `src/runtime/app.ts:982`
+- `handle` never runs for `/index.js`, `/index.css`, `/env.js` and `/assets/*`. `src/runtime/app.ts:356`, `src/runtime/app.ts:982`
 - Routes: `/` `src/runtime/app.ts:1107`, `/index.js` `src/runtime/app.ts:1114`, `/index.css` `src/runtime/app.ts:1142`, `style.css` `src/runtime/app.ts:1155`, `client.js` `src/runtime/app.ts:1171`, `_data` `src/runtime/app.ts:1288`, the fragment `src/runtime/app.ts:1676`, `/api` `src/runtime/app.ts:1717`
 - `_data` answers `405` with `allow: GET, POST` for `PUT`, `PATCH`, `DELETE`. `src/runtime/app.ts:1284`
 - Droplet file URLs (the stylesheet, `client.js`, the `Link` preloads) are built on the request's droplet location. `src/runtime/app.ts:1331`

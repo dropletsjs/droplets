@@ -72,7 +72,7 @@ Static assets answer every file in `dist/client` before the Worker runs, so
 the build's files never cost a Worker invocation. `dist/client/_headers`
 gives them their headers:
 
-- `/index.js`: `Access-Control-Allow-Origin: *`, `Cache-Control: no-store`.
+- `/index.js` and `/index.css`: `Access-Control-Allow-Origin: *`, `Cache-Control: no-store`.
 - `/assets/*`, `/droplets/:id/client.js`, `/droplets/:id/style.css`:
   `Access-Control-Allow-Origin: *`, `Cache-Control: public,
   max-age=2592000, immutable`.
@@ -95,7 +95,7 @@ It never writes the file and never fails the build:
 
 - Unset, `false`, or a list that matches none of the build's files passes
   in silence.
-- `true`, or a list that matches `/index.js`, `/assets/*` (the entry,
+- `true`, or a list that matches `/index.js`, `/index.css`, `/assets/*` (the entry,
   chunks, `public/`) or a droplet's `client.js` or `style.css` (a `!`
   pattern that excludes a path wins), warns once: those files would go through the Worker, billed
   per request, and `_headers` already gives them their headers.
@@ -160,7 +160,7 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - `.assetsignore` is written to `dist/client/` after every build with `/droplets.json` and `/.vite/`. `src/index.ts:15`, `src/index.ts:215`, `test/index.test.ts:40`
 - `afterBuild` receives the resolved config from the plugin: `publicCacheControl` comes from `droplets.config.ts`. `src/index.ts:213`, `../../droplets/src/vite/plugin.ts:544`
 - `_headers` is written to `dist/client/` after every build: the adapter's rules, then the project root's `_headers` after a blank line. `src/index.ts:216`, `src/index.ts:218`, `test/index.test.ts:44`, `test/index.test.ts:109`
-- `_headers` rules: `/index.js` (`no-store`), `/assets/*`, `/assets/public/*`, `/droplets/:id/client.js`, `/droplets/:id/style.css`, in that order. `src/index.ts:79`, `test/index.test.ts:99`
+- `_headers` rules: `/index.js` and `/index.css` (`no-store`), `/assets/*`, `/assets/public/*`, `/droplets/:id/client.js`, `/droplets/:id/style.css`, in that order. `src/index.ts:79`, `src/index.ts:80`, `test/index.test.ts:99`
 - `_headers` sends `Access-Control-Allow-Origin: *` on every rule but `/assets/public/*`, which gets it from `/assets/*`; the `cors` config is not read. `src/index.ts:76`
 - `_headers` starts every rule with `! Cache-Control`: Cloudflare joins a header two matching rules set, and static assets send a `Cache-Control` of their own. `src/index.ts:76`, `src/index.ts:77`
 - `_headers` cache for `/assets/*`, `client.js` and `style.css` is `public, max-age=2592000, immutable`. `src/index.ts:64`
@@ -177,7 +177,7 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - `run_worker_first` unset, `false` or a list that matches none of the build's files is silent. `src/index.ts:123`, `test/index.test.ts:143`
 - `run_worker_first` `true` sends every build file through the Worker and warns once, never fails. `src/index.ts:122`, `test/index.test.ts:159`
 - `run_worker_first` list warns when a pattern matches a build file and no `!` pattern excludes it: negative patterns win. `src/index.ts:121`, `src/index.ts:126`, `test/index.test.ts:159`
-- `run_worker_first` patterns are matched against `/index.js`, `/assets/index.js`, `/assets/public/index.txt`, `/droplets/x/client.js`, `/droplets/x/style.css`, and from `droplets.json` the entry module, each droplet's `client.js` and the `style.css` of each droplet with stylesheets. `src/index.ts:136`, `src/index.ts:144`, `test/index.test.ts:189`
+- `run_worker_first` patterns are matched against `/index.js`, `/index.css`, `/assets/index.js`, `/assets/public/index.txt`, `/droplets/x/client.js`, `/droplets/x/style.css`, and from `droplets.json` the entry module, each droplet's `client.js` and the `style.css` of each droplet with stylesheets. `src/index.ts:136`, `src/index.ts:144`, `test/index.test.ts:189`
 - `run_worker_first` pattern `*` matches anything, `/` included. `src/index.ts:106`
 - `run_worker_first` warning names the file, the value and up to five matched paths, and links `https://dropletsjs.dev/guides/deployment/#run_worker_first`. `src/index.ts:253`
 - Config in the Worker is `resolveConfig(userConfig)` with no environment: `PORT` is never read. `src/worker.ts:23`
@@ -192,8 +192,8 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - Droplet lookup in the inlined manifest uses `Object.hasOwn`: `__proto__` and other prototype names find nothing. `src/worker.ts:43`, `test/worker.test.ts:221`
 - Files are read through the binding by pathname; the origin `https://assets.invalid` is a placeholder. `src/worker.ts:50`
 - File the binding answers with a non-2xx status reads as missing (`null`). `src/worker.ts:51`
-- Client bundles, `/index.js` and the global CSS are fetched from the binding per request. `src/worker.ts:58`, `src/worker.ts:60`, `src/worker.ts:62`
-- `/index.js` answers `cache-control: no-store`. `test/worker.test.ts:157`
+- Client bundles, `/index.js` and `/index.css` (the stub `__globalStyle` names) are fetched from the binding per request. `src/worker.ts:58`, `src/worker.ts:61`, `src/worker.ts:63`
+- `/index.js` and `/index.css` answer `cache-control: no-store`. `test/worker.test.ts:157`, `test/worker.test.ts:164`
 - Droplet styles and the entry module name come from the inlined manifest, not the binding. `src/worker.ts:61`, `src/worker.ts:71`
 - Prerendered renders are read through the binding from `_prerendered/<random>`; they are never in the bundle. `src/worker.ts:67`, `test/worker.test.ts:124`
 - Prerendered folder name is `_prerendered/` plus 32 hex characters, new every build, and only `droplets.json` holds it. `../../droplets/src/vite/prerender.ts:52`, `test/worker.test.ts:131`
@@ -205,7 +205,7 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - `/assets/public/*` without a binding `ETag` gets one from the SHA-1 of the body in base64url, and `304` with no body when `If-None-Match` lists it. `src/worker.ts:104`, `src/worker.ts:110`
 - `/assets/public/*` status from 300 to 399 other than 304 passes through untouched. `src/worker.ts:85`
 - `/robots.txt` answers 404: `public/` is served only under `/assets/public/`. `test/worker.test.ts:195`
-- `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:900`, `test/worker.test.ts:214`
+- `/assets/*`, `/index.js` and `/index.css` never pass through `handle`. `../../droplets/src/runtime/app.ts:900`, `test/worker.test.ts:214`
 - `nodejs_compat` gives `AsyncLocalStorage`, found through `process.getBuiltinModule`; without it overlapping requests share one request store. `../../droplets/src/runtime/request-store.ts:46`, `../../droplets/src/runtime/request-store.ts:60`
 - Node engine for the build is `>=22`. `package.json:36`
 - `vite` is a peer dependency (`^8.0.0`): the adapter reads `defaultServerConditions` from it. `package.json:49`, `src/index.ts:6`

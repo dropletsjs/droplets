@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [
     graphCheck({
       client: ["client", "client-dev", "children", "form"],
-      server: ["index", "server"],
+      server: ["index", "server", "flags"],
     }),
   ],
 });

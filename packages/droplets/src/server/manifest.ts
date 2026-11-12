@@ -16,7 +16,10 @@ export type DropletManifestEntry = {
 
 export type DropletsManifest = {
   __hash: string;
+  /** The shared stylesheet, relative to `dist/client`, named by its content: first in every droplet's `css`. */
   __globalCss: string;
+  /** What `/index.css` serves: a stub that imports `__globalCss`, never cached; the file exists only with a shared stylesheet. */
+  __globalStyle: string;
   /** What `/index.js` serves: a stub that imports `__entryModule`, never cached. */
   __entryClient: string;
   /**
@@ -42,6 +45,7 @@ export type DropletsManifest = {
 export const FALLBACK_MANIFEST: DropletsManifest = {
   __hash: "",
   __globalCss: "assets/droplets-css.css",
+  __globalStyle: "index.css",
   __entryClient: "index.js",
   __index: null,
   __externals: [],

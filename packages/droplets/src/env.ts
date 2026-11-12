@@ -24,8 +24,8 @@
 export type EnvVarOptions = {
   /**
    * Expose the variable to the browser. Read at runtime like any other
-   * unless `static`: the server hands the value to the page with
-   * `/index.js`, before any droplet loads.
+   * unless `static`: the server hands the value to the page as `/env.js`,
+   * which `/index.js` imports before any droplet loads.
    */
   public?: boolean;
   /** Inline the value at build time instead of reading it at runtime. */

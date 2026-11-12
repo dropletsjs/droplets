@@ -294,10 +294,11 @@ for again. React owns the wrapper `<div>`; the custom element owns
 everything inside it. The effect's cleanup clears the wrapper, so React
 never tries to reconcile the droplet's DOM.
 
-This `<Droplet>` is simpler than the shop's `ShopFragment`: it inserts any
-`2xx` answer, without checking for `text/html`, and shows a 500 as an
-error note instead of the droplet's error page. Copy `ShopFragment`'s
-checks for a page that embeds droplets you do not control.
+This `<Droplet>` checks the answer the way the shop's `ShopFragment` does:
+only a `text/html` answer is inserted, a `2xx` or a `500` (which carries
+the droplet's error page), `redirect: "manual"` keeps a redirect from being
+followed, and anything else becomes an error note. What it lacks is the
+shop's `onRedirect`, since the basic droplets never redirect.
 
 The page and the droplets server are different origins, so the browser
 loads `/index.js`, the bundles and the fragments cross-origin: the Svelte

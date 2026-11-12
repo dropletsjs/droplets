@@ -119,7 +119,7 @@ but `"reload"`. A component's own styles follow its framework's HMR.
 | Svelte 5 | `@sveltejs/vite-plugin-svelte` HMR swaps the component in place | starts over |
 | Solid | solid-refresh swaps the component in place | starts over |
 | Lit, Hono JSX | No HMR of their own. The droplet remounts in place, as under `"remount"`. | starts over |
-| Handlebars | The fragment is requested again and the markup swapped | none to keep |
+| Handlebars | Not hydrated: the fragment is requested again and the markup swapped. Hydrated: the droplet remounts in place, as under `"remount"` | none to keep |
 | Script | The previous cleanup runs, then the new `default(data, el)` runs on the same `el` | yours |
 
 If no HMR of the framework takes an edit (React Fast Refresh, for example,

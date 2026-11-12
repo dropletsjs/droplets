@@ -184,3 +184,31 @@ export function readExportedFlags(source: string, where: string, lang: FlagSourc
   if (prerender !== undefined) flags.prerender = prerender;
   return flags;
 }
+
+/** A flag a module exports: the literal it holds, if one, and how the module writes it (`ssr = !dev`, `hydrate` of an `export { hydrate }`). */
+export type FlagExportFound = { name: FlagName; value: boolean | string | undefined; written: string };
+
+const FLAG_NAMES = ["ssr", "hydrate", "prerender"] as const;
+
+type FlagName = (typeof FLAG_NAMES)[number];
+
+type ReadFlagExportsInput = { source: string; lang?: FlagSourceLang };
+
+/**
+ * Every flag a module exports, whatever its value, as `ssr`, `hydrate`,
+ * `prerender`, for a reader that says something else than
+ * `readExportedFlags` about it (a script droplet). Warns about nothing.
+ */
+export function readFlagExports({ source, lang = "tsx" }: ReadFlagExportsInput): FlagExportFound[] {
+  const program = parse({ source, lang });
+  if (!program) return [];
+  const exports = valueExports({ program });
+  const found: FlagExportFound[] = [];
+  for (const name of FLAG_NAMES) {
+    const flag = exports.get(name);
+    if (!flag) continue;
+    const text = sourceTextOf({ source, flag });
+    found.push({ name, value: literalOf({ init: flag.init }), written: flag.init ? `${name} = ${text}` : text });
+  }
+  return found;
+}

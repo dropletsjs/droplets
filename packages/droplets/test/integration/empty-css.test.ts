@@ -78,7 +78,7 @@ describe("vite build without a shared stylesheet", () => {
         loadClientModule: async () => null,
         loadEntryClient: async () => null,
         entryModule: async () => null,
-        loadGlobalStyle: () => read(manifest.__globalCss),
+        loadGlobalStyle: () => read(manifest.__globalStyle),
         dropletStyles: async (id) => manifest.droplets[id]?.css ?? [],
         loadIndex: async () => null,
         externals: [],
@@ -86,6 +86,8 @@ describe("vite build without a shared stylesheet", () => {
       },
     });
     expect((await app.request("/index.css")).status).toBe(404);
+    // No stub for a host that serves files first either.
+    expect(existsSync(resolve(clientRoot, "index.css"))).toBe(false);
     expect((await app.request("/droplets/hello/style.css")).status).toBe(404);
     const style = await app.request("/droplets/static-note/style.css");
     expect(style.status).toBe(200);

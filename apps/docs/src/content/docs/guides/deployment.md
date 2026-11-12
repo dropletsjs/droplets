@@ -14,6 +14,7 @@ dist/
   client/
     droplets.json          # manifest: build hash, entry, global CSS, per-droplet bundle and stylesheets
     index.js               # /index.js: imports env.js (with runtime public variables) and assets/index.<hash>.js
+    index.css              # /index.css: imports the shared stylesheet under assets/, for a page that links it itself
     droplets/<id>/client.js  # one bundle per droplet that hydrates
     droplets/<id>/style.css  # what /droplets/<id>/style.css answers, for a droplet with stylesheets
     assets/                # entry client (index.<hash>.js), stylesheets, shared chunks, imported files
@@ -118,7 +119,7 @@ Worker writes under `wrangler dev` point at that location.
 ### Static files and `_headers`
 
 Workers Static Assets answer every request for a file in `dist/client`
-before the Worker runs: `/index.js`, the entry and the chunks under
+before the Worker runs: `/index.js`, `/index.css`, the entry and the chunks under
 `/assets/*`, `public/` under `/assets/public/*`, and each droplet's
 `/droplets/<id>/client.js` and `/droplets/<id>/style.css`. Those requests
 are not Worker invocations, so they are not billed as such. Everything else
@@ -130,6 +131,10 @@ headers:
 
 ```
 /index.js
+  Access-Control-Allow-Origin: *
+  ! Cache-Control
+  Cache-Control: no-store
+/index.css
   Access-Control-Allow-Origin: *
   ! Cache-Control
   Cache-Control: no-store
@@ -179,10 +184,10 @@ Cloudflare's limits.
 ### `run_worker_first`
 
 Leave `run_worker_first` out. The build's files need nothing from the
-Worker: `/index.js` is a file of the build and `_headers` carries their CORS
-and cache headers.
+Worker: `/index.js` and `/index.css` are files of the build and `_headers`
+carries their CORS and cache headers.
 
-`true`, or a list whose patterns match `/index.js`, `/assets/*` or a
+`true`, or a list whose patterns match `/index.js`, `/index.css`, `/assets/*` or a
 droplet's `client.js` or `style.css`, sends those requests through the
 Worker, billed per request. The adapter reads your wrangler config
 (`wrangler.jsonc`, `wrangler.json` or `wrangler.toml`) after `vite build`
@@ -327,7 +332,7 @@ When a reverse proxy fronts the droplets server:
   a proxy under another origin or prefix gets URLs that point elsewhere. Keep
   the droplets server unreachable except through the proxy;
 - keep the `cache-control` headers it sends; they are safe to honour: `/index.js`
-  is `no-store`, `/env.js` is `public, max-age=600` (`DROPLETS_ENV_MAX_AGE`),
+  and `/index.css` are `no-store`, `/env.js` is `public, max-age=600` (`DROPLETS_ENV_MAX_AGE`),
   fragments and `_data` are `private, no-store` (`fragmentCacheControl`),
   `/assets/public/*` is `no-cache` (`publicCacheControl`) with an `ETag`,
   everything else it serves for the browser is immutable.

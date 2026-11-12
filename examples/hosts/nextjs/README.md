@@ -132,7 +132,8 @@ against the compose stack (needs Docker).
 - Shop proxy drops connection, content-encoding, content-length, keep-alive and transfer-encoding from the answer. `lib/shop.ts:63`
 - Shop proxy passes every `Set-Cookie` on untouched. `lib/shop.ts:118`
 - Shop proxy answers 502 `The shop is unreachable.` when the shop is down. `lib/shop.ts:123`
-- `PROXIED` in `lib/shop.ts` is exported but no route uses it; the route handler folders decide what is proxied. `lib/shop.ts:75`
+- The route handler folders decide what is proxied; `lib/shop.ts` lists no paths of its own. `app/index.js/route.ts:5`
+- Shop pages (`/gallery`, `/product/:slug`, `/admin`, `/login`) answer `cache-control: private, no-store`, set in `next.config.ts` since a server component cannot set headers. `next.config.ts:11`, `next.config.ts:13`, `next.config.ts:17`
 - Shop fragment fetch sends `accept: text/html`, the page URL as `Referer` and the browser's `Cookie`. `lib/shop.ts:135`, `lib/shop.ts:136`
 - Shop fragment is inserted only when it is 2xx or 500 and `text/html`. `lib/shop.ts:145`
 - Shop fragment that is not inserted becomes `<p class="shop-unavailable">`. `lib/shop.ts:159`

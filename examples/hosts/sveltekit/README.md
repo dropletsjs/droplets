@@ -70,8 +70,9 @@ its [`CONTRACT.md`](../../shop/CONTRACT.md).
 - Shop links reload the page (`data-sveltekit-reload`), as on every other
   host. `static/shop.css` is the same file as the other hosts' copy.
 
-The compose file sets `ORIGIN` and `BODY_SIZE_LIMIT`; the Dockerfile sets
-`BODY_SIZE_LIMIT` only. Outside Docker, start the shop
+The Dockerfile sets `ORIGIN` (`http://localhost:8006`, its own address) and
+`BODY_SIZE_LIMIT`; the compose file sets `ORIGIN` to `WEB_URL`. Outside
+Docker, start the shop
 (`pnpm --filter @dropletsjs/example-shop build`, then `pnpm start` in
 `examples/shop` with `DROPLETS_TRUSTED_ORIGINS=http://localhost:8006`), then:
 
@@ -139,7 +140,7 @@ From the repository root:
 - Shop product page props: `slug`, plus `v` from the query. `src/routes/(shop)/product/[slug]/+page.server.ts:14`
 - Shop login passes `next`; shop admin passes `view` and `id`. `src/routes/(shop)/login/+page.server.ts:7`, `src/routes/(shop)/admin/+page.server.ts:7`
 - Docker image is `node:24-alpine`, built with `npm ci`, started with `node build`. `Dockerfile:1`, `Dockerfile:4`, `Dockerfile:17`
-- Docker image sets `HOST=0.0.0.0`, `PORT=8006`, `BODY_SIZE_LIMIT=4M`; it does not set `ORIGIN`. `Dockerfile:10`, `Dockerfile:11`, `Dockerfile:13`
+- Docker image sets `HOST=0.0.0.0`, `PORT=8006`, `ORIGIN=http://localhost:8006` and `BODY_SIZE_LIMIT=4M`, so it runs without compose. `Dockerfile:10`, `Dockerfile:11`, `Dockerfile:14`, `Dockerfile:16`
 - Web `ORIGIN` is `WEB_URL`, default `http://localhost:8006`. `docker-compose.yml:45`
 - Web `BODY_SIZE_LIMIT` is `4M`. `docker-compose.yml:48`
 - Web `SHOP_PUBLIC_URL` is `WEB_URL`. `docker-compose.yml:42`

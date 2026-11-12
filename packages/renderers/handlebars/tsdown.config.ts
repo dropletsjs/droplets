@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [
     graphCheck({
       client: ["client", "client-dev", "runtime"],
-      server: ["index", "server", "plugin", "styles"],
+      server: ["index", "server", "plugin", "styles", "flags"],
     }),
   ],
 });

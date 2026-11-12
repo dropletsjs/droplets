@@ -153,6 +153,7 @@ restarts the server.
 - `dist/client/index.js` is `import "./env.js"` (only when `src/env.ts` declares public variables read at runtime), a static `import` of `./assets/index.<hash>.js`, then the location record from its own URL. `build.ts:266`, `build.ts:338`
 - `dist/client/index.js` imports statically, so the browser fetches `env.js` and the entry at once and evaluates `env.js` first; the location record runs after the entry. `build.ts:266`, `../../test/integration/index-js.test.ts`
 - Before the location record runs, the element reads the same location from the entry's own URL (`serverLocation`). `../runtime/server-records.ts:48`, `../../test/integration/index-js.test.ts`
+- `dist/client/index.css` is `@import url("./assets/<hash>.css");`, written only when the shared stylesheet is not empty; `droplets.json` names it `__globalStyle`, `/index.css` serves it `no-store`, and the stylesheet itself stays under `/assets/`. `build.ts:24`, `build.ts:264`, `build.ts:340`, `../server/manifest.ts:22`
 - Stylesheet registry: the droplets' stylesheets are written into the entry module after the client build; no room for them throws. `build.ts:322`, `build.ts:284`
 - Vite manifest missing: `writeManifest` warns and falls back to default CSS paths. `build.ts:296`
 - `renderBuiltUrl`: the user's own `experimental.renderBuiltUrl` answers first. `assets.ts:50`

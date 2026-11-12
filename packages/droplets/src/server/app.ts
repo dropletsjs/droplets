@@ -51,6 +51,7 @@ export type AssetLoaders = {
   loadEntryClient(): Promise<string | null>;
   /** The module the stub imports (`__entryModule`), relative to `dist/client`. */
   entryModule(): Promise<string | null>;
+  /** The stub `/index.css` serves (`__globalStyle`); `null` without a shared stylesheet. */
   loadGlobalStyle(): Promise<string | null>;
   /** The droplet's stylesheets (`css`), relative to `dist/client`; `[]` when none. */
   dropletStyles(droplet: string): Promise<string[]>;

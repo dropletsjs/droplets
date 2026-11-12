@@ -45,7 +45,7 @@ type ComponentSuffixInput = { fileName: string; kind: ComponentKind };
 
 type LoadFileNamesInput = { dir: string };
 
-type ReportInput = { dev: boolean | undefined; key: string; message: string };
+type ReportInput = { key: string; message: string };
 
 type FindComponentInput = {
   kind: ComponentKind;
@@ -106,9 +106,9 @@ type Found = { file: string; renderer: DropletRenderer; flags: RenderFlags };
 /** Error pages and misnamed folders already reported, so a rescan (or the next environment's build) stays quiet. */
 const reported = new Set<string>();
 
-/** In dev, says why an error page is not taken as it is, once per file and reason. */
-function report({ dev, key, message }: ReportInput): void {
-  if (!dev || reported.has(key)) return;
+/** Says why an error page is not taken as it is, once per file and reason. */
+function report({ key, message }: ReportInput): void {
+  if (reported.has(key)) return;
   reported.add(key);
   logger.warn("framework", message);
 }
@@ -118,8 +118,8 @@ function report({ dev, key, message }: ReportInput): void {
  * and flags. Two such files are an error; a suffix no renderer handles is
  * an error too. The error page is the droplet's error boundary: written in
  * the droplet's framework (`framework`), it follows the droplet's flags. An
- * error page in another framework, and flags it declares, are ignored, with
- * a warning in dev.
+ * error page in another framework is ignored with a warning, in build and
+ * in dev; flags it declares are ignored, with a warning in dev.
  */
 async function findComponent({
   kind,
@@ -141,7 +141,7 @@ async function findComponent({
       `${folderName}/${f} is not a ${framework.name} component like the droplet; ignored, ` +
       "the error page is written in the droplet's framework";
     for (const f of candidates.filter((f) => !handlers(f).includes(framework))) {
-      report({ dev, key: `${folder}/${f}:framework`, message: other(f) });
+      report({ key: `${folder}/${f}:framework`, message: other(f) });
     }
     candidates = candidates.filter((f) => handlers(f).includes(framework));
     const [only] = candidates;
@@ -150,7 +150,7 @@ async function findComponent({
       const source = (await loadTextFile({ path: resolve(folder, only) })) ?? "";
       const picked = pickRenderer({ candidates: handlers(only), source, file: `${folderName}/${only}`, fallback: framework });
       if (picked !== framework) {
-        report({ dev, key: `${folder}/${only}:framework`, message: other(only) });
+        report({ key: `${folder}/${only}:framework`, message: other(only) });
         return null;
       }
     }
@@ -179,9 +179,8 @@ async function findComponent({
     : readExportedFlags(source, where, langOfFile({ file }));
   if (kind === "error") {
     const own = Object.keys(declared ?? {});
-    if (own.length > 0) {
+    if (dev && own.length > 0) {
       report({
-        dev,
         key: `${folder}/${file}:${own.join(",")}`,
         message:
           `${folderName}/${file} declares ${own.map((name) => `"${name}"`).join(", ")}; ignored, ` +
@@ -222,9 +221,9 @@ export async function discoverDroplets({ dropletsRoot, renderers = [], dev }: Di
     // One framework per droplet: an error page in another one is ignored.
     // A script droplet has none: it renders nothing, on either side.
     const script = component.renderer.name === SCRIPT_RENDERER;
-    if (script) {
+    if (script && dev) {
       for (const f of files.filter((f) => componentSuffix({ fileName: f, kind: "error" }) !== null)) {
-        report({ dev, key: `${folder}/${f}:script`, message: `${name}/${f} is ignored: a script droplet has no error page` });
+        report({ key: `${folder}/${f}:script`, message: `${name}/${f} is ignored: a script droplet has no error page` });
       }
     }
     const error = script

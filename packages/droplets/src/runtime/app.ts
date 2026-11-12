@@ -127,6 +127,7 @@ export type DropletsAppOptions = {
    * `modulepreload`. `null` when `/index.js` is the module itself (dev).
    */
   entryModule?: () => MaybePromise<string | null>;
+  /** What `/index.css` serves: an `@import` of the shared stylesheet; `null` when there is none. */
   loadGlobalStyle?: () => MaybePromise<string | null>;
   /**
    * Every stylesheet of a droplet, relative to the server (`assets/…`), in
@@ -352,9 +353,9 @@ const RENDER_ROUTE = /^\/droplets\/[^/]+(?:\/_data)?\/?$/;
 
 type IsStaticPathInput = { path: string };
 
-/** `/index.js`, `/env.js` and everything under `/assets/`: what a page loads as files, which never pass through `handle`. */
+/** `/index.js`, `/index.css`, `/env.js` and everything under `/assets/`: what a page loads as files, which never pass through `handle`. */
 function isStaticPath({ path }: IsStaticPathInput): boolean {
-  return path === "/index.js" || path === "/env.js" || path.startsWith("/assets/");
+  return path === "/index.js" || path === "/index.css" || path === "/env.js" || path.startsWith("/assets/");
 }
 
 const ENV_MAX_AGE_SECONDS = 600;
@@ -1139,13 +1140,15 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     }
   });
 
+  // A fixed URL a page links itself: like `/index.js`, never cached. It
+  // imports the shared stylesheet, which is under `/assets/`, cached for good.
   app.get("/index.css", async (c) => {
     if (!options.loadGlobalStyle) return c.text("Not Found", 404);
     try {
       const css = await options.loadGlobalStyle();
       if (!css) return c.text("Not Found", 404);
       c.header("content-type", "text/css; charset=utf-8");
-      cacheForever({ c });
+      c.header("cache-control", "no-store");
       return c.body(css);
     } catch (error) {
       return failure({ c, options, error, as: "text", where: "/index.css" });

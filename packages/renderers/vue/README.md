@@ -122,9 +122,10 @@ import only `vue` and `@dropletsjs/droplets/enhance`.
 - `vitePlugin` keys other than `customElement` and `features.customElement` reach `@vitejs/plugin-vue` as given. `src/index.ts:84`
 - `vitePlugin.features.customElement` wins over the top-level `vitePlugin.customElement`, which is never passed on. `src/index.ts:84`, `src/index.ts:93`
 - Error page pattern `/[\\/]\+[Ee]rror\.vue$/` is added to the user's `customElement` patterns; `customElement: true` keeps every component in custom-element mode. `src/index.ts:69`, `src/index.ts:76`
-- `readFlags` reads only the plain `<script>` block, from `vue/compiler-sfc`'s `parse`. `src/index.ts:34`
-- `readFlags` parses the block as TSX for `lang="tsx"` or `lang="jsx"`, as TypeScript otherwise. `src/index.ts:38`
-- `readFlags` returns `undefined` for a component without a plain `<script>`. `src/index.ts:35`
+- `readFlags` lives in `src/flags.ts` and reaches core on the renderer object; the package entry does not export it. `src/flags.ts:9`, `src/index.ts:87`
+- `readFlags` reads only the plain `<script>` block, from `vue/compiler-sfc`'s `parse`. `src/flags.ts:10`
+- `readFlags` parses the block as TSX for `lang="tsx"` or `lang="jsx"`, as TypeScript otherwise. `src/flags.ts:14`
+- `readFlags` returns `undefined` for a component without a plain `<script>`. `src/flags.ts:11`
 - `readFlags` ignores flags in comments, `<script setup>` and the template. `test/index.test.ts:54`
 - `DropletProps` has `data` (a promise when mounted, the value when hydrated) and `form?`; no `children`. `src/index.ts:42`
 - Server `render` uses `createSSRApp(component, props)` and `renderToString` of `vue/server-renderer`. `src/server.ts:26`, `src/server.ts:28`

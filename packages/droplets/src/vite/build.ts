@@ -20,6 +20,8 @@ export const ENTRY_CLIENT_NAME = "entry-client";
 export const GLOBAL_CSS_NAME = "droplets-css";
 /** What `/index.js` serves: the location record and static imports of the runtime env and the hashed entry. */
 export const ENTRY_STUB_FILE = "index.js";
+/** What `/index.css` serves: an import of the hashed shared stylesheet, at a fixed URL a page links itself. */
+export const STYLE_STUB_FILE = "index.css";
 
 /** The runtime public variables `/index.js` imports, served by the server per request. */
 export const ENV_SCRIPT_FILE = "env.js";
@@ -247,12 +249,20 @@ export function translateManifest({
   return {
     __hash: buildHash,
     __globalCss: globalCss ?? `assets/${GLOBAL_CSS_NAME}.css`,
+    __globalStyle: STYLE_STUB_FILE,
     __entryClient: ENTRY_STUB_FILE,
     ...(entryModule ? { __entryModule: entryModule } : {}),
     __index: index,
     __externals: externals,
     droplets,
   };
+}
+
+type GlobalStyleImportInput = { file: string };
+
+/** `/index.css`: an import of the hashed shared stylesheet, relative to itself, so it resolves under any origin or prefix. */
+export function globalStyleImport({ file }: GlobalStyleImportInput): string {
+  return `@import url(${JSON.stringify(`./${file}`)});\n`;
 }
 
 type EntryStubCodeInput = { entryModule: string; key: string; hasRuntimeEnv: boolean };
@@ -322,9 +332,12 @@ export async function writeManifest(state: PluginState): Promise<string> {
     if (shipsClient(entry)) continue;
     await rm(resolve(clientRoot, dropletClientFile({ id: entry.id }), ".."), { recursive: true, force: true });
   }
-  // What `/droplets/<id>/style.css` answers, as a file for a host that serves files first.
+  // What `/droplets/<id>/style.css` and `/index.css` answer, as files for a host that serves files first.
   for (const [id, { css }] of Object.entries(manifest.droplets)) {
     if (css?.length) await writeTextFile({ path: resolve(clientRoot, dropletStyleFile({ id })), contents: styleImports({ files: css }) });
+  }
+  if (sharedCss) {
+    await writeTextFile({ path: resolve(clientRoot, manifest.__globalStyle), contents: globalStyleImport({ file: manifest.__globalCss }) });
   }
 
   if (manifest.__entryModule) {

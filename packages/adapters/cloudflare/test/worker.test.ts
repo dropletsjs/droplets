@@ -160,7 +160,9 @@ describe("worker", () => {
     expect(module.headers.get("cache-control")).toContain("immutable");
     expect(await module.text()).toContain("test-droplet");
 
-    expect(await (await call({ path: "/index.css" })).text()).toContain("test-droplet .p-4");
+    const globalCss = await call({ path: "/index.css" });
+    expect(globalCss.headers.get("cache-control")).toBe("no-store");
+    expect(await globalCss.text()).toBe(`@import url("./${manifest.__globalCss}");\n`);
     const style = await (await call({ path: "/droplets/static-note/style.css" })).text();
     expect(style).toBe(manifest.droplets["static-note"].css.map((file: string) => `@import url("../../${file}");\n`).join(""));
     const sheet = await call({ path: `/${manifest.droplets["static-note"].css.at(-1)}` });

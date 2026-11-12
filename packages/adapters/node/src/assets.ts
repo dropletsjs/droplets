@@ -80,7 +80,7 @@ export function createAssetLoaders({
     },
 
     async loadGlobalStyle(): Promise<string | null> {
-      return loadRelative({ relativePath: (await loadManifest()).__globalCss });
+      return loadRelative({ relativePath: (await loadManifest()).__globalStyle });
     },
 
     async loadIndex(): Promise<string | null> {

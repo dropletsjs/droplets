@@ -2,7 +2,8 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { logger, type DropletsAdapter, type DropletsManifest } from "@dropletsjs/droplets";
+import type { DropletsAdapter, DropletsManifest } from "@dropletsjs/droplets";
+import { logger } from "@dropletsjs/droplets/vite";
 import { defaultServerConditions } from "vite";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -77,6 +78,7 @@ function headersBlock({ publicCacheControl }: HeadersBlockInput): string {
   const publicRule = `/assets/public/*\n  ! Cache-Control\n${publicCacheControl === false ? "" : `  Cache-Control: ${publicCacheControl}\n`}`;
   return [
     files("/index.js", "no-store"),
+    files("/index.css", "no-store"),
     files("/assets/*", IMMUTABLE),
     publicRule,
     files("/droplets/:id/client.js", IMMUTABLE),
@@ -133,7 +135,14 @@ type FilePathsInput = { manifestPath: string };
 
 /** URL paths of the build's files that `_headers` covers: generic ones, and each droplet's from the manifest. */
 async function filePaths({ manifestPath }: FilePathsInput): Promise<string[]> {
-  const paths = ["/index.js", "/assets/index.js", "/assets/public/index.txt", "/droplets/x/client.js", "/droplets/x/style.css"];
+  const paths = [
+    "/index.js",
+    "/index.css",
+    "/assets/index.js",
+    "/assets/public/index.txt",
+    "/droplets/x/client.js",
+    "/droplets/x/style.css",
+  ];
   let manifest: DropletsManifest;
   try {
     manifest = JSON.parse(await readFile(manifestPath, "utf8")) as DropletsManifest;

@@ -94,7 +94,8 @@ test("droplets swapped in by htmx", async ({ page, rec }) => {
   const inCart = await items();
 
   // 5. The enhanced form, in a container with hx-boost="false": the droplet
-  //    posts it by fetch, as JSON, and renders again in place. htmx stays out.
+  //    posts it by fetch (a form body, a JSON answer) and renders again in
+  //    place. htmx stays out.
   const posts = sent.to(/\/droplets\/product-page\?\/add/).length;
   await rec.click(product.getByRole("button", { name: "Add to cart" }));
   await expect(product.getByRole("button", { name: "✓ Added" })).toBeVisible();

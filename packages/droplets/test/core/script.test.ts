@@ -154,6 +154,11 @@ describe("the flags of a script droplet", () => {
     ["export const ssr = true;", "ssr = true"],
     ["export const prerender = true;", "prerender = true"],
     ["export const prerender = false;", "prerender = false"],
+    // Not a literal: the same word, not the generic "must be a literal".
+    ["const dev = false;\nexport const ssr = !dev;", "ssr = !dev"],
+    ["export const hydrate = window.matchMedia('(hover)').matches;", "hydrate = window.matchMedia('(hover)').matches"],
+    ["export let prerender = true;", "prerender = true"],
+    ["const ssr = false;\nexport { ssr };", "ssr"],
   ])("ignore %s, with a warning", (line, shown) => {
     const warn = warnings();
     expect(read(`${line}\n${RUN}`)).toEqual(CLIENT_ONLY);

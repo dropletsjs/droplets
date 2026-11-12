@@ -7,7 +7,8 @@ import { createBuilder, createServer, type InlineConfig, type Plugin } from "vit
 import { afterEach, describe, expect, it } from "vitest";
 import { validateRenderers, type ReadFlagsInput } from "@dropletsjs/droplets";
 import { droplets, type DropletsPluginApi } from "@dropletsjs/droplets/vite";
-import { handlebars, readFlags, readTemplateFlags } from "../src/index.ts";
+import { readFlags, readTemplateFlags } from "../src/flags.ts";
+import { handlebars } from "../src/index.ts";
 
 type InputOfInput = { kind: ReadFlagsInput["kind"]; source?: string };
 

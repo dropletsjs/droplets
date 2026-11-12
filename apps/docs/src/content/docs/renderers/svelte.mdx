@@ -110,7 +110,7 @@ Other mistakes are ignored, with a warning:
   ```
 
 - an `+error.vue` (or any error page in another framework) next to a Svelte
-  droplet is not used; under `vite dev` it warns
+  droplet is not used; `vite dev` and `vite build` warn once
   `counter/+error.vue is not a svelte component like the droplet; ignored, the error page is written in the droplet's framework`.
 
 ## Specifics
@@ -135,9 +135,10 @@ Other mistakes are ignored, with a warning:
     the renderer's `<svelte:boundary>`, and a rejection (or any render error)
     shows `+error.svelte`.
 
-  `DropletProps` types `data` as the value or a promise in both modes, so
-  `{#await data then …}`, as in the demo, is what type-checks either way.
-  Without `{:catch}` it does not report a rejection itself.
+  `DropletProps` types `data` as the value: `{data.greeting}` type-checks,
+  and so do `{(await data).greeting}` and `{#await data then …}` (as in the
+  demo), which read it in both modes. Without `{:catch}`, `{#await}` does
+  not report a rejection itself.
 - **Children.** `{@render children?.()}` renders the host's content. It may
   sit under an `{#if}`: the content is moved out and back, never destroyed.
 - **The error page** compiles with injected CSS, so its `<style>` travels

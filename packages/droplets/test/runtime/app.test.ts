@@ -145,6 +145,8 @@ describe("createDropletsApp: assets", () => {
     const global = await app.request("/index.css");
     expect(global.headers.get("content-type")).toContain("text/css");
     expect(await global.text()).toBe("body{}");
+    // A fixed URL a page links itself: never cached, like /index.js.
+    expect(global.headers.get("cache-control")).toBe("no-store");
 
     // An import per stylesheet, shared chunks included, relative to style.css.
     const hello = await app.request("/droplets/hello/style.css");
@@ -806,7 +808,7 @@ describe("createDropletsApp: handle", () => {
     expect(handle).not.toHaveBeenCalled();
   });
 
-  it("never runs for files: /index.js and everything under /assets/, public/ included", async () => {
+  it("never runs for files: /index.js, /index.css and everything under /assets/, public/ included", async () => {
     const handle = vi.fn<Handle>(({ event, resolve }) => resolve(event));
     const { app } = fakeApp({
       getHandle: () => handle,
@@ -824,7 +826,7 @@ describe("createDropletsApp: handle", () => {
     });
     // As createServerApp mounts the adapter's static files.
     app.get("/assets/*", (c) => c.text(`file ${c.req.path}`));
-    for (const path of ["/index.js", "/assets/index.abc.js", "/assets/logo.abc.png", "/assets/public/robots.txt"]) {
+    for (const path of ["/index.js", "/index.css", "/assets/index.abc.js", "/assets/logo.abc.png", "/assets/public/robots.txt"]) {
       const res = await app.request(path);
       expect(res.status, path).toBe(200);
     }

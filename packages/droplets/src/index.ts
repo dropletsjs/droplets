@@ -1,5 +1,4 @@
 export { config, isValidElementName, resolveConfig } from "./core/config.ts";
-export { logger, setLogLevel } from "./core/logger.ts";
 export type { LogLevel, LogSource } from "./core/logger.ts";
 export type {
   BodyLimits,

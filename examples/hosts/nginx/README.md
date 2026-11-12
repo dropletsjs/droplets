@@ -153,7 +153,7 @@ compose stack on port 8081 (needs Docker).
 - Shop product page: `product-page` gets `slug` and `v`; `product-comments` gets `productId` and `$args`. `shop/product.html:16`, `shop/product.html:18`
 - Shop footer links the basic page at the fixed `http://localhost:8080/`. `shop/_layout/footer.html:4`
 - Shop footer stack label is `nginx 1.27`. `shop/_layout/footer.html:2`
-- `iis/web.config` sets `HTTP_X_HOST` (an `X-Host` header), which the droplets server does not read; it reads `x-droplet-location`. `iis/web.config:26`, `../../../packages/droplets/src/runtime/host.ts:69`
-- `iis/web.config` rewrites `index.js`, `droplets/*`, `assets/*`, `api/*` to `http://localhost:8000`. `iis/web.config:23`, `iis/web.config:24`
+- `iis/web.config` sets `HTTP_X_DROPLET_LOCATION` (the `x-droplet-location` header the droplets server reads) to the site's public URL, written out. `iis/web.config:28`, `iis/web.config:10`
+- `iis/web.config` rewrites `index.js`, `droplets/*`, `assets/*`, `api/*` to `http://localhost:8000`. `iis/web.config:25`, `iis/web.config:26`
 - `pnpm test:hosts nginx` tests the shop on `http://localhost:8081`. `../../../tests/hosts/run.mjs:59`
 - `examples/hosts/*` is outside the pnpm workspace. `../../../pnpm-workspace.yaml:5`

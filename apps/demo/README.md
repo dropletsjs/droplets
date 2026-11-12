@@ -89,7 +89,7 @@ npx wrangler deploy
 ```
 
 `wrangler.jsonc` sets no `run_worker_first`: static assets answer the
-build's files (`/index.js`, `/assets/*`, each droplet's `client.js` and
+build's files (`/index.js`, `/index.css`, `/assets/*`, each droplet's `client.js` and
 `style.css`) before the Worker runs, with the CORS and cache headers of the
 `dist/client/_headers` the Cloudflare adapter writes. A path that is no file
 (renders, `_data`, the poll's action, `/health`) reaches the Worker, which

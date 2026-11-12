@@ -246,7 +246,7 @@ routes from a host's side.
 | `GET /env.js` | The public variables read at runtime, as a script; reads nothing from the request. `404` without such a variable. | `public, max-age=600`; `DROPLETS_ENV_MAX_AGE` sets the seconds, `0` is `no-store` |
 | `GET /assets/*` | The client build's `assets/` folder: the entry, shared chunks, stylesheets, imported files. Served by the adapter. | `public, max-age=2592000, immutable` |
 | `GET /assets/public/*` | The project's `public/` folder, with an `ETag`; `304` when `If-None-Match` matches. Nothing of `public/` is served at the root. | `publicCacheControl` |
-| `GET /index.css` | The shared stylesheet (`css.path`); `404` when there is none or it is empty. | `public, max-age=2592000, immutable` |
+| `GET /index.css` | An `@import` of the shared stylesheet (`css.path`), for a page that links it itself; in a build, the file `dist/client/index.css`. `404` when there is none or it is empty. | `no-store` |
 | `GET /droplets/:id/client.js` | The droplet's browser bundle; `404` for an unknown droplet or `hydrate = false`. | `public, max-age=2592000, immutable` |
 | `GET /droplets/:id/style.css` | An `@import` of each of the droplet's stylesheets; `404` when it has none, and always under `vite dev`. | `public, max-age=2592000, immutable` |
 | `GET /droplets/:id` | The fragment: the element with the markup, its inline data and context. Props from the query, else the base64 JSON `x-droplet-props` header. | `fragmentCacheControl` |
@@ -257,7 +257,7 @@ routes from a host's side.
 | `GET`, `POST /importmap`, `/importmap.js` | The import map, as a block or as a script that inserts it; `404` when there is none (the `importMap` option). | `no-store` |
 | `GET /` | The `index` page; `404` with `index: false`. | none |
 
-`handle` never runs for `/index.js`, `/env.js`, `/assets/*` and the health
+`handle` never runs for `/index.js`, `/index.css`, `/env.js`, `/assets/*` and the health
 check. An unknown droplet id answers `404`. Every answer carries the `cors`
 headers when `cors` is set.
 
@@ -498,7 +498,6 @@ adapters. The Vite plugin is in [`./vite`](#dropletsjsdropletsvite).
 | `config(options)` | Returns `options`, typed as `DropletsConfig`, for `droplets.config.ts`. |
 | `resolveConfig(user, env?)` | The config with defaults filled in and checked; `env` is `{ port? }`, the `PORT` value. Throws for an invalid value. |
 | `isValidElementName(name)` | `true` when `name` is usable as `element`. |
-| `logger`, `setLogLevel(level)` | The `vite dev` and `vite build` log: `logger.error`, `warn`, `info`, `debug(source, message, meta?)`, printed as `[droplets:<source>]`, for adapters and plugins at build time. |
 | `DropletRenderError` | What `+error.*` receives when a load failed with nothing to say: an `Error` named `DropletRenderError`, message `Internal Error` by default. |
 | `ActionFailure`, `HostUrlPropsErrorInPrerender`, `CookiesInPrerenderError` | The classes of `./server`, for code that is not a server file. |
 | `createServerApp({ ssr, assets, config })` | The production app (a Hono app, `DropletsApp`) over the SSR bundle and an adapter's asset loaders. Throws when the SSR bundle exports no `renderDroplet`. |
@@ -715,8 +714,7 @@ server), `GET /__droplets/devtools.json` (`{ element, droplets }`,
 `index.js` imports with `dev.injectTool` or `?injectTool=true`. See
 [Development](/guides/development/).
 
-The package also exports `renderDevtoolsPage(input)`, the page's HTML, with
-the types `DevtoolsPageInput` and `ServerRender`.
+The package also exports the types `DevtoolsPageInput` and `ServerRender`.
 
 ## `djs`
 

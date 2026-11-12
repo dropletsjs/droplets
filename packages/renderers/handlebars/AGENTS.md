@@ -19,7 +19,7 @@ Shared renderer rules: `../AGENTS.md`.
   Checked by: `test/styles.test.ts`, `test/plugin.test.ts`.
 - `hydrate` keeps the server HTML; the children markers are emptied while they are still in the document.
   Checked by: `test/client.test.ts`.
-- HMR code is emitted only by `vite dev` (`import.meta.hot.accept()` in compiled templates, `client-dev.ts`); a production build holds none of it.
+- A compiled template holds no HMR code: an edit propagates to the droplet's client module, which remounts the droplet in place; `client-dev.ts` (a load edit) is imported by `vite dev` alone, and a production build holds none of it.
   Checked by: `tests/dev-mixed/test/production.test.ts`, `test/plugin.test.ts`.
 - The client entries (`client`, `client-dev`, `runtime`) never reach `index`, `server`, `plugin`, `styles` or a Node built-in.
   Checked by: `graphCheck()` in `tsdown.config.ts`, `tests/packages/test/packed.test.ts`.

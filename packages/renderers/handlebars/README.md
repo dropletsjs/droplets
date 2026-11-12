@@ -135,7 +135,7 @@ templates import `dist/runtime.js` by path.
 - Flags: a template Handlebars cannot parse declares none; the compiler reports it. `src/index.ts:108`
 - Flags exported from `+droplet.ts` or `+droplet.server.ts` are ignored, in a build and in `vite dev`. `test/index.test.ts:188`
 - Flags `+error.hbs` declares are ignored, with a warning under `vite dev` only: it follows the droplet's flags. `../../droplets/src/core/discover.ts:183`
-- `readTemplateFlags(source, where)` and `readFlags` are exported from the package. `src/index.ts:102`, `src/index.ts:157`
+- `readTemplateFlags(source, where)` and `readFlags` live in `src/flags.ts`; the package entry exports `handlebars()` and its types alone, and `readFlags` reaches core on the renderer object. `src/flags.ts:43`, `src/flags.ts:98`, `src/index.ts:73`
 - Plugin is named `droplets:handlebars` and runs with `enforce: "pre"`. `src/plugin.ts:178`, `src/plugin.ts:181`
 - Plugin bundles `handlebars` and `handlebars/*` into the `ssr` and `server` builds (`noExternal`). `src/plugin.ts:189`, `src/plugin.ts:192`
 - Partials folder defaults to `src/partials`; `partials: false` registers none. `src/plugin.ts:201`
@@ -146,7 +146,7 @@ templates import `dist/runtime.js` by path.
 - Setup module registers each partial and calls `registerHelpers` on the renderer's environment, once per bundle. `src/plugin.ts:161`, `src/plugin.ts:163`
 - Setup module is invalidated when a partial or the helpers module is added or removed. `src/plugin.ts:243`, `src/plugin.ts:248`
 - Compiled template module: `export default env.template(<spec>)`, importing `env` from `dist/runtime.js`. `src/plugin.ts:141`, `src/plugin.ts:57`
-- Compiled template module accepts its own HMR update under `vite dev` only. `src/plugin.ts:142`, `src/plugin.ts:199`
+- Compiled template module accepts no HMR update of its own, so an edit propagates to the droplet's client module: a hydrated droplet remounts in place (`droplets:hot-fallback`), one that is not gets its fragment again. `src/plugin.ts:126`, `../../../tests/dev-mixed/test/dev.test.ts:328`, `../../../tests/dev-mixed/test/dev.test.ts:349`
 - `compile` options go to `Handlebars.precompile`, with `srcName` always unset. `src/plugin.ts:135`
 - Environment is one `Handlebars.create()` of `handlebars/runtime`, never the global `Handlebars`. `src/runtime.ts:21`
 - `{{{children}}}` helper outputs `<div data-droplet-children style="display: contents"></div>`. `src/runtime.ts:24`, `src/runtime.ts:28`

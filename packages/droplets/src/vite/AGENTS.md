@@ -16,8 +16,8 @@
   Checked by: `test/core/discover.test.ts`, `test/vite/virtual.test.ts`.
 - Every URL a build writes for a droplet's own files is on the droplet location: browser bundles relative to the file that names them (`new URL(…, import.meta.url)` in JavaScript, a relative path in CSS), server bundles on `location` of the config in a build that sets it, else on the location token; never a root-relative `/assets/…`. A user's own `renderBuiltUrl` answers first.
   Checked by: `test/vite/assets.test.ts`, `test/integration/assets.test.ts` ("file URLs in a build with a fixed location").
-- `dist/client/index.js` imports `env.js` (when runtime public variables are declared) and the entry statically, then writes the location record; nothing the browser reads at module top level depends on that record.
-  Checked by: `test/integration/index-js.test.ts`, `test/vite/build.test.ts`.
+- `dist/client/index.js` imports `env.js` (when runtime public variables are declared) and the entry statically, then writes the location record; nothing the browser reads at module top level depends on that record. `dist/client/index.css`, written only with a shared stylesheet, imports it from `assets/`; both are `no-store`.
+  Checked by: `test/integration/index-js.test.ts`, `test/vite/build.test.ts`, `test/integration/empty-css.test.ts`, `../../../adapters/node/test/app.test.ts`.
 - `public/` lands only in `dist/client/assets/public/` (every environment has `copyPublicDir: false`), and `vite dev` serves it at `/assets/public/*`.
   Checked by: `test/integration/assets.test.ts`.
 - `virtual.ts` emits a client module's dev parts (`update`, the HMR fallback) only when `import.meta.env.DEV` holds for the run (`vite dev`, or a non-production build); `virtual:droplets-dev` is imported by the entry's dev module alone.

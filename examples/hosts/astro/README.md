@@ -140,7 +140,6 @@ against this compose stack). The guide's page:
 - Shop fragment otherwise renders `<p class="shop-unavailable">` with the id escaped. `src/lib/shop.ts:156`
 - Shop product lookup reads `/droplets/product-page/_data?slug=` and needs string `id`, `name`, `slug`. `src/lib/shop.ts:162`, `src/lib/shop.ts:172`
 - Shop `Link` preloads kept only for `preload`/`modulepreload` on the public origin. `src/lib/shop.ts:197`, `src/lib/shop.ts:204`
-- Shop `PROXIED` regex is exported but no route uses it. `src/lib/shop.ts:74`
 - Shop footer stack name is `Astro 5`. `src/lib/shop-page.ts:4`
 - Shop defaults: `SHOP_INTERNAL_URL` `http://localhost:8300`, `SHOP_PUBLIC_URL` `http://localhost:8005`. `src/lib/shop-page.ts:7`, `src/lib/shop-page.ts:8`
 - Shop pages always fetch `toast-center` and `shopping-cart` with `variant=badge`. `src/lib/shop-page.ts:21`, `src/lib/shop-page.ts:22`

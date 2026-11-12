@@ -98,7 +98,7 @@ export type SetHeaders = (headers: Record<string, string>) => void;
 /** What `handle`, `+server.ts` handlers and droplet loads receive. */
 export type RequestEvent<Params extends Record<string, string> = Record<string, string>> = {
   request: Request;
-  /** The request URL, on the public origin a trusted proxy named (see `origin` in the config). */
+  /** The request URL, on the droplet location: `location` of the config, else a trusted location header's origin, else the request's own. */
   url: URL;
   /**
    * Where the droplet renders: the host page. The `host` a render request
@@ -237,7 +237,7 @@ export type ImportMap = {
 /** What `importmap` in `src/importmap.server.ts` receives. */
 export type ImportMapEvent = {
   request: Request;
-  /** The request URL, on the public origin a trusted proxy named (see `origin` in the config). */
+  /** The request URL, on the droplet location: `location` of the config, else a trusted location header's origin, else the request's own. */
   url: URL;
   /**
    * The bare imports the client build leaves external, from the Vite config
@@ -288,7 +288,8 @@ export type ResolveFunction = (event: RequestEvent) => Promise<Response>;
 
 /**
  * The `handle` export of `src/hooks.server.ts`. Runs for every request
- * except the health check: fill `event.locals`, answer early without calling
+ * except the health check and the files (`/index.js`, `/index.css`,
+ * `/env.js`, everything under `/assets/`): fill `event.locals`, answer early without calling
  * `resolve`, or change the response `resolve` returns.
  */
 export type Handle = (input: { event: RequestEvent; resolve: ResolveFunction }) => Response | Promise<Response>;

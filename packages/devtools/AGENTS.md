@@ -20,7 +20,7 @@
 - Types the core owns (`DropletSummary`, `DropletRegistryPayload`, `DropletsPluginApi`, `DevToolSource`, `DevNotification`) are imported by name from `@dropletsjs/droplets`, never copied.
 - `build` runs tsdown, then the tests, which load `dist/`; `build:dist` only compiles.
   Checked by: `package.json`.
-- `dropletsDevtools()`, `renderDevtoolsPage()` and their types are public API: a change needs the maintainer's go and a matching change in `apps/docs/`.
+- `dropletsDevtools()` and the types `DevtoolsPageInput` and `ServerRender` are public API: a change needs the maintainer's go and a matching change in `apps/docs/`. `renderDevtoolsPage()` is the plugin's own, in `src/page.tsx`.
 
 If you need the facts, read them from `README.md` (`## Facts`, one per line: grep for the subject).
 

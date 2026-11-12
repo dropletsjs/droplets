@@ -110,7 +110,6 @@ type CompileTemplateInput = {
   file: string;
   setup: boolean;
   styles?: readonly StyleBlock[];
-  dev?: boolean;
   compile?: PrecompileOptions | undefined;
   runtime?: string;
 };
@@ -119,19 +118,12 @@ type CompileTemplateInput = {
  * A `.hbs` source as a module: `default` is the template function. With
  * `setup`, the module also imports the setup module first, so partials and
  * helpers are registered before the template ever runs. `styles` are its
- * `<style>` blocks, already out of `source`, imported after. With `dev`, the
- * module accepts its own HMR updates: core re-mounts the droplet on
- * `droplets:update`, so Vite has nothing more to do than swap the module.
+ * `<style>` blocks, already out of `source`, imported after. The module
+ * accepts no HMR update of its own: a template has no state to keep, so an
+ * edit propagates to the droplet's client module, which remounts the
+ * droplet in place; one that is not hydrated gets its fragment again.
  */
-export function compileTemplate({
-  source,
-  file,
-  setup,
-  styles = [],
-  dev = false,
-  compile,
-  runtime = runtimeModule,
-}: CompileTemplateInput): string {
+export function compileTemplate({ source, file, setup, styles = [], compile, runtime = runtimeModule }: CompileTemplateInput): string {
   const spec = String(Handlebars.precompile(source, { ...compile, srcName: undefined }));
   return [
     `import { env } from ${specifier({ file: runtime })};`,
@@ -139,7 +131,6 @@ export function compileTemplate({
     ...styleImports({ file, styles }),
     `// ${file}`,
     `export default env.template(${spec});`,
-    ...(dev ? ["if (import.meta.hot) import.meta.hot.accept();"] : []),
     "",
   ].join("\n");
 }
@@ -171,7 +162,6 @@ const DEFAULT_HELPERS = ["src/handlebars.ts", "src/handlebars.js"];
 export function handlebarsPlugin(options: HandlebarsRendererOptions = {}): Plugin {
   let partialsDir: string | null = null;
   let helpersFile: string | null = null;
-  let dev = false;
   let root = process.cwd();
 
   return {
@@ -196,7 +186,6 @@ export function handlebarsPlugin(options: HandlebarsRendererOptions = {}): Plugi
     },
 
     configResolved(config) {
-      dev = config.command === "serve";
       root = config.root;
       partialsDir = options.partials === false ? null : resolve(config.root, options.partials ?? "src/partials");
       if (options.helpers === false) helpersFile = null;
@@ -233,7 +222,7 @@ export function handlebarsPlugin(options: HandlebarsRendererOptions = {}): Plugi
       if (partial && styles.length > 0) {
         throw new Error(`droplets: ${where}: a partial has no <style>: put it in the droplet templates that use it`);
       }
-      return { code: compileTemplate({ source: template, file, setup: !partial, styles, dev, compile: options.compile }), map: null };
+      return { code: compileTemplate({ source: template, file, setup: !partial, styles, compile: options.compile }), map: null };
     },
 
     hotUpdate({ file, type }) {

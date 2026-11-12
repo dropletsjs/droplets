@@ -109,13 +109,15 @@ describe("static assets, with the headers of _headers", () => {
     expect((await testConfig()).assets).not.toHaveProperty("run_worker_first");
   });
 
-  it("answers /index.js, the file of the build, to any origin and never cached", async () => {
-    for (const origin of [DOCS, "https://elsewhere.example"]) {
-      const response = await call("/index.js", { headers: { origin } });
-      expect(response.status, origin).toBe(200);
-      expect(response.headers.get("cache-control"), origin).toBe("no-store");
-      expect(response.headers.get("access-control-allow-origin"), origin).toBe("*");
-      expect(await response.text(), origin).toBe(await readFile(join(out, "client/index.js"), "utf8"));
+  it("answers /index.js and /index.css, the files of the build, to any origin and never cached", async () => {
+    for (const path of ["index.js", "index.css"]) {
+      for (const origin of [DOCS, "https://elsewhere.example"]) {
+        const response = await call(`/${path}`, { headers: { origin } });
+        expect(response.status, `${path} ${origin}`).toBe(200);
+        expect(response.headers.get("cache-control"), `${path} ${origin}`).toBe("no-store");
+        expect(response.headers.get("access-control-allow-origin"), `${path} ${origin}`).toBe("*");
+        expect(await response.text(), `${path} ${origin}`).toBe(await readFile(join(out, `client/${path}`), "utf8"));
+      }
     }
   });
 

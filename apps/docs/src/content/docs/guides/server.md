@@ -19,7 +19,7 @@ Runs for every request except the health check and the files: fill
 `event.locals`, answer early without calling `resolve`, or change the
 response.
 
-`/index.js`, `/env.js` and every path under `/assets/` (the bundles' chunks,
+`/index.js`, `/index.css`, `/env.js` and every path under `/assets/` (the bundles' chunks,
 stylesheets, imported files and `public/` at `/assets/public/`) are answered
 without calling `handle`, on every adapter and in `vite dev`, as SvelteKit
 serves its static files. Fragments, `_data`, actions and `/api/*` all run

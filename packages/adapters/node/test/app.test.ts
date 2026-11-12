@@ -97,11 +97,16 @@ describe("createNodeServerApp", () => {
     expect(module.headers.get("cache-control")).toContain("immutable");
     expect(await module.text()).toContain("test-droplet");
 
-    const globalCss = await (await app.request("/index.css")).text();
-    expect(globalCss).toContain("test-droplet .p-4");
+    // A fixed URL a page links itself: a stub, never cached, importing the
+    // hashed stylesheet; the same as the file of the build.
+    const globalCss = await app.request("/index.css");
+    expect(globalCss.headers.get("cache-control")).toBe("no-store");
+    expect(await globalCss.text()).toBe(`@import url("./${manifest.__globalCss}");\n`);
+    expect(await readFile(resolve(outDir, "client/index.css"), "utf8")).toBe(`@import url("./${manifest.__globalCss}");\n`);
 
     const asset = await app.request(`/assets/${manifest.__globalCss.replace(/^assets\//, "")}`);
     expect(asset.status).toBe(200);
+    expect(await asset.text()).toContain("test-droplet .p-4");
     expect(asset.headers.get("cache-control")).toContain("immutable");
 
     expect((await app.request("/nope")).status).toBe(404);

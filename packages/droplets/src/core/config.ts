@@ -48,7 +48,7 @@ export type DropletsConfig = {
    */
   element?: string;
   /**
-   * Cross-origin access to droplet routes. Pages served by another process
+   * Cross-origin access to every route. Pages served by another process
    * need this to import `/droplets/<id>/client.js` and to call `/droplets/<id>/_data`.
    * `true` allows any origin; pass Hono `cors()` options to restrict it.
    */

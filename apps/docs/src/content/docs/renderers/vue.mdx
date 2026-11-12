@@ -97,11 +97,11 @@ Two mistakes fail `vite build`, and `vite dev` as well, with a message that
 names the fix:
 
 - a Vue droplet that reaches another configured framework, even through a
-  neutral file (the component shows twice in the chain: once for the file,
-  once for its `<script setup>` block):
+  neutral file (the import goes through the component's `<script setup>`
+  block, which the chain folds into the file):
 
   ```
-  droplets: a vue droplet imports react code: src/droplets/counter/+droplet.vue -> src/droplets/counter/+droplet.vue -> src/lib/react-label.ts -> react/index.js. A droplet uses its own framework's modules and neutral code only.
+  droplets: a vue droplet imports react code: src/droplets/counter/+droplet.vue -> src/lib/react-label.ts -> react/index.js. A droplet uses its own framework's modules and neutral code only.
   ```
 
 - a second component in the folder:
@@ -120,7 +120,7 @@ Other mistakes are ignored, with a warning:
   ```
 
 - an error page in another framework next to a Vue droplet (an
-  `+error.svelte`, say) is not used; under `vite dev` it warns
+  `+error.svelte`, say) is not used; `vite dev` and `vite build` warn once
   `counter/+error.svelte is not a vue component like the droplet; ignored, the error page is written in the droplet's framework`.
 
 ## Specifics

@@ -192,7 +192,7 @@ product write only) and the WordPress cases of
 - `SHOP_PUBLIC_URL` defaults to `http://localhost:8008` and is reduced to its origin. `plugin/droplets-embed/shop.php:78`
 - Shop requests send `x-droplet-location` from `SHOP_PUBLIC_URL`, never the client's Host. `plugin/droplets-embed/shop.php:201`, `plugin/droplets-embed/shop.php:286`
 - Shop cookies sent to wp-shop: `cart_id` only; WordPress's login cookies stay on the site. `plugin/droplets-embed/shop.php:60`, `plugin/droplets-embed/shop.php:92`
-- Shop proxy forwards only `accept`, `accept-language`, `content-type`, `if-none-match`, `origin`, `referer`, `user-agent`, `x-droplet-props`, `x-droplets-build`, never `x-wp-shop-user`. `plugin/droplets-embed/shop.php:33`
+- Shop proxy forwards only `accept`, `accept-language`, `content-type`, `if-none-match`, `origin`, `referer`, `user-agent`, `x-droplet-props`, `x-droplets-build`, plus `cookie` filtered to `cart_id` (`DROPLETS_SHOP_COOKIES`), never `x-wp-shop-user`. `plugin/droplets-embed/shop.php:33`, `plugin/droplets-embed/shop.php:92`, `plugin/droplets-embed/shop.php:197`
 - Shop proxy drops hop-by-hop response headers and passes `Set-Cookie` untouched. `plugin/droplets-embed/shop.php:46`, `plugin/droplets-embed/shop.php:243`
 - Shop proxy paths: `/index.js`, `/droplets/*`, `/assets/*`, `/api/*`, on `init` at priority 0. `plugin/droplets-embed/shop.php:265`, `plugin/droplets-embed/shop.php:269`
 - Shop proxy adds `x-wp-shop-user` on `/droplets/*` and `/api/*` only. `plugin/droplets-embed/shop.php:204`
@@ -200,7 +200,7 @@ product write only) and the WordPress cases of
 - Shop proxy concatenates the path onto `SHOP_INTERNAL_URL`, never follows redirects, 15 second timeout. `plugin/droplets-embed/shop.php:223`, `plugin/droplets-embed/shop.php:227`
 - Shop proxy answers 502 `The shop is unreachable.` when wp-shop fails. `plugin/droplets-embed/shop.php:232`
 - Shop fragments are fetched in parallel with `Requests::request_multiple`, no redirects followed, 5 second timeout. `plugin/droplets-embed/shop.php:305`, `plugin/droplets-embed/shop.php:308`
-- Shop fragment fetch sends `accept: text/html`, `x-droplet-location` and the page URL as `referer`. `plugin/droplets-embed/shop.php:284`
+- Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page URL as `referer` and the visitor's `cookie` filtered to `cart_id`. `plugin/droplets-embed/shop.php:284`, `plugin/droplets-embed/shop.php:289`
 - Shop fragment fetch carries its own `x-wp-shop-user` for its path and query. `plugin/droplets-embed/shop.php:300`
 - Shop fragment is inserted only for 2xx or 500 with `text/html`; otherwise `<p class="shop-unavailable">`. `plugin/droplets-embed/shop.php:321`, `plugin/droplets-embed/shop.php:329`
 - Shop product lookup reads `/droplets/product-page/_data?slug=<slug>`. `plugin/droplets-embed/shop.php:338`

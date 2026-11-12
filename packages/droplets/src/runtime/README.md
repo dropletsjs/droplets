@@ -62,7 +62,7 @@ Public pieces: `$droplets/server` (`./server`, `server.ts`) and `./enhance`
 | `GET /` | The index page when there is one (the dev page), else 404. |
 | `GET /index.js` | The element loader as `loadEntryClient` gives it (the build's `index.js`, the dev loader), `no-store`. |
 | `GET /env.js` | The public runtime variables as a script, `public, max-age=600` (`DROPLETS_ENV_MAX_AGE`); 404 without any. |
-| `GET /index.css` | The global styles, cached a month, immutable. |
+| `GET /index.css` | An `@import` of the shared stylesheet, `no-store`; `404` without one. |
 | `GET /droplets/:id` | The fragment HTML (live, prerendered or the error page). |
 | `POST /droplets/:id` | JSON body: render with those props. Form body: run the action. |
 | `GET\|POST /droplets/:id/_data` | `{ data, form? }` or `{ error }` as JSON. |
@@ -73,7 +73,7 @@ Public pieces: `$droplets/server` (`./server`, `server.ts`) and `./enhance`
 ### Request lifecycle
 
 Every request: location → CORS → health → request info → origin check → size limits → finalizer.
-Then, except for `/index.js`, `/env.js` and `/assets/*`: body, `event.host`, cookies, `event`, `handle`.
+Then, except for `/index.js`, `/index.css`, `/env.js` and `/assets/*`: body, `event.host`, cookies, `event`, `handle`.
 Then the route.
 
 ## Facts
@@ -108,7 +108,7 @@ Then the route.
 
 ### Middleware and `handle`
 
-- `handle`, the body read, `event.host`, cookies and `event` are skipped for `/index.js`, `/env.js` and `/assets/*`. `app.ts:356`, `app.ts:982`
+- `handle`, the body read, `event.host`, cookies and `event` are skipped for `/index.js`, `/index.css`, `/env.js` and `/assets/*`. `app.ts:356`, `app.ts:982`
 - The health route answers `ok` before `handle` runs; its path defaults to `/health`. `app.ts:934`
 - The request body is read only for a droplet that exists. `app.ts:987`
 - A `handle` that throws answers through `handleError`, as text. `app.ts:1051`

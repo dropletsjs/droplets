@@ -125,16 +125,23 @@ fetch its fragment instead.
 ## 4. Or insert the fragment
 
 To show the server's HTML at once and hydrate it after, fetch the fragment
-from the browser and insert it. Parse it through a `<template>`, so the
-element upgrades when it enters the document:
+from the browser and insert it. Insert only an HTML answer: a `2xx`, or a
+`500`, which carries the droplet's error page; a `400` or `404` is text
+that may echo the props. Never follow a redirect (`redirect: "manual"`):
+its target is opaque in the browser and could be a page. Parse the
+fragment through a `<template>`, so the element upgrades when it enters
+the document:
 
 ```ts
 // src/droplets.tsx, fragment mode
 const url = new URL(`/droplets/${encodeURIComponent(id)}`, origin);
 for (const [key, value] of Object.entries(props)) url.searchParams.set(key, String(value));
 
-fetch(url, { signal: controller.signal }).then(async (response) => {
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+fetch(url, { signal: controller.signal, redirect: "manual", headers: { accept: "text/html" } }).then(async (response) => {
+  if (response.type === "opaqueredirect") throw new Error("redirected");
+  const isFragment =
+    (response.ok || response.status === 500) && (response.headers.get("content-type") ?? "").startsWith("text/html");
+  if (!isFragment) throw new Error(`HTTP ${response.status}`);
   const template = document.createElement("template");
   template.innerHTML = await response.text();
   target.replaceChildren(template.content);

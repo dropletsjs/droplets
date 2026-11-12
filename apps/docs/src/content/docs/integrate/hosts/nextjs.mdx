@@ -172,6 +172,10 @@ nothing is cross-origin.
   through the route handlers, so its cart and login work. A droplet that sets
   a cookie on a plain `GET` would need its page served from a Route Handler
   instead, giving up React for that page.
+- **A server component cannot set `Cache-Control` either.** The shop pages
+  carry a visitor's cart and session, so `next.config.ts` gives `/gallery`,
+  `/product/:slug`, `/admin` and `/login` `private, no-store` through
+  `headers()`, as every other host sets it on its shop pages.
 - **A droplet's redirect goes out as Next's 307**: `redirect()` takes no status.
 - `suppressHydrationWarning` on the wrapper: the droplets hydrate themselves
   and may change their markup before React compares it.

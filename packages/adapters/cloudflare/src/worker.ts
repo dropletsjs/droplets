@@ -60,7 +60,7 @@ function createAssetLoaders({ assets }: AssetLoadersOptions): AssetLoaders {
     },
     loadEntryClient: () => loadFile({ path: manifest.__entryClient }),
     entryModule: () => Promise.resolve(manifest.__entryModule ?? null),
-    loadGlobalStyle: () => loadFile({ path: manifest.__globalCss }),
+    loadGlobalStyle: () => loadFile({ path: manifest.__globalStyle }),
     loadIndex: () => Promise.resolve(manifest.__index ?? null),
     // Read through the binding on demand: never part of the Worker bundle.
     // Their directory's name is new every build and only this bundle has

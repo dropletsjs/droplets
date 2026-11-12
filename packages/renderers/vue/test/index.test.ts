@@ -1,7 +1,8 @@
 import { existsSync } from "node:fs";
 import { type ReadFlagsInput, validateRenderers } from "@dropletsjs/droplets";
 import { describe, expect, it } from "vitest";
-import { readFlags, vue } from "../src/index.ts";
+import { readFlags } from "../src/flags.ts";
+import { vue } from "../src/index.ts";
 
 type InputOfInput = { source: string };
 

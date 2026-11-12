@@ -168,9 +168,10 @@ actions and `/api`, which come through here.
 
 - **`ORIGIN` and `BODY_SIZE_LIMIT`.** SvelteKit checks form posts against
   adapter-node's `ORIGIN` even on the proxied paths, so without it the
-  shop's form posts are rejected as cross-site; the compose file sets it to
-  `WEB_URL`, the Dockerfile does not. Without a higher `BODY_SIZE_LIMIT`
-  (`4M` in both), adapter-node cuts the admin's uploads off at 512 KB.
+  shop's form posts are rejected as cross-site; the Dockerfile sets it to
+  the image's own address (`http://localhost:8006`), and the compose file to
+  `WEB_URL`. Without a higher `BODY_SIZE_LIMIT` (`4M` in both), adapter-node
+  cuts the admin's uploads off at 512 KB.
 - **Fragment cookies go out from `handle`**, appended as they came, never
   through `cookies.set`, which would re-encode them.
 - **Shop links reload the page** (`data-sveltekit-reload` in the layout), so

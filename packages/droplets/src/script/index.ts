@@ -32,7 +32,7 @@
  * @module
  */
 import { resolve } from "node:path";
-import { langOfFile, readExportedFlags } from "../core/flags.ts";
+import { langOfFile, readFlagExports } from "../core/flags.ts";
 import { logger } from "../core/logger.ts";
 import { packageDist } from "../core/paths.ts";
 import { SCRIPT_RENDERER, SCRIPT_SUFFIXES, type DropletRenderer, type ReadFlagsInput, type RenderFlags } from "../renderer.ts";
@@ -50,15 +50,16 @@ const reported = new Set<string>();
  */
 export function readScriptFlags({ source, file, droplet }: ReadScriptFlagsInput): RenderFlags {
   const where = `${droplet}/${file}`;
-  for (const [name, value] of Object.entries(readExportedFlags(source, droplet, langOfFile({ file })))) {
+  for (const { name, value, written } of readFlagExports({ source, lang: langOfFile({ file }) })) {
     const key = `${where}:${name}`;
     if (reported.has(key)) continue;
     reported.add(key);
+    const shown = value === undefined ? written : `${name} = ${JSON.stringify(value)}`;
     logger.warn(
       "framework",
       name === "hydrate" && value === true
         ? `${where} exports hydrate = true; a script droplet is always hydrated (locked to true)`
-        : `${where} exports ${name} = ${JSON.stringify(value)}; this is ignored, a script droplet is client only`,
+        : `${where} exports ${shown}; this is ignored, a script droplet is client only`,
     );
   }
   return { ...CLIENT_ONLY };

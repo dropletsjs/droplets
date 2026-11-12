@@ -3,9 +3,12 @@ export type Droplet = {
   /**
    * The droplets server as the browser reaches it: where the page loads
    * the droplets from (the URL it loaded `/index.js` from), or on the
-   * server the request's public location (a trusted location header, an `http(s)` URL). May
-   * carry a path when a proxy serves the droplets under one. `""` on the
-   * server outside a request.
+   * server the request's droplet location (`location` of the config, else
+   * a trusted location header, else the request's own origin). May carry a
+   * path when a proxy serves the droplets under one. On the server outside
+   * a request: `location` when the config sets it, else the bundle's
+   * location token, which every fragment and its data replace with the
+   * request's location.
    */
   readonly origin: string;
   /**

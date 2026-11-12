@@ -108,7 +108,8 @@ droplet lists of both tests.
 - Fixture dev server port is 5191. `test/fixture/droplets.config.ts:6`
 - Dev test runs `vite --strictPort` in `.tmp/project`, a copy of the fixture. `test/dev.test.ts:134`
 - Dev test host page listens on `localhost:5192` and loads `/index.js` with the page's query. `test/dev.test.ts:78`, `test/dev.test.ts:142`
-- Dev test droplets: `react-hello`, `preact-hello`, `vue-hello`, `solid-hello`, `svelte-hello`, `lit-hello`, `hono-hello`, `hbs-hello`, `script-hello`, `contract`. `test/dev.test.ts:36`
+- Dev test droplets: `react-hello`, `preact-hello`, `vue-hello`, `solid-hello`, `svelte-hello`, `lit-hello`, `hono-hello`, `hbs-hello`, `hbs-live`, `script-hello`, `contract`. `test/dev.test.ts:36`
+- Dev test waits for `hbs-live` (a hydrated Handlebars template, whose markup cannot say so) through the element's `_hydrated`. `test/dev.test.ts:119`
 - Dev test fragment requests send `x-droplet-location` set to the host page. `test/dev.test.ts:56`
 - Dev test no-reload check: a `window.loaded` marker set after load must survive every edit. `test/dev.test.ts:112`, `test/dev.test.ts:117`
 - Dev test uses Chromium through `@playwright/test`. `test/dev.test.ts:143`
@@ -117,7 +118,7 @@ droplet lists of both tests.
 - React, Preact and Vue keep the count through a component edit. `test/dev.test.ts:204`
 - Svelte and Solid swap in place; their count starts over and no fragment is fetched again. `test/dev.test.ts:245`
 - Lit and Hono JSX remount and log `<id>: no HMR of its framework took this edit; remounted in place`. `test/dev.test.ts:291`, `test/dev.test.ts:319`
-- Handlebars edit fetches the fragment again (`POST /droplets/hbs-hello`). `test/dev.test.ts:328`
+- Handlebars edit fetches the fragment again for a template that does not hydrate (`POST /droplets/hbs-hello`); a hydrated one (`hbs-live`) remounts in place and logs `hbs-live: no HMR of its framework took this edit; remounted in place`. `test/dev.test.ts:339`, `test/dev.test.ts:350`
 - Script droplet edit runs the cleanup, then the function again on the same element. `test/dev.test.ts:338`
 - Load edit updates data and keeps the count without a fragment request. `test/dev.test.ts:358`
 - Render contract `hydrate` false to true hydrates live, with a `status` toast and no Reload button. `test/dev.test.ts:389`

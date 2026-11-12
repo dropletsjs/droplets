@@ -158,9 +158,11 @@ droplets: src/partials/footer.hbs: a partial has no <style>: put it in the dropl
   `noEscape`, …).
 - **Hot updates:** under `vite dev` with `dev.strategy: "hmr"` (the
   default), an edit to a template that does not hydrate asks the server for
-  the fragment again and swaps the droplet's markup in place, without a page
-  reload. An edit to a load brings a hydrated template new `data`: it renders
-  again in place. See [Hot updates](/guides/development/#hot-updates).
+  the fragment again and swaps the droplet's markup in place; one that
+  hydrates remounts in place, since a template has no HMR of its own and no
+  state to keep. Neither reloads the page. An edit to a load brings a
+  hydrated template new `data`: it renders again in place. See
+  [Hot updates](/guides/development/#hot-updates).
 
 ## The example
 

@@ -13,6 +13,7 @@ describe("createAssetLoaders", () => {
     const manifest: DropletsManifest = {
       __hash: "h4sh",
       __globalCss: "assets/global.css",
+      __globalStyle: "index.css",
       __entryClient: "index.js",
       __entryModule: "assets/index.h4sh.js",
       __index: "<p>home</p>",
@@ -26,6 +27,7 @@ describe("createAssetLoaders", () => {
     await mkdir(join(root, "droplets/hello"), { recursive: true });
     await writeFile(join(root, "droplets.json"), JSON.stringify(manifest));
     await writeFile(join(root, "assets/global.css"), "body{}");
+    await writeFile(join(root, "index.css"), '@import url("./assets/global.css");\n');
     await writeFile(join(root, "index.js"), "entry");
     await writeFile(join(root, "assets/hello.css"), ".hello{}");
     await writeFile(join(root, "droplets/hello/client.js"), "hello");
@@ -47,7 +49,8 @@ describe("createAssetLoaders", () => {
     expect(await assets.loadEntryClient()).toBe("entry");
     expect(await assets.entryModule()).toBe("assets/index.h4sh.js");
     expect(await assets.loadIndex()).toBe("<p>home</p>");
-    expect(await assets.loadGlobalStyle()).toBe("body{}");
+    // The stub /index.css serves; the stylesheet itself comes from /assets/.
+    expect(await assets.loadGlobalStyle()).toBe('@import url("./assets/global.css");\n');
     // Paths, for style.css to import: the files themselves come from /assets/.
     expect(await assets.dropletStyles("hello")).toEqual(["assets/Badge.css", "assets/hello.css"]);
   });
