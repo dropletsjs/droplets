@@ -8,7 +8,7 @@ Prefresh under `vite dev`, with no `@preact/preset-vite`.
 The docs page, with a live droplet: [Preact](https://dropletsjs.dev/renderers/preact/).
 
 ```bash
-pnpm add @dropletsjs/renderer-preact@alpha preact preact-render-to-string
+pnpm add @dropletsjs/renderer-preact preact preact-render-to-string
 ```
 
 ```ts

@@ -1,6 +1,6 @@
 {
   "name": "@dropletsjs/renderer-lit",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Lit renderer for Droplets: +droplet.lit.ts and +error.lit.ts web components, rendered with Lit SSR into declarative shadow DOM and hydrated in the browser.",
   "keywords": [
     "droplets",

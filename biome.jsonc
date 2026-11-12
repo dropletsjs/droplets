@@ -14,7 +14,6 @@
       "!!examples/hosts",
       "!**/CHANGELOG.md",
       "!pnpm-lock.yaml",
-      "!.changeset/pre.json",
       "!examples/*/data/*.json"
     ]
   },

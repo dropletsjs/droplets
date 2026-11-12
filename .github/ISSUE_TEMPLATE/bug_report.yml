@@ -12,7 +12,7 @@ body:
     attributes:
       label: Version
       description: "`@dropletsjs/droplets` and the renderer and adapter versions, plus Node and Vite."
-      placeholder: "@dropletsjs/droplets 1.0.0-alpha.0, Node 22, Vite 8"
+      placeholder: "@dropletsjs/droplets 1.0.0, Node 22, Vite 8"
     validations:
       required: true
   - type: dropdown

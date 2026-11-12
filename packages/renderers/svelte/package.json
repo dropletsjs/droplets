@@ -1,6 +1,6 @@
 {
   "name": "@dropletsjs/renderer-svelte",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Svelte 5 renderer for Droplets: +droplet.svelte and +error.svelte components, rendered on the server and hydrated in the browser.",
   "keywords": [
     "droplets",

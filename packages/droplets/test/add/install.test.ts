@@ -46,19 +46,19 @@ describe("the package manager", () => {
     const top = mkdtempSync(join(tmpdir(), "djs-core-"));
     const core = join(top, "node_modules", "@dropletsjs", "droplets");
     mkdirSync(core, { recursive: true });
-    writeFileSync(join(core, "package.json"), JSON.stringify({ name: "@dropletsjs/droplets", version: "1.0.0-alpha.3" }));
+    writeFileSync(join(core, "package.json"), JSON.stringify({ name: "@dropletsjs/droplets", version: "1.2.3" }));
     mkdirSync(join(top, "app"));
-    expect(coreVersion({ root: join(top, "app") })).toBe("1.0.0-alpha.3");
+    expect(coreVersion({ root: join(top, "app") })).toBe("1.2.3");
 
     const react = frameworkNamed({ name: "react" }) ?? expect.unreachable("react");
     expect(missingPackages({ root: join(top, "app"), framework: react })).toEqual({
       dependencies: ["react@^19.0.0", "react-dom@^19.0.0"],
-      devDependencies: ["@dropletsjs/renderer-react@1.0.0-alpha.3", "@types/react@^19.0.0", "@types/react-dom@^19.0.0"],
+      devDependencies: ["@dropletsjs/renderer-react@1.2.3", "@types/react@^19.0.0", "@types/react-dom@^19.0.0"],
     });
     const vue = frameworkNamed({ name: "vue" }) ?? expect.unreachable("vue");
     expect(
       installCommand({ pm: "npm", specs: missingPackages({ root: join(top, "app"), framework: vue }).devDependencies, isDev: true }),
-    ).toEqual(["npm", "install", "--save-dev", "@dropletsjs/renderer-vue@1.0.0-alpha.3"]);
+    ).toEqual(["npm", "install", "--save-dev", "@dropletsjs/renderer-vue@1.2.3"]);
   });
 
   it("falls back to the version of the core running djs", () => {

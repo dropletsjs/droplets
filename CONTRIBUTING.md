@@ -132,18 +132,18 @@ change to the renderer contract shows up there for all of them.
 
 Releases are managed with [Changesets](https://github.com/changesets/changesets).
 The public packages are one `fixed` group (`.changeset/config.json`), so
-they always share a version, and pre mode is on with the `alpha` tag
-(1.0.0-alpha.N). Any change that
-affects users of a published package comes with a changeset:
+they always share a version; the first release is 1.0.0, with no pre mode.
+Any change that affects users of a published package comes with a changeset:
 
 ```bash
 pnpm changeset
 ```
 
 Pick the bump (`patch` for fixes, `minor` for features, `major` for breaking
-changes) and describe the change from a user's point of view. The changelogs
-are generated from these files at release time (`pnpm version-packages`); do
-not edit a `CHANGELOG.md` by hand. See [`.changeset/README.md`](./.changeset/README.md).
+changes) and describe the change from a user's point of view. Every
+`CHANGELOG.md` starts at `## 1.0.0`; every later entry is generated from
+these files at release time (`pnpm version-packages`), so do not edit a
+`CHANGELOG.md` by hand. See [`.changeset/README.md`](./.changeset/README.md).
 
 ## Docs
 

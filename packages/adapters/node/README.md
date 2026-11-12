@@ -6,7 +6,7 @@ mount in your own Node server for its `{ fetch }` handler. `vite preview`
 serves the build through the same code.
 
 ```bash
-pnpm add -D @dropletsjs/adapter-node@alpha
+pnpm add -D @dropletsjs/adapter-node
 ```
 
 ```ts

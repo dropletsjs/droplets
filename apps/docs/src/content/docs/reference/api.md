@@ -795,7 +795,7 @@ droplets can share the project.
 ## `create-droplets`
 
 ```bash
-npm create droplets@alpha my-widgets -- --frameworks svelte,react --adapters node,cloudflare --yes
+npm create droplets my-widgets -- --frameworks svelte,react --adapters node,cloudflare --yes
 ```
 
 In a terminal it asks for what the flags leave out. Without a terminal, or

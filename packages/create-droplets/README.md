@@ -5,15 +5,15 @@ adapters and Tailwind, and get a typed project that builds, with a starter
 droplet per framework and an `AGENTS.md` for coding agents.
 
 ```bash
-npm create droplets@alpha my-widgets
-pnpm create droplets@alpha my-widgets
-yarn create droplets@alpha my-widgets
-bun create droplets@alpha my-widgets
+npm create droplets my-widgets
+pnpm create droplets my-widgets
+yarn create droplets my-widgets
+bun create droplets my-widgets
 deno init --npm droplets my-widgets
 ```
 
 ```bash
-npm create droplets@alpha my-widgets -- --frameworks svelte,react --adapters node,cloudflare --tailwind --yes
+npm create droplets my-widgets -- --frameworks svelte,react --adapters node,cloudflare --tailwind --yes
 ```
 
 ## Details

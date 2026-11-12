@@ -13,7 +13,7 @@ The docs page, with a live droplet: [Lit](https://dropletsjs.dev/renderers/lit/)
 > DOM components only, and synchronously.
 
 ```bash
-pnpm add @dropletsjs/renderer-lit@alpha lit
+pnpm add @dropletsjs/renderer-lit lit
 ```
 
 ```ts

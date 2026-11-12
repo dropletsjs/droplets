@@ -62,7 +62,7 @@ Every example has the same scripts:
 
 Inside this repository the examples take the Droplets packages as
 `workspace:*` and the tools from the pnpm `catalog:`. In a copy, replace
-both with versions: `@dropletsjs/*@alpha` and the tool ranges in the root
+both with versions: `@dropletsjs/*` at `^1.0.0` and the tool ranges in the root
 `pnpm-workspace.yaml`. To start from scratch instead, `npm create droplets`
 writes a new project (one `hello-<framework>` droplet) with the versions
 filled in.

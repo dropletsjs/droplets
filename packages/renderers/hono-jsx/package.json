@@ -1,6 +1,6 @@
 {
   "name": "@dropletsjs/renderer-hono-jsx",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Hono JSX renderer for Droplets: +droplet.tsx and +error.tsx components with hono/jsx, rendered on the server and in the browser.",
   "keywords": [
     "droplets",

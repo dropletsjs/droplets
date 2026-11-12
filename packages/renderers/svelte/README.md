@@ -7,7 +7,7 @@ browser. It compiles them with `@sveltejs/vite-plugin-svelte`, in runes mode.
 The docs page, with a live droplet: [Svelte](https://dropletsjs.dev/renderers/svelte/).
 
 ```bash
-pnpm add @dropletsjs/renderer-svelte@alpha svelte
+pnpm add @dropletsjs/renderer-svelte svelte
 ```
 
 ```ts

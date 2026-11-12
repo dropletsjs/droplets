@@ -48,7 +48,7 @@ bundle; a production server logs errors only
 ## The devtools page
 
 ```bash
-pnpm add -D @dropletsjs/devtools@alpha
+pnpm add -D @dropletsjs/devtools
 ```
 
 ```ts

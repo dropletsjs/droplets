@@ -1,6 +1,6 @@
 {
   "name": "@dropletsjs/renderer-handlebars",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Handlebars renderer for Droplets: +droplet.hbs templates precompiled at build, rendered on the server and shown as-is in the browser.",
   "keywords": [
     "droplets",

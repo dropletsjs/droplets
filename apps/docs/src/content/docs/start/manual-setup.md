@@ -11,8 +11,8 @@ Svelte. Any other [renderer](/renderers/) works the same way.
 ## 1. Install
 
 ```bash
-pnpm add @dropletsjs/droplets@alpha @dropletsjs/renderer-svelte@alpha svelte
-pnpm add -D vite typescript @dropletsjs/adapter-node@alpha @dropletsjs/devtools@alpha
+pnpm add @dropletsjs/droplets @dropletsjs/renderer-svelte svelte
+pnpm add -D vite typescript @dropletsjs/adapter-node @dropletsjs/devtools
 ```
 
 Vite 8 and your UI framework are peer dependencies: your project owns their

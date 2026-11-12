@@ -8,7 +8,7 @@ Fast Refresh on any host page under `vite dev`.
 The docs page, with a live droplet: [React](https://dropletsjs.dev/renderers/react/).
 
 ```bash
-pnpm add @dropletsjs/renderer-react@alpha react react-dom
+pnpm add @dropletsjs/renderer-react react react-dom
 ```
 
 ```ts

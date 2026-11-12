@@ -8,7 +8,7 @@ No framework package beyond `hono`.
 The docs page, with a live droplet: [Hono JSX](https://dropletsjs.dev/renderers/hono-jsx/).
 
 ```bash
-pnpm add @dropletsjs/renderer-hono-jsx@alpha hono
+pnpm add @dropletsjs/renderer-hono-jsx hono
 ```
 
 ```ts

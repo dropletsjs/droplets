@@ -7,7 +7,7 @@ server and in the browser; a template has no browser behaviour of its own.
 The docs page, with a live droplet: [Handlebars](https://dropletsjs.dev/renderers/handlebars/).
 
 ```bash
-pnpm add @dropletsjs/renderer-handlebars@alpha
+pnpm add @dropletsjs/renderer-handlebars
 ```
 
 ```ts

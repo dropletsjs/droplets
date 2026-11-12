@@ -2,7 +2,7 @@
 
 **Server-rendered components you can embed from any stack.**
 
-[![npm](https://img.shields.io/npm/v/@dropletsjs/droplets/alpha?label=%40dropletsjs%2Fdroplets)](https://www.npmjs.com/package/@dropletsjs/droplets)
+[![npm](https://img.shields.io/npm/v/@dropletsjs/droplets?label=%40dropletsjs%2Fdroplets)](https://www.npmjs.com/package/@dropletsjs/droplets)
 [![CI](https://github.com/dropletsjs/droplets/actions/workflows/ci.yml/badge.svg)](https://github.com/dropletsjs/droplets/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Docs](https://img.shields.io/badge/docs-dropletsjs.dev-0ea5e9.svg)](https://dropletsjs.dev)
@@ -29,22 +29,21 @@ GET /index.js                 →  the one script that makes every droplet on th
 
 ## Status
 
-**Alpha.** 1.0.0-alpha is the first public release: the HTTP contract, the
-config and the renderer API are what the docs describe, but they may still
-change between alphas, and each alpha's changelog says how. The packages all
-share one version and publish under the `alpha` dist-tag. Try it, embed it,
-report what breaks; don't bet a production page on it yet.
+**1.0.0** is the first public release: the HTTP contract, the config and
+the renderer API are what the docs describe, and a breaking change to any
+of them is a major release, with its changelog saying how. The packages all
+share one version. Try it, embed it, report what breaks.
 
 ## Try it
 
 ```bash
-npm create droplets@alpha my-widgets
+npm create droplets my-widgets
 ```
 
 It asks for the folder, the custom element's name, the frameworks, the
 adapters and Tailwind, then writes a typed project with one starter droplet
 per framework, installs it and makes the first commit. `--yes` asks nothing
-(the folder and `--frameworks` are then required); `pnpm`, `yarn` and `bun create droplets@alpha`
+(the folder and `--frameworks` are then required); `pnpm`, `yarn` and `bun create droplets`
 work too. See [Getting started](https://dropletsjs.dev/start/getting-started/).
 
 ```bash
@@ -56,8 +55,8 @@ npm run build    # dist/, for the adapter you picked
 ## By hand
 
 ```bash
-pnpm add @dropletsjs/droplets@alpha @dropletsjs/renderer-svelte@alpha svelte
-pnpm add -D vite typescript @dropletsjs/adapter-node@alpha @dropletsjs/devtools@alpha
+pnpm add @dropletsjs/droplets @dropletsjs/renderer-svelte svelte
+pnpm add -D vite typescript @dropletsjs/adapter-node @dropletsjs/devtools
 ```
 
 ```ts
@@ -159,7 +158,7 @@ same shop into a WordPress site that owns the data and the login.
 
 ## Packages
 
-They all share one version (1.0.0-alpha.*) and the `alpha` dist-tag.
+They all share one version.
 
 | Package | Folder | What it is |
 | ------- | ------ | ---------- |
@@ -177,7 +176,7 @@ They all share one version (1.0.0-alpha.*) and the `alpha` dist-tag.
 | [`@dropletsjs/renderer-hono-jsx`](./packages/renderers/hono-jsx) | `packages/renderers/hono-jsx` | Hono JSX: `+droplet.tsx` |
 | [`@dropletsjs/renderer-handlebars`](./packages/renderers/handlebars) | `packages/renderers/handlebars` | Handlebars 4: `+droplet.hbs`, server-rendered templates |
 | [`@dropletsjs/renderer-lit`](./packages/renderers/lit) | `packages/renderers/lit` | Lit 3: `+droplet.lit.ts`, declarative shadow DOM (Lit SSR is labs upstream) |
-| [`create-droplets`](./packages/create-droplets) | `packages/create-droplets` | `npm create droplets@alpha`: a new project |
+| [`create-droplets`](./packages/create-droplets) | `packages/create-droplets` | `npm create droplets`: a new project |
 
 ## Examples
 

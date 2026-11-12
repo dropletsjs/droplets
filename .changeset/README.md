@@ -9,7 +9,7 @@ bumps the versions, and `pnpm release` builds and publishes to npm.
   a version.
 - Private packages (the examples, the tests, the docs) are never versioned
   or tagged (`privatePackages` in `config.json`).
-- Pre mode is on with the `alpha` tag (`pre.json`): versions come out as
-  `1.0.0-alpha.N` and publish under the `alpha` dist-tag, so
-  `npm create droplets@alpha` and `npm i @dropletsjs/droplets@alpha` pick
-  them up. `pnpm changeset pre exit` ends it before the first stable release.
+- The first release is `1.0.0`: every `CHANGELOG.md` starts there, with no
+  changeset behind it, and every later entry comes from a changeset. There
+  is no pre mode: releases publish under the `latest` dist-tag, so
+  `npm create droplets` and `npm i @dropletsjs/droplets` pick them up.

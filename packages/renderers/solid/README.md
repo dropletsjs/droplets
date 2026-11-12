@@ -8,7 +8,7 @@ hydrate independently, and the host page needs no script of Solid's.
 The docs page, with a live droplet: [Solid](https://dropletsjs.dev/renderers/solid/).
 
 ```bash
-pnpm add @dropletsjs/renderer-solid@alpha solid-js
+pnpm add @dropletsjs/renderer-solid solid-js
 ```
 
 ```ts

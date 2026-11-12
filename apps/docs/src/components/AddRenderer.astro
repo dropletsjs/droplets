@@ -47,7 +47,7 @@ const install = [
 const flag = name === "hono-jsx" ? "hono-jsx" : name;
 const byHand = [
   ...(framework.dependencies.length ? [`npm install ${framework.dependencies.map((spec) => packageName({ spec })).join(" ")}`] : []),
-  `npm install -D ${framework.package}@alpha${framework.devDependencies.length ? " " + framework.devDependencies.map((spec) => packageName({ spec })).join(" ") : ""}`,
+  `npm install -D ${framework.package}${framework.devDependencies.length ? " " + framework.devDependencies.map((spec) => packageName({ spec })).join(" ") : ""}`,
 ].join("\n");
 ---
 

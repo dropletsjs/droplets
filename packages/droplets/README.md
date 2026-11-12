@@ -11,14 +11,14 @@ The full guide: [dropletsjs.dev](https://dropletsjs.dev).
 The quickest start is a new project:
 
 ```bash
-npm create droplets@alpha my-widgets
+npm create droplets my-widgets
 ```
 
 By hand:
 
 ```bash
-pnpm add @dropletsjs/droplets@alpha @dropletsjs/renderer-svelte@alpha svelte
-pnpm add -D vite typescript @dropletsjs/adapter-node@alpha @dropletsjs/devtools@alpha
+pnpm add @dropletsjs/droplets @dropletsjs/renderer-svelte svelte
+pnpm add -D vite typescript @dropletsjs/adapter-node @dropletsjs/devtools
 ```
 
 ```ts

@@ -117,7 +117,7 @@ Each rule states what holds, then what checks it. A rule that one folder alone c
     Checked by: each package's `package.json` (`build`, `build:dist`); `pnpm check`.
 20. **The docs state what the code does, per stack.** One page per framework and per host; a live droplet is a real one in `apps/demo/src/droplets/`; pages link with root-relative paths; every inline script hash is in `apps/docs/public/_headers`.
     Checked by: `pnpm docs:build`, `pnpm docs:check-csp`.
-21. **The public packages version together.** They are one `fixed` changeset group in pre mode with the `alpha` tag; a user-facing change carries a changeset (`pnpm changeset`); every `CHANGELOG.md` is generated.
-    Checked by: `.changeset/config.json`, `.changeset/pre.json`.
+21. **The public packages version together.** They are one `fixed` changeset group, with no pre mode; a user-facing change after 1.0.0 carries a changeset (`pnpm changeset`); every `CHANGELOG.md` starts at `## 1.0.0` and every later entry is generated.
+    Checked by: `.changeset/config.json`.
 22. **CI runs on GitHub-hosted runners with `pull_request` and `push` triggers only.**
     Checked by: `.github/workflows/ci.yml`.

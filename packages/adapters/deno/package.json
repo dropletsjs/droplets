@@ -1,6 +1,6 @@
 {
   "name": "@dropletsjs/adapter-deno",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Deno adapter for Droplets: vite build emits dist/server.js, served by deno serve.",
   "keywords": [
     "droplets",

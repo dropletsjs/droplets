@@ -2,8 +2,7 @@
 
 ## Supported versions
 
-Droplets is in alpha. Only the latest `1.0.0-alpha` release gets security
-fixes; upgrade to it before reporting.
+Only the latest release gets security fixes; upgrade to it before reporting.
 
 ## Reporting a vulnerability
 

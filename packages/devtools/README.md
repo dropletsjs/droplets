@@ -6,7 +6,7 @@ embeds droplets from `vite dev`. It applies to `vite dev` only: nothing of it
 runs in `vite build` or `vite preview`.
 
 ```bash
-pnpm add -D @dropletsjs/devtools@alpha
+pnpm add -D @dropletsjs/devtools
 ```
 
 ```ts

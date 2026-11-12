@@ -9,15 +9,15 @@ package manager and [renderer](/renderers/) works the same way.
 ## 1. Create a project
 
 ```bash
-npm create droplets@alpha my-widgets
+npm create droplets my-widgets
 ```
 
 The same with the other package managers:
 
 ```bash
-pnpm create droplets@alpha my-widgets
-yarn create droplets@alpha my-widgets
-bun create droplets@alpha my-widgets
+pnpm create droplets my-widgets
+yarn create droplets my-widgets
+bun create droplets my-widgets
 deno init --npm droplets my-widgets
 ```
 
@@ -32,7 +32,7 @@ Without a terminal, or with `--yes`, it asks nothing; the folder and
 `--frameworks` are then required:
 
 ```bash
-npm create droplets@alpha my-widgets -- --frameworks svelte --yes
+npm create droplets my-widgets -- --frameworks svelte --yes
 ```
 
 | Flag | Does |

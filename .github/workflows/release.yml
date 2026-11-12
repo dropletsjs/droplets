@@ -12,9 +12,9 @@ name: Release
 #      publishing (OIDC): there is no NPM_TOKEN anywhere. Provenance is
 #      generated automatically for a public repo + public package.
 #
-# Pre mode is on (.changeset/pre.json, tag "alpha"), so `changeset publish`
-# publishes under the `alpha` dist-tag. The guard step below refuses to
-# publish if pre mode is off, so 1.0.0 doesn't go out as `latest` by accident.
+# There is no pre mode: `changeset publish` publishes under the `latest`
+# dist-tag. The guard step below refuses to publish if a .changeset/pre.json
+# appears, so nothing goes out under a pre-release tag by accident.
 #
 # GitHub-hosted runners only: npm trusted publishing doesn't accept
 # self-hosted runners, and a self-hosted runner must never serve this public
@@ -65,7 +65,7 @@ jobs:
         with:
           version-script: pnpm version-packages
           commit-message: "Version Packages"
-          pr-title: "Version Packages (alpha)"
+          pr-title: "Version Packages"
       - id: pending
         name: Any public package version not on npm yet?
         if: steps.changesets.outputs.has-changesets == 'false'
@@ -83,7 +83,7 @@ jobs:
           echo "unpublished=$unpublished" >> "$GITHUB_OUTPUT"
 
   publish:
-    name: Publish to npm (alpha)
+    name: Publish to npm
     needs: version
     if: needs.version.outputs.has-changesets == 'false' && needs.version.outputs.unpublished == 'true'
     runs-on: ubuntu-latest
@@ -109,14 +109,13 @@ jobs:
       # Trusted publishing needs npm >= 11.5.1 (dist-tag handling >= 11.21.0);
       # Node 22 ships npm 10. `pnpm publish` hands the tarball to this npm.
       - run: npm install -g npm@11.21.2
-      - name: Refuse to publish outside pre mode "alpha"
+      - name: Refuse to publish in pre mode
         run: |
-          test -f .changeset/pre.json || { echo "::error::.changeset/pre.json missing: pre mode is off"; exit 1; }
-          node -e 'const p=require("./.changeset/pre.json"); if (p.mode!=="pre"||p.tag!=="alpha") { console.error(`::error::pre mode is ${p.mode}/${p.tag}, expected pre/alpha`); process.exit(1) }'
+          test ! -f .changeset/pre.json || { echo "::error::.changeset/pre.json exists: pre mode is on, and releases publish under latest only"; exit 1; }
       - run: pnpm install --frozen-lockfile
       - uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
         with:
-          # `pnpm release` = build + `changeset publish` (tag "alpha" from pre.json).
+          # `pnpm release` = build + `changeset publish`.
           publish-script: pnpm release
           create-github-releases: true
         env:

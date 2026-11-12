@@ -7,7 +7,7 @@ renderer, your config and the manifest inlined. The client build in
 the `dist/client/_headers` the build writes.
 
 ```bash
-pnpm add -D @dropletsjs/adapter-cloudflare@alpha wrangler
+pnpm add -D @dropletsjs/adapter-cloudflare wrangler
 ```
 
 ```ts

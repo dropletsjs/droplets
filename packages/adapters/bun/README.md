@@ -6,7 +6,7 @@ that you import for its `fetch` handler. The app is the
 [Node adapter](../node)'s, running on Bun's `node:` modules.
 
 ```bash
-bun add -d @dropletsjs/adapter-bun@alpha
+bun add -d @dropletsjs/adapter-bun
 ```
 
 ```ts

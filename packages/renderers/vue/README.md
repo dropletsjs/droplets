@@ -7,7 +7,7 @@ hydrated or mounted in the browser. It compiles them with `@vitejs/plugin-vue`.
 The docs page, with a live droplet: [Vue](https://dropletsjs.dev/renderers/vue/).
 
 ```bash
-pnpm add @dropletsjs/renderer-vue@alpha vue
+pnpm add @dropletsjs/renderer-vue vue
 ```
 
 ```ts
