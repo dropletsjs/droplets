@@ -70,7 +70,7 @@
     "@dropletsjs/droplets": "workspace:*",
     "@dropletsjs/renderer-react": "workspace:*",
     "@dropletsjs/shared": "workspace:*",
-    "@types/node": "^24.9.0",
+    "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "happy-dom": "^21.0.4",

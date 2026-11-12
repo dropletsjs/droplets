@@ -34,7 +34,7 @@
     "@dropletsjs/adapter-node": "^1.0.0",
     "@dropletsjs/devtools": "^1.0.0",
     "@tailwindcss/vite": "^4.3.4",
-    "@types/node": "^24.9.0",
+    "@types/node": "^26.6.6",
     "svelte-check": "^4.7.8",
     "tailwindcss": "^4.3.4",
     "typescript": "^5.9.3",

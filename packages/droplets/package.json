@@ -98,7 +98,7 @@
   "devDependencies": {
     "@dropletsjs/shared": "workspace:*",
     "@tailwindcss/vite": "^4.3.4",
-    "@types/node": "^24.9.0",
+    "@types/node": "^26.6.6",
     "happy-dom": "^21.0.4",
     "tailwindcss": "^4.3.4",
     "tsdown": "catalog:",

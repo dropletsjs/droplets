@@ -40,7 +40,7 @@
     "@dropletsjs/renderer-svelte": "^1.0.0",
     "@dropletsjs/renderer-vue": "^1.0.0",
     "@types/better-sqlite3": "^9.6.0",
-    "@types/node": "^24.9.0",
+    "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "svelte-check": "^4.7.8",

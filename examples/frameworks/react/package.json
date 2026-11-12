@@ -35,7 +35,7 @@
     "@dropletsjs/adapter-node": "^1.0.0",
     "@dropletsjs/devtools": "^1.0.0",
     "@tailwindcss/vite": "^4.3.4",
-    "@types/node": "^24.9.0",
+    "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "tailwindcss": "^4.3.4",

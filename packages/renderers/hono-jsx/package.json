@@ -64,7 +64,7 @@
   "devDependencies": {
     "@dropletsjs/droplets": "workspace:*",
     "@dropletsjs/shared": "workspace:*",
-    "@types/node": "^24.9.0",
+    "@types/node": "^26.6.6",
     "happy-dom": "^21.0.4",
     "hono": "^4.13.16",
     "tsdown": "catalog:",
