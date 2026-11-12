@@ -40,6 +40,7 @@ const DEV_MARKERS: (string | RegExp)[] = [
   "injectTool",
   "index.js?strategy=",
   "use hmr, remount, reload or manual",
+  "is already defined by another build",
   "failed to handle hmr event",
   "reload the page to see it",
   "remounted in place",

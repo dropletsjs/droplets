@@ -42,6 +42,7 @@ import type {
 } from "./entry-client.ts";
 import { withoutFormResults } from "./form.ts";
 import { settle } from "./load.ts";
+import { serverBuilds } from "./server-records.ts";
 
 /**
  * Sent by the Vite plugin over Vite's own HMR channel in dev, once per edit
@@ -95,6 +96,7 @@ export type DevElementEnv = {
   /** `import.meta.url` of `index.js`: its origin, `?strategy=` and `?injectTool=`. */
   url: string;
   elementName: string;
+  buildHash: string;
   droplets: ReadonlySet<string>;
   hydration: Map<string, HydrateMode>;
   serverLoad: Set<string>;
@@ -171,12 +173,32 @@ type DropletInput = { droplet: string };
 type OnContractInput = { payload: DropletUpdatePayload; shown: Set<string> };
 type FollowHotUpdatesInput = { hot: NonNullable<ImportMeta["hot"]> };
 
+type WarnAboutOtherBuildInput = { DropletElement: typeof DjsDropletElement; env: DevElementEnv };
+
+/**
+ * A second `/index.js` of this server on the page, from another build: the
+ * element name is taken, so the entry adopts the elements and the first
+ * build's code runs them all. Silent in production; a word here.
+ */
+function warnAboutOtherBuild({ DropletElement, env }: WarnAboutOtherBuildInput): void {
+  const defined = customElements.get(env.elementName);
+  if (!defined || defined === DropletElement) return;
+  const others = serverBuilds({ element: env.elementName }).filter((build) => build !== env.buildHash);
+  const other = others.length > 0 ? `build ${others.join(", ")}` : "another build";
+  console.warn(
+    `[droplets] <${env.elementName}> is already defined by another build of this server (${other}); ` +
+      `build ${env.buildHash} adopts its elements, and the first build's code runs them all. ` +
+      "Load one /index.js per element name, or give each server its own element.",
+  );
+}
+
 /**
  * Adds to `DropletElement` (the entry's `DjsDropletElement`, before it is
  * defined) what it does under `vite dev`, and starts what the page as a
  * whole does: the HMR listeners and, when asked, the dev tool.
  */
 export function installDevElement(DropletElement: typeof DjsDropletElement, env: DevElementEnv): void {
+  warnAboutOtherBuild({ DropletElement, env });
   const proto = DropletElement.prototype;
   const hot = import.meta.hot;
   const own = new URL(env.url).origin;

@@ -280,7 +280,7 @@ Then the route.
 
 ### The element (`entry-client.ts`)
 
-- The element reads props from the inline context script, then `data-context`, then `data-params` (plain JSON). `entry-client.ts:442`
+- The element reads props from the inline context script, then `data-context`, then `data-params` (plain JSON); a payload that does not parse is logged and the next one is read. `entry-client.ts:480`
 - The element's server location is `serverLocation` for its element and build. `entry-client.ts:368`
 - `_data` is fetched with POST to `<location>/droplets/<id>/_data?__cb=<now>`, a JSON body and `redirect: "manual"`. `entry-client.ts:721`
 - `data-hydrate` takes `""`, `true`, `false`, `visible` and `interactive`, case-sensitive. `entry-client.ts:1097`
@@ -289,10 +289,13 @@ Then the route.
 - `visible` uses a 200px root margin, 1000px without markup. `entry-client.ts:189`
 - `interactive` waits for `pointerdown`, `focusin`, `keydown` or `click`. `entry-client.ts:192`
 - Clicks before hydrate are captured, and dropped instead of replayed after 1500 ms of waiting or once 10 s old. `entry-client.ts:680`
+- A held click records its node's child-index path from the content root; when hydration replaced the node, it replays on the element at that path if it has the same tag, else it is dropped. `entry-client.ts:225`, `entry-client.ts:727`
 - A second click within 400 ms of the first counts as a retry, not a new click. `entry-client.ts:626`
 - A build mismatch keeps the server HTML and dispatches `droplets:stale` (bubbles, composed). `entry-client.ts:1177`
+- An answer to `_data` or to a fragment request from another build (`x-droplets-build`) is reported as stale before its status or body is read, so a 404 from a newer build is never taken for a missing droplet; the fragment stays as it is. `entry-client.ts:806`, `entry-client.ts:1388`
 - An unknown droplet keeps its markup and does nothing. `entry-client.ts:1165`
 - Host children go into `[data-droplet-slot]` or replace `[data-droplet-children]`, moved with `moveBefore` when available. `entry-client.ts:180`
+- With several markers, the container lives in the first connected one in document order, at connect among the server's and after `fill` among the reported ones, whichever was reported first; `empty` moves it to the next, else parks it. `entry-client.ts:562`
 - `data-droplets-enhance` on a form opts it into `enhanceDropletForm`. `entry-client.ts:1266`
 - Re-rendering a fragment needs a `text/html` answer. `entry-client.ts:1315`
 - `connectedMoveCallback` keeps the instance when the element is moved. `entry-client.ts:708`
@@ -318,3 +321,4 @@ Then the route.
 - Dev follows `droplets:update`, `vite:beforeUpdate`, `droplets:hooks-client` and `droplets:hot-fallback`. `dev-element.ts:659`
 - Dev toasts show at most 3, and a toast without a reload button closes after 10 s. `dev-notify.ts:94`
 - The dev tool is injected per `?injectTool=` (anything but `false` injects), else per the config. `dev-element.ts:738`
+- A second `/index.js` of one server from another build warns once in dev, naming the element and both builds (`serverBuilds`); in production it adopts the elements silently and the first build's code runs them. `dev-element.ts:183`, `entry-client.ts:1476`

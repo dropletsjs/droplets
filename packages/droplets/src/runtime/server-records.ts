@@ -35,6 +35,17 @@ export function serverRecord(key: string): ServerRecord {
   return (global[SERVERS][key] ??= {});
 }
 
+export type ServerBuildsInput = { element: string };
+
+/** The builds of the server under `element` that `/index.js` recorded on this page, in loading order. */
+export function serverBuilds({ element }: ServerBuildsInput): string[] {
+  const global = globalThis as { [SERVERS]?: Record<string, ServerRecord> };
+  const prefix = `${element}:`;
+  return Object.keys(global[SERVERS] ?? {})
+    .filter((key) => key.startsWith(prefix))
+    .map((key) => key.slice(prefix.length));
+}
+
 /** The server whose location `serverLocation` reads: its key (`serverKey`). */
 export type ServerLocationInput = { key: string };
 

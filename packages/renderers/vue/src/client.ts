@@ -20,15 +20,28 @@ type WithStyles = { styles?: string[] };
 
 type ComponentOfInput = { module: ComponentModule; context: Pick<ClientRenderContext, "droplet" | "kind"> };
 
-type InjectStyleInput = { css: string };
+/** The CSS texts one instance uses: counted once per instance, however many times it meets each. */
+type Injected = Set<string>;
 
-type AdoptHeadInput = { target: HTMLElement };
+type InjectStyleInput = { css: string; injected: Injected };
 
-type InjectComponentStylesInput = { component: Component; context: Pick<ClientRenderContext, "kind"> };
+type AdoptHeadInput = { target: HTMLElement; injected: Injected };
+
+type InjectComponentStylesInput = { component: Component; context: Pick<ClientRenderContext, "kind">; injected: Injected };
+
+type ReleaseStylesInput = { injected: Injected };
 
 type WithBoundaryInput = { root: Component; error: NonNullable<ClientRenderContext["error"]>; errorComponent: Component };
 
+/**
+ * On each injected `<style>`, with the number of mounted instances that use
+ * it as the value: in the DOM, so two copies of this module on one page
+ * (two droplets servers with Vue) share the count.
+ */
 const STYLE_MARK = "data-droplets-vue";
+
+/** What each mounted instance injected, released when it unmounts. */
+const injectedStyles = new WeakMap<App, Injected>();
 
 function componentOf({ module, context }: ComponentOfInput): Component {
   const component = module.default;
@@ -38,14 +51,34 @@ function componentOf({ module, context }: ComponentOfInput): Component {
   return component as Component;
 }
 
-/** Appends `css` to the document head, once per text. */
-function injectStyle({ css }: InjectStyleInput): void {
-  const existing = Array.from(document.head.querySelectorAll(`style[${STYLE_MARK}]`));
-  if (existing.some((style) => style.textContent === css)) return;
+function styleFor(css: string): HTMLStyleElement | undefined {
+  return Array.from(document.head.querySelectorAll<HTMLStyleElement>(`style[${STYLE_MARK}]`)).find((style) => style.textContent === css);
+}
+
+/** `css` in the document head, one `<style>` per text, counted for this instance. */
+function injectStyle({ css, injected }: InjectStyleInput): void {
+  if (injected.has(css)) return;
+  injected.add(css);
+  const existing = styleFor(css);
+  if (existing) {
+    existing.setAttribute(STYLE_MARK, String(Number(existing.getAttribute(STYLE_MARK)) + 1));
+    return;
+  }
   const style = document.createElement("style");
-  style.setAttribute(STYLE_MARK, "");
+  style.setAttribute(STYLE_MARK, "1");
   style.textContent = css;
   document.head.appendChild(style);
+}
+
+/** The instance's styles let go: a `<style>` no mounted instance uses any more leaves the head. */
+function releaseStyles({ injected }: ReleaseStylesInput): void {
+  for (const css of injected) {
+    const style = styleFor(css);
+    if (!style) continue;
+    const users = Number(style.getAttribute(STYLE_MARK)) - 1;
+    if (users > 0) style.setAttribute(STYLE_MARK, String(users));
+    else style.remove();
+  }
 }
 
 /**
@@ -53,18 +86,18 @@ function injectStyle({ css }: InjectStyleInput): void {
  * `head`) move to the document head: Vue's hydration walks the target's
  * children from the first one and would take them for a mismatch.
  */
-function adoptHead({ target }: AdoptHeadInput): void {
+function adoptHead({ target, injected }: AdoptHeadInput): void {
   for (const style of Array.from(target.querySelectorAll(":scope > style"))) {
     style.remove();
-    injectStyle({ css: style.textContent ?? "" });
+    injectStyle({ css: style.textContent ?? "", injected });
   }
 }
 
 /** An error page mounted in the browser brings its own CSS, like on the server. */
-function injectComponentStyles({ component, context }: InjectComponentStylesInput): void {
+function injectComponentStyles({ component, context, injected }: InjectComponentStylesInput): void {
   if (context.kind !== "error") return;
   const styles = (component as WithStyles).styles;
-  if (Array.isArray(styles)) for (const css of styles) injectStyle({ css });
+  if (Array.isArray(styles)) for (const css of styles) injectStyle({ css, injected });
 }
 
 /**
@@ -98,37 +131,46 @@ function withBoundary({ root, error, errorComponent }: WithBoundaryInput): Compo
 
 export function mount(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): App {
   const component = componentOf({ module, context });
-  injectComponentStyles({ component, context });
+  const injected: Injected = new Set();
+  injectComponentStyles({ component, context, injected });
   const state: Live = { props: shallowRef(props) };
   let root = suspended({ component, state });
   if (context.error) {
     const errorContext = { ...context, kind: "error" as const };
     const errorComponent = componentOf({ module: context.error.module, context: errorContext });
-    injectComponentStyles({ component: errorComponent, context: errorContext });
+    injectComponentStyles({ component: errorComponent, context: errorContext, injected });
     root = withBoundary({ root, error: context.error, errorComponent });
   }
   const app = createApp(root);
   app.provide(CHILDREN_KEY, context.children);
   app.mount(target);
   liveStates.set(app, state);
+  injectedStyles.set(app, injected);
   return app;
 }
 
 export function hydrate(module: ComponentModule, target: HTMLElement, props: RenderProps, context: ClientRenderContext): App {
   const component = componentOf({ module, context });
+  const injected: Injected = new Set();
   // Vue compares the DOM with its virtual tree; the element took the host's
   // container out of the server-rendered marker before this call, and it
   // returns through `fill` once `DropletChildren` is mounted.
-  adoptHead({ target });
-  injectComponentStyles({ component, context });
+  adoptHead({ target, injected });
+  injectComponentStyles({ component, context, injected });
   const state: Live = { props: shallowRef(props) };
   const app = createSSRApp(suspended({ component, state }));
   app.provide(CHILDREN_KEY, context.children);
   app.mount(target);
   liveStates.set(app, state);
+  injectedStyles.set(app, injected);
   return app;
 }
 
 export function unmount(instance: unknown): void {
-  (instance as App).unmount();
+  const app = instance as App;
+  app.unmount();
+  const injected = injectedStyles.get(app);
+  if (!injected) return;
+  injectedStyles.delete(app);
+  releaseStyles({ injected });
 }

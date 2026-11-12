@@ -312,6 +312,24 @@ describe("<djs-droplet>", () => {
     expect(event?.host.href).toBe(globalThis.location.href);
   });
 
+  it("reads data-context, then data-params, when the inline context does not parse", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const broken = '<script type="application/text" data-droplet-context>!!not base64 json</script>';
+    const fake = fakeModule();
+    mount(
+      `<djs-droplet data-droplet="plain" data-context="${encode({ host: "https://a.test", props: { from: "context" } })}" data-params='{"from":"params"}'>${broken}</djs-droplet>`,
+    );
+    await tick();
+    expect((await dataOf({ fake })).props).toEqual({ from: "context" });
+    mount(`<djs-droplet data-droplet="plain" data-params='{"from":"params"}'>${broken}</djs-droplet>`);
+    await tick();
+    expect((await dataOf({ fake, n: 1 })).props).toEqual({ from: "params" });
+    // Logged (twice per element under vitest: the dev module reads the payload too), and nothing else.
+    expect(error).toHaveBeenCalled();
+    for (const call of error.mock.calls) expect(String(call[0])).toContain("failed to parse [data-droplet-context]");
+  });
+
   it("prefers data-context over data-params", async () => {
     vi.stubGlobal("fetch", vi.fn());
     const fake = fakeModule();
@@ -505,6 +523,46 @@ describe("<djs-droplet>", () => {
     expect(fake.handleError).not.toHaveBeenCalled();
     expect(fake.renderError).not.toHaveBeenCalled();
     expect(el.querySelector("[data-droplet-entry]")?.childNodes.length).toBe(0);
+  });
+
+  it("learns from the _data header that it is stale before it takes a 404 for the droplet gone", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => json({ body: { message: "Not Found" }, init: { status: 404, headers: { "x-droplets-build": "new999" } } })),
+    );
+    fakeModule();
+    const listener = vi.fn();
+    window.addEventListener("droplets:stale", listener);
+    mount(`<djs-droplet data-droplet="hello" data-context="${encode({ props: {} })}"></djs-droplet>`);
+    await tick();
+    await tick();
+    window.removeEventListener("droplets:stale", listener);
+    expect(listener).toHaveBeenCalledOnce();
+    expect(listener.mock.calls[0]?.[0].detail).toMatchObject({ served: "new999" });
+    expect(error.mock.calls.map((call) => String(call[0]))).not.toContainEqual(expect.stringContaining("_data answered 404"));
+  });
+
+  it("learns from the fragment's header that it is stale before it takes its 404, and leaves the droplet as it is", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => json({ body: { message: "Not Found" }, init: { status: 404, headers: { "x-droplets-build": "new999" } } })),
+    );
+    const listener = vi.fn();
+    window.addEventListener("droplets:stale", listener);
+    // clock never hydrates: a form result makes the element ask the server for the fragment again.
+    const el = mount(
+      `<djs-droplet data-droplet="clock"><script type="application/text" data-droplet-context>${encode({ props: {} })}</script>` +
+        "<div data-droplet-entry><p>v1</p></div></djs-droplet>",
+    );
+    await tick();
+    await el.updateForm({ ok: true });
+    window.removeEventListener("droplets:stale", listener);
+    expect(listener).toHaveBeenCalledOnce();
+    expect(listener.mock.calls[0]?.[0].detail).toEqual({ element: "djs-droplet", droplet: "clock", loaded: "test01", served: "new999" });
+    expect(el.querySelector("p")?.textContent).toBe("v1");
+    expect(error).not.toHaveBeenCalled();
   });
 
   it("hydrates with the load's promise fields settled, as the server rendered", async () => {
@@ -888,6 +946,42 @@ describe("children", () => {
     host.fill(next);
     expect(container.parentNode).toBe(next);
     expect(container.hidden).toBe(false);
+  });
+
+  it("with two markers, keeps the container in the first in document order whichever is reported first, and moves it on when that one empties", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    for (const order of ["first then second", "second then first"]) {
+      type TwoMarkers = { host: ChildrenHost; first: HTMLElement; second: HTMLElement };
+      const fake = markerModule({
+        default: vi.fn((_target: HTMLElement, _data: unknown, host: ChildrenHost, info: RenderInfo): TwoMarkers => {
+          const [first, second] = info.markers() as HTMLElement[];
+          if (!first || !second) return expect.unreachable("two markers");
+          for (const marker of order === "first then second" ? [first, second] : [second, first]) host.fill(marker);
+          return { host, first, second };
+        }),
+        unmount: vi.fn(),
+      });
+      const el = mount(
+        '<djs-droplet data-droplet="hello">' +
+          `<script type="application/text" data-droplet-data>${encode({ data: {} })}</script>` +
+          '<div data-droplet-entry><section><div data-droplet-children id="m1"></div><p>between</p><div data-droplet-children id="m2"></div></section></div>' +
+          "<div data-droplet-slot><p>kid</p></div></djs-droplet>",
+      );
+      // At connect: the first.
+      expect(containerOf(el)?.parentElement?.id, order).toBe("m1");
+      await tick();
+      expect(fake.default).toHaveBeenCalledOnce();
+      expect(containerOf(el)?.parentElement?.id, order).toBe("m1");
+      expect(containerOf(el)?.hidden).toBe(false);
+
+      const { host, first, second } = (fake.default.mock.results[0] ?? expect.unreachable("a mount result")).value as TwoMarkers;
+      host.empty(first);
+      expect(containerOf(el)?.parentElement, order).toBe(second);
+      host.empty(second);
+      expect(parkedIn(el)?.hidden, order).toBe(true);
+      el.remove();
+      await tick();
+    }
   });
 
   it("waits for a marker set up in a detached fragment to reach the document", async () => {
@@ -1441,7 +1535,8 @@ describe("clicks before hydration", () => {
       spy.mockClear();
       const { release } = slowModule({
         default: vi.fn((target: HTMLElement) => {
-          // Hydration drops one node, as a mismatch would, and takes its time.
+          // Hydration drops one node, as a mismatch would (another kind of
+          // element takes its place), and takes its time.
           target.querySelector("#gone")?.remove();
           for (const button of target.querySelectorAll("button")) button.addEventListener("click", spy);
           clock += hydrateTakes;
@@ -1449,7 +1544,10 @@ describe("clicks before hydration", () => {
         }),
       });
       const el = mount(
-        ssr({ droplet: "hello", markup: '<button id="old">o</button><button id="gone">g</button><button id="fresh">f</button>' }),
+        ssr({
+          droplet: "hello",
+          markup: '<button id="old">o</button><button id="gone">g</button><span>x</span><button id="fresh">f</button>',
+        }),
       );
       const gone = el.querySelector("#gone") ?? expect.unreachable("#gone");
       const goneSpy = vi.spyOn(gone, "dispatchEvent");
@@ -1473,6 +1571,35 @@ describe("clicks before hydration", () => {
     expect(await scenario({ hydrateTakes: 1_600, releaseAt: 2_000 })).toEqual([]);
     // Over 10 s since the click, however it was held: dropped.
     expect(await scenario({ hydrateTakes: 0, releaseAt: 11_200 })).toEqual(["fresh"]);
+  });
+
+  it("replays on the element in the node's place when hydration rendered the markup anew, and drops it when another kind is there", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const spy = vi.fn<(event: Event) => void>();
+    const { release } = slowModule({
+      // What an engine that renders instead of adopting does: every server node goes, the same markup comes back.
+      default: vi.fn((target: HTMLElement) => {
+        target.replaceChildren();
+        target.innerHTML = '<div><p>t</p><button id="a">a</button><a id="b" href="#b">b</a></div>';
+        for (const node of target.querySelectorAll("button, a")) node.addEventListener("click", spy);
+        return {};
+      }),
+    });
+    const el = mount(ssr({ droplet: "hello", markup: '<div><p>t</p><button id="a">a</button><button id="b">b</button></div>' }));
+    const oldA = el.querySelector("#a") ?? expect.unreachable("#a");
+    const oldB = el.querySelector("#b") ?? expect.unreachable("#b");
+    click({ node: oldA });
+    click({ node: oldB });
+    click({ node: oldA, init: { detail: 2 } });
+    release();
+    await tick();
+    const newA = el.querySelector("#a") ?? expect.unreachable("#a");
+    expect(newA).not.toBe(oldA);
+    expect(oldA.isConnected).toBe(false);
+    // The button's place holds a button again; the second one's holds a link now.
+    expect(targets(spy)).toEqual([newA, newA]);
+    const second = spy.mock.calls[1]?.[0] as MouseEvent | undefined;
+    expect(second?.detail).toBe(2);
   });
 
   it("replays a retry on the same node once, and keeps a double click", async () => {
@@ -1939,5 +2066,49 @@ describe("what the dev tool sees", () => {
     hydrated.remove();
     await tick();
     expect(stateOf(hydrated)).toBeUndefined();
+  });
+});
+
+describe("two builds on one element name", () => {
+  type Env = import("../../src/runtime/dev-element.ts").DevElementEnv;
+  const env = (overrides: Partial<Env>): Env => ({
+    url: "http://drops.test/index.js",
+    elementName: "djs-droplet",
+    buildHash: "other02",
+    droplets: new Set(),
+    hydration: new Map(),
+    serverLoad: new Set(),
+    scripts: new Set(),
+    allowedChildren: "[data-droplet-entry]",
+    nothingToRender: Error,
+    staleBuild: Error,
+    pageUrl: () => globalThis.location.href,
+    location: () => undefined,
+    ...overrides,
+  });
+
+  it("warns in dev when a second /index.js finds the element defined by another build, naming both", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { installDevElement } = await import("../../src/runtime/dev-element.ts");
+    servers[SERVERS] = { "djs-droplet:test01": { origin: "http://drops.test" }, "djs-droplet:other02": { origin: "http://drops.test" } };
+    // The second build's copy of the entry, about to find the name taken.
+    class Second extends mod.DjsDropletElement {}
+    installDevElement(Second, env({}));
+    expect(warn).toHaveBeenCalledOnce();
+    const message = String(warn.mock.calls[0]?.[0]);
+    expect(message).toContain("<djs-droplet> is already defined by another build");
+    expect(message).toContain("build test01");
+    expect(message).toContain("build other02");
+  });
+
+  it("says nothing for the build that defines the element, nor for a free name", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { installDevElement } = await import("../../src/runtime/dev-element.ts");
+    class Fresh extends mod.DjsDropletElement {}
+    installDevElement(Fresh, env({ elementName: "djs-fresh", buildHash: "fresh03" }));
+    class Same extends mod.DjsDropletElement {}
+    customElements.define("djs-same", Same);
+    installDevElement(Same, env({ elementName: "djs-same", buildHash: "same04" }));
+    expect(warn).not.toHaveBeenCalled();
   });
 });

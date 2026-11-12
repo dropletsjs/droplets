@@ -138,7 +138,8 @@ Other mistakes are ignored, with a warning:
 - **Styles:** SFC `<style>` blocks, scoped included, go to the droplet's
   stylesheet. `+error.vue` compiles in custom-element mode, so its styles are
   inlined: on the server they come before its markup, and in the browser they
-  are added to the document head, once per text.
+  are added to the document head, once per text, and taken out again when the
+  last error page using them unmounts.
 - **Forms:** `actionUrl("add")` of `$droplets/form` in `<script setup>`,
   before the first `await`, then `<form method="post" :action="add">`.
   `useEnhanceDropletForm(formRef, { action: "add" })` sends it with `fetch`

@@ -133,3 +133,8 @@ addEventListener("droplets:stale", (event) => {
 ```
 
 The host decides what to do; nothing happens by default.
+
+The element reads `x-droplets-build` before anything else in an answer, for
+`_data` and for a fragment it asks for again after a form action alike: a
+`404` from a newer build that no longer has the droplet is reported as stale,
+not taken for a missing droplet, and the fragment on the page stays as it is.

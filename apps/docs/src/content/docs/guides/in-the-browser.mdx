@@ -143,10 +143,14 @@ hit dead HTML. The element holds them instead:
   (or its error page) loads; the default action is prevented, the event still
   bubbles to the host;
 - once hydrated, the clicks are dispatched again, in order, on the same nodes,
-  at the same position relative to each node's box;
+  at the same position relative to each node's box. When the engine rendered
+  the markup anew instead of adopting it (Hono JSX does), a click goes to the
+  element in the node's place under the droplet's root, provided it is the
+  same kind of element;
 - a click is kept for 1500 ms, counted from the later of the click and the
   start of hydration (bundle and data in), so a slow download does not eat it.
-  A click older than 10 s, or on a node that is gone, is dropped;
+  A click older than 10 s, or on a node that is gone with nothing of its
+  kind in its place, is dropped;
 - repeated single clicks on one node more than 400 ms apart (someone clicking
   again because nothing happened) replay as one.
 
@@ -196,6 +200,9 @@ const withChildren = html.replace(/<\/([a-z][\w-]*)>$/, `<div data-droplet-slot>
 - When there is no marker (the component hides its children behind a false
   `if`, or is client-only), the container waits under the element, hidden,
   until the component renders one.
+- When the component renders its children in more than one place, the
+  container lives in the first marker in document order, whichever the
+  component reported first; when that one goes, it moves to the next.
 - The container is moved, never re-created and never taken out of the
   document: nested droplets, iframes and form state among the children survive
   hydration, re-renders, the switch to the error page and dev remounts (with
@@ -222,6 +229,10 @@ the element directly. Without server markup, the droplet mounts in the browser:
 | `data-params` | Plain JSON props. `host` in server loads is then the page's own. |
 | `data-context` | Base64 JSON `{ host, props }`, as a fragment carries it when it has no inline context. |
 | `data-hydrate` | Overrides the droplet's `hydrate` mode. |
+
+The props come from the first of these that parses: a fragment's inline
+context script, then `data-context`, then `data-params`. One that does not
+parse is logged and the next is read; with none left, the props are `{}`.
 
 The element loads from where the `<script src>` points: load `/index.js` from
 the droplets server itself, under its prefix if it has one

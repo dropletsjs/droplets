@@ -138,7 +138,7 @@ import only `vue` and `@dropletsjs/droplets/enhance`.
 - Client `mount` uses `createApp`; `hydrate` uses `createSSRApp`; the instance is the app. `src/client.ts:110`, `src/client.ts:125`
 - Client root renders the component under `<Suspense>`, so `await props.data` in `<script setup>` works. `src/live-props.ts:18`
 - Client `mount` with an error page wraps the root in `DropletBoundary` (`onErrorCaptured`): the first error goes through `handle`, the error page renders with its result, nothing while it runs or when it rejects. `src/client.ts:75`, `src/client.ts:104`
-- Client `mount` and `hydrate` of an error page inject its `styles` into `document.head` as `<style data-droplets-vue>`, once per text. `src/client.ts:42`, `src/client.ts:64`
+- Client `mount` and `hydrate` of an error page inject its `styles` into `document.head` as `<style data-droplets-vue="<users>">`, once per text, the attribute counting the mounted instances that use it; `unmount` takes one off and removes the element at zero. `src/client.ts:59`, `src/client.ts:89`, `src/client.ts:169`
 - Client `hydrate` moves the target's top-level `<style>` elements (an error page's `head`) into `document.head` first, so hydration finds no mismatch. `src/client.ts:56`, `src/client.ts:122`
 - Client `unmount` calls `app.unmount()`. `src/client.ts:133`
 - Client dev `update` sets the root's props and waits for `nextTick`; the component keeps its state. `src/client-dev.ts:16`

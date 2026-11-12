@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { locationScript, publicEnvScript } from "../../src/runtime/server-records.ts";
+import { locationScript, publicEnvScript, serverBuilds } from "../../src/runtime/server-records.ts";
 
 const servers = Symbol.for("droplets.servers");
 const global = globalThis as unknown as Record<symbol, Record<string, { origin?: string; env?: Record<string, string> }> | undefined>;
@@ -32,5 +32,14 @@ describe("publicEnvScript", () => {
     );
     new Function(script)();
     expect(global[servers]?.["djs-droplet:b1"]?.env).toEqual({ PUBLIC_API: "https://api</script>" });
+  });
+});
+
+describe("serverBuilds", () => {
+  it("lists the builds recorded for one element, in loading order, and nothing without records", () => {
+    expect(serverBuilds({ element: "djs-droplet" })).toEqual([]);
+    global[servers] = { "djs-droplet:b1": {}, "djs-other:b2": {}, "djs-droplet:b3": {} };
+    expect(serverBuilds({ element: "djs-droplet" })).toEqual(["b1", "b3"]);
+    expect(serverBuilds({ element: "djs-other" })).toEqual(["b2"]);
   });
 });

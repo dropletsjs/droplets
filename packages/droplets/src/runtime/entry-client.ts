@@ -224,6 +224,13 @@ function moveInto({ parent, nodes }: MoveIntoInput): void {
  */
 type QueuedClick = {
   node: Element;
+  /**
+   * The node's place under the content root, as child indexes, for an
+   * engine that renders the markup anew instead of adopting it: the click
+   * then goes to the element in that place. `null` when the node is not
+   * reached through element parents (a shadow root's).
+   */
+  path: number[] | null;
   time: number;
   x: number;
   y: number;
@@ -253,15 +260,45 @@ const CLICK_REPLAY_HARD_CAP = 10_000;
  */
 const CLICK_RETRY_GAP = 400;
 
+type ChildPathInput = { root: Element; node: Element };
+
+/** `node`'s place under `root` as child indexes, element children only; `null` when element parents do not lead to `root`. */
+function childPath({ root, node }: ChildPathInput): number[] | null {
+  const path: number[] = [];
+  let current = node;
+  while (current !== root) {
+    const parent = current.parentElement;
+    if (!parent) return null;
+    path.unshift(Array.prototype.indexOf.call(parent.children, current));
+    current = parent;
+  }
+  return path;
+}
+
+type NodeAtPathInput = { root: Element; path: number[] };
+
+/** The element at `path` under `root` now, `null` when the markup is shallower. */
+function nodeAtPath({ root, path }: NodeAtPathInput): Element | null {
+  let current = root;
+  for (const index of path) {
+    const next = current.children[index];
+    if (!next) return null;
+    current = next;
+  }
+  return current;
+}
+
 type InlinePayload<T> = { found: boolean; data: T | undefined };
 type ReadInlineInput = { selector: string };
 type WithCacheBustInput = { url: string; token?: string | undefined };
 type EnsureDropletStyleInput = { droplet: string; contentRoot: HTMLElement };
 type ContentRootInput = { contentRoot: HTMLElement };
 type MarkerInput = { marker: Element };
+type SettleContainerInput = { markers: Iterable<Element> };
 type RenderInfoInput = { contentRoot: HTMLElement; props?: Record<string, unknown> };
 type CaptureClicksInput = { root: HTMLElement };
-type QueuedClickInput = { node: Element; event: MouseEvent };
+type QueuedClickInput = { root: HTMLElement; node: Element; event: MouseEvent };
+type ReplayTargetInput = { root: HTMLElement; click: QueuedClick };
 type ReportStaleInput = { droplet: string; served: string };
 type FetchServerDataInput = { droplet: string; context: WireContext };
 type ServerDataInput = FetchServerDataInput & { refresh: boolean };
@@ -437,7 +474,8 @@ export class DjsDropletElement extends HTMLElement {
    * SSR fragment, the `data-context` attribute of other fragments, or
    * `data-params`, plain JSON props a host writes by hand. `host` falls
    * back to the page the droplet runs in; it goes back to the server as it
-   * came, so `_data` loads see the host the fragment was rendered for.
+   * came, so `_data` loads see the host the fragment was rendered for. A
+   * payload that does not parse is logged and the next place is read.
    */
   #readContext(): WireContext {
     const here = pageUrl();
@@ -451,7 +489,7 @@ export class DjsDropletElement extends HTMLElement {
     };
 
     const inline = this._readInline<unknown>({ selector: "[data-droplet-context]" });
-    if (inline.found) return complete(inline.data) ?? { host: here, props: {} };
+    if (inline.found && inline.data !== undefined) return complete(inline.data) ?? { host: here, props: {} };
 
     const attr = this.dataset["context"];
     if (attr) {
@@ -512,10 +550,23 @@ export class DjsDropletElement extends HTMLElement {
    * child, in the document, so droplets among the children load meanwhile.
    */
   #placeContainer({ contentRoot }: ContentRootInput): void {
-    const container = this.#container;
-    if (!container) return;
-    const [marker] = this.#serverMarkers({ contentRoot });
-    if (marker) this.#fillMarker({ marker });
+    this.#settleContainer({ markers: this.#serverMarkers({ contentRoot }) });
+  }
+
+  /**
+   * The one rule for where the container lives: in the first connected one
+   * of `markers` in document order, whichever was reported first, else
+   * parked under the element. A component that renders its children in
+   * two places gets them in the first.
+   */
+  #settleContainer({ markers }: SettleContainerInput): void {
+    if (!this.#container) return;
+    let first: Element | null = null;
+    for (const marker of markers) {
+      if (!marker.isConnected) continue;
+      if (!first || marker.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING) first = marker;
+    }
+    if (first) this.#fillMarker({ marker: first });
     else this.#parkContainer();
   }
 
@@ -555,13 +606,13 @@ export class DjsDropletElement extends HTMLElement {
     return {
       fill: (marker) => {
         this.#markers.add(marker);
-        if (marker.isConnected) this.#fillMarker({ marker });
+        if (marker.isConnected) this.#settleContainer({ markers: this.#markers });
         else this.#fillOnceConnected({ marker });
       },
       empty: (marker) => {
         this.#markers.delete(marker);
         this.#pendingMarkers.delete(marker);
-        if (this.#container?.parentNode === marker) this.#parkContainer();
+        this.#settleContainer({ markers: this.#markers });
       },
     };
   }
@@ -575,11 +626,13 @@ export class DjsDropletElement extends HTMLElement {
   #fillOnceConnected({ marker }: MarkerInput): void {
     this.#pendingMarkers.add(marker);
     this.#markerWatcher ??= new MutationObserver(() => {
+      let arrived = false;
       for (const pending of Array.from(this.#pendingMarkers)) {
         if (!pending.isConnected) continue;
         this.#pendingMarkers.delete(pending);
-        this.#fillMarker({ marker: pending });
+        arrived = true;
       }
+      if (arrived) this.#settleContainer({ markers: this.#markers });
       if (this.#pendingMarkers.size === 0) {
         this.#markerWatcher?.disconnect();
         this.#markerWatcher = null;
@@ -621,7 +674,7 @@ export class DjsDropletElement extends HTMLElement {
       // it hit, which hydration keeps.
       const hit = event.composedPath()[0];
       const node = hit instanceof Element ? hit : target;
-      const click = this.#queuedClick({ node, event: event as MouseEvent });
+      const click = this.#queuedClick({ root, node, event: event as MouseEvent });
       const last = this.#clickQueue.at(-1);
       const retry = last?.node === node && last.detail === 1 && click.detail === 1 && click.time - last.time > CLICK_RETRY_GAP;
       if (retry) this.#clickQueue[this.#clickQueue.length - 1] = click;
@@ -631,10 +684,11 @@ export class DjsDropletElement extends HTMLElement {
     this.#clickCapture = { root, listener };
   }
 
-  #queuedClick({ node, event }: QueuedClickInput): QueuedClick {
+  #queuedClick({ root, node, event }: QueuedClickInput): QueuedClick {
     const rect = node.getBoundingClientRect();
     return {
       node,
+      path: childPath({ root, node }),
       time: Date.now(),
       x: rect.width > 0 ? (event.clientX - rect.left) / rect.width : 0,
       y: rect.height > 0 ? (event.clientY - rect.top) / rect.height : 0,
@@ -664,25 +718,42 @@ export class DjsDropletElement extends HTMLElement {
   }
 
   /**
-   * The held clicks, in order, each on the node it hit: never on whatever is
-   * at that position now. The coordinates follow the node's current box.
+   * The node a held click goes to: the one it hit, while hydration kept it;
+   * else the element in its place under the root, when it is the same kind
+   * of element (an engine that rendered the markup anew), and nothing
+   * when the markup changed shape there. Never whatever is at the click's
+   * position now.
+   */
+  #replayTarget({ root, click }: ReplayTargetInput): Element | null {
+    if (click.node.isConnected) return click.node;
+    if (!click.path) return null;
+    const found = nodeAtPath({ root, path: click.path });
+    return found?.localName === click.node.localName ? found : null;
+  }
+
+  /**
+   * The held clicks, in order, each on the node it hit or the one in its
+   * place (`#replayTarget`). The coordinates follow the node's current box.
    * A dispatched click runs the node's default action, as the real one
    * would have, unless the component's handler prevents it.
    */
   #replayClicks(): void {
+    const root = this.#clickCapture?.root;
     this.#stopCapturingClicks();
     const queue = this.#clickQueue;
     this.#clickQueue = [];
+    if (!root) return;
     const now = Date.now();
     const attempt = this.#hydrateAttempt ?? now;
     for (const click of queue) {
       const waited = now - Math.max(click.time, attempt);
       if (waited > CLICK_REPLAY_MAX_AGE || now - click.time > CLICK_REPLAY_HARD_CAP) continue;
-      if (!click.node.isConnected) continue;
-      const rect = click.node.getBoundingClientRect();
+      const node = this.#replayTarget({ root, click });
+      if (!node) continue;
+      const rect = node.getBoundingClientRect();
       const clientX = rect.left + rect.width * click.x;
       const clientY = rect.top + rect.height * click.y;
-      click.node.dispatchEvent(
+      node.dispatchEvent(
         new MouseEvent("click", {
           bubbles: true,
           cancelable: true,
@@ -1300,7 +1371,9 @@ export class DjsDropletElement extends HTMLElement {
    * The fragment again, as a host's server asks for it, with the element's
    * context: for an HMR update in dev, and after a form action on a droplet
    * that has not hydrated, with the action's result as `form`. `null`,
-   * logged, when the answer is no fragment of this droplet.
+   * logged, when the answer is no fragment of this droplet; `null`, reported
+   * as stale and not logged, when another build answered: whatever it
+   * answered (a 404 for a droplet it no longer has) is that build's.
    */
   async _fetchFragment({ droplet, action }: FetchFragmentInput): Promise<Element | null> {
     const base = this.#location().replace(/\/$/, "");
@@ -1312,6 +1385,11 @@ export class DjsDropletElement extends HTMLElement {
         body: JSON.stringify(action ? { host, props, form: action.form } : { host, props }),
         redirect: "manual",
       });
+      const served = response.headers.get("x-droplets-build");
+      if (buildHash && served && served !== buildHash) {
+        this.#reportStale({ droplet, served });
+        return null;
+      }
       if (!(response.headers.get("content-type") ?? "").includes("text/html")) {
         throw new Error(`answered ${response.status || response.type}`);
       }
@@ -1375,6 +1453,7 @@ if (import.meta.env.DEV) {
   installDevElement(DjsDropletElement, {
     url: import.meta.url,
     elementName,
+    buildHash,
     droplets: dropletRegistry,
     hydration: hydrationRegistry,
     serverLoad: serverLoadRegistry,

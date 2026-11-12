@@ -2,7 +2,7 @@
 
 ## Rules
 
-- `+error.vue` compiles in plugin-vue's custom-element mode, combined with the user's `customElement`; the server returns its `styles` as `head`, the client injects them once.
+- `+error.vue` compiles in plugin-vue's custom-element mode, combined with the user's `customElement`; the server returns its `styles` as `head`, the client injects them once and removes them when the last instance using them unmounts.
   Checked by: `test/server.test.ts`, `test/client.test.ts`, `test/conformance.test.ts`.
 - Flags come from the plain `<script>` block alone, read with `readExportedFlags`.
   Checked by: `test/index.test.ts`.
