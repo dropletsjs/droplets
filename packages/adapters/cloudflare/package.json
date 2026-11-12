@@ -1,6 +1,6 @@
 {
   "name": "@dropletsjs/adapter-cloudflare",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Cloudflare Workers adapter for Droplets: vite build emits a self-contained dist/worker.js that serves the client build from Workers Static Assets.",
   "keywords": [
     "droplets",

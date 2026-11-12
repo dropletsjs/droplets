@@ -1,6 +1,6 @@
 {
   "name": "@dropletsjs/adapter-node",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Node adapter for Droplets: vite build emits dist/server.js, run with node or mounted in your own server.",
   "keywords": [
     "droplets",

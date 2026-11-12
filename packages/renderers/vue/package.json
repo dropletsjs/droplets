@@ -1,6 +1,6 @@
 {
   "name": "@dropletsjs/renderer-vue",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Vue 3 renderer for Droplets: +droplet.vue and +error.vue single-file components, rendered on the server and hydrated in the browser.",
   "keywords": [
     "droplets",

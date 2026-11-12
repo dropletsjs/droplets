@@ -22,17 +22,17 @@
     "typecheck": "djs sync && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings"
   },
   "dependencies": {
-    "@dropletsjs/droplets": "^1.0.0",
-    "@dropletsjs/renderer-svelte": "^1.0.0",
+    "@dropletsjs/droplets": "^1.0.1",
+    "@dropletsjs/renderer-svelte": "^1.0.1",
     "svelte": "^5.57.3",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@dropletsjs/adapter-bun": "^1.0.0",
-    "@dropletsjs/adapter-cloudflare": "^1.0.0",
-    "@dropletsjs/adapter-deno": "^1.0.0",
-    "@dropletsjs/adapter-node": "^1.0.0",
-    "@dropletsjs/devtools": "^1.0.0",
+    "@dropletsjs/adapter-bun": "^1.0.1",
+    "@dropletsjs/adapter-cloudflare": "^1.0.1",
+    "@dropletsjs/adapter-deno": "^1.0.1",
+    "@dropletsjs/adapter-node": "^1.0.1",
+    "@dropletsjs/devtools": "^1.0.1",
     "@tailwindcss/vite": "^4.3.4",
     "@types/node": "^22.20.5",
     "svelte-check": "^4.7.8",

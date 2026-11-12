@@ -1,6 +1,6 @@
 {
   "name": "@dropletsjs/adapter-bun",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Bun adapter for Droplets: vite build emits dist/server.js, served by bun dist/server.js.",
   "keywords": [
     "droplets",

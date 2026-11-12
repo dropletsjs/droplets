@@ -1,6 +1,6 @@
 {
   "name": "create-droplets",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Start a Droplets project: npm create droplets. Pick the frameworks, adapters and Tailwind; get a typed, building project with a droplet per framework.",
   "keywords": [
     "droplets",

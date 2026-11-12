@@ -214,29 +214,29 @@ importers:
   examples/frameworks/handlebars:
     dependencies:
       '@dropletsjs/droplets':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/droplets
       '@dropletsjs/renderer-handlebars':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/renderers/handlebars
       zod:
         specifier: ^4.6.7
         version: 4.6.7
     devDependencies:
       '@dropletsjs/adapter-bun':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/bun
       '@dropletsjs/adapter-cloudflare':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/cloudflare
       '@dropletsjs/adapter-deno':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/deno
       '@dropletsjs/adapter-node':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/node
       '@dropletsjs/devtools':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/devtools
       '@tailwindcss/vite':
         specifier: ^4.3.4
@@ -260,10 +260,10 @@ importers:
   examples/frameworks/hono-jsx:
     dependencies:
       '@dropletsjs/droplets':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/droplets
       '@dropletsjs/renderer-hono-jsx':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/renderers/hono-jsx
       hono:
         specifier: ^4.13.16
@@ -273,19 +273,19 @@ importers:
         version: 4.6.7
     devDependencies:
       '@dropletsjs/adapter-bun':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/bun
       '@dropletsjs/adapter-cloudflare':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/cloudflare
       '@dropletsjs/adapter-deno':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/deno
       '@dropletsjs/adapter-node':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/node
       '@dropletsjs/devtools':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/devtools
       '@tailwindcss/vite':
         specifier: ^4.3.4
@@ -309,10 +309,10 @@ importers:
   examples/frameworks/lit:
     dependencies:
       '@dropletsjs/droplets':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/droplets
       '@dropletsjs/renderer-lit':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/renderers/lit
       lit:
         specifier: ^3.3.3
@@ -322,19 +322,19 @@ importers:
         version: 4.6.7
     devDependencies:
       '@dropletsjs/adapter-bun':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/bun
       '@dropletsjs/adapter-cloudflare':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/cloudflare
       '@dropletsjs/adapter-deno':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/deno
       '@dropletsjs/adapter-node':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/node
       '@dropletsjs/devtools':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/devtools
       '@types/node':
         specifier: ^22.20.5
@@ -352,10 +352,10 @@ importers:
   examples/frameworks/preact:
     dependencies:
       '@dropletsjs/droplets':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/droplets
       '@dropletsjs/renderer-preact':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/renderers/preact
       preact:
         specifier: ^11.1.1
@@ -368,19 +368,19 @@ importers:
         version: 4.6.7
     devDependencies:
       '@dropletsjs/adapter-bun':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/bun
       '@dropletsjs/adapter-cloudflare':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/cloudflare
       '@dropletsjs/adapter-deno':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/deno
       '@dropletsjs/adapter-node':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/node
       '@dropletsjs/devtools':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/devtools
       '@tailwindcss/vite':
         specifier: ^4.3.4
@@ -404,10 +404,10 @@ importers:
   examples/frameworks/react:
     dependencies:
       '@dropletsjs/droplets':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/droplets
       '@dropletsjs/renderer-react':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/renderers/react
       react:
         specifier: ^19.3.1
@@ -420,19 +420,19 @@ importers:
         version: 4.6.7
     devDependencies:
       '@dropletsjs/adapter-bun':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/bun
       '@dropletsjs/adapter-cloudflare':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/cloudflare
       '@dropletsjs/adapter-deno':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/deno
       '@dropletsjs/adapter-node':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/node
       '@dropletsjs/devtools':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/devtools
       '@tailwindcss/vite':
         specifier: ^4.3.4
@@ -462,10 +462,10 @@ importers:
   examples/frameworks/solid:
     dependencies:
       '@dropletsjs/droplets':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/droplets
       '@dropletsjs/renderer-solid':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/renderers/solid
       solid-js:
         specifier: ^1.9.18
@@ -475,19 +475,19 @@ importers:
         version: 4.6.7
     devDependencies:
       '@dropletsjs/adapter-bun':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/bun
       '@dropletsjs/adapter-cloudflare':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/cloudflare
       '@dropletsjs/adapter-deno':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/deno
       '@dropletsjs/adapter-node':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/node
       '@dropletsjs/devtools':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/devtools
       '@tailwindcss/vite':
         specifier: ^4.3.4
@@ -511,10 +511,10 @@ importers:
   examples/frameworks/svelte:
     dependencies:
       '@dropletsjs/droplets':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/droplets
       '@dropletsjs/renderer-svelte':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/renderers/svelte
       svelte:
         specifier: ^5.57.3
@@ -524,19 +524,19 @@ importers:
         version: 4.6.7
     devDependencies:
       '@dropletsjs/adapter-bun':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/bun
       '@dropletsjs/adapter-cloudflare':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/cloudflare
       '@dropletsjs/adapter-deno':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/deno
       '@dropletsjs/adapter-node':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/node
       '@dropletsjs/devtools':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/devtools
       '@tailwindcss/vite':
         specifier: ^4.3.4
@@ -563,10 +563,10 @@ importers:
   examples/frameworks/vue:
     dependencies:
       '@dropletsjs/droplets':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/droplets
       '@dropletsjs/renderer-vue':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/renderers/vue
       vue:
         specifier: ^3.5.44
@@ -576,19 +576,19 @@ importers:
         version: 4.6.7
     devDependencies:
       '@dropletsjs/adapter-bun':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/bun
       '@dropletsjs/adapter-cloudflare':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/cloudflare
       '@dropletsjs/adapter-deno':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/deno
       '@dropletsjs/adapter-node':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/adapters/node
       '@dropletsjs/devtools':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../../packages/devtools
       '@tailwindcss/vite':
         specifier: ^4.3.4
@@ -615,16 +615,16 @@ importers:
   examples/shop:
     dependencies:
       '@dropletsjs/droplets':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../packages/droplets
       '@dropletsjs/renderer-hono-jsx':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../packages/renderers/hono-jsx
       '@dropletsjs/renderer-react':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../packages/renderers/react
       '@dropletsjs/renderer-solid':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../packages/renderers/solid
       better-sqlite3:
         specifier: ^13.0.3
@@ -658,19 +658,19 @@ importers:
         version: 4.6.7
     devDependencies:
       '@dropletsjs/adapter-node':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../packages/adapters/node
       '@dropletsjs/devtools':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../packages/devtools
       '@dropletsjs/renderer-handlebars':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../packages/renderers/handlebars
       '@dropletsjs/renderer-svelte':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../packages/renderers/svelte
       '@dropletsjs/renderer-vue':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../packages/renderers/vue
       '@types/better-sqlite3':
         specifier: ^9.6.0
@@ -703,16 +703,16 @@ importers:
   examples/wp-shop:
     dependencies:
       '@dropletsjs/droplets':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../packages/droplets
       '@dropletsjs/renderer-hono-jsx':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../packages/renderers/hono-jsx
       '@dropletsjs/renderer-react':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../packages/renderers/react
       '@dropletsjs/renderer-solid':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../packages/renderers/solid
       better-sqlite3:
         specifier: ^13.0.3
@@ -743,19 +743,19 @@ importers:
         version: 4.6.7
     devDependencies:
       '@dropletsjs/adapter-node':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../packages/adapters/node
       '@dropletsjs/devtools':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../packages/devtools
       '@dropletsjs/renderer-handlebars':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../packages/renderers/handlebars
       '@dropletsjs/renderer-svelte':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../packages/renderers/svelte
       '@dropletsjs/renderer-vue':
-        specifier: ^1.0.0
+        specifier: ^1.0.1
         version: link:../../packages/renderers/vue
       '@types/better-sqlite3':
         specifier: ^9.6.0

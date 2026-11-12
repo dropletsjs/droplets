@@ -18,10 +18,10 @@
     "generate:images": "node scripts/generate-images.mjs"
   },
   "dependencies": {
-    "@dropletsjs/droplets": "^1.0.0",
-    "@dropletsjs/renderer-hono-jsx": "^1.0.0",
-    "@dropletsjs/renderer-react": "^1.0.0",
-    "@dropletsjs/renderer-solid": "^1.0.0",
+    "@dropletsjs/droplets": "^1.0.1",
+    "@dropletsjs/renderer-hono-jsx": "^1.0.1",
+    "@dropletsjs/renderer-react": "^1.0.1",
+    "@dropletsjs/renderer-solid": "^1.0.1",
     "better-sqlite3": "^13.0.3",
     "handlebars": "^4.7.10",
     "hono": "^4.13.16",
@@ -34,11 +34,11 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@dropletsjs/adapter-node": "^1.0.0",
-    "@dropletsjs/devtools": "^1.0.0",
-    "@dropletsjs/renderer-handlebars": "^1.0.0",
-    "@dropletsjs/renderer-svelte": "^1.0.0",
-    "@dropletsjs/renderer-vue": "^1.0.0",
+    "@dropletsjs/adapter-node": "^1.0.1",
+    "@dropletsjs/devtools": "^1.0.1",
+    "@dropletsjs/renderer-handlebars": "^1.0.1",
+    "@dropletsjs/renderer-svelte": "^1.0.1",
+    "@dropletsjs/renderer-vue": "^1.0.1",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^22.20.5",
     "@types/react": "^19.3.0",

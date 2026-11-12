@@ -1,6 +1,6 @@
 {
   "name": "@dropletsjs/droplets",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Micro-frontends on Hono, as a Vite plugin: per-droplet SSR, selective hydration, independent bundles, embeddable from any stack, with pluggable renderers (Svelte, Vue, React, Preact, Solid, Hono JSX, Handlebars, Lit).",
   "keywords": [
     "hono",

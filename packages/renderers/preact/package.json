@@ -1,6 +1,6 @@
 {
   "name": "@dropletsjs/renderer-preact",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Preact renderer for Droplets: +droplet.tsx and +error.tsx components, rendered on the server and hydrated in the browser.",
   "keywords": [
     "droplets",
