@@ -55,7 +55,7 @@
     "@types/node": "^24.9.0",
     "hono": "^4.13.16",
     "tsdown": "catalog:",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "vite": "^8.3.5",
     "vitest": "^5.1.0"
   }
