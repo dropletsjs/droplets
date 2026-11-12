@@ -15,7 +15,6 @@ import {
   buildServerCode,
   clientEntryId,
   createClientModuleCode,
-  mayImportServerOnly,
   parseClientName,
   RESOLVED_VIRTUAL_DROPLETS,
   VIRTUAL_CLIENT,
@@ -74,7 +73,14 @@ describe("buildServerCode", () => {
   it("imports every file a droplet has, its renderer, and wraps loads in thunks", () => {
     const code = buildServerCode({
       entries: [
-        entry({ id: "hello", name: "hello", hasLoad: true, hasServerLoad: true }),
+        entry({
+          id: "hello",
+          name: "hello",
+          hasLoad: true,
+          loadFile: "+droplet.js",
+          hasServerLoad: true,
+          serverLoadFile: "+droplet.server.ts",
+        }),
         entry({ id: "upper", name: "upper", file: "+Droplet.vue", renderer: "vue", hydrate: false }),
       ],
       globRoot: "/src/droplets",
@@ -83,7 +89,7 @@ describe("buildServerCode", () => {
     expect(code).toContain('import * as renderer_0 from "/r/svelte/server.js";');
     expect(code).toContain('import * as renderer_1 from "/r/vue/server.js";');
     expect(code).toContain('import * as component_0 from "/src/droplets/hello/+droplet.svelte";');
-    expect(code).toContain('import * as load_0 from "/src/droplets/hello/+droplet.ts";');
+    expect(code).toContain('import * as load_0 from "/src/droplets/hello/+droplet.js";');
     expect(code).toContain('import * as serverLoad_0 from "/src/droplets/hello/+droplet.server.ts";');
     expect(code).toContain("component: component_0,");
     expect(code).toContain("renderer: renderer_0,");
@@ -253,14 +259,14 @@ describe("createClientModuleCode", () => {
   it("imports the component, its renderer's client module and the client load", () => {
     const code = createClientModuleCode({
       globRoot: "/src/droplets",
-      entry: entry({ id: "hello", name: "hello", hasError: true, errorFile: "+error.svelte" }),
+      entry: entry({ id: "hello", name: "hello", hasError: true, errorFile: "+error.svelte", hasLoad: true, loadFile: "+droplet.js" }),
       renderers,
     });
     expect(code).toContain('import * as renderer from "/r/svelte/client.js";');
     expect(code).not.toContain("errorRenderer");
     expect(code).toContain('import * as component from "/src/droplets/hello/+droplet.svelte";');
     expect(code).toContain('import * as errorComponent from "/src/droplets/hello/+error.svelte";');
-    expect(code).toContain('import.meta.glob("/src/droplets/hello/+droplet.ts")');
+    expect(code).toContain('import.meta.glob("/src/droplets/hello/+droplet.js")');
     expect(code).toContain("renderer.hydrate(module, target, props, context)");
     expect(code).toContain("renderer.mount(module, target, props, context)");
     // A droplet mounted with data still to come gets its error page for the boundary.
@@ -326,37 +332,6 @@ describe("createClientModuleCode", () => {
     const built = createClientModuleCode({ globRoot: "/src/droplets", entry: hello, renderers });
     expect(built).not.toContain("import.meta.hot");
     expect(built).not.toContain("droplets:hot-fallback");
-  });
-});
-
-describe("mayImportServerOnly", () => {
-  it("allows server files and files under server/, in the project only", () => {
-    const ok = (file: string) => mayImportServerOnly({ root: "/proj", importer: file });
-    expect(ok("/proj/src/api/+server.ts")).toBe(true);
-    expect(ok("/proj/src/hooks.server.ts")).toBe(true);
-    expect(ok("/proj/src/droplets/a/+droplet.server.ts")).toBe(true);
-    expect(ok("/proj/src/lib/db.server.js")).toBe(true);
-    expect(ok("/proj/src/lib/server/db.ts")).toBe(true);
-    expect(ok("/proj/src/lib/server/deep/x.js?v=1")).toBe(true);
-    expect(ok("/proj/src/droplets/a/+droplet.server.ts?import")).toBe(true);
-    expect(ok("/proj/src/droplets/a/+droplet.ts")).toBe(false);
-    expect(ok("/proj/src/droplets/a/+droplet.svelte")).toBe(false);
-    expect(ok("/proj/src/lib/util.ts")).toBe(false);
-    expect(ok("/proj/src/server.tsx")).toBe(false);
-    // Any extension after `.server.`; only a folder named exactly `server`.
-    expect(ok("/proj/src/lib/db.server.tsx")).toBe(true);
-    expect(ok("/proj/src/lib/a.server.mjs")).toBe(true);
-    expect(ok("/proj/src/lib/x.server.cts")).toBe(true);
-    expect(ok("/proj/src/server/x.ts")).toBe(true);
-    // A name that merely ends in "server" is not a server file.
-    expect(ok("/proj/src/lib/observer.ts")).toBe(false);
-    expect(ok("/proj/src/lib/webserver.js")).toBe(false);
-    expect(ok("/proj/src/myserver/x.ts")).toBe(false);
-    expect(ok("/proj/src/server-utils/x.ts")).toBe(false);
-    // Not the project's to check: dependencies, other folders, virtual modules.
-    expect(ok("/proj/node_modules/pkg/index.js")).toBe(true);
-    expect(ok("/elsewhere/lib.ts")).toBe(true);
-    expect(ok("\0virtual:droplets")).toBe(true);
   });
 });
 

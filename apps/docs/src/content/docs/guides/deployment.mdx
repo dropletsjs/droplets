@@ -26,7 +26,10 @@ dist/
   server.js                # the HTTP server, with droplets.config.ts baked in
 ```
 
-That is the layout of `node()`, `bun()` and `deno()`; ship the whole `dist/`
+`vite build` empties `dist/` first, by Vite's own rule (`build.emptyOutDir`:
+always when `true`, never when `false`, else only when it is inside the
+project), so nothing of a build with another adapter stays next to the new
+one. That is the layout of `node()`, `bun()` and `deno()`; ship the whole `dist/`
 folder. `cloudflare()` writes `dist/worker.js` instead of `dist/server.js`
 and `dist/server/`, and keeps the prerendered renders in `dist/client`
 ([Cloudflare Workers](#cloudflare-workers)). `/env.js` is not a file: the

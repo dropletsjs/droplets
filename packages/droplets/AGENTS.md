@@ -20,7 +20,7 @@
   Checked by: `test/portability.test.ts`: its `NEUTRAL` list names those paths; a new module that runs at runtime outside them goes into `NEUTRAL`.
 - `vite build` resolves the config again per environment, and each environment gets a fresh `droplets()` instance with its own random build hash: names decided in the `config` hook carry no per-instance random state (use rolldown `[hash]` or shared hooks).
   Checked by: a real `vite build` of a project with a config file (`pnpm build:examples`, `pnpm test:e2e`).
-- Flags (`ssr`, `hydrate`, `prerender`) live only in the droplet's component; anywhere else they are ignored, and on `+error.*` they warn in dev.
+- Flags (`ssr`, `hydrate`, `prerender`) live only in the droplet's component; anywhere else they are ignored, and on `+error.*` they warn in dev and build.
   Checked by: `test/core/discover.test.ts`.
 - A flag mistake warns and is ignored; flags fail the build only in a Handlebars flags comment.
   Checked by: `test/core/discover.test.ts`, the Handlebars renderer's tests.

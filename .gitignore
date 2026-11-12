@@ -21,6 +21,7 @@ packages/droplets/test/fixtures/.client-graph-*/
 packages/droplets/test/fixtures/.index-js-*/
 packages/droplets/test/fixtures/.hooks-client-*/
 packages/droplets/test/fixtures/.droplet-folders-*/
+packages/droplets/test/fixtures/.build-*/
 packages/renderers/svelte/test/fixtures/.flags-*/
 
 # Playwright's output.

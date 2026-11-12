@@ -217,7 +217,7 @@ export function config(options: DropletsConfig): DropletsConfig {
   return options;
 }
 
-export type NormalizeDropletsFolderInput = { folder: string; fallback?: string };
+export type NormalizeDropletsFolderInput = { folder: string; fallback?: string; option?: "dropletsFolder" | "apiFolder" };
 
 type ValidateOwnPathInput = { option: string; path: string; example: string };
 
@@ -237,15 +237,21 @@ export type ResolveDevConfigInput = { user: DropletsConfig; env?: ResolveConfigE
 
 /**
  * Trims `./`, `..`, repeated and trailing slashes down to a clean folder
- * name. Written out rather than taken from `node:path` so this module runs
- * on any runtime.
+ * name; a `..` that would leave the project throws. Written out rather than
+ * taken from `node:path` so this module runs on any runtime.
  */
-export function normalizeDropletsFolder({ folder, fallback = DEFAULTS.dropletsFolder }: NormalizeDropletsFolderInput): string {
+export function normalizeDropletsFolder({
+  folder,
+  fallback = DEFAULTS.dropletsFolder,
+  option = "dropletsFolder",
+}: NormalizeDropletsFolderInput): string {
   const segments: string[] = [];
   for (const segment of folder.replace(/\\/g, "/").trim().split("/")) {
     if (segment === "" || segment === ".") continue;
     if (segment === "..") {
-      segments.pop();
+      if (segments.pop() === undefined) {
+        throw new Error(`droplets: ${option} must be a folder inside the project, got ${JSON.stringify(folder)}`);
+      }
       continue;
     }
     segments.push(segment);
@@ -374,6 +380,15 @@ export type ResolveConfigEnv = {
   port?: string | undefined;
 };
 
+export type PortOfInput = { value: string | undefined };
+
+/** `PORT` as a number: an integer from 0 to 65535, else `undefined`. */
+export function portOf({ value }: PortOfInput): number | undefined {
+  if (value === undefined || !/^\s*\d{1,5}\s*$/.test(value)) return undefined;
+  const port = Number(value);
+  return port <= 65535 ? port : undefined;
+}
+
 /** Fills in defaults. Pure, so the same code runs at build time and at runtime. */
 export function resolveConfig(user: DropletsConfig, env: ResolveConfigEnv = {}): ResolvedDropletsConfig {
   const dropletsFolder = normalizeDropletsFolder({ folder: user.dropletsFolder ?? DEFAULTS.dropletsFolder });
@@ -383,7 +398,7 @@ export function resolveConfig(user: DropletsConfig, env: ResolveConfigEnv = {}):
     throw new Error(`droplets: "${element}" is not a valid custom element name; use lowercase letters and a hyphen, e.g. "my-droplet"`);
   }
 
-  const envPort = Number(env.port) || 0;
+  const envPort = portOf({ value: env.port }) ?? 0;
   const cors = user.cors === true ? { origin: "*" } : user.cors && typeof user.cors === "object" ? user.cors : undefined;
 
   const health =
@@ -406,7 +421,7 @@ export function resolveConfig(user: DropletsConfig, env: ResolveConfigEnv = {}):
 
   return {
     dropletsFolder,
-    apiFolder: normalizeDropletsFolder({ folder: user.apiFolder ?? DEFAULTS.apiFolder, fallback: DEFAULTS.apiFolder }),
+    apiFolder: normalizeDropletsFolder({ folder: user.apiFolder ?? DEFAULTS.apiFolder, fallback: DEFAULTS.apiFolder, option: "apiFolder" }),
     health,
     ...(user.index === undefined ? {} : { index: user.index }),
     element,
@@ -439,7 +454,7 @@ export function resolveDevConfig({ user, env = {} }: ResolveDevConfigInput): Res
     throw new Error(`droplets: dev.strategy is "${String(strategy)}"; use ${DEV_STRATEGIES.map((s) => `"${s}"`).join(", ")}`);
   }
   return {
-    server: { port: Number(env.port) || user.dev?.server?.port || DEFAULTS.devPort },
+    server: { port: (portOf({ value: env.port }) ?? 0) || user.dev?.server?.port || DEFAULTS.devPort },
     strategy,
     injectTool: user.dev?.injectTool ?? false,
   };

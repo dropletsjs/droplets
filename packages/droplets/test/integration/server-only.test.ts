@@ -152,6 +152,16 @@ describe("server files in the client build", () => {
     await expect(build(root)).rejects.toThrow(/\$droplets\/server can only be imported by server files.*src\/lib\/observer\.ts/);
   }, 90_000);
 
+  it("fails when a component imports the bare @dropletsjs/droplets/server, naming the importer", async () => {
+    const root = await built({
+      "src/droplets/card/+droplet.fake.js":
+        "import { error } from '@dropletsjs/droplets/server';\nexport default () => `<p>${typeof error}</p>`;\n",
+    });
+    await expect(build(root)).rejects.toThrow(
+      /@dropletsjs\/droplets\/server can only be imported by server files.*src\/droplets\/card\/\+droplet\.fake\.js/,
+    );
+  }, 90_000);
+
   it("lets *.server.* with any extension and server/ files import $droplets/server, and client code import look-alikes", async () => {
     const root = await built({
       "src/droplets/card/+droplet.server.ts": [
@@ -293,6 +303,7 @@ describe("server files in the client build", () => {
         "src/droplets/card/mixed.js": "import { secret } from './keys.Server.ts';\nexport const mixed = secret;\n",
         "src/droplets/card/keys.Server.ts": SECRET,
         "src/lib/server/secret.txt": "sk_live_do_not_ship\n",
+        "src/droplets/card/bare.js": "import { error } from '@dropletsjs/droplets/server';\nexport const bare = typeof error;\n",
       });
       server = await createServer({
         root,
@@ -310,6 +321,12 @@ describe("server files in the client build", () => {
     it("refuses a *.server.ts import as it resolves", async () => {
       await expect(server.environments.client.transformRequest("/src/droplets/card/+droplet.ts")).rejects.toThrow(
         /src\/droplets\/card\/db\.server\.ts is server code and cannot reach the browser: src\/droplets\/card\/\+droplet\.ts -> src\/droplets\/card\/db\.server\.ts/,
+      );
+    });
+
+    it("refuses the bare @dropletsjs/droplets/server from a client module as it resolves", async () => {
+      await expect(server.environments.client.transformRequest("/src/droplets/card/bare.js")).rejects.toThrow(
+        /@dropletsjs\/droplets\/server can only be imported by server files.*src\/droplets\/card\/bare\.js/,
       );
     });
 

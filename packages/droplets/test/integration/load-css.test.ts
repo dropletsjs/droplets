@@ -62,6 +62,13 @@ describe("CSS from +droplet.ts", () => {
     expect(existsSync(join(root, "dist/client/droplets/card/client.js"))).toBe(true);
   }, 90_000);
 
+  it("builds when it is a URL (?url)", async () => {
+    const root = await project("./card.css?url");
+    roots.push(root);
+    await build(root);
+    expect(existsSync(join(root, "dist/client/droplets/card/client.js"))).toBe(true);
+  }, 90_000);
+
   describe("in vite dev", () => {
     let server: ViteDevServer;
     let root: string;

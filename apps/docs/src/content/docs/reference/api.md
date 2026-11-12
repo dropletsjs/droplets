@@ -13,8 +13,8 @@ looking a name up.
 | --- | --- | --- |
 | `src/droplets/<id>/+droplet.<ext>` | the component, and the flags `ssr`, `hydrate`, `prerender` | server and browser |
 | `src/droplets/<id>/+droplet.script.ts` (or `.js`) | in place of a component: default `(data, el) => void \| cleanup` ([`DropletScript`](#dropletsjsdroplets)). See [Script droplets](/renderers/script/) | browser |
-| `src/droplets/<id>/+droplet.server.ts` | `load`, `actions`, `handleError`, `entries`, `transform` | server |
-| `src/droplets/<id>/+droplet.ts` | `props` (a Standard Schema), `load`, `handleError` | server and browser |
+| `src/droplets/<id>/+droplet.server.ts` (or `.js`) | `load`, `actions`, `handleError`, `entries`, `transform` | server |
+| `src/droplets/<id>/+droplet.ts` (or `.js`) | `props` (a Standard Schema), `load`, `handleError` | server and browser |
 | `src/droplets/<id>/+error.<ext>` | the error page, in the droplet's framework | server and browser |
 | `src/api/**/+server.ts` (or `.js`) | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `HEAD`, `fallback` | server |
 | `src/hooks.server.ts` (or `.js`) | `handle`, `handleError` | server |
@@ -31,7 +31,11 @@ kebab-case (`^[a-z0-9]+(-[a-z0-9]+)*$`, `product-card`); any other folder that
 holds a component is ignored, and `vite dev` and `vite build` list those
 folders in one warning. Only the immediate subfolders are scanned. A folder
 with two components, or a component suffix no configured renderer claims,
-fails the build.
+fails the build. The server modules found by name (`+droplet.ts`,
+`+droplet.server.ts`, `+server.ts`, `hooks.server.ts`, `importmap.server.ts`)
+are looked up as `.ts` then `.js`; one spelled `.mts`, `.mjs`, `.cts` or `.cjs`
+is not loaded, and `vite dev` and `vite build` warn once naming the file and
+the name to use.
 
 ### Flags
 
@@ -208,10 +212,10 @@ export default defineConfig({
 | Option | Type | Default | What it does |
 | --- | --- | --- | --- |
 | `configFile` | `string` | `droplets.config.{ts,mts,js,mjs}` in the Vite root | The config file, relative to the root. One that does not exist throws. |
-| `adapter` | `DropletsAdapter` | none | What `vite build` emits as the server. Required for `vite build` and `vite preview`; `vite dev` works without one. |
+| `adapter` | `DropletsAdapter` | none | What `vite build` emits as the server. Required for `vite build` and `vite preview`; `vite dev` works without one. The build is Vite's builder (`vite build`, or `createBuilder()` then `buildApp()`): Vite's plain `build()` builds one environment and is refused. |
 | `renderers` | `DropletRenderer[]` | `[]` | The frameworks. The built-in script renderer is added after them. Two renderers may share an extension only when both declare `packages`. |
 | `css.path` | `string \| false` | `"./src/app.css"` when it exists | The stylesheet every droplet shares: first in each droplet's `style.css`, and served at `/index.css`. |
-| `css.scoped` | `boolean` | `true` | Prefix every selector of the build's stylesheets with the element (`html`, `body`, `:root` and `:host` become the element). Added after your inline `css.postcss` plugins; with a PostCSS config file, add `scopeStylesPlugin` yourself. |
+| `css.scoped` | `boolean` | `true` | Prefix every selector of the build's stylesheets with the element (`html`, `body`, `:root` and `:host` become the element). Added after your own PostCSS plugins: an inline `css.postcss`, else your PostCSS config file, loaded with its options; a file that fails to load fails the build. |
 | `css.tailwind` | `boolean` | `false` | Add `@tailwindcss/vite` when the Vite config lacks it. Needs `tailwindcss` and `@tailwindcss/vite` installed. |
 | `css.twPreflight` | `boolean` | `true` | Keep Tailwind's preflight. `false` turns `@import "tailwindcss"` into its theme and utilities. |
 
@@ -338,8 +342,8 @@ frozen.
 
 Server files are files named `*.server.*`, `+server.*` routes, and files
 under a `server/` folder, in any case (`Server/`, `db.SERVER.ts`). Importing
-`$droplets/server` or `$droplets/env/private` from any other file fails the
-build, and no server file may reach a browser bundle through any import
+`$droplets/server`, `@dropletsjs/droplets/server` or `$droplets/env/private`
+from any other file fails the build and the `vite dev` import, and no server file may reach a browser bundle through any import
 chain; the error names the chain. See [Security](/guides/security/).
 
 ### `$droplets/drop`
@@ -421,7 +425,7 @@ Types: `ActionUrlOptions` (`{ droplet?, props? }`), `ActionMap`,
 
 ## `@dropletsjs/droplets/server`
 
-The module `$droplets/server` resolves to.
+The module `$droplets/server` resolves to, under the same rule: server files only.
 
 | Export | What it is |
 | --- | --- |
@@ -534,7 +538,7 @@ passes [`rendererConformance()`](#dropletsjsdropletstesting).
 | Field of `DropletRenderer` | What it is |
 | --- | --- |
 | `name` | Unique among the configured renderers. `script` is the built-in renderer's. |
-| `extensions` | Suffixes after `+droplet`/`+error`: `[".svelte"]`, `[".tsx", ".jsx"]`. `.ts`, `.js`, `.server.ts`, `.server.js`, `.d.ts`, `.script.ts` and `.script.js` are core's. |
+| `extensions` | Suffixes after `+droplet`/`+error`: `[".svelte"]`, `[".tsx", ".jsx"]`. `.ts`, `.js`, `.server.ts`, `.server.js`, `.d.ts`, `.server.d.ts`, `.script.ts` and `.script.js` are core's. |
 | `packages?` | The engine's packages and the renderer's own; required to share an extension, and what another renderer's droplet may not import. |
 | `suffixes?` | Other files of the engine (`.svelte.ts`). |
 | `componentTypes?` | The module whose `DropletProps` and `DropletErrorProps` a droplet's `./$types` uses. |
@@ -591,7 +595,7 @@ are the reference.
 ## `@dropletsjs/droplets/postcss`
 
 - `scopeStylesPlugin({ element, include? })`: the PostCSS plugin behind
-  `css.scoped`, for projects with their own PostCSS config file.
+  `css.scoped`, for a PostCSS pipeline of your own outside Vite.
   `include(file)` picks the stylesheets; all by default. Options type:
   `ScopeStylesOptions`.
 - `scopeSelector(selector, element, svelte?)`: the rewrite alone.
@@ -729,7 +733,8 @@ djs sync
 ```
 
 Resolves the Vite config, finds the droplets and writes `.droplets/`: each
-droplet's `./$types` and the `tsconfig.json` that maps them. Nothing is
+droplet's `./$types` and the `tsconfig.json` that maps them; the types of a
+droplet that is gone are removed, their folders with them. Nothing is
 served or built. Use it where `vite` has not run before a type check:
 `"prepare": "djs sync"`.
 

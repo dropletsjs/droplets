@@ -602,8 +602,16 @@ export function withFlagDefaults(flags: Partial<RenderFlags> | undefined): Rende
   };
 }
 
+/** What a module core finds by name ends in (`+droplet`, `+droplet.server`, `hooks.server`, `importmap.server`, `+server`), in lookup order. */
+export const MODULE_EXTENSIONS: readonly string[] = [".ts", ".js"];
+
 /** Suffixes core owns next to a component; never a renderer's. */
-export const CORE_SUFFIXES = new Set([".ts", ".js", ".server.ts", ".server.js", ".d.ts"]);
+export const CORE_SUFFIXES = new Set([
+  ...MODULE_EXTENSIONS,
+  ...MODULE_EXTENSIONS.map((extension) => `.server${extension}`),
+  ".d.ts",
+  ".server.d.ts",
+]);
 
 /**
  * The built-in renderer of script droplets: a `+droplet.script.ts` (or
@@ -748,12 +756,12 @@ function listOf({ items, word }: ListOfInput): string {
   return items.length <= 2 ? items.join(` ${word} `) : `${items.slice(0, -1).join(", ")} ${word} ${items.at(-1)}`;
 }
 
-/** Package hints for the extensions the first-party renderers handle. */
-const KNOWN_RENDERERS: Record<string, { pkg: string; factory: string }> = {
+/** Package hints for the extensions the first-party renderers handle; `rename` when the package handles another spelling. */
+const KNOWN_RENDERERS: Record<string, { pkg: string; factory: string; rename?: string }> = {
   ".svelte": { pkg: "@dropletsjs/renderer-svelte", factory: "svelte()" },
   ".vue": { pkg: "@dropletsjs/renderer-vue", factory: "vue()" },
   ".hbs": { pkg: "@dropletsjs/renderer-handlebars", factory: "handlebars()" },
-  ".handlebars": { pkg: "@dropletsjs/renderer-handlebars", factory: "handlebars()" },
+  ".handlebars": { pkg: "@dropletsjs/renderer-handlebars", factory: "handlebars()", rename: ".hbs" },
   ".tsx": { pkg: "@dropletsjs/renderer-react (or -preact, -solid, -hono-jsx)", factory: "react() (or preact(), solid(), honoJsx())" },
   ".jsx": { pkg: "@dropletsjs/renderer-react (or -preact, -solid, -hono-jsx)", factory: "react() (or preact(), solid(), honoJsx())" },
   ".lit.ts": { pkg: "@dropletsjs/renderer-lit", factory: "lit()" },
@@ -766,6 +774,7 @@ type NoRendererMessageInput = { file: string; extension: string };
 export function noRendererMessage({ file, extension }: NoRendererMessageInput): string {
   const last = extension.slice(extension.lastIndexOf("."));
   const known = (Object.hasOwn(KNOWN_RENDERERS, extension) ? KNOWN_RENDERERS[extension] : undefined) ?? KNOWN_RENDERERS[last];
+  if (known?.rename) return `${file}: no renderer for ${extension}; ${known.pkg} handles +droplet${known.rename}, rename the file`;
   return known
     ? `${file}: no renderer for ${extension}; install ${known.pkg} and add ${known.factory} to renderers`
     : `${file}: no renderer for ${extension}; add a renderer that handles it to renderers`;

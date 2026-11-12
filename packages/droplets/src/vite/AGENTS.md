@@ -4,8 +4,8 @@
 
 - A server file (`*.server.*`, `+server.*`, a folder named `server` on its path) reached from a client entry fails `vite build` (the client environment's `buildEnd`) and is refused under `vite dev` as the import resolves, naming the import chain, through any chain.
   Checked by: `test/integration/server-only.test.ts`.
-- `$droplets/server` and `$droplets/env/private` resolve only for project server files in a server environment; anywhere else the import fails, in build and in dev.
-  Checked by: `test/vite/virtual.test.ts`, `test/integration/server-only.test.ts`.
+- `$droplets/server`, `@dropletsjs/droplets/server` and `$droplets/env/private` resolve only for project server files in a server environment; anywhere else the import fails, in build and in dev.
+  Checked by: `test/vite/virtual.test.ts`, `test/vite/server-only.test.ts`, `test/integration/server-only.test.ts`.
 - A droplet's component and error page reach only their own renderer's modules and neutral code: another configured renderer's files or packages fail every build environment's `buildEnd` and the dev import, naming the chain; script droplets are exempt.
   Checked by: `test/vite/renderer-graphs.test.ts`.
 - Styles belong to the component: a stylesheet reached from `+droplet.ts` or `+droplet.server.ts` fails the build and the dev import.

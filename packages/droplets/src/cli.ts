@@ -16,7 +16,7 @@ const USAGE = `Usage: djs <command> [--root <dir>] [--config <vite config>] [--m
                that maps them. vite dev and vite build write them too.
 
   add [name]   Write src/droplets/<name>/, asking for what the options leave out:
-    --framework  svelte | vue | react | preact | solid | hono-jsx | handlebars | lit | script
+    --framework  svelte | vue | react | preact | solid | hono-jsx (or hono) | handlebars | lit | script
                  one the Vite config lacks is installed and added to renderers;
                  script (+droplet.script.ts, plain browser code) is built in
     --target     full (default) | ssr | client | ssg; not for script

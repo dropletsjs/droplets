@@ -20,7 +20,8 @@ import type { DropletsAdapter } from "../adapters.ts";
 import type { DevStrategy } from "../core/config.ts";
 import type { DropletsApp } from "../runtime/app.ts";
 import { rendererScopeFilter, sharingRenderers, validateRenderers, type DropletRenderer, type HydrateMode } from "../renderer.ts";
-import { buildOrder, createBuildEnvironments, requireAdapter, SERVER_NO_EXTERNAL, writeManifest } from "./build.ts";
+import { buildOrder, createBuildEnvironments, emptyOutDir, requireAdapter, SERVER_NO_EXTERNAL, writeManifest } from "./build.ts";
+import { loadIndexHtml } from "./index-html.ts";
 import {
   classifyChange,
   createDevApp,
@@ -42,7 +43,15 @@ import { createExternalMatcher, namedExternals, readClientExternal } from "./cli
 import { rm } from "node:fs/promises";
 import { prerender } from "./prerender.ts";
 import { assetUrlsPlugin, builtUrl, copyPublicDir } from "./assets.ts";
-import { applyConfig, createInitialState, CLIENT_HOOKS_FILES, HOOKS_FILES, rendererExtensions, type PluginState } from "./state.ts";
+import {
+  applyConfig,
+  createInitialState,
+  CLIENT_HOOKS_FILES,
+  HOOKS_FILES,
+  rendererExtensions,
+  type PluginState,
+  warnMisnamedModules,
+} from "./state.ts";
 import { clientEntryId, virtualModulesPlugin } from "./virtual.ts";
 
 export type DropletsPluginOptions = {
@@ -83,9 +92,9 @@ export type DropletSummary = {
   renderer: string;
   ssr: boolean;
   hydrate: HydrateMode;
-  /** Has `+droplet.ts`. */
+  /** Has `+droplet.ts` (or `.js`). */
   hasLoad: boolean;
-  /** Has `+droplet.server.ts`. */
+  /** Has `+droplet.server.ts` (or `.js`). */
   hasServerLoad: boolean;
   /** Has its own error page (`+error.<ext>`). */
   hasError: boolean;
@@ -219,6 +228,9 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
   // droplet happens to use it.
   validateRenderers(state.renderers);
   let runtime: DevRuntime | null = null;
+  let command: "build" | "serve" = "serve";
+  /** Whether `buildApp` runs the build: Vite's plain `build()` builds one environment and never calls it. */
+  let isAppBuild = false;
   /** What each edit touched, per HMR timestamp: worked out once, in the first environment. */
   const plans = new Map<number, UpdatePlan>();
 
@@ -335,16 +347,16 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
       state.entries = await discoverDroplets({
         dropletsRoot: state.dropletsRoot,
         renderers: state.renderers,
-        dev: env.command === "serve",
       });
       await syncTypes(state);
+      await warnMisnamedModules({ root });
 
       const clientExternal = readClientExternal({ config: userConfig });
       state.clientExternal = createExternalMatcher({ externals: clientExternal });
       // Pre-bundling would inline them in dev; keep them out, as the build does.
       const external = namedExternals({ externals: clientExternal });
       state.namedExternals = external;
-      const css = createCssConfig({ userConfig, state });
+      const css = await createCssConfig({ userConfig, state, root });
       const result: UserConfig = {
         appType: "custom",
         ...(css ? { css } : {}),
@@ -366,6 +378,8 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
 
       if (env.command === "build") {
         requireAdapter(state);
+        // Fails here, not after the client build.
+        await loadIndexHtml({ root, index: state.config.index });
         result.experimental = { renderBuiltUrl: builtUrl({ user: userConfig.experimental?.renderBuiltUrl }) };
         if (state.entries.length === 0) {
           logger.warn("framework", "no droplets found", {
@@ -385,6 +399,15 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
 
     configResolved(config) {
       state.publicDir = config.publicDir;
+      command = config.command;
+    },
+
+    buildStart() {
+      if (command === "build" && !isAppBuild) {
+        throw new Error(
+          "droplets: vite build (the builder) is required; build() alone builds one environment; use createBuilder() or the vite build command",
+        );
+      }
     },
 
     configureServer(server) {
@@ -505,7 +528,9 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
     },
 
     async buildApp(builder) {
+      isAppBuild = true;
       const adapter = requireAdapter(state);
+      await emptyOutDir({ root: state.root, outDir: state.outDir, emptyOutDir: builder.config.build.emptyOutDir });
       logger.info("framework", "build starting", {
         droplets: state.entries.map((e) => e.id),
         buildHash: state.buildHash,

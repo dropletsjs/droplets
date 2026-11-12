@@ -64,8 +64,8 @@ export default config({
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `dropletsFolder` | `"src/droplets"` | Folder scanned for `<name>/+droplet.<ext>`. |
-| `apiFolder` | `"src/api"` | Folder scanned for `**/+server.ts`, served under `/api/`. |
+| `dropletsFolder` | `"src/droplets"` | Folder scanned for `<name>/+droplet.<ext>`, inside the project: a path with a `..` above it fails. |
+| `apiFolder` | `"src/api"` | Folder scanned for `**/+server.ts`, served under `/api/`; inside the project, as `dropletsFolder`. |
 | `element` | `"djs-droplet"` | Tag name of the element that hosts every droplet. Lowercase with a hyphen. See [The element name](#the-element-name). |
 | `cors` | off | `true` sends `Access-Control-Allow-Origin: *` on every route (`/api/*`, `_data`, `/index.js` included), and warns once under `vite dev`; an object is passed to Hono's `cors()`. Needed whenever a page on another origin embeds your droplets. Prefer an origin list (`{ origin: ["https://shop.example"] }`) for anything not public: with `*`, any page can read what an employee's browser can reach on an intranet server. |
 | `location` | computed per request | Where browsers reach this server, fixed at build: its public origin, with the path prefix a proxy serves it under (`"https://shop.example/mfe"`). One value, no query, hash or credentials, never `"*"`. See [The public location](#the-public-location). |
@@ -288,7 +288,7 @@ Client externals are declared in
 
 | Variable | Effect |
 | --- | --- |
-| `PORT` | Overrides both ports, so a container can relocate the server without a rebuild. |
+| `PORT` | Overrides both ports, so a container can relocate the server without a rebuild. An integer from 1 to 65535; any other value is ignored (`vite dev` warns once). |
 | `DROPLETS_TRUSTED_ORIGINS` | Comma-separated origins added to `trustedOrigins`, read at runtime (per request, so Workers bindings work). |
 | `DROPLETS_ENV_MAX_AGE` | Seconds a browser or CDN may keep `/env.js`, read at runtime: `600` by default, `0` sends `no-store`, an invalid value keeps `600` ([Environment variables](/guides/server/#environment-variables)). |
 | `DROPLETS_SECRET` | 32 or more random bytes, read at runtime: signs the result of a form posted without JavaScript, carried back to the page on the redirect ([Post/Redirect/Get](/guides/actions/#without-javascript-postredirectget)). Without it, or shorter, such a post answers the fragment instead, with a warning under `vite dev`. |

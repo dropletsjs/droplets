@@ -1,5 +1,5 @@
-import { readFile, rm, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { join, resolve, sep } from "node:path";
 import { mergeConfig, type UserConfig } from "vite";
 import type { DropletsAdapter } from "../adapters.ts";
 import { shipsClient, type DropletEntry } from "../core/discover.ts";
@@ -89,6 +89,27 @@ export function createClientInputs({ entries }: CreateClientInputsInput): Record
     inputs[`droplets/${entry.id}`] = clientEntryId({ folderName: entry.name });
   }
   return inputs;
+}
+
+type EmptyOutDirInput = { root: string; outDir: string; emptyOutDir: boolean | null | undefined };
+
+/**
+ * Empties `outDir` before the first environment builds, so nothing of a
+ * previous build (another adapter's server file) stays next to this one.
+ * Vite's own rule for one environment: always when `build.emptyOutDir` is
+ * true, never when false, else only inside the project; `.git` stays.
+ */
+export async function emptyOutDir({ root, outDir, emptyOutDir }: EmptyOutDirInput): Promise<void> {
+  const isInside = outDir !== root && outDir.startsWith(`${root}${sep}`);
+  if (emptyOutDir === false) return;
+  if (emptyOutDir !== true && !isInside) {
+    logger.warn("framework", `${outDir} is outside the project and is not emptied; set build.emptyOutDir to true to empty it`);
+    return;
+  }
+  const entries = await readdir(outDir, { withFileTypes: true }).catch(() => []);
+  await Promise.all(
+    entries.filter((entry) => entry.name !== ".git").map((entry) => rm(join(outDir, entry.name), { recursive: true, force: true })),
+  );
 }
 
 /** Names of the environments `vite build` may produce, in build order. */

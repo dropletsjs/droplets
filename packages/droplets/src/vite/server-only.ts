@@ -62,9 +62,37 @@ export function isServerOnlyFile(input: ProjectPathInput): boolean {
   return rel !== null && isServerPath({ path: rel });
 }
 
+/**
+ * Whether a project file may import `$droplets/server`, the package's own
+ * server entry or `$droplets/env/private`: it is a server file
+ * (`isServerPath`: `+server.ts`, `hooks.server.ts`, `db.server.tsx`, a file
+ * under a `server/` folder). Files outside the project (dependencies, the
+ * framework, virtual modules) are not checked.
+ */
+export type MayImportServerOnlyInput = { root: string; importer: string };
+
+export function mayImportServerOnly({ root, importer }: MayImportServerOnlyInput): boolean {
+  const rel = projectPath({ root, id: importer });
+  return rel === null || isServerPath({ path: rel });
+}
+
+/** The package's server entry, what `$droplets/server` resolves to: refused wherever that one is. */
+export const PACKAGE_SERVER = "@dropletsjs/droplets/server";
+
+export type ServerOnlyImportMessageInput = { id: string; importer: string | undefined };
+
+export function serverOnlyImportMessage({ id, importer }: ServerOnlyImportMessageInput): string {
+  return (
+    `${id} can only be imported by server files: names with .server. in them (+droplet.server.ts, hooks.server.ts, *.server.*), ` +
+    `+server.* routes or files under a server/ folder${importer ? `; imported by ${importer}` : ""}`
+  );
+}
+
 type ShortInput = { root: string; id: string };
 
 function short({ root, id }: ShortInput): string {
+  // A virtual id keeps its query: it says which droplet (`?name=`).
+  if (id.startsWith("\0")) return id.slice(1);
   const file = clean({ id });
   const prefix = `${root.replaceAll("\\", "/")}/`;
   return file.startsWith(prefix) ? file.slice(prefix.length) : file;
@@ -214,8 +242,15 @@ export function serverOnlyPlugin(state: PluginState): Plugin {
     resolveId: {
       order: "pre",
       async handler(source, importer, options) {
-        if (command !== "serve" || !importer || this.environment.config.consumer !== "client") return null;
-        if (source.startsWith("\0") || importer.startsWith("\0")) return null;
+        if (!importer || importer.startsWith("\0")) return null;
+        // Ahead of Vite's resolver, which would find the package before the virtual plugin sees the id.
+        if (
+          source === PACKAGE_SERVER &&
+          (this.environment.config.consumer === "client" || !mayImportServerOnly({ root: state.root, importer }))
+        ) {
+          this.error(serverOnlyImportMessage({ id: source, importer }));
+        }
+        if (command !== "serve" || this.environment.config.consumer !== "client" || source.startsWith("\0")) return null;
         const resolved = await this.resolve(source, importer, { ...options, skipSelf: true });
         // Only refuses: resolving stays with the other plugins (renderer marks).
         if (!resolved || resolved.external || !isServerOnlyFile({ root: state.root, id: resolved.id })) return null;

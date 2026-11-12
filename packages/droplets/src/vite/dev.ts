@@ -261,7 +261,7 @@ export function createDevRuntime({ server, state }: DevRuntimeOptions): DevRunti
   const refreshDropletMap = async () => {
     let entries: DropletEntry[];
     try {
-      entries = await discoverDroplets({ dropletsRoot: state.dropletsRoot, renderers: state.renderers, dev: true });
+      entries = await discoverDroplets({ dropletsRoot: state.dropletsRoot, renderers: state.renderers });
     } catch (error) {
       // A folder in a bad state (two components, an unknown extension):
       // keep serving what was there and say what is wrong.
@@ -375,7 +375,7 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
     // up on the next request.
     getHandle: async () => (await runtime.loadSsrModule()).getHandle?.(),
     matchApi: async (pathname) => (await runtime.loadSsrModule()).matchApi?.(pathname) ?? null,
-    renderError: async (name, error) => (await runtime.loadSsrModule()).renderError?.(name, error) ?? null,
+    renderError: async (name, error, props) => (await runtime.loadSsrModule()).renderError?.(name, error, props) ?? null,
     getHandleError: async () => devHandleError({ handleError: (await runtime.loadSsrModule()).getHandleError?.() }),
     validateProps: async (name, props) => {
       const mod = await runtime.loadSsrModule();
@@ -398,7 +398,7 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
       const result = await (mod.renderDroplet ?? mod.default)?.(name, event);
       if (!result) return null;
       if (!result.failed) return { html: result.html ?? result.body ?? "", data: result.serverData };
-      const page = await mod.renderError?.(name, result.error);
+      const page = await mod.renderError?.(name, result.error, event.props);
       return {
         html: page ? `${page.head ?? ""}${page.html ?? page.body ?? ""}` : "",
         failed: true,

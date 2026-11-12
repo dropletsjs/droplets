@@ -1,10 +1,11 @@
 import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
-import { fileExists, loadDirectoryNames, loadTextFile } from "./fs.ts";
+import { loadDirectoryNames, loadTextFile } from "./fs.ts";
 import { langOfFile, readExportedFlags } from "./flags.ts";
 import { logger } from "./logger.ts";
 import {
   CORE_SUFFIXES,
+  MODULE_EXTENSIONS,
   noRendererMessage,
   pickRenderer,
   SCRIPT_RENDERER,
@@ -28,7 +29,11 @@ export type DropletEntry = {
   /** Name of the renderer that handles `file`. */
   renderer: string;
   hasLoad: boolean;
+  /** `+droplet.ts` or `+droplet.js`; set with `hasLoad`. */
+  loadFile?: string;
   hasServerLoad: boolean;
+  /** `+droplet.server.ts` or `+droplet.server.js`; set with `hasServerLoad`. */
+  serverLoadFile?: string;
   /** Has an error page (`+error.<ext>`), rendered when a load fails. */
   hasError: boolean;
   /** The error page's file name, in the droplet's framework; set with `hasError`. */
@@ -45,8 +50,6 @@ type ComponentSuffixInput = { fileName: string; kind: ComponentKind };
 
 type LoadFileNamesInput = { dir: string };
 
-type ReportInput = { key: string; message: string };
-
 type FindComponentInput = {
   kind: ComponentKind;
   folderName: string;
@@ -54,7 +57,6 @@ type FindComponentInput = {
   files: readonly string[];
   byExtension: ReadonlyMap<string, DropletRenderer[]>;
   droplet: string;
-  dev: boolean | undefined;
   /** The droplet's renderer, when looking for its error page. */
   framework?: DropletRenderer;
 };
@@ -62,8 +64,6 @@ type FindComponentInput = {
 export type DiscoverDropletsInput = {
   dropletsRoot: string;
   renderers?: DropletRenderer[];
-  /** The dev server: flags an error page declares are reported, once each. */
-  dev?: boolean;
 };
 
 /** A droplet folder's name, which is its id: lowercase kebab-case. */
@@ -79,13 +79,23 @@ export function shipsClient(entry: Pick<DropletEntry, "hydrate">): boolean {
   return entry.hydrate !== false;
 }
 
+/** A load file spelled with an extension core does not load: `+droplet.mts`, `+droplet.server.cjs`. */
+const MISNAMED_LOAD = /^\+[Dd]roplet(\.server)?\.[cm][jt]s$/;
+
 /** `+droplet.vue` -> `.vue`; `+Droplet.fake.js` -> `.fake.js`; anything else -> `null`. */
 function componentSuffix({ fileName, kind }: ComponentSuffixInput): string | null {
   const prefix = kind === "droplet" ? /^\+[Dd]roplet(\..+)$/ : /^\+[Ee]rror(\..+)$/;
   const match = fileName.match(prefix);
   const suffix = match?.[1];
-  if (!suffix || CORE_SUFFIXES.has(suffix)) return null;
+  if (!suffix || CORE_SUFFIXES.has(suffix) || (kind === "droplet" && MISNAMED_LOAD.test(fileName))) return null;
   return suffix;
+}
+
+type LoadFileInput = { files: readonly string[]; name: "+droplet" | "+droplet.server" };
+
+/** The load file of a droplet folder by `MODULE_EXTENSIONS` order; `undefined` without one. */
+function loadFile({ files, name }: LoadFileInput): string | undefined {
+  return MODULE_EXTENSIONS.map((extension) => `${name}${extension}`).find((file) => files.includes(file));
 }
 
 async function loadFileNames({ dir }: LoadFileNamesInput): Promise<string[]> {
@@ -103,11 +113,13 @@ async function loadFileNames({ dir }: LoadFileNamesInput): Promise<string[]> {
 
 type Found = { file: string; renderer: DropletRenderer; flags: RenderFlags };
 
-/** Error pages and misnamed folders already reported, so a rescan (or the next environment's build) stays quiet. */
+/** What was already reported, so a rescan (or the next environment's build) stays quiet. */
 const reported = new Set<string>();
 
-/** Says why an error page is not taken as it is, once per file and reason. */
-function report({ key, message }: ReportInput): void {
+export type ReportOnceInput = { key: string; message: string };
+
+/** Warns once per key for the process: a file taken for what it is not, a folder ignored. */
+export function reportOnce({ key, message }: ReportOnceInput): void {
   if (reported.has(key)) return;
   reported.add(key);
   logger.warn("framework", message);
@@ -118,8 +130,8 @@ function report({ key, message }: ReportInput): void {
  * and flags. Two such files are an error; a suffix no renderer handles is
  * an error too. The error page is the droplet's error boundary: written in
  * the droplet's framework (`framework`), it follows the droplet's flags. An
- * error page in another framework is ignored with a warning, in build and
- * in dev; flags it declares are ignored, with a warning in dev.
+ * error page in another framework is ignored with a warning, as are the
+ * flags it declares, in build and in dev.
  */
 async function findComponent({
   kind,
@@ -128,7 +140,6 @@ async function findComponent({
   files,
   byExtension,
   droplet,
-  dev,
   framework,
 }: FindComponentInput): Promise<Found | null> {
   const handlers = (f: string): DropletRenderer[] => {
@@ -141,7 +152,7 @@ async function findComponent({
       `${folderName}/${f} is not a ${framework.name} component like the droplet; ignored, ` +
       "the error page is written in the droplet's framework";
     for (const f of candidates.filter((f) => !handlers(f).includes(framework))) {
-      report({ key: `${folder}/${f}:framework`, message: other(f) });
+      reportOnce({ key: `${folder}/${f}:framework`, message: other(f) });
     }
     candidates = candidates.filter((f) => handlers(f).includes(framework));
     const [only] = candidates;
@@ -150,7 +161,7 @@ async function findComponent({
       const source = (await loadTextFile({ path: resolve(folder, only) })) ?? "";
       const picked = pickRenderer({ candidates: handlers(only), source, file: `${folderName}/${only}`, fallback: framework });
       if (picked !== framework) {
-        report({ key: `${folder}/${only}:framework`, message: other(only) });
+        reportOnce({ key: `${folder}/${only}:framework`, message: other(only) });
         return null;
       }
     }
@@ -179,8 +190,8 @@ async function findComponent({
     : readExportedFlags(source, where, langOfFile({ file }));
   if (kind === "error") {
     const own = Object.keys(declared ?? {});
-    if (dev && own.length > 0) {
-      report({
+    if (own.length > 0) {
+      reportOnce({
         key: `${folder}/${file}:${own.join(",")}`,
         message:
           `${folderName}/${file} declares ${own.map((name) => `"${name}"`).join(", ")}; ignored, ` +
@@ -198,7 +209,7 @@ async function findComponent({
  * source of truth for which droplets exist: the Vite plugin, the production
  * build and the dev server all use it.
  */
-export async function discoverDroplets({ dropletsRoot, renderers = [], dev }: DiscoverDropletsInput): Promise<DropletEntry[]> {
+export async function discoverDroplets({ dropletsRoot, renderers = [] }: DiscoverDropletsInput): Promise<DropletEntry[]> {
   const byExtension = validateRenderers(renderers);
   const entries: DropletEntry[] = [];
   const ignored: string[] = [];
@@ -215,15 +226,22 @@ export async function discoverDroplets({ dropletsRoot, renderers = [], dev }: Di
       }
       continue;
     }
-    const component = await findComponent({ kind: "droplet", folderName: name, folder, files, byExtension, droplet: id, dev });
+    const component = await findComponent({ kind: "droplet", folderName: name, folder, files, byExtension, droplet: id });
     if (!component) continue;
+    for (const f of files.filter((f) => MISNAMED_LOAD.test(f))) {
+      const base = f.includes(".server.") ? "+droplet.server" : "+droplet";
+      reportOnce({
+        key: `${folder}/${f}:misnamed`,
+        message: `${name}/${f} is not loaded; name it ${MODULE_EXTENSIONS.map((extension) => `${base}${extension}`).join(" or ")}`,
+      });
+    }
 
     // One framework per droplet: an error page in another one is ignored.
     // A script droplet has none: it renders nothing, on either side.
     const script = component.renderer.name === SCRIPT_RENDERER;
-    if (script && dev) {
+    if (script) {
       for (const f of files.filter((f) => componentSuffix({ fileName: f, kind: "error" }) !== null)) {
-        report({ key: `${folder}/${f}:script`, message: `${name}/${f} is ignored: a script droplet has no error page` });
+        reportOnce({ key: `${folder}/${f}:script`, message: `${name}/${f} is ignored: a script droplet has no error page` });
       }
     }
     const error = script
@@ -235,16 +253,19 @@ export async function discoverDroplets({ dropletsRoot, renderers = [], dev }: Di
           files,
           byExtension,
           droplet: id,
-          dev,
           framework: component.renderer,
         });
+    const load = loadFile({ files, name: "+droplet" });
+    const serverLoad = loadFile({ files, name: "+droplet.server" });
     entries.push({
       id,
       name,
       file: component.file,
       renderer: component.renderer.name,
-      hasLoad: await fileExists({ path: resolve(folder, "+droplet.ts") }),
-      hasServerLoad: await fileExists({ path: resolve(folder, "+droplet.server.ts") }),
+      hasLoad: load !== undefined,
+      ...(load === undefined ? {} : { loadFile: load }),
+      hasServerLoad: serverLoad !== undefined,
+      ...(serverLoad === undefined ? {} : { serverLoadFile: serverLoad }),
       hasError: error !== null,
       ...(error ? { errorFile: error.file } : {}),
       ...component.flags,

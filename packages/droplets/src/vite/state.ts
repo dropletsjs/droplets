@@ -2,11 +2,12 @@ import { randomBytes } from "node:crypto";
 import { resolve } from "node:path";
 import type { ResolvedDevConfig, ResolvedDropletsConfig } from "../core/config.ts";
 import { DEFAULTS, normalizeDropletsFolder } from "../core/config.ts";
-import type { DropletEntry } from "../core/discover.ts";
+import { type DropletEntry, reportOnce } from "../core/discover.ts";
+import { fileExists } from "../core/fs.ts";
 import { entryClientPath } from "../core/paths.ts";
 import type { DropletsAdapter } from "../adapters.ts";
 import type { EnvState } from "../core/env.ts";
-import type { DropletRenderer } from "../renderer.ts";
+import { type DropletRenderer, MODULE_EXTENSIONS } from "../renderer.ts";
 import type { ResolvedCss } from "./css.ts";
 import { hostTokens, tokenNonce } from "../runtime/host-tokens.ts";
 
@@ -156,14 +157,32 @@ export function applyConfig({ state, root, config }: ApplyConfigInput): void {
 }
 
 /** `src/hooks.server.ts`, then `.js`; where `handle` lives. */
-export const HOOKS_FILES = ["src/hooks.server.ts", "src/hooks.server.js"];
+export const HOOKS_FILES = MODULE_EXTENSIONS.map((extension) => `src/hooks.server${extension}`);
 /**
  * `src/hooks.client.ts`, or another JavaScript or TypeScript extension;
  * where `init` lives, run by `/index.js` before any droplet starts.
  */
 export const CLIENT_HOOKS_FILES = ["src/hooks.client.ts", "src/hooks.client.mts", "src/hooks.client.js", "src/hooks.client.mjs"];
 /** Where `importmap` lives, next to the hooks. */
-export const IMPORTMAP_FILES = ["src/importmap.server.ts", "src/importmap.server.js"];
+export const IMPORTMAP_FILES = MODULE_EXTENSIONS.map((extension) => `src/importmap.server${extension}`);
+
+/** Extensions a module found by name is never looked up with; one spelled so is warned about. */
+const MISNAMED_EXTENSIONS = [".mts", ".mjs", ".cts", ".cjs"];
+
+export type WarnMisnamedModulesInput = { root: string };
+
+/** Warns once about a `hooks.server` or `importmap.server` file core does not load, naming the names it does. */
+export async function warnMisnamedModules({ root }: WarnMisnamedModulesInput): Promise<void> {
+  for (const [name, files] of [
+    ["src/hooks.server", HOOKS_FILES],
+    ["src/importmap.server", IMPORTMAP_FILES],
+  ] as const) {
+    for (const file of MISNAMED_EXTENSIONS.map((extension) => `${name}${extension}`)) {
+      if (!(await fileExists({ path: resolve(root, file) }))) continue;
+      reportOnce({ key: `${resolve(root, file)}:misnamed`, message: `${file} is not loaded; name it ${files.join(" or ")}` });
+    }
+  }
+}
 
 type BundleLocationInput = { state: PluginState; isBuilding: boolean };
 

@@ -58,7 +58,9 @@ describe("discovering script droplets", () => {
         file: "+droplet.script.ts",
         renderer: "script",
         hasLoad: true,
+        loadFile: "+droplet.ts",
         hasServerLoad: true,
+        serverLoadFile: "+droplet.server.ts",
         hasError: false,
         ssr: false,
         hydrate: true,
@@ -98,11 +100,11 @@ describe("discovering script droplets", () => {
     await expect(discoverDroplets({ dropletsRoot: root, renderers })).rejects.toThrow(/both\/ has 2 droplet components/);
   });
 
-  it("ignores an error page, with a word in dev", async () => {
+  it("ignores an error page, with a warning in build and dev", async () => {
     setLogLevel("warn");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const root = await folder({ "tracker/+droplet.script.ts": RUN, "tracker/+error.script.ts": RUN });
-    const [entry] = await discoverDroplets({ dropletsRoot: root, renderers, dev: true });
+    const [entry] = await discoverDroplets({ dropletsRoot: root, renderers });
     expect(entry).toMatchObject({ hasError: false });
     expect(entry?.errorFile).toBeUndefined();
     expect(warn.mock.calls.flat().join(" ")).toContain("a script droplet has no error page");
@@ -212,7 +214,9 @@ const tracker = {
   file: "+droplet.script.ts",
   renderer: "script",
   hasLoad: true,
+  loadFile: "+droplet.ts",
   hasServerLoad: true,
+  serverLoadFile: "+droplet.server.ts",
   hasError: false,
   ssr: false,
   hydrate: true as const,

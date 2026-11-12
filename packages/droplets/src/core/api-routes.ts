@@ -2,6 +2,8 @@ import type { Dirent } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { compareRoutes, type RouteSegment } from "../runtime/routes.ts";
+import { MODULE_EXTENSIONS } from "../renderer.ts";
+import { reportOnce } from "./discover.ts";
 
 /** A `+server.ts` found on disk, before its module is loaded. */
 export type ApiRouteEntry = {
@@ -12,7 +14,9 @@ export type ApiRouteEntry = {
   segments: RouteSegment[];
 };
 
-const SERVER_FILES = ["+server.ts", "+server.js"];
+const SERVER_FILES = MODULE_EXTENSIONS.map((extension) => `+server${extension}`);
+/** A route spelled with an extension core does not load: `+server.mjs`. */
+const MISNAMED_SERVER = /^\+server\.[cm][jt]s$/;
 
 /** URL prefix every API route lives under. */
 export const API_PREFIX = "/api";
@@ -21,7 +25,7 @@ export type ParseSegmentInput = { folder: string; file: string };
 
 export type RouteFromFoldersInput = { folders: readonly string[]; file: string };
 
-type WalkInput = { dir: string; found: string[] };
+type WalkInput = { dir: string; apiRoot: string; found: string[] };
 
 export type DiscoverApiRoutesInput = { apiRoot: string };
 
@@ -69,7 +73,7 @@ export function routeFromFolders({ folders, file }: RouteFromFoldersInput): ApiR
   return { id, file, segments: [{ type: "static", value: API_PREFIX.slice(1) }, ...segments] };
 }
 
-async function walk({ dir, found }: WalkInput): Promise<void> {
+async function walk({ dir, apiRoot, found }: WalkInput): Promise<void> {
   let entries: Dirent[];
   try {
     entries = await readdir(dir, { withFileTypes: true });
@@ -79,8 +83,12 @@ async function walk({ dir, found }: WalkInput): Promise<void> {
   }
   for (const entry of entries) {
     const full = join(dir, entry.name);
-    if (entry.isDirectory()) await walk({ dir: full, found });
+    if (entry.isDirectory()) await walk({ dir: full, apiRoot, found });
     else if (SERVER_FILES.includes(entry.name)) found.push(full);
+    else if (MISNAMED_SERVER.test(entry.name)) {
+      const file = relative(apiRoot, full).split(sep).join("/");
+      reportOnce({ key: `${full}:misnamed`, message: `${file} is not a route; name it ${SERVER_FILES.join(" or ")}` });
+    }
   }
 }
 
@@ -90,7 +98,7 @@ async function walk({ dir, found }: WalkInput): Promise<void> {
  */
 export async function discoverApiRoutes({ apiRoot }: DiscoverApiRoutesInput): Promise<ApiRouteEntry[]> {
   const files: string[] = [];
-  await walk({ dir: apiRoot, found: files });
+  await walk({ dir: apiRoot, apiRoot, found: files });
 
   const routes: ApiRouteEntry[] = [];
   const byShape = new Map<string, string>();

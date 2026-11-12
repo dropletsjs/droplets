@@ -47,7 +47,7 @@
  *
  * ```
  * droplets.config.ts            export default { element: "test-droplet" }
- *                               (plus `cssPath: "./src/app.css"` when src/app.css exists)
+ * src/app.css                   optional; the shared stylesheet by the plugin's `css.path` default
  * src/hooks.client.ts           export function init(): pushes "defined" or "not defined"
  *                                 (customElements.get("test-droplet")) to globalThis.conformanceInit
  * src/droplets/hello/

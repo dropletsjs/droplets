@@ -258,6 +258,7 @@ describe("discoverDroplets", () => {
       renderer: "svelte",
       hasLoad: false,
       hasServerLoad: true,
+      serverLoadFile: "+droplet.server.ts",
       // +error.vue is not in the droplet's framework: ignored.
       hasError: false,
       ssr: true,
@@ -271,6 +272,7 @@ describe("discoverDroplets", () => {
       file: "+Droplet.vue",
       renderer: "vue",
       hasLoad: true,
+      loadFile: "+droplet.ts",
       hasServerLoad: false,
       hasError: false,
       ssr: true,
@@ -299,8 +301,9 @@ describe("discoverDroplets", () => {
     await make("Shared", "index.ts");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    for (const dev of [undefined, true]) {
-      const entries = await discoverDroplets({ dropletsRoot: other, renderers: [svelte], dev });
+    // A rescan, or the next environment of a build, names them once.
+    for (const _pass of [1, 2]) {
+      const entries = await discoverDroplets({ dropletsRoot: other, renderers: [svelte] });
       expect(entries.map((e) => [e.id, e.name])).toEqual([["product-card", "product-card"]]);
     }
     expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
@@ -310,7 +313,7 @@ describe("discoverDroplets", () => {
     await rm(other, { recursive: true, force: true });
   });
 
-  it("ignores flags declared by the error page, with a warning in dev only", async () => {
+  it("ignores flags declared by the error page, with one warning in build and dev", async () => {
     const other = await mkdtemp(join(tmpdir(), "droplets-discover-"));
     await mkdir(join(other, "docs"));
     await writeFile(join(other, "docs", "+droplet.svelte"), "<script module>export const hydrate = false;</script><p></p>");
@@ -321,12 +324,8 @@ describe("discoverDroplets", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const [built] = await discoverDroplets({ dropletsRoot: other, renderers: [svelte] });
     expect(built).toMatchObject({ hasError: true, hydrate: false, prerender: false });
-    expect(warn).not.toHaveBeenCalled();
-
-    const [dev] = await discoverDroplets({ dropletsRoot: other, renderers: [svelte], dev: true });
-    expect(dev).toMatchObject({ hydrate: false, prerender: false });
-    // A rescan says it once.
-    await discoverDroplets({ dropletsRoot: other, renderers: [svelte], dev: true });
+    // The next environment's build, or a dev rescan, says it once.
+    await discoverDroplets({ dropletsRoot: other, renderers: [svelte] });
     const messages = warn.mock.calls.map((call) => String(call[0])).filter((m) => m.includes("+error.svelte"));
     expect(messages).toHaveLength(1);
     expect(messages[0]).toContain(
@@ -367,7 +366,7 @@ describe("discoverDroplets", () => {
     expect(card).toMatchObject({ ssr: true, hydrate: true, prerender: false });
   });
 
-  it.each(["+droplet.ts", "+droplet.server.ts"])("ignores a flag exported from %s, in a build and in dev", async (file) => {
+  it.each(["+droplet.ts", "+droplet.server.ts"])("ignores a flag exported from %s", async (file) => {
     const other = await mkdtemp(join(tmpdir(), "droplets-discover-"));
     await mkdir(join(other, "card"), { recursive: true });
     await mkdir(join(other, "plain"), { recursive: true });
@@ -377,11 +376,49 @@ describe("discoverDroplets", () => {
       "export const load = () => ({});\nexport const ssr = false;\nexport const hydrate = true;\nexport const prerender = true;\n";
     await writeFile(join(other, "card", file), load);
     await writeFile(join(other, "plain", file), load);
-    for (const options of [{}, { dev: true }]) {
-      const [card, plain] = await discoverDroplets({ dropletsRoot: other, renderers: [svelte], ...options });
-      expect(card).toMatchObject({ id: "card", ssr: true, hydrate: false, prerender: false });
-      expect(plain).toMatchObject({ id: "plain", ssr: true, hydrate: true, prerender: false });
-    }
+    const [card, plain] = await discoverDroplets({ dropletsRoot: other, renderers: [svelte] });
+    expect(card).toMatchObject({ id: "card", ssr: true, hydrate: false, prerender: false });
+    expect(plain).toMatchObject({ id: "plain", ssr: true, hydrate: true, prerender: false });
+  });
+
+  it("loads +droplet.js and +droplet.server.js like the .ts ones, and warns once about a look-alike it does not load", async () => {
+    const other = await mkdtemp(join(tmpdir(), "droplets-discover-"));
+    await mkdir(join(other, "plain"));
+    await writeFile(join(other, "plain", "+droplet.svelte"), "<p></p>");
+    await writeFile(join(other, "plain", "+droplet.js"), "export const load = (e) => e.data;");
+    await writeFile(join(other, "plain", "+droplet.server.js"), "export const load = () => ({});");
+    await mkdir(join(other, "odd"));
+    await writeFile(join(other, "odd", "+droplet.svelte"), "<p></p>");
+    await writeFile(join(other, "odd", "+droplet.mts"), "export const load = (e) => e.data;");
+    await writeFile(join(other, "odd", "+droplet.server.mjs"), "export const load = () => ({});");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const [odd, plain] = await discoverDroplets({ dropletsRoot: other, renderers: [svelte] });
+    expect(plain).toMatchObject({
+      id: "plain",
+      hasLoad: true,
+      loadFile: "+droplet.js",
+      hasServerLoad: true,
+      serverLoadFile: "+droplet.server.js",
+    });
+    expect(odd).toMatchObject({ id: "odd", file: "+droplet.svelte", hasLoad: false, hasServerLoad: false });
+    expect(odd).not.toHaveProperty("loadFile");
+    await discoverDroplets({ dropletsRoot: other, renderers: [svelte] });
+    expect(warn.mock.calls.map((call) => String(call[0])).filter((m) => m.includes("odd/"))).toEqual([
+      "[droplets:framework] odd/+droplet.mts is not loaded; name it +droplet.ts or +droplet.js",
+      "[droplets:framework] odd/+droplet.server.mjs is not loaded; name it +droplet.server.ts or +droplet.server.js",
+    ]);
+    warn.mockRestore();
+  });
+
+  it("never takes a load file's declaration (+droplet.d.ts, +droplet.server.d.ts) for a component", async () => {
+    const other = await mkdtemp(join(tmpdir(), "droplets-discover-"));
+    await mkdir(join(other, "typed"));
+    await writeFile(join(other, "typed", "+droplet.svelte"), "<p></p>");
+    await writeFile(join(other, "typed", "+droplet.server.ts"), "export const load = () => ({});");
+    await writeFile(join(other, "typed", "+droplet.server.d.ts"), "export declare const load: () => {};");
+    await writeFile(join(other, "typed", "+droplet.d.ts"), "export {};");
+    const entries = await discoverDroplets({ dropletsRoot: other, renderers: [svelte] });
+    expect(entries.map((e) => [e.id, e.file, e.hasServerLoad])).toEqual([["typed", "+droplet.svelte", true]]);
   });
 
   it("names the renderer to install for an unknown extension", async () => {
@@ -404,13 +441,19 @@ describe("discoverDroplets", () => {
       "docs/+droplet.lit.ts: no renderer for .lit.ts; install @dropletsjs/renderer-lit and add lit() to renderers",
     );
     await rm(join(other, "docs", "+droplet.lit.ts"));
+    // The renderer handles .hbs alone: the fix is a rename, not an install.
+    await writeFile(join(other, "docs", "+droplet.handlebars"), "");
+    await expect(discoverDroplets({ dropletsRoot: other, renderers: [svelte] })).rejects.toThrow(
+      "docs/+droplet.handlebars: no renderer for .handlebars; @dropletsjs/renderer-handlebars handles +droplet.hbs, rename the file",
+    );
+    await rm(join(other, "docs", "+droplet.handlebars"));
     await writeFile(join(other, "docs", "+droplet.weird"), "");
     // An error page outside the droplet's framework is ignored, renderer or not.
     await rm(join(other, "docs", "+droplet.weird"));
     await writeFile(join(other, "docs", "+droplet.svelte"), "");
     await writeFile(join(other, "docs", "+error.vue"), "");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const [docs] = await discoverDroplets({ dropletsRoot: other, renderers: [svelte], dev: true });
+    const [docs] = await discoverDroplets({ dropletsRoot: other, renderers: [svelte] });
     expect(docs).toMatchObject({ id: "docs", hasError: false });
     expect(warn.mock.calls.map((call) => String(call[0])).join("\n")).toContain(
       "docs/+error.vue is not a svelte component like the droplet; ignored",
@@ -457,7 +500,7 @@ describe("discoverDroplets", () => {
     await writeFile(join(other, "s", "+droplet.tsx"), 'import { createSignal } from "solid-js";');
     await writeFile(join(other, "s", "+error.tsx"), 'import { useState } from "react";');
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const entries = await discoverDroplets({ dropletsRoot: other, renderers: [react, solid], dev: true });
+    const entries = await discoverDroplets({ dropletsRoot: other, renderers: [react, solid] });
     expect(entries.map((e) => [e.id, e.renderer, e.errorFile ?? null])).toEqual([
       ["r", "react", "+error.tsx"],
       ["s", "solid", null],

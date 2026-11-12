@@ -1,8 +1,12 @@
-import { describe, expect, it } from "vitest";
-import type { EnvironmentModuleNode } from "vite";
+import { describe, expect, it, vi } from "vitest";
+import type { EnvironmentModuleNode, ViteDevServer } from "vite";
+import { propsKey } from "../../src/runtime/props.ts";
+import type { SsrModule } from "../../src/server/app.ts";
+import { createInitialState } from "../../src/vite/state.ts";
 import {
   affectedDroplets,
   classifyChange,
+  createDevApp,
   dropletForFile,
   extractDropletIdFromModuleId,
   extractLoadFromModuleId,
@@ -130,5 +134,38 @@ describe("classifyChange: what an edit touches, per droplet", () => {
     expect(extractLoadFromModuleId({ id: "/p/src/droplets/HelloWorld/+droplet.server.ts" })).toBeNull();
     expect(extractLoadFromModuleId({ id: "/p/src/droplets/a/+droplet.js" })).toEqual({ droplet: "a", server: false });
     expect(extractLoadFromModuleId({ id: "/p/src/droplets/a/+droplet.svelte" })).toBeNull();
+  });
+});
+
+describe("createDevApp: the error page gets the request's props", () => {
+  const app = (module: SsrModule) =>
+    createDevApp({
+      server: { environments: {} } as unknown as ViteDevServer,
+      state: createInitialState(),
+      runtime: { loadSsrModule: async () => module, refreshDropletMap: async () => {}, folderById: () => new Map() },
+    });
+
+  it("for a live render that failed", async () => {
+    const error = { message: "boom" };
+    const renderError = vi.fn(async () => ({ html: "<p>failed</p>" }));
+    const result = await app({ renderDroplet: async () => ({ failed: true, error }), renderError }).request(
+      "http://localhost/droplets/hello?who=me",
+    );
+    expect(result.status).toBe(500);
+    expect(await result.text()).toContain("<p>failed</p>");
+    expect(renderError).toHaveBeenCalledWith("hello", error, { who: "me" });
+  });
+
+  it("for a listed entry whose render failed", async () => {
+    const error = { message: "boom" };
+    const renderError = vi.fn(async () => ({ html: "<p>failed</p>" }));
+    const result = await app({
+      getDropletMeta: () => ({ exists: true, ssr: true, prerender: true }),
+      prerenderKeys: async () => [propsKey({ who: "me" })],
+      renderDroplet: async () => ({ failed: true, error }),
+      renderError,
+    }).request("http://localhost/droplets/hello?who=me");
+    expect(await result.text()).toContain("<p>failed</p>");
+    expect(renderError).toHaveBeenCalledWith("hello", error, { who: "me" });
   });
 });

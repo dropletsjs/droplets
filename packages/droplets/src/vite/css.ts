@@ -1,6 +1,7 @@
-import { resolve } from "node:path";
-import type { Plugin as PostcssPlugin, Root } from "postcss";
-import { isCSSRequest, type Plugin, type UserConfig } from "vite";
+import { dirname, resolve } from "node:path";
+import type { AcceptedPlugin, Plugin as PostcssPlugin, ProcessOptions, Root } from "postcss";
+import postcssrc from "postcss-load-config";
+import { isCSSRequest, type Plugin, searchForWorkspaceRoot, type UserConfig } from "vite";
 import { fileExists } from "../core/fs.ts";
 import { logger } from "../core/logger.ts";
 import { scopeStylesPlugin } from "../css/scope.ts";
@@ -123,20 +124,62 @@ export function hasPreflight({ root }: HasPreflightInput): boolean {
   return found;
 }
 
-/**
- * Adds the framework's PostCSS steps to whatever `css.postcss` the user
- * configured inline: scoping, and with `twPreflight: false` a warning for a
- * preflight that got through. A `postcss.config.js` on disk cannot be
- * extended from here; in that case the user adds
- * `@dropletsjs/droplets/postcss` themselves. `undefined` when there is
- * nothing to do.
- */
 /** Vite's `css` option, as `createCssConfig` returns it. */
 export type CssConfig = NonNullable<UserConfig["css"]>;
 
-type CreateCssConfigInput = { userConfig: UserConfig; state: PluginState };
+/** The files postcss-load-config reads, in its order, besides a `postcss` key in `package.json`. */
+const POSTCSS_CONFIG_FILES = [
+  ".postcssrc",
+  ...["json", "yaml", "yml", "js", "mjs", "cjs", "ts", "mts", "cts"].map((extension) => `.postcssrc.${extension}`),
+  ...["js", "mjs", "cjs", "ts", "mts", "cts"].map((extension) => `postcss.config.${extension}`),
+];
 
-export function createCssConfig({ userConfig, state }: CreateCssConfigInput): CssConfig | undefined {
+type FindPostcssConfigFileInput = { dir: string; stopDir: string };
+
+/** The PostCSS config file postcss-load-config would find from `dir`, for naming it; `null` when there is none. */
+async function findPostcssConfigFile({ dir, stopDir }: FindPostcssConfigFileInput): Promise<string | null> {
+  for (let at = dir; ; at = dirname(at)) {
+    for (const name of POSTCSS_CONFIG_FILES) {
+      if (await fileExists({ path: resolve(at, name) })) return resolve(at, name);
+    }
+    if (at === stopDir || dirname(at) === at) return null;
+  }
+}
+
+type LoadedPostcss = { options: ProcessOptions; plugins: AcceptedPlugin[] };
+
+type LoadPostcssConfigInput = { searchPath: string; root: string };
+
+/**
+ * The project's PostCSS config file, found as Vite finds it (from
+ * `searchPath` up to the workspace root), since Vite reads none once the
+ * plugin sets `css.postcss` inline. `null` when there is none; a file that
+ * fails to load throws, naming it.
+ */
+async function loadPostcssConfig({ searchPath, root }: LoadPostcssConfigInput): Promise<LoadedPostcss | null> {
+  const stopDir = searchForWorkspaceRoot(root);
+  try {
+    const { options, plugins } = await postcssrc({}, searchPath, { stopDir });
+    return { options, plugins: plugins as AcceptedPlugin[] };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("No PostCSS Config found")) return null;
+    const file = (await findPostcssConfigFile({ dir: searchPath, stopDir })) ?? searchPath;
+    throw new Error(`droplets: the PostCSS config ${file} failed to load: ${message}`);
+  }
+}
+
+type CreateCssConfigInput = { userConfig: UserConfig; state: PluginState; root: string };
+
+/**
+ * Adds the framework's PostCSS steps after the user's own: scoping, and
+ * with `twPreflight: false` a warning for a preflight that got through.
+ * The user's come from `css.postcss` when it is inline, else from the
+ * project's PostCSS config file (searched from `css.postcss` when that is
+ * a directory, else from the root), with its options. `undefined` when
+ * there is nothing to add.
+ */
+export async function createCssConfig({ userConfig, state, root }: CreateCssConfigInput): Promise<CssConfig | undefined> {
   const plugins: PostcssPlugin[] = [];
   if (!state.css.twPreflight) {
     const warned = new Set<string>();
@@ -157,11 +200,11 @@ export function createCssConfig({ userConfig, state }: CreateCssConfigInput): Cs
   if (!plugins.length) return undefined;
 
   const existing = userConfig.css?.postcss;
-  if (typeof existing === "string") {
-    logger.warn("framework", "css.postcss points at a config file; add scopeStylesPlugin from @dropletsjs/droplets/postcss to it yourself");
-    return undefined;
-  }
-  return { postcss: { ...existing, plugins: [...(existing?.plugins ?? []), ...plugins] } };
+  const own =
+    typeof existing === "object"
+      ? { options: existing, plugins: existing.plugins ?? [] }
+      : await loadPostcssConfig({ searchPath: typeof existing === "string" ? resolve(root, existing) : root, root });
+  return { postcss: { ...own?.options, plugins: [...(own?.plugins ?? []), ...plugins] } };
 }
 
 const TAILWIND_PLUGIN = "@tailwindcss/vite";

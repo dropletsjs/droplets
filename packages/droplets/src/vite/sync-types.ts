@@ -60,8 +60,8 @@ export function dropletTypesCode({ entry, renderer, typesFile, folder, label = t
     `import type { DropletErrorProps as ComponentErrorProps, DropletProps as ComponentProps } from ${JSON.stringify(componentTypes)};`,
     ...(script ? ['import type { DropletScript as BaseDropletScript } from "@dropletsjs/droplets";'] : []),
     "",
-    `type Universal = ${entry.hasLoad ? module("+droplet.ts") : "{}"};`,
-    `type Server = ${entry.hasServerLoad ? module("+droplet.server.ts") : "{}"};`,
+    `type Universal = ${entry.loadFile ? module(entry.loadFile) : "{}"};`,
+    `type Server = ${entry.serverLoadFile ? module(entry.serverLoadFile) : "{}"};`,
     "type Returned<M, K extends string> = M extends { [key in K]: (...args: any[]) => infer R } ? Awaited<R> : never;",
     'type Handled<M, R = Returned<M, "handleError">> = [R] extends [never] ? never : R extends { error: infer E } ? E : never;',
     "type ActionsOf<M> = M extends { actions: infer A } ? A : never;",
@@ -189,6 +189,16 @@ async function writeIfChanged({ path, code }: WriteIfChangedInput): Promise<bool
   return true;
 }
 
+type RemoveEmptyFoldersInput = { from: string; upTo: string };
+
+/** Removes `from` and each parent left empty, stopping at `upTo`. */
+async function removeEmptyFolders({ from, upTo }: RemoveEmptyFoldersInput): Promise<void> {
+  for (let dir = from; dir !== upTo && dir.startsWith(upTo); dir = dirname(dir)) {
+    if ((await readdir(dir)).length > 0) return;
+    await rm(dir, { recursive: true });
+  }
+}
+
 type LoadGeneratedFilesInput = { dir: string };
 
 async function loadGeneratedFiles({ dir }: LoadGeneratedFilesInput): Promise<string[]> {
@@ -235,7 +245,9 @@ export async function syncDropletTypes(input: SyncTypesInput): Promise<{ written
   if (await writeIfChanged({ path: tsconfig, code: typesTsconfig({ root: input.root, typesRoot, shadowed }) })) written.push(tsconfig);
 
   for (const stale of await loadGeneratedFiles({ dir: typesRoot })) {
-    if (!wanted.has(stale)) await rm(stale);
+    if (wanted.has(stale)) continue;
+    await rm(stale);
+    await removeEmptyFolders({ from: dirname(stale), upTo: typesRoot });
   }
   return { written };
 }

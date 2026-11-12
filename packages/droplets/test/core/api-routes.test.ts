@@ -1,8 +1,9 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { discoverApiRoutes, parseSegment, routeFromFolders } from "../../src/core/api-routes.ts";
+import { setLogLevel } from "../../src/core/logger.ts";
 
 describe("parseSegment", () => {
   it.each([
@@ -68,6 +69,25 @@ describe("discoverApiRoutes", () => {
     // the rest only need a stable order.
     expect(routes.map((r) => r.id)).toEqual(["/api/users/me", "/api/users/[id]", "/api/files/[...path]", "/api/stats", "/api"]);
     expect(routes.find((r) => r.id === "/api/users/me")?.file).toBe("users/me/+server.js");
+  });
+
+  it("warns once about a +server.mjs or .mts, which is no route, naming the name to use", async () => {
+    setLogLevel("warn");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await touch("+server.ts");
+    await touch("users/+server.mjs");
+    await touch("files/+server.mts");
+    try {
+      expect((await discoverApiRoutes({ apiRoot: root })).map((r) => r.id)).toEqual(["/api"]);
+      await discoverApiRoutes({ apiRoot: root });
+      expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
+        "[droplets:framework] files/+server.mts is not a route; name it +server.ts or +server.js",
+        "[droplets:framework] users/+server.mjs is not a route; name it +server.ts or +server.js",
+      ]);
+    } finally {
+      warn.mockRestore();
+      setLogLevel("error");
+    }
   });
 
   it("refuses two files that answer the same URLs", async () => {

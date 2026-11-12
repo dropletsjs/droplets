@@ -22,7 +22,7 @@ import type { DevStrategy } from "../core/config.ts";
 import { sharingRenderers, type DropletRenderer } from "../renderer.ts";
 import { isScriptDroplet } from "../script/index.ts";
 import { tailwindActive } from "./css.ts";
-import { isServerPath, projectPath } from "./server-only.ts";
+import { mayImportServerOnly, serverOnlyImportMessage } from "./server-only.ts";
 import { componentSpecifier } from "./renderer-graphs.ts";
 import { locationScript, publicEnvScript, serverKey } from "../runtime/server-records.ts";
 import { bundleLocation, CLIENT_HOOKS_FILES, isFixed, HOOKS_FILES, IMPORTMAP_FILES, rendererNamed, type PluginState } from "./state.ts";
@@ -44,22 +44,8 @@ export const VIRTUAL_DROP = "$droplets/drop";
 /** `actionUrl()`: where a droplet's forms post. Anywhere. */
 export const VIRTUAL_FORM = "$droplets/form";
 
-/** Modules that would leak secrets or server code into a browser bundle. */
+/** Modules that would leak secrets or server code into a browser bundle; the package's own server entry is `server-only.ts`'s. */
 const SERVER_ONLY = new Set([VIRTUAL_SERVER, VIRTUAL_ENV_PRIVATE]);
-
-/**
- * Whether a project file may import `$droplets/server` or
- * `$droplets/env/private`: it is a server file (`isServerPath`: `+server.ts`,
- * `hooks.server.ts`, `db.server.tsx`, a file under a `server/` folder).
- * Files outside the project (dependencies, the framework, virtual modules)
- * are not checked.
- */
-type MayImportServerOnlyInput = { root: string; importer: string };
-
-export function mayImportServerOnly({ root, importer }: MayImportServerOnlyInput): boolean {
-  const rel = projectPath({ root, id: importer });
-  return rel === null || isServerPath({ path: rel });
-}
 
 /** One build entry per droplet: `virtual:droplet-client?name=<folder>`. */
 export const VIRTUAL_CLIENT = "virtual:droplet-client";
@@ -217,8 +203,8 @@ export function buildServerCode({
   entries.forEach((entry, index) => {
     const base = `${globRoot}/${entry.name}`;
     const componentVar = `component_${index}`;
-    const loadVar = entry.hasLoad ? `load_${index}` : null;
-    const serverVar = entry.hasServerLoad ? `serverLoad_${index}` : null;
+    const loadVar = entry.loadFile ? `load_${index}` : null;
+    const serverVar = entry.serverLoadFile ? `serverLoad_${index}` : null;
     const errorVar = entry.hasError && entry.errorFile ? `error_${index}` : null;
     if (errorVar) {
       imports.push(`import * as ${errorVar} from ${JSON.stringify(component(`${base}/${entry.errorFile}`, entry.renderer))};`);
@@ -231,10 +217,10 @@ export function buildServerCode({
       imports.push(`import * as ${componentVar} from ${JSON.stringify(component(`${base}/${entry.file}`, entry.renderer))};`);
     }
     if (loadVar) {
-      imports.push(`import * as ${loadVar} from ${JSON.stringify(`${base}/+droplet.ts`)};`);
+      imports.push(`import * as ${loadVar} from ${JSON.stringify(`${base}/${entry.loadFile}`)};`);
     }
     if (serverVar) {
-      imports.push(`import * as ${serverVar} from ${JSON.stringify(`${base}/+droplet.server.ts`)};`);
+      imports.push(`import * as ${serverVar} from ${JSON.stringify(`${base}/${entry.serverLoadFile}`)};`);
     }
 
     members.push(
@@ -519,7 +505,7 @@ export async function update(handle, data, info) {
 `;
 
 /** What `createClientModuleCode` needs to know about one droplet. */
-export type ClientModuleInput = Pick<DropletEntry, "id" | "name" | "file" | "renderer" | "hasError" | "errorFile">;
+export type ClientModuleInput = Pick<DropletEntry, "id" | "name" | "file" | "renderer" | "hasError" | "errorFile" | "loadFile">;
 
 export type CreateClientModuleCodeInput = {
   globRoot: string;
@@ -560,7 +546,8 @@ export function createClientModuleCode({
   formModule = formModulePath,
 }: CreateClientModuleCodeInput): string {
   const base = `${globRoot}/${entry.name}`;
-  const loadFile = `${base}/+droplet.ts`;
+  // Without a load file the glob matches nothing, and `loader` stays undefined.
+  const loadFile = `${base}/${entry.loadFile ?? "+droplet.ts"}`;
   const id = JSON.stringify(entry.id);
   const renderer = rendererNamed({ renderers, name: entry.renderer });
   const withError = entry.hasError && entry.errorFile;
@@ -721,7 +708,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
   // the droplet list may have changed — so rescan then.
   const getEntries = (): Promise<DropletEntry[]> => {
     if (command === "serve" || !cached) {
-      cached = discoverDroplets({ dropletsRoot: state.dropletsRoot, renderers: state.renderers, dev: command === "serve" });
+      cached = discoverDroplets({ dropletsRoot: state.dropletsRoot, renderers: state.renderers });
     }
     return cached;
   };
@@ -754,11 +741,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
         SERVER_ONLY.has(id) &&
         (this.environment.config.consumer === "client" || (importer && !mayImportServerOnly({ root: state.root, importer })))
       ) {
-        this.error(
-          `${id} can only be imported by server files: names with .server. in them (+droplet.server.ts, hooks.server.ts, *.server.*), +server.* routes or files under a server/ folder${
-            importer ? `; imported by ${importer}` : ""
-          }`,
-        );
+        this.error(serverOnlyImportMessage({ id, importer }));
       }
       if (id === VIRTUAL_SERVER) return serverModulePath;
       if (id === VIRTUAL_ENV_PUBLIC) return RESOLVED_ENV_PUBLIC;

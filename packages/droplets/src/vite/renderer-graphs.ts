@@ -37,7 +37,8 @@ function clean({ id }: IdInput): string {
 
 /** Vite's stylesheet languages, as a module id or a query that ends in one (`?lang.css`). */
 const STYLESHEET = /\.(?:css|less|sass|scss|styl|stylus|pcss|postcss|sss)(?:$|\?)/;
-const AS_STRING = /[?&](?:url|raw|inline)(?:&|$)/;
+// `?transform-only` is the file behind a `?url` import in a build: emitted, never injected.
+const AS_STRING = /[?&](?:url|raw|inline|transform-only)(?:&|$)/;
 
 /** Whether a module id is a stylesheet that styles the page. */
 export function isStylesheet({ id }: IdInput): boolean {

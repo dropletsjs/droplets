@@ -74,31 +74,60 @@ describe("createCssConfig", () => {
     const plugins = (config?.postcss as { plugins: AcceptedPlugin[] } | undefined)?.plugins ?? [];
     return postcss(plugins).process(css, { from: "/p/src/droplets/a/style.css" }).css;
   };
+  const names = (config: CssConfig | undefined) =>
+    ((config?.postcss as { plugins: Array<{ postcssPlugin: string }> } | undefined)?.plugins ?? []).map((p) => p.postcssPlugin);
 
-  it("scopes every stylesheet, keeping the user's inline PostCSS plugins", () => {
+  let root: string;
+  beforeAll(async () => {
+    root = await realpath(await mkdtemp(join(tmpdir(), "droplets-postcss-")));
+    // No workspace above it: the search stops here.
+    await writeFile(join(root, "package.json"), '{ "type": "module", "workspaces": ["."] }\n');
+  });
+  afterAll(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it("scopes every stylesheet, keeping the user's inline PostCSS plugins", async () => {
     const state = createInitialState();
     const own = { postcssPlugin: "own" };
-    const config = createCssConfig({ userConfig: { css: { postcss: { plugins: [own] } } }, state }) ?? expect.unreachable("a css config");
+    const config =
+      (await createCssConfig({ userConfig: { css: { postcss: { plugins: [own] } } }, state, root })) ?? expect.unreachable("a css config");
     const plugins = (config.postcss as { plugins: unknown[] }).plugins;
     expect(plugins[0]).toBe(own);
     expect(run({ config, css: ".x { color: red }" })).toBe("djs-droplet .x { color: red }");
   });
 
-  it("checks for a stray preflight without twPreflight, and does nothing when there is nothing to do", () => {
+  it("checks for a stray preflight without twPreflight, and does nothing when there is nothing to do", async () => {
     const state = createInitialState();
     state.css = { ...state.css, scoped: false, twPreflight: false };
-    const names = (
-      (createCssConfig({ userConfig: {}, state }) ?? expect.unreachable("a css config")).postcss as {
-        plugins: Array<{ postcssPlugin: string }>;
-      }
-    ).plugins.map((p) => p.postcssPlugin);
-    expect(names).toEqual(["droplets:preflight-check"]);
+    expect(names(await createCssConfig({ userConfig: {}, state, root }))).toEqual(["droplets:preflight-check"]);
     state.css = { ...state.css, twPreflight: true };
-    expect(createCssConfig({ userConfig: {}, state })).toBeUndefined();
+    expect(await createCssConfig({ userConfig: {}, state, root })).toBeUndefined();
   });
 
-  it("leaves a PostCSS config file alone", () => {
-    expect(createCssConfig({ userConfig: { css: { postcss: "./postcss.config.js" } }, state: createInitialState() })).toBeUndefined();
+  it("loads the project's PostCSS config file, its plugins first and its options kept", async () => {
+    const project = join(root, "with-file");
+    await mkdir(join(project, "elsewhere"), { recursive: true });
+    await writeFile(join(project, "postcss.config.js"), 'export default { map: false, plugins: [{ postcssPlugin: "from-file" }] };\n');
+    await writeFile(join(project, "elsewhere", "postcss.config.js"), 'export default { plugins: [{ postcssPlugin: "from-dir" }] };\n');
+    const config = await createCssConfig({ userConfig: {}, state: createInitialState(), root: project });
+    expect(names(config)).toEqual(["from-file", "droplets:scope-styles"]);
+    expect(config?.postcss).toMatchObject({ map: false });
+    // `css.postcss` as a string is a directory to search from, as for Vite.
+    const fromDir = await createCssConfig({ userConfig: { css: { postcss: "./elsewhere" } }, state: createInitialState(), root: project });
+    expect(names(fromDir)).toEqual(["from-dir", "droplets:scope-styles"]);
+    // Inline options win, and the file is not read.
+    const inline = await createCssConfig({ userConfig: { css: { postcss: { plugins: [] } } }, state: createInitialState(), root: project });
+    expect(names(inline)).toEqual(["droplets:scope-styles"]);
+  });
+
+  it("throws, naming the file, when the PostCSS config file fails to load", async () => {
+    const project = join(root, "broken");
+    await mkdir(project, { recursive: true });
+    await writeFile(join(project, "postcss.config.js"), 'throw new Error("not today");\n');
+    await expect(createCssConfig({ userConfig: {}, state: createInitialState(), root: project })).rejects.toThrow(
+      `droplets: the PostCSS config ${join(project, "postcss.config.js")} failed to load: not today`,
+    );
   });
 });
 

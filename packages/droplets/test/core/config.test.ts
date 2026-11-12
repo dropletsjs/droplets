@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { config, DEFAULTS, isValidElementName, normalizeDropletsFolder, resolveConfig, resolveDevConfig } from "../../src/core/config.ts";
+import {
+  config,
+  DEFAULTS,
+  isValidElementName,
+  normalizeDropletsFolder,
+  portOf,
+  resolveConfig,
+  resolveDevConfig,
+} from "../../src/core/config.ts";
 
 describe("config()", () => {
   it("is an identity helper", () => {
@@ -37,6 +45,15 @@ describe("normalizeDropletsFolder", () => {
   it("falls back to the default for empty values", () => {
     expect(normalizeDropletsFolder({ folder: "" })).toBe(DEFAULTS.dropletsFolder);
     expect(normalizeDropletsFolder({ folder: "./" })).toBe(DEFAULTS.dropletsFolder);
+  });
+
+  it("refuses a folder above the project root, naming the option and the value", () => {
+    expect(() => normalizeDropletsFolder({ folder: "../elsewhere", option: "dropletsFolder" })).toThrow(
+      'droplets: dropletsFolder must be a folder inside the project, got "../elsewhere"',
+    );
+    expect(() => resolveConfig({ dropletsFolder: "src/../../widgets" })).toThrow(/dropletsFolder must be a folder inside the project/);
+    expect(() => resolveConfig({ apiFolder: "../api" })).toThrow('droplets: apiFolder must be a folder inside the project, got "../api"');
+    expect(normalizeDropletsFolder({ folder: "src/x/../droplets" })).toBe("src/droplets");
   });
 });
 
@@ -152,9 +169,20 @@ describe("resolveConfig", () => {
     expect(resolveConfig(user, { port: "9000" }).server.port).toBe(9000);
   });
 
-  it("ignores a non-numeric PORT", () => {
-    const resolved = resolveConfig({ server: { port: 4000 } }, { port: "nope" });
-    expect(resolved.server.port).toBe(4000);
+  it("takes PORT only as an integer from 0 to 65535, and ignores anything else", () => {
+    const user = { dev: { server: { port: 3000 } }, server: { port: 4000 } };
+    for (const bad of ["nope", "-1", "1.5", "70000", "65536", "8e2", "0x1f", " ", "8080abc"]) {
+      expect(resolveConfig(user, { port: bad }).server.port, bad).toBe(4000);
+      expect(resolveDevConfig({ user, env: { port: bad } }).server.port, bad).toBe(3000);
+      expect(portOf({ value: bad }), bad).toBeUndefined();
+    }
+    expect(resolveConfig(user, { port: "65535" }).server.port).toBe(65535);
+    expect(resolveConfig(user, { port: " 8080 " }).server.port).toBe(8080);
+    expect(portOf({ value: "0" })).toBe(0);
+    // 0 is a port, but means "pick one": the config's own port stands.
+    expect(resolveConfig(user, { port: "0" }).server.port).toBe(4000);
+    expect(resolveConfig(user, { port: "" }).server.port).toBe(4000);
+    expect(portOf({ value: undefined })).toBeUndefined();
   });
 
   it("maps cors: true to a wildcard origin and passes objects through", () => {

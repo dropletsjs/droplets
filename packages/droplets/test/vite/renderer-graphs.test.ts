@@ -189,7 +189,8 @@ describe("isStylesheet", () => {
   });
 
   it("leaves CSS imported as a string, and scripts, alone", () => {
-    for (const id of ["./a.css?url", "./a.css?raw", "./a.css?inline", "./a.css?inline&lang.css"])
+    // `?transform-only` is what a build turns `?url` into: the file behind the URL.
+    for (const id of ["./a.css?url", "./a.css?raw", "./a.css?inline", "./a.css?inline&lang.css", "./a.css?transform-only"])
       expect(isStylesheet({ id: id })).toBe(false);
     expect(isStylesheet({ id: "/app/src/lib/theme.css.ts" })).toBe(false);
     expect(isStylesheet({ id: "/app/src/droplets/a/+droplet.ts" })).toBe(false);

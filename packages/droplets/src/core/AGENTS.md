@@ -10,7 +10,7 @@
   Checked by: `../../test/core/config.test.ts`.
 - Every file `paths.ts` names in `dist/` is a tsdown `entry`, so its name stays fixed.
   Checked by: `../../../../tests/packages/test/packed.test.ts` (each entry is at its fixed path in `dist/`).
-- Flags (`ssr`, `hydrate`, `prerender`) are literal `export const` declarations read only from the droplet's component file; flags anywhere else are ignored (an `+error.*`'s with a dev warning).
+- Flags (`ssr`, `hydrate`, `prerender`) are literal `export const` declarations read only from the droplet's component file; flags anywhere else are ignored (an `+error.*`'s with a warning in build and dev).
   Checked by: `../../test/core/discover.test.ts`.
 - `discoverDroplets` is the one list of droplets: the plugin, the build and the dev server all read it.
 - `trustedOrigins` accepts `"*"` on the owner's explicit opt-in and never refuses it; the warning is the runtime's. `location` and `host` are one value each and never `"*"`.

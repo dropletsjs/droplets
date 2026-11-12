@@ -89,7 +89,7 @@ is not a flag: it changes nothing.
 **One set of flags per droplet.** `+error.*` is the droplet's error boundary
 and follows the droplet's flags: it renders on the server when the droplet
 does, hydrates when the droplet does and ships in the droplet's bundle. Flags
-declared in the error page are ignored, with a warning in dev.
+declared in the error page are ignored, with a warning in `vite dev` and `vite build`.
 
 A droplet with `hydrate = false` is the cheapest thing you can ship: HTML and
 CSS, nothing else. Its `<style>` is still extracted and served.
@@ -570,8 +570,13 @@ nothing is shared between them.
 Scoping does not rename `@keyframes` or `@font-face` names, which stay
 global.
 
-The plugin is added to Vite's `css.postcss` automatically. If your
-`vite.config.ts` points `css.postcss` at a config file, add it there yourself:
+The plugin is added to Vite's `css.postcss` after your own PostCSS plugins:
+those of an inline `css.postcss` in `vite.config.ts`, else those of your
+`postcss.config.js` (or any file PostCSS reads), found as Vite finds it, with
+its options; a `css.postcss` string names the folder to search from. A config
+file that fails to load fails the build, naming the file. For a PostCSS
+pipeline of your own outside Vite, `scopeStylesPlugin` is exported from
+`@dropletsjs/droplets/postcss`:
 
 ```js
 // postcss.config.js

@@ -10,6 +10,7 @@ import {
   collectCss,
   createBuildEnvironments,
   createClientInputs,
+  emptyOutDir,
   ENTRY_CLIENT_NAME,
   entryStubCode,
   fillStyles,
@@ -120,6 +121,54 @@ describe("createBuildEnvironments", () => {
     // Where the URL says, so its relative imports resolve: /droplets/hello/client.js.
     expect(naming({ name: "droplets/hello" })).toBe("[name]/client.js");
     expect(naming({ name: GLOBAL_CSS_NAME })).toBe("[name].js");
+  });
+});
+
+describe("emptyOutDir", () => {
+  let root: string;
+  beforeAll(async () => {
+    root = await mkdtemp(join(tmpdir(), "droplets-empty-"));
+  });
+  afterAll(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  const outDir = async (name: string) => {
+    const dir = join(root, name);
+    await mkdir(join(dir, ".git"), { recursive: true });
+    await writeFile(join(dir, "server.js"), "");
+    await writeFile(join(dir, ".git/HEAD"), "");
+    return dir;
+  };
+
+  it("empties an outDir inside the project by default, keeping .git, and always when told to", async () => {
+    const inside = await outDir("dist");
+    await emptyOutDir({ root, outDir: inside, emptyOutDir: null });
+    expect(existsSync(join(inside, "server.js"))).toBe(false);
+    expect(existsSync(join(inside, ".git/HEAD"))).toBe(true);
+    const outside = await outDir("../droplets-empty-outside");
+    try {
+      await emptyOutDir({ root, outDir: outside, emptyOutDir: true });
+      expect(existsSync(join(outside, "server.js"))).toBe(false);
+    } finally {
+      await rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  it("leaves an outDir alone when told to, when it is outside the project, and when it is the project", async () => {
+    const kept = await outDir("kept");
+    await emptyOutDir({ root, outDir: kept, emptyOutDir: false });
+    expect(existsSync(join(kept, "server.js"))).toBe(true);
+    const outside = await outDir("../droplets-empty-outside");
+    try {
+      await emptyOutDir({ root, outDir: outside, emptyOutDir: null });
+      expect(existsSync(join(outside, "server.js"))).toBe(true);
+    } finally {
+      await rm(outside, { recursive: true, force: true });
+    }
+    await writeFile(join(root, "vite.config.ts"), "");
+    await emptyOutDir({ root, outDir: root, emptyOutDir: undefined });
+    expect(existsSync(join(root, "vite.config.ts"))).toBe(true);
   });
 });
 

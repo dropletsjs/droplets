@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -38,12 +39,12 @@ afterEach(async () => {
 describe("dropletTypesCode", () => {
   it("reads the droplet's own files, relative to where the types land", () => {
     const code = dropletTypesCode({
-      entry: entry({ name: "hello", hasLoad: true, hasServerLoad: true }),
+      entry: entry({ name: "hello", hasLoad: true, loadFile: "+droplet.js", hasServerLoad: true, serverLoadFile: "+droplet.server.ts" }),
       renderer: svelte,
       typesFile: "/app/.droplets/types/src/droplets/hello/$types.d.ts",
       folder: "/app/src/droplets/hello",
     });
-    expect(code).toContain('type Universal = typeof import("../../../../../src/droplets/hello/+droplet.ts");');
+    expect(code).toContain('type Universal = typeof import("../../../../../src/droplets/hello/+droplet.js");');
     expect(code).toContain('type Server = typeof import("../../../../../src/droplets/hello/+droplet.server.ts");');
     expect(code).toContain('from "@dropletsjs/renderer-svelte";');
   });
@@ -82,6 +83,13 @@ describe("syncDropletTypes", () => {
     await syncDropletTypes({ ...input, entries: [entry({ name: "a" })] });
     await expect(readFile(resolve(root, ".droplets/types/src/droplets/b/$types.d.ts"), "utf8")).rejects.toThrow();
     await expect(readFile(resolve(root, ".droplets/types/src/droplets/a/$types.d.ts"), "utf8")).resolves.toContain("export type Data");
+    // A stale file's folder goes with it, and so does every folder left empty above it, up to the types root.
+    expect(existsSync(resolve(root, ".droplets/types/src/droplets/b"))).toBe(false);
+    expect(existsSync(resolve(root, ".droplets/types/src/droplets/a"))).toBe(true);
+    await syncDropletTypes({ ...input, entries: [] });
+    expect(existsSync(resolve(root, ".droplets/types/src"))).toBe(false);
+    expect(existsSync(resolve(root, ".droplets/types"))).toBe(true);
+    expect(existsSync(resolve(root, ".droplets/tsconfig.json"))).toBe(true);
   });
   it("lists a +droplet.tsx that a +droplet.ts shadows, and only then", async () => {
     const root = await mkdtemp(join(tmpdir(), "droplets-types-"));
@@ -96,7 +104,10 @@ describe("syncDropletTypes", () => {
     await syncDropletTypes({ ...input, entries: [entry({ name: "alone", file: "+droplet.tsx", renderer: "react" })] });
     expect(await tsconfig()).not.toHaveProperty("files");
 
-    await syncDropletTypes({ ...input, entries: [entry({ name: "pair", file: "+droplet.tsx", renderer: "react", hasLoad: true })] });
+    await syncDropletTypes({
+      ...input,
+      entries: [entry({ name: "pair", file: "+droplet.tsx", renderer: "react", hasLoad: true, loadFile: "+droplet.ts" })],
+    });
     expect(await tsconfig()).toMatchObject({
       include: ["${configDir}/**/*"],
       files: ["../src/droplets/pair/+droplet.tsx"],
@@ -190,7 +201,10 @@ describe("./$types, as TypeScript reads them", () => {
       root,
       dropletsRoot: resolve(root, "src/droplets"),
       renderers: [],
-      entries: [entry({ name: "card", hasLoad: true, hasServerLoad: true }), entry({ name: "bare" })],
+      entries: [
+        entry({ name: "card", hasLoad: true, loadFile: "+droplet.ts", hasServerLoad: true, serverLoadFile: "+droplet.server.ts" }),
+        entry({ name: "bare" }),
+      ],
     });
     expect(diagnostics(root, ["src/droplets/card/check.ts", "src/droplets/bare/check.ts"])).toEqual([]);
   });
@@ -257,7 +271,7 @@ describe("./$types, as TypeScript reads them", () => {
       root,
       dropletsRoot: resolve(root, "src/droplets"),
       renderers: [],
-      entries: [entry({ name: "card", hasServerLoad: true }), entry({ name: "bare" })],
+      entries: [entry({ name: "card", hasServerLoad: true, serverLoadFile: "+droplet.server.ts" }), entry({ name: "bare" })],
     });
     const ambient = resolve(import.meta.dirname, "../../ambient.d.ts");
     expect(diagnostics(root, [ambient, "src/droplets/card/check.ts", "src/droplets/bare/check.ts"])).toEqual([]);
@@ -288,7 +302,15 @@ describe("./$types, as TypeScript reads them", () => {
       root,
       dropletsRoot: resolve(root, "src/droplets"),
       renderers: [],
-      entries: [entry({ name: "tracker", file: "+droplet.script.ts", renderer: "script", hasServerLoad: true })],
+      entries: [
+        entry({
+          name: "tracker",
+          file: "+droplet.script.ts",
+          renderer: "script",
+          hasServerLoad: true,
+          serverLoadFile: "+droplet.server.ts",
+        }),
+      ],
     });
     expect(diagnostics(root, ["src/droplets/tracker/+droplet.script.ts"])).toEqual([]);
   });
@@ -321,7 +343,7 @@ describe("./$types, as TypeScript reads them", () => {
         root,
         dropletsRoot: resolve(root, "src/droplets"),
         renderers: [],
-        entries: [entry({ name: "card", file: "+droplet.tsx", renderer: "react", hasLoad: true })],
+        entries: [entry({ name: "card", file: "+droplet.tsx", renderer: "react", hasLoad: true, loadFile: "+droplet.ts" })],
       });
       const parsed = ts.getParsedCommandLineOfConfigFile(
         resolve(root, "tsconfig.json"),
