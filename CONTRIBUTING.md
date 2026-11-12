@@ -154,9 +154,9 @@ A release is a commit on `main`, never a manual dispatch:
 request while changesets are pending, and once it is merged, publishes every
 package version npm does not have yet, through npm trusted publishing. A
 failed run is re-run from the Actions page. While the repository is private,
-the `npm-release` environment has no required reviewers or branch rule, and
-the publish job cannot publish (provenance needs a public repository); 1.0.0
-is published by hand.
+the publish job is skipped (its condition requires a public repository), so
+nothing is published from CI; 1.0.0 is published by hand. From 1.0.1 on, a
+trusted publisher on npm and the public repository let the job publish.
 
 ## Docs
 

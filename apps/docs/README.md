@@ -184,7 +184,7 @@ it:
 ```bash
 DEMO_URL=https://demo.dropletsjs.dev pnpm docs:build
 pnpm docs:check-csp
-cd apps/docs && npx wrangler deploy
+pnpm --filter @dropletsjs/docs deploy:cloudflare   # wrangler deploy of apps/docs/dist
 ```
 
 ### Anywhere else
@@ -208,7 +208,8 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - `pnpm docs:dev` runs `node scripts/dev.mjs` in this package. `../../package.json:21`, `package.json:8`
 - `pnpm docs:build` runs `node scripts/with-demo.mjs astro build`. `../../package.json:22`, `package.json:9`
 - `pnpm docs:check-csp` runs `scripts/csp-hashes.mjs`. `../../package.json:24`
-- Docs `typecheck` is `astro check`. `package.json:12`
+- Docs `typecheck` is `astro check`. `package.json:13`
+- Docs `deploy:cloudflare` runs `wrangler deploy` (the declared `wrangler` dev dependency) and builds nothing. `package.json:11`
 - Node version: the repository requires Node 22 or newer. `../../package.json:9`
 - Content collection: Starlight's `docsLoader()`, which reads `src/content/docs/` only. `src/content.config.ts:6`
 - Sidebar order is the `sidebar` constant, passed to Starlight; the "Next" links and the page order of `llms-full.txt` follow it. `astro.config.mjs:23`, `astro.config.mjs:114`, `astro.config.mjs:117`

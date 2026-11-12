@@ -1,6 +1,7 @@
 /**
  * Every workflow runs on GitHub-hosted runners, from `pull_request` and
- * `push` events only (AGENTS.md rule 22). The workflows are read line by
+ * `push` events only (AGENTS.md rule 22), and the release workflow's publish
+ * job runs only from a public repository. The workflows are read line by
  * line, with no YAML parser: a form of `on` or `runs-on` the reader does not
  * know fails the suite, so a workflow never passes because it went unread.
  */
@@ -63,6 +64,22 @@ function runners(source: string): string[] {
     .map((line) => unquote(withoutComment(line.replace(/^\s*runs-on\s*:/, ""))));
 }
 
+type JobConditionInput = { source: string; job: string };
+
+/** The job-level `if` of `job` under `jobs:`, as written, or undefined when the job has none. */
+function jobCondition({ source, job }: JobConditionInput): string | undefined {
+  const lines = source.split("\n");
+  const start = lines.findIndex((line) => line === `  ${job}:`);
+  if (start === -1) throw new Error(`no job \`${job}\``);
+  for (const line of lines.slice(start + 1)) {
+    if (!isContent(line)) continue;
+    if (indentOf(line) <= 2) return undefined;
+    const condition = /^ {4}if\s*:(.*)$/.exec(line)?.[1];
+    if (condition !== undefined) return withoutComment(condition);
+  }
+  return undefined;
+}
+
 describe("the workflows", () => {
   it("finds the workflow files", () => {
     expect(workflows).toEqual(expect.arrayContaining(["ci.yml", "release.yml"]));
@@ -78,6 +95,12 @@ describe("the workflows", () => {
     const found = runners(readFileSync(join(workflowsDir, name), "utf8"));
     expect(found.length).toBeGreaterThan(0);
     expect(found.filter((label) => !GITHUB_HOSTED.test(label))).toEqual([]);
+  });
+
+  it("release.yml skips the publish job while the repository is private", () => {
+    const condition = jobCondition({ source: readFileSync(join(workflowsDir, "release.yml"), "utf8"), job: "publish" });
+    expect(condition).toMatch(/^github\.event\.repository\.private == false && /);
+    expect(condition).not.toMatch(/\|\|/);
   });
 });
 
@@ -102,5 +125,13 @@ describe("the workflow reader", () => {
     );
     expect(found).toEqual(["[self-hosted, linux]", "${{ matrix.os }}", "ubuntu-24.04"]);
     expect(found.filter((label) => GITHUB_HOSTED.test(label))).toEqual(["ubuntu-24.04"]);
+  });
+
+  it("reads a job's own condition, not a step's", () => {
+    const source =
+      "jobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - if: x\n  b:\n    needs: a\n    if: y # why\n    steps: []\n";
+    expect(jobCondition({ source, job: "a" })).toBeUndefined();
+    expect(jobCondition({ source, job: "b" })).toBe("y");
+    expect(() => jobCondition({ source, job: "c" })).toThrow();
   });
 });

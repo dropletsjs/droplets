@@ -5,19 +5,18 @@ name: Release
 #   1. `version` (every push to main): while .changeset/*.md files exist it
 #      opens or updates the "Version Packages" PR. It has no id-token and no
 #      environment, so it cannot publish anything.
-#   2. `publish`: runs only when no changesets are pending AND npm answers
-#      E404 for at least one public package's version (right after the
-#      Version PR merged). It publishes through npm trusted publishing (OIDC):
-#      there is no NPM_TOKEN anywhere.
+#   2. `publish`: runs only when the repository is public, no changesets are
+#      pending AND npm answers E404 for at least one public package's version
+#      (right after the Version PR merged). It publishes through npm trusted
+#      publishing (OIDC): there is no NPM_TOKEN anywhere.
 #
-# While the repository is private on GitHub's Free plan, environments have no
-# protection rules: `npm-release` only labels the OIDC token, which the npm
-# trusted publisher is bound to. Required reviewers and `main` as the only
-# deployment branch get switched on when the repository becomes public.
-# Until then nothing can be published from here: NPM_CONFIG_PROVENANCE=true
-# makes npm refuse to publish, since provenance needs a public repository.
-# 1.0.0 is published by hand; until it is, every package is an E404, so the
-# publish job runs on each push to main and fails without publishing.
+# While the repository is private, the publish job is skipped: its `if`
+# requires `github.event.repository.private` to be false, so nothing can be
+# published from here. 1.0.0 is published by hand. From 1.0.1 on, a trusted
+# publisher on npm (bound to this workflow and the `npm-release` environment)
+# plus the public repository let the publish job publish; required reviewers
+# and `main` as the only deployment branch get switched on for `npm-release`
+# then too (GitHub's Free plan has no protection rules for private ones).
 #
 # There is no pre mode: `changeset publish` publishes under the `latest`
 # dist-tag. The guard step below refuses to publish if a .changeset/pre.json
@@ -101,7 +100,7 @@ jobs:
   publish:
     name: Publish to npm
     needs: version
-    if: needs.version.outputs.has-changesets == 'false' && needs.version.outputs.unpublished == 'true'
+    if: github.event.repository.private == false && needs.version.outputs.has-changesets == 'false' && needs.version.outputs.unpublished == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: npm-release

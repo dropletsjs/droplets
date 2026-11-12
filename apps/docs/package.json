@@ -8,6 +8,7 @@
     "dev": "node scripts/dev.mjs",
     "build": "node scripts/with-demo.mjs astro build",
     "preview": "astro preview",
+    "deploy:cloudflare": "wrangler deploy",
     "clean": "rm -rf dist .astro node_modules/.astro",
     "typecheck": "astro check"
   },
@@ -24,6 +25,7 @@
     "@playwright/test": "catalog:",
     "@types/node": "catalog:",
     "typescript": "^5.9.3",
-    "vite": "^8.3.5"
+    "vite": "^8.3.5",
+    "wrangler": "catalog:"
   }
 }
