@@ -11,7 +11,10 @@
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "dist/client",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    // The exported testimonials pages are served as page-<n>.html, never
+    // redirected to an extensionless path.
+    "html_handling": "none"
   },
   // Served only on the custom domain; no *.workers.dev or preview copies.
   "workers_dev": false,

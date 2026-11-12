@@ -3,6 +3,7 @@ title: Writing droplets
 description: "Folder structure, the flags, the load chain, props, types, data as a promise, children, styles and script droplets."
 ---
 
+import DropletExamples from "../../../components/DropletExamples.astro";
 import RenderModes from "../../../components/RenderModes.astro";
 import RunsWhere from "../../../components/RunsWhere.astro";
 
@@ -72,6 +73,13 @@ Side by side, with [prerendering](/guides/prerendering/): what the host page
 receives in each mode, and when the droplet's JavaScript loads.
 
 <RenderModes />
+
+The same list of testimonials, rendered by five droplets of the demo server,
+one per combination of flags. They share one Svelte component; each tab says
+what its flags make the server and the browser do, and the console under it
+lists what this page asks the demo for.
+
+<DropletExamples />
 
 The flags must be literals. They are read from the component's exports
 before anything is compiled, because they decide *how* the droplet is built.

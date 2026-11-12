@@ -8,6 +8,10 @@
 // command with DEMO_URL pointing at it, and stops the server. Anything that
 // goes wrong fails loudly: no page is built without its droplets.
 //
+// The demo's build fixes its `location` and `host` (droplets.config.ts): its
+// fragments write URLs on https://demo.dropletsjs.dev wherever it runs, so
+// nothing about the location is passed to it here.
+//
 // With DEMO_URL already set (a deployed demo: DEMO_URL=https://demo.dropletsjs.dev),
 // nothing is built or started and the command runs against that server.
 import { spawn, spawnSync } from "node:child_process";
@@ -69,11 +73,6 @@ const server = spawn(process.execPath, ["dist/server.js"], {
     // For this run only: the build never posts a form, but the server
     // should run as deployed, with a secret of 32 random bytes.
     DROPLETS_SECRET: randomBytes(32).toString("base64url"),
-    // The fragments are requested with `x-droplet-location: <DEMO_PUBLIC_URL>`,
-    // so the URLs they write are where browsers reach the demo. Deployed, that
-    // is the request's own origin; here the server is on 127.0.0.1, so the
-    // header is trusted by listing its origin.
-    DROPLETS_TRUSTED_ORIGINS: publicUrl.origin,
   },
   stdio: ["ignore", "pipe", "pipe"],
 });

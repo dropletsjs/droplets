@@ -50,6 +50,8 @@ beforeAll(async () => {
     encoding: "utf8",
   });
   if (build.status !== 0) throw new Error(`the Worker build failed:\n${build.stderr}`);
+  const exported = spawnSync(process.execPath, [join(root, "scripts/export-testimonials.mjs"), out], { cwd: root, encoding: "utf8" });
+  if (exported.status !== 0) throw new Error(`exporting the testimonials failed:\n${exported.stderr}`);
   manifest = JSON.parse(await readFile(join(out, "client/droplets.json"), "utf8"));
   await writeFile(join(out, "wrangler.json"), JSON.stringify(await testConfig(), null, 2));
 
@@ -120,6 +122,22 @@ describe("static assets, with the headers of _headers", () => {
       expect(response.headers.get("cache-control"), path).toBe("public, max-age=2592000, immutable");
       expect(response.headers.get("access-control-allow-origin"), path).toBe("*");
       expect(await response.text(), path).toBe(await readFile(join(out, "client", path), "utf8"));
+    }
+  });
+
+  it("answers the exported testimonials pages as files, byte-equal to the Worker's render, to any origin", async () => {
+    for (const page of [1, 7, 10]) {
+      const path = `/assets/public/testimonials/page-${page}.html`;
+      const file = await call(path, { headers: { origin: "https://elsewhere.example" } });
+      expect(file.status, path).toBe(200);
+      expect(file.headers.get("content-type"), path).toMatch(/^text\/html/);
+      expect(file.headers.get("access-control-allow-origin"), path).toBe("*");
+      expect(file.headers.get("cache-control"), path).toBe("no-cache");
+      const html = await file.text();
+      expect(html, path).toBe(await readFile(join(out, `client${path}`), "utf8"));
+      const render = await call(`/droplets/testimonials-prerender-only?page=${page}`);
+      expect(render.status, path).toBe(200);
+      expect(await render.text(), path).toBe(html);
     }
   });
 
@@ -213,8 +231,11 @@ describe("the Worker", () => {
       const source = await readFile(join(out, "client", file), "utf8");
       for (const marker of SERVER_ONLY) expect(source.includes(marker), `${marker} in ${file}`).toBe(false);
     }
-    // The prerendered renders' folder would be random and in the Worker only;
-    // the demo prerenders nothing, so there is none at all.
-    expect(files.some((path) => path.startsWith("/_prerendered"))).toBe(false);
+    // The stored renders sit under a directory named anew every build, known
+    // to the Worker only: one, holding the testimonials pages and nothing else.
+    const stored = files.filter((path) => path.startsWith("/_prerendered/"));
+    expect(stored.length).toBeGreaterThan(0);
+    expect(new Set(stored.map((path) => path.split("/")[2])).size).toBe(1);
+    expect(stored.every((path) => path.split("/")[3] === "testimonials-prerender-only")).toBe(true);
   });
 });

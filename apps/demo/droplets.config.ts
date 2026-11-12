@@ -15,13 +15,21 @@ export default config({
 
   /**
    * The pages whose forms may post here, and where Post/Redirect/Get may
-   * send the browser back to. The location is computed per request: the
-   * docs build sends its public URL as `x-droplet-location`, trusted with
-   * `DROPLETS_TRUSTED_ORIGINS` (apps/docs/scripts/with-demo.mjs).
+   * send the browser back to.
    */
   trustedOrigins: docsOrigins(),
 
-  /** The poll is two short fields: nothing bigger is ever read. */
+  /**
+   * Both fixed: `vite build` writes the demo's public URL and the docs'
+   * origin into the server bundle, so no location header is read or
+   * trusted and no answer is rewritten on its way out. `vite dev` ignores
+   * both and computes them per request (`pnpm docs:dev`); `vite preview`
+   * and `wrangler dev` write URLs on demo.dropletsjs.dev.
+   */
+  location: "https://demo.dropletsjs.dev",
+  host: "https://dropletsjs.dev",
+
+  /** The poll is two short fields, a render body is the page and a few props: nothing bigger is ever read. */
   limits: { json: 16 * 1024, form: 4 * 1024, multipart: 8 * 1024, props: 1024 },
 
   dev: { server: { port: 5180 } },

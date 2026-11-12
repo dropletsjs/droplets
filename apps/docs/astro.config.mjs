@@ -115,8 +115,8 @@ export default defineConfig({
       plugins: [
         starlightLlmsTxt({
           promote: ["index", ...slugs(sidebar)],
-          // The live droplets are the demo's markup, the anchors "Section titled …" links.
-          customSelectors: { all: [".live-droplet", ".sl-anchor-link"] },
+          // The live droplets and the examples box are the demo's markup, the anchors "Section titled …" links.
+          customSelectors: { all: [".live-droplet", ".droplet-examples", ".sl-anchor-link"] },
         }),
       ],
       lastUpdated: false,

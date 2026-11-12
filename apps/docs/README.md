@@ -46,9 +46,10 @@ Pages embed real droplets from [apps/demo](../demo) with
 (`src/components/LiveDroplet.astro`). The docs act as their host:
 
 - **At build**, each one's fragment is fetched from the demo server
-  (`POST /droplets/<id>` with the page as `host` and the props, and
-  `x-droplet-location` set to the demo's public origin) and inlined, as a
-  server-side include. A page view never asks the demo to render.
+  (`POST /droplets/<id>` with the page as `host` and the props) and inlined,
+  as a server-side include. The demo's build fixes its `location`, so the
+  URLs a fragment writes are on `https://demo.dropletsjs.dev` wherever the
+  server runs. A page view never asks the demo to render.
   `pnpm docs:build` runs `scripts/with-demo.mjs`: it builds apps/demo for
   Node, starts it on a free port with a `DROPLETS_SECRET` of its own, builds
   the site with `DEMO_URL` pointing at it, and stops it. Without a demo
@@ -80,10 +81,30 @@ the `<Code>` those components render gets them too.
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `DEMO_URL` | set by `scripts/with-demo.mjs` and `scripts/dev.mjs` | Where the build fetches fragments. Set it to use a running demo instead (nothing is built or started). |
-| `DEMO_PUBLIC_URL` | `https://demo.dropletsjs.dev` | Where browsers load the demo from: `/index.js`, and the `x-droplet-location` of the fragments. |
+| `DEMO_PUBLIC_URL` | `https://demo.dropletsjs.dev` | Where browsers load the demo from: `/index.js`, and the Examples box's fragments and pages. The fragments' own URLs come from the demo's fixed `location`, so a built site keeps this default. |
 
 `pnpm docs:dev --port 4400` passes the port to the demo's dev server as
 `DOCS_PORT`, so the demo trusts that origin too.
+
+### The Examples box
+
+Writing droplets shows the same testimonials list rendered by the demo's
+five `testimonials-*` droplets, one per flag combination
+(`src/components/DropletExamples.astro`). Vertical tabs on the left, one per
+droplet with its flags and what they do, the render space on the right; at
+phone width the tabs stack above it and only the open one keeps its text.
+A tab fetches its droplet's fragment from the demo when it first opens
+(`GET <DEMO_PUBLIC_URL>/droplets/<id>`) and inserts it through a
+`<template>`; the prerendered tab's pager fetches
+`/assets/public/testimonials/page-<n>.html`, the files the demo's build
+exports (under `astro dev`, the live route: the demo's dev server has no
+such files). At build each fragment is fetched once, so a droplet the demo
+does not render fails the build.
+
+The console below it lists what the page asks the demo for: `window.fetch`
+wrapped on this page (the fragments, the API, `_data`) and a
+`PerformanceObserver` for the modules and stylesheets from the demo origin.
+A server load's `event.fetch` runs on the demo server and never shows there.
 
 ### CSP
 
@@ -200,7 +221,7 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - `vite` stays external at prerender time, for `AddRenderer`'s `parseAst`. `astro.config.mjs:100`
 - Sidebar Start here group: what is a droplet, ways to use Droplets, getting started, manual setup. `astro.config.mjs:26`
 - `starlight-llms-txt` writes `/llms.txt`, `/llms-full.txt` and `/llms-small.txt` at build, pages in sidebar order (`promote`). `astro.config.mjs:116`, `astro.config.mjs:117`
-- `llms-*.txt` leave out the live droplets (`.live-droplet`) and the heading anchor links (`.sl-anchor-link`). `astro.config.mjs:119`
+- `llms-*.txt` leave out the live droplets (`.live-droplet`), the Examples box (`.droplet-examples`) and the heading anchor links (`.sl-anchor-link`). `astro.config.mjs:119`
 - Base links: after the build, root-relative `<a href>` get the `base` prefix; nothing changes when `base` is `/`. `src/plugins/base-links.mjs:23`, `src/plugins/base-links.mjs:24`
 - Expressive Code options live in `ec.config.mjs` (themes `github-dark`, `github-light`). `ec.config.mjs:12`
 - `docs:dev` starts the demo's dev server (`pnpm run dev` in `../demo`) with `DOCS_PORT`. `scripts/dev.mjs:37`
@@ -208,18 +229,18 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - `docs:dev` waits up to 30 s for `http://localhost:5180/health` before starting astro dev. `scripts/dev.mjs:12`, `scripts/dev.mjs:40`
 - `docs:dev` runs astro dev with `DEMO_URL` and `DEMO_PUBLIC_URL` both `http://localhost:5180`. `scripts/dev.mjs:54`
 - `docs:dev` stops both servers when either exits. `scripts/dev.mjs:30`
-- `with-demo.mjs` with `DEMO_URL` already set builds and starts nothing and runs the command against it. `scripts/with-demo.mjs:38`
-- `with-demo.mjs` fails unless `packages/droplets/dist/vite.js` exists: run `pnpm build` first. `scripts/with-demo.mjs:46`
-- `with-demo.mjs` builds the demo with `DROPLETS_ADAPTER=node`. `scripts/with-demo.mjs:50`
-- `with-demo.mjs` starts the demo's `dist/server.js` on a free `127.0.0.1` port. `scripts/with-demo.mjs:57`, `scripts/with-demo.mjs:64`
-- `with-demo.mjs` demo env: a random 32-byte `DROPLETS_SECRET`, `DROPLETS_TRUSTED_ORIGINS` set to the `DEMO_PUBLIC_URL` origin, so the `x-droplet-location` the docs send is trusted. `scripts/with-demo.mjs:71`, `scripts/with-demo.mjs:76`
-- `with-demo.mjs` waits up to 20 s for the demo's `/health`; a demo that exits or never answers fails the run. `scripts/with-demo.mjs:90`, `scripts/with-demo.mjs:92`
-- `with-demo.mjs` runs the command with `DEMO_URL` and `DEMO_PUBLIC_URL`, stops the demo, and prints its log on failure. `scripts/with-demo.mjs:104`, `scripts/with-demo.mjs:106`
-- `DEMO_PUBLIC_URL` defaults to `https://demo.dropletsjs.dev`. `src/components/live-droplet.ts:19`, `scripts/with-demo.mjs:43`
+- `with-demo.mjs` with `DEMO_URL` already set builds and starts nothing and runs the command against it. `scripts/with-demo.mjs:42`
+- `with-demo.mjs` fails unless `packages/droplets/dist/vite.js` exists: run `pnpm build` first. `scripts/with-demo.mjs:50`
+- `with-demo.mjs` builds the demo with `DROPLETS_ADAPTER=node`. `scripts/with-demo.mjs:54`
+- `with-demo.mjs` starts the demo's `dist/server.js` on a free `127.0.0.1` port. `scripts/with-demo.mjs:61`, `scripts/with-demo.mjs:68`
+- `with-demo.mjs` demo env: `PORT` and a random 32-byte `DROPLETS_SECRET`; nothing about the location, which the demo's build fixes. `scripts/with-demo.mjs:72`, `scripts/with-demo.mjs:75`, `../demo/droplets.config.ts:29`
+- `with-demo.mjs` waits up to 20 s for the demo's `/health`; a demo that exits or never answers fails the run. `scripts/with-demo.mjs:88`, `scripts/with-demo.mjs:90`
+- `with-demo.mjs` runs the command with `DEMO_URL` and `DEMO_PUBLIC_URL`, stops the demo, and prints its log on failure. `scripts/with-demo.mjs:102`, `scripts/with-demo.mjs:104`
+- `DEMO_PUBLIC_URL` defaults to `https://demo.dropletsjs.dev`. `src/components/live-droplet.ts:19`, `scripts/with-demo.mjs:47`
 - `DEMO_URL` unset: a page with a live droplet throws at build. `src/components/live-droplet.ts:39`
 - `DEMO_URL` and `DEMO_PUBLIC_URL` must be `http(s)` URLs. `src/components/live-droplet.ts:29`
 - Live droplet element: the demo renders in `<djs-demo>`. `src/components/live-droplet.ts:17`
-- Live droplet fetch: `POST <DEMO_URL>/droplets/<id>`, JSON `{ host, props }`, `accept: text/html`, `x-droplet-location: <DEMO_PUBLIC_URL>`. `src/components/live-droplet.ts:57`, `src/components/live-droplet.ts:62`, `src/components/live-droplet.ts:63`
+- Live droplet fetch: `POST <DEMO_URL>/droplets/<id>`, JSON `{ host, props }`, `accept: text/html`, no location header. `src/components/live-droplet.ts:61`, `src/components/live-droplet.ts:62`, `src/components/live-droplet.ts:63`
 - Live droplet fetch never follows redirects and times out after 15 s. `src/components/live-droplet.ts:65`, `src/components/live-droplet.ts:66`
 - Live droplet answer that is not a `<djs-demo data-droplet="<id>">` fragment with 200, or a 500 error fragment, fails the build. `src/components/live-droplet.ts:72`, `src/components/live-droplet.ts:74`
 - `LiveDroplet` props: `id`, `props`, `caption`, `toggle`. `src/components/LiveDroplet.astro:15`
@@ -227,6 +248,12 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - `LiveDroplet` loads `<DEMO_PUBLIC_URL>/index.js` as a module script. `src/components/LiveDroplet.astro:37`
 - `LiveDroplet` `toggle` fetches a second render at build, hidden until its button is pressed. `src/components/LiveDroplet.astro:33`, `src/components/LiveDroplet.astro:39`
 - `LiveDroplet` on `droplets:stale` replaces the element with a fresh one carrying the same `data-droplet-context`. `src/components/LiveDroplet.astro:71`, `src/components/LiveDroplet.astro:79`
+- `DropletExamples` tabs: `testimonials-client-only`, `-server-client`, `-server-only`, `-prerender-only`, `-none`; each fetched once at build through `fetchFragment`. `src/components/DropletExamples.astro:18`, `src/components/DropletExamples.astro:55`
+- `DropletExamples` loads `<DEMO_PUBLIC_URL>/index.js` as a module script. `src/components/DropletExamples.astro:65`
+- `DropletExamples` fetches a tab's fragment when it first opens (the first one when the box comes within 300 px of the viewport) and inserts it through a `<template>`. `src/components/DropletExamples.astro:229`, `src/components/DropletExamples.astro:250`, `src/components/DropletExamples.astro:286`
+- `DropletExamples` pager pages: `<DEMO_PUBLIC_URL>/assets/public/testimonials/page-<n>.html`, the live route under `astro dev`. `src/components/DropletExamples.astro:58`
+- `DropletExamples` console: `window.fetch` wrapped for requests to the demo origin, a `PerformanceObserver` for its other resources, 60 lines at most. `src/components/DropletExamples.astro:153`, `src/components/DropletExamples.astro:191`, `src/components/DropletExamples.astro:208`
+- `DropletExamples` stacks the tabs above the render space under 38rem of column. `src/components/DropletExamples.astro:328`, `src/components/DropletExamples.astro:390`
 - `RendererDemo` reads every file of `../demo/src/droplets/counter-*/` with `?raw`. `src/components/RendererDemo.astro:24`
 - `RendererDemo` file order: the component, `+droplet.ts`, `+droplet.server.ts`, the rest. `src/components/RendererDemo.astro:39`
 - `RendererDemo` throws when the droplet folder has no files. `src/components/RendererDemo.astro:50`
@@ -252,7 +279,7 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - Diagram viewer zoom: 0.2 to 8 times; wheel, two-pointer pinch, one-pointer drag; keys `+`/`=`, `-`/`_`, `0` (fit), arrows (pan), `Esc`. `src/components/Diagram.astro:115`, `src/components/Diagram.astro:230`, `src/components/Diagram.astro:250`, `src/components/Diagram.astro:266`
 - Diagram SVG download: `<id>.svg`, with `fill`, `stroke`, `stroke-width`, `stroke-dasharray`, `opacity` and the font properties computed and written in, on the page's `--djs-surface-100`. `src/components/Diagram.astro:118`, `src/components/Diagram.astro:164`
 - `sequence()` in `diagram-kit.ts` draws the sequence figures (`FormFlow`, `WordPressFlow`). `src/components/diagram-kit.ts:191`
-- Diagrams on pages: `RenderModes`, `RunsWhere`, `FormFlow`, `PrerenderLookup`, `LocationFlow`, `HostsHub`, `ShopPage`, `ShopFlow`, `WordPressFlow`, `ElementLifecycle`, `BrowserLoads`. `src/content/docs/guides/writing-droplets.mdx:74`, `src/content/docs/guides/writing-droplets.mdx:674`, `src/content/docs/guides/actions.mdx:158`, `src/content/docs/guides/prerendering.mdx:62`, `src/content/docs/integrate/http-contract.mdx:199`, `src/content/docs/integrate/hosts/overview.mdx:19`, `src/content/docs/integrate/hosts/shop-demo.mdx:23`, `src/content/docs/integrate/hosts/shop-demo.mdx:49`, `src/content/docs/integrate/wordpress.mdx:294`, `src/content/docs/guides/in-the-browser.mdx:65`, `src/content/docs/guides/deployment.mdx:344`
+- Diagrams on pages: `RenderModes`, `RunsWhere`, `FormFlow`, `PrerenderLookup`, `LocationFlow`, `HostsHub`, `ShopPage`, `ShopFlow`, `WordPressFlow`, `ElementLifecycle`, `BrowserLoads`. `src/content/docs/guides/writing-droplets.mdx:75`, `src/content/docs/guides/writing-droplets.mdx:701`, `src/content/docs/guides/actions.mdx:158`, `src/content/docs/guides/prerendering.mdx:62`, `src/content/docs/integrate/http-contract.mdx:199`, `src/content/docs/integrate/hosts/overview.mdx:19`, `src/content/docs/integrate/hosts/shop-demo.mdx:23`, `src/content/docs/integrate/hosts/shop-demo.mdx:49`, `src/content/docs/integrate/wordpress.mdx:294`, `src/content/docs/guides/in-the-browser.mdx:65`, `src/content/docs/guides/deployment.mdx:344`
 - Tour poster: `gen.mjs` writes `scripts/poster/tour-poster.svg`; `render.mjs` writes `public/hosts/tour.webp` in Chromium. `scripts/poster/gen.mjs:111`, `scripts/poster/render.mjs:11`, `scripts/poster/render.mjs:33`
 - Tour video `public/hosts/tour.mp4` plays with `tour.webp` as its poster on the home page. `src/components/DropletTour.astro:15`, `src/content/docs/index.mdx:19`
 - Worker `dropletsjs-docs` serves `./dist` as assets only, on the custom domain `dropletsjs.dev`. `wrangler.jsonc:4`, `wrangler.jsonc:8`, `wrangler.jsonc:22`

@@ -8,6 +8,8 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 // fetch handler. `pnpm build` first (the root `pnpm check` does).
 const root = fileURLToPath(new URL("..", import.meta.url));
 const ORIGIN = "http://localhost:8790";
+// `location` in droplets.config.ts: every URL the server writes is on it.
+const LOCATION = "https://demo.dropletsjs.dev";
 const DOCS = "https://dropletsjs.dev";
 const PAGE = `${DOCS}/guides/writing-droplets/`;
 const RETURN = `__droplet_return=${encodeURIComponent(PAGE)}`;
@@ -104,7 +106,7 @@ describe("the droplets", () => {
     });
     const html = await response.text();
     expect(html).toContain("Which framework would you write your next droplet in?");
-    expect(html).toContain(`action="${ORIGIN}/droplets/poll?/vote&amp;${RETURN}"`);
+    expect(html).toContain(`action="${LOCATION}/droplets/poll?/vote&amp;${RETURN}"`);
   });
 
   it("crash renders normally, and its +error inside the same element when the load throws", async () => {
@@ -416,16 +418,185 @@ describe("CORS", () => {
 });
 
 describe("the droplet location", () => {
-  it("ignores a location header unless trusted: a fragment's URLs stay on the server's own origin", async () => {
+  it("is the fixed location whatever the request says: no location header is read", async () => {
     for (const headers of <Record<string, string>[]>[
+      {},
       { "x-droplet-location": "https://evil.example" },
+      { "x-droplet-location": "https://dropletsjs.dev" },
       { "x-forwarded-host": "evil.example", "x-forwarded-proto": "https" },
       { forwarded: "proto=https;host=evil.example" },
     ]) {
       const html = await (await call("/droplets/hello", { headers })).text();
       expect(html).not.toContain("evil.example");
-      expect(html).toContain(`${ORIGIN}/droplets/hello/style.css`);
+      expect(html).not.toContain(ORIGIN);
+      expect(html).toContain(`${LOCATION}/droplets/hello/style.css`);
     }
+  });
+
+  it("holds no host or location token anywhere in the build", async () => {
+    const files = await readdir(join(root, "dist"), { recursive: true });
+    for (const file of files.filter((name) => /\.(js|json|html)$/.test(name))) {
+      const source = await readFile(join(root, "dist", file), "utf8");
+      expect(source.includes("__$DROPLET_"), file).toBe(false);
+    }
+  });
+});
+
+describe("GET /api/testimonials", () => {
+  type Item = { id: number; author: string; text: string };
+  const api = async (query: string) => {
+    const response = await call(`/api/testimonials${query}`, { headers: { origin: DOCS } });
+    return { response, body: (await response.json()) as Record<string, unknown> };
+  };
+  const ids = (body: Record<string, unknown>) => (body["testimonials"] as Item[]).map((item) => item.id);
+
+  it("answers N random, distinct items: 10 by default, 1 to 100, never cached", async () => {
+    for (const [query, count] of [
+      ["?random=true", 10],
+      ["?max=10&random=true", 10],
+      ["?random=true&max=1", 1],
+      ["?max=100&random=true", 100],
+    ] as const) {
+      const { response, body } = await api(query);
+      expect(response.status, query).toBe(200);
+      expect(response.headers.get("cache-control"), query).toBe("no-store");
+      expect(Object.keys(body), query).toEqual(["testimonials"]);
+      const list = ids(body);
+      expect(list.length, query).toBe(count);
+      expect(new Set(list).size, query).toBe(count);
+      expect(
+        list.every((id) => Number.isInteger(id) && id >= 0 && id < 100),
+        query,
+      ).toBe(true);
+    }
+    const { body } = await api("?max=100&random=true");
+    expect(new Set(ids(body))).toEqual(new Set(Array.from({ length: 100 }, (_, id) => id)));
+  });
+
+  it("answers a page of ten in id order, 1 to 10", async () => {
+    for (const page of [1, 4, 10]) {
+      const { response, body } = await api(`?page=${page}`);
+      expect(response.status).toBe(200);
+      expect(response.headers.get("access-control-allow-origin")).toBe(DOCS);
+      expect(body["page"]).toBe(page);
+      expect(body["pages"]).toBe(10);
+      expect(ids(body)).toEqual(Array.from({ length: 10 }, (_, i) => (page - 1) * 10 + i));
+    }
+  });
+
+  it("answers 400 with a plain message for anything else, pollution included", async () => {
+    for (const query of [
+      "",
+      "?random=false",
+      "?random=1",
+      "?max=10",
+      "?max=0&random=true",
+      "?max=101&random=true",
+      "?max=1.5&random=true",
+      "?max=-1&random=true",
+      "?max=1e1&random=true",
+      "?max=010&random=true",
+      "?max=&random=true",
+      "?page=0",
+      "?page=11",
+      "?page=2.0",
+      "?page=x",
+      "?page=1&random=true",
+      "?page=1&max=10",
+      "?page=1&page=2",
+      "?random=true&random=true",
+      "?random=true&limit=5",
+      "?__proto__=1",
+      "?page=1&__proto__[polluted]=1",
+      "?random=true&constructor[prototype][polluted]=1",
+      "?toString=1",
+    ]) {
+      const { response, body } = await api(query);
+      expect(response.status, query).toBe(400);
+      expect(Object.keys(body), query).toEqual(["message"]);
+      expect(typeof body["message"], query).toBe("string");
+    }
+    expect(({} as Record<string, unknown>)["polluted"]).toBeUndefined();
+    expect(Object.prototype).not.toHaveProperty("polluted");
+  });
+
+  it("answers GET only", async () => {
+    const response = await call("/api/testimonials?page=1", {
+      method: "POST",
+      headers: { origin: DOCS, "content-type": "application/json" },
+      body: "{}",
+    });
+    expect(response.status).toBe(405);
+  });
+});
+
+describe("the testimonials droplets", () => {
+  /** `<li>` items of a render: the component's list. */
+  const items = (html: string) => html.match(/<li[ >]/g)?.length ?? 0;
+
+  it("client only: no markup and no server data, the props on the element", async () => {
+    const html = await (await call("/droplets/testimonials-client-only")).text();
+    expect(html).toContain('<div style="display: contents" data-droplet-entry></div>');
+    expect(html).toMatch(/data-droplet-context="[^"]+"/);
+    expect(payload(html, "data")).toEqual({});
+    expect((await call("/droplets/testimonials-client-only/client.js")).status).toBe(200);
+  });
+
+  it("server + client: ten items through event.fetch, rendered and inline, no button in the markup", async () => {
+    const html = await (await call("/droplets/testimonials-server-client")).text();
+    const data = payload(html, "data").data.testimonials as Array<{ id: number }>;
+    expect(data.length).toBe(10);
+    expect(items(html)).toBe(10);
+    for (const item of data) expect(html).toContain(`#${item.id}<`);
+    expect(html).not.toContain("<button");
+    expect((await call("/droplets/testimonials-server-client/client.js")).status).toBe(200);
+  });
+
+  it("server only: ten items rendered, no data, no context, no bundle", async () => {
+    const html = await (await call("/droplets/testimonials-server-only")).text();
+    expect(items(html)).toBe(10);
+    expect(html).not.toContain("data-droplet-payload");
+    expect(html).not.toContain("data-droplet-context");
+    expect(html).not.toContain("<button");
+    expect((await call("/droplets/testimonials-server-only/client.js")).status).toBe(404);
+  });
+
+  it("prerendered: pages 1 to 10 from the store, any other page 404, a page outside the schema 400", async () => {
+    const html = await (await call("/droplets/testimonials-prerender-only?page=3")).text();
+    expect(html).toContain("page 3 of 10");
+    expect(items(html)).toBe(10);
+    expect(html).toContain("#20<");
+    expect(html).not.toContain("data-droplet-payload");
+    expect((await call("/droplets/testimonials-prerender-only?page=11")).status).toBe(404);
+    for (const query of ["", "?page=0", "?page=abc", "?page=101"]) {
+      expect((await call(`/droplets/testimonials-prerender-only${query}`)).status, query).toBe(400);
+    }
+  });
+
+  it("all flags off: an empty element", async () => {
+    const response = await call("/droplets/testimonials-none");
+    expect(response.status).toBe(200);
+    const html = await response.text();
+    expect(html).toContain('<div style="display: contents" data-droplet-entry></div>');
+    expect(html).not.toContain("data-droplet-payload");
+    expect(html).not.toContain("data-droplet-context");
+    expect((await call("/droplets/testimonials-none/client.js")).status).toBe(404);
+  });
+
+  it("exports each prerendered page as a public file, byte-equal to the route's answer, with the docs' CORS", async () => {
+    for (let page = 1; page <= 10; page++) {
+      const path = `/assets/public/testimonials/page-${page}.html`;
+      const file = await readFile(join(root, `dist/client${path}`), "utf8");
+      const render = await call(`/droplets/testimonials-prerender-only?page=${page}`);
+      expect(await render.text(), path).toBe(file);
+      const served = await call(path, { headers: { origin: DOCS } });
+      expect(served.status, path).toBe(200);
+      expect(served.headers.get("content-type"), path).toMatch(/^text\/html/);
+      expect(served.headers.get("access-control-allow-origin"), path).toBe(DOCS);
+      expect(await served.text(), path).toBe(file);
+    }
+    const elsewhere = await call("/assets/public/testimonials/page-1.html", { headers: { origin: "https://evil.example" } });
+    expect(elsewhere.headers.get("access-control-allow-origin")).toBeNull();
   });
 });
 
@@ -444,6 +615,8 @@ describe("server-only code", () => {
     for (const file of files) {
       const source = await readFile(join(client, file), "utf8");
       for (const marker of markers) expect(source.includes(marker), `${marker} in ${file}`).toBe(false);
+      // lib/server/testimonials.json: its texts reach the exported pages, never a script or a stylesheet.
+      if (!file.endsWith(".html")) expect(source.includes("Csilla V."), `testimonials in ${file}`).toBe(false);
     }
   });
 });
