@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { fakeRenderer } from "@dropletsjs/droplets/testing";
 import { droplets } from "@dropletsjs/droplets/vite";
 import { createLogger, createServer, type ConfigEnv, type ViteDevServer } from "vite";
-import { freePort } from "@dropletsjs/shared/vitest";
+import { onFreePort } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { dropletsDevtools } from "../src/index.ts";
 
@@ -36,16 +36,24 @@ describe("in vite dev", () => {
     if (!existsSync(fileURLToPath(new URL("../dist/client/devtools-page.js", import.meta.url)))) {
       throw new Error("Build @dropletsjs/devtools first (pnpm build).");
     }
-    server = await createServer({
-      root,
-      configFile: false,
-      customLogger: logger,
-      plugins: [droplets({ renderers: [fakeRenderer()] }), dropletsDevtools()],
-      // The fixture has importmap.server.ts; an external turns the map on.
-      environments: { client: { build: { rolldownOptions: { external: ["case-anything"] } } } },
-      server: { port: await freePort(), strictPort: true, host: "127.0.0.1" },
+    server = await onFreePort({
+      start: async (port) => {
+        const dev = await createServer({
+          root,
+          configFile: false,
+          customLogger: logger,
+          plugins: [droplets({ renderers: [fakeRenderer()] }), dropletsDevtools()],
+          // The fixture has importmap.server.ts; an external turns the map on.
+          environments: { client: { build: { rolldownOptions: { external: ["case-anything"] } } } },
+          server: { port, strictPort: true, host: "127.0.0.1" },
+        });
+        await dev.listen().catch(async (error: unknown) => {
+          await dev.close();
+          throw error;
+        });
+        return dev;
+      },
     });
-    await server.listen();
     origin = server.resolvedUrls?.local[0]?.replace(/\/$/, "") ?? "";
   }, 60_000);
 

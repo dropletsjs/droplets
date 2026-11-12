@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { node } from "@dropletsjs/adapter-node";
 import { droplets } from "@dropletsjs/droplets/vite";
 import { react } from "@dropletsjs/renderer-react";
-import { freePort, fromBuild, stopServer, waitForServer } from "@dropletsjs/shared/vitest";
+import { fromBuild, onFreePort, stopServer, waitForServer } from "@dropletsjs/shared/vitest";
 import { createBuilder } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { preact } from "../../src/index.ts";
@@ -66,13 +66,22 @@ beforeAll(async () => {
     plugins: [droplets({ adapter: node(), renderers: [react(), preact()] })],
   });
   await builder.buildApp();
-  PORT = await freePort();
-  server = spawn(process.execPath, ["dist-mixed/server.js"], { cwd: root, env: { ...process.env, PORT: String(PORT) }, stdio: "ignore" });
-  await waitForServer({
-    url: `http://localhost:${PORT}/droplets/preact-card`,
-    child: server,
-    name: "dist-mixed/server.js",
-    isOurs: await fromBuild({ outDir }),
+  const isOurs = await fromBuild({ outDir });
+  await onFreePort({
+    start: async (free) => {
+      PORT = free;
+      let output = "";
+      server = spawn(process.execPath, ["dist-mixed/server.js"], { cwd: root, env: { ...process.env, PORT: String(PORT) } });
+      server.stdout?.on("data", (chunk) => (output += chunk));
+      server.stderr?.on("data", (chunk) => (output += chunk));
+      await waitForServer({
+        url: `http://localhost:${PORT}/droplets/preact-card`,
+        child: server,
+        name: "dist-mixed/server.js",
+        isOurs,
+        output: () => output,
+      });
+    },
   });
 }, 180_000);
 

@@ -1,0 +1,110 @@
+/*
+ * This site's own styles, beside the shop's shop.css (the file every shop
+ * host shares): what the static pages add to the shop's layout, and the
+ * page of the Svelte example's droplets (index.html).
+ */
+
+/* The shop: placeholders until a droplet arrives, and the featured card. */
+.shop-loading {
+  margin: 0;
+  padding: 24px;
+  border: 1px dashed var(--shop-line);
+  border-radius: var(--shop-radius);
+  color: var(--shop-muted);
+  text-align: center;
+}
+
+/* Until the products arrive, the featured card stays below the fold. */
+.shop-gallery {
+  min-height: 100vh;
+}
+
+.shop-featured {
+  margin-top: 48px;
+  padding-top: 32px;
+  border-top: 1px solid var(--shop-line);
+}
+
+.shop-featured h2 {
+  margin: 0 0 16px;
+  font-size: 1.4rem;
+  letter-spacing: -0.01em;
+}
+
+.shop-featured > div {
+  max-width: 280px;
+}
+
+/* index.html: one column as wide as the droplets' cards (36rem). */
+body.demo {
+  margin: 0;
+  background: #f8fafc;
+  color: #0f172a;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.5;
+}
+
+.demo-wrap {
+  max-width: 36rem;
+  margin: 0 auto;
+  padding: 48px 16px 64px;
+}
+
+.demo-wrap > header h1 {
+  margin: 0 0 8px;
+  font-size: 1.9rem;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.demo-wrap > header p {
+  margin: 0;
+  color: #475569;
+}
+
+.demo-wrap a {
+  color: #4338ca;
+}
+
+.demo-step {
+  margin-top: 40px;
+}
+
+.demo-step h2 {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.demo-placeholder {
+  margin: 24px 0;
+  padding: 24px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  color: #64748b;
+  text-align: center;
+}
+
+.demo-button {
+  margin-top: 12px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.demo-button:hover {
+  background: #334155;
+}
+
+.demo-spacer {
+  height: 120vh;
+}

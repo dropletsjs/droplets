@@ -9,7 +9,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promis
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createBuilder, createServer, type ViteDevServer } from "vite";
-import { freePort } from "@dropletsjs/shared/vitest";
+import { onFreePort } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { fakeRenderer } from "../../src/testing/index.ts";
 import { droplets, type DropletsAdapter } from "../../src/vite.ts";
@@ -263,14 +263,22 @@ describe("file URLs in vite dev", () => {
   beforeAll(async () => {
     root = await project();
     roots.push(root);
-    server = await createServer({
-      root,
-      configFile: false,
-      logLevel: "silent",
-      plugins: [droplets({ renderers: [fakeRenderer()] })],
-      server: { port: await freePort(), strictPort: true, host: "127.0.0.1" },
+    server = await onFreePort({
+      start: async (port) => {
+        const dev = await createServer({
+          root,
+          configFile: false,
+          logLevel: "silent",
+          plugins: [droplets({ renderers: [fakeRenderer()] })],
+          server: { port, strictPort: true, host: "127.0.0.1" },
+        });
+        await dev.listen().catch(async (error: unknown) => {
+          await dev.close();
+          throw error;
+        });
+        return dev;
+      },
     });
-    await server.listen();
     origin = server.resolvedUrls?.local[0]?.replace(/\/$/, "") ?? "";
   }, 60_000);
 

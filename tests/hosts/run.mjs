@@ -77,7 +77,7 @@ const HOSTS = {
     byName: true,
     spec: "e2e/htmx.spec.ts",
     page: "/",
-    shots: ["1-swapped", "2-added", "3-login", "4-lazy"],
+    shots: ["1-gallery", "2-added", "3-login", "4-lazy"],
     droplets: "http://localhost:8000",
   },
 };

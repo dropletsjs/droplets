@@ -1,7 +1,7 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
-import { freePort, listensOn, waitForServer } from "@dropletsjs/shared/vitest";
+import { listensOn, onFreePort, waitForServer } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildFixture, FIXTURE_ROOT } from "./build-fixture.ts";
 
@@ -20,14 +20,25 @@ describe.skipIf(!hasDeno)("deno entry", () => {
 
   beforeAll(async () => {
     await buildFixture({ outDir });
-    port = await freePort();
-    origin = `http://localhost:${port}`;
-    child = spawn(denoBin, ["serve", "-A", "--port", String(port), resolve(outDir, "server.js")], {
-      env: { ...process.env, FIXTURE_SECRET: "from-deno" },
+    await onFreePort({
+      start: async (free) => {
+        port = free;
+        output = "";
+        origin = `http://localhost:${port}`;
+        child = spawn(denoBin, ["serve", "-A", "--port", String(port), resolve(outDir, "server.js")], {
+          env: { ...process.env, FIXTURE_SECRET: "from-deno" },
+        });
+        child.stdout?.on("data", (chunk) => (output += chunk));
+        child.stderr?.on("data", (chunk) => (output += chunk));
+        await waitForServer({
+          url: `${origin}/health`,
+          child,
+          name: "deno",
+          isOurs: () => listensOn({ output, port }),
+          output: () => output,
+        });
+      },
     });
-    child.stdout?.on("data", (chunk) => (output += chunk));
-    child.stderr?.on("data", (chunk) => (output += chunk));
-    await waitForServer({ url: `${origin}/health`, child, name: "deno", isOurs: () => listensOn({ output, port }) });
   });
 
   afterAll(async () => {

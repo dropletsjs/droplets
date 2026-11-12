@@ -10,7 +10,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { freePort, listensOn, stopServer } from "@dropletsjs/shared/vitest";
+import { listensOn, onFreePort, stopServer } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const here = (path: string) => fileURLToPath(new URL(path, import.meta.url));
@@ -50,18 +50,26 @@ async function waitForServer() {
 
 beforeAll(async () => {
   rmSync(project, { recursive: true, force: true });
-  PORT = await freePort();
-  ORIGIN = `http://localhost:${PORT}`;
   // The fixture's config and renderers, with two droplets of its React one.
   cpSync(here("fixture"), project, { recursive: true, filter: (source) => !source.includes("/src/droplets/") });
   mkdirSync(file("src/droplets/broken"), { recursive: true });
   cpSync(here("fixture/src/droplets/react-hello"), file("src/droplets/healthy"), { recursive: true });
   writeFileSync(file(BROKEN), BROKEN_SOURCE);
-  writeFileSync(file("droplets.config.ts"), `export default { element: "djs-mixed", cors: true, dev: { server: { port: ${PORT} } } };\n`);
-  server = spawn(here("../node_modules/.bin/vite"), ["--strictPort"], { cwd: project, stdio: ["ignore", "pipe", "pipe"] });
-  server.stdout?.on("data", (chunk) => (output += chunk));
-  server.stderr?.on("data", (chunk) => (output += chunk));
-  await waitForServer();
+  await onFreePort({
+    start: async (free) => {
+      PORT = free;
+      ORIGIN = `http://localhost:${PORT}`;
+      output = "";
+      writeFileSync(
+        file("droplets.config.ts"),
+        `export default { element: "djs-mixed", cors: true, dev: { server: { port: ${PORT} } } };\n`,
+      );
+      server = spawn(here("../node_modules/.bin/vite"), ["--strictPort"], { cwd: project, stdio: ["ignore", "pipe", "pipe"] });
+      server.stdout?.on("data", (chunk) => (output += chunk));
+      server.stderr?.on("data", (chunk) => (output += chunk));
+      await waitForServer();
+    },
+  });
 });
 
 afterAll(async () => {

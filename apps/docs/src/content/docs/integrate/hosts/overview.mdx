@@ -6,8 +6,8 @@ description: "Eleven host examples, each a working Docker Compose project: which
 import HostGrid from "../../../../components/HostGrid.astro";
 import HostsHub from "../../../../components/HostsHub.astro";
 
-Eleven host examples; nine run the shop demo; WordPress and htmx have flows
-of their own. Each is a folder in `examples/hosts/` with a
+Eleven host examples; ten serve the shop demo, nine of them with the shared
+shop flow; WordPress and htmx have flows of their own. Each is a folder in `examples/hosts/` with a
 `docker-compose.yml` and an end-to-end test, and each page in this section
 starts with the pattern in that stack: the fetch, the paste and the script
 tag, taken from the example's code. [Any other stack](/integrate/any-stack/)
@@ -22,7 +22,7 @@ Every example also proxies `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, 
 `/api/*` under its own origin, so the browser talks to one origin
 ([the paths](/integrate/any-stack/#the-paths-to-proxy)).
 
-The nine that run the [shop demo](/integrate/hosts/shop-demo/), each as
+The ten that serve the [shop demo](/integrate/hosts/shop-demo/), each as
 the end-to-end test recorded it:
 
 <HostGrid />
@@ -46,7 +46,9 @@ writes the droplet element (`<djs-droplet>` by default, named per server by
 `element`) with `data-droplet` and `data-droplet-props` directly, or fetches the
 fragment from the browser, and lets the element do the rest. The React
 example shows both. [htmx](/integrate/hosts/htmx/) does the second with no code
-at all: `hx-get` asks for the fragment and swaps it into a static page.
+at all: `hx-get` asks for the fragment and swaps it into a static page, and
+`hx-boost` moves between the shop's static pages by swapping `<main>`
+alone.
 
 ## Passing content in
 
@@ -92,7 +94,7 @@ the droplets server: cookies, caching, CORS and who sees what.
 | [Sinatra](/integrate/hosts/sinatra/) | `sinatra` | Ruby, Sinatra, Net::HTTP, ERB | Server include |
 | [PHP](/integrate/hosts/php/) | `php` | PHP 8.3 on Apache, curl, no framework | Server include |
 | [WordPress](/integrate/wordpress/) | `wordpress` | WordPress 6, a plugin; WordPress owns the data | Server include via shortcodes ([a tutorial](/integrate/wordpress/)) |
-| [htmx](/integrate/hosts/htmx/) | `htmx` | htmx 2 on static pages, nginx | Client-only: `hx-get` swaps the fragment in, cross-origin or proxied |
+| [htmx](/integrate/hosts/htmx/) | `htmx` | htmx 2 on static pages, nginx | Client-only: `hx-get` swaps the fragment in, proxied or cross-origin; `hx-boost` swaps `<main>` alone |
 
 The folder name is the host's id everywhere: its docs page, its recordings
 and `pnpm test:hosts <id>`.

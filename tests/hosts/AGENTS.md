@@ -10,6 +10,8 @@
 - Every host in `examples/hosts` is in `HOSTS`, with a flow that runs against it.
 - The shop's `shop.css` is one file in every host that runs the shop; WordPress's is its own, for the theme's presets.
   Checked by: `test/shop-css.test.ts`.
+- htmx's shop pages share their head, header and footer and swap `<main>` alone, every droplet asked for from inside it.
+  Checked by: `test/htmx.test.ts`.
 - Every host sends `x-droplet-location` from its environment or config, never from the request's `Host`; a new host is listed in the test with its files.
   Checked by: `test/location.test.ts`.
 - Every example under `examples/` stands on its own: no `file:` or `link:` dependency, no import or `tsconfig` reaching above its folder.

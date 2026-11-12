@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { freePort, fromBuild, stopServer, waitForServer } from "@dropletsjs/shared/vitest";
+import { fromBuild, onFreePort, stopServer, waitForServer } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const exec = promisify(execFile);
@@ -122,15 +122,24 @@ describe.each(CASES.map((c) => [c.name, c] as const))("%s", (name, { frameworks,
   it("builds for Node and serves every starter droplet", async () => {
     await exec(bin("vite"), ["build"], { cwd: project, env });
     expect(existsSync(join(project, "dist/server.js"))).toBe(true);
-    const port = await freePort();
-    server = spawn(process.execPath, ["dist/server.js"], { cwd: project, env: { ...env, PORT: String(port) }, stdio: "ignore" });
-    const get = (path: string) => fetch(`http://localhost:${port}${path}`);
-    await waitForServer({
-      url: `http://localhost:${port}/droplets/${starter(frameworks[0] ?? expect.unreachable("a framework"))}?who=Ana`,
-      child: server,
-      name: "dist/server.js",
-      isOurs: await fromBuild({ outDir: join(project, "dist") }),
+    const isOurs = await fromBuild({ outDir: join(project, "dist") });
+    const port = await onFreePort({
+      start: async (free) => {
+        let output = "";
+        server = spawn(process.execPath, ["dist/server.js"], { cwd: project, env: { ...env, PORT: String(free) } });
+        server.stdout?.on("data", (chunk) => (output += chunk));
+        server.stderr?.on("data", (chunk) => (output += chunk));
+        await waitForServer({
+          url: `http://localhost:${free}/droplets/${starter(frameworks[0] ?? expect.unreachable("a framework"))}?who=Ana`,
+          child: server,
+          name: "dist/server.js",
+          isOurs,
+          output: () => output,
+        });
+        return free;
+      },
     });
+    const get = (path: string) => fetch(`http://localhost:${port}${path}`);
     for (const framework of frameworks) {
       const response = await get(`/droplets/${starter(framework)}?who=Ana`);
       expect(response.status, starter(framework)).toBe(200);

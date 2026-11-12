@@ -13,8 +13,8 @@ URLs on that server:
 The element's tag name is the server's `element` setting: `djs-droplet` by
 default, `djs-svelte` for the Svelte example these hosts embed.
 
-Eleven host examples; nine run the shop demo; WordPress and htmx have flows
-of their own. Every example in this folder does the same two things, in its
+Eleven host examples; ten serve the shop demo, nine of them with the shared
+shop flow; WordPress and htmx have flows of their own. Every example in this folder does the same two things, in its
 own language ([Any other stack](https://dropletsjs.dev/integrate/any-stack/)
 has the exact headers, for a stack that is not here):
 
@@ -70,7 +70,7 @@ docker compose up --build
 | [`sinatra`](./sinatra) | Ruby, Sinatra | Fragment fetch with `Net::HTTP`, injected into ERB. |
 | [`php`](./php) | PHP 8.3, Apache, no framework | Fragment fetch with `curl_multi`, injected into plain PHP templates. |
 | [`wordpress`](./wordpress) | WordPress 6 | The WordPress showcase: a plugin with a `[droplet]` shortcode and [`examples/wp-shop`](../wp-shop) with WordPress holding the shop's data. |
-| [`htmx`](./htmx) | htmx 2, static pages on nginx | `hx-get` swaps the fragments in from the browser: cross-origin from the Svelte example, and the shop's forms through a proxy, under `hx-boost`. No shop pages: a flow of its own. |
+| [`htmx`](./htmx) | htmx 2, static pages on nginx | `hx-get` swaps the fragments in from the browser: the shop through a proxy, its static pages moving as one (`hx-boost` swaps `<main>` alone), and the Svelte example cross-origin. A flow of its own. |
 
 All of them render the Svelte example's three droplets on `/`, one per
 mode, greeting `?who=`: `client` (rendered in the browser), `ssr-hydrate`
@@ -86,13 +86,15 @@ proxies the droplets server under its own origin (nginx) proxies `/api/*` too.
 
 ## The shop demo
 
-Every host but htmx also serves the [shop example](../shop) beside the
+Every host also serves the [shop example](../shop) beside the
 basic page (WordPress with [wp-shop](../wp-shop) in its place), with one layout: a header with the logo, Gallery and Admin and
 the cart badge droplet, and a footer naming the host's stack in large type.
 The pages are `/gallery` (hero, `product-filter`, `product-library`),
 `/product/<slug>` (breadcrumb, `product-page`, `product-comments`), `/login`
 and `/admin`; [`CONTRACT.md`](../shop/CONTRACT.md) says which
-props each takes from the page's URL.
+props each takes from the page's URL. htmx's pages are static files: its
+product page has a link back to the gallery in place of the breadcrumb, and
+a product card asked for once revealed under the gallery.
 
 Each host proxies `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and `/api/*` to the
 shop under its own origin, so the cart and admin cookies are first-party and
@@ -102,7 +104,7 @@ fragments there: they forward the browser's `Cookie`, send the page as
 `Referer`, never follow redirects, paste only HTML answers, pass the
 fragments' `Set-Cookie` on with the page and their `Link` preloads into its
 `<head>`. The SPA (`react-vite`) mounts the droplets in the browser through
-the same proxy.
+the same proxy, and htmx asks for them from the browser through it.
 
 Two hosts cannot pass a fragment's `Set-Cookie` on: nginx, because an SSI
 include is a subrequest whose headers nginx discards, and Next.js, because a
@@ -128,6 +130,7 @@ host, the same file everywhere.
 | `fastapi` | http://localhost:8001/gallery |
 | `sinatra` | http://localhost:8002/gallery |
 | `php` | http://localhost:8009/gallery |
+| `htmx` | http://localhost:8010/gallery (the Svelte example's droplets on `/`) |
 | `wordpress` | http://localhost:8008/gallery (once `wordpress-init` has installed WordPress and activated the plugin, about a minute) |
 
 ### Type-checked
@@ -147,13 +150,13 @@ Chromium are all it needs; the stacks run one at a time and are taken down
 after. Its `test/` folder holds static checks that need neither and run in
 `pnpm check`: the `shop.css` copies the same, every host's
 `x-droplet-location` from its environment, every example standing on its
-own.
+own, htmx's shop pages sharing their head, header and footer.
 
 ```bash
 pnpm test:hosts                     # the nine shop flows (wordpress and htmx only by name)
 pnpm test:hosts express sveltekit   # some
 pnpm test:hosts wordpress           # the WordPress showcase
-pnpm test:hosts htmx                # the htmx pages, their own flow (e2e/htmx.spec.ts)
+pnpm test:hosts htmx                # the htmx shop and Svelte page, their own flow (e2e/htmx.spec.ts)
 pnpm test:hosts express --https     # express behind Caddy on https://127-0-0-1.sslip.io:8443
 pnpm test:hosts --docs              # also refresh the screenshots below
 HOSTS_PORT_BASE=18000 pnpm test:hosts  # other ports (below)
@@ -184,6 +187,7 @@ The `--https` run checks that the `cart_id` and `shop_admin` cookies arrive
 | `astro` | [astro.mp4](../../apps/docs/public/hosts/astro.mp4) | ![The shop on Astro](../../apps/docs/public/hosts/astro/2-cart.webp) |
 | `sveltekit` | [sveltekit.mp4](../../apps/docs/public/hosts/sveltekit.mp4) | ![The shop on SvelteKit](../../apps/docs/public/hosts/sveltekit/2-cart.webp) |
 | `nextjs` | [nextjs.mp4](../../apps/docs/public/hosts/nextjs.mp4) | ![The shop on Next.js](../../apps/docs/public/hosts/nextjs/2-cart.webp) |
+| `htmx` | [htmx.mp4](../../apps/docs/public/hosts/htmx.mp4) | ![The shop on htmx](../../apps/docs/public/hosts/htmx/4-lazy.webp) |
 
 ### Ports
 

@@ -8,7 +8,7 @@ import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { cpSync, readFileSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { freePort, fromBuild, stopServer, waitForServer } from "@dropletsjs/shared/vitest";
+import { fromBuild, onFreePort, stopServer, waitForServer } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const exec = promisify(execFile);
@@ -112,13 +112,22 @@ describe("djs add", () => {
 
   it("writes droplets that build and serve", async () => {
     await exec(bin("vite"), ["build"], { cwd: project });
-    PORT = await freePort();
-    server = spawn(process.execPath, ["dist/server.js"], { cwd: project, env: { ...process.env, PORT: String(PORT) }, stdio: "ignore" });
-    await waitForServer({
-      url: `http://localhost:${PORT}/droplets/${FRAMEWORKS[0]}-full`,
-      child: server,
-      name: "dist/server.js",
-      isOurs: await fromBuild({ outDir: `${project}/dist` }),
+    const isOurs = await fromBuild({ outDir: `${project}/dist` });
+    await onFreePort({
+      start: async (free) => {
+        PORT = free;
+        let output = "";
+        server = spawn(process.execPath, ["dist/server.js"], { cwd: project, env: { ...process.env, PORT: String(PORT) } });
+        server.stdout?.on("data", (chunk) => (output += chunk));
+        server.stderr?.on("data", (chunk) => (output += chunk));
+        await waitForServer({
+          url: `http://localhost:${PORT}/droplets/${FRAMEWORKS[0]}-full`,
+          child: server,
+          name: "dist/server.js",
+          isOurs,
+          output: () => output,
+        });
+      },
     });
     for (const framework of FRAMEWORKS) {
       const fragment = async (name: string, query = "") => {

@@ -18,7 +18,7 @@ pnpm test:integration                             # every tests/* suite
 
 - Every package built: the suite runs the `djs`, `tsc` and `vite` bins from
   its own `node_modules/.bin` (`pnpm build`, or `pnpm build:dist`).
-- No fixed port: the built server gets one from `freePort()`.
+- No fixed port: the built server gets one from `onFreePort()`.
 
 ### The fixture
 
@@ -68,15 +68,15 @@ Script droplets: `script-plain` and `script-loaded` (`--hydrate visible
 - Script droplet with `--hydrate visible --with css` gets `export const hydrate = "visible";` and `import "./style.css";`, no `ssr` export. `test/add.test.ts:93`
 - Script droplet refuses `--target ssr`, `--hydrate none`, `--hydrate interactive` and `--with error`. `test/add.test.ts:97`
 - Type check runs `tsc -p tsconfig.json` in the project. `test/add.test.ts:109`
-- Build runs `vite build`, then `node dist/server.js` with `PORT`, waited for (`waitForServer`) on `svelte-full` until its `x-droplets-build` is this build's (`fromBuild`). `test/add.test.ts:117`
-- Server port comes from `freePort()` of `@dropletsjs/shared/vitest`. `test/add.test.ts:115`
-- `full` renders its name in an `<h1>` and serves `client.js`. `test/add.test.ts:134`
-- `loaded` renders `Hello Ana!` for `?who=Ana`; its styles are in `style.css`, Lit's in a `<style>` inside the markup. `test/add.test.ts:137`
+- Build runs `vite build`, then `node dist/server.js` with `PORT`, waited for (`waitForServer`) on `svelte-full` until its `x-droplets-build` is this build's (`fromBuild`). `test/add.test.ts:123`
+- Server port comes from `onFreePort()` of `@dropletsjs/shared/vitest`, a new one when another process takes it before the server binds it. `test/add.test.ts:116`
+- `full` renders its name in an `<h1>` and serves `client.js`. `test/add.test.ts:143`
+- `loaded` renders `Hello Ana!` for `?who=Ana`; its styles are in `style.css`, Lit's in a `<style>` inside the markup. `test/add.test.ts:146`
 - `style.css` is read with its `@import url(...)` rules followed. `test/add.test.ts:45`
-- `static` (`--target ssr`) renders and has no `client.js` (404). `test/add.test.ts:143`
-- `browser` (`--target client`) renders no `<h1>` on the server and serves `client.js`. `test/add.test.ts:146`
-- `built` (`--target ssg`) renders `Hello world!`. `test/add.test.ts:149`
-- Script droplet renders `<div style="display: contents" data-droplet-entry></div>` as its element's only content and serves `client.js`. `test/add.test.ts:152`
+- `static` (`--target ssr`) renders and has no `client.js` (404). `test/add.test.ts:152`
+- `browser` (`--target client`) renders no `<h1>` on the server and serves `client.js`. `test/add.test.ts:155`
+- `built` (`--target ssg`) renders `Hello world!`. `test/add.test.ts:158`
+- Script droplet renders `<div style="display: contents" data-droplet-entry></div>` as its element's only content and serves `client.js`. `test/add.test.ts:161`
 - Fixture is Svelte only, Node adapter. `test/fixture/vite.config.ts:8`
 - Fixture element is `djs-add-test`. `test/fixture/droplets.config.ts:2`
 - Fixture tsconfig has no JSX and extends `./.droplets/tsconfig.json`. `test/fixture/tsconfig.json:2`

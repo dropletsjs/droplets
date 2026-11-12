@@ -27,7 +27,7 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { fileURLToPath } from "node:url";
 import { chromium, type Browser, type Page } from "@playwright/test";
-import { freePort, listensOn, stopServer } from "@dropletsjs/shared/vitest";
+import { listensOn, onFreePort, stopServer } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const here = (path: string) => fileURLToPath(new URL(path, import.meta.url));
@@ -153,18 +153,23 @@ beforeAll(async () => {
   });
   await new Promise<void>((done) => host!.listen(0, "localhost", done));
   HOST = `http://localhost:${(host.address() as AddressInfo).port}/`;
-  PORT = await freePort();
-  ORIGIN = `http://localhost:${PORT}`;
-  // `PORT` is the production server's: `vite dev` stays on `dev.server.port`,
-  // which the fixture's config takes from `DEV_MIXED_PORT`.
-  server = spawn(here("../node_modules/.bin/vite"), ["--strictPort"], {
-    cwd: project,
-    stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, PORT: "5555", DEV_MIXED_PORT: String(PORT), DEV_MIXED_HOST: new URL(HOST).origin },
+  await onFreePort({
+    start: async (free) => {
+      PORT = free;
+      ORIGIN = `http://localhost:${PORT}`;
+      output = "";
+      // `PORT` is the production server's: `vite dev` stays on `dev.server.port`,
+      // which the fixture's config takes from `DEV_MIXED_PORT`.
+      server = spawn(here("../node_modules/.bin/vite"), ["--strictPort"], {
+        cwd: project,
+        stdio: ["ignore", "pipe", "pipe"],
+        env: { ...process.env, PORT: "5555", DEV_MIXED_PORT: String(PORT), DEV_MIXED_HOST: new URL(HOST).origin },
+      });
+      server.stdout?.on("data", (chunk) => (output += chunk));
+      server.stderr?.on("data", (chunk) => (output += chunk));
+      await waitForServer();
+    },
   });
-  server.stdout?.on("data", (chunk) => (output += chunk));
-  server.stderr?.on("data", (chunk) => (output += chunk));
-  await waitForServer();
   browser = await chromium.launch();
   // The first visit has Vite discover and optimize the dependencies, which
   // may reload the page once; the tests start on a settled server. A page

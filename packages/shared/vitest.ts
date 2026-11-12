@@ -51,6 +51,32 @@ export function freePort(): Promise<number> {
   });
 }
 
+export type OnFreePortInput<T> = {
+  /** Starts the server on `port`, or throws why it could not (a child's exit with its output, Vite's own error). */
+  start: (port: number) => Promise<T>;
+};
+
+/**
+ * `start` on a port from `freePort()`, and again on a new one when that
+ * port turns out taken: the probe frees it before the server binds it, and
+ * another process may take it in between.
+ */
+export async function onFreePort<T>({ start }: OnFreePortInput<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await start(await freePort());
+    } catch (error) {
+      if (attempt === 5 || !isPortTaken(error)) throw error;
+    }
+  }
+}
+
+/** Node's, Vite's, Bun's, Deno's and workerd's words for a port someone else holds. */
+function isPortTaken(error: unknown): boolean {
+  const text = error instanceof Error ? `${(error as NodeJS.ErrnoException).code ?? ""} ${error.message}` : String(error);
+  return /EADDRINUSE|AddrInUse|already in use|is port \d+ in use/i.test(text);
+}
+
 export type ListensOnInput = { output: string; port: number };
 
 /**
@@ -79,14 +105,16 @@ export type WaitForServerInput = {
   url: string;
   child: ChildProcess;
   name: string;
+  /** The child's output so far, for the error when it exits. */
+  output?: () => string;
   /** Whether the answer is the child's own (`listensOn` its output, `fromBuild`), not another server's on the port. */
   isOurs?: (response: Response) => boolean;
 };
 
-/** Polls `url` every 100 ms, up to ten seconds, until it answers ok and `isOurs`; fails as soon as `child` (the `name` server) exits. */
-export async function waitForServer({ url, child, name, isOurs }: WaitForServerInput): Promise<void> {
+/** Polls `url` every 100 ms, up to ten seconds, until it answers ok and `isOurs`; fails as soon as `child` (the `name` server) exits, with its `output`. */
+export async function waitForServer({ url, child, name, isOurs, output }: WaitForServerInput): Promise<void> {
   for (let i = 0; i < 100; i++) {
-    if (child.exitCode !== null) throw new Error(`${name} exited with ${child.exitCode}`);
+    if (child.exitCode !== null) throw new Error(`${name} exited with ${child.exitCode}${output ? `:\n${output()}` : ""}`);
     try {
       const response = await fetch(url);
       if (response.ok && (isOurs?.(response) ?? true)) return;

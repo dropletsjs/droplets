@@ -139,31 +139,31 @@ droplet lists of both tests.
 - Fixture adapter is Cloudflare when `DROPLETS_ADAPTER=cloudflare`, Node otherwise. `test/fixture/vite.config.ts:19`
 - Fixture registers every renderer and `dropletsDevtools()`. `test/fixture/vite.config.ts:23`
 - Fixture element is `djs-mixed`, `cors: true`; `trustedOrigins` holds `DEV_MIXED_HOST` (the host page's origin) and `dev.server.port` is `DEV_MIXED_PORT`, each only when set. `test/fixture/droplets.config.ts:3`
-- Dev test host page listens on `localhost` port 0 and loads `/index.js` with the page's query; the dev server's port comes from `freePort()` of `@dropletsjs/shared/vitest`. `test/dev.test.ts:154`
-- Dev test runs `vite --strictPort` in `.tmp/project`, a copy of the fixture, with `PORT=5555`, `DEV_MIXED_PORT` and `DEV_MIXED_HOST` in the environment: `vite dev` stays on `dev.server.port`. `test/dev.test.ts:160`
+- Dev test host page listens on `localhost` port 0 and loads `/index.js` with the page's query; the dev server's port comes from `onFreePort()` of `@dropletsjs/shared/vitest`. `test/dev.test.ts:154`, `test/dev.test.ts:156`
+- Dev test runs `vite --strictPort` in `.tmp/project`, a copy of the fixture, with `PORT=5555`, `DEV_MIXED_PORT` and `DEV_MIXED_HOST` in the environment: `vite dev` stays on `dev.server.port`. `test/dev.test.ts:163`
 - Dev and isolation tests start once Vite's own output names their port (`listensOn`) and the server answers: a server another run left on the port never passes for theirs. `test/dev.test.ts:75`, `test/dev-isolation.test.ts:42`
 - Dev test droplets: `react-hello`, `preact-hello`, `vue-hello`, `solid-hello`, `svelte-hello`, `lit-hello`, `hono-hello`, `hbs-hello`, `hbs-live`, `script-hello`, `contract`. `test/dev.test.ts:36`
 - Dev test waits for `hbs-live` (a hydrated Handlebars template, whose markup cannot say so) through the element's `_hydrated`. `test/dev.test.ts:119`
 - Dev test fragment requests send `x-droplet-location` set to the host page. `test/dev.test.ts:56`
 - Dev test no-reload check: a `window.loaded` marker set after load must survive every edit. `test/dev.test.ts:112`, `test/dev.test.ts:117`
 - Dev test uses Chromium through `@playwright/test`. `test/dev.test.ts:143`
-- Isolation test runs `vite --strictPort` on a `freePort()` in `.tmp/isolation`: the fixture without its droplets, plus `healthy` (a copy of `react-hello`) and `broken` (a React component importing `$droplets/server`). `test/dev-isolation.test.ts:17`, `test/dev-isolation.test.ts:52`
-- Isolation test: `broken` and `/src/droplets/broken/+droplet.tsx?droplets-renderer=react` answer 500 and the output names `$droplets/server … src/droplets/broken/+droplet.tsx`; `broken/client.js` (the registry's entry, which imports the refused component) and `healthy`, its `client.js`, `_data` and `/index.js` answer 200. `test/dev-isolation.test.ts:70`
-- Isolation test: with the import removed, `broken` answers 200 within 15 s, with no restart. `test/dev-isolation.test.ts:87`
+- Isolation test runs `vite --strictPort` on a port from `onFreePort()` in `.tmp/isolation`: the fixture without its droplets, plus `healthy` (a copy of `react-hello`) and `broken` (a React component importing `$droplets/server`). `test/dev-isolation.test.ts:17`, `test/dev-isolation.test.ts:58`
+- Isolation test: `broken` and `/src/droplets/broken/+droplet.tsx?droplets-renderer=react` answer 500 and the output names `$droplets/server … src/droplets/broken/+droplet.tsx`; `broken/client.js` (the registry's entry, which imports the refused component) and `healthy`, its `client.js`, `_data` and `/index.js` answer 200. `test/dev-isolation.test.ts:78`
+- Isolation test: with the import removed, `broken` answers 200 within 15 s, with no restart. `test/dev-isolation.test.ts:95`
 - Dev test warms up once so Vite's dependency optimization reload happens before the tests. `test/dev.test.ts:144`
-- `$RefreshSig$`/`$RefreshReg$` only in React modules, `__PREFRESH__` only in Preact modules under `vite dev`. `test/dev.test.ts:173`
-- React, Preact and Vue keep the count through a component edit. `test/dev.test.ts:216`
-- A Vue template edit saved in two writes (the file emptied, 400 ms, then written) keeps the count. `test/dev.test.ts:305`
-- Svelte and Solid swap in place; their count starts over and no fragment is fetched again. `test/dev.test.ts:245`
-- Lit and Hono JSX remount and log `<id>: no HMR of its framework took this edit; remounted in place`. `test/dev.test.ts:291`, `test/dev.test.ts:319`
-- Handlebars edit fetches the fragment again for a template that does not hydrate (`POST /droplets/hbs-hello`); a hydrated one (`hbs-live`) remounts in place and logs `hbs-live: no HMR of its framework took this edit; remounted in place`. `test/dev.test.ts:339`, `test/dev.test.ts:350`
-- Script droplet edit runs the cleanup, then the function again on the same element. `test/dev.test.ts:338`
-- Load edit updates data and keeps the count without a fragment request. `test/dev.test.ts:358`
-- Render contract `hydrate` false to true hydrates live, with a `status` toast and no Reload button. `test/dev.test.ts:389`
-- Render contract `hydrate` on to false and `ssr` false to true show an `alertdialog` toast with Reload page. `test/dev.test.ts:406`, `test/dev.test.ts:421`
-- Render contract toasts: never more than three at once; a newer notice for the same flag replaces the older. `test/dev.test.ts:425`, `test/dev.test.ts:437`
-- Render contract notice goes to the dev tool, not a toast, with `?injectTool=true`. `test/dev.test.ts:449`
-- `index.js?strategy=remount` remounts React from a fresh fragment. `test/dev.test.ts:463`
+- `$RefreshSig$`/`$RefreshReg$` only in React modules, `__PREFRESH__` only in Preact modules under `vite dev`. `test/dev.test.ts:178`
+- React, Preact and Vue keep the count through a component edit. `test/dev.test.ts:221`
+- A Vue template edit saved in two writes (the file emptied, 400 ms, then written) keeps the count. `test/dev.test.ts:310`
+- Svelte and Solid swap in place; their count starts over and no fragment is fetched again. `test/dev.test.ts:250`
+- Lit and Hono JSX remount and log `<id>: no HMR of its framework took this edit; remounted in place`. `test/dev.test.ts:296`, `test/dev.test.ts:324`
+- Handlebars edit fetches the fragment again for a template that does not hydrate (`POST /droplets/hbs-hello`); a hydrated one (`hbs-live`) remounts in place and logs `hbs-live: no HMR of its framework took this edit; remounted in place`. `test/dev.test.ts:344`, `test/dev.test.ts:355`
+- Script droplet edit runs the cleanup, then the function again on the same element. `test/dev.test.ts:343`
+- Load edit updates data and keeps the count without a fragment request. `test/dev.test.ts:363`
+- Render contract `hydrate` false to true hydrates live, with a `status` toast and no Reload button. `test/dev.test.ts:394`
+- Render contract `hydrate` on to false and `ssr` false to true show an `alertdialog` toast with Reload page. `test/dev.test.ts:411`, `test/dev.test.ts:426`
+- Render contract toasts: never more than three at once; a newer notice for the same flag replaces the older. `test/dev.test.ts:430`, `test/dev.test.ts:442`
+- Render contract notice goes to the dev tool, not a toast, with `?injectTool=true`. `test/dev.test.ts:454`
+- `index.js?strategy=remount` remounts React from a fresh fragment. `test/dev.test.ts:468`
 - `dev.strategy` defaults to `"hmr"`. `../../packages/droplets/src/core/config.ts:364`
 - Test timeout 60 s, hook timeout 120 s. `vitest.config.ts:7`
 - Test script is `vitest run`. `package.json:9`

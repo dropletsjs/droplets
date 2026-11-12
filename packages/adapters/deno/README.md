@@ -93,15 +93,15 @@ tsdown entry: `deno()` finds `dist/entry.js` by path.
 - `droplets.config.ts` that exports a function is called in `dist/server.js` with the build's `{ command, mode, isSsrBuild, isPreview }` and awaited before `resolveConfig`, as on Node. `src/entry.ts:17`, `../node/test/index.test.ts:82`
 - `PORT` and `server.port` are not read: the config is resolved with no environment and `deno serve` owns the port. `src/entry.ts:17`
 - Default export of `dist/server.js` is `{ fetch }` only. `src/entry.ts:26`
-- `deno serve -A --port <port> dist/server.js` listens and logs `Listening on`. `test/entry.test.ts:37`, `test/entry.test.ts:51`
-- Importing `dist/server.js` does not listen; `default.fetch` is a function. `test/entry.test.ts:80`, `test/entry.test.ts:81`
+- `deno serve -A --port <port> dist/server.js` listens and logs `Listening on`. `test/entry.test.ts:28`, `test/entry.test.ts:50`
+- Importing `dist/server.js` does not listen; `default.fetch` is a function. `test/entry.test.ts:79`, `test/entry.test.ts:80`
 - App creation is lazy and once per process: the first request creates it, later requests reuse the same promise. `src/entry.ts:22`
 - App creation that fails stays cached: every later request gets the same rejection. `src/entry.ts:22`
-- Runtime env comes from the process environment: a secret set there reaches the droplet. `test/entry.test.ts:60`
-- `/index.js` answers `cache-control: no-store`. `test/entry.test.ts:64`
+- Runtime env comes from the process environment: a secret set there reaches the droplet. `test/entry.test.ts:59`
+- `/index.js` answers `cache-control: no-store`. `test/entry.test.ts:63`
 - Deno engine is `>=2.0`. `package.json:35`
 - Build script runs the tests before tsdown. `package.json:38`
-- `DENO` names the deno binary for the tests; default `deno` on the `PATH`. `test/entry.test.ts:13`
+- `DENO` names the deno binary for the tests; default `deno` on the `PATH`. `test/entry.test.ts:14`
 - `DENO` may come from the root `.env.local`; a variable already set wins. `vitest.config.ts:5`, `../../shared/env.ts:6`
-- Entry tests are skipped when `deno --version` does not succeed; the build test still runs. `test/entry.test.ts:14`, `test/entry.test.ts:31`
+- Entry tests are skipped when `deno --version` does not succeed; the build test still runs. `test/entry.test.ts:15`, `test/entry.test.ts:17`
 - Tests build the framework's fixture app with `buildFixtureApp()` from `@dropletsjs/shared/vitest`, which fails when `@dropletsjs/droplets` is not built. `test/build-fixture.ts:12`, `../../shared/vitest.ts:32`

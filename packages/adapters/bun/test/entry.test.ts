@@ -1,7 +1,7 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
-import { freePort, listensOn, waitForServer } from "@dropletsjs/shared/vitest";
+import { freePort, listensOn, onFreePort, waitForServer } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildFixture, FIXTURE_ROOT } from "./build-fixture.ts";
 
@@ -20,14 +20,25 @@ describe.skipIf(!hasBun)("bun entry", () => {
 
   beforeAll(async () => {
     await buildFixture({ outDir });
-    port = await freePort();
-    origin = `http://localhost:${port}`;
-    child = spawn(bunBin, [resolve(outDir, "server.js")], {
-      env: { ...process.env, PORT: String(port), FIXTURE_SECRET: "from-bun" },
+    await onFreePort({
+      start: async (free) => {
+        port = free;
+        output = "";
+        origin = `http://localhost:${port}`;
+        child = spawn(bunBin, [resolve(outDir, "server.js")], {
+          env: { ...process.env, PORT: String(port), FIXTURE_SECRET: "from-bun" },
+        });
+        child.stdout?.on("data", (chunk) => (output += chunk));
+        child.stderr?.on("data", (chunk) => (output += chunk));
+        await waitForServer({
+          url: `${origin}/health`,
+          child,
+          name: "bun",
+          isOurs: () => listensOn({ output, port }),
+          output: () => output,
+        });
+      },
     });
-    child.stdout?.on("data", (chunk) => (output += chunk));
-    child.stderr?.on("data", (chunk) => (output += chunk));
-    await waitForServer({ url: `${origin}/health`, child, name: "bun", isOurs: () => listensOn({ output, port }) });
   });
 
   afterAll(async () => {

@@ -192,8 +192,9 @@ They all share one version.
 - **[`examples/wp-shop`](./examples/wp-shop)**: the shop's droplets backed by
   WordPress: products and reviews over the REST API, the WordPress login.
 - **[`examples/hosts/<stack>`](./examples/hosts)**: eleven host examples,
-  each a Docker Compose project; nine run the shop demo (on `/gallery`, the
-  Svelte example on `/`), WordPress and htmx have flows of their own:
+  each a Docker Compose project; ten serve the shop demo (on `/gallery`, the
+  Svelte example on `/`), nine with the shared flow; WordPress and htmx have
+  flows of their own:
 
 | Host | Stack | Pattern |
 | ---- | ----- | ------- |
@@ -207,7 +208,7 @@ They all share one version.
 | [sinatra](./examples/hosts/sinatra) | Ruby, Sinatra, ERB | Fetch with `Net::HTTP` |
 | [php](./examples/hosts/php) | PHP 8.3, Apache | `curl_multi`, no framework, no Composer |
 | [wordpress](./examples/hosts/wordpress) | WordPress 6 | A `[droplet]` shortcode plugin; serves wp-shop |
-| [htmx](./examples/hosts/htmx) | htmx 2, static pages on nginx | `hx-get` swaps the fragment in, cross-origin or proxied |
+| [htmx](./examples/hosts/htmx) | htmx 2, static pages on nginx | `hx-get` swaps the fragments into static pages, `hx-boost` swaps `<main>` alone |
 
 The [shop demo](https://dropletsjs.dev/integrate/hosts/shop-demo/) page shows
 the nine that run it, each recorded end to end.

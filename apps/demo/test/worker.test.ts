@@ -2,7 +2,7 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { freePort, listensOn } from "@dropletsjs/shared/vitest";
+import { listensOn, onFreePort } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // The Worker build under `wrangler dev` (workerd, local, no account), with
@@ -55,40 +55,43 @@ beforeAll(async () => {
   manifest = JSON.parse(await readFile(join(out, "client/droplets.json"), "utf8"));
   await writeFile(join(out, "wrangler.json"), JSON.stringify(await testConfig(), null, 2));
 
-  const port = await freePort();
-  base = `http://127.0.0.1:${port}`;
-  const bin = join(root, "node_modules/wrangler/bin/wrangler.js");
-  wrangler = spawn(
-    process.execPath,
-    [
-      bin,
-      "dev",
-      "--config",
-      "wrangler.json",
-      "--ip",
-      "127.0.0.1",
-      "--port",
-      String(port),
-      "--var",
-      `DROPLETS_SECRET:${SECRET}`,
-      "--show-interactive-dev-session=false",
-    ],
-    { cwd: out, env: { ...process.env, WRANGLER_SEND_METRICS: "false", CI: "1" }, stdio: ["ignore", "pipe", "pipe"] },
-  );
-  let log = "";
-  wrangler.stdout?.on("data", (chunk) => (log += chunk));
-  wrangler.stderr?.on("data", (chunk) => (log += chunk));
-  const deadline = Date.now() + 90_000;
-  while (Date.now() < deadline) {
-    if (wrangler.exitCode !== null) throw new Error(`wrangler dev exited:\n${log}`);
-    try {
-      if (listensOn({ output: log, port }) && (await fetch(`${base}/health`)).ok) return;
-    } catch {
-      // not up yet
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  throw new Error(`wrangler dev did not start:\n${log}`);
+  await onFreePort({
+    start: async (port) => {
+      base = `http://127.0.0.1:${port}`;
+      const bin = join(root, "node_modules/wrangler/bin/wrangler.js");
+      wrangler = spawn(
+        process.execPath,
+        [
+          bin,
+          "dev",
+          "--config",
+          "wrangler.json",
+          "--ip",
+          "127.0.0.1",
+          "--port",
+          String(port),
+          "--var",
+          `DROPLETS_SECRET:${SECRET}`,
+          "--show-interactive-dev-session=false",
+        ],
+        { cwd: out, env: { ...process.env, WRANGLER_SEND_METRICS: "false", CI: "1" }, stdio: ["ignore", "pipe", "pipe"] },
+      );
+      let log = "";
+      wrangler.stdout?.on("data", (chunk) => (log += chunk));
+      wrangler.stderr?.on("data", (chunk) => (log += chunk));
+      const deadline = Date.now() + 90_000;
+      while (Date.now() < deadline) {
+        if (wrangler.exitCode !== null) throw new Error(`wrangler dev exited:\n${log}`);
+        try {
+          if (listensOn({ output: log, port }) && (await fetch(`${base}/health`)).ok) return;
+        } catch {
+          // not up yet
+        }
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+      throw new Error(`wrangler dev did not start:\n${log}`);
+    },
+  });
 });
 
 afterAll(async () => {

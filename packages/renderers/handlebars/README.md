@@ -146,7 +146,7 @@ templates import `dist/runtime.js` by path.
 - Setup module registers each partial and calls `registerHelpers` on the renderer's environment, once per bundle. `src/plugin.ts:161`, `src/plugin.ts:163`
 - Setup module is invalidated when a partial or the helpers module is added or removed. `src/plugin.ts:243`, `src/plugin.ts:248`
 - Compiled template module: `export default env.template(<spec>)`, importing `env` from `dist/runtime.js`. `src/plugin.ts:141`, `src/plugin.ts:57`
-- Compiled template module accepts no HMR update of its own, so an edit propagates to the droplet's client module: a hydrated droplet remounts in place (`droplets:hot-fallback`), one that is not gets its fragment again. `src/plugin.ts:126`, `../../../tests/dev-mixed/test/dev.test.ts:328`, `../../../tests/dev-mixed/test/dev.test.ts:349`
+- Compiled template module accepts no HMR update of its own, so an edit propagates to the droplet's client module: a hydrated droplet remounts in place (`droplets:hot-fallback`), one that is not gets its fragment again. `src/plugin.ts:126`, `../../../tests/dev-mixed/test/dev.test.ts:333`, `../../../tests/dev-mixed/test/dev.test.ts:354`
 - `compile` options go to `Handlebars.precompile`, with `srcName` always unset. `src/plugin.ts:135`
 - Environment is one `Handlebars.create()` of `handlebars/runtime`, never the global `Handlebars`. `src/runtime.ts:21`
 - `{{{children}}}` helper outputs `<div data-droplet-children style="display: contents"></div>`. `src/runtime.ts:24`, `src/runtime.ts:28`

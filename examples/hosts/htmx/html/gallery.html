@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gallery · Droplets Shop on htmx 2.0.11</title>
+  <!-- The same head on every shop page: a navigation swaps <main> alone,
+       so the next page's head is never read. -->
+  <link rel="stylesheet" href="/shop.css">
+  <link rel="stylesheet" href="/site.css">
+  <script src="/vendor/htmx.min.js"></script>
+  <!-- Loaded once, through this site's proxy (nginx.conf): every droplet
+       element htmx swaps in from here on comes alive as it lands. -->
+  <script type="module" src="/index.js"></script>
+  <script src="/shop.js"></script>
+</head>
+<!-- Links and forms go by htmx: each answer is a whole page, and only its
+     <main> replaces this one, so the header and the cart badge stay. -->
+<body class="shop" hx-boost="true" hx-target="main" hx-select="main" hx-swap="outerHTML show:window:top">
+  <!-- Elements the page writes itself, rendered in the browser: the toasts
+       (first, /index.js installs their queue) and the cart badge. -->
+  <djs-shop data-droplet="toast-center"></djs-shop>
+  <header class="shop-header"><div class="shop-wrap">
+    <a class="shop-logo" href="/gallery"><span aria-hidden="true">◆</span> Droplets Shop</a>
+    <nav class="shop-nav" aria-label="Shop">
+      <a href="/gallery" aria-current="page">Gallery</a>
+      <a href="/admin">Admin</a>
+    </nav>
+    <div class="shop-cart"><djs-shop data-droplet="shopping-cart" data-droplet-props='{"variant":"badge"}'></djs-shop></div>
+  </div></header>
+  <!-- Back and Forward restore <main> alone (hx-history-elt). Nothing in it
+       inherits the body's boost (hx-disinherit): each droplet's request
+       swaps into its own element, its forms stay its own, and shop.js sends
+       the links in here by htmx. -->
+  <main class="shop-main shop-wrap" hx-history-elt hx-disinherit="*">
+    <noscript><p class="shop-unavailable">The droplets on this page come in by htmx, which needs JavaScript.</p></noscript>
+    <section class="shop-hero">
+      <h1>Everything a demo shop needs.</h1>
+      <p>Rendered by six frameworks, embedded by htmx 2.0.11 on static pages.</p>
+    </section>
+    <!-- Each droplet takes the page's query, the names it lists
+         (data-page-query, added by shop.js). -->
+    <div class="shop-gallery">
+      <aside hx-get="/droplets/product-filter" hx-trigger="load"
+             data-page-query="q category sort onSale">
+        <p class="shop-loading">Loading the filter…</p>
+      </aside>
+      <div hx-get="/droplets/product-library" hx-trigger="load"
+           data-page-query="q category sort onSale page">
+        <p class="shop-loading">Loading the products…</p>
+      </div>
+    </div>
+    <!-- Asked for only once it scrolls into view; the card then hydrates
+         when visible, its own setting. -->
+    <section class="shop-featured" aria-labelledby="featured-title">
+      <h2 id="featured-title">Picked for you</h2>
+      <div id="featured" hx-get="/droplets/product-card?slug=speckled-temple-cup" hx-trigger="revealed">
+        <p class="shop-loading">One more product, once you scroll here.</p>
+      </div>
+    </section>
+  </main>
+  <footer class="shop-footer"><div class="shop-wrap">
+    <p class="shop-stack">htmx 2.0.11</p>
+    <p>Droplets demo shop · host: htmx 2.0.11 (static pages on nginx) · droplets: &lt;djs-shop&gt;</p>
+    <p><a href="/gallery">Gallery</a> · <a href="/admin">Admin</a> · <a href="/" hx-boost="false">The Svelte example, cross-origin</a></p>
+  </div></footer>
+</body>
+</html>

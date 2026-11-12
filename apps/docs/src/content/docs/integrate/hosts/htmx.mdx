@@ -1,36 +1,43 @@
 ---
 title: htmx
-description: "htmx swaps droplet fragments into a static page; /index.js makes every one of them live."
+description: "htmx swaps droplet fragments into static pages, and moves between the shop's pages by swapping <main> alone; /index.js makes every droplet live."
 ---
 
 import HostDemo from "../../../../components/HostDemo.astro";
 
-How a static page embeds droplets with htmx: `hx-get` swaps each fragment in
-from the browser, and `/index.js` makes it live.
+How static pages embed droplets with htmx: `hx-get` swaps each fragment in
+from the browser, `/index.js` makes it live, and `hx-boost` moves between
+the shop's pages by swapping `<main>` alone, so the page behaves as one app.
 
 ## The pattern in htmx
 
 ```html
-<!-- html/shop.html (trimmed) -->
+<!-- html/gallery.html (trimmed) -->
 <head>
-  <meta name="htmx-config" content='{"selfRequestsOnly": false}'>
+  <link rel="stylesheet" href="/shop.css">
   <script src="/vendor/htmx.min.js"></script>
-  <script type="module" src="http://localhost:8000/index.js"></script>
   <script type="module" src="/index.js"></script>
-  <script src="/droplet-origins.js"></script>
+  <script src="/shop.js"></script>
 </head>
-<body hx-boost="true">
-  …
-  <section id="product" hx-boost="false"
-           hx-get="/droplets/product-page?slug=clay-cylinder-mug"
-           hx-trigger="load">
-    <p>Loading the product…</p>
-  </section>
+<body class="shop" hx-boost="true" hx-target="main" hx-select="main" hx-swap="outerHTML show:window:top">
+  <djs-shop data-droplet="toast-center"></djs-shop>
+  <header class="shop-header">…
+    <div class="shop-cart"><djs-shop data-droplet="shopping-cart" data-droplet-props='{"variant":"badge"}'></djs-shop></div>
+  </header>
+  <main class="shop-main shop-wrap" hx-history-elt hx-disinherit="*">
+    <div hx-get="/droplets/product-library" hx-trigger="load"
+         data-page-query="q category sort onSale page">
+      <p class="shop-loading">Loading the products…</p>
+    </div>
+  </main>
 </body>
 ```
 
 ```nginx
 # nginx.conf
+location = /gallery {
+  rewrite ^ /gallery.html last;
+}
 location ~ ^/(index\.js$|env\.js$|index\.css$|droplets/|assets/|api/) {
   proxy_pass http://shop;
   proxy_set_header Cookie $shop_cookie;
@@ -42,9 +49,11 @@ location ~ ^/(index\.js$|env\.js$|index\.css$|droplets/|assets/|api/) {
 }
 ```
 
-- When the page loads (`hx-trigger="load"`), htmx asks for
-  `GET /droplets/product-page?slug=clay-cylinder-mug` from the browser and
-  puts the answer inside the `<section>`, in place of its placeholder.
+- nginx serves the page as a file. When it loads (`hx-trigger="load"`),
+  htmx asks for `GET /droplets/product-library` from the browser and puts
+  the answer inside the `<div>`, in place of its placeholder; `shop.js`
+  adds the page's query parameters the element lists in `data-page-query`
+  ([Props from the page's URL](#props-from-the-pages-url)).
 - The request is same-origin, through nginx: the browser sends its cookies
   and the page's URL as `Referer` itself, and nginx cuts the `Cookie` down
   to the shop's own `cart_id` and `shop_admin` (a `map`), adds
@@ -53,17 +62,19 @@ location ~ ^/(index\.js$|env\.js$|index\.css$|droplets/|assets/|api/) {
   (`http://localhost:8010`) when it starts.
 - `/index.js`, loaded once, defines the shop's droplet element (`djs-shop`),
   so each fragment htmx swaps in upgrades and hydrates as it lands. nginx
-  passes `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and `/api/*` on to the shop.
-- The `<body>` has `hx-boost="true"`, so each droplet's section has
-  `hx-boost="false"` ([With `hx-boost`](#with-hx-boost)). The second
-  `/index.js`, the `htmx-config` meta and `droplet-origins.js` are for the
-  Svelte example's droplets, which come from another origin
-  ([Cross-origin](#cross-origin)).
+  passes `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`
+  and `/api/*` on to the shop.
+- The `<body>`'s `hx-boost`, `hx-target` and `hx-select` make every link a
+  swap of `<main>` alone; `<main>`'s `hx-disinherit="*"` keeps all of that
+  away from the droplets ([The shop as one page](#the-shop-as-one-page)).
 
 ## The htmx pages, recorded
 
-The example's two pages, `/` and `/shop`, recorded by the end-to-end test
-(`tests/hosts/e2e/htmx.spec.ts`). The droplets on `/shop` are the
+The shop's pages, recorded by the end-to-end test
+(`tests/hosts/e2e/htmx.spec.ts`): the gallery, a product opened from its
+card (only `<main>` changes, the header stays), added to the cart, the
+admin's login with a wrong password, the admin, and the card under the
+gallery asked for once revealed. The droplets are the
 [shop demo](/integrate/hosts/shop-demo/)'s.
 
 <HostDemo
@@ -71,15 +82,19 @@ The example's two pages, `/` and `/shop`, recorded by the end-to-end test
   stack="htmx 2.0.11"
   flow="The htmx flow"
   shots={[
-    ["1-swapped", "Swapped in on load and on a click"],
-    ["2-added", "An enhanced form, posted in place"],
+    ["1-gallery", "The gallery, swapped in by htmx"],
+    ["2-added", "A product page, its form posted in place"],
     ["3-login", "A plain form, back by Post/Redirect/Get"],
-    ["4-lazy", "Asked for once revealed"],
+    ["4-lazy", "A card asked for once revealed"],
   ]}
 />
 
-The code is in `examples/hosts/htmx`: two static pages (`html/index.html`,
-`html/shop.html`), `nginx.conf`, and the `Dockerfile` that copies htmx in.
+The code is in `examples/hosts/htmx`: the shop's four static pages
+(`html/gallery.html`, `product.html`, `login.html`, `admin.html`), the page
+of the Svelte example's droplets (`html/index.html`), `html/shop.js`,
+`nginx.conf`, and the `Dockerfile` that copies htmx in. The shop's pages use
+the same `shop.css` as every other shop host; `site.css` adds the
+placeholders, the featured card and the Svelte page's look.
 
 ### Pieces and ports
 
@@ -87,15 +102,23 @@ The code is in `examples/hosts/htmx`: two static pages (`html/index.html`,
 
 | Service | Port | What it is |
 | --- | --- | --- |
-| `web` | 8010, on `127.0.0.1` | `nginx:1.27-alpine` serving the two pages and htmx, and proxying the shop under its own origin |
+| `web` | 8010, on `127.0.0.1` | `nginx:1.27-alpine` serving the pages and htmx, and proxying the shop under its own origin |
 | `droplets` | 8000, on `127.0.0.1` | the Svelte example's droplets server: the browser asks it for fragments directly, cross-origin |
 | `shop` | 8300, internal only | the shop's droplets server (`examples/shop`), behind `web` |
 
-`/` embeds the Svelte example from its own origin, to show what a
-cross-origin page needs. `/shop` embeds the shop through the proxy, so its
-forms and cookies are the page's own; its cart badge is an element the page
-writes itself, `<djs-shop data-droplet="shopping-cart" data-droplet-props='{"variant":"badge"}'>`,
-which renders in the browser and fetches its own data.
+| Path | File | Droplets |
+| --- | --- | --- |
+| `/gallery` | `gallery.html` | `product-filter`, `product-library` (the page's `q`, `category`, `sort`, `onSale`, `page`), and `product-card` once revealed |
+| `/product/<slug>` | `product.html` | `product-page` (`slug`), then `product-comments` (the product's id; `order`, `page`, `showing`) |
+| `/login` | `login.html` | `login` (`next`) |
+| `/admin` | `admin.html` | `product-admin` (`view`, `id`) |
+| `/` | `index.html` | the Svelte example's `ssr-hydrate`, `client` and `ssr-nohydrate`, cross-origin |
+
+Every shop page writes the cart badge and the toasts itself, outside
+`<main>`: `<djs-shop data-droplet="shopping-cart" data-droplet-props='{"variant":"badge"}'>`
+and `<djs-shop data-droplet="toast-center">`, which render in the browser
+and fetch their own data. `nginx.conf` gives a page only to a slug of the
+shop's shape (`[a-z0-9]+(?:-[a-z0-9]+)*`); any other `/product/…` is a 404.
 
 htmx is the npm package `htmx.org` 2.0.11, pinned in `package.json` and
 `package-lock.json`: the `Dockerfile` installs it with `npm ci --ignore-scripts`
@@ -104,10 +127,10 @@ No CDN is involved.
 
 `nginx.conf` is a template (the nginx image's `/etc/nginx/templates/`):
 `SHOP_PUBLIC_URL` (`http://localhost:8010`) and `DROPLETS_PUBLIC_URL`
-(`http://localhost:8000`) are filled in at start. The pages are written for
-the default ports; when the droplets server is published elsewhere
+(`http://localhost:8000`) are filled in at start. The Svelte page is written
+for the default ports; when the droplets server is published elsewhere
 (`DROPLETS_PORT`, `DROPLETS_URL`), `sub_filter` rewrites
-`http://localhost:8000` in them to `DROPLETS_PUBLIC_URL`.
+`http://localhost:8000` in it to `DROPLETS_PUBLIC_URL`.
 
 Both droplets servers list `http://localhost:8010` in
 `DROPLETS_TRUSTED_ORIGINS`. For the shop, it is the origin of the
@@ -120,7 +143,7 @@ requests carry: the droplet's `host` is that origin, within the list.
 ```bash
 cd examples/hosts/htmx
 docker compose up --build
-open http://localhost:8010        # the Svelte droplets; /shop has the forms
+open http://localhost:8010/gallery   # the shop; / has the Svelte droplets
 ```
 
 Set `SHOP_SECRET` and `DROPLETS_SECRET` first (32 or more random characters
@@ -130,8 +153,11 @@ generates its own for a run.
 
 `pnpm test:hosts htmx` runs it end to end (`tests/hosts/e2e/htmx.spec.ts`),
 from the repository root; htmx runs only by name, not in the default set.
-The test also checks that the Svelte example answers htmx's preflight with
-`204`, `access-control-allow-origin: *` and the `HX-*` headers echoed.
+The test also loads each kind of page directly, turns JavaScript off, and
+checks that the Svelte example answers htmx's preflight with `204`,
+`access-control-allow-origin: *` and the `HX-*` headers echoed.
+`tests/hosts/test/htmx.test.ts` checks, without Docker, that the four shop
+pages share their head, header and footer.
 
 ## Swapping a droplet in
 
@@ -173,7 +199,7 @@ it runs only JavaScript scripts in swapped content.
 
 ## When it loads: `hx-trigger`
 
-The trigger decides when the fragment is asked for. The example uses three:
+The trigger decides when the fragment is asked for. The Svelte page uses three:
 
 ```html
 <!-- As soon as the page loads. -->
@@ -264,13 +290,123 @@ This is not in the example, which keeps the Svelte example's `cors: true`.
 The cross-origin requests carry no cookies (htmx's `withCredentials` is off),
 and their `Referer` is the page's origin alone. A droplet that needs the
 visitor's cookies, or forms that come back by Post/Redirect/Get, are
-simpler on the page's own origin: that is why `/shop` goes through the
+simpler on the page's own origin: that is why the shop goes through the
 proxy.
+
+## The shop as one page
+
+The shop's four pages are files with the same `<head>`, header and footer.
+A link fetches the whole next page, and htmx swaps only its `<main>` into
+this one; the header, the cart badge and the toasts stay where they are,
+and `/index.js` never loads twice.
+
+```html
+<body class="shop" hx-boost="true" hx-target="main" hx-select="main" hx-swap="outerHTML show:window:top">
+  <header class="shop-header">…</header>
+  <main class="shop-main shop-wrap" hx-history-elt hx-disinherit="*">…</main>
+  <footer class="shop-footer">…</footer>
+</body>
+```
+
+- **`hx-boost="true"`** on the `<body>` turns its links into htmx requests
+  that push the URL. `hx-target="main"` and `hx-select="main"` take the
+  answer's `<main>` and swap it for this one (`outerHTML`), and
+  `show:window:top` scrolls to the top, as a page load would. htmx also
+  sets the `<title>` from the answer.
+- **The same `<head>` on every page.** Only `<main>` is swapped, so the next
+  page's `<head>` is never read: what any page needs is loaded on all of
+  them. The test checks it (`tests/hosts/test/htmx.test.ts`).
+- **`hx-disinherit="*"`** on `<main>`: nothing inside it inherits the
+  body's attributes. Each droplet's `hx-get` swaps into its own element
+  (it would target `<main>` otherwise), and nothing in `<main>` is boosted,
+  so a droplet's forms stay its own ([Forms](#forms)).
+- **Links in `<main>`** go by htmx all the same, from `html/shop.js`. htmx
+  boosts the links it sees when it processes a swap, while a droplet renders
+  its links later (a hydrated library renders its cards again), so a click
+  listener sends any plain click on a same-origin page link in `<main>`
+  through htmx, with the body's target, select and swap:
+
+  ```js
+  // html/shop.js (the click listener's call)
+  htmx.ajax("get", link.href, { source: document.body, push: "true" });
+  ```
+
+  It leaves alone a click a droplet handled (`defaultPrevented`), a
+  modifier key, another origin, a `target`, a download, a link with
+  `hx-boost="false"`, `/droplets/`, `/api/` and `/assets/`, and an anchor on
+  the same page.
+- **Back and Forward.** `hx-history-elt` on `<main>` has htmx keep and
+  restore `<main>` alone: the browser's Back puts the previous page's
+  `<main>` back from htmx's history and htmx asks for its droplets again,
+  each rendering and hydrating once, as it did the first time. A page
+  that is not in that history is fetched, and its `<main>` taken. `shop.js`
+  moves the nav's `aria-current` with the page, since the header stays.
+
+The page of the Svelte droplets (`/`) is not part of this: it has its own
+`<head>` (that server's `/index.js`, the cross-origin settings) and boosts
+nothing, and it and the shop link to each other with full page loads.
+
+### Props from the page's URL
+
+A host that renders on its server forwards the page's query to the
+fragments. A static page has no server, so `shop.js` does it in the browser
+as htmx builds each request: the element lists the names it takes.
+
+```html
+<!-- html/product.html -->
+<div id="product" hx-get="/droplets/product-page" hx-trigger="load" data-page-slug="slug">…</div>
+<section id="comments" class="shop-comments"
+         hx-get="/droplets/product-comments"
+         hx-trigger="htmx:afterSettle from:#product"
+         hx-include="#product [name=productId]"
+         data-page-query="order page showing"></section>
+```
+
+```js
+// html/shop.js
+document.addEventListener("htmx:configRequest", (event) => {
+  const source = event.detail.elt;
+  const page = new URL(location.href);
+  const names = (source.getAttribute("data-page-query") ?? "").split(" ").filter(Boolean);
+  for (const name of names) {
+    if (page.searchParams.has(name)) event.detail.parameters[name] = page.searchParams.get(name);
+  }
+  const slug = source.getAttribute("data-page-slug");
+  if (slug) event.detail.parameters[slug] = page.pathname.split("/").pop();
+});
+```
+
+- `data-page-query` lists the query parameters the droplet takes; any
+  other the page's URL holds stays out. On `/gallery?category=mugs`, the
+  library is asked for `?category=mugs`.
+- `data-page-slug` names the prop that takes the path's last segment:
+  `/product/clay-cylinder-mug` asks for
+  `/droplets/product-page?slug=clay-cylinder-mug`.
+- The product page asks for `slug` alone, not the `v` the shop's links
+  carry: an old `v` answers a redirect to the host page, which htmx would
+  follow and paste in. Without `v` the product renders live
+  ([the version prop](/integrate/hosts/shop-demo/#stale-free-ssg-with-a-version-prop)).
+- The comments need the product's id, which the URL does not hold. They
+  wait for the product (`hx-trigger="htmx:afterSettle from:#product"`) and
+  take the id from its form's hidden `productId` (`hx-include`).
+- The props are read when htmx sends the request, after a boosted link has
+  pushed the new URL, so a navigation and a direct load ask for the same.
+
+### Errors, direct loads, no JavaScript
+
+- htmx swaps a `2xx` answer only. `shop.js` puts a fixed note, "This
+  droplet is unavailable.", where a droplet answered an error (an unknown
+  product's `404`), since the answer's text may echo the query; a page
+  that answered one loads in full instead, so its own error shows.
+- Each page is a whole file: loaded directly, it asks for its droplets with
+  the props its URL holds, as it does after a navigation.
+- Without JavaScript the header, the links and the footer are there, and
+  every link loads its page; `<main>` shows a note, since the droplets come
+  in by htmx.
 
 ## Forms
 
-The shop's droplets, swapped into `/shop` through the proxy, keep both
-ways a droplet form works.
+The shop's droplets keep both ways a droplet form works.
 
 **Enhanced.** The product page is a Handlebars droplet with no JavaScript
 of its own (`hydrate = false`), and its form has `data-droplet-enhance`
@@ -279,70 +415,54 @@ of its own (`hydrate = false`), and its form has `data-droplet-enhance`
 `accept: application/json`, without htmx's `HX-*` headers, and is answered
 with the action's result as JSON. The element then asks for its fragment
 again with that result as `form` and swaps it in place: no page load. The
-cart badge hears of it (`droplets:action`) and counts the product. The
-product card further down, swapped in on `revealed`, hydrates once visible
-and enhances its form too.
+cart badge hears of it (`droplets:action`) and counts the product, and the
+toast center says so. The product card under the gallery, swapped in on
+`revealed`, hydrates once visible and enhances its form too.
 
 **Plain (Post/Redirect/Get).** The login droplet ships no JavaScript and
-never enhances its form: it is a native form. A wrong
-password answers `303` back to `/shop` with the signed result in the query
-(`__droplet_form_login_<build>=…`). The page loads again, htmx asks for the
-login fragment on load, and the request's `Referer` is that URL, query
+never enhances its form: it is a native form. A wrong password answers
+`303` back to `/login?next=/admin` with the signed result in the query
+(`__droplet_form_login_<build>=…`). The page loads in full, htmx asks for
+the login fragment on load, and the request's `Referer` is that URL, query
 included; the shop's `handle` takes `host` from it
 (`event.host = hostFrom(event.request.headers.get("referer")) ?? event.host`),
-so the droplet renders with the result: "Wrong user or password." This
+so the droplet renders with the result: "Wrong user or password." The
+right one answers `303` to `next`, `/admin`, with the session cookie. This
 needs `DROPLETS_SECRET` on the droplets server and the page's origin in
 `DROPLETS_TRUSTED_ORIGINS`, as for any host.
 
-### With `hx-boost`
+### Why the droplets stay out of `hx-boost`
 
-`hx-boost` on the `<body>` turns every link and form under it into an htmx
-request, a droplet's forms included. htmx's listener is on the form, so it
-runs before the droplet's: without an exclusion the enhanced form never
-runs its own submit. htmx posts it as a plain form, follows the `303` and
-swaps the whole `<body>` for the page it lands on, so every droplet on the
-page is taken down and asked for again. Keep htmx out of the droplets with
-`hx-boost="false"` on the element that receives them:
+`hx-boost` turns every link and form under it into an htmx request, a
+droplet's forms included. htmx's listener is on the form, so it runs before
+the droplet's: a boosted enhanced form never runs its own submit. htmx
+posts it as a plain form, follows the `303` and swaps in the page it lands
+on, so every droplet on it is taken down and asked for again. That is why
+`<main>` has `hx-disinherit="*"`: no element in it inherits `hx-boost`.
+On a page that boosts only some of its content, `hx-boost="false"` on each
+element that receives a droplet does the same:
 
 ```html
 <body hx-boost="true">
   <section hx-boost="false" hx-get="/droplets/product-page?slug=clay-cylinder-mug" hx-trigger="load">…</section>
-  <section hx-boost="false" hx-get="/droplets/login?next=/shop" hx-trigger="load">…</section>
 </body>
 ```
 
 `hx-disable` is not the tool here: it stops htmx on the element itself as
 well, so a container with `hx-disable` never asks for its fragment.
 
-### Boosted navigation
-
-A boosted link swaps only the `<body>`: the next page's `<head>` is not
-loaded, so its scripts and its `htmx-config` never run. Give every page the
-same `<head>`, with each droplets server's `/index.js` the site uses. The
-example's two pages load both:
-
-```html
-<meta name="htmx-config" content='{"selfRequestsOnly": false}'>
-<script src="/vendor/htmx.min.js"></script>
-<script type="module" src="http://localhost:8000/index.js"></script>
-<script type="module" src="/index.js"></script>
-<script src="/droplet-origins.js"></script>
-```
-
-Back and forward work: htmx restores the page from its history and asks
-for the fragments on `load` again, and each droplet renders and hydrates
-once, as it did the first time. The end-to-end test goes back to `/shop`
-this way and checks the product page is there once.
-
 ## Limits
 
 - **No markup in the first paint.** The fragments arrive after htmx runs;
-  without JavaScript the page shows its placeholders. Paste the fragment on
-  a server for that ([Overview](/integrate/hosts/overview/)).
+  without JavaScript the page shows its placeholders and a note. Paste the
+  fragment on a server for that ([Overview](/integrate/hosts/overview/)).
 - **Props in the URL only.** `hx-get` sends props as the query string, as
   any `GET` fragment takes them. htmx can `POST`, but as a form body, which
   a droplets server treats as a [form action](/integrate/http-contract/#form-actions):
   a JSON render needs htmx's `json-enc` extension, not tried here.
+- **A page has the props its URL holds.** The product page cannot show a
+  breadcrumb with the product's category and name, as the hosts that render
+  on a server do: it links back to the gallery instead.
 - **The droplet element is the fragment's.** Its attributes
   (`data-droplet-hydrate` included) come from the server; the page sets them only on
   elements it writes itself.

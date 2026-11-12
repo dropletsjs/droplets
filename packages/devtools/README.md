@@ -114,7 +114,7 @@ droplets with their flags, which the tool reads from each server.
 - Devtools page data is JSON in `<script type="application/json" id="dt-data">`, with `<` escaped as the JSON unicode escape `\u003c`. `src/page.tsx:47`, `src/page.tsx:197`
 - Devtools page `strategy` defaults to `hmr` when the input has none. `src/page.tsx:162`
 - Devtools page loads `<loaderUrl>?injectTool=true`: the dev tool is always on there. `src/page.tsx:203`
-- Devtools page marks the loader script `vite-ignore`, so Vite does not pre-transform `index.js`; the attribute is gone after `transformIndexHtml`. `src/page.tsx:203`, `test/index.test.ts:81`
+- Devtools page marks the loader script `vite-ignore`, so Vite does not pre-transform `index.js`; the attribute is gone after `transformIndexHtml`. `src/page.tsx:203`, `test/index.test.ts:89`
 - Devtools page title is `Droplets devtools`. `src/page.tsx:182`
 - The package entry exports `dropletsDevtools` and the types `DevtoolsPageInput` and `ServerRender`; `renderDevtoolsPage` lives in `src/page.tsx`, which the plugin alone calls. `src/index.ts:8`, `src/index.ts:135`
 - `renderDevtoolsPage` with `pageStyles: false` leaves the page's `<style>` out for `withPageStyles`. `src/page.tsx:187`
