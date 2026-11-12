@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Context, MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
+import { prefersJson } from "./accept.ts";
 import { decodeBase64Json, encodeBase64 } from "./base64.ts";
 import { createCookies, prerenderCookies, readonlyCookies } from "./cookies.ts";
 import { readRuntimeEnv } from "./env-store.ts";
@@ -15,7 +16,7 @@ import { requestInfo, withRequestInfo } from "./request-store.ts";
 import { createLoadHeaders, storedHeaders } from "./load-headers.ts";
 import { publicEnvScript, serverKey } from "./server-records.ts";
 import { plainJson } from "./plain-json.ts";
-import { isJsonType, mediaType, originCheck, sizeLimits, trustedOriginsWith } from "./security.ts";
+import { isJsonType, mediaType, originCheck, sizeLimits, trustedOriginsWith, wantsJson } from "./security.ts";
 import { allowedMethods, API_METHODS, type ApiMatch, type ApiMethod } from "./routes.ts";
 import {
   HttpError,
@@ -356,7 +357,22 @@ function contextFromBody({ body }: ContextFromBodyInput): Partial<WireContext> {
 }
 
 /** The routes whose POST body is a render context: the fragment and `_data`. */
-const RENDER_ROUTE = /^\/droplets\/[^/]+(?:\/_data)?\/?$/;
+const RENDER_ROUTE = /^\/droplets\/[^/]+(?:\/_data)?$/;
+
+type NotFoundInput = { c: Context };
+
+/** `Not Found`, in the shape of the route: `{ message }` under `_data` and `/api`, text elsewhere. */
+function notFound({ c }: NotFoundInput): Response {
+  return wantsJson({ path: c.req.path }) ? c.json({ message: "Not Found" }, 404) : c.text("Not Found", 404);
+}
+
+type MethodNotAllowedInput = { c: Context; allow: string };
+
+/** `Method Not Allowed` with `allow`, in the shape of the route, as `notFound`. */
+function methodNotAllowed({ c, allow }: MethodNotAllowedInput): Response {
+  const message = "Method Not Allowed";
+  return wantsJson({ path: c.req.path }) ? c.json({ message }, 405, { allow }) : c.text(message, 405, { allow });
+}
 
 type IsStaticPathInput = { path: string };
 
@@ -553,12 +569,17 @@ function actionOutcome({ droplet, name, result, host }: ActionOutcomeInput): Act
   return failed ? { type: "failure", status: result.status, ...shown } : { type: "success", status: 200, ...shown };
 }
 
-type UrlOnInput = { origin: string; request: URL };
+type PublicUrlInput = { c: Context };
 
-/** `pathname + search` of the request, moved onto `origin` when it parses. */
-function urlOn({ origin, request }: UrlOnInput): URL {
+/**
+ * The request's URL as the browser reaches it: its path and query under
+ * the location, prefix included (`https://shop.example/mfe/droplets/x`).
+ * What `event.url` is and what a cookie's defaults are judged by.
+ */
+function publicUrl({ c }: PublicUrlInput): URL {
+  const request = new URL(c.req.url);
   try {
-    return new URL(`${request.pathname}${request.search}`, origin);
+    return new URL(`${publicLocation({ c }).replace(/\/+$/, "")}${request.pathname}${request.search}`);
   } catch {
     // A location a header named that no URL takes: the request's own URL stands.
     return request;
@@ -675,15 +696,15 @@ function withFormResult({ page, key, value }: WithFormResultInput): string {
 type CreateRequestEventInput = { c: Context; host?: URL | undefined; cookies?: RequestEvent["cookies"] | undefined };
 
 function createRequestEvent({ c, host, cookies }: CreateRequestEventInput): RequestEvent {
-  const publicUrl = urlOn({ origin: publicOrigin({ c }), request: new URL(c.req.url) });
+  const url = publicUrl({ c });
   return {
     request: c.req.raw,
-    url: publicUrl,
-    host: host ?? hostFromHeaders({ headers: c.req.raw.headers, location: publicUrl }),
+    url,
+    host: host ?? hostFromHeaders({ headers: c.req.raw.headers, location: url }),
     params: {},
     locals: {} as Locals,
     platform: platformOf({ c }),
-    cookies: cookies ?? createCookies({ request: c.req.raw, url: publicUrl }).cookies,
+    cookies: cookies ?? createCookies({ request: c.req.raw, url }).cookies,
   };
 }
 
@@ -794,7 +815,7 @@ function createDropletMiddleware(options: DropletsAppOptions): MiddlewareHandler
   return async (c, next) => {
     const droplet = c.req.param("droplet") as string;
     const meta = await dropletMeta({ options, droplet });
-    if (!meta.exists) return c.text("Not Found", 404);
+    if (!meta.exists) return notFound({ c });
 
     const clientOnly = c.req.query("clientOnly") !== undefined;
     const noSSR = clientOnly || c.req.query("noSSR") !== undefined;
@@ -844,9 +865,8 @@ function createDropletMiddleware(options: DropletsAppOptions): MiddlewareHandler
 export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
   const app = new Hono<AppEnv>();
   // What no handler caught leaves the same way as everything else: through `handleError`.
-  app.onError((error, c) =>
-    failure({ c, options, error, as: c.req.path.endsWith("/_data") || c.req.path.startsWith("/api") ? "json" : "text", where: "request" }),
-  );
+  app.onError((error, c) => failure({ c, options, error, as: wantsJson({ path: c.req.path }) ? "json" : "text", where: "request" }));
+  app.notFound((c) => notFound({ c }));
   const dropletMiddleware = createDropletMiddleware(options);
   const element = options.element ?? "djs-droplet";
   const health = options.health === undefined ? "/health" : options.health;
@@ -943,6 +963,31 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     return next();
   });
 
+  // Fragments and `_data` answer per request (host, props, cookies): kept
+  // out of shared caches unless the droplet's load (`setHeaders`), `handle`
+  // or the config says otherwise. Every answer varies on the headers that
+  // decide its URLs and `host`: a cache keys answers by URL, and with these
+  // in the key a spoofed header only ever reaches its own entry. Outermost,
+  // so its `vary` is the last word: `cors()` appends `Origin` to it too.
+  // The default `cache-control` is for what rendered: an error keeps none.
+  // Every answer names the build, 404 and 405 included: the element reads
+  // it before the status, so a page learns it is stale from a droplet a
+  // redeploy removed.
+  const perRequest: MiddlewareHandler<AppEnv> = async (c, next) => {
+    await next();
+    const headers = new Headers(c.res.headers);
+    const status = c.res.status;
+    if (status >= 200 && status < 300 && !headers.has("cache-control") && cacheControl) headers.set("cache-control", cacheControl);
+    if (options.buildHash) headers.set("x-droplets-build", options.buildHash);
+    const vary = withVary({ vary: headers.get("vary"), names: options.location === undefined ? VARY_HEADERS : HOST_VARY_HEADERS });
+    if (vary !== null) headers.set("vary", vary);
+    const response = c.res;
+    c.res = undefined;
+    c.res = new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+  };
+  app.use("/droplets/:droplet", perRequest);
+  app.use("/droplets/:droplet/_data", perRequest);
+
   // CORS first, so even a failing hook answers with the headers.
   if (options.cors) app.use("*", cors(withExposedHeaders({ options: options.cors })));
 
@@ -1023,7 +1068,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
       });
     } else {
       // `secure` follows how the browser reaches this server.
-      const jar = createCookies({ request: c.req.raw, url: urlOn({ origin: publicLocation({ c }), request: new URL(c.req.url) }) });
+      const jar = createCookies({ request: c.req.raw, url: publicUrl({ c }) });
       c.set("cookieJar", jar);
       cookies = jar.cookies;
       host =
@@ -1205,24 +1250,6 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     }
   });
 
-  // Fragments and `_data` answer per request (host, props, cookies): kept
-  // out of shared caches unless the droplet's load (`setHeaders`), `handle`
-  // or the config says otherwise. Every answer varies on the headers that
-  // decide its URLs and `host`: a cache keys answers by URL, and with these
-  // in the key a spoofed header only ever reaches its own entry.
-  const perRequest: MiddlewareHandler<AppEnv> = async (c, next) => {
-    await next();
-    const headers = new Headers(c.res.headers);
-    if (!headers.has("cache-control") && cacheControl) headers.set("cache-control", cacheControl);
-    const vary = withVary({ vary: headers.get("vary"), names: options.location === undefined ? VARY_HEADERS : HOST_VARY_HEADERS });
-    if (vary !== null) headers.set("vary", vary);
-    const response = c.res;
-    c.res = undefined;
-    c.res = new Response(response.body, { status: response.status, statusText: response.statusText, headers });
-  };
-  app.use("/droplets/:droplet", perRequest);
-  app.use("/droplets/:droplet/_data", perRequest);
-
   type PrepareInput = { ctx: DropletContext };
 
   /** Runs the props schema; the result replaces the props everywhere. */
@@ -1298,15 +1325,21 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
    * `{ data }`, or `{ error }` with a 500 when a load failed; `error()`,
    * `redirect()` and unhandled failures answer as an endpoint does.
    */
-  // GET and POST only (the browser POSTs its context; a GET with the query
-  // is for people and tools). Anything else is no read of the load.
-  app.on(["PUT", "PATCH", "DELETE"], "/droplets/:droplet/_data", (c) =>
-    c.json({ message: "Method Not Allowed" }, 405, { allow: "GET, POST" }),
-  );
+  // The fragment and `_data` take GET and POST (the browser POSTs its
+  // context; a GET with the query is for people and tools); HEAD is Hono's
+  // GET without a body, OPTIONS is `cors()`'s. Any other method is 405 on a
+  // droplet that exists, 404 on one that does not, before anything is read.
+  const renderMethods: MiddlewareHandler<AppEnv> = async (c, next) => {
+    const method = c.req.method.toUpperCase();
+    if (method === "GET" || method === "POST" || method === "HEAD" || method === "OPTIONS") return next();
+    const meta = await dropletMeta({ options, droplet: c.req.param("droplet") as string });
+    return meta.exists ? methodNotAllowed({ c, allow: "GET, POST" }) : notFound({ c });
+  };
+  app.use("/droplets/:droplet", renderMethods);
+  app.use("/droplets/:droplet/_data", renderMethods);
+
   app.on(["GET", "POST"], "/droplets/:droplet/_data", dropletMiddleware, async (c) => {
     const ctx = dropletContext({ c });
-    // The loader compares it with its own build to notice a deploy.
-    if (options.buildHash) c.header("x-droplets-build", options.buildHash);
     try {
       await prepare({ ctx });
       // A no-JavaScript action's result for this droplet: live, never stored.
@@ -1493,7 +1526,9 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
       return failure({ c, options, error, as: "text", where: "droplet" });
     }
 
-    const inlineContext = !ctx.noSSR && ctx.meta.ssr ? contextData : "";
+    // With server markup (rendered live, or stored at build whatever `ssr`
+    // says), the context rides in its script; without, on the attribute.
+    const inlineContext = html ? contextData : "";
     // Always an envelope, even around `undefined`: its presence tells the
     // client the server ran and `_data` is not needed. Client-only fragments
     // carry none, nor do components that never run in the browser.
@@ -1582,9 +1617,9 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     if (action === "missing")
       return c.text(ACTION_NAME.test(name) ? `No action named ${JSON.stringify(name.slice(0, 100))}` : "No such action", 404);
 
-    // The request decides: one that accepts JSON (`enhanceDropletForm`, or
+    // The request decides: one that prefers JSON (`enhanceDropletForm`, or
     // any script) gets the result; anything else is a native navigation.
-    const wantsJson = (c.req.header("accept") ?? "").includes("application/json");
+    const wantsJson = prefersJson({ accept: c.req.header("accept") });
     const allowed = redirectOrigins({ c, trusted: formOrigins() });
     const secret = wantsJson ? null : formSecret({ raw: readRuntimeEnv("DROPLETS_SECRET"), devLog: options.devLog });
     // Where the answer goes back to, known before the action runs (from
@@ -1667,6 +1702,8 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     });
     if (minted.dropped) options.devLog?.resultTooLarge({ droplet: ctx.droplet, action: name });
     applyHeaders({ c, headers: ctx.headers });
+    // Its location carries one visitor's result: never kept by a shared cache.
+    c.header("cache-control", "private, no-store");
     return c.body(null, 303, { location: withFormResult({ page: back, key: formResultKey(ctx.droplet, build), value: minted.value }) });
   }
 
@@ -1708,20 +1745,20 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
   // `+server.ts` endpoints.
   const api = async (c: AppContext) => {
     const match = options.matchApi ? await options.matchApi(c.req.path) : null;
-    if (!match) return c.json({ message: "Not Found" }, 404);
+    if (!match) return notFound({ c });
 
     const module = match.route.module;
     const upper = c.req.method.toUpperCase();
-    // Only the HTTP methods: an export such as `CONFIG` is never a method.
+    // Only the HTTP methods reach an export of their name: `CONFIG` is never
+    // one. `fallback` takes every method the module does not export, any
+    // other method included.
     const method = (API_METHODS as readonly string[]).includes(upper) ? (upper as ApiMethod) : undefined;
     const isHead = method === "HEAD" && typeof module.HEAD !== "function";
-    const handler = method
-      ? ((isHead ? module.GET : Object.hasOwn(module, method) ? module[method] : undefined) ?? module.fallback)
-      : undefined;
+    const named = method ? (isHead ? module.GET : Object.hasOwn(module, method) ? module[method] : undefined) : undefined;
+    const handler = named ?? module.fallback;
     if (typeof handler !== "function") {
-      return c.json({ message: "Method Not Allowed" }, 405, {
-        allow: allowedMethods({ module }).join(", "),
-      });
+      const allow = allowedMethods({ module }).join(", ");
+      return c.json({ message: "Method Not Allowed" }, 405, allow ? { allow } : {});
     }
 
     const event: RequestEvent = { ...c.get("event"), params: match.params };

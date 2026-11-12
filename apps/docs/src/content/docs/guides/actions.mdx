@@ -65,9 +65,10 @@ body is merged into anything. What it returns:
 Then the droplet renders again: its load runs, and the component gets the
 result as `form`, `undefined` on any other render (`{{form.…}}` in
 Handlebars). That render is always live, also for a prerendered droplet.
-How it gets there depends on the request, not the URL: one that accepts
-JSON (`accept: application/json`, as an [enhanced form](#enhancing-a-form)
-sends) gets the result, `{ type, status, data? }` or
+How it gets there depends on the request, not the URL: one whose `accept`
+prefers JSON over HTML (`application/json`, as an
+[enhanced form](#enhancing-a-form) sends; a browser's `text/html, …` does
+not) gets the result, `{ type, status, data? }` or
 `{ type: "redirect", status, location }`, and the page renders it in place;
 a form posted without JavaScript is sent back to its page with the result
 ([Post/Redirect/Get](#without-javascript-postredirectget)). The
@@ -142,7 +143,7 @@ back to the host page.
 
 ### Without JavaScript: Post/Redirect/Get
 
-A native post (one that does not accept JSON) is answered with a `303`,
+A native post (one whose `accept` does not prefer JSON) is answered with a `303`,
 never with the droplet's fragment as a page of its own:
 
 - **success or `fail()`**: back to the page the form was on, with the

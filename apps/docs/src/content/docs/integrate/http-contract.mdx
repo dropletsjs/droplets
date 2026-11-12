@@ -31,9 +31,15 @@ Header names follow one rule: what a request sends is singular,
 `x-droplet-*` (`x-droplet-location`, `x-droplet-props`); what a response
 sends is plural, `x-droplets-*` (`x-droplets-build`).
 
-Unknown droplets answer `404`. A load that fails answers the error page with
-`500` ([Errors](/guides/errors/)); `error()` and `redirect()` answer their own
-status; props the schema refuses answer `400`.
+Unknown droplets answer `404`, whatever the method: `Not Found` as text on
+the fragment, `{ "message": "Not Found" }` on `_data`. A known droplet
+answers `405` with `allow: GET, POST` to any other method than `GET` and
+`POST` (`HEAD` is a `GET` without a body), on the fragment and `_data`
+alike, before any body is read. A path no route matches, a trailing slash
+included (`/droplets/hello/`), answers `404` the same way: text, or
+`{ "message": "Not Found" }` under `_data` and `/api`. A load that fails
+answers the error page with `500` ([Errors](/guides/errors/)); `error()` and
+`redirect()` answer their own status; props the schema refuses answer `400`.
 
 Two query flags override the droplet's flags for one request: `?noSSR` skips
 rendering but still runs the server load, and `?clientOnly` skips both.
@@ -60,8 +66,8 @@ default tag name):
 | `data-build` | The build that rendered it; see [deploys while a page is open](/guides/errors/#deploys-while-a-page-is-open). |
 | `data-render-id` | The id of this server render, for engines that key hydration by it. |
 | `data-droplet-error` | Present when the markup is the error page. |
-| `data-context` | The context as an attribute, when there is no inline `data-droplet-context`. |
-| `data-droplet-context` | Base64 JSON `{ host, props }`, after the props schema: where it renders, and its props. Sent back when the browser needs `_data`. |
+| `data-context` | The context as an attribute, when there is no inline `data-droplet-context`: a fragment without server markup (`ssr = false`, `?noSSR`, `?clientOnly`). |
+| `data-droplet-context` | Base64 JSON `{ host, props }`, after the props schema: where it renders, and its props. Sent back when the browser needs `_data`. Present whenever the fragment has server markup, a prerendered render of an `ssr = false` droplet included. |
 | `data-droplet-data` | Base64 JSON envelope, `{ "data": … }` or `{ "error": … }`. Its presence tells the browser the server load ran. Absent for droplets that never hydrate and for `clientOnly`. |
 | `link[data-droplet-style]` | The droplet's `style.css`, inside the element, ahead of its markup, so the markup never shows unstyled and nothing goes into the host's `<head>`. Absent when the droplet has no styles. |
 | `[data-droplet-entry]` | The server-rendered markup. The browser hydrates it in place. |
@@ -130,7 +136,8 @@ come with the JavaScript.
 and answers `{ "data": … }`, or `{ "error": … }` with a `500` when the load
 failed. When `host` carries a no-JavaScript action's result for the droplet,
 it is `{ "data": …, "form": … }` ([Post/Redirect/Get](#postredirectget)). `error()` and `redirect()` answer as they would for the fragment.
-Answers carry `x-droplets-build`. Other methods answer `405`.
+Every answer carries `x-droplets-build`, as every fragment answer does,
+`404` and `405` included. Other methods answer `405`.
 
 The two methods are for different callers:
 
@@ -180,7 +187,10 @@ on ([below](#host-where-the-droplet-renders)).
 What the location decides: every URL the fragment writes about the server
 (its `style.css` link, the `Link` header, action URLs, `droplet.origin`),
 the origins the [`Origin` check](#form-posts-the-origin-check) accepts as
-its own, and `request.url` in `handle` and `+server.ts`.
+its own, and `event.url` in `handle` and `+server.ts`: the request's path
+and query under the location, prefix included
+(`https://shop.example/mfe/droplets/hello?who=Ana`), while
+`event.request.url` stays the URL the request came in with.
 
 ### Where it comes from
 
@@ -325,12 +335,15 @@ by the action itself:
 Props come from the query string, or `x-droplet-props`; `?/name`,
 `__droplet_return` and any `__droplet_form_*` key are never props, and every other key stays as it
 came in `request.url`. The URL is the same for every caller; the request
-decides the answer. One that accepts JSON (an enhanced form, or any script)
-gets the result; anything else is a native form post, answered
+decides the answer. One whose `accept` prefers JSON over HTML gets the
+result: `application/json` (or `application/*`) named with a weight at
+least `text/html`'s, as an enhanced form sends (`accept: application/json`)
+and any script can. Anything else, a browser's navigation
+(`text/html, …, */*;q=0.8`) or `*/*` alone, is a native form post, answered
 Post/Redirect/Get ([below](#postredirectget)). What the action returns is
 answered:
 
-| Result | `accept: application/json` | Otherwise, with `DROPLETS_SECRET` | Otherwise, without it |
+| Result | `accept` prefers JSON | Otherwise, with `DROPLETS_SECRET` | Otherwise, without it |
 | --- | --- | --- | --- |
 | data, or nothing | `200` `{ "type": "success", "status": 200, "data": … }` | `303` back to the page, the result in its query | `200`, the fragment rendered again with `form` |
 | `fail(status, data)` | `status` `{ "type": "failure", "status": …, "data": … }` | `303` back to the page, the result in its query | `status`, the fragment with `form` |
@@ -372,7 +385,7 @@ A native post goes back to the host page, so a reload never posts again:
 | success or `fail()` | `303`, `location`: the page (below) without its `#hash`, its `?/name`, `__droplet_return` and `__droplet_form_*` keys, plus `__droplet_form_<droplet>_<build>=<result>` |
 | `redirect()` | `303`, `location`: its target |
 | no page that passes: neither `__droplet_return` (once, 2 KB at most) nor `Referer` names one whose origin is this server's (its location's included), in `trustedOrigins` or `host`'s, outside `<location>/droplets/` | `400`, plain text; the action does not run |
-| a `redirect()` to such an origin, `javascript:` or anything but `http(s)` | `400`, plain text (`400` `{ "message": … }` to a request that accepts JSON: the same check) |
+| a `redirect()` to such an origin, `javascript:` or anything but `http(s)` | `400`, plain text (`400` `{ "message": … }` to a request that prefers JSON: the same check) |
 | no `DROPLETS_SECRET` (or under 32 bytes) | the fragment rendered with `form`, as the table above; a warning under `vite dev`, once |
 
 The page, read from the URL and the headers before the body: the

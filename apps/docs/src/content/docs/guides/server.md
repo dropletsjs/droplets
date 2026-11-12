@@ -61,7 +61,7 @@ The event:
 ```ts
 type RequestEvent = {
   request: Request;
-  url: URL;                       // the request's URL on the server's public location
+  url: URL;                       // the request's path and query under the public location, prefix included
   host: URL;                      // where the droplet renders: the host page; handle may replace it
   params: Record<string, string>; // API route parameters
   locals: Locals;
@@ -180,12 +180,14 @@ export const GET: RequestHandler<{ name: string }> = ({ params, locals }) => {
 ```
 
 Export one function per method (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`,
-`OPTIONS`, `HEAD`), or `fallback` for the others of those seven. A missing
-method answers `405` with `Allow`; `HEAD` without its own export runs `GET`
-and drops the body. Any other method never reaches a handler, `fallback`
-included: `405`. A path no route matches answers `404`
-`{ "message": "Not Found" }`, and a handler that returns no `Response` a
-`500`.
+`OPTIONS`, `HEAD`), or `fallback` for every method the module does not
+export, a non-standard one included, as in SvelteKit. `HEAD` without its
+own export runs `GET` and drops the body. A method with neither its own
+export nor `fallback` answers `405` with `Allow` listing the exported
+methods (omitted when there is none). An export of any other name
+(`CONFIG`, say) is never called as a method. A path no route matches
+answers `404` `{ "message": "Not Found" }`, and a handler that returns no
+`Response` a `500`.
 
 A folder in brackets is a parameter (`[name]`) or the rest of the path
 (`[...path]`), and one in parentheses (`(admin)`) adds nothing to the URL.

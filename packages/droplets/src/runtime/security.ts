@@ -86,10 +86,10 @@ function isGuardedPath({ path, extra = [] }: IsGuardedPathInput): boolean {
   return path === "/api" || path.startsWith("/api/") || path.startsWith("/droplets/") || extra.includes(path);
 }
 
-type WantsJsonInput = { path: string };
+export type WantsJsonInput = { path: string };
 
 /** `/api/*` and `_data` answer JSON; fragments and the rest, text. */
-function wantsJson({ path }: WantsJsonInput): boolean {
+export function wantsJson({ path }: WantsJsonInput): boolean {
   return path === "/api" || path.startsWith("/api/") || /\/_data\/?$/.test(path);
 }
 

@@ -173,12 +173,14 @@ export const load = ({ setHeaders }: LoadEvent) => {
 };
 ```
 
-Its `Cache-Control` replaces the default, on the fragment and on `_data`;
-an error answer, or a load that failed, keeps the default. A prerendered
-render is served with the headers its load set at build. `handle` has the
-last word: a `Cache-Control` it sets on the response stands.
-`fragmentCacheControl` in `droplets.config.ts` changes the default for every
-droplet, or `false` sends none.
+Its `Cache-Control` replaces the default, on the fragment and on `_data`.
+The default is for what rendered, `2xx` answers: an error answer, a load
+that failed, a `404`, a `405` and a redirect carry none of it (nor the
+load's), so a `fragmentCacheControl` meant for content never keeps a
+failure. A prerendered render is served with the headers its load set at
+build. `handle` has the last word: a `Cache-Control` it sets on the
+response stands. `fragmentCacheControl` in `droplets.config.ts` changes the
+default for every droplet, or `false` sends none.
 
 Every fragment and `_data` answer carries
 `Vary: x-droplet-location, forwarded, x-forwarded-host, x-forwarded-proto, x-forwarded-port, x-forwarded-prefix, origin`,
@@ -195,7 +197,7 @@ The import map is not cached by the server. Cache fragments in your host if
 their content allows it.
 
 A fragment or `_data` rendered with a form's result is always
-`private, no-store`.
+`private, no-store`, and so is the `303` that carries one back to the page.
 
 ## CSRF: the `Origin` check
 

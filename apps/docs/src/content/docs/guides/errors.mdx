@@ -119,8 +119,10 @@ handler that throws. Catch those where they happen.
 
 ## Deploys while a page is open
 
-Fragments carry the build that rendered them (`data-build`), and `_data`
-answers carry `x-droplets-build`. When a page loaded `index.js` from one
+Fragments carry the build that rendered them (`data-build`), and every
+fragment and `_data` answer carries `x-droplets-build`, a `404` or `405`
+included, so a page learns it is stale from a droplet a redeploy removed
+too. When a page loaded `index.js` from one
 build and meets a droplet from another, the element does not hydrate:
 the server HTML stays, and it dispatches `droplets:stale`, which bubbles to
 `window`:

@@ -301,6 +301,31 @@ describe("form actions: results", () => {
     expect(renderDroplet).not.toHaveBeenCalled();
   });
 
+  it("answers JSON only to a request that prefers it over HTML, by the weights of accept", async () => {
+    const { app, renderDroplet } = actionsApp({ actions: { default: sign } });
+    const post = (accept: string) => app.request(submit({ path: "/droplets/guestbook", body: "name=Ana", headers: { accept } }));
+    const page = await post("text/html, application/json;q=0.1");
+    expect(page.headers.get("content-type")).toContain("text/html");
+    expect(envelope(await page.text())).toEqual({ data: { count: 1 }, form: { message: "Thanks, Ana" } });
+    expect((await post("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")).headers.get("content-type")).toContain(
+      "text/html",
+    );
+    expect((await post("*/*")).headers.get("content-type")).toContain("text/html");
+    expect(renderDroplet).toHaveBeenCalledTimes(3);
+
+    expect(await (await post("application/json, text/html")).json()).toEqual({
+      type: "success",
+      status: 200,
+      data: { message: "Thanks, Ana" },
+    });
+    expect(await (await post("text/html;q=0.5, application/*")).json()).toEqual({
+      type: "success",
+      status: 200,
+      data: { message: "Thanks, Ana" },
+    });
+    expect(renderDroplet).toHaveBeenCalledTimes(3);
+  });
+
   it("gives a void action an undefined form", async () => {
     const { app, renderDroplet } = actionsApp({ actions: { default: () => {} } });
     const res = await app.request(submit({ path: "/droplets/guestbook" }));
@@ -393,16 +418,17 @@ describe("form actions: what the action gets", () => {
         },
       },
     });
-    for (const [path, headers, status] of [
-      ["/droplets/guestbook", {}, 200],
-      ["/droplets/guestbook", { accept: "application/json" }, 200],
-      ["/droplets/guestbook?/away", {}, 303],
+    for (const [path, headers, status, cacheControl] of [
+      ["/droplets/guestbook", {}, 200, "private, no-store"],
+      ["/droplets/guestbook", { accept: "application/json" }, 200, "private, no-store"],
+      // The default Cache-Control is for what rendered; a redirect carries none.
+      ["/droplets/guestbook?/away", {}, 303, null],
     ] as const) {
       const res = await app.request(submit({ path, body: "", headers }));
       expect(res.status, path).toBe(status);
       expect(res.headers.get("set-cookie"), path).toContain("signed=1");
       expect(res.headers.get("x-signed"), path).toBe("yes");
-      expect(res.headers.get("cache-control"), path).toBe("private, no-store");
+      expect(res.headers.get("cache-control"), path).toBe(cacheControl);
     }
   });
 
@@ -538,6 +564,7 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
     const { app, renderDroplet } = actionsApp({ actions: { default: sign } });
     const ok = await app.request(submit({ path: "/droplets/guestbook", body: "name=Ana", headers: native }));
     expect(ok.status).toBe(303);
+    // Its location carries one visitor's result: never kept by a shared cache.
     expect(ok.headers.get("cache-control")).toBe("private, no-store");
     const location = ok.headers.get("location") ?? expect.unreachable("a location header");
     // The page's own query as it was written, then the result.

@@ -114,7 +114,8 @@ describe("the droplets", () => {
 
     const crashed = await call("/droplets/crash?fail=1");
     expect(crashed.status).toBe(500);
-    expect(crashed.headers.get("cache-control")).toBe("private, no-store");
+    // The default Cache-Control is for what rendered: an error page carries none.
+    expect(crashed.headers.get("cache-control")).toBeNull();
     const html = await crashed.text();
     expect(html).toMatch(/^<djs-demo data-droplet="crash"[^>]* data-droplet-error>/);
     expect(html).toContain("This is the droplet's +error page");

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { logger } from "../../src/core/logger.ts";
 import { createDropletsApp, type DropletsApp, type DropletsAppOptions } from "../../src/runtime/app.ts";
@@ -87,6 +88,72 @@ describe("createDropletsApp: health and index", () => {
   it("has no full-page route: only /droplets/:id renders", async () => {
     const { app, renderDroplet } = fakeApp();
     expect((await app.request("/hello")).status).toBe(404);
+    expect(renderDroplet).not.toHaveBeenCalled();
+  });
+});
+
+describe("createDropletsApp: Not Found and Method Not Allowed", () => {
+  it("answers 404 for an unknown droplet before any method check: text for the fragment, JSON for _data", async () => {
+    const { app, renderDroplet, loadDropletData } = fakeApp();
+    for (const method of ["GET", "POST", "PUT", "PATCH", "DELETE"]) {
+      const fragment = await app.request("/droplets/missing", { method });
+      expect(fragment.status, method).toBe(404);
+      expect(fragment.headers.get("allow"), method).toBeNull();
+      expect(await fragment.text(), method).toBe("Not Found");
+      const data = await app.request("/droplets/missing/_data", { method });
+      expect(data.status, method).toBe(404);
+      expect(data.headers.get("allow"), method).toBeNull();
+      expect(await data.json(), method).toEqual({ message: "Not Found" });
+    }
+    expect(renderDroplet).not.toHaveBeenCalled();
+    expect(loadDropletData).not.toHaveBeenCalled();
+  });
+
+  it("answers 405 with allow for a method the fragment and _data do not take, on a known droplet", async () => {
+    const { app, renderDroplet, loadDropletData } = fakeApp();
+    for (const method of ["PUT", "PATCH", "DELETE"]) {
+      const fragment = await app.request("/droplets/hello", { method });
+      expect(fragment.status, method).toBe(405);
+      expect(fragment.headers.get("allow"), method).toBe("GET, POST");
+      expect(await fragment.text(), method).toBe("Method Not Allowed");
+      const data = await app.request("/droplets/hello/_data", { method });
+      expect(data.status, method).toBe(405);
+      expect(data.headers.get("allow"), method).toBe("GET, POST");
+      expect(await data.json(), method).toEqual({ message: "Method Not Allowed" });
+    }
+    expect(renderDroplet).not.toHaveBeenCalled();
+    expect(loadDropletData).not.toHaveBeenCalled();
+    // HEAD is a GET without a body, as Hono answers it.
+    const head = await app.request("/droplets/hello", { method: "HEAD" });
+    expect(head.status).toBe(200);
+    expect(await head.text()).toBe("");
+  });
+
+  it("answers one 404 for a path no route matches: text, JSON under _data and /api", async () => {
+    const { app } = fakeApp();
+    for (const path of ["/droplets/hello/", "/droplets", "/nope"]) {
+      const res = await app.request(path);
+      expect(res.status, path).toBe(404);
+      expect(res.headers.get("content-type"), path).toContain("text/plain");
+      expect(await res.text(), path).toBe("Not Found");
+    }
+    for (const path of ["/droplets/hello/_data/", "/api/nope", "/api"]) {
+      const res = await app.request(path);
+      expect(res.status, path).toBe(404);
+      expect(await res.json(), path).toEqual({ message: "Not Found" });
+    }
+  });
+
+  it("reads no body for a trailing-slash path: it is a 404, not a render", async () => {
+    const getDropletMeta = vi.fn(() => ({ exists: true, ssr: true }));
+    const { app, renderDroplet } = fakeApp({ getDropletMeta });
+    const res = await app.request("/droplets/hello/", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ props: { who: "Ana" } }),
+    });
+    expect(res.status).toBe(404);
+    expect(getDropletMeta).not.toHaveBeenCalled();
     expect(renderDroplet).not.toHaveBeenCalled();
   });
 });
@@ -363,11 +430,25 @@ describe("createDropletsApp: fragment", () => {
     expect(payload({ html, attribute: "data-droplet-data" })).toEqual({ data: { name: "hello", props: { who: "Ana" } } });
   });
 
-  it("stamps the fragment and _data with the build that served them", async () => {
+  it("stamps the fragment and _data with the build that served them, on every answer, 404 and 405 included", async () => {
     const { app } = fakeApp();
-    expect(await (await app.request("/droplets/hello")).text()).toContain(' data-build="abc123"');
+    const fragment = await app.request("/droplets/hello");
+    expect(await fragment.text()).toContain(' data-build="abc123"');
+    expect(fragment.headers.get("x-droplets-build")).toBe("abc123");
     const data = await app.request("/droplets/hello/_data");
     expect(data.headers.get("x-droplets-build")).toBe("abc123");
+    // A droplet a redeploy removed: the page learns it is stale from the header, before the status.
+    for (const [path, init] of [
+      ["/droplets/missing", {}],
+      ["/droplets/missing/_data", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }],
+      ["/droplets/hello", { method: "PUT" }],
+      ["/droplets/hello/_data", { method: "DELETE" }],
+    ] as const) {
+      const res = await app.request(path, init);
+      expect(res.status, path).not.toBe(200);
+      expect(res.headers.get("x-droplets-build"), path).toBe("abc123");
+    }
+    expect((await fakeApp({ buildHash: undefined }).app.request("/droplets/hello/_data")).headers.get("x-droplets-build")).toBeNull();
   });
 
   it("answers POST with the same fragment, taking props from the body", async () => {
@@ -993,13 +1074,30 @@ describe("createDropletsApp: /api", () => {
       ],
     });
     const { app } = fakeApp({ matchApi: odd });
-    for (const method of ["CONFIG", "config", "CONSTRUCTOR", "TOSTRING", "PROPFIND"]) {
+    // With `fallback`, such a method reaches it, never the export of its name.
+    for (const method of ["CONFIG", "config", "CONSTRUCTOR", "TOSTRING", "PROPFIND", "PATCH"]) {
       const res = await app.request("/api/odd", { method });
+      expect(res.status, method).toBe(200);
+      expect(await res.json(), method).toEqual({ fallback: true });
+    }
+    const strict = apiOf({
+      routes: [
+        [
+          [
+            { type: "static", value: "api" },
+            { type: "static", value: "strict" },
+          ],
+          { GET: () => json({ ok: true }), CONFIG: () => json({ leaked: true }) } as ApiModule,
+        ],
+      ],
+    });
+    const { app: strictApp } = fakeApp({ matchApi: strict });
+    for (const method of ["CONFIG", "config", "CONSTRUCTOR", "TOSTRING", "PROPFIND", "PATCH"]) {
+      const res = await strictApp.request("/api/strict", { method });
       expect(res.status, method).toBe(405);
+      expect(res.headers.get("allow"), method).toBe("GET, HEAD");
       expect(await res.text(), method).not.toContain("leaked");
     }
-    // A real method still finds fallback.
-    expect(await (await app.request("/api/odd", { method: "PATCH" })).json()).toEqual({ fallback: true });
     // Prototype members are not exports either.
     const bare = apiOf({
       routes: [
@@ -1015,10 +1113,34 @@ describe("createDropletsApp: /api", () => {
     expect((await fakeApp({ matchApi: bare }).app.request("/api/bare", { method: "POST" })).status).toBe(405);
   });
 
-  it("falls back to `fallback` for any other method", async () => {
+  it("falls back to `fallback` for any other method, a non-standard one included", async () => {
     const { app } = fakeApp({ matchApi });
     const res = await app.request("/api/any", { method: "PATCH" });
     expect(await res.json()).toEqual({ method: "PATCH" });
+    const foo = await app.request("/api/any", { method: "FOO" });
+    expect(foo.status).toBe(200);
+    expect(await foo.json()).toEqual({ method: "FOO" });
+  });
+
+  it("answers 405 without an allow header for a module that exports no method", async () => {
+    const none = apiOf({
+      routes: [
+        [
+          [
+            { type: "static", value: "api" },
+            { type: "static", value: "none" },
+          ],
+          { CONFIG: () => json({ leaked: true }) } as ApiModule,
+        ],
+      ],
+    });
+    const { app } = fakeApp({ matchApi: none });
+    for (const method of ["GET", "PATCH", "FOO"]) {
+      const res = await app.request("/api/none", { method });
+      expect(res.status, method).toBe(405);
+      expect(res.headers.has("allow"), method).toBe(false);
+      expect(await res.json(), method).toEqual({ message: "Method Not Allowed" });
+    }
   });
 
   it("404s unknown routes and when there is no API", async () => {
@@ -1228,10 +1350,33 @@ describe("createDropletsApp: Cache-Control of fragments and _data", () => {
     for (const path of ["/droplets/hello", "/droplets/hello/_data"]) {
       expect((await app.request(path)).headers.get("cache-control"), path).toBe("private, no-store");
     }
-    // Error answers too: they are per request as well.
-    expect((await app.request("/droplets/missing")).headers.get("cache-control")).toBe("private, no-store");
     // Not the assets: those have their own.
     expect((await app.request("/droplets/hello/client.js?c=abc123")).headers.get("cache-control")).toContain("immutable");
+  });
+
+  it("applies fragmentCacheControl to 2xx answers only, and varies every answer", async () => {
+    const { app } = fakeApp({
+      fragmentCacheControl: "public, max-age=60",
+      renderDroplet: async (name) => {
+        if (name === "broken") throw new Error("boom");
+        return { html: name, serverData: null };
+      },
+    });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect((await app.request("/droplets/hello")).headers.get("cache-control")).toBe("public, max-age=60");
+    const answers = [
+      await app.request("/droplets/missing"),
+      await app.request("/droplets/missing/_data"),
+      await app.request("/droplets/hello", { method: "PUT" }),
+      await app.request("/droplets/hello/_data", { method: "DELETE" }),
+      await app.request("/droplets/broken"),
+    ];
+    for (const res of answers) {
+      expect(res.status, res.url).not.toBe(200);
+      expect(res.headers.get("cache-control"), res.url).toBeNull();
+      expect(res.headers.get("vary"), res.url).toContain("x-droplet-location");
+    }
+    error.mockRestore();
   });
 
   it("takes another value, or none, from fragmentCacheControl", async () => {
@@ -1306,10 +1451,11 @@ describe("createDropletsApp: setHeaders in a droplet's load", () => {
         return { failed: true as const, error: { message: "Sorry" } };
       },
     }).app;
+    // Nor the default: an error answer is sent without a Cache-Control.
     for (const path of ["/droplets/hello", "/droplets/hello/_data"]) {
       const res = await failing.request(path);
       expect(res.status, path).toBe(500);
-      expect(res.headers.get("cache-control"), path).toBe("private, no-store");
+      expect(res.headers.get("cache-control"), path).toBeNull();
     }
     const refused = fakeApp({
       loadDropletData: async (_name, event) => {
@@ -1319,7 +1465,7 @@ describe("createDropletsApp: setHeaders in a droplet's load", () => {
     }).app;
     const res = await refused.request("/droplets/hello/_data");
     expect(res.status).toBe(403);
-    expect(res.headers.get("cache-control")).toBe("private, no-store");
+    expect(res.headers.get("cache-control")).toBeNull();
   });
 
   it("leaves the last word to handle", async () => {
@@ -1506,6 +1652,19 @@ describe("createDropletsApp: CORS", () => {
     expect(preflight.headers.get("access-control-allow-headers")).toContain("x-droplet-props");
   });
 
+  it("varies on origin once with a cors list, whatever case cors and the fragment write it in", async () => {
+    const { app } = fakeApp({ cors: { origin: ["http://other.test"] } });
+    for (const path of ["/droplets/hello", "/droplets/hello/_data", "/droplets/missing"]) {
+      const res = await app.request(path, { headers: { origin: "http://other.test" } });
+      const names = (res.headers.get("vary") ?? "").split(",").map((name) => name.trim().toLowerCase());
+      expect(
+        names.filter((name) => name === "origin"),
+        path,
+      ).toHaveLength(1);
+      expect(names, path).toContain("x-droplet-location");
+    }
+  });
+
   it("sends no CORS headers by default", async () => {
     const { app } = fakeApp();
     const res = await app.request("/health", { headers: { origin: "http://other.test" } });
@@ -1609,8 +1768,23 @@ describe("createDropletsApp: prerendered droplets", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ props: { page: 1 } }),
     });
-    expect(await listed.text()).toContain("<p>page one</p>");
+    const html = await listed.text();
+    expect(html).toContain("<p>page one</p>");
     expect(renderDroplet).not.toHaveBeenCalled();
+    // Server markup is there, so the context rides in its script, as for any rendered fragment.
+    expect(payload({ html, attribute: "data-droplet-context" })).toEqual({ host: "http://localhost/", props: { page: 1 } });
+    expect(html).not.toContain(" data-context=");
+    // Asked not to render, the stored markup is dropped and the context goes on the attribute.
+    const bare = await (
+      await app.request("/droplets/spa-docs?noSSR", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ props: { page: 1 } }),
+      })
+    ).text();
+    expect(bare).not.toContain("<p>page one</p>");
+    expect(payload({ html: bare, attribute: "data-droplet-context" })).toBeUndefined();
+    expect(bare).toContain(" data-context=");
   });
 
   it("answers _data from the stored render", async () => {
@@ -2033,6 +2207,58 @@ describe("createDropletsApp: the droplet location", () => {
     ).toBe("https://shop.test/fw");
   });
 
+  it("puts event.url on the location, prefix included, for handle and +server.ts; the request's own without one", async () => {
+    const seen: string[] = [];
+    const handle: Handle = ({ event, resolve }) => {
+      seen.push(event.url.href);
+      return resolve(event);
+    };
+    const matchApi = apiOf({
+      routes: [
+        [
+          [
+            { type: "static", value: "api" },
+            { type: "static", value: "where" },
+          ],
+          { GET: ({ url }) => json({ url: url.href }) },
+        ],
+      ],
+    });
+    const { app } = fakeApp({ ...SHOP, getHandle: () => handle, matchApi });
+    const prefixed = { "x-droplet-location": "https://shop.test/mfe/" };
+    await app.request("http://internal:8000/droplets/hello?who=Ana", { headers: prefixed });
+    expect(await (await app.request("http://internal:8000/api/where?x=1", { headers: prefixed })).json()).toEqual({
+      url: "https://shop.test/mfe/api/where?x=1",
+    });
+    await app.request("http://internal:8000/droplets/hello/_data", { headers: { "x-droplet-location": "https://shop.test" } });
+    await app.request("http://internal:8000/droplets/hello?who=Bo");
+    expect(seen).toEqual([
+      "https://shop.test/mfe/droplets/hello?who=Ana",
+      "https://shop.test/mfe/api/where?x=1",
+      "https://shop.test/droplets/hello/_data",
+      "http://internal:8000/droplets/hello?who=Bo",
+    ]);
+
+    const fixed = fakeApp({ location: "https://h.example/mfe", getHandle: () => handle }).app;
+    await fixed.request("http://internal:8000/droplets/hello?who=Cy", { headers: { "x-droplet-location": "https://evil.example/x" } });
+    expect(seen.at(-1)).toBe("https://h.example/mfe/droplets/hello?who=Cy");
+  });
+
+  it("judges a cookie's secure default by the location, with a prefix as without one", async () => {
+    const handle: Handle = ({ event, resolve }) => {
+      event.cookies.set("seen", "1", { path: "/" });
+      return resolve(event);
+    };
+    const { app } = fakeApp({ trustedOrigins: ["https://shop.test", "http://plain.test"], getHandle: () => handle });
+    const cookie = async (headers: Record<string, string>) =>
+      (await app.request("http://localhost/droplets/hello", { headers })).headers.get("set-cookie");
+    // Plain HTTP to a loopback host: not secure.
+    expect(await cookie({})).not.toContain("Secure");
+    expect(await cookie({ "x-droplet-location": "https://shop.test/mfe" })).toContain("Secure");
+    expect(await cookie({ "x-droplet-location": "https://shop.test" })).toContain("Secure");
+    expect(await cookie({ "x-droplet-location": "http://plain.test/mfe" })).toContain("Secure");
+  });
+
   it("reads the first hop of a forwarded header, never a later one", async () => {
     expect(
       await locationOf({ headers: { "x-forwarded-host": "shop.test, evil.example", "x-forwarded-proto": "https, http" }, options: SHOP }),
@@ -2416,5 +2642,121 @@ describe("createDropletsApp: what a production server logs", () => {
     });
     expect((await app.request("/api/counter", { method: "POST" })).status).toBe(500);
     expect(error.mock.calls).toEqual([["endpoint failed: /api/counter", cause]]);
+  });
+});
+
+describe("createDropletsApp: the route table", () => {
+  /** Every route the app registers, with the negative tests that cover it: a new route fails here until it names its own. */
+  const COVERED: Record<string, { file: string; tests: string[] }> = {
+    "GET /": {
+      file: "app.test.ts",
+      tests: ["serves the index page, or 404s without one", "has no full-page route: only /droplets/:id renders"],
+    },
+    "GET /health": { file: "app.test.ts", tests: ["moves or disables the health check", "never runs before the health check"] },
+    "GET /index.js": {
+      file: "app.test.ts",
+      tests: [
+        "serves /index.js as its loader gives it, uncached, with nothing added",
+        "404s asset routes whose loaders are not configured",
+        "never runs for files: /index.js, /index.css and everything under /assets/, public/ included",
+      ],
+    },
+    "GET /env.js": {
+      file: "app.test.ts",
+      tests: [
+        "takes nothing from the request: a query string changes nothing",
+        "answers 404 when no public variable is read at runtime, or there is no publicEnv",
+        "falls back to 600 for an invalid DROPLETS_ENV_MAX_AGE, warning once per value under vite dev",
+      ],
+    },
+    "GET /index.css": {
+      file: "app.test.ts",
+      tests: ["answers 404 for an empty shared stylesheet", "404s asset routes whose loaders are not configured"],
+    },
+    "GET /droplets/:droplet/style.css": {
+      file: "app.test.ts",
+      tests: ["404s asset routes whose loaders are not configured", "answers 500 when a loader throws"],
+    },
+    "GET /droplets/:droplet/client.js": {
+      file: "app.test.ts",
+      tests: ["serves droplet bundles as immutable and 404s unknown ones", "serves no JavaScript for hydrate = false, only styles"],
+    },
+    "GET /droplets/:droplet": {
+      file: "app.test.ts",
+      tests: [
+        "404s unknown droplets and when the renderer returns null",
+        "ignores an x-droplet-location that is not trusted: a request cannot point the server's URLs elsewhere",
+        "ignores a malformed x-droplet-props header",
+        "treats a body or x-droplet-props nested past 64 levels as none",
+        "answers 400 as an endpoint does when the props do not match, before any load",
+      ],
+    },
+    "POST /droplets/:droplet": {
+      file: "actions.test.ts",
+      tests: [
+        "404s __proto__, constructor and other names the pattern refuses, end to end",
+        "checks the origin and the body size first",
+        "answers 405 for a droplet without actions, and never reads the body",
+        "checks a redirect's target the same way for a JSON answer and an HTML one",
+        "lets __proto__ form fields and query keys pollute nothing",
+      ],
+    },
+    "GET /droplets/:droplet/_data": {
+      file: "app.test.ts",
+      tests: [
+        "answers 404 for an unknown droplet before any method check: text for the fragment, JSON for _data",
+        "answers error() as an endpoint does: its status and message",
+        "validates before _data too",
+      ],
+    },
+    "POST /droplets/:droplet/_data": {
+      file: "security.test.ts",
+      tests: [
+        "finds the droplet before it reads a body: an unknown one never has its JSON parsed",
+        "answers 413 for a streamed JSON body over the limit on a render route",
+        "leaves Object.prototype alone for __proto__ in the body, the query and x-droplet-props",
+      ],
+    },
+    "ALL /droplets/:droplet": {
+      file: "app.test.ts",
+      tests: [
+        "answers 405 with allow for a method the fragment and _data do not take, on a known droplet",
+        "applies fragmentCacheControl to 2xx answers only, and varies every answer",
+        "varies on origin once with a cors list, whatever case cors and the fragment write it in",
+      ],
+    },
+    "ALL /droplets/:droplet/_data": {
+      file: "app.test.ts",
+      tests: [
+        "answers 405 with allow for a method the fragment and _data do not take, on a known droplet",
+        "stamps the fragment and _data with the build that served them, on every answer, 404 and 405 included",
+      ],
+    },
+    "ALL /api": { file: "app.test.ts", tests: ["404s unknown routes and when there is no API"] },
+    "ALL /api/*": {
+      file: "app.test.ts",
+      tests: [
+        "calls only HTTP method exports: CONFIG, constructor and the like answer 405",
+        "answers 405 without an allow header for a module that exports no method",
+        "turns error(), redirect(), bad returns and crashes into responses",
+      ],
+    },
+    "GET /importmap": { file: "app.test.ts", tests: ["404s without importmap.server.ts, and when turned off"] },
+    "POST /importmap": { file: "app.test.ts", tests: ["checks the Origin and the body size of a POST to the map, like other routes"] },
+    "GET /importmap.js": { file: "app.test.ts", tests: ["escapes the map so it cannot close its script tag"] },
+    "POST /importmap.js": { file: "app.test.ts", tests: ["checks the Origin and the body size of a POST to the map, like other routes"] },
+  };
+
+  it("names the negative tests of every route it registers, and those tests exist", () => {
+    const { app } = fakeApp({ cors: { origin: "*" }, importMap: { path: "/importmap", auto: false }, matchApi: () => null });
+    // `ALL /*` entries are the app-wide middleware, not routes.
+    const registered = [...new Set(app.routes.map((route) => `${route.method} ${route.path}`))].filter((key) => key !== "ALL /*");
+    expect(registered.sort()).toEqual(Object.keys(COVERED).sort());
+    const sources = new Map<string, string>();
+    for (const [route, { file, tests }] of Object.entries(COVERED)) {
+      const source = sources.get(file) ?? readFileSync(new URL(file, import.meta.url), "utf8");
+      sources.set(file, source);
+      for (const name of tests) expect(source, `${route}: ${file}`).toContain(`"${name}"`);
+    }
   });
 });

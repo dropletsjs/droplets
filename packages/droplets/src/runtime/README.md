@@ -96,11 +96,11 @@ Then the route.
 - `DROPLETS_TRUSTED_ORIGINS` adds to `trustedOrigins`, read per request. `app.ts:840`
 - `"*"` in `trustedOrigins` or `DROPLETS_TRUSTED_ORIGINS` is never refused; under `vite dev` it warns `"*" trusts any forwarded location`. `app.ts:846`, `security.ts:73`, `dev-log.ts:49`
 - A malformed `DROPLETS_TRUSTED_ORIGINS` entry is skipped; under `vite dev` it warns once per raw value. `security.ts:70`, `dev-log.ts:52`
-- `Vary` on fragments and `_data` lists `x-droplet-location`, `forwarded`, `x-forwarded-host`, `x-forwarded-proto`, `x-forwarded-port`, `x-forwarded-prefix` and `origin`; with `location`, `origin` alone. `app.ts:428`, `app.ts:439`, `app.ts:1199`
+- `Vary` on fragments and `_data` lists `x-droplet-location`, `forwarded`, `x-forwarded-host`, `x-forwarded-proto`, `x-forwarded-port`, `x-forwarded-prefix` and `origin`; with `location`, `origin` alone; each name once, case ignored, after what `cors()` appended (`perRequest` is the outermost middleware of both routes). `app.ts:441`, `app.ts:452`, `app.ts:946`
 - CORS exposes `Link` and `x-droplets-build`. `app.ts:286`
-- `x-droplets-build` carries the build hash on `_data` answers. `app.ts:1290`
+- `x-droplets-build` carries the build hash on every fragment and `_data` answer, 404 and 405 included (`perRequest`), so the element learns of a stale build before it reads the status. `app.ts:971`
 - `x-droplets-prerender-error: host` or `cookies` marks a 500 when a prerendered droplet reads the host, props, URL or cookies. `app.ts:683`
-- `event.url` is the request path on the location's origin. `app.ts:665`
+- `event.url` is the request's path and query under the location, prefix included (`https://shop.example/mfe/droplets/x?who=Ana`); the cookie jar's defaults (`secure`) are judged by the same URL (`publicUrl`). `app.ts:579`
 - `event.host` is the `Origin` header (skipping `null`), else the location's origin. `host.ts:142`
 - With `host`, `event.host` is its origin plus the reported page's path and query when that page is on it, else the origin alone; `Origin` is not read. `app.ts:1016`, `host.ts:158`
 - A reported path is set on the fixed host's URL, never joined, so `//evil.example` stays a path. `host.ts:162`
@@ -142,19 +142,22 @@ Then the route.
 
 ### Fragments: `GET|POST /droplets/:id`
 
-- An unknown droplet answers 404 `Not Found`, as text. `app.ts:785`
+- An unknown droplet answers 404 before any method check, on the fragment and `_data` alike: `Not Found` as text, `{ "message": "Not Found" }` on `_data` (`notFound`). `app.ts:365`, `app.ts:813`, `app.ts:1321`
+- A method other than GET and POST (HEAD is Hono's GET without a body, OPTIONS is `cors()`'s) on a known droplet answers 405 with `allow: GET, POST`, text on the fragment and `{ "message": "Method Not Allowed" }` on `_data`, before any body is read (`renderMethods`). `app.ts:372`, `app.ts:1321`
+- A path no route matches answers 404 through one `app.notFound`: `{ "message": "Not Found" }` under `_data` and `/api` (`wantsJson`), text elsewhere; a trailing slash (`/droplets/x/`) is such a path, and its body is never read (`RENDER_ROUTE`). `app.ts:360`, `app.ts:864`, `security.ts:92`
 - A droplet name in the URL is decoded; a malformed escape names no droplet. `app.ts:766`
 - The droplet registry is a `Map`, so `__proto__` names no droplet. `entry-server.ts:57`
 - A POST with a form body runs an action, `text/plain` answers 415, and a `?/name` key with a non-form body answers 400. `app.ts:1680`
 - A prerendered fragment is looked up by host key (origin and path), then, with `host`, by the origin-only key, then by props key. `app.ts:1234`, `app.ts:1237`, `app.ts:1238`
 - `prerenderKey` is `<propsKey> <origin><path>`, `<propsKey> <origin>` for a render for `host` of the config, or `<propsKey>` for a host-agnostic one. `props.ts:103`
 - A prerendered lookup for a droplet with `ssr = false` and no entry for these props answers 404. `app.ts:1239`
-- The fragment's context script is written only when SSR ran (`!noSSR && ssr`). `app.ts:1476`
+- The fragment's context script is written only when the answer has server markup, rendered live or stored at build whatever `ssr` says; without markup (`ssr = false`, `?noSSR`, `?clientOnly`) the context goes on `data-context`. `app.ts:1531`
 - `data-droplet-data` is written only when the droplet hydrates and the request is not `clientOnly`. `app.ts:1498`
 - `data-render-id` is written only when there is server HTML. `app.ts:1497`
 - A failed render answers 500 with the error component, else the action's status, else 200. `app.ts:1506`
 - A response carrying a form result gets `cache-control: private, no-store`. `app.ts:1489`
-- `fragmentCacheControl` defaults to `private, no-store` and is set only when the response has none. `../core/config.ts:208`
+- `fragmentCacheControl` defaults to `private, no-store` and is set only on a 2xx answer that has none; an error, a 404, a 405 and a redirect carry no default (`perRequest`). `../core/config.ts:208`, `app.ts:971`
+- The 303 of a native post that carries the signed result back to the page is `private, no-store`. `app.ts:1698`
 - The `Link` header preloads `style.css` (only with styles), each CSS file and the entry, and modulepreloads `client.js` only when `hydrate === true`. `app.ts:1329`
 - `linkHeader: false` drops the `Link` header. `app.ts:1334`
 - `client.js` and `style.css` URLs in a fragment carry `?c=<build>`. `app.ts:1317`
@@ -165,7 +168,7 @@ Then the route.
 
 - `_data` answers `{ data }`, plus `form` when a result is carried. `app.ts:1303`
 - `_data` answers a failed load with 500 `{ error }`. `app.ts:1301`
-- `_data` answers PUT, PATCH and DELETE with 405 and `allow: GET, POST`. `app.ts:1284`
+- `_data` answers PUT, PATCH and DELETE with 405 and `allow: GET, POST`, as the fragment does (`renderMethods`). `app.ts:1321`
 - `_data` carrying a form result gets `cache-control: private, no-store`. `app.ts:1305`
 
 ### Static routes
@@ -192,7 +195,7 @@ Then the route.
 - An unknown action answers 404 `No action named "<name>"`, the name cut to 100 characters, when the name matches `ACTION_NAME`; any other name answers 404 `No such action` without echoing it. `app.ts:1582`
 - Action names match `^[A-Za-z_][\w-]*$`. `form.ts:141`
 - An action is found only through `ACTION_NAME`, a deny list (`__proto__`, `constructor`, `prototype`) and `Object.hasOwn`. `entry-server.ts:316`
-- An action answers JSON when `accept` contains `application/json`. `app.ts:1565`
+- An action answers JSON when `accept` prefers it over HTML (`prefersJson`): `application/json` or `application/*` with a weight at least `text/html`'s, never through `*/*` alone. `app.ts:1588`, `accept.ts:47`
 - A JSON action answer is the outcome with the failure's status, else 200. `app.ts:1630`
 - An action redirect, native or JSON, goes only to this server or a trusted origin (`redirectTarget`, the same check in both modes), else 400 `Bad Request: the action redirects off this site` (as `{ message }` in JSON) and a `console.error`. `app.ts:1616`, `app.ts:1622`
 - A JSON action redirect answers 200 `{ type: "redirect", status, location }` with the checked absolute URL. `app.ts:1625`
@@ -241,11 +244,11 @@ Then the route.
 
 ### `/api`
 
-- `/api` without a matching route answers 404 `{ "message": "Not Found" }`. `app.ts:1690`
+- `/api` without a matching route answers 404 `{ "message": "Not Found" }`, through the same `notFound`. `app.ts:1735`
 - `/api` accepts GET, POST, PUT, PATCH, DELETE, OPTIONS and HEAD. `routes.ts:6`
 - `/api` HEAD falls back to GET with a null body. `app.ts:1696`
-- `/api` picks the method handler through `Object.hasOwn`, else `fallback`. `app.ts:1698`
-- `/api` answers an unhandled method with 405 and `allow`. `app.ts:1702`
+- `/api` picks the handler of an HTTP method's name through `Object.hasOwn`; `fallback` takes every method the module does not export, a non-standard one (`FOO`) included; an export of any other name (`CONFIG`) is never called. `app.ts:1751`
+- `/api` answers an unhandled method with 405 `{ "message": "Method Not Allowed" }` and `allow` listing the exported methods, omitted when there is none. `app.ts:1753`
 - `/api` answers a handler that returns no `Response` with 500 JSON. `app.ts:1709`
 - `allowedMethods` adds HEAD when GET is there. `routes.ts:93`
 
