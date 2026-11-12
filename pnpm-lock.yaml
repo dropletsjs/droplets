@@ -211,56 +211,56 @@ importers:
   examples/frameworks/handlebars:
     dependencies:
       '@dropletsjs/droplets':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/droplets
       '@dropletsjs/renderer-handlebars':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/renderers/handlebars
       zod:
         specifier: ^4.6.7
         version: 4.6.7
     devDependencies:
       '@dropletsjs/adapter-bun':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/bun
       '@dropletsjs/adapter-cloudflare':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/cloudflare
       '@dropletsjs/adapter-deno':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/deno
       '@dropletsjs/adapter-node':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/node
       '@dropletsjs/devtools':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/devtools
       '@tailwindcss/vite':
-        specifier: 'catalog:'
+        specifier: ^4.3.4
         version: 4.3.4(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       '@types/node':
-        specifier: 'catalog:'
+        specifier: ^24.9.0
         version: 24.19.2
       tailwindcss:
-        specifier: 'catalog:'
+        specifier: ^4.3.4
         version: 4.3.4
       typescript:
-        specifier: 'catalog:'
+        specifier: ^5.9.3
         version: 5.9.3
       vite:
-        specifier: 'catalog:'
+        specifier: ^8.3.5
         version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
       wrangler:
-        specifier: 'catalog:'
+        specifier: ^4.157.0
         version: 4.157.0(@types/node@24.19.2)
 
   examples/frameworks/hono-jsx:
     dependencies:
       '@dropletsjs/droplets':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/droplets
       '@dropletsjs/renderer-hono-jsx':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/renderers/hono-jsx
       hono:
         specifier: ^4.13.16
@@ -270,46 +270,46 @@ importers:
         version: 4.6.7
     devDependencies:
       '@dropletsjs/adapter-bun':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/bun
       '@dropletsjs/adapter-cloudflare':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/cloudflare
       '@dropletsjs/adapter-deno':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/deno
       '@dropletsjs/adapter-node':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/node
       '@dropletsjs/devtools':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/devtools
       '@tailwindcss/vite':
-        specifier: 'catalog:'
+        specifier: ^4.3.4
         version: 4.3.4(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       '@types/node':
-        specifier: 'catalog:'
+        specifier: ^24.9.0
         version: 24.19.2
       tailwindcss:
-        specifier: 'catalog:'
+        specifier: ^4.3.4
         version: 4.3.4
       typescript:
-        specifier: 'catalog:'
+        specifier: ^5.9.3
         version: 5.9.3
       vite:
-        specifier: 'catalog:'
+        specifier: ^8.3.5
         version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
       wrangler:
-        specifier: 'catalog:'
+        specifier: ^4.157.0
         version: 4.157.0(@types/node@24.19.2)
 
   examples/frameworks/lit:
     dependencies:
       '@dropletsjs/droplets':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/droplets
       '@dropletsjs/renderer-lit':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/renderers/lit
       lit:
         specifier: ^3.3.3
@@ -319,40 +319,40 @@ importers:
         version: 4.6.7
     devDependencies:
       '@dropletsjs/adapter-bun':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/bun
       '@dropletsjs/adapter-cloudflare':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/cloudflare
       '@dropletsjs/adapter-deno':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/deno
       '@dropletsjs/adapter-node':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/node
       '@dropletsjs/devtools':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/devtools
       '@types/node':
-        specifier: 'catalog:'
+        specifier: ^24.9.0
         version: 24.19.2
       typescript:
-        specifier: 'catalog:'
+        specifier: ^5.9.3
         version: 5.9.3
       vite:
-        specifier: 'catalog:'
+        specifier: ^8.3.5
         version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
       wrangler:
-        specifier: 'catalog:'
+        specifier: ^4.157.0
         version: 4.157.0(@types/node@24.19.2)
 
   examples/frameworks/preact:
     dependencies:
       '@dropletsjs/droplets':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/droplets
       '@dropletsjs/renderer-preact':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/renderers/preact
       preact:
         specifier: ^11.1.1
@@ -365,46 +365,46 @@ importers:
         version: 4.6.7
     devDependencies:
       '@dropletsjs/adapter-bun':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/bun
       '@dropletsjs/adapter-cloudflare':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/cloudflare
       '@dropletsjs/adapter-deno':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/deno
       '@dropletsjs/adapter-node':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/node
       '@dropletsjs/devtools':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/devtools
       '@tailwindcss/vite':
-        specifier: 'catalog:'
+        specifier: ^4.3.4
         version: 4.3.4(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       '@types/node':
-        specifier: 'catalog:'
+        specifier: ^24.9.0
         version: 24.19.2
       tailwindcss:
-        specifier: 'catalog:'
+        specifier: ^4.3.4
         version: 4.3.4
       typescript:
-        specifier: 'catalog:'
+        specifier: ^5.9.3
         version: 5.9.3
       vite:
-        specifier: 'catalog:'
+        specifier: ^8.3.5
         version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
       wrangler:
-        specifier: 'catalog:'
+        specifier: ^4.157.0
         version: 4.157.0(@types/node@24.19.2)
 
   examples/frameworks/react:
     dependencies:
       '@dropletsjs/droplets':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/droplets
       '@dropletsjs/renderer-react':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/renderers/react
       react:
         specifier: ^19.3.1
@@ -417,52 +417,52 @@ importers:
         version: 4.6.7
     devDependencies:
       '@dropletsjs/adapter-bun':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/bun
       '@dropletsjs/adapter-cloudflare':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/cloudflare
       '@dropletsjs/adapter-deno':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/deno
       '@dropletsjs/adapter-node':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/node
       '@dropletsjs/devtools':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/devtools
       '@tailwindcss/vite':
-        specifier: 'catalog:'
+        specifier: ^4.3.4
         version: 4.3.4(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       '@types/node':
-        specifier: 'catalog:'
+        specifier: ^24.9.0
         version: 24.19.2
       '@types/react':
-        specifier: 'catalog:'
+        specifier: ^19.3.0
         version: 19.3.0
       '@types/react-dom':
-        specifier: 'catalog:'
+        specifier: ^19.3.0
         version: 19.3.0(@types/react@19.3.0)
       tailwindcss:
-        specifier: 'catalog:'
+        specifier: ^4.3.4
         version: 4.3.4
       typescript:
-        specifier: 'catalog:'
+        specifier: ^5.9.3
         version: 5.9.3
       vite:
-        specifier: 'catalog:'
+        specifier: ^8.3.5
         version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
       wrangler:
-        specifier: 'catalog:'
+        specifier: ^4.157.0
         version: 4.157.0(@types/node@24.19.2)
 
   examples/frameworks/solid:
     dependencies:
       '@dropletsjs/droplets':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/droplets
       '@dropletsjs/renderer-solid':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/renderers/solid
       solid-js:
         specifier: ^1.9.18
@@ -472,46 +472,46 @@ importers:
         version: 4.6.7
     devDependencies:
       '@dropletsjs/adapter-bun':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/bun
       '@dropletsjs/adapter-cloudflare':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/cloudflare
       '@dropletsjs/adapter-deno':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/deno
       '@dropletsjs/adapter-node':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/node
       '@dropletsjs/devtools':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/devtools
       '@tailwindcss/vite':
-        specifier: 'catalog:'
+        specifier: ^4.3.4
         version: 4.3.4(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       '@types/node':
-        specifier: 'catalog:'
+        specifier: ^24.9.0
         version: 24.19.2
       tailwindcss:
-        specifier: 'catalog:'
+        specifier: ^4.3.4
         version: 4.3.4
       typescript:
-        specifier: 'catalog:'
+        specifier: ^5.9.3
         version: 5.9.3
       vite:
-        specifier: 'catalog:'
+        specifier: ^8.3.5
         version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
       wrangler:
-        specifier: 'catalog:'
+        specifier: ^4.157.0
         version: 4.157.0(@types/node@24.19.2)
 
   examples/frameworks/svelte:
     dependencies:
       '@dropletsjs/droplets':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/droplets
       '@dropletsjs/renderer-svelte':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/renderers/svelte
       svelte:
         specifier: ^5.57.3
@@ -521,49 +521,49 @@ importers:
         version: 4.6.7
     devDependencies:
       '@dropletsjs/adapter-bun':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/bun
       '@dropletsjs/adapter-cloudflare':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/cloudflare
       '@dropletsjs/adapter-deno':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/deno
       '@dropletsjs/adapter-node':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/node
       '@dropletsjs/devtools':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/devtools
       '@tailwindcss/vite':
-        specifier: 'catalog:'
+        specifier: ^4.3.4
         version: 4.3.4(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       '@types/node':
-        specifier: 'catalog:'
+        specifier: ^24.9.0
         version: 24.19.2
       svelte-check:
-        specifier: 'catalog:'
+        specifier: ^4.7.8
         version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@5.9.3)
       tailwindcss:
-        specifier: 'catalog:'
+        specifier: ^4.3.4
         version: 4.3.4
       typescript:
-        specifier: 'catalog:'
+        specifier: ^5.9.3
         version: 5.9.3
       vite:
-        specifier: 'catalog:'
+        specifier: ^8.3.5
         version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
       wrangler:
-        specifier: 'catalog:'
+        specifier: ^4.157.0
         version: 4.157.0(@types/node@24.19.2)
 
   examples/frameworks/vue:
     dependencies:
       '@dropletsjs/droplets':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/droplets
       '@dropletsjs/renderer-vue':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/renderers/vue
       vue:
         specifier: ^3.5.44
@@ -573,55 +573,55 @@ importers:
         version: 4.6.7
     devDependencies:
       '@dropletsjs/adapter-bun':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/bun
       '@dropletsjs/adapter-cloudflare':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/cloudflare
       '@dropletsjs/adapter-deno':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/deno
       '@dropletsjs/adapter-node':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/adapters/node
       '@dropletsjs/devtools':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../../packages/devtools
       '@tailwindcss/vite':
-        specifier: 'catalog:'
+        specifier: ^4.3.4
         version: 4.3.4(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       '@types/node':
-        specifier: 'catalog:'
+        specifier: ^24.9.0
         version: 24.19.2
       tailwindcss:
-        specifier: 'catalog:'
+        specifier: ^4.3.4
         version: 4.3.4
       typescript:
-        specifier: 'catalog:'
+        specifier: ^5.9.3
         version: 5.9.3
       vite:
-        specifier: 'catalog:'
+        specifier: ^8.3.5
         version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
       vue-tsc:
-        specifier: 'catalog:'
+        specifier: ^3.3.14
         version: 3.3.14(typescript@5.9.3)
       wrangler:
-        specifier: 'catalog:'
+        specifier: ^4.157.0
         version: 4.157.0(@types/node@24.19.2)
 
   examples/shop:
     dependencies:
       '@dropletsjs/droplets':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../packages/droplets
       '@dropletsjs/renderer-hono-jsx':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../packages/renderers/hono-jsx
       '@dropletsjs/renderer-react':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../packages/renderers/react
       '@dropletsjs/renderer-solid':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../packages/renderers/solid
       better-sqlite3:
         specifier: ^13.0.3
@@ -655,61 +655,61 @@ importers:
         version: 4.6.7
     devDependencies:
       '@dropletsjs/adapter-node':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../packages/adapters/node
       '@dropletsjs/devtools':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../packages/devtools
       '@dropletsjs/renderer-handlebars':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../packages/renderers/handlebars
       '@dropletsjs/renderer-svelte':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../packages/renderers/svelte
       '@dropletsjs/renderer-vue':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../packages/renderers/vue
       '@types/better-sqlite3':
         specifier: ^9.6.0
         version: 9.6.0
       '@types/node':
-        specifier: 'catalog:'
+        specifier: ^24.9.0
         version: 24.19.2
       '@types/react':
-        specifier: 'catalog:'
+        specifier: ^19.3.0
         version: 19.3.0
       '@types/react-dom':
-        specifier: 'catalog:'
+        specifier: ^19.3.0
         version: 19.3.0(@types/react@19.3.0)
       svelte-check:
-        specifier: 'catalog:'
+        specifier: ^4.7.8
         version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@5.9.3)
       typescript:
-        specifier: 'catalog:'
+        specifier: ^5.9.3
         version: 5.9.3
       vite:
-        specifier: 'catalog:'
+        specifier: ^8.3.5
         version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
       vitest:
-        specifier: 'catalog:'
+        specifier: ^5.1.0
         version: 5.1.0(@types/node@24.19.2)(happy-dom@21.0.4)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       vue-tsc:
-        specifier: 'catalog:'
+        specifier: ^3.3.14
         version: 3.3.14(typescript@5.9.3)
 
   examples/wp-shop:
     dependencies:
       '@dropletsjs/droplets':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../packages/droplets
       '@dropletsjs/renderer-hono-jsx':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../packages/renderers/hono-jsx
       '@dropletsjs/renderer-react':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../packages/renderers/react
       '@dropletsjs/renderer-solid':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../packages/renderers/solid
       better-sqlite3:
         specifier: ^13.0.3
@@ -740,46 +740,46 @@ importers:
         version: 4.6.7
     devDependencies:
       '@dropletsjs/adapter-node':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../packages/adapters/node
       '@dropletsjs/devtools':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../packages/devtools
       '@dropletsjs/renderer-handlebars':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../packages/renderers/handlebars
       '@dropletsjs/renderer-svelte':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../packages/renderers/svelte
       '@dropletsjs/renderer-vue':
-        specifier: workspace:*
+        specifier: ^1.0.0
         version: link:../../packages/renderers/vue
       '@types/better-sqlite3':
         specifier: ^9.6.0
         version: 9.6.0
       '@types/node':
-        specifier: 'catalog:'
+        specifier: ^24.9.0
         version: 24.19.2
       '@types/react':
-        specifier: 'catalog:'
+        specifier: ^19.3.0
         version: 19.3.0
       '@types/react-dom':
-        specifier: 'catalog:'
+        specifier: ^19.3.0
         version: 19.3.0(@types/react@19.3.0)
       svelte-check:
-        specifier: 'catalog:'
+        specifier: ^4.7.8
         version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@5.9.3)
       typescript:
-        specifier: 'catalog:'
+        specifier: ^5.9.3
         version: 5.9.3
       vite:
-        specifier: 'catalog:'
+        specifier: ^8.3.5
         version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
       vitest:
-        specifier: 'catalog:'
+        specifier: ^5.1.0
         version: 5.1.0(@types/node@24.19.2)(happy-dom@21.0.4)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       vue-tsc:
-        specifier: 'catalog:'
+        specifier: ^3.3.14
         version: 3.3.14(typescript@5.9.3)
 
   packages/adapters/bun:

@@ -7,6 +7,7 @@
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { workspaceCatalog } from "@dropletsjs/shared/catalog";
 
 const read = (path: string) =>
   JSON.parse(readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8")) as {
@@ -33,35 +34,13 @@ const PACKAGES = [
 
 const TOOLS = ["vite", "typescript", "@types/node", "tailwindcss", "@tailwindcss/vite", "wrangler", "@types/react", "@types/react-dom"];
 
-/**
- * The `catalog:` block of pnpm-workspace.yaml: one `name: range` per line,
- * the name quoted when it is scoped. Nothing else of YAML is needed here.
- */
-export function catalogRanges(yaml: string): Record<string, string> {
-  const ranges: Record<string, string> = {};
-  let inCatalog = false;
-  for (const line of yaml.split("\n")) {
-    if (/^catalog:\s*$/.test(line)) {
-      inCatalog = true;
-      continue;
-    }
-    if (!inCatalog || /^\s*(#|$)/.test(line)) continue;
-    if (!/^\s/.test(line)) break;
-    const entry = /^\s+(?:"([^"]+)"|'([^']+)'|([^\s:]+)):\s*["']?([^"'\s#]+)["']?/.exec(line);
-    const name = entry?.[1] ?? entry?.[2] ?? entry?.[3];
-    const range = entry?.[4];
-    if (name !== undefined && range !== undefined) ranges[name] = range;
-  }
-  return ranges;
-}
-
 export function workspaceVersions(): Record<string, string> {
   const versions: Record<string, string> = {};
   for (const path of PACKAGES) {
     const pkg = read(`${path}/package.json`);
     versions[pkg.name] = `^${pkg.version}`;
   }
-  const ranges = catalogRanges(readFileSync(fileURLToPath(new URL("../../pnpm-workspace.yaml", import.meta.url)), "utf8"));
+  const ranges = workspaceCatalog();
   for (const tool of TOOLS) {
     const range = ranges[tool];
     if (!range) throw new Error(`the pnpm catalog in pnpm-workspace.yaml has no ${tool}`);

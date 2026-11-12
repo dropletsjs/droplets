@@ -2,8 +2,8 @@
 
 ## Rules
 
-- The shop is standalone: users copy it, so it depends only on published `@dropletsjs/*` packages (`workspace:*` here) and public tools, never on `@dropletsjs/shared` or a `../../` path. Only `Dockerfile` builds from the repository root, against the workspace packages.
-  Checked by: `package.json`.
+- The shop is standalone: users copy it, so it depends only on published `@dropletsjs/*` packages and public tools at their published ranges (`^<version>`, the catalog's literal tool ranges; pnpm links the packages here), never on `@dropletsjs/shared` or a `../../` path. Only `Dockerfile` builds from the repository root, against the workspace packages.
+  Checked by: `../../tests/packages/test/examples.test.ts`, `../../tests/hosts/test/standalone.test.ts`.
 - The shop builds for Node only: SQLite through better-sqlite3, images on disk.
 - `CONTRACT.md` is the contract for hosts: a change to a droplet's props, a window event, the JSON API or the headers a host passes changes it too, and every host that runs the shop.
   Checked by: `../../tests/hosts/e2e/shop.spec.ts` (`pnpm test:hosts`).

@@ -60,12 +60,13 @@ Every example has the same scripts:
 
 ### Copying an example
 
-Inside this repository the examples take the Droplets packages as
-`workspace:*` and the tools from the pnpm `catalog:`. In a copy, replace
-both with versions: `@dropletsjs/*` at `^1.0.0` and the tool ranges in the root
-`pnpm-workspace.yaml`. To start from scratch instead, `npm create droplets`
-writes a new project (one `hello-<framework>` droplet) with the versions
-filled in.
+Each example's `package.json` asks for the published packages
+(`@dropletsjs/*` at `^1.0.0`) and the tools at the ranges the repository is
+built with, so a copied folder installs as it is, with `npm install` or any
+other package manager. Inside the repository pnpm links those ranges to the
+workspace packages. To start from scratch instead, `npm create droplets`
+writes a new project (one `hello-<framework>` droplet) with the same
+versions.
 
 ### The Docker image
 
@@ -118,7 +119,8 @@ in Chromium, each embedded in a host page on another origin
 - Lit example adds `guestbook`, a default form action that answers `fail(422)` without a name. `lit/src/droplets/guestbook/+droplet.server.ts:8`
 - Wrangler config: `main` is `dist/worker.js`, `nodejs_compat` on, the `ASSETS` binding over `dist/client`, no `run_worker_first`: static assets answer the build's files with `dist/client/_headers`. `svelte/wrangler.jsonc:4`, `svelte/wrangler.jsonc:7`, `svelte/wrangler.jsonc:10`
 - `typecheck` runs `djs sync` first; Svelte uses `svelte-check`, Vue `vue-tsc`, the others `tsc`. `svelte/package.json:22`, `vue/package.json:22`, `react/package.json:22`
-- Droplets packages are `workspace:*` dependencies inside the repository; the renderer is a `dependencies` entry, the adapters and devtools `devDependencies`. `svelte/package.json:25`, `svelte/package.json:26`, `svelte/package.json:31`
+- Droplets packages are `^1.0.0` dependencies, linked to the workspace packages inside the repository; the renderer is a `dependencies` entry, the adapters and devtools `devDependencies`. `svelte/package.json:25`, `svelte/package.json:26`, `svelte/package.json:31`, `../../pnpm-workspace.yaml:39`
+- Tools are at the literal ranges of the root pnpm catalog, so a copied folder installs as it is. `svelte/package.json:36`, `../../tests/packages/test/examples.test.ts:84`
 - Dockerfile builds the example named by `EXAMPLE`, `svelte` by default. `Dockerfile:24`
 - Dockerfile compiles the packages with `build:dist` (no unit tests) before the example's `build`. `Dockerfile:35`
 - Docker image runs `node dist/server.js` as user `node` on port 8000. `Dockerfile:45`, `Dockerfile:46`, `Dockerfile:47`

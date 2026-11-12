@@ -45,6 +45,17 @@ the OS temp dir, removed afterwards) and unpacked:
   `dist/chunks/dev-element-*.js` each keep one `/* @vite-ignore */` dynamic
   import.
 
+### The examples' ranges
+
+`test/examples.test.ts` reads every `package.json` under `examples/`
+(`shop`, `wp-shop`, `frameworks/*`, `hosts/*`, skipping installed and built
+folders) and checks that no range is `workspace:` or `catalog:`, that every
+`@dropletsjs/*` dependency is `^<that package's version>` as `packages/`
+declares it, and, for the workspace examples, that every tool of the pnpm
+catalog (`@dropletsjs/shared/catalog`) is at the catalog's literal range.
+The hosts bring their own toolchains, so only their `@dropletsjs/*` ranges
+are checked.
+
 ### Changing it
 
 A new published package built by tsdown goes into `PACKAGES`. A new entry
@@ -76,3 +87,7 @@ suite reads it from there.
 - `@vite-ignore`: `dist/runtime/entry-client.js` and the single `dist/chunks/dev-element-*.js` keep one each. `test/packed.test.ts:222`
 - Test and hook timeout 120 s, one `npm pack` per package. `vitest.config.ts:7`
 - Test script is `vitest run`. `package.json:9`
+- Examples' ranges: `shop`, `wp-shop`, every `frameworks/*` and every `hosts/*` folder, each `package.json` under it outside installed and built folders. `test/examples.test.ts:21`, `test/examples.test.ts:48`
+- Examples' ranges: no `workspace:` or `catalog:` range in any example, hosts included. `test/examples.test.ts:60`
+- Examples' ranges: every `@dropletsjs/*` dependency is `^<the package's version>` from `packages/`, hosts included. `test/examples.test.ts:70`
+- Examples' ranges: in the workspace examples every tool of the pnpm catalog is at the catalog's literal range; the hosts' toolchains are their own. `test/examples.test.ts:84`

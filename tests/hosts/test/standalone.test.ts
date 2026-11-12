@@ -4,8 +4,7 @@
  * `examples/hosts/*` reaches nothing outside its own folder. No
  * `package.json` dependency is a `file:` or `link:` path, no source file
  * imports from above the example's root, and no `tsconfig` extends one.
- * (`workspace:` and `catalog:` ranges are the workspace's own and are not
- * checked here.)
+ * (The ranges themselves are `tests/packages/test/examples.test.ts`.)
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";

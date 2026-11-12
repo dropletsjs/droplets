@@ -96,9 +96,9 @@ HTML page that embeds it:
 - `create-droplets` depends only on `@clack/prompts` at runtime. `package.json:41`
 - `dist/index.js` is one ESM file for Node 22 with a `#!/usr/bin/env node` banner; `@clack/*` and Node built-ins stay external. `vite.config.ts:13`, `vite.config.ts:16`
 - `dist/index.js` bundles the `@dropletsjs/droplets` sources it uses (`src/add/*`, `isValidElementName`). `vite.config.ts:20`, `src/shared.ts:7`
-- Versions baked in: each `@dropletsjs/*` package at `^<version>` from its `package.json`. `versions.ts:62`
+- Versions baked in: each `@dropletsjs/*` package at `^<version>` from its `package.json`. `versions.ts:40`
 - Versions baked in: `vite`, `typescript`, `@types/node`, `tailwindcss`, `@tailwindcss/vite`, `wrangler`, `@types/react`, `@types/react-dom` from the pnpm catalog. `versions.ts:34`
-- Versions: the build throws `the pnpm catalog in pnpm-workspace.yaml has no <tool>` when a tool is missing from the catalog. `versions.ts:67`
+- Versions: the build throws `the pnpm catalog in pnpm-workspace.yaml has no <tool>` when a tool is missing from the catalog. `versions.ts:45`
 - `versionOf` throws `create-droplets: no version for <name>` for a package the build left out. `src/shared.ts:23`
 - Flags: one positional folder; two or more throw `one folder, not <n>`. `src/choices.ts:182`
 - Flags: an unknown option throws (Node's `parseArgs`, strict). `src/choices.ts:164`

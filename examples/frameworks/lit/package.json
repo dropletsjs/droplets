@@ -22,20 +22,20 @@
     "typecheck": "djs sync && tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@dropletsjs/droplets": "workspace:*",
-    "@dropletsjs/renderer-lit": "workspace:*",
+    "@dropletsjs/droplets": "^1.0.0",
+    "@dropletsjs/renderer-lit": "^1.0.0",
     "lit": "^3.3.3",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@dropletsjs/adapter-bun": "workspace:*",
-    "@dropletsjs/adapter-cloudflare": "workspace:*",
-    "@dropletsjs/adapter-deno": "workspace:*",
-    "@dropletsjs/adapter-node": "workspace:*",
-    "@dropletsjs/devtools": "workspace:*",
-    "@types/node": "catalog:",
-    "typescript": "catalog:",
-    "vite": "catalog:",
-    "wrangler": "catalog:"
+    "@dropletsjs/adapter-bun": "^1.0.0",
+    "@dropletsjs/adapter-cloudflare": "^1.0.0",
+    "@dropletsjs/adapter-deno": "^1.0.0",
+    "@dropletsjs/adapter-node": "^1.0.0",
+    "@dropletsjs/devtools": "^1.0.0",
+    "@types/node": "^24.9.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.5",
+    "wrangler": "^4.157.0"
   }
 }

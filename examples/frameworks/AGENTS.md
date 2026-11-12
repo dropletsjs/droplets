@@ -3,8 +3,8 @@
 ## Rules
 
 - Each example is standalone: users copy it, so it reads well on its own and needs nothing from the rest of the repository but published packages. Only `Dockerfile` builds from the repository root, against the workspace packages.
-- An example depends only on published `@dropletsjs/*` packages (`workspace:*` here) and public tools (`catalog:`), never on `@dropletsjs/shared` or a `../../` path.
-  Checked by: `package.json` of each example.
+- An example depends only on published `@dropletsjs/*` packages and public tools, declared with the published ranges (`^<version>`, the catalog's literal tool ranges; never `workspace:`, `catalog:`, `@dropletsjs/shared` or a `../../` path); pnpm links them to the workspace packages here.
+  Checked by: `../../tests/packages/test/examples.test.ts`, `../../tests/hosts/test/standalone.test.ts`.
 - Every example serves the same three droplets, `client`, `ssr-hydrate` and `ssr-nohydrate`, with the same loads, props, endpoints, env and hooks; a change to one belongs in all eight.
   Checked by: `../../tests/examples/e2e/examples.spec.ts` (`pnpm test:e2e`).
 - Additions beyond the three stay framework-specific: Svelte's `page-views`, Lit's `guestbook`.

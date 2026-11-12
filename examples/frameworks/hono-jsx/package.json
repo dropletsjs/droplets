@@ -22,22 +22,22 @@
     "typecheck": "djs sync && tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@dropletsjs/droplets": "workspace:*",
-    "@dropletsjs/renderer-hono-jsx": "workspace:*",
+    "@dropletsjs/droplets": "^1.0.0",
+    "@dropletsjs/renderer-hono-jsx": "^1.0.0",
     "hono": "^4.13.16",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@dropletsjs/adapter-bun": "workspace:*",
-    "@dropletsjs/adapter-cloudflare": "workspace:*",
-    "@dropletsjs/adapter-deno": "workspace:*",
-    "@dropletsjs/adapter-node": "workspace:*",
-    "@dropletsjs/devtools": "workspace:*",
-    "@tailwindcss/vite": "catalog:",
-    "@types/node": "catalog:",
-    "tailwindcss": "catalog:",
-    "typescript": "catalog:",
-    "vite": "catalog:",
-    "wrangler": "catalog:"
+    "@dropletsjs/adapter-bun": "^1.0.0",
+    "@dropletsjs/adapter-cloudflare": "^1.0.0",
+    "@dropletsjs/adapter-deno": "^1.0.0",
+    "@dropletsjs/adapter-node": "^1.0.0",
+    "@dropletsjs/devtools": "^1.0.0",
+    "@tailwindcss/vite": "^4.3.4",
+    "@types/node": "^24.9.0",
+    "tailwindcss": "^4.3.4",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.5",
+    "wrangler": "^4.157.0"
   }
 }

@@ -115,7 +115,9 @@ so by `pnpm check`, with no Docker:
 - `test/standalone.test.ts`: `examples/shop`, `examples/wp-shop`, each
   `examples/frameworks/*` and each `examples/hosts/*` has no `file:` or
   `link:` dependency, no relative import or `tsconfig` `extends` reaching
-  above its own folder. `workspace:` and `catalog:` ranges are not checked.
+  above its own folder. The ranges themselves (`@dropletsjs/*` at
+  `^<version>`, the tools at the catalog's) are
+  [`tests/packages`](../packages)' `examples.test.ts`.
 
 ### Type check
 

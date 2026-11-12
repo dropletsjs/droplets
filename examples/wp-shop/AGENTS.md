@@ -2,8 +2,8 @@
 
 ## Rules
 
-- wp-shop is standalone: users copy it, so it depends only on published `@dropletsjs/*` packages (`workspace:*` here) and public tools, never on `@dropletsjs/shared` or a `../../` path. Only `Dockerfile` builds from the repository root, against the workspace packages.
-  Checked by: `package.json`.
+- wp-shop is standalone: users copy it, so it depends only on published `@dropletsjs/*` packages and public tools at their published ranges (`^<version>`, the catalog's literal tool ranges; pnpm links the packages here), never on `@dropletsjs/shared` or a `../../` path. Only `Dockerfile` builds from the repository root, against the workspace packages.
+  Checked by: `../../tests/packages/test/examples.test.ts`, `../../tests/hosts/test/standalone.test.ts`.
 - wp-shop has no login of its own: the WordPress account is the admin, asserted by the plugin's signed `x-wp-shop-user`.
   Checked by: `test/unit.test.ts` ("x-wp-shop-user, the host-asserted identity"), `test/server.test.ts`.
 - `x-wp-shop-user` is read in this order: size cap and shape, the MAC, then `JSON.parse`, own keys into a prototype-less object, each claim's type, then `exp`, method, path, `aud` and, on a write back, the body's SHA-256.

@@ -31,6 +31,7 @@ export default defineConfig({
 | `@dropletsjs/shared/tsconfig.base.json` (also `./tsconfig`) | the compiler options every workspace project extends |
 | `@dropletsjs/shared/vitest` | `rendererTests`, `adapterTests`, `happyDom`, `FIXTURE_ROOT`, `buildFixtureApp()`, `waitForServer()` |
 | `@dropletsjs/shared/env` | `loadEnvLocal()` |
+| `@dropletsjs/shared/catalog` | `catalogRanges()`, `workspaceCatalog()`: the pnpm catalog's tool ranges |
 
 The exports point at the `.ts` and `.json` sources: there is no build. A
 consumer's tsdown, Vite or Vitest config loads them as TypeScript.
@@ -63,7 +64,8 @@ build, so run `pnpm build` after it.
 ## Facts
 
 - `@dropletsjs/shared` is `private: true`: never published. `package.json:4`
-- `@dropletsjs/shared` exports `./env`, `./tsconfig`, `./tsconfig.base.json`, `./tsdown` and `./vitest`, as source files. `package.json:8`
+- `@dropletsjs/shared` exports `./catalog`, `./env`, `./tsconfig`, `./tsconfig.base.json`, `./tsdown` and `./vitest`, as source files. `package.json:8`
+- `catalogRanges({ yaml })` reads the `catalog:` block of a pnpm-workspace.yaml, one `name: range` per line, quoted names included; `workspaceCatalog()` reads the root file. create-droplets bakes those ranges in and `tests/packages` checks the examples declare them. `catalog.ts:15`, `catalog.ts:34`
 - `@dropletsjs/shared` has no build script; `typecheck` (`tsc -p tsconfig.json`) is its only script. `package.json:15`
 - `@dropletsjs/shared` has no dependencies; `@types/node`, `tsdown`, `typescript`, `vite` and `vitest` are devDependencies. `package.json:18`
 - `tsdown.ts` imports only types from tsdown, because the Dockerfiles install filtered, without the workspace root. `tsdown.ts:1`

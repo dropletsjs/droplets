@@ -41,12 +41,16 @@ order, each with tsdown: its `tsdown.config.ts` spreads the shared `base` of
 `node_modules` bundled) and lists its own entries and the client and server
 lists of `graphCheck`. `examples/hosts/*` are deliberately **not** in the workspace: each has
 its own toolchain (npm, Python, Ruby, PHP…) and runs with Docker Compose or
-on its own. The tool ranges the examples and tests use (Vite, TypeScript,
+on its own. The tool ranges the apps and tests use (Vite, TypeScript,
 Tailwind, Playwright…) are the pnpm `catalog:` in `pnpm-workspace.yaml`;
-create-droplets writes the same ranges into new projects.
-Bumping a tool's version means editing that catalog in `pnpm-workspace.yaml`
-only: every `package.json` that uses it says `"catalog:"`, so none of them
-changes (run `pnpm install` to update the lockfile), and create-droplets
+create-droplets writes the same ranges into new projects. The examples under
+`examples/` are copied by users, so their `package.json` files carry the
+published ranges instead: `@dropletsjs/*` at `^<version>` and the tools at
+the catalog's literal ranges (`tests/packages/test/examples.test.ts` keeps
+them equal); inside the repository pnpm links those ranges to the workspace
+packages (`linkWorkspacePackages`). Bumping a tool's version means editing
+the catalog in `pnpm-workspace.yaml` and the same range in the examples
+that use it (run `pnpm install` to update the lockfile); create-droplets
 reads the new range when it is next built.
 
 `apps/demo` is not under `examples/`: it is deployed with the docs

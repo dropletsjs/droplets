@@ -6,6 +6,7 @@
   "type": "module",
   "description": "What more than one package, app or test uses: build config, tsconfig, test helpers. Never published.",
   "exports": {
+    "./catalog": "./catalog.ts",
     "./env": "./env.ts",
     "./tsconfig": "./tsconfig.base.json",
     "./tsconfig.base.json": "./tsconfig.base.json",

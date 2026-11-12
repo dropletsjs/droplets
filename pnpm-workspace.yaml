@@ -9,9 +9,10 @@ packages:
   - "tests/*"
   - "apps/*"
 
-# The tool ranges every example and test asks for (`"vite": "catalog:"`).
-# create-droplets reads the same ranges (packages/create-droplets/versions.ts)
-# for the projects it writes.
+# The tool ranges the apps and tests ask for (`"vite": "catalog:"`), which
+# the examples declare literally (users copy them; tests/packages checks they
+# match) and create-droplets writes into the projects it makes
+# (packages/create-droplets/versions.ts).
 catalog:
   "@biomejs/biome": 2.6.5
   "@playwright/test": 1.61.1
@@ -33,7 +34,8 @@ catalog:
 # pnpm's settings (pnpm 10 reads them here, npm never sees them).
 # Hoist nothing by default; keep resolution explicit.
 shamefullyHoist: false
-# The framework resolves its own source files, so link workspace deps.
+# A `^1.0.0` range on a `@dropletsjs/*` package resolves to the workspace
+# package (the examples declare the published ranges), never to the registry.
 linkWorkspacePackages: true
 
 # Resolve only versions published at least 7 days ago (minutes).
