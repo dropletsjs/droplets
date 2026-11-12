@@ -1,12 +1,34 @@
 import { existsSync } from "node:fs";
-import { readFile, rm } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { resolveConfig } from "@dropletsjs/droplets";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { node } from "../src/index.ts";
 import { buildFixture, FIXTURE_ROOT } from "./build-fixture.ts";
 
 const outDir = resolve(FIXTURE_ROOT, "dist-node-index");
+
+type Server = { default: { fetch(request: Request): Promise<Response> } };
+
+/** A function-form config: the element tells which env it was called with, and `cors.origin` is a function the bundle must keep. */
+const FUNCTION_CONFIGS = {
+  sync: `export default ({ command, mode, isPreview }) => ({
+  element: command === "build" && mode === "production" && !isPreview ? "test-droplet" : "wrong-env",
+  cors: { origin: (origin) => origin },
+  server: { port: 8127 },
+});
+`,
+  async: `export default async ({ command, mode, isPreview }) => {
+  await new Promise((wake) => setTimeout(wake, 5));
+  return {
+    element: command === "build" && mode === "production" && !isPreview ? "test-droplet" : "wrong-env",
+    cors: { origin: (origin) => origin },
+    server: { port: 8128 },
+  };
+};
+`,
+} as const;
 
 describe("node", () => {
   beforeAll(async () => {
@@ -34,4 +56,40 @@ describe("node", () => {
     const res = await app.fetch(new Request("http://drops.test/droplets/hello?who=Preview"));
     expect(await res.text()).toContain("Hello Preview!");
   });
+});
+
+describe("node with a function-form droplets.config.ts", () => {
+  for (const [form, source] of Object.entries(FUNCTION_CONFIGS)) {
+    describe(form, () => {
+      const dir = resolve(FIXTURE_ROOT, `dist-node-config-${form}`);
+      const configFile = resolve(FIXTURE_ROOT, `droplets.${form}.config.ts`);
+      let server: Server;
+
+      beforeAll(async () => {
+        await writeFile(configFile, source);
+        try {
+          await buildFixture({ outDir: dir, configFile });
+        } finally {
+          await rm(configFile, { force: true });
+        }
+        server = (await import(pathToFileURL(resolve(dir, "server.js")).href)) as Server;
+      });
+
+      afterAll(async () => {
+        await rm(dir, { recursive: true, force: true });
+      });
+
+      it("calls it in the server with the build's config env and keeps the functions inside the config", async () => {
+        const bundle = await readFile(resolve(dir, "server.js"), "utf8");
+        expect(bundle).toMatch(/"command":\s*"build"/);
+        expect(bundle).toMatch(/"mode":\s*"production"/);
+        const fragment = await server.default.fetch(
+          new Request("http://drops.test/droplets/hello?who=Config", { headers: { origin: "http://other.test" } }),
+        );
+        expect(fragment.status).toBe(200);
+        expect((await fragment.text()).startsWith('<test-droplet data-droplet="hello"')).toBe(true);
+        expect(fragment.headers.get("access-control-allow-origin")).toBe("http://other.test");
+      });
+    });
+  }
 });

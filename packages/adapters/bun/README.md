@@ -90,6 +90,7 @@ root `.env.local`) for one off the `PATH`. `entry.ts` is a tsdown entry:
 - `vite preview` serves `dist/client` and `dist/server/entry-server.js` through `createNodeServerApp` of `@dropletsjs/adapter-node`. `src/index.ts:30`
 - `dist/server.js` resolves `client/` and `server/entry-server.js` relative to its own file, not the working directory. `src/entry.ts:9`
 - `droplets.config.ts` is bundled into `dist/server.js` through `virtual:droplets-config`; it is not read at runtime. `src/entry.ts:3`
+- `droplets.config.ts` that exports a function is called in `dist/server.js` with the build's `{ command, mode, isSsrBuild, isPreview }` and awaited before `resolveConfig`, as on Node. `src/entry.ts:17`, `../node/test/index.test.ts:82`
 - `PORT` is read once at startup and overrides `server.port` from the config. `src/entry.ts:16`
 - Default export of `dist/server.js` is `{ port, development, fetch }`. `src/entry.ts:27`
 - Default export `port` is `server.port` of the config, after `PORT`. `src/entry.ts:28`

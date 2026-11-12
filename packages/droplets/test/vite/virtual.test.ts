@@ -361,16 +361,31 @@ describe("mayImportServerOnly", () => {
 });
 
 describe("buildConfigCode", () => {
+  const configEnv = { command: "build", mode: "production", isSsrBuild: false, isPreview: false } as const;
+
   it("imports the user's config or exports an empty object", () => {
-    expect(buildConfigCode({ configPath: null })).toBe("export default {};\nexport const tokens = undefined;\n");
-    expect(buildConfigCode({ configPath: "/p/droplets.config.ts" })).toContain('import userConfig from "/p/droplets.config.ts";');
+    expect(buildConfigCode({ configPath: null, configEnv })).toBe("export default {};\nexport const tokens = undefined;\n");
+    expect(buildConfigCode({ configPath: "/p/droplets.config.ts", configEnv })).toContain(
+      'import userConfig from "/p/droplets.config.ts";',
+    );
+  });
+
+  it("calls a function-form config with the build's config env, as a literal", () => {
+    const code = buildConfigCode({
+      configPath: "/p/droplets.config.ts",
+      configEnv: { command: "build", mode: "staging", isSsrBuild: true },
+    });
+    expect(code).toContain(
+      'export default typeof userConfig === "function" ? userConfig({"command":"build","mode":"staging","isSsrBuild":true}) : (userConfig ?? {});',
+    );
+    expect(buildConfigCode({ configPath: null, configEnv })).not.toContain("typeof");
   });
 
   it("exports the token replacers only when given their module", () => {
-    expect(buildConfigCode({ configPath: null, hostTokensModule: "/d/runtime/host-tokens.js" })).toBe(
+    expect(buildConfigCode({ configPath: null, configEnv, hostTokensModule: "/d/runtime/host-tokens.js" })).toBe(
       'export default {};\nexport { replacers as tokens } from "/d/runtime/host-tokens.js";\n',
     );
-    expect(buildConfigCode({ configPath: "/p/droplets.config.ts" })).not.toContain("host-tokens");
+    expect(buildConfigCode({ configPath: "/p/droplets.config.ts", configEnv })).not.toContain("host-tokens");
   });
 });
 

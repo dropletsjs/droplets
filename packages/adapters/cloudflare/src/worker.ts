@@ -7,6 +7,7 @@ import {
   createServerApp,
   type DropletManifestEntry,
   type DropletsApp,
+  type ResolvedDropletsConfig,
   resolveConfig,
   setRuntimeEnv,
 } from "@dropletsjs/droplets";
@@ -21,15 +22,18 @@ type AssetsFetcher = {
 
 type Env = Record<string, unknown>;
 
-const config = resolveConfig(userConfig ?? {});
+// A function-form `droplets.config.ts` was called with the build's config
+// env and may have returned a promise: resolved on the first request, since a
+// Worker module has no top-level await.
+let configPromise: Promise<ResolvedDropletsConfig> | null = null;
 
 // One app per assets binding. Bindings are stable within an isolate, so this
 // is a cache of one; a request without the binding still fails clearly.
-const apps = new WeakMap<AssetsFetcher, DropletsApp>();
+const apps = new WeakMap<AssetsFetcher, Promise<DropletsApp>>();
 
 type DropletEntryInput = { droplet: string };
 
-type AssetLoadersOptions = { assets: AssetsFetcher };
+type AssetLoadersOptions = { assets: AssetsFetcher; config: ResolvedDropletsConfig };
 
 type LoadFileInput = { path: string };
 
@@ -45,7 +49,7 @@ function dropletEntry({ droplet }: DropletEntryInput): DropletManifestEntry | un
 }
 
 /** The client build's files, read through the assets binding. */
-function createAssetLoaders({ assets }: AssetLoadersOptions): AssetLoaders {
+function createAssetLoaders({ assets, config }: AssetLoadersOptions): AssetLoaders {
   const loadFile = async ({ path }: LoadFileInput): Promise<string | null> => {
     // Only the pathname matters to the binding; the origin is a placeholder.
     const response = await assets.fetch(new URL(`/${path}`, "https://assets.invalid"));
@@ -119,7 +123,12 @@ async function revalidated({ response, ifNoneMatch, cacheControl }: RevalidatedI
   return new Response(body, { status: response.status, headers });
 }
 
-function appOf({ env }: AppOfInput) {
+function loadConfig(): Promise<ResolvedDropletsConfig> {
+  configPromise ??= Promise.resolve(userConfig).then((user) => resolveConfig(user ?? {}));
+  return configPromise;
+}
+
+function appOf({ env }: AppOfInput): Promise<DropletsApp> {
   const assets = env[__DROPLETS_ASSETS_BINDING__] as AssetsFetcher | undefined;
   if (!assets) {
     throw new Error(
@@ -128,16 +137,16 @@ function appOf({ env }: AppOfInput) {
   }
   let app = apps.get(assets);
   if (!app) {
-    app = createServerApp({ ssr, config, assets: createAssetLoaders({ assets }) });
+    app = loadConfig().then((config) => createServerApp({ ssr, config, assets: createAssetLoaders({ assets, config }) }));
     apps.set(assets, app);
   }
   return app;
 }
 
 export default {
-  fetch(request: Request, env: Env, ctx: unknown): Promise<Response> | Response {
+  async fetch(request: Request, env: Env, ctx: unknown): Promise<Response> {
     // Runtime private variables are the Worker's vars and secrets.
     setRuntimeEnv(env);
-    return appOf({ env }).fetch(request, env, ctx as never);
+    return (await appOf({ env })).fetch(request, env, ctx as never);
   },
 };

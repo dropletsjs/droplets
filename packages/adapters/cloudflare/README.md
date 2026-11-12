@@ -191,10 +191,11 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - `compatibility_flags` is read from the top level of the wrangler config (JSON, JSONC or TOML), never from an `env.*` section. `src/index.ts:58`, `src/index.ts:64`
 - A wrangler config this reader cannot parse warns once that `assets.run_worker_first` and `compatibility_flags` go unchecked. `src/index.ts:278`
 - `run_worker_first` warning names the file, the value and up to five matched paths, and links `https://dropletsjs.dev/guides/deployment/#run_worker_first`. `src/index.ts:253`
-- Config in the Worker is `resolveConfig(userConfig)` with no environment: `PORT` is never read. `src/worker.ts:23`
+- Config in the Worker is `resolveConfig(userConfig)` with no environment: `PORT` is never read. `src/worker.ts:126`
+- `droplets.config.ts` that exports a function is called in `dist/worker.js` with the build's `{ command, mode, isSsrBuild, isPreview }` and awaited on the first request, never at the top level: a Worker module has no top-level `await`. `src/worker.ts:24`, `src/worker.ts:125`, `test/worker.test.ts:396`
 - Manifest is inlined into the Worker through `virtual:droplets-manifest`, the build's `droplets.json`. `src/worker.ts:2`, `../../droplets/src/vite/virtual.ts:73`
 - Assets binding missing from `env`: the request throws `droplets: no "<name>" binding`. `src/worker.ts:119`, `test/worker.test.ts:269`
-- App is created once per assets binding object and kept in a `WeakMap`. `src/worker.ts:27`, `src/worker.ts:124`
+- App is created once per assets binding object and kept in a `WeakMap`, as the promise of its creation. `src/worker.ts:32`, `src/worker.ts:139`
 - Bindings are the runtime env: every request calls `setRuntimeEnv(env)` before it is answered. `src/worker.ts:135`
 - `platform.env` is the Worker's `env`, every binding included. `../../droplets/src/runtime/app.ts:525`, `test/worker.test.ts:87`
 - `platform.context` is the Worker's execution context when the runtime has one. `../../droplets/src/runtime/app.ts:561`

@@ -353,3 +353,56 @@ describe("worker with publicCacheControl", () => {
     });
   }
 });
+
+describe("worker with a function-form droplets.config.ts", () => {
+  const configs = {
+    sync: `export default ({ command, mode, isPreview }) => ({
+  element: command === "build" && mode === "production" && !isPreview ? "test-droplet" : "wrong-env",
+  cors: { origin: (origin) => origin },
+});
+`,
+    async: `export default async ({ command, mode, isPreview }) => {
+  await new Promise((wake) => setTimeout(wake, 5));
+  return {
+    element: command === "build" && mode === "production" && !isPreview ? "test-droplet" : "wrong-env",
+    cors: { origin: (origin) => origin },
+  };
+};
+`,
+  } as const;
+
+  for (const [form, source] of Object.entries(configs)) {
+    describe(form, () => {
+      const dir = resolve(FIXTURE_ROOT, `dist-cloudflare-worker-config-${form}`);
+      const configFile = resolve(FIXTURE_ROOT, `droplets.worker-${form}.config.ts`);
+      let worker: Worker;
+      const env = { ASSETS: fakeAssets({ clientRoot: resolve(dir, "client") }) };
+      const call = ({ path, init }: CallInput) => worker.default.fetch(new Request(`http://drops.test${path}`, init), env, {});
+
+      beforeAll(async () => {
+        await writeFile(configFile, source);
+        try {
+          await buildFixture({ outDir: dir, configFile });
+        } finally {
+          await rm(configFile, { force: true });
+        }
+        worker = (await import(pathToFileURL(resolve(dir, "worker.js")).href)) as Worker;
+      });
+
+      afterAll(async () => {
+        await rm(dir, { recursive: true, force: true });
+      });
+
+      it("calls it in the Worker with the build's config env and keeps the functions inside the config", async () => {
+        const bundle = await readFile(resolve(dir, "worker.js"), "utf8");
+        expect(bundle).toMatch(/"command":\s*"build"/);
+        expect(bundle).toMatch(/"mode":\s*"production"/);
+        expect(bundle).not.toMatch(/^await /m);
+        const fragment = await call({ path: "/droplets/hello?who=Config", init: { headers: { origin: "http://other.test" } } });
+        expect(fragment.status).toBe(200);
+        expect((await fragment.text()).startsWith('<test-droplet data-droplet="hello"')).toBe(true);
+        expect(fragment.headers.get("access-control-allow-origin")).toBe("http://other.test");
+      });
+    });
+  }
+});

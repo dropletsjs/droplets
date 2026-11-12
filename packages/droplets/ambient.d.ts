@@ -120,9 +120,9 @@ declare module "$droplets/server" {
   export * from "@dropletsjs/droplets/server";
 }
 
-/** The project's `droplets.config.ts` default export, bundled into the server. */
+/** The project's `droplets.config.ts` default export, bundled into the server: a function is called with the build's config env, so this may be its promise. */
 declare module "virtual:droplets-config" {
-  const userConfig: import("@dropletsjs/droplets").DropletsConfig;
+  const userConfig: import("@dropletsjs/droplets").DropletsConfig | Promise<import("@dropletsjs/droplets").DropletsConfig>;
   export default userConfig;
   export const tokens: import("@dropletsjs/droplets").SsrModule["tokens"];
 }

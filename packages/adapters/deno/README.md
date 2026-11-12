@@ -90,6 +90,7 @@ tsdown entry: `deno()` finds `dist/entry.js` by path.
 - `vite preview` serves `dist/client` and `dist/server/entry-server.js` through `createNodeServerApp` of `@dropletsjs/adapter-node`. `src/index.ts:30`
 - `dist/server.js` resolves `client/` and `server/entry-server.js` relative to its own file, not the working directory. `src/entry.ts:10`
 - `droplets.config.ts` is bundled into `dist/server.js` through `virtual:droplets-config`; it is not read at runtime. `src/entry.ts:3`
+- `droplets.config.ts` that exports a function is called in `dist/server.js` with the build's `{ command, mode, isSsrBuild, isPreview }` and awaited before `resolveConfig`, as on Node. `src/entry.ts:17`, `../node/test/index.test.ts:82`
 - `PORT` and `server.port` are not read: the config is resolved with no environment and `deno serve` owns the port. `src/entry.ts:17`
 - Default export of `dist/server.js` is `{ fetch }` only. `src/entry.ts:26`
 - `deno serve -A --port <port> dist/server.js` listens and logs `Listening on`. `test/entry.test.ts:37`, `test/entry.test.ts:51`

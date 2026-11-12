@@ -9,11 +9,15 @@ Lives in the project root; `.mts`, `.js` and `.mjs` work too, looked up in
 that order (the plugin's `configFile` names another). It holds data only;
 request handling lives in [`src/hooks.server.ts`](/guides/server/). Vite
 loads it, so TypeScript and imports work, and a default export that is a
-function is called with Vite's `{ command, mode }`. The plugin bundles the
-exported object into the server build, where it is validated again at
-startup. The `config()` helper only adds types. An invalid value fails
-`vite dev` and `vite build` with a message naming the option; a key the
-framework does not know is ignored.
+function (async or not) is called with Vite's `{ command, mode, isSsrBuild,
+isPreview }`. The plugin bundles the file into the server build, where a
+function is called again with the same `{ command, mode, … }` the build had
+(as a literal in the bundle) and awaited, so the production server sees the
+config the build saw, functions inside it included (a `cors.origin`
+callback, say); the result is validated again at startup. The `config()`
+helper only adds types. An invalid value fails `vite dev` and `vite build`
+with a message naming the option; a key the framework does not know is
+ignored.
 
 ```ts
 import { config } from "@dropletsjs/droplets";

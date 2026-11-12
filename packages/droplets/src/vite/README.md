@@ -208,7 +208,7 @@ restarts the server.
 - Client module imports the renderer's `clientSetup` first, for its side effects. `virtual.ts:575`
 - Client module hydrates when the target has child nodes, mounts otherwise. `virtual.ts:624`, `virtual.ts:642`
 - `virtual:droplets-dev` exports `strategy`, `injectTool` and `toolUrl`. `virtual.ts:424`
-- `virtual:droplets-config` is the raw default export of `droplets.config.ts`, or `{}`. `virtual.ts:697`, `virtual.ts:696`
+- `virtual:droplets-config` is the default export of `droplets.config.ts`, or `{}`; a function is called in the bundle with the `{ command, mode, … }` the plugin's `config` hook received, as a literal, so the adapter awaits what it returns. `virtual.ts:701`, `virtual.ts:707`, `virtual.ts:737`
 - `virtual:droplets-config` exports `tokens`: the replacers of `dist/runtime/host-tokens.js`, or `undefined` when `vite build` has both `location` and `host`. `virtual.ts:692`, `virtual.ts:856`, `state.ts:186`
 - Shared CSS module imports `css.path`; without one, Tailwind's full import when scoped with preflight, theme and utilities otherwise, nothing without Tailwind. `virtual.ts:842`, `virtual.ts:849`, `virtual.ts:850`
 - Droplet discovery in virtual modules: cached once under `vite build`, rescanned on each load under `vite dev`. `virtual.ts:717`

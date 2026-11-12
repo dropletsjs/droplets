@@ -1,4 +1,4 @@
-import type { Plugin } from "vite";
+import type { ConfigEnv, Plugin } from "vite";
 import { resolve } from "node:path";
 import { discoverApiRoutes, type ApiRouteEntry } from "../core/api-routes.ts";
 import { discoverDroplets, type DropletEntry } from "../core/discover.ts";
@@ -684,17 +684,20 @@ if (import.meta.hot) {
  * The production server's view of `droplets.config.ts`, and `tokens`: the
  * replacers of `host-tokens` when the build computes `location` or `host`
  * per request, `undefined` when it fixes both, so that module is never
- * bundled.
+ * bundled. A function default export is called in the bundle with
+ * `configEnv`, the `{ command, mode, … }` Vite gave the build, as a literal:
+ * the server sees the config the build saw, functions inside it included,
+ * and the adapter awaits what it returns.
  */
-type BuildConfigCodeInput = { configPath: string | null; hostTokensModule?: string | undefined };
+type BuildConfigCodeInput = { configPath: string | null; configEnv: ConfigEnv; hostTokensModule?: string | undefined };
 
-export function buildConfigCode({ configPath, hostTokensModule }: BuildConfigCodeInput): string {
+export function buildConfigCode({ configPath, configEnv, hostTokensModule }: BuildConfigCodeInput): string {
   const tokens =
     hostTokensModule === undefined
       ? "export const tokens = undefined;\n"
       : `export { replacers as tokens } from ${modulePath({ file: hostTokensModule })};\n`;
   if (!configPath) return `export default {};\n${tokens}`;
-  return `import userConfig from ${JSON.stringify(configPath)};\nexport default userConfig ?? {};\n${tokens}`;
+  return `import userConfig from ${JSON.stringify(configPath)};\nexport default typeof userConfig === "function" ? userConfig(${JSON.stringify(configEnv)}) : (userConfig ?? {});\n${tokens}`;
 }
 
 /**
@@ -708,6 +711,9 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
   // fallback): `vite dev`, and builds Vite does not call production
   // (`import.meta.env.DEV`).
   let devHooks = false;
+  // What Vite gave the config hook: the server bundle calls a function-form
+  // `droplets.config.ts` with the same env.
+  let configEnv: ConfigEnv = { command: "build", mode: "production" };
   let cached: Promise<DropletEntry[]> | null = null;
 
   // During `build` the filesystem is fixed, so one scan is enough. In `serve`
@@ -730,6 +736,10 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
   return {
     name: "droplets:virtual",
     sharedDuringBuild: true,
+
+    config(_userConfig, env) {
+      configEnv = env;
+    },
 
     configResolved(resolvedConfig) {
       command = resolvedConfig.command;
@@ -853,6 +863,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
       if (id === RESOLVED_CONFIG) {
         return buildConfigCode({
           configPath: state.configPath,
+          configEnv,
           hostTokensModule: isFixed({ state, isBuilding: command === "build" }) ? undefined : hostTokensModulePath,
         });
       }

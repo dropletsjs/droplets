@@ -13,7 +13,8 @@ const paths = {
   ssrEntryUrl: pathToFileURL(resolve(runtimeRoot, "server/entry-server.js")).href,
 };
 
-const config = resolveConfig(userConfig ?? {}, { port: process.env["PORT"] });
+// A function-form `droplets.config.ts` was called with the build's config env; it may have returned a promise.
+const config = resolveConfig((await userConfig) ?? {}, { port: process.env["PORT"] });
 
 let appPromise: Promise<DropletsApp> | null = null;
 

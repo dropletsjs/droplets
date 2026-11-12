@@ -72,7 +72,8 @@ Hono app itself. `paths` is `{ clientRoot, ssrEntryUrl, serverRoot? }`
 ### Environment
 
 The config is bundled at build time: `droplets.config.ts` is not read at
-runtime. What is read from `process.env` at runtime: `PORT` (once, at
+runtime. A default export that is a function is called in the server with
+the `{ command, mode, isSsrBuild, isPreview }` the build had, and awaited. What is read from `process.env` at runtime: `PORT` (once, at
 startup), `DROPLETS_SECRET`, `DROPLETS_TRUSTED_ORIGINS`, `DROPLETS_ENV_MAX_AGE`
 and your own private variables. It logs errors only, with `console.error`. See
 [Deployment](https://dropletsjs.dev/guides/deployment/).
@@ -135,6 +136,7 @@ by path.
 - `vite preview` calls `node().preview`, which serves `dist/client` and `dist/server/entry-server.js` through `createNodeServerApp`. `src/index.ts:30`, `../../droplets/src/vite/plugin.ts:531`
 - `dist/server.js` resolves `client/` and `server/entry-server.js` relative to its own file, not the working directory. `src/entry.ts:10`
 - `droplets.config.ts` is bundled into `dist/server.js` through `virtual:droplets-config`; it is not read at runtime. `src/entry.ts:4`, `test/index.test.ts:27`
+- `droplets.config.ts` that exports a function is called in `dist/server.js` with the build's `{ command, mode, isSsrBuild, isPreview }`, a literal in the bundle, and awaited before `resolveConfig`; functions inside the config it returns are kept. `src/entry.ts:19`, `../../droplets/src/vite/virtual.ts:697`, `test/index.test.ts:82`
 - `PORT` is read once at startup and overrides `server.port` from the config. `src/entry.ts:17`, `../../droplets/src/core/config.ts:408`
 - `PORT` is converted with `Number()`; empty, `0` or not a number falls back to `server.port`, then 8000. `../../droplets/src/core/config.ts:374`
 - `server.port` defaults to 8000. `../../droplets/src/core/config.ts:205`

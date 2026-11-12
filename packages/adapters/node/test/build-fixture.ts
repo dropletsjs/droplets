@@ -11,10 +11,10 @@ import { node } from "../src/index.ts";
 // The framework's own fixture (fake renderer, see @dropletsjs/droplets/testing), element "test-droplet".
 export const FIXTURE_ROOT = fileURLToPath(new URL("../../../droplets/test/fixtures/app/", import.meta.url));
 
-export type BuildFixtureInput = { outDir: string; css?: DropletsCssOptions };
+export type BuildFixtureInput = { outDir: string; css?: DropletsCssOptions; configFile?: string };
 
 /** Builds the fixture with `node()` into `outDir`, emptied first; the paths `createNodeServerApp` takes. */
-export async function buildFixture({ outDir, css = { tailwind: true } }: BuildFixtureInput): Promise<NodeServerPaths> {
+export async function buildFixture({ outDir, css = { tailwind: true }, configFile }: BuildFixtureInput): Promise<NodeServerPaths> {
   if (!existsSync(resolve(FIXTURE_ROOT, "../../../dist/vite.js"))) {
     throw new Error("Build @dropletsjs/droplets first (pnpm build at the root).");
   }
@@ -24,7 +24,7 @@ export async function buildFixture({ outDir, css = { tailwind: true } }: BuildFi
     configFile: false,
     logLevel: "silent",
     build: { outDir },
-    plugins: [droplets({ adapter: node(), renderers: [fakeRenderer()], css })],
+    plugins: [droplets({ adapter: node(), renderers: [fakeRenderer()], css, ...(configFile ? { configFile } : {}) })],
   });
   await builder.buildApp();
   return {
