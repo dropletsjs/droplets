@@ -121,7 +121,7 @@ droplet takes: the whole query to `product-filter` and `product-library`,
 
 ```ruby
 # shop.rb
-SHOP_PROXIED = %r{/(?:index\.js|(?:droplets|assets|api)/.*)}
+SHOP_PROXIED = %r{/(?:index\.js|env\.js|index\.css|(?:droplets|assets|api)/.*)}
 %i[get post put patch delete options].each do |verb|
   send(verb, SHOP_PROXIED) { shop_proxy }
 end
@@ -154,7 +154,7 @@ sets them only from form actions and `/api`, which come through here.
 - `DROPLETS_SECRET`: signs a form's result on the redirect back to the page
   when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)).
 - `ADMIN_USER`, `ADMIN_PASSWORD`, `SHOP_SECRET`: the demo login
-  (admin / droplets) and the key its cookie is signed with. Demo values only.
+  (admin / droplets) and the key its cookie is signed with (from the environment, see Run it).
 
 ### Gotchas
 
@@ -176,6 +176,11 @@ cd examples/hosts/sinatra
 docker compose up --build
 open http://localhost:8002/gallery   # log in as admin / droplets
 ```
+
+Set `SHOP_SECRET` and `DROPLETS_SECRET` first (32 or more random characters
+each, `openssl rand -hex 32`), in the environment or a `.env` file beside
+`docker-compose.yml`: compose refuses to start without them. `pnpm test:hosts`
+generates its own for a run.
 
 ## The Svelte example
 

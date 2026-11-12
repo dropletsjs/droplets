@@ -18,8 +18,8 @@
 - `x-wp-shop-service` logs a request in only on `POST /wp-json/wp/v2/products/<id>`, checked again after routing; on any other route WordPress's own login applies.
   Checked by: `tests/hosts/e2e/wordpress-service.spec.ts`.
 - An assertion's MAC is compared in constant time (`hash_equals`) before its payload is decoded with plain `json_decode`, with a size cap and typed claims.
-- `WP_SHOP_HOST_SECRET` and `WP_SHOP_SERVICE_SECRET` are 32+ bytes and differ; the compose file gives each the same value on both services.
-  Checked by: `tests/hosts/e2e/wordpress-service.spec.ts` (one value per secret in `docker-compose.yml`; the host secret does not sign writes).
+- `WP_SHOP_HOST_SECRET` and `WP_SHOP_SERVICE_SECRET` are 32+ bytes and differ; the compose file requires each from the environment and gives both services the same variable, never a value of its own.
+  Checked by: `tests/hosts/e2e/wordpress-service.spec.ts` (each secret one required variable in `docker-compose.yml`, on both services; the host secret does not sign writes).
 - The `product-admin` droplet renders only on the Shop screen in wp-admin; no public page, `/admin` included, carries it, and no public droplet is in wp-admin.
   Checked by: `tests/hosts/e2e/shop-wordpress.spec.ts`.
 - A page inserts only a 2xx or 500 `text/html` fragment, after WordPress's content filters; a fragment's redirect is answered, never followed.

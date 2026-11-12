@@ -11,6 +11,11 @@ open http://localhost:8002          # the basic page: three Svelte droplets
 open http://localhost:8002/gallery  # the shop (demo login: admin / droplets)
 ```
 
+Set `SHOP_SECRET` and `DROPLETS_SECRET` first (32 or more random characters
+each, `openssl rand -hex 32`), in the environment or a `.env` file beside
+`docker-compose.yml`: compose refuses to start without them. `pnpm test:hosts`
+generates its own for a run.
+
 | Service | Port | What it is |
 |---|---|---|
 | `web` | 8002 | this Sinatra app |
@@ -98,7 +103,7 @@ http://localhost:8002 and takes the stack down. It needs Docker.
 - Shop `DROPLETS_TRUSTED_ORIGINS` is `WEB_URL`, this host's public origin. `docker-compose.yml:32`
 - Shop service is exposed on 8300 inside the compose network only. `docker-compose.yml:22`
 - Shop demo login is `admin` / `droplets`. `docker-compose.yml:26`, `docker-compose.yml:27`
-- Shop `DROPLETS_SECRET` is a demo value in the compose file. `docker-compose.yml:30`
+- Shop service `SHOP_SECRET` and `DROPLETS_SECRET` are required from the environment (`${VAR:?…}`), no default. `docker-compose.yml:28`, `docker-compose.yml:30`
 - Published ports bind `127.0.0.1`: droplets `DROPLETS_PORT` (8000), web `WEB_PORT` (8002). `docker-compose.yml:11`, `docker-compose.yml:37`
 - Web `SHOP_PUBLIC_URL` is `WEB_URL`, default `http://localhost:8002`. `docker-compose.yml:42`
 - `SHOP_INTERNAL_URL` defaults to `http://localhost:8300`, trailing slashes stripped. `shop.rb:20`

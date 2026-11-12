@@ -26,13 +26,13 @@ services:
     environment:
       WP_INTERNAL_URL: http://wordpress
       WP_PUBLIC_URL: ${WEB_URL:-http://localhost:8008}
-      # Demo values. Never use them elsewhere. The same two secrets as
+      # From the environment or a .env file here. The same two secrets as
       # WordPress's, one per direction, never equal: the host secret checks
       # x-wp-shop-user, the service secret signs wp-shop's writes back.
-      WP_SHOP_HOST_SECRET: demo-only-host-secret-change-me-0123456789abcdef
-      WP_SHOP_SERVICE_SECRET: demo-only-service-secret-change-me-0123456789ab
+      WP_SHOP_HOST_SECRET: ${WP_SHOP_HOST_SECRET:?set WP_SHOP_HOST_SECRET (32+ random bytes) in the environment or a .env file}
+      WP_SHOP_SERVICE_SECRET: ${WP_SHOP_SERVICE_SECRET:?set WP_SHOP_SERVICE_SECRET (32+ random bytes, not the host secret) in the environment or a .env file}
       # Signs a form result on the redirect back to the page (posts without JavaScript).
-      DROPLETS_SECRET: demo-only-droplets-secret-change-me-0123456789
+      DROPLETS_SECRET: ${DROPLETS_SECRET:?set DROPLETS_SECRET (32+ random bytes) in the environment or a .env file}
       # The site's public origin: the x-droplet-location it sends, its pages' form posts.
       DROPLETS_TRUSTED_ORIGINS: ${WEB_URL:-http://localhost:8008}
     depends_on:
@@ -65,10 +65,10 @@ services:
       SHOP_INTERNAL_URL: http://wp-shop:8310
       SHOP_PUBLIC_URL: ${WEB_URL:-http://localhost:8008}
       # Signs x-wp-shop-user for a logged-in admin (WordPress → wp-shop).
-      WP_SHOP_HOST_SECRET: demo-only-host-secret-change-me-0123456789abcdef
+      WP_SHOP_HOST_SECRET: ${WP_SHOP_HOST_SECRET:?set WP_SHOP_HOST_SECRET (32+ random bytes) in the environment or a .env file}
       # Checks wp-shop's writes back (x-wp-shop-service, wp-shop → WordPress),
-      # on the product write route only. Demo values; 32+ bytes each, never equal.
-      WP_SHOP_SERVICE_SECRET: demo-only-service-secret-change-me-0123456789ab
+      # on the product write route only. 32+ bytes each, never equal.
+      WP_SHOP_SERVICE_SECRET: ${WP_SHOP_SERVICE_SECRET:?set WP_SHOP_SERVICE_SECRET (32+ random bytes, not the host secret) in the environment or a .env file}
     volumes:
       - wordpress:/var/www/html
     depends_on:

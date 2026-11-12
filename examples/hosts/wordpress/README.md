@@ -14,6 +14,11 @@ open http://localhost:8008/gallery  # the shop, once wp-shop serves (docker comp
 open http://localhost:8008/wp-admin # admin / droplets; the Shop screen holds stock and prices
 ```
 
+Set `WP_SHOP_HOST_SECRET`, `WP_SHOP_SERVICE_SECRET` (two different values) and
+`DROPLETS_SECRET` first (32 or more random bytes each, `openssl rand -hex 32`),
+in the environment or a `.env` file beside `docker-compose.yml`: compose refuses
+to start without them. `pnpm test:hosts wordpress` generates its own for a run.
+
 ```
 [droplet id="client" who="WordPress"]
 [droplet id="ssr-hydrate" who="WordPress"]
@@ -57,7 +62,7 @@ Docker image, which passes container variables to PHP, and with Apache's
 |---|---|---|
 | `DROPLETS_INTERNAL_URL` | `http://localhost:8000` | where WordPress fetches `[droplet]` fragments |
 | `DROPLETS_PUBLIC_URL` | `http://localhost:8000` | the browser-facing droplets origin |
-| `SHOP_INTERNAL_URL` | `http://localhost:8300` | where WordPress reaches wp-shop (compose: `http://wp-shop:8310`) |
+| `SHOP_INTERNAL_URL` | `http://localhost:8310` | where WordPress reaches wp-shop (compose: `http://wp-shop:8310`) |
 | `SHOP_PUBLIC_URL` | `http://localhost:8008` | this site's public origin, sent to wp-shop as `x-droplet-location` |
 | `WP_SHOP_HOST_SECRET` | none | signs `x-wp-shop-user` (WordPress to wp-shop); 32+ bytes |
 | `WP_SHOP_SERVICE_SECRET` | none | checks `x-wp-shop-service` (wp-shop to WordPress); 32+ bytes, never equal to the host secret |
@@ -164,8 +169,8 @@ it is the **Shop** screen in wp-admin
   toasts) are in wp-admin.
 
 The compose file sets `SHOP_INTERNAL_URL`, `SHOP_PUBLIC_URL`,
-`WP_SHOP_HOST_SECRET` and `WP_SHOP_SERVICE_SECRET` (each the same value on
-both sides, never equal to each other; demo values only).
+`WP_SHOP_HOST_SECRET` and `WP_SHOP_SERVICE_SECRET` (each from the environment,
+the same value on both sides, never equal to each other).
 
 ### Tests
 
@@ -187,8 +192,8 @@ product write only) and the WordPress cases of
 - `[droplet]` `id` goes through `sanitize_key`; every other attribute is a prop in the query. `plugin/droplets-embed/droplets-embed.php:53`, `plugin/droplets-embed/droplets-embed.php:61`
 - `[droplet]` fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`, 5 second timeout, no redirect followed. `plugin/droplets-embed/droplets-embed.php:65`, `plugin/droplets-embed/droplets-embed.php:66`, `plugin/droplets-embed/droplets-embed.php:67`
 - `[droplet]` pastes only a 2xx or 500 `text/html` answer; a failure or anything else renders `<p class="error">`. `plugin/droplets-embed/droplets-embed.php:70`, `plugin/droplets-embed/droplets-embed.php:81`, `plugin/droplets-embed/droplets-embed.php:82`
-- `[droplet]` enqueues `<DROPLETS_PUBLIC_URL>/index.js` once, with `wp_enqueue_script_module`. `plugin/droplets-embed/droplets-embed.php:100`, `plugin/droplets-embed/droplets-embed.php:102`
-- `SHOP_INTERNAL_URL` defaults to `http://localhost:8300`; compose sets `http://wp-shop:8310`. `plugin/droplets-embed/shop.php:68`, `docker-compose.yml:65`
+- `[droplet]` enqueues `<DROPLETS_PUBLIC_URL>/index.js` once, with `wp_enqueue_script_module` (WordPress 6.5+, the plugin's minimum). `plugin/droplets-embed/droplets-embed.php:6`, `plugin/droplets-embed/droplets-embed.php:100`
+- `SHOP_INTERNAL_URL` defaults to `http://localhost:8310`, wp-shop's port; compose sets `http://wp-shop:8310`. `plugin/droplets-embed/shop.php:68`, `docker-compose.yml:65`
 - `SHOP_PUBLIC_URL` defaults to `http://localhost:8008` and is reduced to its origin. `plugin/droplets-embed/shop.php:78`
 - Shop requests send `x-droplet-location` from `SHOP_PUBLIC_URL`, never the client's Host. `plugin/droplets-embed/shop.php:201`, `plugin/droplets-embed/shop.php:304`
 - Shop cookies sent to wp-shop: `cart_id` only; WordPress's login cookies stay on the site. `plugin/droplets-embed/shop.php:60`, `plugin/droplets-embed/shop.php:92`
@@ -264,7 +269,7 @@ product write only) and the WordPress cases of
 - wp-shop reaches WordPress at `http://wordpress`; `WP_PUBLIC_URL` is `WEB_URL`. `docker-compose.yml:27`, `docker-compose.yml:28`
 - wp-shop has `cors: false`: the browser reaches it only through the plugin's proxy. `../../wp-shop/droplets.config.ts:14`
 - wp-shop waits for `/wp-json/wp/v2/products` before it builds. `../../wp-shop/scripts/wait-for-wordpress.mjs:12`
-- Shop secrets in compose: `WP_SHOP_HOST_SECRET` and `WP_SHOP_SERVICE_SECRET`, the same value on both services, different from each other. `docker-compose.yml:32`, `docker-compose.yml:33`, `docker-compose.yml:68`, `docker-compose.yml:71`
+- Shop secrets in compose: `WP_SHOP_HOST_SECRET` and `WP_SHOP_SERVICE_SECRET` are required from the environment (`${VAR:?…}`), the same variable on both services, different from each other. `docker-compose.yml:32`, `docker-compose.yml:33`, `docker-compose.yml:68`, `docker-compose.yml:71`
 - Published port binds `127.0.0.1`: droplets `DROPLETS_PORT` (8000), WordPress `WEB_PORT` (8008). `docker-compose.yml:11`, `docker-compose.yml:57`
 - Database is MariaDB 11 with demo credentials, in the `db` volume. `docker-compose.yml:42`, `docker-compose.yml:49`
 - `pnpm test:hosts wordpress` runs only when named, against `http://localhost:8008`. `../../../tests/hosts/run.mjs:63`

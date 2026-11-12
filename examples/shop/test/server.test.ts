@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { CardProduct } from "../src/lib/types.ts";
 
 // The built server, driven in-process through its fetch handler, on a
@@ -236,6 +236,28 @@ describe("login", () => {
     expect(line).toMatch(/HttpOnly/i);
     const cookie = cookieOf(response, "shop_admin")!;
     expect((await getJson("/api/auth/me", { cookie })).body).toEqual({ admin: { name: "admin" } });
+  });
+
+  it("refuses the demo secret from .env.example once NODE_ENV is production", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const was = { NODE_ENV: process.env["NODE_ENV"], SHOP_SECRET: process.env["SHOP_SECRET"] };
+    Object.assign(process.env, { NODE_ENV: "production", SHOP_SECRET: "demo-only-secret-change-me-0123456789abcdef" });
+    try {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const response = await action("/droplets/login?/login&next=/admin", { user: "admin", password: "droplets" });
+        expect(response.status).toBe(503);
+        expect(response.headers.getSetCookie()).toEqual([]);
+      }
+      const said = errors.mock.calls.flat().filter((line) => String(line).includes("SHOP_SECRET is the demo value"));
+      expect(said).toHaveLength(1);
+    } finally {
+      for (const [name, value] of Object.entries(was)) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+      errors.mockRestore();
+    }
+    expect((await action("/droplets/login?/login&next=/admin", { user: "admin", password: "droplets" })).status).toBe(200);
   });
 
   it("never redirects off the host", async () => {

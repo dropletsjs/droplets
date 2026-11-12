@@ -12,18 +12,24 @@ import { HOST } from "./record.ts";
  * on any other route, or sent elsewhere by `rest_route`, `_method` or a
  * method override, is ignored and WordPress's own login applies (none
  * here). The same write signed with the host secret is no good either.
+ * The secrets are the run's (tests/hosts/run.mjs sets them), which the
+ * compose file hands both services and nothing else.
  */
 test.skip(!HOST.startsWith("wordpress"), "WordPress only");
 
 const compose = readFileSync(join(import.meta.dirname, "..", "..", "..", "examples", "hosts", "wordpress", "docker-compose.yml"), "utf8");
-/** A demo secret from the compose file: the value both services get. */
-function demoSecret(name: string): string {
-  const values = new Set([...compose.matchAll(new RegExp(`^\\s+${name}: (\\S+)$`, "gm"))].map((match) => match[1]!));
-  if (values.size !== 1) throw new Error(`${name}: ${values.size} values in docker-compose.yml`);
-  return [...values][0]!;
+/** A secret of the run, which the compose file hands both services from one required variable, never a value of its own. */
+function runSecret(name: string): string {
+  const values = [...compose.matchAll(new RegExp(`^\\s+${name}: (.+)$`, "gm"))].map((match) => match[1]!);
+  if (values.length !== 2 || values.some((value) => !value.startsWith(`\${${name}:?`))) {
+    throw new Error(`${name}: docker-compose.yml should require it from the environment on both services, got ${values.join(" ")}`);
+  }
+  const value = process.env[name];
+  if (!value) throw new Error(`${name} is not set; pnpm test:hosts wordpress sets it for the run`);
+  return value;
 }
-const SERVICE_SECRET = demoSecret("WP_SHOP_SERVICE_SECRET");
-const HOST_SECRET = demoSecret("WP_SHOP_HOST_SECRET");
+const SERVICE_SECRET = runSecret("WP_SHOP_SERVICE_SECRET");
+const HOST_SECRET = runSecret("WP_SHOP_HOST_SECRET");
 
 /** As wp-shop signs it (src/lib/server/host-identity.ts), for this method, URI and JSON body. */
 function service(method: string, uri: string, secret = SERVICE_SECRET, body?: string): string {

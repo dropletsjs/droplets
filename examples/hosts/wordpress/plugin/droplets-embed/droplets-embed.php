@@ -97,13 +97,5 @@ function droplets_enqueue_client(): void
     }
     $done = true;
 
-    $src = droplets_public_url() . '/index.js';
-    if (function_exists('wp_enqueue_script_module')) {
-        wp_enqueue_script_module('droplets-client', $src, [], null);
-    } else {
-        // Older WordPress: plain script tag with type="module".
-        add_action('wp_footer', static function () use ($src): void {
-            printf('<script type="module" src="%s"></script>', esc_url($src));
-        });
-    }
+    wp_enqueue_script_module('droplets-client', droplets_public_url() . '/index.js', [], null);
 }

@@ -19,7 +19,7 @@ location = /gallery {
 }
 
 # What the browser asks the shop for.
-location ~ ^/(index\.js|env\.js|index\.css|droplets/|assets/|api/) {
+location ~ ^/(index\.js$|env\.js$|index\.css$|droplets/|assets/|api/) {
   proxy_pass http://shop;
   proxy_set_header Cookie $shop_cookie;
   proxy_set_header x-droplet-location ${SHOP_PUBLIC_URL};
@@ -162,7 +162,7 @@ not-found layout.
 
 ### What it proxies
 
-`location ~ ^/(index\.js|env\.js|index\.css|droplets/|assets/|api/)` passes `/index.js`,
+`location ~ ^/(index\.js$|env\.js$|index\.css$|droplets/|assets/|api/)` passes `/index.js`,
 `/env.js`, `/index.css`, `/droplets/*` (fragments, `_data`, form actions),
 `/assets/*` and `/api/*` to the shop with `x-droplet-location` set to
 `${SHOP_PUBLIC_URL}`, `Forwarded` and `X-Forwarded-*` cleared, and the
@@ -184,7 +184,7 @@ the admin's image uploads through.
 - `DROPLETS_SECRET`: signs a form's result on the redirect back to the page
   when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)).
 - `ADMIN_USER`, `ADMIN_PASSWORD`, `SHOP_SECRET`: the demo login
-  (admin / droplets) and the key its cookie is signed with. Demo values only.
+  (admin / droplets) and the key its cookie is signed with (from the environment, see Run it).
 
 ### Gotchas
 
@@ -227,6 +227,11 @@ cd examples/hosts/nginx
 docker compose up --build
 open http://localhost:8081/gallery   # log in as admin / droplets
 ```
+
+Set `SHOP_SECRET` and `DROPLETS_SECRET` first (32 or more random characters
+each, `openssl rand -hex 32`), in the environment or a `.env` file beside
+`docker-compose.yml`: compose refuses to start without them. `pnpm test:hosts`
+generates its own for a run.
 
 `pnpm test:hosts nginx` runs the shop flow against this stack, from the
 repository root.
@@ -294,7 +299,7 @@ server {
   # Everything the droplets server owns: the entry client, the droplet routes
   # (fragments, bundles, styles, _data), the shared assets and its /api
   # endpoints.
-  location ~ ^/(index\.js|env\.js|index\.css|droplets/|assets/|api/) {
+  location ~ ^/(index\.js$|env\.js$|index\.css$|droplets/|assets/|api/) {
     proxy_pass http://droplets;
     proxy_set_header x-droplet-location ${DROPLETS_PUBLIC_URL};
     proxy_set_header Forwarded "";

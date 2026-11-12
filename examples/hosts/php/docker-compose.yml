@@ -22,12 +22,12 @@ services:
     expose:
       - "8300"
     environment:
-      # Demo values from examples/shop/.env.example. Never use them elsewhere.
+      # The demo login; the secrets come from the environment or a .env file here.
       ADMIN_USER: admin
       ADMIN_PASSWORD: droplets
-      SHOP_SECRET: demo-only-secret-change-me-0123456789abcdef
+      SHOP_SECRET: ${SHOP_SECRET:?set SHOP_SECRET (32+ random characters) in the environment or a .env file}
       # Signs a form result on the redirect back to the page (posts without JavaScript).
-      DROPLETS_SECRET: demo-only-droplets-secret-change-me-0123456789
+      DROPLETS_SECRET: ${DROPLETS_SECRET:?set DROPLETS_SECRET (32+ random bytes) in the environment or a .env file}
       # The host's public origin: the x-droplet-location it sends, its pages' form posts.
       DROPLETS_TRUSTED_ORIGINS: ${WEB_URL:-http://localhost:8009}
 

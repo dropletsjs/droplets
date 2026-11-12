@@ -11,6 +11,11 @@ open http://localhost:8080             # the basic page
 open http://localhost:8081/gallery     # the shop (admin / droplets on /login)
 ```
 
+Set `SHOP_SECRET` and `DROPLETS_SECRET` first (32 or more random characters
+each, `openssl rand -hex 32`), in the environment or a `.env` file beside
+`docker-compose.yml`: compose refuses to start without them. `pnpm test:hosts`
+generates its own for a run.
+
 The compose file starts three services: the Svelte example's droplets
 server and the shop (both reached only by nginx) and nginx, which publishes
 8080 and 8081 on `127.0.0.1` only. The browser only ever talks to nginx, so
@@ -121,7 +126,7 @@ hydrates through the proxy (needs Docker).
 - Compose droplets service `DROPLETS_TRUSTED_ORIGINS` is the basic page's public URL, default `http://localhost:8080`. `docker-compose.yml:16`
 - Compose shop service builds `examples/shop/Dockerfile` and only exposes 8300. `docker-compose.yml:22`, `docker-compose.yml:24`
 - Compose shop demo login is `admin` / `droplets`. `docker-compose.yml:27`, `docker-compose.yml:28`
-- Compose shop `DROPLETS_SECRET` is a demo value. `docker-compose.yml:31`
+- Shop service `SHOP_SECRET` and `DROPLETS_SECRET` are required from the environment (`${VAR:?…}`), no default. `docker-compose.yml:29`, `docker-compose.yml:31`
 - Compose shop `DROPLETS_TRUSTED_ORIGINS` is the shop origin, default `http://localhost:8081`. `docker-compose.yml:34`
 - Compose web service publishes `127.0.0.1:${DROPLETS_PORT:-8080}:80` and `127.0.0.1:${WEB_PORT:-8081}:8081`. `docker-compose.yml:41`, `docker-compose.yml:42`
 - Compose web service `DROPLETS_PUBLIC_URL` defaults to `http://localhost:8080`, `SHOP_PUBLIC_URL` to `http://localhost:8081`. `docker-compose.yml:44`, `docker-compose.yml:45`
@@ -129,7 +134,7 @@ hydrates through the proxy (needs Docker).
 - Basic server listens on 80, root `/usr/share/nginx/html`, `ssi on` for `/`. `nginx.conf:25`, `nginx.conf:28`, `nginx.conf:33`
 - Basic page includes `client`, `ssr-hydrate` and `ssr-nohydrate` with `who=nginx`. `html/index.html:21`, `html/index.html:22`, `html/index.html:23`
 - Basic page loads `/index.js` from its own origin. `html/index.html:8`
-- Basic proxy: `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`, `/api/*` go to the droplets server. `nginx.conf:40`
+- Basic proxy: `/index.js`, `/env.js`, `/index.css` (the names anchored: `/index.jsx` is a page), `/droplets/*`, `/assets/*`, `/api/*` go to the droplets server. `nginx.conf:40`, `nginx.conf:41`
 - Basic proxy sends `x-droplet-location: ${DROPLETS_PUBLIC_URL}` and clears `Forwarded` and `X-Forwarded-Host`/`-Proto`/`-Prefix`. `nginx.conf:42`, `nginx.conf:46`
 - Shop server listens on 8081 with `absolute_redirect off`. `nginx.conf:80`, `nginx.conf:82`
 - Shop `/` answers 302 to `/gallery`. `nginx.conf:92`
@@ -144,7 +149,7 @@ hydrates through the proxy (needs Docker).
 - Shop product id, name and category come from named captures on the `_data` JSON. `shop/product.html:2`
 - Shop product name and category are echoed with `encoding="entity"` or `encoding="url"`. `shop/product.html:5`, `shop/product.html:13`
 - Shop any other path answers 404. `nginx.conf:162`
-- Shop proxy: `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`, `/api/*` go to the shop with `x-droplet-location: ${SHOP_PUBLIC_URL}` and the forwarded headers cleared. `nginx.conf:167`, `nginx.conf:169`
+- Shop proxy: `/index.js`, `/env.js`, `/index.css` (the names anchored), `/droplets/*`, `/assets/*`, `/api/*` go to the shop with `x-droplet-location: ${SHOP_PUBLIC_URL}` and the forwarded headers cleared. `nginx.conf:167`, `nginx.conf:169`
 - Shop proxy `client_max_body_size` is 4m. `nginx.conf:176`
 - Shop fragments go through the internal `/_fragment/` location. `nginx.conf:184`, `nginx.conf:185`
 - Shop proxy and fragment subrequests send the shop only `cart_id` and `shop_admin`, from the `$shop_cookie` map. `nginx.conf:69`, `nginx.conf:171`, `nginx.conf:188`

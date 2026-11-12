@@ -167,7 +167,7 @@ when the fragment answers a redirect.
 ## Each host, recorded
 
 The test (`tests/hosts` in the repository) starts each host's
-`docker compose` stack and, in Chromium: opens the gallery, adds a product
+`docker compose` stack with random secrets for the run and, in Chromium: opens the gallery, adds a product
 to the cart and checks the badge counts it, logs in to the admin and sets
 that product's stock to 0, goes back to the gallery, and opens the
 product's page, which says "Out of stock". The other tests in

@@ -102,8 +102,8 @@ add_shortcode('droplet', 'droplets_shortcode');
 ```
 
 `droplets_enqueue_client()` adds `/index.js` with
-`wp_enqueue_script_module`, once per page (a plain `type="module"` tag in
-the footer on a WordPress without it). The addresses come from
+`wp_enqueue_script_module`, once per page (WordPress 6.5 or later, the
+plugin's minimum). The addresses come from
 `DROPLETS_INTERNAL_URL` and `DROPLETS_PUBLIC_URL` in the environment: the
 official Docker image exposes container variables to PHP; behind php-fpm,
 define them in `wp-config.php` instead.
@@ -676,6 +676,11 @@ open http://localhost:8008/gallery     # wp-admin, Shop: admin / droplets
 pnpm test:hosts wordpress              # from the repository root: the flow in a browser
 ```
 
+Set `WP_SHOP_HOST_SECRET`, `WP_SHOP_SERVICE_SECRET` (two different values) and
+`DROPLETS_SECRET` first (32 or more random bytes each, `openssl rand -hex 32`),
+in the environment or a `.env` file beside `docker-compose.yml`: compose refuses
+to start without them. `pnpm test:hosts wordpress` generates its own for a run.
+
 `docker compose down -v` starts over from an empty site. The compose file
 starts five services:
 
@@ -705,8 +710,8 @@ starts five services:
 | `DROPLETS_SECRET` | signs a form's result on the redirect back to the page when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)) |
 | `WP_SHOP_DATABASE` | the carts' SQLite file (default `wp-shop.db`) |
 
-The secrets in the compose file are demo values only, as is the WordPress
-login, admin / droplets.
+The compose file takes the secrets from the environment and refuses to start
+without them; the WordPress login, admin / droplets, is a demo value.
 
 The shop is up a little after WordPress: `wordpress-init` waits for the
 database, imports, then activates the plugin, about a minute after start;

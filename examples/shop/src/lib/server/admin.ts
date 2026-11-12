@@ -4,10 +4,24 @@ import { checkCredentials, createSession, readSession, type Admin } from "./auth
 
 // The environment side of auth.ts: the configured admin and secret.
 
-/** SHOP_SECRET when it is long enough to sign with, else `undefined` (no sessions). */
+/** `.env.example`'s values start with this; a real deployment sets its own. */
+const DEMO_SECRET = /^demo-only-/;
+let refusedDemo = false;
+
+/**
+ * SHOP_SECRET when it is long enough to sign with, else `undefined` (no
+ * sessions). The demo value is refused once the server runs in production
+ * (NODE_ENV), said once in the log: the login answers 503 until a real one is set.
+ */
 export function sessionSecret(): string | undefined {
   const secret = env.SHOP_SECRET;
-  return secret && secret.length >= 32 ? secret : undefined;
+  if (!secret || secret.length < 32) return undefined;
+  if (process.env.NODE_ENV === "production" && DEMO_SECRET.test(secret)) {
+    if (!refusedDemo) console.error("[shop] SHOP_SECRET is the demo value from .env.example: refused in production, no admin sessions");
+    refusedDemo = true;
+    return undefined;
+  }
+  return secret;
 }
 
 /** The session name: ADMIN_USER when it fits a cookie token, else "admin". */

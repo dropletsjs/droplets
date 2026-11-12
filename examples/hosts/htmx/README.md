@@ -12,6 +12,11 @@ open http://localhost:8010        # the Svelte example's droplets, cross-origin
 open http://localhost:8010/shop   # the shop's droplets, same origin
 ```
 
+Set `SHOP_SECRET` and `DROPLETS_SECRET` first (32 or more random characters
+each, `openssl rand -hex 32`), in the environment or a `.env` file beside
+`docker-compose.yml`: compose refuses to start without them. `pnpm test:hosts`
+generates its own for a run.
+
 Compose starts three services: `droplets` (the Svelte example, published on
 http://localhost:8000, which the browser reaches directly), `shop` (reached
 only through nginx) and `web` (nginx, on http://localhost:8010). Every port
@@ -95,7 +100,7 @@ is no code to typecheck. The guide's page:
 - Droplets server (Svelte example) has `cors: true`. `../../frameworks/svelte/droplets.config.ts:16`
 - Shop service builds `examples/shop/Dockerfile` and only exposes 8300, unpublished. `docker-compose.yml:24`, `docker-compose.yml:26`
 - Shop demo login is `admin` / `droplets` (demo values only). `docker-compose.yml:29`, `docker-compose.yml:30`
-- Shop service `DROPLETS_SECRET` is a demo value that signs a Post/Redirect/Get form result. `docker-compose.yml:33`
+- Shop service `SHOP_SECRET` and `DROPLETS_SECRET` are required from the environment (`${VAR:?…}`), no default. `docker-compose.yml:31`, `docker-compose.yml:33`
 - Shop service `DROPLETS_TRUSTED_ORIGINS` is `WEB_URL`. `docker-compose.yml:35`
 - Web env `SHOP_PUBLIC_URL` is `${WEB_URL:-http://localhost:8010}`. `docker-compose.yml:43`
 - Web env `DROPLETS_PUBLIC_URL` is `${DROPLETS_URL:-http://localhost:8000}`. `docker-compose.yml:44`
@@ -109,7 +114,7 @@ is no code to typecheck. The guide's page:
 - nginx listens on 80 with `absolute_redirect off`. `nginx.conf:22`, `nginx.conf:24`
 - nginx `sub_filter` rewrites `http://localhost:8000` to `DROPLETS_PUBLIC_URL` in HTML, every occurrence. `nginx.conf:31`, `nginx.conf:32`, `nginx.conf:33`
 - nginx `/shop` serves `shop.html`. `nginx.conf:39`, `nginx.conf:40`
-- nginx proxies `/index.js`, `/env.js`, `/index.css`, `/droplets/`, `/assets/`, `/api/` to the shop. `nginx.conf:52`, `nginx.conf:53`
+- nginx proxies `/index.js`, `/env.js`, `/index.css` (the names anchored: `/index.jsx` is a page), `/droplets/`, `/assets/`, `/api/` to the shop. `nginx.conf:52`, `nginx.conf:53`
 - nginx sends the shop only `cart_id` and `shop_admin`, from the `$shop_cookie` map. `nginx.conf:14`, `nginx.conf:54`
 - nginx `x-droplet-location` is `SHOP_PUBLIC_URL`, never the request's Host. `nginx.conf:55`
 - nginx clears `Forwarded`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `X-Forwarded-Prefix` toward the shop. `nginx.conf:56`, `nginx.conf:59`

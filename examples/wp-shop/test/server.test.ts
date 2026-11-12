@@ -222,6 +222,41 @@ describe("the WordPress admin, through x-wp-shop-user", () => {
   });
 });
 
+describe("the demo secrets, in production", () => {
+  const list = (headers: Record<string, string> = {}) =>
+    call("/droplets/product-admin", { headers: { accept: "text/html", referer: `${HOST}/admin`, ...headers } });
+
+  it("refuses .env.example's values once NODE_ENV is production: no admin, said once", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const warnings = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const demo = "demo-only-host-secret-change-me-0123456789abcdef";
+    const was = { NODE_ENV: process.env["NODE_ENV"], WP_SHOP_HOST_SECRET: process.env["WP_SHOP_HOST_SECRET"] };
+    Object.assign(process.env, { NODE_ENV: "production", WP_SHOP_HOST_SECRET: demo });
+    try {
+      const path = "/droplets/product-admin";
+      const header = await signAssertion(
+        { sub: "admin", role: "administrator", exp: Math.floor(Date.now() / 1000) + 60, method: "GET", path, aud: "wp-shop" },
+        demo,
+      );
+      expect(await (await list({ "x-wp-shop-user": header })).text()).toContain("wp-login.php");
+      expect(await (await list({ "x-wp-shop-user": header })).text()).toContain("wp-login.php");
+      const said = errors.mock.calls.flat().filter((line) => String(line).includes("WP_SHOP_HOST_SECRET is the demo value"));
+      expect(said).toHaveLength(1);
+    } finally {
+      for (const [name, value] of Object.entries(was)) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+      errors.mockRestore();
+      warnings.mockRestore();
+    }
+    // Back as it was: the real secret names the admin again.
+    expect(await (await list({ "x-wp-shop-user": await assertion("GET", "/droplets/product-admin") })).text()).toContain(
+      "Clay Cylinder Mug",
+    );
+  });
+});
+
 describe("the cart, in wp-shop's SQLite", () => {
   it("adds a WordPress product, and refuses a sold-out one", async () => {
     const added = await action("/droplets/product-library?/add", { productId: "p_14" });

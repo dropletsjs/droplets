@@ -89,6 +89,7 @@ signed writes back and malformed answers. The real site is tested by
 - Admin actions answer `fail(401)` without a WordPress admin behind the request. `src/lib/server/admin.ts:31`
 - `product-admin` without an admin renders a link to `/wp-login.php?redirect_to=<page>`, never a redirect. `src/droplets/product-admin/+droplet.server.ts:21`
 - Writes back to WordPress carry `x-wp-shop-service`, signed with `aud: "wordpress"` for the admin and `body`, the SHA-256 of the JSON sent; a body claim and the body received must both be there and match. `src/lib/server/wp.ts:388`, `src/lib/server/wp.ts:397`, `src/lib/server/host-identity.ts:175`
+- `WP_SHOP_HOST_SECRET` or `WP_SHOP_SERVICE_SECRET` with `.env.example`'s `demo-only-` prefix is refused once `NODE_ENV` is `production`, said once with `console.error`: no admin, no writes back. `src/lib/server/site.ts:17`, `src/lib/server/site.ts:19`
 - `handle` sets `locals.admin` and `locals.cartId`, except at build. `src/hooks.server.ts:30`, `src/hooks.server.ts:31`
 - `handle` sets `locals.page` and `event.host` from WordPress's `Referer` when its origin is wp-shop's own or, with `DROPLETS_TRUSTED_ORIGINS` set, a trusted one. `src/hooks.server.ts:32`, `src/hooks.server.ts:51`
 - A stale `v` redirects 302 to `locals.page` without `v`; without such a page the product page renders live. `src/droplets/product-page/+droplet.server.ts:51`

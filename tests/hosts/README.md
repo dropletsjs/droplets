@@ -37,7 +37,10 @@ e2e` (`node run.mjs`) and `typecheck:hosts` (`node typecheck.mjs`).
 `run.mjs` reads the repository's gitignored `.env.local` first, when there
 is one; a variable already set in the environment wins.
 [`.env.example`](../../.env.example) lists the repository's variables; the
-one for this suite is `HOSTS_PORT_BASE`. Compose runs on whatever Docker the
+ones for this suite are `HOSTS_PORT_BASE` and the stacks' secrets
+(`SHOP_SECRET`, `DROPLETS_SECRET`, `WP_SHOP_HOST_SECRET`,
+`WP_SHOP_SERVICE_SECRET`), which the runner sets to random values for a run
+when they are unset. Compose runs on whatever Docker the
 environment points at: the Docker CLI reads its own `DOCKER_HOST` or
 `DOCKER_CONTEXT`, from the environment or `.env.local`, and the runner adds
 nothing of its own.
@@ -110,7 +113,8 @@ its own install. The hosts are outside the pnpm workspace, so
 - Flags: `--https`, `--docs`, `--human`, `--tour`, `--keep`; any other flag or host exits 2. `run.mjs:86`
 - `HOSTS_PORT_BASE` must be an integer from 1024 to 65435. `run.mjs:98`
 - `HOSTS_PORT_BASE` sets `WEB_PORT`, `WEB_URL`, `DROPLETS_PORT`, `DROPLETS_URL` for compose: host on base plus its default port mod 100, droplets on the base. `run.mjs:105`
-- `.env.local` at the repository root is loaded first; set variables win. `run.mjs:46`, `../../packages/shared/env.ts:4`
+- `.env.local` at the repository root is loaded first; set variables win. `run.mjs:49`, `../../packages/shared/env.ts:4`
+- `SHOP_SECRET`, `DROPLETS_SECRET`, `WP_SHOP_HOST_SECRET` and `WP_SHOP_SERVICE_SECRET` get 32 random bytes (hex) for the run when unset or empty; set ones win. `run.mjs:53`
 - Ready check: the host page answers 200 and `/droplets/product-filter` through the host returns `<djs-shop`, polled every 2 s for up to 10 minutes. `run.mjs:138`, `run.mjs:263`
 - Compose project name is `droplets-<host>`, run in `examples/hosts/<host>`. `run.mjs:235`
 - Compose env is the process environment plus the port variables; the runner sets no Docker variables. `run.mjs:238`
@@ -137,7 +141,7 @@ its own install. The hosts are outside the pnpm workspace, so
 - `nginx-basic.spec.ts` runs only for nginx, against `DROPLETS_URL` (default `http://localhost:8080`): `/env.js` and `/index.css` answer 200 through the proxy and the three droplets hydrate as their mode says. `e2e/nginx-basic.spec.ts:9`, `e2e/nginx-basic.spec.ts:12`, `e2e/nginx-basic.spec.ts:22`, `e2e/nginx-basic.spec.ts:30`
 - `shop-wordpress.spec.ts` and `wordpress-service.spec.ts` run only for wordpress. `e2e/shop-wordpress.spec.ts:13`, `e2e/wordpress-service.spec.ts:16`
 - WordPress Shop screen is `/wp-admin/admin.php?page=droplets-shop`. `e2e/wordpress.ts:8`
-- `wordpress-service.spec.ts` reads the demo service secret from `examples/hosts/wordpress/docker-compose.yml`. `e2e/wordpress-service.spec.ts:18`
+- `wordpress-service.spec.ts` signs with the run's `WP_SHOP_SERVICE_SECRET` and `WP_SHOP_HOST_SECRET` from the environment, after checking `examples/hosts/wordpress/docker-compose.yml` requires each from that one variable on both services. `e2e/wordpress-service.spec.ts:20`
 - `htmx.spec.ts` runs only for htmx; droplets server from `DROPLETS_URL`, default `http://localhost:8000`. `e2e/htmx.spec.ts:12`, `e2e/htmx.spec.ts:15`
 - `htmx.spec.ts` checks an `hx-get` to a third origin is refused with `htmx:invalidPath` and sends nothing. `e2e/htmx.spec.ts:163`, `e2e/htmx.spec.ts:183`
 - Tour reads each droplet's renderer from `djs sync` (`pnpm exec djs sync`). `e2e/droplet-facts.ts:61`

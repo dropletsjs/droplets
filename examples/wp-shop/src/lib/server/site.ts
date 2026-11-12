@@ -6,13 +6,28 @@ import { fetchProducts, type WpConfig, type WpProduct } from "./wp.ts";
 // the products it has now, read once per second at most.
 
 let saidSame = false;
+/** `.env.example`'s values start with this; a real deployment sets its own. */
+const DEMO_SECRET = /^demo-only-/;
+const refusedDemo = new Set<string>();
+
+/**
+ * A secret from the environment, or `undefined` for the demo value once the
+ * server runs in production (NODE_ENV), said once in the log.
+ */
+function secretFromEnv(name: "WP_SHOP_HOST_SECRET" | "WP_SHOP_SERVICE_SECRET"): string | undefined {
+  const value = env[name];
+  if (!value || process.env.NODE_ENV !== "production" || !DEMO_SECRET.test(value)) return value;
+  if (!refusedDemo.has(name)) console.error(`[wp-shop] ${name} is the demo value from .env.example: refused in production`);
+  refusedDemo.add(name);
+  return undefined;
+}
 
 /**
  * WP_SHOP_HOST_SECRET and WP_SHOP_SERVICE_SECRET, each when usable. Equal
  * ones are refused (no admin, no writes) and said once in the log.
  */
 export function shopSecrets(): SecretPair {
-  const pair = secretPair(env.WP_SHOP_HOST_SECRET, env.WP_SHOP_SERVICE_SECRET);
+  const pair = secretPair(secretFromEnv("WP_SHOP_HOST_SECRET"), secretFromEnv("WP_SHOP_SERVICE_SECRET"));
   if (pair.error && !saidSame) console.error(`[wp-shop] ${pair.error}`);
   if (pair.error) saidSame = true;
   return pair;
@@ -23,8 +38,8 @@ export function wpConfig(): WpConfig {
   return {
     internalUrl,
     publicUrl: env.WP_PUBLIC_URL || internalUrl,
-    hostSecret: env.WP_SHOP_HOST_SECRET,
-    serviceSecret: env.WP_SHOP_SERVICE_SECRET,
+    hostSecret: secretFromEnv("WP_SHOP_HOST_SECRET"),
+    serviceSecret: secretFromEnv("WP_SHOP_SERVICE_SECRET"),
   };
 }
 

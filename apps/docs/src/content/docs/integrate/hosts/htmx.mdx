@@ -31,7 +31,7 @@ from the browser, and `/index.js` makes it live.
 
 ```nginx
 # nginx.conf
-location ~ ^/(index\.js|env\.js|index\.css|droplets/|assets/|api/) {
+location ~ ^/(index\.js$|env\.js$|index\.css$|droplets/|assets/|api/) {
   proxy_pass http://shop;
   proxy_set_header Cookie $shop_cookie;
   proxy_set_header x-droplet-location ${SHOP_PUBLIC_URL};
@@ -122,6 +122,11 @@ cd examples/hosts/htmx
 docker compose up --build
 open http://localhost:8010        # the Svelte droplets; /shop has the forms
 ```
+
+Set `SHOP_SECRET` and `DROPLETS_SECRET` first (32 or more random characters
+each, `openssl rand -hex 32`), in the environment or a `.env` file beside
+`docker-compose.yml`: compose refuses to start without them. `pnpm test:hosts`
+generates its own for a run.
 
 `pnpm test:hosts htmx` runs it end to end (`tests/hosts/e2e/htmx.spec.ts`),
 from the repository root; htmx runs only by name, not in the default set.

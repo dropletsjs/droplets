@@ -206,7 +206,7 @@ read `.env`). Never use them anywhere else.
 | Variable | Used for |
 | --- | --- |
 | `ADMIN_USER`, `ADMIN_PASSWORD` | the one admin; compared in constant time |
-| `SHOP_SECRET` | signs `shop_admin` (≥ 32 characters; without it login answers 503) |
+| `SHOP_SECRET` | signs `shop_admin` (≥ 32 characters; without it, or with `.env.example`'s demo value in production, login answers 503) |
 | `SHOP_DATABASE` | the SQLite file (default `shop.db`; seeded by `pnpm seed`) |
 | `SHOP_IMAGES`, `SHOP_UPLOADS` | image directories (default `images`, `.uploads`) |
 | `DROPLETS_TRUSTED_ORIGINS` | the origins whose `x-droplet-location` and form posts are trusted, and the pages a post may be sent back to |

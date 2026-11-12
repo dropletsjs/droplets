@@ -102,7 +102,7 @@ If your HTTP client decodes the body, drop
 `examples/hosts/nginx/nginx.conf`:
 
 ```nginx
-location ~ ^/(index\.js|env\.js|index\.css|droplets/|assets/|api/) {
+location ~ ^/(index\.js$|env\.js$|index\.css$|droplets/|assets/|api/) {
   proxy_pass http://shop;
   proxy_set_header x-droplet-location ${SHOP_PUBLIC_URL};
   proxy_set_header Forwarded "";

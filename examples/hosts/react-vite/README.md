@@ -12,6 +12,11 @@ open http://localhost:8004            # the basic page
 open http://localhost:8004/gallery    # the shop (admin / droplets on /login)
 ```
 
+Set `SHOP_SECRET` and `DROPLETS_SECRET` first (32 or more random characters
+each, `openssl rand -hex 32`), in the environment or a `.env` file beside
+`docker-compose.yml`: compose refuses to start without them. `pnpm test:hosts`
+generates its own for a run.
+
 The compose file starts three services: the Svelte example's droplets
 server on `http://localhost:8000`, the shop (reached only by the app's
 nginx) and the built app, served by nginx on `http://localhost:8004`. Both
@@ -112,7 +117,7 @@ flow against the compose stack (needs Docker).
 - Compose droplets service `DROPLETS_TRUSTED_ORIGINS` lists `DROPLETS_URL` and this host's `WEB_URL`. `docker-compose.yml:14`
 - Compose shop service builds `examples/shop/Dockerfile` and only exposes 8300. `docker-compose.yml:21`, `docker-compose.yml:23`
 - Compose shop demo login is `admin` / `droplets`. `docker-compose.yml:26`, `docker-compose.yml:27`
-- Compose shop `DROPLETS_SECRET` is a demo value. `docker-compose.yml:30`
+- Shop service `SHOP_SECRET` and `DROPLETS_SECRET` are required from the environment (`${VAR:?…}`), no default. `docker-compose.yml:28`, `docker-compose.yml:30`
 - Compose shop `DROPLETS_TRUSTED_ORIGINS` is this host's `WEB_URL`. `docker-compose.yml:32`
 - Compose web service passes `VITE_DROPLETS_URL` as a build arg and publishes `127.0.0.1:${WEB_PORT:-8004}:80`. `docker-compose.yml:38`, `docker-compose.yml:40`
 - Compose web service `SHOP_PUBLIC_URL` is this host's `WEB_URL`. `docker-compose.yml:43`

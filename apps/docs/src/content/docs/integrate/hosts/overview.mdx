@@ -108,6 +108,12 @@ cd examples/hosts/<id>
 docker compose up --build
 ```
 
+Set `SHOP_SECRET` and `DROPLETS_SECRET` first (32 or more random characters
+each, `openssl rand -hex 32`; WordPress takes `WP_SHOP_HOST_SECRET` and
+`WP_SHOP_SERVICE_SECRET` instead of the first), in the environment or a `.env`
+file beside `docker-compose.yml`: compose refuses to start without them.
+`pnpm test:hosts` generates its own for a run.
+
 All of them render the same three droplets on `/`, one per mode: `client`
 (rendered in the browser), `ssr-hydrate` (server-rendered, then hydrated) and
 `ssr-nohydrate` (server-rendered, no JavaScript). The interactive ones call the droplets server's `/api` endpoints

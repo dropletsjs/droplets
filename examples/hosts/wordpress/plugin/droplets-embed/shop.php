@@ -65,7 +65,7 @@ const DROPLETS_SHOP_PRODUCT_PAGE = 'product';
 /** How WordPress reaches the shop (inside Docker: the service name). */
 function droplets_shop_internal_url(): string
 {
-    return rtrim(getenv('SHOP_INTERNAL_URL') ?: 'http://localhost:8300', '/');
+    return rtrim(getenv('SHOP_INTERNAL_URL') ?: 'http://localhost:8310', '/');
 }
 
 /**

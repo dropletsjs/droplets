@@ -108,7 +108,8 @@ rewrites their text with an LLM, a development tool run once: it needs
 - `login` is `ssr = true`, `hydrate = false`. `src/droplets/login/+droplet.tsx:11`
 - `product-admin` is `ssr = true`, `hydrate = true`. `src/droplets/product-admin/+droplet.vue:2`
 - Login action `?/login` answers `fail(401)` for a wrong user or password, without echoing them. `src/droplets/login/+droplet.server.ts:21`
-- Login action answers `fail(503)` when `SHOP_SECRET` is unset or shorter than 32 characters. `src/droplets/login/+droplet.server.ts:24`, `src/lib/server/admin.ts:10`
+- Login action answers `fail(503)` when `SHOP_SECRET` is unset or shorter than 32 characters. `src/droplets/login/+droplet.server.ts:24`, `src/lib/server/admin.ts:18`
+- `SHOP_SECRET` with `.env.example`'s `demo-only-` prefix is refused once `NODE_ENV` is `production`, said once with `console.error`: the login answers 503 and no session reads. `src/lib/server/admin.ts:19`
 - Login success sets `shop_admin` and redirects 303 to `props.next`, never a form field. `src/droplets/login/+droplet.server.ts:25`
 - Logout action `?/logout` deletes `shop_admin` and redirects 303 to `/gallery`. `src/droplets/login/+droplet.server.ts:30`
 - Admin actions answer `fail(401)` without a session. `src/lib/server/admin.ts:29`

@@ -13,6 +13,11 @@ open http://localhost:8006          # the basic page: three Svelte droplets
 open http://localhost:8006/gallery  # the shop (demo login: admin / droplets)
 ```
 
+Set `SHOP_SECRET` and `DROPLETS_SECRET` first (32 or more random characters
+each, `openssl rand -hex 32`), in the environment or a `.env` file beside
+`docker-compose.yml`: compose refuses to start without them. `pnpm test:hosts`
+generates its own for a run.
+
 | Service | Port | What it is |
 |---|---|---|
 | `web` | 8006 | this SvelteKit app (adapter-node) |
@@ -146,6 +151,7 @@ From the repository root:
 - Web `ORIGIN` is `WEB_URL`, default `http://localhost:8006`. `docker-compose.yml:45`
 - Web `BODY_SIZE_LIMIT` is `4M`. `docker-compose.yml:48`
 - Web `SHOP_PUBLIC_URL` is `WEB_URL`. `docker-compose.yml:42`
+- Shop service `SHOP_SECRET` and `DROPLETS_SECRET` are required from the environment (`${VAR:?…}`), no default. `docker-compose.yml:28`, `docker-compose.yml:30`
 - Droplets server image is `examples/frameworks/Dockerfile`, the Svelte example by default. `docker-compose.yml:9`, `../../frameworks/Dockerfile:24`
 - Droplets server CORS: the Svelte example sets `cors: true`. `../../frameworks/svelte/droplets.config.ts:16`
 - Droplets server `DROPLETS_TRUSTED_ORIGINS` lists `DROPLETS_URL` and `WEB_URL` (this host). `docker-compose.yml:14`

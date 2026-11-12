@@ -20,7 +20,9 @@
  * default port's last two digits (express, 8003: base + 3).
  *
  * The repository's .env.local, when there is one, is read first; variables
- * already set in the environment win.
+ * already set in the environment win. The stacks' secrets (SHOP_SECRET,
+ * DROPLETS_SECRET, WP_SHOP_HOST_SECRET, WP_SHOP_SERVICE_SECRET) are random
+ * for the run when they are not set.
  *
  * The video (with a drawn cursor) lands in recordings/<host>.mp4 and the
  * screenshots in recordings/<host>/, both gitignored. `--docs` writes small
@@ -36,6 +38,7 @@
  * Its poster, `tour.webp`, is drawn, not recorded: apps/docs/scripts/poster/.
  */
 import { spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { loadEnvLocal } from "@dropletsjs/shared/env";
@@ -44,6 +47,10 @@ const here = import.meta.dirname;
 const root = join(here, "..", "..");
 
 loadEnvLocal();
+
+/** The compose files require these; a run without them set gets fresh random ones. */
+const SECRETS = ["SHOP_SECRET", "DROPLETS_SECRET", "WP_SHOP_HOST_SECRET", "WP_SHOP_SERVICE_SECRET"];
+for (const name of SECRETS) process.env[name] ||= randomBytes(32).toString("hex");
 
 /**
  * Host id → the shop's URL on it. The id names everything about a host:

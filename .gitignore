@@ -34,6 +34,8 @@ examples/hosts/**/.astro/
 examples/hosts/**/.svelte-kit/
 examples/hosts/sveltekit/build/
 examples/hosts/**/.venv/
+# A host stack's secrets, read by docker compose.
+examples/hosts/*/.env
 examples/hosts/**/__pycache__/
 examples/hosts/**/next-env.d.ts
 examples/hosts/**/Gemfile.lock
