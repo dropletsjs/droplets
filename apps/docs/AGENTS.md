@@ -9,7 +9,7 @@
 - A live droplet is a real one in `../demo/src/droplets/`, embedded with `LiveDroplet` or `RendererDemo`; a page that embeds one fails the build unless the demo renders it.
   Checked by: `pnpm docs:build` (`src/components/live-droplet.ts`, `src/components/RendererDemo.astro`).
 - Pages link to each other with root-relative paths (`/guides/configuration/`); `src/plugins/base-links.mjs` adds the base path.
-- Every inline script hash is in `script-src` of `public/_headers`, and the demo origin appears only in `script-src`, `style-src`, `connect-src` and `form-action`.
+- Every inline script hash is in `script-src` of `public/_headers`, the demo origin appears only in `script-src`, `style-src`, `connect-src` and `form-action`, and Cloudflare Web Analytics' beacon (`https://static.cloudflareinsights.com/beacon.min.js/`) only in `script-src`.
   Checked by: `pnpm docs:check-csp`, after `pnpm docs:build`.
 - Scripts of `src/components/*.astro` are bundled to files, never inlined, so the CSP hashes cover Starlight's scripts only.
   Checked by: `pnpm docs:check-csp`.

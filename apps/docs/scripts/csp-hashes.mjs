@@ -4,7 +4,8 @@
 //
 // It also checks the one other origin the pages load from, the demo server
 // of the live droplets (DEMO_PUBLIC_URL, default https://demo.dropletsjs.dev):
-// it must be in script-src, style-src, connect-src and form-action, and no
+// it must be in script-src, style-src, connect-src and form-action; and
+// Cloudflare Web Analytics' beacon, which must be in script-src alone. No
 // directive may name any other host, scheme or wildcard (data: only where
 // it is today, in img-src and font-src).
 // Run after `pnpm docs:build`:  pnpm docs:check-csp
@@ -48,9 +49,14 @@ console.log(`script-src hashes the build needs (${needed.size}):\n${[...needed].
 if (missing.length) console.error(`\nMissing from _headers:\n${missing.join("\n")}`);
 if (stale.length) console.error(`\nIn _headers but no longer in the build:\n${stale.join("\n")}`);
 
-// The demo origin, in exactly the directives that need it.
+// The demo origin and the beacon, each in exactly the directives that need it.
 const demo = new URL(process.env.DEMO_PUBLIC_URL || "https://demo.dropletsjs.dev").origin;
-const NEEDS_DEMO = ["script-src", "style-src", "connect-src", "form-action"];
+// The path ends in `/`: the beacon the zone injects is beacon.min.js/v<version>.
+const BEACON = "https://static.cloudflareinsights.com/beacon.min.js/";
+const SOURCES = new Map([
+  [demo, ["script-src", "style-src", "connect-src", "form-action"]],
+  [BEACON, ["script-src"]],
+]);
 const DATA_OK = ["img-src", "font-src"];
 const csp = /Content-Security-Policy:\s*(.+)/.exec(headers)?.[1] ?? "";
 const directives = new Map(
@@ -61,14 +67,16 @@ const directives = new Map(
     .map(([name, ...values]) => [name, values]),
 );
 const problems = [];
-for (const name of NEEDS_DEMO) {
-  if (!directives.get(name)?.includes(demo)) problems.push(`${name} does not allow ${demo}`);
+for (const [source, names] of SOURCES) {
+  for (const name of names) {
+    if (!directives.get(name)?.includes(source)) problems.push(`${name} does not allow ${source}`);
+  }
 }
 for (const [name, values] of directives) {
   for (const value of values) {
     // Keywords and hashes are quoted; anything unquoted is a source.
     if (value.startsWith("'")) continue;
-    if (value === demo && NEEDS_DEMO.includes(name)) continue;
+    if (SOURCES.get(value)?.includes(name)) continue;
     if (value === "data:" && DATA_OK.includes(name)) continue;
     if (name === "upgrade-insecure-requests") continue;
     problems.push(`${name} allows ${value}`);

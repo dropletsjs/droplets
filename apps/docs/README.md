@@ -115,12 +115,14 @@ lists the sha256 of each inline script Starlight writes; the docs' own
 component scripts are always bundled to files under `/_astro/`, never
 inlined (`assetsInlineLimit` in `astro.config.mjs`), so editing a component
 never changes the hashes. The demo origin is allowed in `script-src`,
-`style-src`, `connect-src` and `form-action`, and nowhere else.
+`style-src`, `connect-src` and `form-action`, and nowhere else; Cloudflare
+Web Analytics' beacon (`https://static.cloudflareinsights.com/beacon.min.js/`)
+in `script-src` alone.
 
 `docs:check-csp` (`scripts/csp-hashes.mjs`) prints the `script-src` hashes
 the build needs and fails when `_headers` misses one or lists a stale one,
-when the demo origin is missing from one of those four directives, or when
-any directive names another host. After a Starlight or Astro upgrade, paste
+when the demo origin is missing from one of those four directives or the
+beacon from `script-src`, or when any directive names another source. After a Starlight or Astro upgrade, paste
 the printed set into `_headers`. CI runs it after every docs build.
 
 ### Diagrams
@@ -308,14 +310,16 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - Renderer pages: each embeds `RendererDemo` with its `counter-<renderer>`. `src/content/docs/renderers/svelte.mdx:15`, `src/content/docs/renderers/vue.mdx:16`, `src/content/docs/renderers/react.mdx:16`, `src/content/docs/renderers/preact.mdx:16`, `src/content/docs/renderers/solid.mdx:15`, `src/content/docs/renderers/hono-jsx.mdx:16`, `src/content/docs/renderers/handlebars.mdx:17`, `src/content/docs/renderers/lit.mdx:16`, `src/content/docs/renderers/script.mdx:19`
 - Live droplets on guide pages: `hello` (twice: what a droplet is, and Styling for theming from the page's `--djs-*` properties), `poll`, `crash` (with `toggle`), `counter`. `src/content/docs/start/what-is-a-droplet.mdx:40`, `src/content/docs/guides/styling.mdx:219`, `src/content/docs/guides/actions.mdx:196`, `src/content/docs/guides/errors.mdx:93`, `src/content/docs/guides/in-the-browser.mdx:87`
 - WordPress tutorial steps: the starting point, a plugin that brings in the droplets, WordPress owns the data, the login is WordPress's, prerender at container start, run it, the result. `src/content/docs/integrate/wordpress.mdx:18`, `src/content/docs/integrate/wordpress.mdx:55`, `src/content/docs/integrate/wordpress.mdx:298`, `src/content/docs/integrate/wordpress.mdx:438`, `src/content/docs/integrate/wordpress.mdx:633`, `src/content/docs/integrate/wordpress.mdx:697`, `src/content/docs/integrate/wordpress.mdx:774`
-- CSP check: every inline script the browser runs (no type, a JavaScript type or `module`) needs its sha256 in `script-src`. `scripts/csp-hashes.mjs:27`, `scripts/csp-hashes.mjs:38`
-- CSP check skips data payloads such as `<script type="application/text" data-droplet-payload="data">`. `scripts/csp-hashes.mjs:29`
-- CSP check fails on a missing or stale hash. `scripts/csp-hashes.mjs:44`, `scripts/csp-hashes.mjs:45`, `scripts/csp-hashes.mjs:80`
-- CSP check requires the demo origin in `script-src`, `style-src`, `connect-src` and `form-action`. `scripts/csp-hashes.mjs:53`
-- CSP check fails on any other unquoted source; `data:` only in `img-src` and `font-src`. `scripts/csp-hashes.mjs:54`, `scripts/csp-hashes.mjs:67`
-- CSP header for every path is in `_headers`. `public/_headers:20`
-- `_headers` caches `/_astro/*` and Pagefind's hashed chunks for a year, immutable. `public/_headers:29`, `public/_headers:34`, `public/_headers:36`
-- `_headers` revalidates `/hosts/*` on every request. `public/_headers:41`
+- CSP check: every inline script the browser runs (no type, a JavaScript type or `module`) needs its sha256 in `script-src`. `scripts/csp-hashes.mjs:28`, `scripts/csp-hashes.mjs:39`
+- CSP check skips data payloads such as `<script type="application/text" data-droplet-payload="data">`. `scripts/csp-hashes.mjs:30`
+- CSP check fails on a missing or stale hash. `scripts/csp-hashes.mjs:45`, `scripts/csp-hashes.mjs:46`, `scripts/csp-hashes.mjs:88`
+- CSP check requires the demo origin in `script-src`, `style-src`, `connect-src` and `form-action`. `scripts/csp-hashes.mjs:57`
+- CSP check requires `https://static.cloudflareinsights.com/beacon.min.js/` in `script-src`, and nowhere else. `scripts/csp-hashes.mjs:55`, `scripts/csp-hashes.mjs:58`
+- `script-src` allows Cloudflare's Web Analytics beacon because Web Analytics is set to auto-install on the dropletsjs.dev zone, with EU visitors excluded and demo.dropletsjs.dev excluded by a Configuration Rule; the beacon reports to `/cdn-cgi/rum` on the docs' origin, under `connect-src 'self'`. `public/_headers:15`, `public/_headers:24`
+- CSP check fails on any other unquoted source; `data:` only in `img-src` and `font-src`. `scripts/csp-hashes.mjs:79`, `scripts/csp-hashes.mjs:80`
+- CSP header for every path is in `_headers`. `public/_headers:24`
+- `_headers` caches `/_astro/*` and Pagefind's hashed chunks for a year, immutable. `public/_headers:33`, `public/_headers:38`, `public/_headers:40`
+- `_headers` revalidates `/hosts/*` on every request. `public/_headers:45`
 - CI runs `pnpm docs:build`, then `pnpm docs:check-csp`. `../../.github/workflows/ci.yml:61`, `../../.github/workflows/ci.yml:63`
 - Diagram scenes: wide 620 px, narrow 360 px. `src/components/diagram-kit.ts:23`, `src/components/diagram-kit.ts:24`
 - Diagram type sizes: title 15, label 14, body 13, small 12.5, code 13, code small 12.5 px, written as `font-size` attributes. `src/components/diagram-kit.ts:26`, `src/components/Diagram.astro:101`
