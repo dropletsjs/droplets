@@ -8,6 +8,7 @@ import {
   elementName,
 } from "virtual:droplets";
 import { serverKey, serverLocation } from "./server-records.ts";
+import { reportStale } from "./stale.ts";
 import { installDevElement } from "./dev-element.ts";
 
 /** Droplets that exist in this build. */
@@ -59,24 +60,7 @@ function withPageResult({ host, droplet }: FormResultHostInput): string {
   }
 }
 
-/**
- * Dispatched on a droplet element, bubbling up to `window`, when the page's
- * loader comes from another build than the server that rendered it: the
- * droplets server was deployed while the page stayed open. The element keeps
- * its server HTML and does not hydrate; what happens next is the host's call,
- * e.g. `addEventListener("droplets:stale", () => location.reload())`.
- */
-export type DropletStaleDetail = {
-  /** The custom element name. */
-  element: string;
-  droplet: string;
-  /** The build of the loader running in the page. */
-  loaded: string;
-  /** The build that served the droplet. */
-  served: string;
-};
-
-export const STALE_EVENT = "droplets:stale";
+export { STALE_EVENT, type DropletStaleDetail } from "./stale.ts";
 
 /** What the droplet was rendered with: where it renders, and its props. */
 type WireContext = { host: string; props: Record<string, unknown> };
@@ -780,8 +764,7 @@ export class DjsDropletElement extends HTMLElement {
 
   /** Tells the page this loader is older (or newer) than the server. */
   #reportStale({ droplet, served }: ReportStaleInput): void {
-    const detail: DropletStaleDetail = { element: elementName, droplet, loaded: buildHash, served };
-    this.dispatchEvent(new CustomEvent(STALE_EVENT, { bubbles: true, composed: true, detail }));
+    reportStale({ element: this, droplet, loaded: buildHash, served });
   }
 
   /**
@@ -1272,17 +1255,18 @@ export class DjsDropletElement extends HTMLElement {
   /**
    * Where this droplet's form actions are: its id and its location
    * (`<location>/droplets/<id>` is the action URL), for
-   * `enhanceDropletForm` to tell its own forms' submits from any other.
+   * `enhanceDropletForm` to tell its own forms' submits from any other,
+   * and the build of this loader, to tell an answer from another one.
    * `null` while the element is not connected, or holds no droplet of
    * this build.
    */
-  actionTarget(): { droplet: string; location: string } | null {
+  actionTarget(): { droplet: string; location: string; build: string } | null {
     const droplet = this.dataset["droplet"];
     if (!this._connected || !droplet || !dropletRegistry.has(droplet)) return null;
     // From another build than this loader: as on connect, the page decides.
     const served = this.dataset["dropletBuild"];
     if (buildHash && served && served !== buildHash) return null;
-    return { droplet, location: this.#location() };
+    return { droplet, location: this.#location(), build: buildHash };
   }
 
   /**

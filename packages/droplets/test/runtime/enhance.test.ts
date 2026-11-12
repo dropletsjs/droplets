@@ -16,7 +16,7 @@ const OWN = `${LOCATION}/droplets/guestbook`;
 class Host extends HTMLElement {
   forms: unknown[] = [];
   actionTarget() {
-    return { droplet: this.dataset["droplet"] ?? "", location: LOCATION };
+    return { droplet: this.dataset["droplet"] ?? "", location: LOCATION, build: "b1" };
   }
   async updateForm(form: unknown) {
     this.forms.push(form);
@@ -194,6 +194,35 @@ describe("enhanceDropletForm", () => {
     }
     expect(assign).toHaveBeenCalledTimes(1);
     expect(error).toHaveBeenCalledTimes(4);
+  });
+
+  it("reads x-droplets-build before the body: an answer from another build is stale, and applies nothing", async () => {
+    const stale: unknown[] = [];
+    const onStale = (event: Event) => void stale.push((event as CustomEvent).detail);
+    globalThis.addEventListener("droplets:stale", onStale);
+    const onResult = vi.fn();
+    try {
+      const host = mount(`<form data-testid="sign" method="post" action="${OWN}"></form>`);
+      enhanceDropletForm(form("sign"), { onResult });
+      answer = () =>
+        Response.json({ type: "success", status: 200, data: { message: "From the new build" } }, { headers: { "x-droplets-build": "b2" } });
+      form("sign").requestSubmit();
+      await flush();
+      expect(stale).toEqual([{ element: "enhance-host", droplet: "guestbook", loaded: "b1", served: "b2" }]);
+      expect(host.forms).toEqual([]);
+      expect(events).toEqual([]);
+      expect(onResult).not.toHaveBeenCalled();
+
+      // The same build: applied as any answer.
+      answer = () => Response.json({ type: "success", status: 200, data: { message: "Same" } }, { headers: { "x-droplets-build": "b1" } });
+      form("sign").requestSubmit();
+      await flush();
+      expect(stale).toHaveLength(1);
+      expect(onResult).toHaveBeenCalledOnce();
+      expect(events).toHaveLength(1);
+    } finally {
+      globalThis.removeEventListener("droplets:stale", onStale);
+    }
   });
 
   it("ignores a second submit while one is in flight", async () => {

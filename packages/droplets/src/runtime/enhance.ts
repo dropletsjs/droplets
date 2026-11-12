@@ -16,6 +16,8 @@
  * @module
  */
 
+import { reportStale } from "./stale.ts";
+
 /** The encodings an action takes; a `text/plain` form is left to the browser (the server answers `415`). */
 const ENCTYPES = new Set(["application/x-www-form-urlencoded", "multipart/form-data"]);
 
@@ -89,8 +91,11 @@ export const ACTION_EVENT = "droplets:action";
  * where its actions are, and a render with an action's result.
  */
 export type DropletFormHost = Element & {
-  /** The droplet and the location its actions are on; `null` while it renders nothing of a known droplet. */
-  actionTarget(): { droplet: string; location: string } | null;
+  /**
+   * The droplet, the location its actions are on and the build of the
+   * loader in the page; `null` while it renders nothing of a known droplet.
+   */
+  actionTarget(): { droplet: string; location: string; build: string } | null;
   /**
    * Renders the droplet again with `form`, its loads run again (as a
    * `_data` refresh); one that does not render in the browser gets its
@@ -313,26 +318,32 @@ export function enhanceSubmit(event: Event, form: HTMLFormElement, options: Enha
   options.onSubmit?.({ form, formData, cancel: () => void (cancelled = true) });
   if (cancelled) return;
   inFlight.add(form);
-  void send({ host, droplet: target.droplet, action, body: formBody(formData, submit.enctype), options }).finally(() => {
-    inFlight.delete(form);
-  });
+  void send({ host, droplet: target.droplet, build: target.build, action, body: formBody(formData, submit.enctype), options }).finally(
+    () => {
+      inFlight.delete(form);
+    },
+  );
 }
 
 /**
  * Posts the form to its action, as JSON, and applies the result: by
  * `onResult`, or by default (`update()`). Then `droplets:action` tells the
  * page. An answer that is no result (an `error()`, a crash, a network
- * failure) is reported in the console and applies nothing.
+ * failure) is reported in the console and applies nothing. An answer from
+ * another build (`x-droplets-build`, read before the body as the element
+ * reads it) is reported as stale, `droplets:stale` on the element, and
+ * applies nothing either: the page decides, as it does for a fragment.
  */
 type SendInput = {
   host: DropletFormHost;
   droplet: string;
+  build: string;
   action: ActionTarget;
   body: FormData | URLSearchParams;
   options: EnhanceOptions;
 };
 
-async function send({ host, droplet, action, body, options }: SendInput): Promise<void> {
+async function send({ host, droplet, build, action, body, options }: SendInput): Promise<void> {
   let answer: ActionAnswer | null = null;
   try {
     const response = await fetch(action.url, {
@@ -343,6 +354,11 @@ async function send({ host, droplet, action, body, options }: SendInput): Promis
       redirect: "manual",
       // Credentials as the `_data` fetch sends them: the default, same-origin.
     });
+    const served = response.headers.get("x-droplets-build");
+    if (build && served && served !== build) {
+      reportStale({ element: host, droplet, loaded: build, served });
+      return;
+    }
     answer = actionAnswer(await response.text());
     if (!answer) console.error(`[droplets] ${droplet}: action ${action.name} answered ${response.status || response.type}, not a result`);
   } catch (error) {

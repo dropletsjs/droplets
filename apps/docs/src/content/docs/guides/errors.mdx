@@ -140,3 +140,10 @@ The element reads `x-droplets-build` before anything else in an answer, for
 `_data` and for a fragment it asks for again after a form action alike: a
 `404` from a newer build that no longer has the droplet is reported as stale,
 not taken for a missing droplet, and the fragment on the page stays as it is.
+
+An enhanced form (`enhanceDropletForm`, a renderer's `./form` wrapper,
+`data-droplet-enhance`) reads the header the same way: an action answered by
+another build dispatches `droplets:stale` on the droplet's element, and
+nothing of the answer is applied: `onResult` is not called, `droplets:action`
+not dispatched. The action did run on the server; what the page does about
+the stale build is its call, as above.

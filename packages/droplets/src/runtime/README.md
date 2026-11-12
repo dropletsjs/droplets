@@ -51,6 +51,7 @@ Public pieces: `$droplets/server` (`./server`, `server.ts`) and `./enhance`
 | `server.ts` | `$droplets/server`: `error`, `redirect`, `fail`, `json`, `text`, `sequence`, the event types. |
 | `server-records.ts` | Per element and build: where `/index.js` was served from, the public env. |
 | `entry-client.ts`, `client-init.ts` | `/index.js`: the custom element and `hooks.client` `init()`. |
+| `stale.ts` | `droplets:stale`: its detail and the dispatch, for the element and for an enhanced form. |
 | `request-store.ts`, `env-store.ts`, `base64.ts`, `routes.ts` | Per-request info, the runtime env, base64, `/api` route matching. |
 | `dev-element.ts`, `dev-notify.ts`, `dev-tool.ts` | Dev only: HMR strategies, toasts, the dev tool hookup. |
 
@@ -294,7 +295,7 @@ Then the route.
 - Clicks before hydrate are captured, and dropped instead of replayed after 1500 ms of waiting or once 10 s old. `entry-client.ts:680`
 - A held click records its node's child-index path from the content root; when hydration replaced the node, it replays on the element at that path if it has the same tag, else it is dropped. `entry-client.ts:225`, `entry-client.ts:727`
 - A second click within 400 ms of the first counts as a retry, not a new click. `entry-client.ts:626`
-- A build mismatch keeps the server HTML and dispatches `droplets:stale` (bubbles, composed). `entry-client.ts:1177`
+- A build mismatch keeps the server HTML and dispatches `droplets:stale` (bubbles, composed) through `reportStale` of `stale.ts`, the same dispatch an enhanced form uses. `entry-client.ts:766`, `stale.ts:33`
 - An answer to `_data` or to a fragment request from another build (`x-droplets-build`) is reported as stale before its status or body is read, so a 404 from a newer build is never taken for a missing droplet; the fragment stays as it is. `entry-client.ts:806`, `entry-client.ts:1388`
 - An unknown droplet keeps its markup and does nothing. `entry-client.ts:1165`
 - Host children go into `[data-droplet-slot]` or replace `[data-droplet-children]`, moved with `moveBefore` when available. `entry-client.ts:180`
@@ -312,6 +313,8 @@ Then the route.
 - `enhanceDropletForm` posts with `accept: application/json` and `redirect: "manual"`. `enhance.ts:340`
 - `enhanceDropletForm` dispatches `droplets:action` on `globalThis`. `enhance.ts:361`
 - `enhanceDropletForm` reads the answer through `Object.hasOwn`. `enhance.ts:213`
+- `enhanceDropletForm` reads `x-droplets-build` before the answer's body, as the element does; an answer from another build dispatches `droplets:stale` on the droplet's element (`reportStale`, `stale.ts`) and applies nothing: no `updateForm`, no `onResult`, no `droplets:action`. `enhance.ts:357`
+- `actionTarget()` gives the loader's build with the droplet and the location, so an enhanced form can tell an answer from another build. `entry-client.ts:1262`
 - `enhanceDropletForm` follows only an absolute http(s) redirect location without credentials, as the server answers one; a relative, protocol-relative (`//…`, `/\…`) or `javascript:` one is logged and not followed. `enhance.ts:240`, `enhance.ts:365`
 
 ### `hooks.client`
