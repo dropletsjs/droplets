@@ -334,6 +334,33 @@ describe("vite build", () => {
     }
   });
 
+  it("answers a load's event.fetch in-process on the built server, under the request's location", async () => {
+    const { createServerApp, resolveConfig } = await import("../../src/index.ts");
+    const ssr = await import(pathToFileURL(resolve(outDir, "server/entry-server.js")).href);
+    const app = createServerApp({
+      ssr,
+      config: resolveConfig({ trustedOrigins: ["https://shop.test"] }),
+      assets: {
+        buildHash: "x",
+        loadClientModule: async () => null,
+        loadEntryClient: async () => null,
+        entryModule: async () => null,
+        loadGlobalStyle: async () => null,
+        dropletStyles: async () => [],
+        loadIndex: async () => null,
+        externals: [],
+        assetHandler: (c) => c.text("Not Found", 404),
+      },
+    });
+    const res = await app.request("http://drops.test/droplets/hello/_data?who=fetched", {
+      headers: { cookie: "session=ana", "x-droplet-location": "https://shop.test/mfe" },
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      data: { who: "fetched", fetched: { url: "https://shop.test/mfe/api/whoami?from=hello", hooked: true, cookie: "session=ana" } },
+    });
+  });
+
   it("refuses to build when a static variable has no value", async () => {
     // A folder without .env files, rather than moving the fixture's: other
     // suites build the same fixture at the same time.
@@ -424,6 +451,15 @@ describe("vite dev", () => {
     });
     expect(html).toContain('<p data-testid="site">Fixture</p>');
     expect(html).toContain('<p data-testid="dep">shared-dep</p>');
+  });
+
+  it("answers a load's event.fetch of a relative URL in-process, through handle, with the request's cookies", async () => {
+    const res = await fetch(`${origin}/droplets/hello?who=fetched`, { headers: { cookie: "session=ana" } });
+    expect(res.status).toBe(200);
+    const data = (await res.text()).match(/data-droplet-payload="data">([^<]+)</)?.[1];
+    expect(data && JSON.parse(Buffer.from(data, "base64").toString())).toMatchObject({
+      data: { who: "fetched", fetched: { url: `${origin}/api/whoami?from=hello`, hooked: true, cookie: "session=ana" } },
+    });
   });
 
   it("renders the error page, with its head, for a load that throws, through both handleError", async () => {

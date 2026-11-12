@@ -118,6 +118,19 @@ export type RequestEvent<Params extends Record<string, string> = Record<string, 
   platform: Platform;
   /** The request's cookies, and the ones the response sets. */
   cookies: Cookies;
+  /**
+   * `fetch`, as in SvelteKit. A URL on this server, relative (resolved
+   * against `request.url`), on its origin or under the droplet location
+   * (prefix included), is answered in-process as a request of its own, with
+   * no network hop: the same middleware, `handle` and checks as a request
+   * from outside; a path no route matches answers 404. It carries the
+   * incoming request's `cookie` and `authorization` (not with
+   * `credentials: "omit"`) and its location and `Origin` headers, each
+   * unless `init` sets it; a `Set-Cookie` it answers stays on that
+   * response. Any other URL goes to the global `fetch` with `init` alone.
+   * Nested internal requests stop at four: the fifth throws.
+   */
+  fetch: typeof fetch;
 };
 
 /**

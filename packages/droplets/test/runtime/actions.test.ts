@@ -352,7 +352,7 @@ describe("form actions: what the action gets", () => {
     expect(seen?.droplet).toBe("guestbook");
     expect(seen?.host.href).toBe(`${ORIGIN}/`);
     expect(Object.keys(seen ?? {}).sort()).toEqual(
-      ["cookies", "droplet", "host", "locals", "platform", "props", "request", "setHeaders"].sort(),
+      ["cookies", "droplet", "fetch", "host", "locals", "platform", "props", "request", "setHeaders"].sort(),
     );
   });
 

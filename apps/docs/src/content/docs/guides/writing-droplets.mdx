@@ -99,7 +99,7 @@ CSS, nothing else. Its `<style>` is still extracted and served.
 ```
 +droplet.ts          props   (a Standard Schema)    server, and browser when no server rendered
         ↓  validated props
-+droplet.server.ts   load({ request, host, locals, platform, cookies, setHeaders, droplet, props })   server only
++droplet.server.ts   load({ request, host, locals, platform, cookies, fetch, setHeaders, droplet, props })   server only
         ↓  the result is inlined into the fragment
 +droplet.ts          load({ host, props, data })     server and browser
         ↓  the result is the component's `data`

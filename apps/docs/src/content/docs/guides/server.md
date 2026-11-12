@@ -71,6 +71,7 @@ type RequestEvent = {
   locals: Locals;
   platform: { env?: unknown; context?: unknown };
   cookies: Cookies;               // see Cookies below
+  fetch: typeof fetch;            // see event.fetch below
 };
 ```
 
@@ -159,6 +160,74 @@ Cookies do not exist at build: using them while prerendering throws
 [`host`](/guides/prerendering/#host-at-build) beyond its tokens does.
 `handle` runs for build-time renders too, so skip cookies there when
 `building` from `$droplets/env` is true.
+
+## `event.fetch`
+
+Every server event (`handle`, `+server.ts` handlers, a droplet's server
+`load`, `transform` and form actions) carries `fetch`, as SvelteKit's
+does. A URL on this server is answered in-process, with no network hop;
+any other URL goes to the global `fetch`. `entries` runs before any
+request and has no event.
+
+```ts
+// src/droplets/testimonials/+droplet.server.ts
+import type { LoadEvent } from "./$types";
+
+export const load = async ({ fetch }: LoadEvent) => {
+  const res = await fetch("/api/testimonials?max=10&random=true");
+  return { testimonials: await res.json() };
+};
+```
+
+A URL is this server's when it is relative (resolved against
+`request.url`, the request as the server received it, so `/api/x` is the
+route `/api/x` whatever prefix a proxy adds), absolute on the request's own
+origin, or absolute under the droplet
+[location](/integrate/http-contract/#x-droplet-location-the-public-location),
+prefix included: with the server at `https://shop.example/mfe`,
+`https://shop.example/mfe/api/x` is `/api/x`, while
+`https://shop.example/other` is another site and goes to the network. Such
+a request is dispatched into the app as a request of its own, exactly as
+one from outside: the location is resolved again, the `Origin` check and
+the body limits apply, `handle` runs (with `locals` of its own), the route
+is matched, and a path no route matches answers `404` from the app, never
+from the network. `/api/*`, the `/droplets/*` routes and the files the app
+serves all answer this way. Being internal grants nothing: a location
+header on it is trusted only against `trustedOrigins`, a `redirect()` it
+answers passes the same bound, a form token is checked the same way.
+
+What it carries from the request it runs for, each unless `init` sets the
+header itself:
+
+- `cookie` and `authorization`, except with `credentials: "omit"`;
+- the location and host headers, `x-droplet-location`, `Forwarded`,
+  `X-Forwarded-Host`, `X-Forwarded-Proto`, `X-Forwarded-Port`,
+  `X-Forwarded-Prefix` and `Origin`, so the internal request resolves the
+  same location and `host` (and a form post passes the `Origin` check when
+  the outer request did; one made from a request without an `Origin` sets
+  `headers: { origin: event.url.origin }`).
+
+Nothing else of the incoming request: not its body, not any other header.
+A request to another origin gets only what `init` says, never the
+incoming cookies or `authorization`, nor any header you did not set.
+
+A `Set-Cookie` an internal answer carries stays on that `Response`
+(`response.headers.getSetCookie()`); it does not reach the outer response,
+for the reason a load cannot set cookies: a droplet's answer may be
+fetched by a host's server. Set it yourself where cookies can be set.
+
+A request that fetches itself, directly or through other routes, stops at
+four nested internal requests: the fifth throws an `Error` naming the URL,
+which the outermost request answers as `500` through
+[`handleError`](#handleerror). Call the code a route runs rather than
+the route when the two are in the same server.
+
+While prerendering there is no incoming request: an internal request
+carries no cookies, and an endpoint that reads `cookies` answers the
+build's `500` (`CookiesInPrerenderError` in its body) rather than stopping
+the build; `handle` runs for it as for any build-time render. A fetch to
+another origin at build goes to the network and its result is stored with
+the render. `vite dev` behaves exactly as a built server does.
 
 ## API routes
 

@@ -1,10 +1,11 @@
 import { Hono } from "hono";
-import type { Context, MiddlewareHandler } from "hono";
+import type { Context, ExecutionContext, MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
 import { prefersJson } from "./accept.ts";
 import { decodeBase64Json, encodeBase64 } from "./base64.ts";
 import { createCookies, prerenderCookies, readonlyCookies } from "./cookies.ts";
 import { readRuntimeEnv } from "./env-store.ts";
+import { CONTEXT_HEADERS, createEventFetch } from "./event-fetch.ts";
 import { ACTION_NAME, backUrl, formResultKey, isReservedQueryKey, RETURN_KEY, splitFormResults } from "./form.ts";
 import { formSecret, mintFormResult, readFormResult } from "./form-token.server.ts";
 import { fixedHost, fixedPrerenderHost, headerLocations, hostFromHeaders, parseHost, withinTrusted } from "./host.ts";
@@ -266,6 +267,8 @@ type AppEnv = {
     formResults?: Map<string, string>;
     /** The request's `Referer`, read before anything rebuilds the request (the body limit does). */
     referer?: string | undefined;
+    /** `event.fetch` of this request, made with the location. */
+    fetch: typeof fetch;
   };
 };
 
@@ -453,15 +456,7 @@ function publicLocation({ c }: PublicLocationInput): string {
 }
 
 /** The request headers a fragment's URLs and `host` come from: what a cacheable fragment varies on. */
-const VARY_HEADERS = [
-  "x-droplet-location",
-  "forwarded",
-  "x-forwarded-host",
-  "x-forwarded-proto",
-  "x-forwarded-port",
-  "x-forwarded-prefix",
-  "origin",
-];
+const VARY_HEADERS = CONTEXT_HEADERS;
 
 /** With a fixed `location`, only `host` comes from a header. */
 const HOST_VARY_HEADERS = ["origin"];
@@ -586,15 +581,21 @@ function publicUrl({ c }: PublicUrlInput): URL {
   }
 }
 
+type ExecutionContextOfInput = { c: Context };
+
+/** `c.executionCtx` throws where the runtime has none (Node). */
+function executionContextOf({ c }: ExecutionContextOfInput): ExecutionContext | undefined {
+  try {
+    return c.executionCtx;
+  } catch {
+    return undefined;
+  }
+}
+
 type PlatformOfInput = { c: Context };
 
 function platformOf({ c }: PlatformOfInput): RequestEvent["platform"] {
-  let context: unknown;
-  try {
-    context = c.executionCtx;
-  } catch {
-    // Not every runtime has an execution context.
-  }
+  const context = executionContextOf({ c });
   return { env: c.env, ...(context === undefined ? {} : { context }) };
 }
 
@@ -739,7 +740,7 @@ function withFormResult({ page, key, value }: WithFormResultInput): string {
   return url.href;
 }
 
-type CreateRequestEventInput = { c: Context; host?: URL | undefined; cookies?: RequestEvent["cookies"] | undefined };
+type CreateRequestEventInput = { c: AppContext; host?: URL | undefined; cookies?: RequestEvent["cookies"] | undefined };
 
 function createRequestEvent({ c, host, cookies }: CreateRequestEventInput): RequestEvent {
   const url = publicUrl({ c });
@@ -751,6 +752,7 @@ function createRequestEvent({ c, host, cookies }: CreateRequestEventInput): Requ
     locals: {} as Locals,
     platform: platformOf({ c }),
     cookies: cookies ?? createCookies({ request: c.req.raw, url }).cookies,
+    fetch: c.get("fetch"),
   };
 }
 
@@ -771,7 +773,7 @@ function hostInPrerender({ c, error }: HostInPrerenderInput): Response {
 
 const INTERNAL_ERROR = "Internal Server Error";
 
-type UnexpectedMessageInput = { c: Context; options: DropletsAppOptions; error: unknown };
+type UnexpectedMessageInput = { c: AppContext; options: DropletsAppOptions; error: unknown };
 
 /**
  * The message an unexpected error is shown with: what `handleError` in
@@ -797,7 +799,7 @@ async function unexpectedMessage({ c, options, error }: UnexpectedMessageInput):
 }
 
 type FailureInput = {
-  c: Context;
+  c: AppContext;
   options: DropletsAppOptions;
   error: unknown;
   as: "text" | "json";
@@ -884,7 +886,7 @@ function createDropletMiddleware(options: DropletsAppOptions): MiddlewareHandler
     const dropletLocation = publicLocation({ c });
     const fromBody = contextFromBody({ body: c.get("body") });
     // The host as `handle` left it: it travels with the context.
-    const { request, locals, platform, host, cookies } = c.get("event");
+    const { request, locals, platform, host, cookies, fetch: eventFetch } = c.get("event");
     // Props come from whoever builds the request: the query (or
     // `x-droplet-props`) of a GET, the body `{ props }` of a POST, never the
     // query of a POST (a page's own query string is not the droplet's props).
@@ -907,6 +909,7 @@ function createDropletMiddleware(options: DropletsAppOptions): MiddlewareHandler
       setHeaders,
       droplet,
       props: wire.props,
+      fetch: eventFetch,
     };
 
     c.set("droplet", { droplet, dropletLocation, event, wire, noSSR, clientOnly, meta, headers });
@@ -1009,10 +1012,20 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
   }
 
   // Where this server is reached: before anything that writes a URL or
-  // checks an origin.
+  // checks an origin. `event.fetch` dispatches into this same app, with the
+  // request's bindings and context, so an internal request runs through
+  // everything below as one from outside does.
   app.use("*", (c, next) => {
     c.set("location", options.location ?? resolveLocation({ c, trusted: trustedOriginsOf({ options }), devLog: options.devLog }));
     c.set("referer", c.req.header("referer"));
+    c.set(
+      "fetch",
+      createEventFetch({
+        request: c.req.raw,
+        location: publicLocation({ c }),
+        dispatch: (request) => app.fetch(request, c.env, executionContextOf({ c })),
+      }),
+    );
     return next();
   });
 
@@ -1700,6 +1713,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
         setHeaders: ctx.event.setHeaders,
         droplet: ctx.droplet,
         props: ctx.event.props,
+        fetch: ctx.event.fetch,
       };
       let result: unknown;
       try {

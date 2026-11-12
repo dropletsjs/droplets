@@ -444,8 +444,8 @@ Types:
 
 | Type | What it is |
 | --- | --- |
-| `RequestEvent<Params>` | `{ request, url, host, params, locals, platform, cookies }`. `url` is the request on the droplet location's origin; `host` is the page the droplet renders on. |
-| `LoadEvent` | A server load's event: `{ request, host, locals, platform, cookies, setHeaders, droplet, props }`; `cookies` are `ReadonlyCookies`. |
+| `RequestEvent<Params>` | `{ request, url, host, params, locals, platform, cookies, fetch }`. `url` is the request on the droplet location's origin; `host` is the page the droplet renders on; `fetch` answers a URL on this server in-process, with the request's cookies, and sends any other to the global `fetch` ([`event.fetch`](/guides/server/#eventfetch)). |
+| `LoadEvent` | A server load's event: `{ request, host, locals, platform, cookies, setHeaders, droplet, props, fetch }`; `cookies` are `ReadonlyCookies`. |
 | `ActionEvent` | An action's event: as `LoadEvent`, with full `cookies` and the body unread. `props` come from the action URL's query, never the body. |
 | `DropletLoadEvent` | A universal load's event: `{ host, props, data }`; in the browser `host` is `window.location`. |
 | `Action`, `Actions`, `ActionResult` | One action, the `actions` export, and an action's JSON answer. |

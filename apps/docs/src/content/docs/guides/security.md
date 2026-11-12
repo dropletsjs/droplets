@@ -220,6 +220,11 @@ request through:
 `csrf: { checkOrigin: false }` turns it off. See
 [Form posts](/integrate/http-contract/#form-posts-the-origin-check).
 
+A request [`event.fetch`](/guides/server/#eventfetch) sends to this server
+is checked the same way: it carries the outer request's `Origin`, so a form
+post from a request the check let through passes, and one from a request
+without an `Origin` sets `origin` itself or is refused.
+
 ## CORS
 
 When the host page and the droplets server are on different origins, the

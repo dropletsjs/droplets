@@ -38,6 +38,8 @@
   Checked by: `../../../../tests/dev-mixed/test/production.test.ts` ("a production build with location and host fixed"), `../../test/runtime/app.test.ts` ("createDropletsApp: without token replacers").
 - `handle` never runs for `/index.js`, `/index.css`, `/env.js` and `/assets/*`.
   Checked by: `../../test/runtime/app.test.ts` ("never runs for files: /index.js, /index.css and everything under /assets/, public/ included", "createDropletsApp: /env.js").
+- `event.fetch` (`event-fetch.ts`) dispatches a URL on this server (relative, on the request's own origin, or under the location with its prefix) into the same app as a request of its own, so every check above runs for it unchanged (the location trust, the origin check, the limits, `handle`, the redirect bound), with the incoming `cookie`, `authorization` and location and `Origin` headers carried unless `init` sets them, and stops after four nested requests; any other URL goes to the global `fetch` with `init` alone, never with the incoming cookies or `authorization`. Header copying goes through `Headers`, never an object.
+  Checked by: `../../test/runtime/event-fetch.test.ts` ("a URL on this server", "any other URL", "what being internal does not grant"), `../../test/integration/vite.test.ts` ("answers a load's event.fetch").
 - `/env.js` takes no input from the request and holds only the declared `public: true` variables without `static`, read through `readRuntimeEnv`; `DROPLETS_ENV_MAX_AGE` warns only through `devLog`.
   Checked by: `../../test/runtime/app.test.ts` ("createDropletsApp: /env.js"), `../../test/integration/vite.test.ts` ("/env.js").
 - Every URL a droplet emits for its own files (`client.js`, `style.css`, its CSS and entry preloads) is on the droplet location of the request.

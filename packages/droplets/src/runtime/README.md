@@ -43,6 +43,7 @@ Public pieces: `$droplets/server` (`./server`, `server.ts`) and `./enhance`
 | `host.ts`, `web-url.ts` | The droplet location from request headers, `event.host`, a fixed `host`. |
 | `host-tokens.ts` | The host and location tokens of a build and their replacement per request; only a build that computes either per request bundles it. |
 | `security.ts` | The origin (CSRF) check, the body size limits, `DROPLETS_TRUSTED_ORIGINS`. |
+| `event-fetch.ts` | `event.fetch`: a URL on this server dispatched into the app in-process, any other to the global `fetch`. |
 | `dev-log.ts` | The runtime's warnings, for `vite dev` and the build's prerender; a production server has none. |
 | `cookies.ts` | `event.cookies`: parse, serialize, defaults, read-only and prerender jars. |
 | `form.ts`, `form-token.server.ts`, `enhance.ts` | Form actions: action URLs, reserved query keys, the signed no-JavaScript result, `enhanceDropletForm`. |
@@ -128,6 +129,20 @@ Then the route.
 - An `x-droplet-props` header over its limit answers 431 `x-droplet-props is too large; send the props in a POST body`. `security.ts:155`
 - A limit of `Infinity` turns that check off. `security.ts:158`
 - `limitFor` maps `application/json` and `+json` to the JSON limit, form-urlencoded and `text/plain` to the form limit, anything else to multipart. `security.ts:135`
+
+### `event.fetch` (`event-fetch.ts`)
+
+- Every server event has `fetch`: `RequestEvent` (`handle`, `+server`, `handleError`'s event), `LoadEvent`, `ActionEvent` and `TransformEvent`; `entries` and `DropletLoadEvent` have none. `server.ts:133`, `app.ts:755`, `app.ts:912`, `app.ts:1716`
+- `event.fetch` is made once per request in the first middleware, with the request as received, its resolved location and a dispatch into the same app with the request's `env` and execution context. `app.ts:1019`
+- A URL is internal when it is relative (resolved against `request.url`), on the request's own origin (path as written) or under the location, prefix included (prefix taken off; the location's origin outside its prefix is not internal); `internalPath` decides. `event-fetch.ts:44`
+- Any other URL goes to the global `fetch` with `input` and `init` as given and nothing of the incoming request. `event-fetch.ts:96`
+- An internal request is dispatched through `app.fetch`: every middleware, the origin check, the body limits, `handle` (with fresh `locals`) and the route run for it as for a request from outside; a path no route matches answers 404 in-process. `event-fetch.ts:104`
+- An internal request carries, each unless `init` sets it, the incoming `cookie` and `authorization` (not with `credentials: "omit"`) and `x-droplet-location`, `forwarded`, `x-forwarded-host`, `x-forwarded-proto`, `x-forwarded-port`, `x-forwarded-prefix` and `origin` (`CONTEXT_HEADERS`, the headers fragments vary on). `event-fetch.ts:16`, `event-fetch.ts:27`, `event-fetch.ts:73`
+- A `Request` input's method, headers and body (read as bytes) make the internal request; `init` overrides each. `event-fetch.ts:70`
+- A `Set-Cookie` an internal answer carries stays on that response; the outer response gets none of it. `app.ts:1096`
+- The depth of internal requests is kept per `Request` in a `WeakMap`; the request that would be the fifth throws `droplets: event.fetch("<url>") would be 5 internal requests deep (the limit is 4)`, cut to 200 characters of URL, answered as any other thrown error (500 through `handleError`). `event-fetch.ts:30`, `event-fetch.ts:97`
+- While prerendering an internal request works the same, with no cookie to carry; an endpoint that reads cookies answers the build's 500 on that inner response without stopping the build. `event-fetch.test.ts`
+- A location header on an internal request is trusted only against `trustedOrigins`, as on any request; `__proto__` as a header name is a header and nothing else (`Headers`, never an object). `event-fetch.test.ts`
 
 ### Props
 
