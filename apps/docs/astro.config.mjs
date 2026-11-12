@@ -117,6 +117,10 @@ export default defineConfig({
     starlight({
       title,
       description,
+      social: [
+        { icon: "github", label: "GitHub", href: "https://github.com/dropletsjs/droplets" },
+        { icon: "npm", label: "npm", href: "https://www.npmjs.com/package/@dropletsjs/droplets" },
+      ],
       head: [
         meta("og:image", ogImageUrl),
         meta("og:image:width", String(ogImage.width)),
