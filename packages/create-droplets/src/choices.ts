@@ -124,7 +124,7 @@ export type Flags = {
 
 export const USAGE = `Usage: npm create droplets [folder] [options]
 
-  --element <name>        the custom element (default: the folder name)
+  --element <name>        the custom element (default: the folder name, or <folder>-droplets when it has no hyphen)
   --frameworks <list>     ${FRAMEWORKS.map((f) => f.name).join(",")}
   --adapters <list>       ${ADAPTERS.map((a) => a.value).join(",")} (default: node)
   --tailwind, --no-tailwind

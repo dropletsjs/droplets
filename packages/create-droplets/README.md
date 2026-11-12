@@ -34,7 +34,7 @@ Without a terminal, or with `--yes`, it asks nothing: the folder and
 
 | Flag | Does |
 | --- | --- |
-| `--element <name>` | The custom element every droplet renders in |
+| `--element <name>` | The custom element every droplet renders in (default: the folder name, or `<folder>-droplets` when it has no hyphen) |
 | `--frameworks <list>` | `svelte`, `vue`, `react`, `preact`, `solid`, `hono-jsx`, `handlebars`, `lit`, comma-separated |
 | `--adapters <list>` | `node`, `cloudflare`, `bun`, `deno` (default: `node`) |
 | `--tailwind`, `--no-tailwind` | Tailwind CSS in `src/app.css` |
@@ -110,7 +110,7 @@ HTML page that embeds it:
 - `--frameworks` accepts `hono` for `hono-jsx` and refuses `script`. `../droplets/src/add/catalog.ts:131`
 - `--pm` outside `npm`, `pnpm`, `yarn`, `bun`, `deno` throws `--pm <value>: expected …`. `src/choices.ts:193`
 - `--element` that is not a valid custom element name throws `--element <name>: lowercase letters, digits and a hyphen, starting with a letter: my-widgets`. `src/choices.ts:107`, `src/choices.ts:197`
-- Usage text says `--element` defaults to "the folder name"; the code appends `-droplets` when that name has no hyphen. `src/choices.ts:127`, `src/choices.ts:100`
+- Usage text says `--element` defaults to the folder name, or `<folder>-droplets` when it has no hyphen, which is what `suggestElement` does. `src/choices.ts:127`, `src/choices.ts:100`, `test/choices.test.ts:79`
 - Interactive only with a TTY on stdin and stdout and no `--yes`. `src/index.ts:194`
 - Non-interactive without a folder throws `name the folder: npm create droplets <folder> (or run it in a terminal to be asked)`. `src/index.ts:55`
 - Non-interactive without `--frameworks` throws `pick the frameworks: --frameworks <list> (or run it in a terminal to be asked)`. `src/index.ts:87`

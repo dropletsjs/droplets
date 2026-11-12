@@ -80,7 +80,7 @@ const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 /** The Lit renderer, for `droplets({ renderers: [lit()] })`. */
 export function lit(options: LitRendererOptions = {}): DropletRenderer {
-  if (options.prefix !== undefined && !/^[a-z][a-z0-9._-]*$/.test(options.prefix)) {
+  if (options.prefix !== undefined && !/^[a-z][a-z0-9-]*$/.test(options.prefix)) {
     throw new Error(`lit({ prefix }): "${options.prefix}" must start with a lowercase letter: lowercase letters, digits, hyphens`);
   }
   return {

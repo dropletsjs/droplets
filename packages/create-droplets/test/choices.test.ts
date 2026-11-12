@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { commands, defaultAdapter, elementProblem, packageNameFor, parseFlags, starterName, suggestElement } from "../src/choices.ts";
+import {
+  commands,
+  defaultAdapter,
+  elementProblem,
+  packageNameFor,
+  parseFlags,
+  starterName,
+  suggestElement,
+  USAGE,
+} from "../src/choices.ts";
 import { frameworkNamed } from "../src/shared.ts";
 
 describe("parseFlags", () => {
@@ -75,6 +84,10 @@ describe("names", () => {
     for (const folder of ["shop", "acme-widgets", "Big Shop", "x.y"]) {
       expect(elementProblem({ element: suggestElement({ folder }) })).toBeUndefined();
     }
+    // The usage says what the code does.
+    expect(USAGE).toContain(
+      "--element <name>        the custom element (default: the folder name, or <folder>-droplets when it has no hyphen)",
+    );
   });
 
   it("names the starter droplets", () => {

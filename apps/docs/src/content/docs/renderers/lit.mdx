@@ -122,7 +122,8 @@ in the server's log.
   [element name](/guides/configuration/#the-element-name). The demo's is
   `<djs-demo-counter-lit>`, inside `<djs-demo>`. Don't call
   `customElements.define` (or use `@customElement`) in a droplet file;
-  `lit({ prefix })` changes the prefix.
+  `lit({ prefix })` changes the prefix: a lowercase letter, then lowercase
+  letters, digits and hyphens.
 - **Properties.** The element gets `data` and `form` (or `error`) as
   properties, never attributes, and `actionUrl(name?)`, the URL of a form
   action, the same string on the server and in the browser. `DropletElement`

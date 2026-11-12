@@ -28,9 +28,13 @@ describe("lit()", () => {
     expect(() => validateRenderers([lit(), tsx])).not.toThrow();
   });
 
-  it("refuses a prefix that cannot start a custom element name", () => {
-    expect(() => lit({ prefix: "My Shop" })).toThrow(/must start with a lowercase letter/);
-    expect(() => lit({ prefix: "shop" })).not.toThrow();
+  it("refuses a prefix outside lowercase letters, digits and hyphens, as its message says", () => {
+    for (const prefix of ["My Shop", "1shop", "my.shop", "my_shop", "my-shop!", ""]) {
+      expect(() => lit({ prefix }), prefix).toThrow(/must start with a lowercase letter: lowercase letters, digits, hyphens/);
+    }
+    for (const prefix of ["shop", "my-shop", "shop2", "a"]) {
+      expect(() => lit({ prefix }), prefix).not.toThrow();
+    }
   });
 
   it("reads flags from the component's named exports with the default reader", () => {

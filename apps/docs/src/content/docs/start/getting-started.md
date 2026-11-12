@@ -37,7 +37,7 @@ npm create droplets@alpha my-widgets -- --frameworks svelte --yes
 
 | Flag | Does |
 | --- | --- |
-| `--element <name>` | The custom element every droplet renders in |
+| `--element <name>` | The custom element every droplet renders in (default: the folder name, or `<folder>-droplets` when it has no hyphen) |
 | `--frameworks <list>` | `svelte`, `vue`, `react`, `preact`, `solid`, `hono-jsx`, `handlebars`, `lit`, comma-separated |
 | `--adapters <list>` | `node`, `cloudflare`, `bun`, `deno` (default: `node`) |
 | `--tailwind`, `--no-tailwind` | Tailwind CSS in `src/app.css` |
