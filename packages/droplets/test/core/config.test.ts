@@ -163,17 +163,16 @@ describe("resolveConfig", () => {
     }
   });
 
-  it("lets PORT override both ports", () => {
+  it("lets PORT override server.port, never dev.server.port", () => {
     const user = { dev: { server: { port: 3000 } }, server: { port: 4000 } };
-    expect(resolveDevConfig({ user, env: { port: "9000" } }).server.port).toBe(9000);
     expect(resolveConfig(user, { port: "9000" }).server.port).toBe(9000);
+    expect(resolveDevConfig({ user }).server.port).toBe(3000);
   });
 
   it("takes PORT only as an integer from 0 to 65535, and ignores anything else", () => {
     const user = { dev: { server: { port: 3000 } }, server: { port: 4000 } };
     for (const bad of ["nope", "-1", "1.5", "70000", "65536", "8e2", "0x1f", " ", "8080abc"]) {
       expect(resolveConfig(user, { port: bad }).server.port, bad).toBe(4000);
-      expect(resolveDevConfig({ user, env: { port: bad } }).server.port, bad).toBe(3000);
       expect(portOf({ value: bad }), bad).toBeUndefined();
     }
     expect(resolveConfig(user, { port: "65535" }).server.port).toBe(65535);

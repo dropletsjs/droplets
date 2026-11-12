@@ -288,7 +288,7 @@ Client externals are declared in
 
 | Variable | Effect |
 | --- | --- |
-| `PORT` | Overrides both ports, so a container can relocate the server without a rebuild. An integer from 1 to 65535; any other value is ignored (`vite dev` warns once). |
+| `PORT` | Overrides `server.port` for `node dist/server.js` and `bun dist/server.js`, so a container can relocate the server without a rebuild. An integer from 1 to 65535; any other value is ignored. `vite dev` does not read it: its port is Vite's `server.port`, else `dev.server.port`. |
 | `DROPLETS_TRUSTED_ORIGINS` | Comma-separated origins added to `trustedOrigins`, read at runtime (per request, so Workers bindings work). |
 | `DROPLETS_ENV_MAX_AGE` | Seconds a browser or CDN may keep `/env.js`, read at runtime: `600` by default, `0` sends `no-store`, an invalid value keeps `600` ([Environment variables](/guides/server/#environment-variables)). |
 | `DROPLETS_SECRET` | 32 or more random bytes, read at runtime: signs the result of a form posted without JavaScript, carried back to the page on the redirect ([Post/Redirect/Get](/guides/actions/#without-javascript-postredirectget)). Without it, or shorter, such a post answers the fragment instead, with a warning under `vite dev`. |

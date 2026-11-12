@@ -143,7 +143,12 @@ async function clickTo(page: Page, name: string, to: number) {
 beforeAll(async () => {
   rmSync(project, { recursive: true, force: true });
   cpSync(here("fixture"), project, { recursive: true });
-  server = spawn(here("../node_modules/.bin/vite"), ["--strictPort"], { cwd: project, stdio: ["ignore", "pipe", "pipe"] });
+  // `PORT` is the production server's: `vite dev` stays on `dev.server.port`.
+  server = spawn(here("../node_modules/.bin/vite"), ["--strictPort"], {
+    cwd: project,
+    stdio: ["ignore", "pipe", "pipe"],
+    env: { ...process.env, PORT: "5555" },
+  });
   server.stdout?.on("data", (chunk) => (output += chunk));
   server.stderr?.on("data", (chunk) => (output += chunk));
   await waitForServer();

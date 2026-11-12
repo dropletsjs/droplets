@@ -163,11 +163,18 @@ function rendererImports({ entries, renderers, pick }: RendererImportsInput): { 
   };
 }
 
-export type BuildServerCodeInput = ServerCodeExtras & { entries: readonly DropletEntry[]; globRoot: string };
+export type BuildServerCodeInput = ServerCodeExtras & {
+  entries: readonly DropletEntry[];
+  globRoot: string;
+  /** `vite dev`: each droplet's modules are imported on demand, so one that fails to import fails alone. */
+  isDev?: boolean;
+};
 
 /**
- * The server registry: static imports so the bundler can see the whole graph,
- * with load functions wrapped in thunks so they stay lazy per request.
+ * The server registry. Every droplet module (the component, the error page,
+ * the loads) sits behind a thunk: in a build, a static import so the bundler
+ * sees the whole graph; under `vite dev`, an `import()`, so a droplet whose
+ * file throws as it is imported fails its own requests and no other's.
  */
 export function buildServerCode({
   entries,
@@ -179,6 +186,7 @@ export function buildServerCode({
   renderers: configured = [],
   publicEnvNames = [],
   tokenNonce,
+  isDev = false,
 }: BuildServerCodeInput): string {
   const members: string[] = [];
   const routes: string[] = [];
@@ -200,40 +208,46 @@ export function buildServerCode({
     imports.push(`import * as importMapModule from ${JSON.stringify(importMapFile)};`);
   }
 
+  if (isDev) {
+    // Evaluated as at a server's start, outside the request that asked
+    // first: a module's top level never keeps that request's location.
+    imports.push(`import { withoutRequestInfo } from ${modulePath({ file: requestStorePath })};`);
+    imports.push("const onDemand = (load) => () => withoutRequestInfo(load);");
+  }
+  const thunk = (file: string, variable: string): string => {
+    if (isDev) return `onDemand(() => import(${JSON.stringify(file)}))`;
+    imports.push(`import * as ${variable} from ${JSON.stringify(file)};`);
+    return `() => Promise.resolve(${variable})`;
+  };
+
   entries.forEach((entry, index) => {
     const base = `${globRoot}/${entry.name}`;
     const componentVar = `component_${index}`;
-    const loadVar = entry.loadFile ? `load_${index}` : null;
-    const serverVar = entry.serverLoadFile ? `serverLoad_${index}` : null;
-    const errorVar = entry.hasError && entry.errorFile ? `error_${index}` : null;
-    if (errorVar) {
-      imports.push(`import * as ${errorVar} from ${JSON.stringify(component(`${base}/${entry.errorFile}`, entry.renderer))};`);
-    }
+    const errorThunk =
+      entry.hasError && entry.errorFile ? thunk(component(`${base}/${entry.errorFile}`, entry.renderer), `error_${index}`) : "undefined";
 
+    let componentThunk: string;
     if (isScriptDroplet(entry)) {
       // Browser code only, never evaluated on the server: its renderer renders nothing.
       imports.push(`const ${componentVar} = Object.freeze({});`);
+      componentThunk = `() => Promise.resolve(${componentVar})`;
     } else {
-      imports.push(`import * as ${componentVar} from ${JSON.stringify(component(`${base}/${entry.file}`, entry.renderer))};`);
+      componentThunk = thunk(component(`${base}/${entry.file}`, entry.renderer), componentVar);
     }
-    if (loadVar) {
-      imports.push(`import * as ${loadVar} from ${JSON.stringify(`${base}/${entry.loadFile}`)};`);
-    }
-    if (serverVar) {
-      imports.push(`import * as ${serverVar} from ${JSON.stringify(`${base}/${entry.serverLoadFile}`)};`);
-    }
+    const loadThunk = entry.loadFile ? thunk(`${base}/${entry.loadFile}`, `load_${index}`) : "undefined";
+    const serverLoadThunk = entry.serverLoadFile ? thunk(`${base}/${entry.serverLoadFile}`, `serverLoad_${index}`) : "undefined";
 
     members.push(
       [
         `  ${JSON.stringify(entry.id)}: {`,
-        `    component: ${componentVar},`,
+        `    component: ${componentThunk},`,
         `    renderer: ${renderers.variable(entry.renderer)},`,
         `    ssr: ${entry.ssr},`,
         `    hydrate: ${JSON.stringify(entry.hydrate)},`,
         `    prerender: ${entry.prerender === true},`,
-        `    load: ${loadVar ? `() => Promise.resolve(${loadVar})` : "undefined"},`,
-        `    serverLoad: ${serverVar ? `() => Promise.resolve(${serverVar})` : "undefined"},`,
-        `    error: ${errorVar ?? "undefined"},`,
+        `    load: ${loadThunk},`,
+        `    serverLoad: ${serverLoadThunk},`,
+        `    error: ${errorThunk},`,
         `  },`,
       ].join("\n"),
     );
@@ -781,6 +795,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
           renderers: state.renderers,
           publicEnvNames: dynamicPublicNames(state.env),
           tokenNonce: isFixed({ state, isBuilding: command === "build" }) ? undefined : state.tokenNonce,
+          isDev: command === "serve",
         });
       }
 

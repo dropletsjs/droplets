@@ -15,8 +15,8 @@ async function entryServer({ droplets }: EntryServerInput): Promise<typeof impor
 }
 
 const failing = {
-  component: {},
-  error: {},
+  component: async () => ({}),
+  error: async () => ({}),
   serverLoad: async () => ({ load: leaky }),
 };
 

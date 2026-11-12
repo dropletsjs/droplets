@@ -11,7 +11,9 @@ after Vite's own, and needs no adapter. Modules are transformed on demand;
 so edits appear without a restart, including adding or deleting a droplet
 folder or an API route. Changing `droplets.config.ts`, `src/env.ts`, or
 anything they import, restarts the server. Runtime variables come from the
-`.env` files, as in Vite.
+`.env` files, as in Vite. The port is Vite's `server.port`, else
+`dev.server.port` of `droplets.config.ts` (`5173`); `PORT` belongs to the
+production server and does not move `vite dev`.
 
 What differs from a build:
 
@@ -25,6 +27,14 @@ What differs from a build:
   (see [Known limitations](#known-limitations)).
 - `/index.js` is generated per request, with the
   [hot-update](#hot-updates) client in it.
+
+A droplet whose files fail to import, a component that imports
+`$droplets/server`, a load file with a syntax error, fails alone: its
+fragment answers `500` and the browser's import of its component is refused,
+with the import chain in the terminal, while every other droplet, their
+`client.js` and `/index.js` keep answering. Each droplet's modules are
+imported when it is first asked for, so the next request after the fix tries
+again, with no restart. A build fails as a whole, naming the chain.
 
 `vite preview` serves the production build through the adapter's preview:
 Node, Bun and Deno run the Node adapter's app over `dist/`, with the routes

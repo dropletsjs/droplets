@@ -195,7 +195,8 @@ restarts the server.
 - Client registry exports `buildHash`, `elementName`, `dropletsById`, `dropletsHydrateById`, `dropletsServerLoadById`, `dropletsScriptById` and `dropletsStylesById`. `virtual.ts:485`
 - Client registry under `vite dev` imports the shared CSS; a build fills `dropletsStylesById` from the placeholder instead. `virtual.ts:482`, `virtual.ts:502`
 - Client registry with `src/hooks.client.*` imports it and calls `runClientInit`, never awaited. `virtual.ts:504`, `virtual.ts:445`
-- Server registry imports every component, error page, `+droplet.ts` and `+droplet.server.ts` statically, with the loads wrapped in thunks. `virtual.ts:231`, `virtual.ts:248`
+- Server registry wraps every component, error page, `+droplet.ts` and `+droplet.server.ts` in a thunk: in a build a static import, so the bundler sees the whole graph; under `vite dev` an `import()`, so a droplet whose file throws as it is imported fails its own requests alone. `virtual.ts:217`, `virtual.ts:218`
+- Server registry under `vite dev` evaluates each on-demand import through `withoutRequestInfo`, as the SSR module is evaluated: a module's top level never keeps the first request's location. `virtual.ts:214`
 - Server registry: a script droplet's component is `Object.freeze({})`; the file is never imported on the server. `virtual.ts:229`
 - Server registry takes `ssr`, `hydrate` and `prerender` from the discovered entry. `virtual.ts:245`
 - Load files: the registry and the client module import `loadFile` and `serverLoadFile` of the entry (`+droplet.ts` or `.js`, `+droplet.server.ts` or `.js`), as discovery named them. `virtual.ts:234`, `virtual.ts:237`, `virtual.ts:566`

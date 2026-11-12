@@ -79,20 +79,18 @@ describe("loadDropletsConfig", () => {
     expect(loaded.dependencies).toContain(join(root, "ports.ts"));
   });
 
-  it("warns once under vite dev about a PORT that is no port, and ignores it", async () => {
+  it("never reads PORT: vite dev keeps dev.server.port, and a build keeps server.port of the file", async () => {
     setLogLevel("warn");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    vi.stubEnv("PORT", "70000");
-    const loaded = await loadDropletsConfig({ root, configEnv: env });
-    expect(loaded.config.server.port).toBe(9876);
-    expect(loaded.dev.server.port).toBe(5173);
-    await loadDropletsConfig({ root, configEnv: env });
-    const messages = warn.mock.calls.map((call) => String(call[0])).filter((m) => m.includes("PORT"));
-    expect(messages).toEqual(['[droplets:framework] PORT is "70000", not a port (an integer from 0 to 65535); ignoring it']);
-    // A build reads PORT for nothing it writes: silent.
-    vi.stubEnv("PORT", "nope");
-    await loadDropletsConfig({ root, configEnv: { command: "build", mode: "production" } });
-    expect(warn.mock.calls.filter((call) => String(call[0]).includes("nope"))).toHaveLength(0);
+    for (const port of ["9000", "70000", "nope"]) {
+      vi.stubEnv("PORT", port);
+      const served = await loadDropletsConfig({ root, configEnv: env });
+      expect(served.dev.server.port, port).toBe(5173);
+      expect(served.config.server.port, port).toBe(9876);
+      const built = await loadDropletsConfig({ root, configEnv: { command: "build", mode: "production" } });
+      expect(built.config.server.port, port).toBe(9876);
+    }
+    expect(warn.mock.calls.filter((call) => String(call[0]).includes("PORT"))).toHaveLength(0);
   });
 
   it("honours an explicit configFile", async () => {

@@ -70,7 +70,7 @@ describe("client entry ids", () => {
 });
 
 describe("buildServerCode", () => {
-  it("imports every file a droplet has, its renderer, and wraps loads in thunks", () => {
+  it("imports every file a droplet has, its renderer, and wraps each module in a thunk", () => {
     const code = buildServerCode({
       entries: [
         entry({
@@ -91,7 +91,7 @@ describe("buildServerCode", () => {
     expect(code).toContain('import * as component_0 from "/src/droplets/hello/+droplet.svelte";');
     expect(code).toContain('import * as load_0 from "/src/droplets/hello/+droplet.js";');
     expect(code).toContain('import * as serverLoad_0 from "/src/droplets/hello/+droplet.server.ts";');
-    expect(code).toContain("component: component_0,");
+    expect(code).toContain("component: () => Promise.resolve(component_0),");
     expect(code).toContain("renderer: renderer_0,");
     expect(code).toContain("load: () => Promise.resolve(load_0),");
     expect(code).toContain("serverLoad: () => Promise.resolve(serverLoad_0),");
@@ -154,7 +154,7 @@ describe("buildServerCode", () => {
       renderers,
     });
     expect(code).toContain('import * as error_0 from "/src/droplets/hello/+error.svelte";');
-    expect(code).toContain("error: error_0,");
+    expect(code).toContain("error: () => Promise.resolve(error_0),");
     expect(code).not.toContain("errorRenderer");
     expect(code).not.toContain("errorFlags");
     expect(code).not.toContain('"/src/droplets/+error.svelte"');
@@ -163,6 +163,44 @@ describe("buildServerCode", () => {
   it("emits an empty registry when there are no droplets", () => {
     const code = buildServerCode({ entries: [], globRoot: "/src" });
     expect(code).toContain("const droplets = {\n};");
+  });
+
+  it("imports each droplet's modules on demand under vite dev, so one that fails to import fails alone", () => {
+    const code = buildServerCode({
+      entries: [
+        entry({
+          id: "hello",
+          name: "hello",
+          hasLoad: true,
+          loadFile: "+droplet.ts",
+          hasServerLoad: true,
+          serverLoadFile: "+droplet.server.ts",
+          hasError: true,
+          errorFile: "+error.svelte",
+        }),
+        entry({ id: "beacon", name: "beacon", file: "+droplet.script.ts", renderer: "script" }),
+      ],
+      globRoot: "/src/droplets",
+      renderers: [
+        ...renderers,
+        { name: "script", extensions: [".script.ts"], server: "/r/script/server.js", client: "/r/script/client.js" },
+      ],
+      isDev: true,
+    });
+    expect(code).toContain('component: onDemand(() => import("/src/droplets/hello/+droplet.svelte")),');
+    expect(code).toContain('error: onDemand(() => import("/src/droplets/hello/+error.svelte")),');
+    expect(code).toContain('load: onDemand(() => import("/src/droplets/hello/+droplet.ts")),');
+    expect(code).toContain('serverLoad: onDemand(() => import("/src/droplets/hello/+droplet.server.ts")),');
+    // Evaluated outside the request that asks first, as the SSR module is.
+    expect(code).toMatch(/import \{ withoutRequestInfo \} from ".*runtime\/request-store\.js";/);
+    expect(code).toContain("const onDemand = (load) => () => withoutRequestInfo(load);");
+    expect(code).not.toMatch(/import \* as (?:component|error|load|serverLoad)_/);
+    expect(buildServerCode({ entries: [entry({})], globRoot: "/src/droplets", renderers })).not.toContain("withoutRequestInfo");
+    // The renderers are still one static import each.
+    expect(code).toContain('import * as renderer_0 from "/r/script/server.js";');
+    // A script droplet has nothing to import on the server, in dev too.
+    expect(code).toContain("const component_1 = Object.freeze({});");
+    expect(code).toContain("component: () => Promise.resolve(component_1),");
   });
 });
 

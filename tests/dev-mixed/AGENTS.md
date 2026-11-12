@@ -1,4 +1,4 @@
-`tests/dev-mixed`: every renderer in one project, under `vite dev` (render, hydrate, HMR without a reload) and in a production build (no dev code), plus the shape of the sources that keeps dev code behind its gate.
+`tests/dev-mixed`: every renderer in one project, under `vite dev` (render, hydrate, HMR without a reload, a broken droplet failing alone) and in a production build (no dev code), plus the shape of the sources that keeps dev code behind its gate.
 
 ## Rules
 
@@ -14,6 +14,8 @@
   Checked by: `test/dev.test.ts`.
 - An edit under `vite dev` never reloads the page: framework HMR, a remount, new data or a notice.
   Checked by: `test/dev.test.ts`.
+- A droplet that fails to import under `vite dev` fails alone, and answers again once its file is fixed.
+  Checked by: `test/dev-isolation.test.ts`.
 - The tests import the packages' `dist/`: `pnpm build` first, then `pnpm test:integration`.
 - A behaviour change comes with a test; a fix with a test that failed before it.
 

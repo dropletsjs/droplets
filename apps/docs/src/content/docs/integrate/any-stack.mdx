@@ -127,7 +127,7 @@ On the droplets server:
 | `DROPLETS_TRUSTED_ORIGINS` | `https://www.example.com`, comma-separated for several | The origins whose `x-droplet-location` it honours, and the origins whose form posts pass the [`Origin` check](/integrate/http-contract/#form-posts-the-origin-check). Added to `trustedOrigins` in `droplets.config.ts`, read at runtime. |
 | `DROPLETS_ENV_MAX_AGE` | `600` by default | Seconds a browser or CDN may keep `/env.js`, the public variables read at runtime; `0` sends `no-store`. Read at runtime; an invalid value keeps `600`. |
 | `DROPLETS_SECRET` | 32 or more random bytes | Signs a form's result on the `303` back to your page when JavaScript is off. Without it, such a post answers the droplet's fragment instead. |
-| `PORT` | `server.port` of the config, `8000` by default | Where `node dist/server.js` (and Bun's) listens; `deno serve` picks its own port. |
+| `PORT` | `server.port` of the config, `8000` by default | Where `node dist/server.js` (and Bun's) listens; `deno serve` picks its own port, and `vite dev` does not read it. |
 
 These four and `DEV_DROPLETS_LOG` (the level of the `vite dev` and
 `vite build` log) are all the framework reads. A production server logs

@@ -1,11 +1,10 @@
 import { resolve } from "node:path";
 import { loadConfigFromFile } from "vite";
 import type { ConfigEnv } from "vite";
-import { portOf, resolveConfig, resolveDevConfig } from "./config.ts";
+import { resolveConfig, resolveDevConfig } from "./config.ts";
 import type { DropletsConfig, ResolvedDevConfig, ResolvedDropletsConfig } from "./config.ts";
 import { ensureTypesTsconfig } from "../vite/sync-types.ts";
 import { fileExists } from "./fs.ts";
-import { logger } from "./logger.ts";
 
 /** Looked up in this order when no `configFile` is given. */
 export const CONFIG_FILE_CANDIDATES = ["droplets.config.ts", "droplets.config.mts", "droplets.config.js", "droplets.config.mjs"] as const;
@@ -18,9 +17,6 @@ export type LoadedDropletsConfig = {
   /** Files the config imports, so the dev server can restart on change. */
   dependencies: string[];
 };
-
-/** Values of `PORT` already warned about, so a restart stays quiet. */
-const warnedPorts = new Set<string>();
 
 export type FindConfigFileInput = { root: string; configFile?: string | undefined };
 
@@ -43,7 +39,8 @@ export async function findConfigFile({ root, configFile }: FindConfigFileInput):
 
 /**
  * Loads `droplets.config.ts` the same way Vite loads its own config file, so
- * TypeScript and ESM imports work without any extra tooling.
+ * TypeScript and ESM imports work without any extra tooling. Reads no
+ * environment: `PORT` is the production server's, read by its entry.
  */
 export async function loadDropletsConfig({ root, configEnv, configFile }: LoadDropletsConfigInput): Promise<LoadedDropletsConfig> {
   await ensureTypesTsconfig({ root });
@@ -59,10 +56,5 @@ export async function loadDropletsConfig({ root, configEnv, configFile }: LoadDr
     }
   }
 
-  const env = { port: process.env["PORT"] };
-  if (configEnv.command === "serve" && env.port !== undefined && portOf({ value: env.port }) === undefined && !warnedPorts.has(env.port)) {
-    warnedPorts.add(env.port);
-    logger.warn("framework", `PORT is ${JSON.stringify(env.port)}, not a port (an integer from 0 to 65535); ignoring it`);
-  }
-  return { config: resolveConfig(user, env), dev: resolveDevConfig({ user, env }), path, dependencies };
+  return { config: resolveConfig(user), dev: resolveDevConfig({ user }), path, dependencies };
 }

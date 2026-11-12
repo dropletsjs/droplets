@@ -55,7 +55,7 @@ production server never carries it.
 | `csrf.checkOrigin`, `warnImportMap` | `true` | |
 | `limits` | json 1 MB, form 1 MB, multipart 10 MB, props 8 KB | each a positive number; `Infinity` lifts it |
 | `server.port` | `8000` | `PORT` wins |
-| `dev.server.port` | `5173` | `PORT` wins |
+| `dev.server.port` | `5173` | `PORT` never moves it |
 | `dev.strategy` | `"hmr"` | one of `DEV_STRATEGIES` |
 | `dev.injectTool` | `false` | |
 
@@ -133,7 +133,7 @@ builds and runs them.
 - `DEV_STRATEGIES` is `hmr`, `remount`, `reload`, `manual`; `DevStrategy` is derived from it. `config.ts:162`, `config.ts:165`
 - `DevStrategy` is exported from `@dropletsjs/droplets` as a type; `DEV_STRATEGIES` is not exported. `../index.ts:6`
 - `dev.strategy` defaults to `hmr`; any other value than `DEV_STRATEGIES` throws. `config.ts:437`, `config.ts:438`
-- `dev.server.port` defaults to 5173; `PORT` wins over it. `config.ts:205`, `config.ts:442`
+- `dev.server.port` defaults to 5173; `resolveDevConfig` takes no environment, so `PORT` never moves `vite dev`. `config.ts:205`, `config.ts:451`
 - `dev.injectTool` defaults to `false`. `config.ts:444`
 - `config.ts` is Node-free: it imports only `hono/cors` types and `../runtime/web-url.ts`. `config.ts:1`, `config.ts:2`
 - Config file candidates, in order: `droplets.config.ts`, `.mts`, `.js`, `.mjs`. `load-config.ts:10`
@@ -141,8 +141,7 @@ builds and runs them.
 - Config file is loaded with Vite's `loadConfigFromFile`, so TypeScript and imports work and a function default export is called with Vite's `ConfigEnv`. `load-config.ts:51`
 - Config file's imports are returned as `dependencies`, for the dev server to restart on change. `load-config.ts:54`
 - `loadDropletsConfig` writes `.droplets/tsconfig.json` (through `vite/sync-types.ts`) before it loads the file. `load-config.ts:45`
-- `loadDropletsConfig` reads `PORT` from `process.env` and passes it to both `resolveConfig` and `resolveDevConfig`. `load-config.ts:58`, `load-config.ts:59`
-- `loadDropletsConfig` under `vite dev` warns once per value about a `PORT` that is no port (`PORT is "70000", not a port`); `vite build` and the production server ignore it silently. `load-config.ts:62`
+- `loadDropletsConfig` reads no environment: `PORT` is the production server's, read by the Node and Bun entries alone. `load-config.ts:59`
 - Droplet discovery scans only the immediate subfolders of the droplets folder. `discover.ts:207`, `fs.ts:61`
 - Droplet id is the folder name itself; a droplet folder's name must match `^[a-z0-9]+(-[a-z0-9]+)*$` (lowercase kebab-case). `discover.ts:70`, `discover.ts:74`
 - Droplet folder whose name is not lowercase kebab-case is ignored (`ProductCard/` never becomes `product-card`). `discover.ts:211`

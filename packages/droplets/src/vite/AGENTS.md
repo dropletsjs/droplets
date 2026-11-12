@@ -12,6 +12,8 @@
   Checked by: `test/vite/renderer-graphs.test.ts`, `test/integration/load-css.test.ts`.
 - The server-file, cross-framework and load-CSS checks run in both `vite build` (`buildEnd`) and `vite dev` (`resolveId`), so what builds also serves.
   Checked by: `test/integration/server-only.test.ts`, `test/integration/load-css.test.ts`.
+- Under `vite dev` a droplet whose file fails to import fails alone: the server registry imports each droplet's modules on demand (`import()` behind a thunk, evaluated outside the request), so its fragment alone answers 500 while the other droplets, their `client.js` and `/index.js` keep answering, and the next request after the fix tries again; a build keeps static imports.
+  Checked by: `test/vite/virtual.test.ts` ("imports each droplet's modules on demand under vite dev"), `../../../../tests/dev-mixed/test/dev-isolation.test.ts`.
 - Flags reach the plugin only through `discoverDroplets`, which reads them from the droplet's component; the registries take `ssr`, `hydrate` and `prerender` from that entry and read none from `+droplet.ts`, `+droplet.server.ts` or `+error.*`.
   Checked by: `test/core/discover.test.ts`, `test/vite/virtual.test.ts`.
 - Every URL a build writes for a droplet's own files is on the droplet location: browser bundles relative to the file that names them (`new URL(…, import.meta.url)` in JavaScript, a relative path in CSS), server bundles on `location` of the config in a build that sets it, else on the location token; never a root-relative `/assets/…`. A user's own `renderBuiltUrl` answers first.

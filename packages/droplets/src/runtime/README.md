@@ -148,6 +148,7 @@ Then the route.
 - A path no route matches answers 404 through one `app.notFound`: `{ "message": "Not Found" }` under `_data` and `/api` (`wantsJson`), text elsewhere; a trailing slash (`/droplets/x/`) is such a path, and its body is never read (`RENDER_ROUTE`). `app.ts:360`, `app.ts:864`, `security.ts:92`
 - A droplet name in the URL is decoded; a malformed escape names no droplet. `app.ts:766`
 - The droplet registry is a `Map`, so `__proto__` names no droplet. `entry-server.ts:57`
+- A registry entry's `component` and `error` are thunks, like `load` and `serverLoad`: `renderDroplet` and `renderError` await them before anything else, so a component that fails to import is answered as an error of its own, never through the error page. `entry-server.ts:44`, `entry-server.ts:336`, `entry-server.ts:367`
 - A POST with a form body runs an action, `text/plain` answers 415, and a `?/name` key with a non-form body answers 400. `app.ts:1680`
 - A prerendered fragment is looked up by host key (origin and path), then, with `host`, by the origin-only key, then by props key. `app.ts:1234`, `app.ts:1237`, `app.ts:1238`
 - `prerenderKey` is `<propsKey> <origin><path>`, `<propsKey> <origin>` for a render for `host` of the config, or `<propsKey>` for a host-agnostic one. `props.ts:103`

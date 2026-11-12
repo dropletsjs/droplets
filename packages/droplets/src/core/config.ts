@@ -233,7 +233,7 @@ type ResolveCacheControlInput = { option: "fragmentCacheControl" | "publicCacheC
 
 type ResolveLimitsInput = { limits: Partial<BodyLimits> | undefined };
 
-export type ResolveDevConfigInput = { user: DropletsConfig; env?: ResolveConfigEnv };
+export type ResolveDevConfigInput = { user: DropletsConfig };
 
 /**
  * Trims `./`, `..`, repeated and trailing slashes down to a clean folder
@@ -376,7 +376,7 @@ function resolveLimits({ limits }: ResolveLimitsInput): BodyLimits {
 }
 
 export type ResolveConfigEnv = {
-  /** The `PORT` environment variable; an explicit port wins over the config file. */
+  /** The `PORT` environment variable, read by the production server's entry: it wins over `server.port`. */
   port?: string | undefined;
 };
 
@@ -447,14 +447,14 @@ export function resolveConfig(user: DropletsConfig, env: ResolveConfigEnv = {}):
   };
 }
 
-/** `dev` of the config, with defaults; `PORT` wins over `dev.server.port`. */
-export function resolveDevConfig({ user, env = {} }: ResolveDevConfigInput): ResolvedDevConfig {
+/** `dev` of the config, with defaults. `PORT` is the production server's: it never moves `vite dev`. */
+export function resolveDevConfig({ user }: ResolveDevConfigInput): ResolvedDevConfig {
   const strategy = user.dev?.strategy ?? "hmr";
   if (!DEV_STRATEGIES.includes(strategy)) {
     throw new Error(`droplets: dev.strategy is "${String(strategy)}"; use ${DEV_STRATEGIES.map((s) => `"${s}"`).join(", ")}`);
   }
   return {
-    server: { port: (portOf({ value: env.port }) ?? 0) || user.dev?.server?.port || DEFAULTS.devPort },
+    server: { port: user.dev?.server?.port || DEFAULTS.devPort },
     strategy,
     injectTool: user.dev?.injectTool ?? false,
   };

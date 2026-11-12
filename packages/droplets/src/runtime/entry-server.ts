@@ -40,8 +40,8 @@ type ClientLoad = (event: DropletLoadEvent) => unknown;
 type UniversalModule = { load?: ClientLoad; handleError?: unknown; props?: unknown };
 
 type DropletRegistryEntry = {
-  /** The component module, as its renderer's Vite plugin compiled it. */
-  component?: ComponentModule;
+  /** The component module, as its renderer's Vite plugin compiled it: imported at start in a build, on demand under `vite dev`. */
+  component?: () => Promise<ComponentModule>;
   /** The server side of the renderer that handles `component`. */
   renderer?: RendererServerModule;
   ssr?: boolean;
@@ -50,7 +50,7 @@ type DropletRegistryEntry = {
   load?: () => Promise<UniversalModule>;
   serverLoad?: () => Promise<ServerModule>;
   /** The error page module, in the droplet's framework; it follows the droplet's flags. */
-  error?: ComponentModule;
+  error?: () => Promise<ComponentModule>;
 };
 
 /** By droplet id: a name from a URL only ever finds a droplet (`__proto__` finds nothing). */
@@ -331,6 +331,9 @@ export type RenderOptions = { form?: unknown };
 export async function renderDroplet(name: string, event: LoadEvent, options: RenderOptions = {}): Promise<RenderResult | null> {
   const entry = findEntry({ name });
   if (!entry?.component) return null;
+  // A component that fails to import is the author's error, answered as one;
+  // only a load or a render that throws reaches the error page.
+  const module = await entry.component();
 
   let serverData: unknown;
   try {
@@ -339,7 +342,7 @@ export async function renderDroplet(name: string, event: LoadEvent, options: Ren
     const props = options.form === undefined ? { data } : { data, form: options.form };
     const { html, head, renderId } = await renderWith({
       renderer: entry.renderer,
-      module: entry.component,
+      module,
       props,
       droplet: name,
       kind: "droplet",
@@ -361,6 +364,7 @@ export async function renderDroplet(name: string, event: LoadEvent, options: Ren
 export async function renderError(name: string, error: unknown, props: Record<string, unknown> = {}): Promise<RenderResult | null> {
   const entry = findEntry({ name });
   if (!entry?.error) return null;
+  const module = await entry.error();
   let shown: unknown;
   try {
     const mod = await entry.load?.();
@@ -370,7 +374,7 @@ export async function renderError(name: string, error: unknown, props: Record<st
   }
   const { html, head, renderId } = await renderWith({
     renderer: entry.renderer,
-    module: entry.error,
+    module,
     props: { error: shown },
     droplet: name,
     kind: "error",

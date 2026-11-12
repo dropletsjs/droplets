@@ -180,7 +180,7 @@ dropped without a warning. A value that fails its check throws a
 | `importMap` | `string \| false` | `"/importmap"`, only while the client build has externals | Where the import map is served: `<path>` as a `<script type="importmap">` block, `<path>.js` as a script that inserts it. Set explicitly, it is always routed. `false` turns both off. |
 | `warnImportMap` | `boolean` | `true` | Warn under `vite dev` about externals the map leaves out, keys that are not external, and versions that differ from the installed package. |
 | `server.port` | `number` | `8000` | The port `node dist/server.js` and `bun dist/server.js` listen on. `PORT` wins. |
-| `dev.server.port` | `number` | `5173` | The `vite dev` port, used when Vite's own `server.port` is not set. `PORT` wins over it. |
+| `dev.server.port` | `number` | `5173` | The `vite dev` port, used when Vite's own `server.port` is not set. `PORT` does not move it. |
 | `dev.strategy` | `"hmr" \| "remount" \| "reload" \| "manual"` | `"hmr"` | What a droplet on a page does when its files change under `vite dev`. A page overrides it with `index.js?strategy=…`. Any other value throws. |
 | `dev.injectTool` | `boolean` | `false` | Show the dev tool on every page that loads `index.js` under `vite dev` (needs `dropletsDevtools()`). A page overrides it with `index.js?injectTool=…`. |
 
@@ -318,7 +318,7 @@ process).
 | `DROPLETS_TRUSTED_ORIGINS` | per request | A comma-separated list added to `trustedOrigins`. A malformed entry is skipped (warned about under `vite dev`). |
 | `DROPLETS_SECRET` | per request | The key that signs no-JavaScript action results, at least 32 bytes. Missing or shorter, it is ignored and a native post answers the fragment instead of a `303`. |
 | `DROPLETS_ENV_MAX_AGE` | per request | The `max-age` of `/env.js` in seconds; `0` is `no-store`. Any other value keeps `600` (warned about under `vite dev`). |
-| `PORT` | at start | Overrides `server.port` for `node dist/server.js` and `bun dist/server.js`, and `dev.server.port` under `vite dev`. Empty, `0` or not a number counts as unset. Deno (`deno serve --port`) and Cloudflare do not read it. |
+| `PORT` | at start | Overrides `server.port` for `node dist/server.js` and `bun dist/server.js`. Empty, `0` or not a number counts as unset. `vite dev`, Deno (`deno serve --port`) and Cloudflare do not read it. |
 | `DEV_DROPLETS_LOG` | first log line | The level of the `vite dev` and `vite build` log: `error`, `warn`, `info` (default) or `debug`, any case. A production server ignores it. |
 
 Your own variables are declared in [`src/env.ts`](#srcenvts) and read
