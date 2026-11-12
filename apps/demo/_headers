@@ -1,0 +1,4 @@
+# Appended by the Cloudflare adapter after its own rules in dist/client/_headers.
+# Search engines may fetch the build's files to render the docs' live droplets, never index them.
+/*
+  X-Robots-Tag: noindex

@@ -167,6 +167,15 @@ allows only the docs' origins. `/droplets.json` is never uploaded
 (`.assetsignore`, written by the adapter). `test/worker.test.ts` checks
 both under `wrangler dev`, and that nothing server-only is reachable.
 
+Search engines may fetch everything here, so Google can render the docs'
+live droplets, but index none of it: there is no `robots.txt` that
+disallows anything, and every answer carries `X-Robots-Tag: noindex`. The
+Worker's answers get it from `handle` in `src/hooks.server.ts`; the build's
+files, which `handle` never sees, from the project's own `_headers`, a `/*`
+rule the Cloudflare adapter appends after its block in
+`dist/client/_headers`. `/health`, and the 404 of a missing build file, are
+answered before `handle` and carry no such header.
+
 Every build has a new build hash, and a page only hydrates fragments of the
 build its `/index.js` comes from. The docs inline fragments at their build,
 so after a demo deploy, build and deploy the docs against it
@@ -205,6 +214,10 @@ so after a demo deploy, build and deploy the docs against it
 - Worker sets no `run_worker_first`: static assets answer the build's files with `_headers` (`Access-Control-Allow-Origin: *`), the rest reaches the Worker. `wrangler.jsonc:12`, `test/worker.test.ts:110`, `test/worker.test.ts:114`, `test/worker.test.ts:154`
 - Worker assets `html_handling` is `none`: `/assets/public/testimonials/page-1.html` answers 200, not a 307 to `/page-1`. `wrangler.jsonc:17`, `test/worker.test.ts:138`
 - `/assets/public/*` gets `Access-Control-Allow-Origin: *` from the adapter's `/assets/*` rule in `_headers`, `Cache-Control: no-cache` from its own. `../../packages/adapters/cloudflare/src/index.ts:103`, `../../packages/adapters/cloudflare/src/index.ts:104`
+- `handle` (`src/hooks.server.ts`) sets `x-robots-tag: noindex` on every answer it resolves: renders, `_data`, actions, `/api/*`, errors. `src/hooks.server.ts:11`, `test/server.test.ts:420`
+- Root `_headers` gives every static asset `X-Robots-Tag: noindex` (`/*`), appended after the adapter's rules in `dist/client/_headers`. `_headers:3`, `../../packages/adapters/cloudflare/src/index.ts:246`, `test/worker.test.ts:144`
+- `/health` and the Worker's 404 for a missing build file are answered before `handle`, without `x-robots-tag`. `../../packages/droplets/src/runtime/app.ts:1061`, `../../packages/droplets/src/runtime/app.ts:1109`
+- No `robots.txt`: crawlers may fetch the demo's files to render the docs' live droplets. `test/worker.test.ts:157`
 - Worker runs only on the custom domain `demo.dropletsjs.dev`; no `*.workers.dev` or preview URLs. `wrangler.jsonc:20`, `wrangler.jsonc:21`, `wrangler.jsonc:22`
 - Cloudflare adapter warns, never fails, when `run_worker_first` sends the build's files through the Worker. `../../packages/adapters/cloudflare/src/index.ts:253`
 - Cloudflare adapter writes `client/.assetsignore` with `/droplets.json` and `/.vite/`. `../../packages/adapters/cloudflare/src/index.ts:15`, `../../packages/adapters/cloudflare/src/index.ts:211`

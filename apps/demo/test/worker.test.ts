@@ -141,6 +141,22 @@ describe("static assets, with the headers of _headers", () => {
     }
   });
 
+  it("tells search engines not to index the build's files, and keeps no robots.txt from fetching them", async () => {
+    expect(await readFile(join(out, "client/_headers"), "utf8")).toContain("/*\n  X-Robots-Tag: noindex\n");
+    for (const path of [
+      "/index.js",
+      "/index.css",
+      `/${manifest.__entryModule}`,
+      "/droplets/hello/client.js",
+      "/assets/public/testimonials/page-1.html",
+    ]) {
+      const response = await call(path);
+      expect(response.status, path).toBe(200);
+      expect(response.headers.get("x-robots-tag"), path).toBe("noindex");
+    }
+    expect((await call("/robots.txt")).status).toBe(404);
+  });
+
   it("leaves what is no file to the Worker: _data and /env.js with the docs' CORS, a missing file no-store", async () => {
     const data = await call("/droplets/hello/_data?who=Worker");
     expect(data.status).toBe(200);
@@ -158,6 +174,7 @@ describe("the Worker", () => {
     const hello = await call("/droplets/hello?who=Worker");
     expect(hello.status).toBe(200);
     expect(hello.headers.get("access-control-allow-origin")).toBe(DOCS);
+    expect(hello.headers.get("x-robots-tag")).toBe("noindex");
     expect(await hello.text()).toContain("Hello Worker!");
     const crashed = await call("/droplets/crash?fail=1");
     expect(crashed.status).toBe(500);

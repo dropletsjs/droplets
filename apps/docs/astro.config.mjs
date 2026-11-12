@@ -2,6 +2,7 @@ import { readdirSync } from "node:fs";
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import starlightLlmsTxt from "starlight-llms-txt";
+import { description, ogImage, title } from "./site.mjs";
 import { baseLinks } from "./src/plugins/base-links.mjs";
 
 // Where the site is served: https://dropletsjs.dev by default. Both come
@@ -9,6 +10,10 @@ import { baseLinks } from "./src/plugins/base-links.mjs";
 // a sub-path (apps/docs/README.md).
 const site = process.env.DOCS_SITE || "https://dropletsjs.dev";
 const base = process.env.DOCS_BASE || "/";
+
+// Crawlers need the share image as an absolute URL, under the base path.
+const ogImageUrl = new URL(`${base.replace(/\/?$/, "/")}${ogImage.file}`, site).href;
+const meta = (key, content) => ({ tag: "meta", attrs: { [key.startsWith("og:") ? "property" : "name"]: key, content } });
 
 // The scripts of the docs' own components (src/components/*.astro) are
 // always bundled to a file under /_astro/, never inlined into the page as
@@ -102,9 +107,16 @@ export default defineConfig({
   integrations: [
     baseLinks(),
     starlight({
-      title: "Droplets",
-      description:
-        "Server-rendered components you can embed from any stack, as a Vite plugin on Hono. Svelte, Vue, Solid, React, Preact, Hono JSX, Handlebars or Lit.",
+      title,
+      description,
+      head: [
+        meta("og:image", ogImageUrl),
+        meta("og:image:width", String(ogImage.width)),
+        meta("og:image:height", String(ogImage.height)),
+        meta("og:image:alt", ogImage.alt),
+        meta("twitter:image", ogImageUrl),
+        meta("twitter:image:alt", ogImage.alt),
+      ],
       customCss: [
         "@fontsource-variable/inter/wght.css",
         "@fontsource-variable/instrument-sans/wght.css",

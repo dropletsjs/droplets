@@ -137,7 +137,11 @@ The bindings (vars and secrets) are the runtime environment: each request
 sets them as the source of `$droplets/env` private variables,
 `DROPLETS_SECRET`, `DROPLETS_TRUSTED_ORIGINS` and `DROPLETS_ENV_MAX_AGE`, and
 `platform.env` in server code holds all of them. `.env` files are a build
-input only. Set the secret with `wrangler secret put DROPLETS_SECRET`.
+input only. The first deploy creates the Worker and carries the secret:
+`wrangler deploy --secrets-file <file>`, a temporary JSON file
+`{"DROPLETS_SECRET": "…"}` holding `openssl rand -base64 48` (at least 32
+bytes); a `wrangler secret put` before the Worker exists creates an empty
+Worker of that name. Later rotations are `wrangler secret put DROPLETS_SECRET`.
 `PORT` and `server.port` do not apply: the platform decides the address. Set
 `cors` in the config if pages on other origins embed your droplets. See
 [Deployment](https://dropletsjs.dev/guides/deployment/).

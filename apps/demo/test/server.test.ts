@@ -417,6 +417,23 @@ describe("CORS", () => {
   });
 });
 
+describe("search engines", () => {
+  it("are told not to index what handle answers: renders, _data, the API, actions and errors", async () => {
+    for (const [path, init] of <[string, RequestInit?][]>[
+      ["/droplets/hello?who=Bot"],
+      ["/droplets/hello/_data"],
+      ["/droplets/testimonials-prerender-only?page=1"],
+      ["/droplets/crash?fail=1"],
+      ["/droplets/missing"],
+      ["/api/testimonials?page=1"],
+      ["/api/testimonials?nope=1"],
+      [`/droplets/poll?/vote&${RETURN}`, { method: "POST", body: new URLSearchParams({ answer: "vue" }), headers: { origin: DOCS } }],
+    ]) {
+      expect((await call(path, init)).headers.get("x-robots-tag"), path).toBe("noindex");
+    }
+  });
+});
+
 describe("the droplet location", () => {
   it("is the fixed location whatever the request says: no location header is read", async () => {
     for (const headers of <Record<string, string>[]>[

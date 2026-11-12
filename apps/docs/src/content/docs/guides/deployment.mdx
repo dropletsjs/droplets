@@ -387,12 +387,27 @@ different hosts per deployment. An entry that is not an origin is skipped
 Forms posted without JavaScript are answered with a redirect back to the
 host page, the action's result signed in its URL
 ([Post/Redirect/Get](/guides/actions/#without-javascript-postredirectget)).
-Set `DROPLETS_SECRET` to 32 or more random bytes (`openssl rand -base64 32`),
+Set `DROPLETS_SECRET` to 32 or more random bytes (`openssl rand -base64 48`),
 the same on every instance serving a build, as a secret: a Worker secret, the
 process environment elsewhere. It is read at runtime and never reaches a
 browser bundle. Without it such a post answers the droplet's fragment
 instead (`vite dev` says so once). Rotating it voids the results minted in
 the last five minutes, nothing else.
+
+On Workers, the first deploy creates the Worker with its secret, from a
+temporary JSON file: a `wrangler secret put` before the Worker exists
+creates an empty Worker of that name. Later deploys keep it; `secret put`
+rotates it.
+
+```bash
+vite build
+tmp=$(mktemp)
+printf '{"DROPLETS_SECRET":"%s"}\n' "$(openssl rand -base64 48)" > "$tmp"
+wrangler deploy --secrets-file "$tmp"
+rm "$tmp"
+
+openssl rand -base64 48 | wrangler secret put DROPLETS_SECRET   # a rotation
+```
 
 A host that fetches fragments on its server can pass their
 [`Link` header](/integrate/http-contract/#the-link-header) on with its page, so
