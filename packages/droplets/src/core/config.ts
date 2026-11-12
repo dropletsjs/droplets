@@ -87,8 +87,10 @@ export type DropletsConfig = {
   /**
    * The `Cache-Control` of fragments and `_data`. What they answer depends on
    * the request (`host`, props, cookies), so by default no shared cache
-   * keeps them: `private, no-store`. A string replaces it, `false` sends
-   * none; a `Cache-Control` that `handle` sets wins.
+   * keeps them: `private, no-store, no-transform`. A string replaces it,
+   * `false` sends none; a `Cache-Control` that `handle` sets wins. Whatever
+   * the value, the answer carries `no-transform`, added when it is missing,
+   * so no proxy rewrites a fragment; the server gzips it instead.
    */
   fragmentCacheControl?: string | false;
   /**
@@ -205,7 +207,7 @@ export const DEFAULTS = {
   devPort: 5173,
   serverPort: 8000,
   limits: { json: 1024 * 1024, form: 1024 * 1024, multipart: 10 * 1024 * 1024, props: 8 * 1024 },
-  fragmentCacheControl: "private, no-store",
+  fragmentCacheControl: "private, no-store, no-transform",
   publicCacheControl: "no-cache",
 } as const;
 

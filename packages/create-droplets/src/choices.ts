@@ -122,7 +122,7 @@ export type Flags = {
   help: boolean;
 };
 
-export const USAGE = `Usage: npm create droplets [folder] [options]
+export const USAGE = `Usage: npm create droplets@latest [folder] [options]
 
   --element <name>        the custom element (default: the folder name, or <folder>-droplets when it has no hyphen)
   --frameworks <list>     ${FRAMEWORKS.map((f) => f.name).join(",")}

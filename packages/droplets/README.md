@@ -11,7 +11,7 @@ The full guide: [dropletsjs.dev](https://dropletsjs.dev).
 The quickest start is a new project:
 
 ```bash
-npm create droplets my-widgets
+npm create droplets@latest my-widgets
 ```
 
 By hand:
@@ -327,6 +327,13 @@ renderer under `testing/`.
 - `handle` never runs for `/index.js`, `/index.css`, `/env.js` and `/assets/*`. `src/runtime/app.ts:356`, `src/runtime/app.ts:982`
 - Routes: `/` `src/runtime/app.ts:1107`, `/index.js` `src/runtime/app.ts:1114`, `/index.css` `src/runtime/app.ts:1142`, `style.css` `src/runtime/app.ts:1155`, `client.js` `src/runtime/app.ts:1171`, `_data` `src/runtime/app.ts:1288`, the fragment `src/runtime/app.ts:1676`, `/api` `src/runtime/app.ts:1717`
 - `_data` answers `405` with `allow: GET, POST` for `PUT`, `PATCH`, `DELETE`. `src/runtime/app.ts:1284`
+- `fragmentCacheControl` defaults to `private, no-store, no-transform`. `src/core/config.ts:210`
+- Every fragment and `_data` answer but a redirect and a form action's JSON carries `no-transform` in `Cache-Control`: added once (any case) to the value it has, alone when it has none, an error answer included. `src/runtime/app.ts:1056`, `src/runtime/compress.ts:40`
+- Those answers are gzipped with `CompressionStream` when `Accept-Encoding` takes gzip (`gzip`, `x-gzip` or `*` with a weight above 0; `gzip;q=0` refuses) and the body is 1024 bytes or more, by `Content-Length` or else by reading its first 1024 bytes; never for `HEAD`, a `204`/`205`/`304`, or an answer with a `Content-Encoding`; `Content-Length` is dropped and a streamed body stays streamed. `src/runtime/compress.ts:9`, `src/runtime/compress.ts:17`, `src/runtime/compress.ts:100`
+- They vary on `accept-encoding`, after the host headers, compressed or not. `src/runtime/app.ts:1058`
+- A gzipped answer is built with `encodeBody: "manual"`: Workers would gzip it again by its `Content-Encoding`; other runtimes ignore the option. `src/runtime/compress.ts:125`
+- `event.fetch` sends an internal request without `Accept-Encoding`, so a fragment comes back decoded as from `fetch`. `src/runtime/event-fetch.ts:76`
+- Under `vite dev`, a gzipped fragment that gets `data-droplet-context` is decoded first and answered plain. `src/vite/dev.ts:56`
 - Droplet file URLs (the stylesheet, `client.js`, the `Link` preloads) are built on the request's droplet location. `src/runtime/app.ts:1331`
 - `style.css` imports each stylesheet as `../../<file>`, relative to itself. `src/runtime/app.ts:306`
 - Dev element code enters production code through one gate: `if (import.meta.env.DEV) installDevElement(...)`. `src/runtime/entry-client.ts:1374`

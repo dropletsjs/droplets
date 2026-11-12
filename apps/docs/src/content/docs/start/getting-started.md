@@ -1,6 +1,6 @@
 ---
 title: Getting started
-description: "npm create droplets: a new project, a first droplet, dev, build, and a plain HTML page that embeds it."
+description: "npm create droplets@latest: a new project, a first droplet, dev, build, and a plain HTML page that embeds it."
 ---
 
 The quick path: `npm create droplets` writes a project with a first
@@ -14,7 +14,7 @@ package manager and [renderer](/renderers/) works the same way.
 ## 1. Create a project
 
 ```bash
-npm create droplets my-widgets
+npm create droplets@latest my-widgets
 ```
 
 The same with the other package managers:
@@ -37,7 +37,7 @@ Without a terminal, or with `--yes`, it asks nothing; the folder and
 `--frameworks` are then required:
 
 ```bash
-npm create droplets my-widgets -- --frameworks svelte --yes
+npm create droplets@latest my-widgets -- --frameworks svelte --yes
 ```
 
 | Flag | Does |

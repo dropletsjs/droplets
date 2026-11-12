@@ -266,7 +266,7 @@ the request's own origin. `"*"` in the list trusts any location; see
 you use it.
 
 The allow-list is the guard that matters. Fragments answer
-`Vary: x-droplet-location, forwarded, x-forwarded-host, x-forwarded-proto, x-forwarded-port, x-forwarded-prefix, origin`
+`Vary: x-droplet-location, forwarded, x-forwarded-host, x-forwarded-proto, x-forwarded-port, x-forwarded-prefix, origin, accept-encoding`
 when they are cacheable, but CDNs ignore `Vary` on custom headers (most
 only honor `Accept-Encoding`), so a shared cache can still hand one
 request's fragment to everyone. With a location that is not on the list,
@@ -423,7 +423,7 @@ under `vite dev`.
 
 The page loads again. Any render of that droplet whose `host` carries a
 genuine result for it (the fragment, `GET` or `POST`, and `_data`) renders
-live with its `data` as `form`, `200`, `cache-control: private, no-store`;
+live with its `data` as `form`, `200`, `cache-control: private, no-store, no-transform`;
 `_data` answers `{ "data": …, "form": … }`. The value is checked before it is
 read: its length and shape, then the MAC (`crypto.subtle.verify`), then the
 JSON (plain `JSON.parse`, objects copied without prototypes, `__proto__`
@@ -490,3 +490,33 @@ the browser, and what a host passes on, is in
 
 What each route sends as `Cache-Control` and `Vary`, and how `/index.js`
 picks up a new build, is in [Caching](/guides/security/#caching).
+
+## Compression
+
+Fragments and `_data` carry `Cache-Control: no-transform`, so a proxy in
+between leaves their bytes alone (see
+[HTML rewriters](/guides/deployment/#html-rewriters-and-no-transform)). A
+proxy that honors it no longer compresses them either, so the droplets
+server does:
+
+- **gzip, when asked for.** A request whose `Accept-Encoding` takes gzip
+  (`gzip;q=0` does not) gets `Content-Encoding: gzip` and no
+  `Content-Length`. A streamed fragment stays streamed through the
+  compressor.
+- **Not for small or encoded answers.** A body under 1024 bytes goes out
+  plain, judged by its `Content-Length` or, without one, by reading the
+  first 1024 bytes. So does a `HEAD`, an answer without a body, and one
+  that `handle` gave a `Content-Encoding` of its own.
+- **`Vary: Accept-Encoding`** on every fragment and `_data` answer,
+  compressed or not, merged into the `Vary` it has.
+- **Redirects, a form action's JSON, `+server.ts` routes and the files**
+  (`/assets/*`, `client.js`, `style.css`, `/index.js`, `/index.css`,
+  `/env.js`) are sent as they are, and a CDN may compress those.
+
+A host that fetches fragments on its server and pastes them into its page
+asks for them without `Accept-Encoding`, or with an HTTP client that
+decodes gzip (Node's `fetch`, `httpx`, `wp_remote_get`, curl with
+`CURLOPT_ENCODING`). One that proxies them to the browser drops
+`Content-Encoding` and `Content-Length` when its client decoded the body.
+nginx's SSI pastes a subrequest's body as it comes: clear `Accept-Encoding`
+on the proxied location (see [nginx](/integrate/hosts/nginx/)).

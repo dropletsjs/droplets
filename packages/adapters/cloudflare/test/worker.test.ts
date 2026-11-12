@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { gunzipSync } from "node:zlib";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildFixture, FIXTURE_ROOT } from "./build-fixture.ts";
 
@@ -78,6 +79,18 @@ describe("worker", () => {
     expect((await call({ path: "/nope" })).status).toBe(404);
     expect(await (await call({ path: "/health" })).text()).toBe("ok");
     expect(await (await call({ path: "/" })).text()).toContain("Powering Microfrontends");
+  });
+
+  it("gzips a fragment over 1 KiB for a client that takes gzip, to the same fragment", async () => {
+    const path = `/droplets/hello?who=${"w".repeat(1500)}`;
+    const plain = await call({ path });
+    expect(plain.headers.get("content-encoding")).toBeNull();
+    const zipped = await call({ path, init: { headers: { "accept-encoding": "gzip" } } });
+    expect(zipped.headers.get("content-encoding")).toBe("gzip");
+    expect(zipped.headers.get("cache-control")).toBe("private, no-store, no-transform");
+    // Each render has an id of its own.
+    const unrendered = (html: string) => html.replace(/ data-droplet-render="[^"]+"/, "");
+    expect(unrendered(gunzipSync(Buffer.from(await zipped.arrayBuffer())).toString())).toBe(unrendered(await plain.text()));
   });
 
   it("runs hooks and API routes, with the bindings on platform.env", async () => {

@@ -72,6 +72,8 @@ async function internalRequest({ input, init, href, incoming }: InternalRequestI
   const headers = new Headers(init?.headers ?? given?.headers);
   copyHeaders({ from: incoming, into: headers, names: CONTEXT_HEADERS });
   if ((init?.credentials ?? given?.credentials) !== "omit") copyHeaders({ from: incoming, into: headers, names: CREDENTIAL_HEADERS });
+  // `fetch` hands back a decoded body; an answer from this app would come back gzipped as it is.
+  headers.delete("accept-encoding");
   const method = init?.method ?? given?.method ?? "GET";
   const body = init?.body !== undefined ? init.body : given && given.body !== null ? await given.arrayBuffer() : null;
   return new Request(href, { ...init, method, headers, body });

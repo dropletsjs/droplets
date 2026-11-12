@@ -355,13 +355,35 @@ When a reverse proxy fronts the droplets server:
   cookies are `Secure`;
 - keep the `cache-control` headers it sends; they are safe to honor: `/index.js`
   and `/index.css` are `no-store`, `/env.js` is `public, max-age=600` (`DROPLETS_ENV_MAX_AGE`),
-  fragments and `_data` are `private, no-store` (`fragmentCacheControl`),
+  fragments and `_data` are `private, no-store, no-transform` (`fragmentCacheControl`, with
+  `no-transform` always added),
   `/assets/public/*` is `no-cache` (`publicCacheControl`) with an `ETag`,
   everything else it serves for the browser is immutable.
 
 What a page loads through the proxy, and what `handle` sees of it:
 
 <BrowserLoads />
+
+### HTML rewriters and `no-transform`
+
+Some proxies rewrite the HTML they pass on: Cloudflare's Web Analytics
+(automatic setup) and Email Address Obfuscation, its JavaScript detections,
+`mod_pagespeed`. A fragment has no `</body>`, so a script such a feature
+appends lands after the droplet's element, and a host that inlines the
+fragment inlines it too; the browser's re-render after an enhanced form
+gets it as well. So every fragment and `_data` answer carries
+`Cache-Control: no-transform`, which turns these rewrites off. The
+framework adds it to whatever `Cache-Control` the answer has (the
+`fragmentCacheControl` default, your own value, a load's `setHeaders`,
+`handle`'s, an error answer's); it is never sent twice.
+
+A proxy that honors `no-transform` stops compressing those answers too
+(Cloudflare does), so the droplets server gzips them itself for a client
+that asks for gzip, with `Vary: Accept-Encoding` (see
+[Compression](/integrate/http-contract/#compression)). The files under
+`/assets/`, `/index.js`, `/index.css` and `/env.js` keep their
+`Cache-Control` and are compressed by the CDN as before. A Worker passes
+the gzipped body on as it is.
 
 ### `/index.js` and CDNs
 

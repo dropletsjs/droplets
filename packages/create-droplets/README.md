@@ -5,7 +5,7 @@ adapters and Tailwind, and get a typed project that builds, with a starter
 droplet per framework and an `AGENTS.md` for coding agents.
 
 ```bash
-npm create droplets my-widgets
+npm create droplets@latest my-widgets
 pnpm create droplets my-widgets
 yarn create droplets my-widgets
 bun create droplets my-widgets
@@ -13,7 +13,7 @@ deno init --npm droplets my-widgets
 ```
 
 ```bash
-npm create droplets my-widgets -- --frameworks svelte,react --adapters node,cloudflare --tailwind --yes
+npm create droplets@latest my-widgets -- --frameworks svelte,react --adapters node,cloudflare --tailwind --yes
 ```
 
 ## Details
@@ -116,7 +116,7 @@ HTML page that embeds it:
 - `--element` that is not a valid custom element name throws `--element <name>: lowercase letters, digits and a hyphen, starting with a letter: my-widgets`. `src/choices.ts:107`, `src/choices.ts:197`
 - Usage text says `--element` defaults to the folder name, or `<folder>-droplets` when it has no hyphen, which is what `suggestElement` does. `src/choices.ts:127`, `src/choices.ts:100`, `test/choices.test.ts:79`
 - Interactive only with a TTY on stdin and stdout and no `--yes`. `src/index.ts:194`
-- Non-interactive without a folder throws `name the folder: npm create droplets <folder> (or run it in a terminal to be asked)`. `src/index.ts:55`
+- Non-interactive without a folder throws `name the folder: npm create droplets@latest <folder> (or run it in a terminal to be asked)`. `src/index.ts:55`
 - Non-interactive without `--frameworks` throws `pick the frameworks: --frameworks <list> (or run it in a terminal to be asked)`. `src/index.ts:87`
 - Non-interactive defaults: adapters `node`, Tailwind, dev tool and Claude off, the detected package manager. `src/index.ts:113`, `src/index.ts:116`, `src/index.ts:126`
 - Folder prompt default is `my-droplets`. `src/index.ts:62`

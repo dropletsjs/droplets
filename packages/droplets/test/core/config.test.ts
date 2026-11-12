@@ -67,7 +67,7 @@ describe("resolveConfig", () => {
       warnImportMap: true,
       element: "djs-droplet",
       trustedOrigins: [],
-      fragmentCacheControl: "private, no-store",
+      fragmentCacheControl: "private, no-store, no-transform",
       publicCacheControl: "no-cache",
       csrf: { checkOrigin: true },
       limits: DEFAULTS.limits,

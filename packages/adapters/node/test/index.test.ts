@@ -1,8 +1,11 @@
+import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { gunzipSync } from "node:zlib";
 import { resolveConfig } from "@dropletsjs/droplets";
+import { fromBuild, onFreePort, rawGet, stopServer, waitForServer } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { node } from "../src/index.ts";
 import { buildFixture, FIXTURE_ROOT } from "./build-fixture.ts";
@@ -55,6 +58,36 @@ describe("node", () => {
     const app = await preview({ root: FIXTURE_ROOT, outDir, config: resolveConfig({ element: "test-droplet" }) });
     const res = await app.fetch(new Request("http://drops.test/droplets/hello?who=Preview"));
     expect(await res.text()).toContain("Hello Preview!");
+  });
+
+  it("sends a fragment over 1 KiB gzipped once from `node dist/server.js`, and plain to a client without gzip", async () => {
+    let child: ChildProcess | undefined;
+    let output = "";
+    const isOurs = await fromBuild({ outDir });
+    const origin = await onFreePort({
+      start: async (port) => {
+        output = "";
+        child = spawn(process.execPath, [resolve(outDir, "server.js")], { env: { ...process.env, PORT: String(port) } });
+        child.stdout?.on("data", (chunk) => (output += chunk));
+        child.stderr?.on("data", (chunk) => (output += chunk));
+        await waitForServer({ url: `http://localhost:${port}/droplets/hello`, child, name: "node", isOurs, output: () => output });
+        return `http://localhost:${port}`;
+      },
+    });
+    try {
+      const url = `${origin}/droplets/hello?who=${"n".repeat(1500)}`;
+      const plain = await rawGet({ url });
+      expect(plain.headers["content-encoding"]).toBeUndefined();
+      const zipped = await rawGet({ url, headers: { "accept-encoding": "gzip" } });
+      expect(zipped.headers["content-encoding"]).toBe("gzip");
+      expect(zipped.headers["cache-control"]).toBe("private, no-store, no-transform");
+      expect(zipped.headers["vary"]).toContain("accept-encoding");
+      // Each render has an id of its own.
+      const unrendered = (html: string) => html.replace(/ data-droplet-render="[^"]+"/, "");
+      expect(unrendered(gunzipSync(zipped.body).toString())).toBe(unrendered(plain.body.toString()));
+    } finally {
+      await stopServer({ child });
+    }
   });
 });
 

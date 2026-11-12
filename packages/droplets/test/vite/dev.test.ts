@@ -1,3 +1,4 @@
+import { gzipSync } from "node:zlib";
 import { describe, expect, it, vi } from "vitest";
 import type { EnvironmentModuleNode, ViteDevServer } from "vite";
 import { propsKey } from "../../src/runtime/props.ts";
@@ -10,6 +11,7 @@ import {
   dropletForFile,
   extractDropletIdFromModuleId,
   extractLoadFromModuleId,
+  withDevContext,
 } from "../../src/vite/dev.ts";
 
 describe("extractDropletIdFromModuleId", () => {
@@ -167,5 +169,24 @@ describe("createDevApp: the error page gets the request's props", () => {
     }).request("http://localhost/droplets/hello?who=me");
     expect(await result.text()).toContain("<p>failed</p>");
     expect(renderError).toHaveBeenCalledWith("hello", error, { who: "me" });
+  });
+});
+
+describe("withDevContext", () => {
+  it("writes the context onto a gzipped fragment, answered plain", async () => {
+    const html = `<djs-droplet data-droplet="note" data-droplet-build="b1"><p>${"note ".repeat(300)}</p></djs-droplet>`;
+    const response = new Response(gzipSync(html), {
+      headers: { "content-type": "text/html; charset=UTF-8", "content-encoding": "gzip", vary: "accept-encoding" },
+    });
+    const out = await withDevContext({ response, context: { host: "https://host.test/", props: { id: "7" } } });
+    expect(out.headers.get("content-encoding")).toBeNull();
+    expect(out.headers.get("vary")).toBe("accept-encoding");
+    const body = await out.text();
+    const encoded = body.match(/^<djs-droplet data-droplet="note" data-droplet-build="b1" data-droplet-context="([^"]+)">/)?.[1];
+    expect(JSON.parse(Buffer.from(encoded ?? expect.unreachable("data-droplet-context"), "base64").toString())).toEqual({
+      host: "https://host.test/",
+      props: { id: "7" },
+    });
+    expect(body).toContain("note note");
   });
 });

@@ -51,7 +51,11 @@ type WithDevContextInput = { response: Response; context: DevContext };
  */
 export async function withDevContext({ response, context }: WithDevContextInput): Promise<Response> {
   if (!(response.headers.get("content-type") ?? "").includes("text/html")) return response;
-  const html = await response.text();
+  // Gzipped by the app for a client that takes it: edited as text, it goes out plain.
+  const html =
+    response.headers.get("content-encoding") === "gzip" && response.body
+      ? await new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).text()
+      : await response.text();
   const open = /^<[a-z][\w-]*\s[^>]*\bdata-droplet="[^"]*"[^>]*>/.exec(html)?.[0];
   const carries =
     open === undefined ||
@@ -63,6 +67,7 @@ export async function withDevContext({ response, context }: WithDevContextInput)
     : `${open.slice(0, -1)} data-droplet-context="${Buffer.from(json, "utf8").toString("base64")}">${html.slice(open.length)}`;
   const headers = new Headers(response.headers);
   headers.delete("content-length");
+  headers.delete("content-encoding");
   return new Response(body, { status: response.status, statusText: response.statusText, headers });
 }
 

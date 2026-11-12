@@ -121,8 +121,9 @@ What each answer sends as `Cache-Control`:
 | `/assets/public/*`, the project's `public/` | `no-cache`, with an `ETag` (a `304` while the file is the same) | [`publicCacheControl`](/guides/configuration/#options): another value, or `false` for none; the `ETag` and `304` stay |
 | `/index.js`, `/index.css` | `no-store` | fixed |
 | `/env.js` | `public, max-age=600` | `DROPLETS_ENV_MAX_AGE` (seconds, `0` for `no-store`) |
-| fragments and `_data` | `private, no-store` | the load's [`setHeaders`](/guides/server/#setheaders), else `fragmentCacheControl` (`false` for none); `handle` has the last word |
-| a render with a form's result, and the `303` that carries one | `private, no-store` | fixed |
+| fragments and `_data` | `private, no-store, no-transform` | the load's [`setHeaders`](/guides/server/#setheaders), else `fragmentCacheControl` (`false` for none); `handle` has the last word; `no-transform` is always added |
+| a render with a form's result | `private, no-store, no-transform` | fixed |
+| the `303` that carries a form's result | `private, no-store` | fixed |
 
 None of the files pass through `handle` (see
 [`handle`](/guides/server/#handle)): anything under `/assets/` is public to
@@ -172,13 +173,19 @@ its load, which replaces the default on the fragment and on `_data`.
 - **Only what rendered.** The default is for `2xx` answers: an error
   answer, a load that failed, a `404`, a `405` and a redirect carry none of
   it (nor the load's), so a `fragmentCacheControl` meant for content never
-  keeps a failure.
+  keeps a failure. An error answer still carries `Cache-Control: no-transform`.
+- **`no-transform`, always.** Every fragment and `_data` answer carries it,
+  added to whatever `Cache-Control` it has (the default, the load's,
+  `handle`'s) when it is missing, never twice, so no proxy rewrites a
+  fragment (see [HTML rewriters](/guides/deployment/#html-rewriters-and-no-transform)).
+  A redirect and a form action's JSON answer are left as they are.
 - **Prerendered renders** are served with the headers their load set at
   build.
 - **`Vary`.** Every fragment and `_data` answer carries
   `Vary: x-droplet-location, forwarded, x-forwarded-host, x-forwarded-proto, x-forwarded-port, x-forwarded-prefix, origin`,
   after any `Vary` the load set; with `location` set, `Vary: origin` alone,
-  since no location header decides them. These are the headers the
+  since no location header decides them. `accept-encoding` comes last: the
+  server gzips the answer for a client that takes it. These are the headers the
   answer's URLs and `host` come from, so in a cache that honors `Vary` a
   request with a spoofed one lands in an entry of its own. CDNs mostly
   ignore `Vary` on custom headers, though: what keeps a spoofed location

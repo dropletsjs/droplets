@@ -167,8 +167,8 @@ its server the page's URL; see [Who sees what](/guides/security/#who-sees-what).
 ## `setHeaders`
 
 `setHeaders` in a server load sets headers on the droplet's answers: the
-fragment and `_data`. Fragments are sent `cache-control: private, no-store`
-unless the load says otherwise, so a droplet that is the same for everyone
+fragment and `_data`. Fragments are sent `cache-control: private, no-store, no-transform`
+unless the load says otherwise (`no-transform` stays on whatever it sets), so a droplet that is the same for everyone
 opens itself to caches here:
 
 ```ts

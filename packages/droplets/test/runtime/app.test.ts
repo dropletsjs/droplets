@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { gunzipSync } from "node:zlib";
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { logger } from "../../src/core/logger.ts";
 import { createDropletsApp, type DropletsApp, type DropletsAppOptions } from "../../src/runtime/app.ts";
@@ -488,7 +489,7 @@ describe("createDropletsApp: fragment", () => {
       expect(res.headers.get("link") ?? "", String(trustedOrigins)).not.toContain("evil.example");
       // Cacheable: it varies on what its URLs come from.
       expect(res.headers.get("vary")).toBe(
-        "x-droplet-location, forwarded, x-forwarded-host, x-forwarded-proto, x-forwarded-port, x-forwarded-prefix, origin",
+        "x-droplet-location, forwarded, x-forwarded-host, x-forwarded-proto, x-forwarded-port, x-forwarded-prefix, origin, accept-encoding",
       );
     }
   });
@@ -1377,7 +1378,7 @@ describe("createDropletsApp: Cache-Control of fragments and _data", () => {
   it("keeps them out of shared caches by default", async () => {
     const { app } = fakeApp();
     for (const path of ["/droplets/hello", "/droplets/hello/_data"]) {
-      expect((await app.request(path)).headers.get("cache-control"), path).toBe("private, no-store");
+      expect((await app.request(path)).headers.get("cache-control"), path).toBe("private, no-store, no-transform");
     }
     // Not the assets: those have their own.
     expect((await app.request("/droplets/hello/client.js?c=abc123")).headers.get("cache-control")).toContain("immutable");
@@ -1392,7 +1393,7 @@ describe("createDropletsApp: Cache-Control of fragments and _data", () => {
       },
     });
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    expect((await app.request("/droplets/hello")).headers.get("cache-control")).toBe("public, max-age=60");
+    expect((await app.request("/droplets/hello")).headers.get("cache-control")).toBe("public, max-age=60, no-transform");
     const answers = [
       await app.request("/droplets/missing"),
       await app.request("/droplets/missing/_data"),
@@ -1402,7 +1403,7 @@ describe("createDropletsApp: Cache-Control of fragments and _data", () => {
     ];
     for (const res of answers) {
       expect(res.status, res.url).not.toBe(200);
-      expect(res.headers.get("cache-control"), res.url).toBeNull();
+      expect(res.headers.get("cache-control"), res.url).toBe("no-transform");
       expect(res.headers.get("vary"), res.url).toContain("x-droplet-location");
     }
     error.mockRestore();
@@ -1410,9 +1411,9 @@ describe("createDropletsApp: Cache-Control of fragments and _data", () => {
 
   it("takes another value, or none, from fragmentCacheControl", async () => {
     const shared = fakeApp({ fragmentCacheControl: "public, max-age=60" }).app;
-    expect((await shared.request("/droplets/hello")).headers.get("cache-control")).toBe("public, max-age=60");
+    expect((await shared.request("/droplets/hello")).headers.get("cache-control")).toBe("public, max-age=60, no-transform");
     const none = fakeApp({ fragmentCacheControl: false }).app;
-    expect((await none.request("/droplets/hello")).headers.get("cache-control")).toBeNull();
+    expect((await none.request("/droplets/hello")).headers.get("cache-control")).toBe("no-transform");
   });
 
   it("leaves a Cache-Control that handle set", async () => {
@@ -1422,12 +1423,126 @@ describe("createDropletsApp: Cache-Control of fragments and _data", () => {
       return response;
     };
     const { app } = fakeApp({ getHandle: () => handle });
-    expect((await app.request("/droplets/hello")).headers.get("cache-control")).toBe("public, max-age=5");
+    expect((await app.request("/droplets/hello")).headers.get("cache-control")).toBe("public, max-age=5, no-transform");
+  });
+});
+
+describe("createDropletsApp: no-transform and gzip on fragments and _data", () => {
+  const BIG = `<p>${"droplet ".repeat(400)}</p>`;
+  const bigApp = (overrides: Partial<DropletsAppOptions> = {}) =>
+    fakeApp({
+      renderDroplet: async () => ({ html: BIG, serverData: null }),
+      loadDropletData: async () => ({ data: { text: BIG } }),
+      ...overrides,
+    }).app;
+  const gzip = { "accept-encoding": "gzip, deflate, br" };
+
+  it("adds no-transform to the default, the config's, a load's and an error answer's Cache-Control, once", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const cases: Array<[DropletsApp, string, string]> = [
+      [fakeApp().app, "/droplets/hello", "private, no-store, no-transform"],
+      [fakeApp({ fragmentCacheControl: "public, max-age=60" }).app, "/droplets/hello/_data", "public, max-age=60, no-transform"],
+      [fakeApp({ fragmentCacheControl: "public, No-Transform" }).app, "/droplets/hello", "public, No-Transform"],
+      [
+        fakeApp({
+          loadDropletData: async (_name, event) => {
+            event.setHeaders({ "cache-control": "public, max-age=30" });
+            return { data: null };
+          },
+        }).app,
+        "/droplets/hello/_data",
+        "public, max-age=30, no-transform",
+      ],
+      [
+        fakeApp({
+          renderDroplet: async () => {
+            throw new Error("boom");
+          },
+        }).app,
+        "/droplets/hello",
+        "no-transform",
+      ],
+      [
+        fakeApp({ renderDroplet: async () => ({ failed: true as const, error: { message: "Sorry" } }) }).app,
+        "/droplets/hello",
+        "no-transform",
+      ],
+    ];
+    for (const [app, path, expected] of cases) {
+      expect((await app.request(path)).headers.get("cache-control"), `${path} ${expected}`).toBe(expected);
+    }
+    error.mockRestore();
+  });
+
+  it("leaves files, +server routes, redirects and an action's JSON alone", async () => {
+    const { app } = fakeApp({
+      matchApi: apiOf({
+        routes: [[[{ type: "static", value: "api" }], { GET: () => new Response(BIG, { headers: { "cache-control": "max-age=5" } }) }]],
+      }),
+      loadDropletData: async () => redirect(307, "/elsewhere"),
+    });
+    expect((await app.request("/index.js")).headers.get("cache-control")).toBe("no-store");
+    expect((await app.request("/droplets/hello/client.js?c=abc123")).headers.get("cache-control")).not.toContain("no-transform");
+    const api = await app.request("/api", { headers: gzip });
+    expect(api.headers.get("cache-control")).toBe("max-age=5");
+    expect(api.headers.get("content-encoding")).toBeNull();
+    const moved = await app.request("/droplets/hello/_data", { headers: gzip });
+    expect(moved.status).toBe(307);
+    expect(moved.headers.get("cache-control")).toBeNull();
+    expect(moved.headers.get("vary")).not.toContain("accept-encoding");
+  });
+
+  it("gzips a fragment and _data for a client that takes gzip, to the identical answer", async () => {
+    const app = bigApp();
+    for (const path of ["/droplets/hello", "/droplets/hello/_data"]) {
+      const plain = await app.request(path);
+      const zipped = await app.request(path, { headers: gzip });
+      expect(zipped.headers.get("content-encoding"), path).toBe("gzip");
+      expect(zipped.headers.get("content-length"), path).toBeNull();
+      expect(zipped.headers.get("vary"), path).toContain("accept-encoding");
+      expect(gunzipSync(Buffer.from(await zipped.arrayBuffer())).toString(), path).toBe(await plain.text());
+    }
+  });
+
+  it("sends it plain without Accept-Encoding, with gzip;q=0, under 1024 bytes, encoded already, and for HEAD", async () => {
+    const encoded: Handle = async ({ event, resolve }) => {
+      const response = await resolve(event);
+      response.headers.set("content-encoding", "identity");
+      return response;
+    };
+    const answers = [
+      await bigApp().request("/droplets/hello"),
+      await bigApp().request("/droplets/hello", { headers: { "accept-encoding": "gzip;q=0, br" } }),
+      await fakeApp().app.request("/droplets/hello", { headers: gzip }),
+      await bigApp({ getHandle: () => encoded }).request("/droplets/hello", { headers: gzip }),
+      await bigApp().request("/droplets/hello", { method: "HEAD", headers: gzip }),
+    ];
+    for (const [i, res] of answers.entries()) {
+      expect(res.status, String(i)).toBe(200);
+      expect(res.headers.get("content-encoding") ?? "none", String(i)).not.toBe("gzip");
+      // What the answer would be for another Accept-Encoding: every one varies on it.
+      expect(res.headers.get("vary"), String(i)).toContain("accept-encoding");
+    }
+    expect(await answers[0]?.text()).toContain(BIG);
+  });
+
+  it("merges accept-encoding into a Vary the answer has, once", async () => {
+    const varied: Handle = async ({ event, resolve }) => {
+      const response = await resolve(event);
+      response.headers.set("vary", "Accept-Encoding, Accept-Language");
+      return response;
+    };
+    const res = await bigApp({ getHandle: () => varied }).request("/droplets/hello", { headers: gzip });
+    expect(res.headers.get("vary")).toBe(
+      "Accept-Encoding, Accept-Language, x-droplet-location, forwarded, x-forwarded-host, x-forwarded-proto, x-forwarded-port, x-forwarded-prefix, origin",
+    );
+    expect(res.headers.get("content-encoding")).toBe("gzip");
   });
 });
 
 describe("createDropletsApp: setHeaders in a droplet's load", () => {
-  const HOST_VARY = "x-droplet-location, forwarded, x-forwarded-host, x-forwarded-proto, x-forwarded-port, x-forwarded-prefix, origin";
+  const HOST_VARY =
+    "x-droplet-location, forwarded, x-forwarded-host, x-forwarded-proto, x-forwarded-port, x-forwarded-prefix, origin, accept-encoding";
   const publicLoad = (event: LoadEvent) => {
     event.setHeaders({ "Cache-Control": "public, max-age=60", vary: "Accept-Language" });
     return { name: "hello", props: event.props };
@@ -1441,7 +1556,7 @@ describe("createDropletsApp: setHeaders in a droplet's load", () => {
     for (const path of ["/droplets/hello", "/droplets/hello/_data?who=Ana"]) {
       const res = await app.request(path);
       expect(res.status, path).toBe(200);
-      expect(res.headers.get("cache-control"), path).toBe("public, max-age=60");
+      expect(res.headers.get("cache-control"), path).toBe("public, max-age=60, no-transform");
       // The load's vary first, then the host headers, each once.
       expect(res.headers.get("vary"), path).toBe(`Accept-Language, ${HOST_VARY}`);
     }
@@ -1451,7 +1566,7 @@ describe("createDropletsApp: setHeaders in a droplet's load", () => {
     const { app } = fakeApp();
     for (const path of ["/droplets/hello", "/droplets/hello/_data"]) {
       const res = await app.request(path);
-      expect(res.headers.get("cache-control"), path).toBe("private, no-store");
+      expect(res.headers.get("cache-control"), path).toBe("private, no-store, no-transform");
       expect(res.headers.get("vary"), path).toBe(HOST_VARY);
     }
   });
@@ -1465,7 +1580,7 @@ describe("createDropletsApp: setHeaders in a droplet's load", () => {
     });
     const res = await app.request("/droplets/hello/_data");
     expect(res.headers.get("vary")).toBe(
-      "Origin, cookie, x-droplet-location, forwarded, x-forwarded-host, x-forwarded-proto, x-forwarded-port, x-forwarded-prefix",
+      "Origin, cookie, x-droplet-location, forwarded, x-forwarded-host, x-forwarded-proto, x-forwarded-port, x-forwarded-prefix, accept-encoding",
     );
   });
 
@@ -1480,11 +1595,11 @@ describe("createDropletsApp: setHeaders in a droplet's load", () => {
         return { failed: true as const, error: { message: "Sorry" } };
       },
     }).app;
-    // Nor the default: an error answer is sent without a Cache-Control.
+    // Nor the default: an error answer keeps only no-transform.
     for (const path of ["/droplets/hello", "/droplets/hello/_data"]) {
       const res = await failing.request(path);
       expect(res.status, path).toBe(500);
-      expect(res.headers.get("cache-control"), path).toBeNull();
+      expect(res.headers.get("cache-control"), path).toBe("no-transform");
     }
     const refused = fakeApp({
       loadDropletData: async (_name, event) => {
@@ -1494,7 +1609,7 @@ describe("createDropletsApp: setHeaders in a droplet's load", () => {
     }).app;
     const res = await refused.request("/droplets/hello/_data");
     expect(res.status).toBe(403);
-    expect(res.headers.get("cache-control")).toBeNull();
+    expect(res.headers.get("cache-control")).toBe("no-transform");
   });
 
   it("leaves the last word to handle", async () => {
@@ -1504,7 +1619,7 @@ describe("createDropletsApp: setHeaders in a droplet's load", () => {
       return response;
     };
     const { app } = fakeApp({ getHandle: () => handle, loadDropletData: async (_n, event) => ({ data: publicLoad(event) }) });
-    expect((await app.request("/droplets/hello/_data")).headers.get("cache-control")).toBe("no-cache");
+    expect((await app.request("/droplets/hello/_data")).headers.get("cache-control")).toBe("no-cache, no-transform");
   });
 
   it("serves a prerendered render with the headers its load set, never a set-cookie", async () => {
@@ -1518,7 +1633,7 @@ describe("createDropletsApp: setHeaders in a droplet's load", () => {
     });
     for (const path of ["/droplets/docs", "/droplets/docs/_data"]) {
       const res = await app.request(path);
-      expect(res.headers.get("cache-control"), path).toBe("public, max-age=600");
+      expect(res.headers.get("cache-control"), path).toBe("public, max-age=600, no-transform");
       expect(res.headers.get("set-cookie"), path).toBeNull();
       expect(res.headers.get("x-bad"), path).toBeNull();
       expect(res.headers.get("vary"), path).toBe(HOST_VARY);
@@ -2583,7 +2698,7 @@ describe("createDropletsApp: a fixed location", () => {
     const { app } = fakeApp({ location: LOCATION, fragmentCacheControl: "public, max-age=60" });
     for (const path of ["/droplets/hello", "/droplets/hello/_data"]) {
       const res = await app.request(`http://internal:8000${path}`, { headers: { "x-droplet-location": "https://evil.example" } });
-      expect(res.headers.get("vary"), path).toBe("origin");
+      expect(res.headers.get("vary"), path).toBe("origin, accept-encoding");
       expect(await res.text(), path).not.toContain("evil.example");
     }
   });

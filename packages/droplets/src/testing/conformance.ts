@@ -427,7 +427,7 @@ export function rendererConformance({
         // What its load set with setHeaders, kept with the render.
         expect(stored2.headers).toEqual({ "cache-control": "public, max-age=60" });
         const answer = await post({ path: "/droplets/docs", body: { host: "https://host.test/docs", props: { page: "2" } } });
-        expect(answer.headers.get("cache-control")).toBe("public, max-age=60");
+        expect(answer.headers.get("cache-control")).toBe("public, max-age=60, no-transform");
         expect(answer.headers.get("vary")).toContain("x-droplet-location");
         const html = await answer.text();
         expect(bare({ html })).toContain("<h1>Page 2</h1>");
@@ -443,7 +443,7 @@ export function rendererConformance({
         liveRequest.headers.set("origin", "https://shop.test");
         const liveAnswer = await app.fetch(liveRequest);
         // A load that sets nothing: kept out of shared caches.
-        expect(liveAnswer.headers.get("cache-control")).toBe("private, no-store");
+        expect(liveAnswer.headers.get("cache-control")).toBe("private, no-store, no-transform");
         const live = await liveAnswer.text();
         expect(bare({ html: live })).toContain("<h1>Page 3</h1>");
         expect(bare({ html: live })).toContain("<p>shop.test</p>");
@@ -499,7 +499,7 @@ export function rendererConformance({
         // no secret to sign the result with: the fragment again, with `form`.
         const signed = await submit({ path: "/droplets/guestbook", fields: { name: "Ana" }, headers: { accept: "text/html,*/*;q=0.8" } });
         expect(signed.status).toBe(200);
-        expect(signed.headers.get("cache-control")).toBe("private, no-store");
+        expect(signed.headers.get("cache-control")).toBe("private, no-store, no-transform");
         const html = await signed.text();
         expect(bare({ html })).toMatch(/data-testid="form"[^>]*>Thanks, Ana</);
         // The load ran again; the result goes with its data, for hydration.
@@ -537,7 +537,7 @@ export function rendererConformance({
           // The page again: the droplet renders live (it is prerendered) with `form`.
           const page = await renderOn({ host: back });
           expect(page.status).toBe(200);
-          expect(page.headers.get("cache-control")).toBe("private, no-store");
+          expect(page.headers.get("cache-control")).toBe("private, no-store, no-transform");
           const html = await page.text();
           expect(bare({ html })).toMatch(/data-testid="form"[^>]*>Thanks, Ana</);
           if (!byAttribute) {

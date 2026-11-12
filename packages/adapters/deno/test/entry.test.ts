@@ -1,7 +1,8 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
-import { listensOn, onFreePort, waitForServer } from "@dropletsjs/shared/vitest";
+import { gunzipSync } from "node:zlib";
+import { listensOn, onFreePort, rawGet, waitForServer } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildFixture, FIXTURE_ROOT } from "./build-fixture.ts";
 
@@ -72,6 +73,19 @@ describe.skipIf(!hasDeno)("deno entry", () => {
     expect(crash.status).toBe(500);
     expect(await crash.text()).toContain("data-droplet-error");
     expect((await fetch(`${origin}/nope`)).status).toBe(404);
+  });
+
+  it("sends a fragment over 1 KiB gzipped once, and plain to a client without gzip", async () => {
+    const url = `${origin}/droplets/hello?who=${"x".repeat(1500)}`;
+    const plain = await rawGet({ url });
+    expect(plain.headers["content-encoding"]).toBeUndefined();
+    const zipped = await rawGet({ url, headers: { "accept-encoding": "gzip" } });
+    expect(zipped.headers["content-encoding"]).toBe("gzip");
+    expect(zipped.headers["cache-control"]).toBe("private, no-store, no-transform");
+    expect(zipped.headers["vary"]).toContain("accept-encoding");
+    // Each render has an id of its own.
+    const unrendered = (html: string) => html.replace(/ data-droplet-render="[^"]+"/, "");
+    expect(unrendered(gunzipSync(zipped.body).toString())).toBe(unrendered(plain.body.toString()));
   });
 
   it("does not listen when imported", async () => {

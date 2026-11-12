@@ -294,12 +294,17 @@ server {
     proxy_set_header X-Forwarded-Host "";
     proxy_set_header X-Forwarded-Proto "";
     proxy_set_header X-Forwarded-Prefix "";
+    # SSI pastes an include's body as it comes: ask for it uncompressed.
+    proxy_set_header Accept-Encoding "";
   }
 }
 ```
 
 The includes here go to `/droplets/<id>` directly, through the same
-proxy location, so they get the same `x-droplet-location`. nginx tells the
+proxy location, so they get the same `x-droplet-location`, and the cleared
+`Accept-Encoding`: a subrequest carries the browser's, the droplets server
+gzips a fragment for a client that takes gzip, and SSI would paste the
+compressed bytes into the page. nginx tells the
 droplets server where it is: `DROPLETS_PUBLIC_URL` (`http://localhost:8080`)
 is written into the config when the container starts, so the header is
 never built from the request. The droplets server honors it because its

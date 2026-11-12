@@ -3,6 +3,7 @@ import type { Context, ExecutionContext, MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
 import { prefersJson } from "./accept.ts";
 import { decodeBase64Json, encodeBase64 } from "./base64.ts";
+import { gzipAnswer, withNoTransform } from "./compress.ts";
 import { createCookies, prerenderCookies, readonlyCookies } from "./cookies.ts";
 import { readRuntimeEnv } from "./env-store.ts";
 import { CONTEXT_HEADERS, createEventFetch } from "./event-fetch.ts";
@@ -196,7 +197,7 @@ export type DropletsAppOptions = {
    * `host` there.
    */
   host?: string | undefined;
-  /** See `DropletsConfig.fragmentCacheControl`. Default: `private, no-store`. */
+  /** See `DropletsConfig.fragmentCacheControl`. Default: `private, no-store, no-transform`. */
   fragmentCacheControl?: string | false | undefined;
   /** See `DropletsConfig.csrf`. Default: the `Origin` check is on. */
   csrf?: { checkOrigin: boolean } | undefined;
@@ -269,6 +270,8 @@ type AppEnv = {
     referer?: string | undefined;
     /** `event.fetch` of this request, made with the location. */
     fetch: typeof fetch;
+    /** A form action ran: its JSON answer is a script's to read, never a fragment. */
+    isAction?: boolean;
   };
 };
 
@@ -1035,21 +1038,31 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
   // decide its URLs and `host`: a cache keys answers by URL, and with these
   // in the key a spoofed header only ever reaches its own entry. Outermost,
   // so its `vary` is the last word: `cors()` appends `Origin` to it too.
-  // The default `cache-control` is for what rendered: an error keeps none.
+  // The default `cache-control` is for what rendered: an error keeps none of it.
   // Every answer names the build, 404 and 405 included: the element reads
   // it before the status, so a page learns it is stale from a droplet a
-  // redeploy removed.
+  // redeploy removed. Every answer but a redirect and an action's JSON is
+  // `no-transform` (see `compress.ts`), and gzipped here instead.
   const perRequest: MiddlewareHandler<AppEnv> = async (c, next) => {
     await next();
     const headers = new Headers(c.res.headers);
     const status = c.res.status;
     if (status >= 200 && status < 300 && !headers.has("cache-control") && cacheControl) headers.set("cache-control", cacheControl);
     if (options.buildHash) headers.set("x-droplets-build", options.buildHash);
-    const vary = withVary({ vary: headers.get("vary"), names: options.location === undefined ? VARY_HEADERS : HOST_VARY_HEADERS });
+    const isRedirectStatus = status >= 300 && status < 400;
+    const type = (headers.get("content-type") ?? "").split(";")[0]?.trim().toLowerCase() ?? "";
+    const isActionJson = c.get("isAction") === true && isJsonType({ type });
+    const isFragment = !isRedirectStatus && !isActionJson;
+    if (isFragment) headers.set("cache-control", withNoTransform({ cacheControl: headers.get("cache-control") }));
+    const names = options.location === undefined ? VARY_HEADERS : HOST_VARY_HEADERS;
+    const vary = withVary({ vary: headers.get("vary"), names: isFragment ? [...names, "accept-encoding"] : names });
     if (vary !== null) headers.set("vary", vary);
     const response = c.res;
     c.res = undefined;
-    c.res = new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+    c.res =
+      isFragment && !options.building
+        ? await gzipAnswer({ request: c.req.raw, response, headers })
+        : new Response(response.body, { status: response.status, statusText: response.statusText, headers });
   };
   app.use("/droplets/:droplet", perRequest);
   app.use("/droplets/:droplet/_data", perRequest);
@@ -1670,6 +1683,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
    * again with `form` instead.
    */
   async function runAction({ c }: RunActionInput): Promise<Response> {
+    c.set("isAction", true);
     const ctx = dropletContext({ c });
     const named = [...new URL(c.req.url).searchParams.keys()].filter((key) => key.startsWith("/"));
     if (named.length > 1) return c.text("One action per request: ?/name once", 400);

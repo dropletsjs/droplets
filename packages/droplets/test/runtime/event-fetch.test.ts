@@ -167,6 +167,22 @@ describe("event.fetch: a URL on this server", () => {
     expect(network).toHaveBeenCalledTimes(1);
   });
 
+  it("hands back a fragment decoded, as fetch does, whatever Accept-Encoding init asks for", async () => {
+    const big = `<p>${"inner ".repeat(400)}</p>`;
+    const { app } = fakeApp({
+      overrides: {
+        renderDroplet: async (name, event) => {
+          if (name === "inner") return { html: big, serverData: null };
+          const res = await event.fetch("/droplets/inner", { headers: { "accept-encoding": "gzip" } });
+          return { html: "<p>outer</p>", serverData: { status: res.status, body: await res.text() } };
+        },
+      },
+    });
+    const answer = await render({ app });
+    expect(answer.status).toBe(200);
+    expect(answer.body).toContain(big);
+  });
+
   it("answers 404 in-process for a path no route matches, never the network", async () => {
     const { app } = fakeApp();
     const answer = await render({ app, url: "/nothing/here" });

@@ -37,7 +37,7 @@ share one version. Try it, embed it, report what breaks.
 ## Try it
 
 ```bash
-npm create droplets my-widgets
+npm create droplets@latest my-widgets
 ```
 
 It asks for the folder, the custom element's name, the frameworks, the

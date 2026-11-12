@@ -98,7 +98,7 @@ Then the route.
 - `DROPLETS_TRUSTED_ORIGINS` adds to `trustedOrigins`, read per request. `app.ts:840`
 - `"*"` in `trustedOrigins` or `DROPLETS_TRUSTED_ORIGINS` is never refused; under `vite dev` it warns `"*" trusts any forwarded location`. `app.ts:846`, `security.ts:73`, `dev-log.ts:49`
 - A malformed `DROPLETS_TRUSTED_ORIGINS` entry is skipped; under `vite dev` it warns once per raw value. `security.ts:70`, `dev-log.ts:52`
-- `Vary` on fragments and `_data` lists `x-droplet-location`, `forwarded`, `x-forwarded-host`, `x-forwarded-proto`, `x-forwarded-port`, `x-forwarded-prefix` and `origin`; with `location`, `origin` alone; each name once, case ignored, after what `cors()` appended (`perRequest` is the outermost middleware of both routes). `app.ts:441`, `app.ts:452`, `app.ts:946`
+- `Vary` on fragments and `_data` lists `x-droplet-location`, `forwarded`, `x-forwarded-host`, `x-forwarded-proto`, `x-forwarded-port`, `x-forwarded-prefix` and `origin`; with `location`, `origin` alone; then `accept-encoding` (not on a redirect or a form action's JSON); each name once, case ignored, after what `cors()` appended (`perRequest` is the outermost middleware of both routes). `app.ts:441`, `app.ts:452`, `app.ts:946`
 - CORS exposes `Link` and `x-droplets-build`. `app.ts:286`
 - `x-droplets-build` carries the build hash on every fragment and `_data` answer, 404 and 405 included (`perRequest`), so the element learns of a stale build before it reads the status. `app.ts:971`
 - `x-droplets-prerender-error: host` or `cookies` marks a 500 when a prerendered droplet reads the host, props, URL or cookies. `app.ts:683`
@@ -175,7 +175,8 @@ Then the route.
 - `data-droplet-render` is written only when there is server HTML. `app.ts:1497`
 - A failed render answers 500 with the error component, else the action's status, else 200. `app.ts:1506`
 - A response carrying a form result gets `cache-control: private, no-store`. `app.ts:1489`
-- `fragmentCacheControl` defaults to `private, no-store` and is set only on a 2xx answer that has none; an error, a 404, a 405 and a redirect carry no default (`perRequest`). `../core/config.ts:208`, `app.ts:971`
+- `fragmentCacheControl` defaults to `private, no-store, no-transform` and is set only on a 2xx answer that has none; an error, a 404, a 405 and a redirect carry no default (`perRequest`). `../core/config.ts:210`, `app.ts:1050`
+- `perRequest` adds `no-transform` to the `Cache-Control` of every fragment and `_data` answer but a redirect and a form action's JSON (`isAction`), and gzips them through `gzipAnswer` (`compress.ts`), never at build. `app.ts:1056`, `app.ts:1064`, `app.ts:1686`, `compress.ts:100`
 - The 303 of a native post that carries the signed result back to the page is `private, no-store`. `app.ts:1698`
 - The `Link` header preloads `style.css` (only with styles), each CSS file and the entry, and modulepreloads `client.js` only when `hydrate === true`. `app.ts:1329`
 - `linkHeader: false` drops the `Link` header. `app.ts:1334`

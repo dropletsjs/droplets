@@ -83,7 +83,7 @@ describe("the droplets", () => {
   it("hello greets who, rendered on the server, and lets a cache keep it", async () => {
     const response = await call("/droplets/hello?who=Ana");
     expect(response.status).toBe(200);
-    expect(response.headers.get("cache-control")).toBe("public, max-age=300");
+    expect(response.headers.get("cache-control")).toBe("public, max-age=300, no-transform");
     const html = await response.text();
     expect(html.startsWith('<djs-demo data-droplet="hello"')).toBe(true);
     expect(html).toContain("Hello Ana!");
@@ -116,8 +116,8 @@ describe("the droplets", () => {
 
     const crashed = await call("/droplets/crash?fail=1");
     expect(crashed.status).toBe(500);
-    // The default Cache-Control is for what rendered: an error page carries none.
-    expect(crashed.headers.get("cache-control")).toBeNull();
+    // The default Cache-Control is for what rendered: an error page keeps only no-transform.
+    expect(crashed.headers.get("cache-control")).toBe("no-transform");
     const html = await crashed.text();
     expect(html).toMatch(/^<djs-demo data-droplet="crash"[^>]* data-droplet-error>/);
     expect(html).toContain("This is the droplet's +error page");
@@ -151,7 +151,7 @@ describe("the droplets", () => {
       it(`counter-${id} renders its start and ${framework}'s name on the server`, async () => {
         const response = await call(`/droplets/counter-${id}`);
         expect(response.status).toBe(200);
-        expect(response.headers.get("cache-control")).toBe("public, max-age=300");
+        expect(response.headers.get("cache-control")).toBe("public, max-age=300, no-transform");
         const html = await response.text();
         expect(html.startsWith(`<djs-demo data-droplet="counter-${id}"`)).toBe(true);
         // React and Solid put a comment between the text and the value.

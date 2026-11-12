@@ -89,7 +89,8 @@ export type ReadonlyCookies = Pick<Cookies, "get" | "getAll">;
 /**
  * `setHeaders` in a droplet's `load`, as in SvelteKit: headers for the
  * fragment and `_data` answers, such as `cache-control` (by default
- * `private, no-store`). Each header can be set once; `set-cookie` cannot be
+ * `private, no-store, no-transform`; `no-transform` is added to any other
+ * value). Each header can be set once; `set-cookie` cannot be
  * set here. Applied when the droplet renders or loads; an error answer
  * carries none. A prerendered render keeps the headers its load set.
  */

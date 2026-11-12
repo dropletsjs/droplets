@@ -8,7 +8,9 @@ name: Release
 #   2. `publish`: runs only when the repository is public, no changesets are
 #      pending AND npm answers E404 for at least one public package's version
 #      (right after the Version PR merged). It publishes through npm trusted
-#      publishing (OIDC): there is no NPM_TOKEN anywhere.
+#      publishing (OIDC): there is no NPM_TOKEN anywhere. It pushes the git
+#      tags and creates no GitHub Release: the maintainer writes one per
+#      version by hand.
 #
 # While the repository is private, the publish job is skipped: its `if`
 # requires `github.event.repository.private` to be false, so nothing can be
@@ -105,7 +107,7 @@ jobs:
     timeout-minutes: 20
     environment: npm-release
     permissions:
-      contents: write # git tags + GitHub releases
+      contents: write # git tags
       pull-requests: write # changesets/action comments on released PRs
       id-token: write # npm trusted publishing (OIDC)
     steps:
@@ -134,6 +136,7 @@ jobs:
         with:
           # `pnpm release` = build + `changeset publish`.
           publish-script: pnpm release
-          create-github-releases: true
+          # The maintainer writes one GitHub Release per version by hand.
+          create-github-releases: false
         env:
           NPM_CONFIG_PROVENANCE: "true"

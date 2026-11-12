@@ -52,7 +52,7 @@ type ChooseInput = { flags: Flags; interactive: boolean };
 
 /** The choices: the flags, then prompts for the rest, or errors without a terminal. */
 async function choose({ flags, interactive }: ChooseInput): Promise<Choices> {
-  if (flags.folder === undefined && !interactive) throw needs({ what: "name the folder: npm create droplets <folder>" });
+  if (flags.folder === undefined && !interactive) throw needs({ what: "name the folder: npm create droplets@latest <folder>" });
   const folder =
     flags.folder ??
     answer({

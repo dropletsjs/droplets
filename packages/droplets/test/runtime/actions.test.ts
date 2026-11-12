@@ -419,8 +419,8 @@ describe("form actions: what the action gets", () => {
       },
     });
     for (const [path, headers, status, cacheControl] of [
-      ["/droplets/guestbook", {}, 200, "private, no-store"],
-      ["/droplets/guestbook", { accept: "application/json" }, 200, "private, no-store"],
+      ["/droplets/guestbook", {}, 200, "private, no-store, no-transform"],
+      ["/droplets/guestbook", { accept: "application/json" }, 200, "private, no-store, no-transform"],
       // The default Cache-Control is for what rendered; a redirect carries none.
       ["/droplets/guestbook?/away", {}, 303, null],
     ] as const) {
@@ -430,6 +430,18 @@ describe("form actions: what the action gets", () => {
       expect(res.headers.get("x-signed"), path).toBe("yes");
       expect(res.headers.get("cache-control"), path).toBe(cacheControl);
     }
+  });
+
+  it("leaves an action's JSON as the server set it: no-transform is added to fragments only", async () => {
+    const { app } = actionsApp({ actions: { default: () => ({ ok: true }) }, overrides: { fragmentCacheControl: "private, max-age=0" } });
+    const big = `name=${"a".repeat(4000)}`;
+    const json = await app.request(
+      submit({ path: "/droplets/guestbook", body: big, headers: { accept: "application/json", "accept-encoding": "gzip" } }),
+    );
+    expect(json.headers.get("cache-control")).toBe("private, max-age=0");
+    expect(json.headers.get("content-encoding")).toBeNull();
+    const html = await app.request(submit({ path: "/droplets/guestbook", body: big }));
+    expect(html.headers.get("cache-control")).toBe("private, max-age=0, no-transform");
   });
 
   it("shares setHeaders with the load that follows: a header set twice throws", async () => {
@@ -577,7 +589,7 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
     const back = failed.headers.get("location") ?? expect.unreachable("a location header");
     const page = await renderOn({ app, host: back });
     expect(page.status).toBe(200);
-    expect(page.headers.get("cache-control")).toBe("private, no-store");
+    expect(page.headers.get("cache-control")).toBe("private, no-store, no-transform");
     const html = await page.text();
     expect(html).toContain('<p>guestbook:{}:{"message":"A name, please"}</p>');
     expect(envelope(html)).toEqual({ data: { count: 1 }, form: { message: "A name, please" } });
@@ -790,7 +802,7 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
 
     // `_data`, as the browser asks for a client-only droplet: the result with the data.
     const data = await renderOn({ app, host: back, path: "/droplets/guestbook/_data" });
-    expect(data.headers.get("cache-control")).toBe("private, no-store");
+    expect(data.headers.get("cache-control")).toBe("private, no-store, no-transform");
     expect(await data.json()).toEqual({ data: { count: 2 }, form: { message: "Thanks, Ana" } });
     // The post (host from Origin), the page, `_data`: never the result in host.
     expect(seen).toEqual([`handle ${ORIGIN}/`, `handle ${PAGE}`, `handle ${PAGE}`, `load ${PAGE}`]);

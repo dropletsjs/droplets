@@ -175,7 +175,7 @@ dropped without a warning. A value that fails its check throws a
 | `cors` | `boolean \| DropletsCorsOptions` | not set: no CORS headers | Cross-origin access to every route. `true` is `{ origin: "*" }` (warned about under `vite dev`); an object is Hono's `cors()` options. `Link` and `x-droplets-build` are always exposed. |
 | `csrf.checkOrigin` | `boolean` | `true` | Answer `403` to a form-urlencoded, multipart or `text/plain` `POST`, `PUT`, `PATCH` or `DELETE` to `/droplets/*`, `/api/*` or the import map whose `Origin` is not this server, `host` or in `trustedOrigins`. One without `Origin` is refused too. |
 | `limits` | `{ json?, form?, multipart?, props? }` | `1 MB`, `1 MB`, `10 MB`, `8 KB` | Largest bodies in bytes: JSON, form-urlencoded and `text/plain`, multipart and any other type (`413`), and the `x-droplet-props` header (`431`). Positive numbers; `Infinity` lifts one. |
-| `fragmentCacheControl` | `string \| false` | `"private, no-store"` | The `Cache-Control` of fragments and `_data` when neither the load (`setHeaders`) nor `handle` set one. `false` sends none. A non-empty value without line breaks. |
+| `fragmentCacheControl` | `string \| false` | `"private, no-store, no-transform"` | The `Cache-Control` of fragments and `_data` when neither the load (`setHeaders`) nor `handle` set one. `false` sends none of it. A non-empty value without line breaks. `no-transform` is added to every fragment and `_data` answer that lacks it. |
 | `publicCacheControl` | `string \| false` | `"no-cache"` | The `Cache-Control` of `/assets/public/*`, on every adapter, with an `ETag` and `304`. `false` sends none. Same check as `fragmentCacheControl`. |
 | `health` | `string \| false` | `"/health"` | The path answering `ok`, before `handle`. `false` turns it off. |
 | `index` | `string \| false` | `index.html` in the root, else a placeholder page | What `/` serves in a build and `vite preview`: an HTML file relative to the root, served as written. `false` answers `404`; a path that does not exist fails the build. Under `vite dev`, `/` is the devtools page when they are installed. |
@@ -281,12 +281,13 @@ headers when `cors` is set.
 | Response header | What it carries |
 | --- | --- |
 | `Link` | `preload` for `style.css` and each stylesheet, `modulepreload` for the entry and, for `hydrate = true`, `client.js`. On the droplet location. |
-| `Vary` | `x-droplet-location`, `forwarded`, `x-forwarded-host`, `x-forwarded-proto`, `x-forwarded-port`, `x-forwarded-prefix`, `origin`; with `location` set, `origin` only. |
+| `Vary` | `x-droplet-location`, `forwarded`, `x-forwarded-host`, `x-forwarded-proto`, `x-forwarded-port`, `x-forwarded-prefix`, `origin`; with `location` set, `origin` only; then `accept-encoding`. |
+| `Content-Encoding` | `gzip` when the request's `Accept-Encoding` takes gzip and the body is 1024 bytes or more. |
 | `x-droplets-build` | The build hash, on every fragment and `_data` answer, `404` and `405` included. |
 
 A fragment answers `200`, the action's status after an action, or `500`
 with the error page when a load failed. A no-JavaScript result carried back
-makes the answer `private, no-store`.
+makes the answer `private, no-store, no-transform`.
 
 ### Form actions
 
@@ -797,7 +798,7 @@ droplets can share the project.
 ## `create-droplets`
 
 ```bash
-npm create droplets my-widgets -- --frameworks svelte,react --adapters node,cloudflare --yes
+npm create droplets@latest my-widgets -- --frameworks svelte,react --adapters node,cloudflare --yes
 ```
 
 In a terminal it asks for what the flags leave out. Without a terminal, or

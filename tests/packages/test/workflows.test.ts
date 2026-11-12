@@ -145,6 +145,12 @@ describe("the workflows", () => {
     expect(found.filter((label) => !GITHUB_HOSTED.test(label))).toEqual([]);
   });
 
+  it("release.yml creates no GitHub Release: the maintainer writes each by hand", () => {
+    const publish = jobLines({ source: readFileSync(join(workflowsDir, "release.yml"), "utf8"), job: "publish" }).filter(isContent);
+    expect(publish.map(withoutComment)).toContain("create-github-releases: false");
+    expect(publish.join("\n")).not.toMatch(/create-github-releases: true/);
+  });
+
   it("release.yml skips the publish job while the repository is private", () => {
     const condition = jobCondition({ source: readFileSync(join(workflowsDir, "release.yml"), "utf8"), job: "publish" });
     expect(condition).toMatch(/^github\.event\.repository\.private == false && /);
@@ -167,6 +173,20 @@ describe("the workflows", () => {
     it("deploys only a commit every other job passed, the demo before the docs", () => {
       expect(jobNeeds({ source, job: "deploy-demo" }).sort()).toEqual([...others].sort());
       expect(jobNeeds({ source, job: "deploy-docs" }).sort()).toEqual([...others, "deploy-demo"].sort());
+    });
+
+    it("builds the docs only once the demo serves the build deploy-demo produced", () => {
+      const demo = jobLines({ source, job: "deploy-demo" }).filter(isContent).map(withoutComment);
+      expect(demo).toContain("build: ${{ steps.build.outputs.hash }}");
+      expect(demo).toContain("- id: build");
+      const docs = jobLines({ source, job: "deploy-docs" }).filter(isContent).map(withoutComment);
+      const wait = docs.indexOf("- name: Wait for the demo to serve the new build");
+      expect(wait).toBeGreaterThan(-1);
+      expect(docs).toContain("DEMO_BUILD: ${{ needs.deploy-demo.outputs.build }}");
+      expect(docs.findIndex((line) => line === "- run: pnpm docs:build")).toBeGreaterThan(wait);
+      // Bounded, and failing with a message of its own when the time runs out.
+      expect(docs).toContain("deadline=$((SECONDS + 120))");
+      expect(docs.some((line) => line.startsWith('echo "::error::https://demo.dropletsjs.dev did not serve build'))).toBe(true);
     });
 
     it.each(DEPLOY_JOBS)("%s runs in the cloudflare environment, its credentials on steps only", (job) => {

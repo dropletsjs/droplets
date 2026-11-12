@@ -1,6 +1,7 @@
 import type { ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile, rm } from "node:fs/promises";
+import { request, type IncomingHttpHeaders } from "node:http";
 import { createServer, type AddressInfo } from "node:net";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -136,4 +137,22 @@ export async function stopServer({ child, timeout = 5_000 }: StopServerInput): P
   const timer = setTimeout(() => child.kill("SIGKILL"), timeout);
   await exited;
   clearTimeout(timer);
+}
+
+export type RawGetInput = { url: string; headers?: Record<string, string> };
+
+export type RawAnswer = { status: number; headers: IncomingHttpHeaders; body: Buffer };
+
+/** A GET over `node:http`, its body as the server sent it: `fetch` would decode a `Content-Encoding`. */
+export function rawGet({ url, headers = {} }: RawGetInput): Promise<RawAnswer> {
+  return new Promise((done, fail) => {
+    request(url, { headers }, (res) => {
+      const chunks: Buffer[] = [];
+      res.on("data", (chunk: Buffer) => chunks.push(chunk));
+      res.on("end", () => done({ status: res.statusCode ?? 0, headers: res.headers, body: Buffer.concat(chunks) }));
+      res.on("error", fail);
+    })
+      .on("error", fail)
+      .end();
+  });
 }

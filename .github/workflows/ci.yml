@@ -143,6 +143,8 @@ jobs:
     concurrency:
       group: deploy-demo
       cancel-in-progress: false
+    outputs:
+      build: ${{ steps.build.outputs.hash }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -162,6 +164,10 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      # The hash of the build just deployed, random per build: every fragment
+      # answer of the demo names it in x-droplets-build.
+      - id: build
+        run: echo "hash=$(node -p 'require("./apps/demo/dist/client/droplets.json").__hash')" >> "$GITHUB_OUTPUT"
 
   deploy-docs:
     name: Deploy the docs (Cloudflare)
@@ -187,6 +193,24 @@ jobs:
           package-manager-cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:dist
+      # A new Worker version takes a moment to answer everywhere, and the
+      # pages are built from the demo's answers: wait until it names the build
+      # deploy-demo produced (a 404 for a droplet no one has carries it too).
+      - name: Wait for the demo to serve the new build
+        env:
+          DEMO_BUILD: ${{ needs.deploy-demo.outputs.build }}
+        run: |
+          test -n "$DEMO_BUILD" || { echo "::error::deploy-demo handed over no build hash"; exit 1; }
+          deadline=$((SECONDS + 120))
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            served=$(curl -sS -o /dev/null -D - --max-time 10 "https://demo.dropletsjs.dev/droplets/build-check?t=$SECONDS" \
+              | tr -d '\r' | awk -F': ' 'tolower($1) == "x-droplets-build" { print $2 }') || served=""
+            if [ "$served" = "$DEMO_BUILD" ]; then echo "The demo serves build $DEMO_BUILD."; exit 0; fi
+            echo "The demo serves ${served:-no build yet}; waiting for $DEMO_BUILD."
+            sleep 3
+          done
+          echo "::error::https://demo.dropletsjs.dev did not serve build $DEMO_BUILD within 2 minutes"
+          exit 1
       # With DEMO_URL set, nothing of the demo is built or started: the pages
       # fetch their fragments from the deployed demo.
       - run: pnpm docs:build

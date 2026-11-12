@@ -29,7 +29,7 @@ export default defineConfig({
 |---|---|
 | `@dropletsjs/shared/tsdown` | `base`, `bareImport`, `cssInline()`, `graphCheck()`, `isServerPath()`, `GraphCheckOptions` |
 | `@dropletsjs/shared/tsconfig.base.json` (also `./tsconfig`) | the compiler options every workspace project extends |
-| `@dropletsjs/shared/vitest` | `rendererTests`, `adapterTests`, `happyDom`, `FIXTURE_ROOT`, `buildFixtureApp()`, `freePort()`, `onFreePort()`, `listensOn()`, `fromBuild()`, `waitForServer()`, `stopServer()` |
+| `@dropletsjs/shared/vitest` | `rendererTests`, `adapterTests`, `happyDom`, `FIXTURE_ROOT`, `buildFixtureApp()`, `freePort()`, `onFreePort()`, `listensOn()`, `fromBuild()`, `waitForServer()`, `stopServer()`, `rawGet()` |
 | `@dropletsjs/shared/env` | `loadEnvLocal()` |
 | `@dropletsjs/shared/catalog` | `catalogRanges()`, `workspaceCatalog()`: the pnpm catalog's tool ranges |
 
@@ -92,17 +92,18 @@ build, so run `pnpm build` after it.
 - `graphCheck` lets a bare specifier through when it names a file under `src/` (a copied `.svelte`). `tsdown.ts:118`
 - `graphCheck` fails when a client entry reaches a `node:` built-in, through static or dynamic imports. `tsdown.ts:134`
 - `graphCheck` fails when a client entry reaches a chunk holding server code, and prints the import chain. `tsdown.ts:136`
-- `happyDom` is the happy-dom environment with `handleDisabledFileLoadingAsSuccess`, so a `<link rel="stylesheet">` the element appends does not throw. `vitest.ts:10`
-- `rendererTests` runs `test/**/*.test.ts` in happy-dom with a 60 s test timeout. `vitest.ts:16`
-- `adapterTests` runs `test/**/*.test.ts` in the Node environment with a 60 s test and hook timeout (the fixture build runs in a `beforeAll`). `vitest.ts:21`, `vitest.ts:23`
-- `FIXTURE_ROOT` is `packages/droplets/test/fixtures/app/`, the fake-renderer fixture app every adapter's tests build. `vitest.ts:26`
-- `buildFixtureApp({ outDir, plugins })` empties `outDir`, then builds the fixture app with Vite's `createBuilder` and `plugins`, silently; it throws when `packages/droplets/dist/vite.js` is missing. `vitest.ts:31`
-- `freePort()` resolves a port the OS has free on every interface (a probe listens on port 0, then closes): never a fixed port another run may hold. `vitest.ts:42`
-- `onFreePort({ start })` calls `start(port)` with a `freePort()` and resolves what it resolves; when `start` throws because the port was taken between the probe and the bind (`EADDRINUSE`, `AddrInUse`, `already in use`, Bun's `is port <n> in use`, in the error's code or message), it tries a new port, five times in all; any other error is thrown at once. Every suite that starts a server on a port of its own starts it through `onFreePort`. `vitest.ts:64`, `vitest.ts:75`
-- `listensOn({ output, port })` is whether a server's output names `:<port>` (not followed by a digit), ANSI colours stripped: Vite's `Local:` line, Bun's `Started server:`, `deno serve`'s `Listening on`, wrangler's `Ready on`. `vitest.ts:87`
-- `fromBuild({ outDir })` reads `__hash` from `<outDir>/client/droplets.json` and returns an `isOurs` that holds when a response's `x-droplets-build` is that hash: the word of a built server that prints nothing (every fragment carries the header, `/health` does not). `vitest.ts:99`
-- `waitForServer({ url, child, name, isOurs, output })` polls `url` every 100 ms, up to 100 times, until it answers ok and `isOurs(response)` holds (when given); it throws as soon as `child` exits, naming `name` and the exit code, followed by `output()` when given (so `onFreePort` sees a server's own words for a taken port). `vitest.ts:115`
-- `stopServer({ child, timeout })` sends `child` SIGTERM and resolves once it has exited, sending SIGKILL after `timeout` ms (default 5000); it resolves at once for a missing or exited child. `vitest.ts:132`
+- `happyDom` is the happy-dom environment with `handleDisabledFileLoadingAsSuccess`, so a `<link rel="stylesheet">` the element appends does not throw. `vitest.ts:11`
+- `rendererTests` runs `test/**/*.test.ts` in happy-dom with a 60 s test timeout. `vitest.ts:17`
+- `adapterTests` runs `test/**/*.test.ts` in the Node environment with a 60 s test and hook timeout (the fixture build runs in a `beforeAll`). `vitest.ts:22`, `vitest.ts:24`
+- `FIXTURE_ROOT` is `packages/droplets/test/fixtures/app/`, the fake-renderer fixture app every adapter's tests build. `vitest.ts:27`
+- `buildFixtureApp({ outDir, plugins })` empties `outDir`, then builds the fixture app with Vite's `createBuilder` and `plugins`, silently; it throws when `packages/droplets/dist/vite.js` is missing. `vitest.ts:32`
+- `freePort()` resolves a port the OS has free on every interface (a probe listens on port 0, then closes): never a fixed port another run may hold. `vitest.ts:43`
+- `onFreePort({ start })` calls `start(port)` with a `freePort()` and resolves what it resolves; when `start` throws because the port was taken between the probe and the bind (`EADDRINUSE`, `AddrInUse`, `already in use`, Bun's `is port <n> in use`, in the error's code or message), it tries a new port, five times in all; any other error is thrown at once. Every suite that starts a server on a port of its own starts it through `onFreePort`. `vitest.ts:65`, `vitest.ts:76`
+- `listensOn({ output, port })` is whether a server's output names `:<port>` (not followed by a digit), ANSI colours stripped: Vite's `Local:` line, Bun's `Started server:`, `deno serve`'s `Listening on`, wrangler's `Ready on`. `vitest.ts:88`
+- `fromBuild({ outDir })` reads `__hash` from `<outDir>/client/droplets.json` and returns an `isOurs` that holds when a response's `x-droplets-build` is that hash: the word of a built server that prints nothing (every fragment carries the header, `/health` does not). `vitest.ts:100`
+- `waitForServer({ url, child, name, isOurs, output })` polls `url` every 100 ms, up to 100 times, until it answers ok and `isOurs(response)` holds (when given); it throws as soon as `child` exits, naming `name` and the exit code, followed by `output()` when given (so `onFreePort` sees a server's own words for a taken port). `vitest.ts:116`
+- `stopServer({ child, timeout })` sends `child` SIGTERM and resolves once it has exited, sending SIGKILL after `timeout` ms (default 5000); it resolves at once for a missing or exited child. `vitest.ts:133`
+- `rawGet({ url, headers })` is a GET over `node:http` that resolves `{ status, headers, body }` with the body as the server sent it, a `Content-Encoding` left as it is (`fetch` would decode it). `vitest.ts:147`
 - `loadEnvLocal()` loads the repository root's `.env.local` with `process.loadEnvFile`, only when the file exists. `env.ts:4`
 - `loadEnvLocal()` finds `.env.local` two folders above `env.ts`, the repository root. `env.ts:5`
 - `tsconfig.base.json` targets ES2023 with `lib` ES2023, DOM and DOM.Iterable, `module` ESNext and `moduleResolution` bundler. `tsconfig.base.json:4`

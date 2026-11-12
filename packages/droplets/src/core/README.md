@@ -50,7 +50,7 @@ production server never carries it.
 | `location` | absent: computed per request | one `http(s)` location with an optional path prefix; never `"*"` |
 | `host` | absent: computed per request | one bare origin, no path; never `"*"` |
 | `trustedOrigins` | `[]` | an array; each `"*"` or a bare origin, no path |
-| `fragmentCacheControl` | `private, no-store` | non-empty, no CR/LF, trimmed; `false` sends none |
+| `fragmentCacheControl` | `private, no-store, no-transform` | non-empty, no CR/LF, trimmed; `false` sends none; the app adds `no-transform` to any value |
 | `publicCacheControl` | `no-cache` | as `fragmentCacheControl`; `/assets/public/*` only |
 | `csrf.checkOrigin`, `warnImportMap` | `true` | |
 | `limits` | json 1 MB, form 1 MB, multipart 10 MB, props 8 KB | each a positive number; `Infinity` lifts it |
@@ -118,7 +118,7 @@ builds and runs them.
 - `trustedOrigins` entries are bare origins (no path), resolved to `scheme://host[:port]`. `config.ts:293`, `config.ts:294`
 - `DROPLETS_TRUSTED_ORIGINS` is not read in core: the runtime parses it per request with `normalizeTrustedOrigins`, skipping bad entries (a warning under `vite dev`). `../runtime/security.ts:58`
 - `"*"` warning (`trusts any forwarded location`) is the runtime's dev log, not core's. `../runtime/dev-log.ts:49`
-- `fragmentCacheControl` defaults to `private, no-store`; `false` sends none. `config.ts:208`, `config.ts:355`
+- `fragmentCacheControl` defaults to `private, no-store, no-transform`; `false` sends none. `config.ts:210`, `config.ts:355`
 - `fragmentCacheControl` must be a non-empty string without CR or LF; it is trimmed. `config.ts:356`
 - `publicCacheControl` defaults to `no-cache`, `false` sends none, and is checked by the same `resolveCacheControl` as `fragmentCacheControl`, the error naming the option. `config.ts:209`, `config.ts:353`, `config.ts:427`
 - `csrf.checkOrigin` defaults to `true`. `config.ts:429`
