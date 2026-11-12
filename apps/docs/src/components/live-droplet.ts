@@ -72,7 +72,16 @@ export async function fetchFragment(id: string, props: Record<string, unknown>, 
   const isFragment = html.startsWith(`<${DEMO_ELEMENT} data-droplet="${id}"`) && html.endsWith(`</${DEMO_ELEMENT}>`);
   const failed = response.status === 500 && isFragment && /^<[^>]* data-droplet-error[\s>]/.test(html);
   if (!isFragment || (response.status !== 200 && !failed)) {
-    throw new Error(`live droplet "${id}": ${url} answered ${response.status}, not a fragment:\n${html.slice(0, 300)}`);
+    throw new Error(`live droplet "${id}": ${url} answered ${response.status}, not a fragment:\n${describe(response, html)}`);
   }
   return { html, failed };
+}
+
+const DIAGNOSTIC_HEADERS = ["content-type", "content-length", "content-encoding", "cache-control", "cf-ray", "server-timing"];
+
+/** What tells a cut-off body from one a proxy added to: its length, both ends, the headers that shape it. */
+function describe(response: Response, html: string): string {
+  const headers = DIAGNOSTIC_HEADERS.map((name) => `${name}: ${response.headers.get(name) ?? "(none)"}`).join("\n");
+  const ends = html.length <= 600 ? html : `${html.slice(0, 300)}\n[…]\n${html.slice(-300)}`;
+  return `${html.length} characters\n${headers}\n${ends}`;
 }

@@ -289,6 +289,7 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - Live droplet fetch: `POST <DEMO_URL>/droplets/<id>`, JSON `{ host, props }`, `accept: text/html`, no location header. `src/components/live-droplet.ts:61`, `src/components/live-droplet.ts:62`, `src/components/live-droplet.ts:63`
 - Live droplet fetch never follows redirects and times out after 15 s. `src/components/live-droplet.ts:65`, `src/components/live-droplet.ts:66`
 - Live droplet answer that is not a `<djs-demo data-droplet="<id>">` fragment with 200, or a 500 error fragment, fails the build. `src/components/live-droplet.ts:72`, `src/components/live-droplet.ts:74`
+- Live droplet build error names the body's length, its first and last 300 characters, and the answer's `content-type`, `content-length`, `content-encoding`, `cache-control`, `cf-ray` and `server-timing`. `src/components/live-droplet.ts:75`, `src/components/live-droplet.ts:80`, `src/components/live-droplet.ts:83`
 - `LiveDroplet` props: `id`, `props`, `caption`, `toggle`. `src/components/LiveDroplet.astro:15`
 - `LiveDroplet` host is the page's own URL. `src/components/LiveDroplet.astro:31`
 - `LiveDroplet` loads `<DEMO_PUBLIC_URL>/index.js` as a module script. `src/components/LiveDroplet.astro:37`
