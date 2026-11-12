@@ -266,6 +266,10 @@ for hosts and droplets. Please report vulnerabilities privately, through
 [GitHub's security advisories](https://github.com/dropletsjs/droplets/security/advisories/new),
 not in a public issue; [SECURITY.md](./SECURITY.md) has the details.
 
+## A note from the author
+
+Thanks to AI I managed to revive a POC project from February this year and move it into an actual useful project. Hope everybody enjoys it!
+
 ## License
 
 [MIT](./LICENSE)
