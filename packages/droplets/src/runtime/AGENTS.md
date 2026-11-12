@@ -32,6 +32,8 @@
   Checked by: `../../test/runtime/app.test.ts` ("createDropletsApp: the droplet location", `"*"`, "createDropletsApp: a fixed location").
 - With `host`, `event.host` stays on its origin: the reported page's path and query only when that page is on it, never `Origin`; `host` joins the form-post and redirect allow-lists, never location trust.
   Checked by: `../../test/runtime/app.test.ts` ("createDropletsApp: a fixed host"), `../../test/runtime/actions.test.ts` ("lets an action redirect to the fixed host").
+- Every `redirect()` the app answers goes through one check (`redirectTarget` over `redirectOrigins`, the 400 through `offSiteRedirect`): a load's, `transform`'s, `handle`'s and an action's target resolved against `event.host`, an endpoint's against `event.url`, answered absolute and only on the request's own origin, the location's, a trusted origin or `host`; `"*"` never counts.
+  Checked by: `../../test/runtime/app.test.ts` ("createDropletsApp: a redirect a droplet answers"), `../../test/runtime/actions.test.ts` ("checks a redirect's target the same way for a JSON answer and an HTML one").
 - `app.ts` never imports `host-tokens.ts` at runtime: the replacers reach it as the internal `tokens` option, and a build with `location` and `host` both set bundles none.
   Checked by: `../../../../tests/dev-mixed/test/production.test.ts` ("a production build with location and host fixed"), `../../test/runtime/app.test.ts` ("createDropletsApp: without token replacers").
 - `handle` never runs for `/index.js`, `/index.css`, `/env.js` and `/assets/*`.

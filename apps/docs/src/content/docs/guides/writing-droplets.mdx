@@ -151,6 +151,20 @@ simply renders. Both return a plain object, or nothing. A `Response` (from
 fragment responds with that status, no component renders. Anything else a
 load throws goes to the [error page](/guides/errors/).
 
+A `redirect()` from a load or `transform` is answered as an absolute
+`location`, resolved against [`host`](#host), the page the droplet renders
+on, and only when that target is on the droplets server's own origin, its
+location's, a [`trustedOrigins`](/guides/configuration/#options) entry or
+[`host`](/guides/configuration/#a-fixed-host) of the config, the same bound
+an [action's redirect](/guides/actions/) passes; any other target answers
+`400` instead, `Bad Request: the droplet redirects off this site`, with a
+line in the server log. A redirect is for a page: a native form post, or a
+host's own navigation after it fetched the fragment. The element never
+follows one: it fetches `_data` with `redirect: "manual"`, so a redirecting
+load answers it an opaque response, which it logs
+(`<id>: _data answered opaqueredirect`) and renders nothing for, as it does
+for any answer that is not data.
+
 ### `host`
 
 `host` in load events is where the droplet renders: the host page, as a

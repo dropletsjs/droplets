@@ -1,0 +1,5 @@
+---
+"@dropletsjs/droplets": patch
+---
+
+Every `redirect()` a droplets server answers passes the bound an action's does, thrown from a load, `transform`, `handle` or a `+server.ts` route alike, for an HTML answer as for a JSON one: the target is resolved to an absolute URL (against `host`, the page, for a droplet's code and `handle`; against `event.url` for an endpoint) and answered only when its origin is the server's own, its location's, a `trustedOrigins` / `DROPLETS_TRUSTED_ORIGINS` entry or `host` of the config. Any other target (`https://evil.example`, `//evil.example`, `javascript:`, a URL with credentials, a relative path on a `host` an untrusted `Origin` reported) answers `400` without a `location`, `Bad Request: the droplet redirects off this site` (`handle`, `the endpoint`), as text or `{ "message": … }` by the route, with one line in the server log. A relative `redirect()` from a load, `handle` or an endpoint is now answered absolute. A `handle` that throws under `_data` or `/api` answers JSON, as those routes do.

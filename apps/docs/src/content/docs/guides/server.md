@@ -17,7 +17,11 @@ per page before any droplet starts.
 
 Runs for every request except the health check and the files: fill
 `event.locals`, answer early without calling `resolve`, or change the
-response.
+response. A `redirect()` thrown here is resolved against `event.host` and
+answered only on the server's own origin, its location's, a
+`trustedOrigins` entry or `host` of the config, the bound every redirect a
+droplet answers passes ([Security](/guides/security/#redirects)); any
+other target answers `400`.
 
 `/index.js`, `/index.css`, `/env.js` and every path under `/assets/` (the bundles' chunks,
 stylesheets, imported files and `public/` at `/assets/public/`) are answered
@@ -202,7 +206,11 @@ matched most specific first. `+server.ts` and `+server.js` are the only
 names read.
 
 `$droplets/server` provides `json()`, `text()`, `error()`, `redirect()`,
-`sequence()` and the event types.
+`sequence()` and the event types. A `redirect()` from a handler is resolved
+against `event.url`, the request's URL on the location, and answered only
+on the server's own origin, its location's, a `trustedOrigins` entry or
+`host` of the config, else `400` `{ "message": "Bad Request: the endpoint redirects off this site" }`
+([Security](/guides/security/#redirects)).
 
 ## Environment variables
 

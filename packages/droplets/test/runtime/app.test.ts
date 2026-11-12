@@ -692,10 +692,11 @@ describe("createDropletsApp: fragment", () => {
     });
     const res = await app.request("/droplets/hello");
     expect(res.status).toBe(303);
-    expect(res.headers.get("location")).toBe("/login");
+    // Absolute, resolved against `host`: the page the droplet renders on.
+    expect(res.headers.get("location")).toBe("http://localhost/login");
     const data = await app.request("/droplets/hello/_data", { method: "POST" });
     expect(data.status).toBe(307);
-    expect(data.headers.get("location")).toBe("/elsewhere");
+    expect(data.headers.get("location")).toBe("http://localhost/elsewhere");
   });
 
   it("renders the configured element name", async () => {
@@ -874,7 +875,7 @@ describe("createDropletsApp: handle", () => {
     const moved = fakeApp({ getHandle: () => () => redirect(307, "/elsewhere") });
     const redirected = await moved.app.request("/droplets/hello");
     expect(redirected.status).toBe(307);
-    expect(redirected.headers.get("location")).toBe("/elsewhere");
+    expect(redirected.headers.get("location")).toBe("http://localhost/elsewhere");
   });
 
   it("500s when handle returns something that is not a Response", async () => {
@@ -1156,7 +1157,8 @@ describe("createDropletsApp: /api", () => {
 
     const moved = await app.request("/api/fail", { method: "POST" });
     expect(moved.status).toBe(303);
-    expect(moved.headers.get("location")).toBe("/done");
+    // Absolute, resolved against the request's URL on the location.
+    expect(moved.headers.get("location")).toBe("http://localhost/done");
 
     expect((await app.request("/api/fail", { method: "PUT" })).status).toBe(500);
     const crashed = await app.request("/api/fail", { method: "DELETE" });
@@ -2642,6 +2644,175 @@ describe("createDropletsApp: what a production server logs", () => {
     });
     expect((await app.request("/api/counter", { method: "POST" })).status).toBe(500);
     expect(error.mock.calls).toEqual([["endpoint failed: /api/counter", cause]]);
+  });
+});
+
+describe("createDropletsApp: a redirect a droplet answers", () => {
+  /** A Redirect a hand-made value or another copy of the framework could carry, past `redirect()`'s own validation. */
+  const raw = (location: string) => ({ [Symbol.for("droplets.redirect")]: true, status: 303, location });
+  /** What `?to=<name>` throws. */
+  const targets: Record<string, () => never> = {
+    relative: () => redirect(303, "/thanks"),
+    shop: () => redirect(302, "https://shop.test/thanks#done"),
+    fixed: () => redirect(303, "https://fixed.test/thanks"),
+    away: () => redirect(303, "https://evil.example/x"),
+    lookalike: () => redirect(303, "http://localhost.evil.example/x"),
+    protocol: () => {
+      throw raw("//evil.example/x");
+    },
+    backslash: () => {
+      throw raw("/\\evil.example/x");
+    },
+    script: () => {
+      throw raw("javascript:alert(1)");
+    },
+    credentials: () => {
+      throw raw("http://user:pw@localhost/x");
+    },
+  };
+  const go = (props: Record<string, unknown>) => {
+    const target = Object.hasOwn(targets, String(props["to"])) ? targets[String(props["to"])] : undefined;
+    if (!target) throw new Error(`no target ${String(props["to"])}`);
+    return target();
+  };
+  const REFUSED = ["away", "lookalike", "protocol", "backslash", "script", "credentials"];
+  let error: MockInstance<typeof console.error>;
+  beforeEach(() => {
+    error = vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => error.mockRestore());
+
+  it("resolves a load's redirect against host, and answers it only on this server or a trusted origin, fragment and _data alike", async () => {
+    // Without a dev log, as in production: an off-site redirect is an error all the same.
+    const { app } = fakeApp({
+      trustedOrigins: ["https://shop.test"],
+      devLog: undefined,
+      renderDroplet: async (_name, event) => go(event.props),
+      loadDropletData: async (_name, event) => go(event.props),
+    });
+    const fragment = (to: string, headers: Record<string, string> = {}) => app.request(`/droplets/hello?to=${to}`, { headers });
+    const data = (to: string, headers: Record<string, string> = {}) =>
+      app.request("/droplets/hello/_data", {
+        method: "POST",
+        headers: { "content-type": "application/json", ...headers },
+        body: JSON.stringify({ props: { to } }),
+      });
+
+    // The page's origin when `Origin` names a trusted one, else this server's.
+    expect((await fragment("relative")).headers.get("location")).toBe("http://localhost/thanks");
+    expect((await data("relative")).headers.get("location")).toBe("http://localhost/thanks");
+    expect((await fragment("relative", { origin: "https://shop.test" })).headers.get("location")).toBe("https://shop.test/thanks");
+    expect((await data("relative", { origin: "https://shop.test" })).headers.get("location")).toBe("https://shop.test/thanks");
+    expect((await fragment("shop")).status).toBe(302);
+    expect((await fragment("shop")).headers.get("location")).toBe("https://shop.test/thanks#done");
+    expect((await data("shop")).headers.get("location")).toBe("https://shop.test/thanks#done");
+    expect(error).not.toHaveBeenCalled();
+
+    for (const to of REFUSED) {
+      const html = await fragment(to);
+      expect(html.status, to).toBe(400);
+      expect(html.headers.get("location"), to).toBeNull();
+      expect(await html.text(), to).toBe("Bad Request: the droplet redirects off this site");
+      const json = await data(to);
+      expect(json.status, to).toBe(400);
+      expect(json.headers.get("location"), to).toBeNull();
+      expect(await json.json(), to).toEqual({ message: "Bad Request: the droplet redirects off this site" });
+    }
+    expect(error).toHaveBeenCalledTimes(REFUSED.length * 2);
+    expect(error.mock.calls[0]).toEqual([
+      'droplet redirects to "https://evil.example/x", which is not on this server or a trusted origin; answered 400: /droplets/hello',
+    ]);
+  });
+
+  it("refuses a relative redirect resolved against a host that an untrusted Origin reported", async () => {
+    // Without a list, `host` stands as `Origin` sent it; the redirect is bounded all the same.
+    const { app } = fakeApp({ renderDroplet: async (_name, event) => go(event.props) });
+    const res = await app.request("/droplets/hello?to=relative", { headers: { origin: "https://evil.example" } });
+    expect(res.status).toBe(400);
+    expect(res.headers.get("location")).toBeNull();
+    // With a list, such a host falls back to this server's origin, and the redirect lands there.
+    const bounded = fakeApp({ trustedOrigins: ["https://shop.test"], renderDroplet: async (_name, event) => go(event.props) });
+    const ok = await bounded.app.request("/droplets/hello?to=relative", { headers: { origin: "https://evil.example" } });
+    expect(ok.status).toBe(303);
+    expect(ok.headers.get("location")).toBe("http://localhost/thanks");
+  });
+
+  it("lets a load redirect to the fixed host, and resolves a relative one against it", async () => {
+    const { app } = fakeApp({ host: "https://fixed.test", renderDroplet: async (_name, event) => go(event.props) });
+    expect((await app.request("/droplets/hello?to=fixed")).headers.get("location")).toBe("https://fixed.test/thanks");
+    expect((await app.request("/droplets/hello?to=relative")).headers.get("location")).toBe("https://fixed.test/thanks");
+    expect((await app.request("/droplets/hello?to=away")).status).toBe(400);
+  });
+
+  it('never takes "*" as a redirect target, though it trusts every Origin', async () => {
+    const { app } = fakeApp({ trustedOrigins: ["*"], renderDroplet: async (_name, event) => go(event.props) });
+    expect((await app.request("/droplets/hello?to=away")).status).toBe(400);
+    expect((await app.request("/droplets/hello?to=relative")).headers.get("location")).toBe("http://localhost/thanks");
+  });
+
+  it("checks a transform's redirect the same way", async () => {
+    const { app } = fakeApp({
+      trustedOrigins: ["https://shop.test"],
+      transformDroplet: (_name, event) => go(event.props),
+    });
+    expect((await app.request("/droplets/hello?to=shop")).headers.get("location")).toBe("https://shop.test/thanks#done");
+    expect((await app.request("/droplets/hello?to=relative", { headers: { origin: "https://shop.test" } })).headers.get("location")).toBe(
+      "https://shop.test/thanks",
+    );
+    const away = await app.request("/droplets/hello?to=away");
+    expect(away.status).toBe(400);
+    expect(away.headers.get("location")).toBeNull();
+    expect(await away.text()).toBe("Bad Request: the droplet redirects off this site");
+  });
+
+  it("checks handle's redirect the same way: text on the fragment, JSON on _data and /api", async () => {
+    const handle: Handle = ({ event }) => go({ to: event.url.searchParams.get("to") });
+    const { app } = fakeApp({ trustedOrigins: ["https://shop.test"], getHandle: () => handle });
+    expect((await app.request("/droplets/hello?to=relative")).headers.get("location")).toBe("http://localhost/thanks");
+    expect((await app.request("/droplets/hello?to=relative", { headers: { origin: "https://shop.test" } })).headers.get("location")).toBe(
+      "https://shop.test/thanks",
+    );
+    expect((await app.request("/api/x?to=shop")).headers.get("location")).toBe("https://shop.test/thanks#done");
+    for (const to of REFUSED) {
+      const html = await app.request(`/droplets/hello?to=${to}`);
+      expect(html.status, to).toBe(400);
+      expect(html.headers.get("location"), to).toBeNull();
+      expect(await html.text(), to).toBe("Bad Request: handle redirects off this site");
+      for (const path of [`/droplets/hello/_data?to=${to}`, `/api/x?to=${to}`]) {
+        const json = await app.request(path);
+        expect(json.status, path).toBe(400);
+        expect(json.headers.get("location"), path).toBeNull();
+        expect(await json.json(), path).toEqual({ message: "Bad Request: handle redirects off this site" });
+      }
+    }
+  });
+
+  it("resolves a +server.ts redirect against the request's URL on the location, and refuses one off this site", async () => {
+    const matchApi = apiOf({
+      routes: [
+        [
+          [
+            { type: "static", value: "api" },
+            { type: "static", value: "go" },
+          ],
+          { GET: ({ url }) => go({ to: url.searchParams.get("to") }) },
+        ],
+      ],
+    });
+    const { app } = fakeApp({ trustedOrigins: ["https://shop.test"], matchApi });
+    expect((await app.request("/api/go?to=relative")).headers.get("location")).toBe("http://localhost/thanks");
+    // Under a trusted location with a prefix, the request's URL is there.
+    expect(
+      (await app.request("/api/go?to=relative", { headers: { "x-droplet-location": "https://shop.test/mfe" } })).headers.get("location"),
+    ).toBe("https://shop.test/thanks");
+    expect((await app.request("/api/go?to=shop")).headers.get("location")).toBe("https://shop.test/thanks#done");
+    for (const to of REFUSED) {
+      const res = await app.request(`/api/go?to=${to}`);
+      expect(res.status, to).toBe(400);
+      expect(res.headers.get("location"), to).toBeNull();
+      expect(await res.json(), to).toEqual({ message: "Bad Request: the endpoint redirects off this site" });
+    }
+    expect(error).toHaveBeenCalledTimes(REFUSED.length);
   });
 });
 

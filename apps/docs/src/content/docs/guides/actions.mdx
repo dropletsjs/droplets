@@ -59,7 +59,10 @@ body is merged into anything. What it returns:
 - **a plain JSON object, or nothing**: success, status `200`;
 - **`fail(status, data?)`**: a failure with a `400`–`599` status (any other
   throws), and data for the form to show;
-- **`redirect()`**, thrown or returned: a `303` to where it points;
+- **`redirect()`**, thrown or returned: a `303` to where it points, resolved
+  against `host` and only on this server, a trusted origin or `host` of the
+  config, the bound every redirect a droplet answers passes
+  ([Security](/guides/security/#redirects)); anywhere else is `400`;
 - **`error()`**: answered as a load's `error()`.
 
 Then the droplet renders again: its load runs, and the component gets the

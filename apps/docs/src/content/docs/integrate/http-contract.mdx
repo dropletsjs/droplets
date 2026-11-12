@@ -41,6 +41,18 @@ included (`/droplets/hello/`), answers `404` the same way: text, or
 answers the error page with `500` ([Errors](/guides/errors/)); `error()` and
 `redirect()` answer their own status; props the schema refuses answer `400`.
 
+Every `redirect()` a droplets server answers, from a load, `transform`,
+`handle`, an action or a `+server.ts` route, carries an absolute `location`
+that is on the server's own origin, its location's, a `trustedOrigins`
+entry or [`host`](/guides/configuration/#a-fixed-host) of the config. A
+load's, `transform`'s, `handle`'s and an action's target is resolved
+against `host` (the page); an endpoint's against the request's URL on the
+location. Any other target, `javascript:`, a protocol-relative `//…` or
+`http(s)` with credentials included, answers `400` without a `location`:
+`Bad Request: the droplet redirects off this site` as text on the fragment,
+`{ "message": … }` on `_data` and `/api` (`handle` and `the endpoint` name
+themselves the same way), with a line in the server log.
+
 Two query flags override the droplet's flags for one request: `?noSSR` skips
 rendering but still runs the server load, and `?clientOnly` skips both.
 
@@ -135,7 +147,7 @@ come with the JavaScript.
 `GET` or `POST /droplets/:id/_data` runs the props schema and the server load,
 and answers `{ "data": … }`, or `{ "error": … }` with a `500` when the load
 failed. When `host` carries a no-JavaScript action's result for the droplet,
-it is `{ "data": …, "form": … }` ([Post/Redirect/Get](#postredirectget)). `error()` and `redirect()` answer as they would for the fragment.
+it is `{ "data": …, "form": … }` ([Post/Redirect/Get](#postredirectget)). `error()` and `redirect()` answer as they would for the fragment, the redirect's bound included (`400` `{ "message": … }` for a target off this site); the element fetches `_data` with `redirect: "manual"`, so a redirect reaches it as an opaque answer it logs and renders nothing for.
 Every answer carries `x-droplets-build`, as every fragment answer does,
 `404` and `405` included. Other methods answer `405`.
 

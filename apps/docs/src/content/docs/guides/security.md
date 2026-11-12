@@ -342,6 +342,23 @@ What that token is, and is not:
   post, never sends the browser anywhere. A post with no page that passes
   answers `400` before its action runs.
 
+## Redirects
+
+Every `redirect()` the server answers passes one bound, wherever it was
+thrown: a droplet's load or `transform`, `handle`, a form action (its JSON
+answer included) or a `+server.ts` handler. The target is resolved to an
+absolute URL first, against `host` (the page the droplet renders on) for a
+droplet's code, `handle` and an action, and against the request's URL on
+the location for an endpoint. It is answered only when its exact origin is
+the server's own, its location's, in `trustedOrigins` (or
+`DROPLETS_TRUSTED_ORIGINS`) or `host` of the config, `http:` or `https:`
+only, without credentials. Anything else, an off-site URL, `javascript:`,
+`//evil.example`, answers `400` with no `location` and one line in the
+server log; `"*"` in `trustedOrigins` never counts here. A relative target
+resolved against a `host` that an untrusted `Origin` reported is refused
+the same way: without a `trustedOrigins` list, `host` stands as sent, and
+the bound is what keeps the server from sending the browser there.
+
 `DROPLETS_SECRET` is 32 or more random bytes (`openssl rand -base64 32`),
 read at runtime, the same on every instance serving a build, kept as a
 secret. Rotating it voids the results of the last five minutes and nothing

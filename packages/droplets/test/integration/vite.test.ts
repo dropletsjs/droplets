@@ -462,7 +462,8 @@ describe("vite dev", () => {
 
     const away = await fetch(`${origin}/droplets/hello?who=away`, { redirect: "manual" });
     expect(away.status).toBe(303);
-    expect(away.headers.get("location")).toBe("/elsewhere");
+    // Absolute, on `host`: without an Origin, this server's own.
+    expect(away.headers.get("location")).toBe(`${origin}/elsewhere`);
   });
 
   it("renders an empty children marker, in the droplet and its error page", async () => {

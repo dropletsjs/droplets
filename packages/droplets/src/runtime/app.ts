@@ -640,6 +640,52 @@ export function redirectTarget({ value, allowed }: RedirectTargetInput): URL | n
   return allowed.has(url.origin) ? url : null;
 }
 
+type ResolvedTargetInput = { location: unknown; base: URL };
+
+/** `location` of a `redirect()` as an absolute URL against `base`; `null` when it is no string or URL, or does not parse. */
+function resolvedTarget({ location, base }: ResolvedTargetInput): URL | null {
+  if (typeof location !== "string" && !(location instanceof URL)) return null;
+  try {
+    return new URL(String(location), base);
+  } catch {
+    // Not a URL against any base: nowhere to redirect to.
+    return null;
+  }
+}
+
+type TrustedOriginsOfInput = { options: DropletsAppOptions };
+
+/** `trustedOrigins` and `DROPLETS_TRUSTED_ORIGINS`, now: the env may change per request (Workers). */
+function trustedOriginsOf({ options }: TrustedOriginsOfInput): readonly string[] {
+  return trustedOriginsWith({
+    configured: options.trustedOrigins ?? [],
+    raw: readRuntimeEnv("DROPLETS_TRUSTED_ORIGINS"),
+    devLog: options.devLog,
+  });
+}
+
+/** The origins a form may post from and a redirect may lead to: `trustedOrigins`, plus `host`. */
+function formOriginsOf({ options }: TrustedOriginsOfInput): readonly string[] {
+  const trusted = trustedOriginsOf({ options });
+  return options.host === undefined ? trusted : [...trusted, options.host];
+}
+
+type OffSiteRedirectInput = { c: Context; as: "text" | "json"; label: string; what: string; location: unknown; path?: string };
+
+/**
+ * The 400 for a `redirect()` whose target is not on this server or a
+ * trusted origin, from an action, a load, `transform`, `handle` or a
+ * `+server.ts` route alike: logged, with the target cut short, and answered
+ * without a `location`.
+ */
+function offSiteRedirect({ c, as, label, what, location, path }: OffSiteRedirectInput): Response {
+  console.error(
+    `${label} redirects to ${JSON.stringify(String(location).slice(0, 200))}, which is not on this server or a trusted origin; answered 400${path === undefined ? "" : `: ${path}`}`,
+  );
+  const message = `Bad Request: ${what} redirects off this site`;
+  return as === "json" ? c.json({ message }, 400) : c.text(message, 400);
+}
+
 type BackTargetInput = { value: unknown; allowed: ReadonlySet<string>; servers: readonly string[] };
 
 /**
@@ -750,21 +796,37 @@ async function unexpectedMessage({ c, options, error }: UnexpectedMessageInput):
   }
 }
 
-type FailureInput = { c: Context; options: DropletsAppOptions; error: unknown; as: "text" | "json"; where: string };
+type FailureInput = {
+  c: Context;
+  options: DropletsAppOptions;
+  error: unknown;
+  as: "text" | "json";
+  where: string;
+  /** What a `redirect()` resolves against: `host` for a droplet's code; else `event.url`, the request's URL on the location. */
+  base?: URL | undefined;
+};
 
 /**
  * `error()`, `redirect()` and crashes, answered the same way everywhere:
- * `error()` with its status and message, `redirect()` as itself, anything
- * else as 500 through `handleError` in `hooks.server.ts`.
+ * `error()` with its status and message, `redirect()` as an absolute
+ * location on this server or a trusted origin (else 400, as an action's),
+ * anything else as 500 through `handleError` in `hooks.server.ts`.
  */
-async function failure({ c, options, error, as, where }: FailureInput): Promise<Response> {
+async function failure({ c, options, error, as, where, base }: FailureInput): Promise<Response> {
   if (isHttpError(error)) {
     const status = error.status as 400;
     if (as === "text") return c.text(error.body.message, status);
     return c.json(error.body, status);
   }
   if (isRedirect(error)) {
-    return new Response(null, { status: error.status, headers: { location: error.location } });
+    const event = c.get("event") as RequestEvent | undefined;
+    const resolved = resolvedTarget({ location: error.location, base: base ?? event?.url ?? new URL(c.req.url) });
+    const target = redirectTarget({ value: resolved, allowed: redirectOrigins({ c, trusted: formOriginsOf({ options }) }) });
+    if (!target) {
+      const what = where === "droplet" || where === "_data" ? "the droplet" : where === "endpoint" ? "the endpoint" : where;
+      return offSiteRedirect({ c, as, label: where, what, location: error.location, path: c.req.path });
+    }
+    return new Response(null, { status: error.status, headers: { location: target.href } });
   }
   // A droplet that could not show its error: what went wrong is the cause.
   const cause = isUnhandled(error) ? error.cause : error;
@@ -870,16 +932,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
   const dropletMiddleware = createDropletMiddleware(options);
   const element = options.element ?? "djs-droplet";
   const health = options.health === undefined ? "/health" : options.health;
-  const configuredOrigins = options.trustedOrigins ?? [];
-  /** `trustedOrigins` and `DROPLETS_TRUSTED_ORIGINS`, now: the env may change per request (Workers). */
-  function trustedOrigins(): readonly string[] {
-    return trustedOriginsWith({ configured: configuredOrigins, raw: readRuntimeEnv("DROPLETS_TRUSTED_ORIGINS"), devLog: options.devLog });
-  }
-  /** The origins a form may post from and an action may redirect to: `trustedOrigins`, plus `host`. */
-  function formOrigins(): readonly string[] {
-    return options.host === undefined ? trustedOrigins() : [...trustedOrigins(), options.host];
-  }
-  if (configuredOrigins.includes("*")) options.devLog?.anyLocation({ option: "trustedOrigins" });
+  if (options.trustedOrigins?.includes("*")) options.devLog?.anyLocation({ option: "trustedOrigins" });
   if (options.cors?.origin === "*") options.devLog?.corsAny();
   // One per build: what host-agnostic renders hold for `host`, never sent.
   const tokens = options.tokens;
@@ -898,7 +951,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
    * host stands as sent.
    */
   function boundedHost({ c, host }: BoundedHostInput): URL {
-    return withinTrusted({ host, trusted: trustedOrigins(), own: ownOrigins(c) }) ? host : new URL(publicOrigin({ c }));
+    return withinTrusted({ host, trusted: trustedOriginsOf({ options }), own: ownOrigins(c) }) ? host : new URL(publicOrigin({ c }));
   }
 
   type TakeFormResultsInput = { c: AppContext; event: RequestEvent };
@@ -958,7 +1011,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
   // Where this server is reached: before anything that writes a URL or
   // checks an origin.
   app.use("*", (c, next) => {
-    c.set("location", options.location ?? resolveLocation({ c, trusted: trustedOrigins(), devLog: options.devLog }));
+    c.set("location", options.location ?? resolveLocation({ c, trusted: trustedOriginsOf({ options }), devLog: options.devLog }));
     c.set("referer", c.req.header("referer"));
     return next();
   });
@@ -1001,7 +1054,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     withRequestInfo(
       {
         origin: options.location ?? (buildTokens ? buildTokens.location : publicLocation({ c })),
-        trustedOrigins: trustedOrigins(),
+        trustedOrigins: trustedOriginsOf({ options }),
         ownOrigins: ownOrigins(c),
       },
       next,
@@ -1011,7 +1064,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
   // Before `handle`, as SvelteKit does: a cross-site form post, or a body
   // too large, never reaches the app's code.
   if (options.csrf?.checkOrigin !== false) {
-    app.use("*", originCheck({ trustedOrigins: formOrigins, ownOrigins, extraPaths: importMapPaths }));
+    app.use("*", originCheck({ trustedOrigins: () => formOriginsOf({ options }), ownOrigins, extraPaths: importMapPaths }));
   }
   app.use("*", sizeLimits({ limits: options.limits ?? DEFAULTS.limits, extraPaths: importMapPaths }));
 
@@ -1109,7 +1162,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
         },
       });
     } catch (error) {
-      return failure({ c, options, error, as: "text", where: "handle" });
+      return failure({ c, options, error, as: wantsJson({ path: c.req.path }) ? "json" : "text", where: "handle", base: event.host });
     }
     if (!isResponse(response)) {
       return failure({ c, options, error: new Error("handle must return a Response"), as: "text", where: "handle" });
@@ -1358,7 +1411,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
       const answer = carried.form === undefined ? { data: payload.data } : { data: payload.data, form: carried.form };
       return c.json(liveData({ ctx, data: answer }));
     } catch (error) {
-      return failure({ c, options, error, as: "json", where: "_data" });
+      return failure({ c, options, error, as: "json", where: "_data", base: ctx.event.host });
     }
   });
 
@@ -1523,7 +1576,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     } catch (error) {
       // `error()`, `redirect()`, props the schema refused, and failures the
       // droplet cannot show: answered as an endpoint does.
-      return failure({ c, options, error, as: "text", where: "droplet" });
+      return failure({ c, options, error, as: "text", where: "droplet", base: ctx.event.host });
     }
 
     // With server markup (rendered live, or stored at build whatever `ssr`
@@ -1620,7 +1673,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     // The request decides: one that prefers JSON (`enhanceDropletForm`, or
     // any script) gets the result; anything else is a native navigation.
     const wantsJson = prefersJson({ accept: c.req.header("accept") });
-    const allowed = redirectOrigins({ c, trusted: formOrigins() });
+    const allowed = redirectOrigins({ c, trusted: formOriginsOf({ options }) });
     const secret = wantsJson ? null : formSecret({ raw: readRuntimeEnv("DROPLETS_SECRET"), devLog: options.devLog });
     // Where the answer goes back to, known before the action runs (from
     // the URL and the headers, never the body): a post that cannot be
@@ -1671,11 +1724,13 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
       // Followed at once, by the browser or by enhanceDropletForm: only to this server or a trusted origin.
       const target = redirectTarget({ value: outcome.location, allowed });
       if (!target) {
-        console.error(
-          `${ctx.droplet}: action ${name} redirects to ${JSON.stringify(outcome.location.slice(0, 200))}, which is not on this server or a trusted origin; answered 400`,
-        );
-        const message = "Bad Request: the action redirects off this site";
-        return wantsJson ? c.json({ message }, 400) : c.text(message, 400);
+        return offSiteRedirect({
+          c,
+          as: wantsJson ? "json" : "text",
+          label: `${ctx.droplet}: action ${name}`,
+          what: "the action",
+          location: outcome.location,
+        });
       }
       applyHeaders({ c, headers: ctx.headers });
       if (wantsJson) return c.json(liveData({ ctx, data: { ...outcome, location: target.href } }), 200);

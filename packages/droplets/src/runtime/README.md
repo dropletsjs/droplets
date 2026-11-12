@@ -111,7 +111,7 @@ Then the route.
 - `handle`, the body read, `event.host`, cookies and `event` are skipped for `/index.js`, `/index.css`, `/env.js` and `/assets/*`. `app.ts:356`, `app.ts:982`
 - The health route answers `ok` before `handle` runs; its path defaults to `/health`. `app.ts:934`
 - The request body is read only for a droplet that exists. `app.ts:987`
-- A `handle` that throws answers through `handleError`, as text. `app.ts:1051`
+- A `handle` that throws answers through `handleError`, as text, or as JSON under `_data` and `/api`; its `redirect()` passes the redirect bound against `event.host`. `app.ts:1161`
 - A `handle` that returns something other than a `Response` answers `handle must return a Response`. `app.ts:1054`
 - A failing `hooks.server` import answers through `handleError`, as text. `app.ts:1030`
 
@@ -197,7 +197,7 @@ Then the route.
 - An action is found only through `ACTION_NAME`, a deny list (`__proto__`, `constructor`, `prototype`) and `Object.hasOwn`. `entry-server.ts:316`
 - An action answers JSON when `accept` prefers it over HTML (`prefersJson`): `application/json` or `application/*` with a weight at least `text/html`'s, never through `*/*` alone. `app.ts:1588`, `accept.ts:47`
 - A JSON action answer is the outcome with the failure's status, else 200. `app.ts:1630`
-- An action redirect, native or JSON, goes only to this server or a trusted origin (`redirectTarget`, the same check in both modes), else 400 `Bad Request: the action redirects off this site` (as `{ message }` in JSON) and a `console.error`. `app.ts:1616`, `app.ts:1622`
+- An action redirect, native or JSON, goes only to this server or a trusted origin (`redirectTarget`, the same check in both modes and the same as a load's or `handle`'s), else 400 `Bad Request: the action redirects off this site` (as `{ message }` in JSON) and a `console.error` (`offSiteRedirect`). `app.ts:677`, `app.ts:1690`
 - A JSON action redirect answers 200 `{ type: "redirect", status, location }` with the checked absolute URL. `app.ts:1625`
 - A native action redirect answers 303. `app.ts:1626`
 - Action data that is not plain JSON (depth over 64, non-finite numbers, non-plain prototypes) answers 500. `app.ts:511`
@@ -235,7 +235,7 @@ Then the route.
 - `fail(status)` takes 400-599. `server.ts:416`
 - `json()` sets `content-type: application/json`. `server.ts:503`
 - `text()` sets `text/plain; charset=utf-8`. `server.ts:508`
-- A thrown `HttpError` answers its status and message; a thrown `Redirect` answers its location as written. `app.ts:727`
+- A thrown `HttpError` answers its status and message; a thrown `Redirect` answers its target absolute, resolved against `event.host` for a load, `transform` or `handle` and against `event.url` for a `+server` route, only when its origin is the request's own, the location's, a trusted origin or `host` (`redirectTarget` over `redirectOrigins`, `"*"` never counts), else 400 `Bad Request: the droplet redirects off this site` (`handle`, `the endpoint` for those) as text or `{ message }` by the route, logged once with `console.error`. `app.ts:646`, `app.ts:677`, `app.ts:811`
 - Any other thrown error is logged and answers 500 with `handleError`'s message, never a stack. `app.ts:727`
 - What no handler caught goes to Hono's `onError`, which answers through `failure` and `handleError` too: JSON for `_data` and `/api/*`, text elsewhere, logged as `request failed: <path>`. `app.ts:847`
 - The log line of a failure names where it failed, then the path once: `droplet failed: /droplets/x`, `endpoint failed: /api/x`, `action <name> failed: …`. `app.ts:739`, `app.ts:1734`
