@@ -1,5 +1,5 @@
 // Draws the share image (og:image, twitter:image) in the docs' dark tokens
-// and fonts, from the title and description in site.mjs, and writes it as
+// and fonts, from the title and the ogImage text in site.mjs, and writes it as
 // public/og.png in Playwright's Chromium.
 //
 //   node apps/docs/scripts/og/render.mjs [out.png]
@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
-import { description, ogImage, title } from "../../site.mjs";
+import { ogImage, title } from "../../site.mjs";
 
 const require = createRequire(import.meta.url);
 const font = (file) => readFileSync(require.resolve(file)).toString("base64");
@@ -16,12 +16,9 @@ const MONO = font("@fontsource-variable/jetbrains-mono/files/jetbrains-mono-lati
 const DROP = readFileSync(new URL("../../public/favicon.svg", import.meta.url), "utf8").match(/ d="([^"]+)"/)[1];
 
 const out = process.argv[2] ?? fileURLToPath(new URL(`../../public/${ogImage.file}`, import.meta.url));
-const { width, height } = ogImage;
+const { width, height, tagline, frameworks } = ogImage;
 
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-// "<what it is>. <the frameworks>.": the second sentence becomes the list.
-const [tagline, frameworks] = description.split(/(?<=\.) /);
-const names = frameworks.replace(/\.$/, "").split(/, | or /);
 
 const html = `<!doctype html>
 <html><head><meta charset="utf-8"><style>
@@ -42,7 +39,7 @@ li{font:500 21px/1 "JetBrains Mono Variable",monospace;color:#a9bbe3;border:1px 
 <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><path d="${DROP}" fill="#ff5f24"/></svg>
 <div class="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="${DROP}" fill="#ff5f24"/></svg><h1>${esc(title)}</h1></div>
 <p>${esc(tagline)}</p>
-<ul>${names.map((name) => `<li>${esc(name)}</li>`).join("")}</ul>
+<ul>${frameworks.map((name) => `<li>${esc(name)}</li>`).join("")}</ul>
 <div class="site">dropletsjs.dev</div>
 </body></html>`;
 

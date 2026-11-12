@@ -177,13 +177,19 @@ Every page's head carries `og:image` and `twitter:image`, the absolute URL
 of `public/og.png` on `DOCS_SITE` and `DOCS_BASE`, with its width, height and
 alt text (`head` in `astro.config.mjs`). The image is drawn, not
 screenshotted from the site: `scripts/og/render.mjs` lays out the title and
-description of `site.mjs` (which `astro.config.mjs` reads too) in the dark
-tokens and the docs' fonts, and writes the 1200×630 PNG in Playwright's
-Chromium. Run it again after changing the description:
+the `ogImage` text of `site.mjs` (whose title and description
+`astro.config.mjs` reads) in the dark tokens and the docs' fonts, and writes
+the 1200×630 PNG in Playwright's Chromium. Its text is its own, so a shorter
+site description leaves the image as it is. Run it again after changing that
+text:
 
 ```bash
 node apps/docs/scripts/og/render.mjs
 ```
+
+The home page names itself in full: its frontmatter `head` sets `<title>`,
+`og:title` and `twitter:title` to "Droplets: server-rendered components for
+any stack"; every other page keeps Starlight's "Page | Droplets".
 
 `public/robots.txt` allows every crawler and names the sitemap
 Starlight writes, `https://dropletsjs.dev/sitemap-index.xml`; a build for
@@ -301,9 +307,10 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - Diagrams on pages: `RenderModes`, `RunsWhere`, `FormFlow`, `PrerenderLookup`, `LocationFlow`, `HostsHub`, `ShopPage`, `ShopFlow`, `WordPressFlow`, `ElementLifecycle`, `BrowserLoads`. `src/content/docs/guides/writing-droplets.mdx:75`, `src/content/docs/guides/writing-droplets.mdx:701`, `src/content/docs/guides/actions.mdx:158`, `src/content/docs/guides/prerendering.mdx:62`, `src/content/docs/integrate/http-contract.mdx:199`, `src/content/docs/integrate/hosts/overview.mdx:19`, `src/content/docs/integrate/hosts/shop-demo.mdx:23`, `src/content/docs/integrate/hosts/shop-demo.mdx:49`, `src/content/docs/integrate/wordpress.mdx:294`, `src/content/docs/guides/in-the-browser.mdx:65`, `src/content/docs/guides/deployment.mdx:344`
 - Tour poster: `gen.mjs` writes `scripts/poster/tour-poster.svg`; `render.mjs` writes `public/hosts/tour.webp` in Chromium. `scripts/poster/gen.mjs:111`, `scripts/poster/render.mjs:11`, `scripts/poster/render.mjs:33`
 - Tour video `public/hosts/tour.mp4` plays with `tour.webp` as its poster on the home page. `src/components/DropletTour.astro:15`, `src/content/docs/index.mdx:19`
-- Site title and description live in `site.mjs`, read by `astro.config.mjs` and `scripts/og/render.mjs`. `site.mjs:4`, `site.mjs:6`, `astro.config.mjs:5`, `scripts/og/render.mjs:10`
+- Site title and description (103 characters, whole in link previews) live in `site.mjs`, read by `astro.config.mjs`; `scripts/og/render.mjs` reads the title and the `ogImage` text. `site.mjs:3`, `site.mjs:6`, `site.mjs:11`, `astro.config.mjs:5`, `scripts/og/render.mjs:10`
+- Home page `<title>`, `og:title` and `twitter:title`: "Droplets: server-rendered components for any stack", from its frontmatter `head`. `src/content/docs/index.mdx:4`
 - Every page's head: `og:image` and `twitter:image` (absolute, `<DOCS_SITE><DOCS_BASE>og.png`), `og:image:width` 1200, `og:image:height` 630, `og:image:alt` and `twitter:image:alt`; Starlight writes `twitter:card` `summary_large_image`. `astro.config.mjs:15`, `astro.config.mjs:112`, `site.mjs:10`
-- Share image: `scripts/og/render.mjs` writes `public/og.png`, 1200×630, in Chromium, the drop taken from `public/favicon.svg`. `scripts/og/render.mjs:16`, `scripts/og/render.mjs:18`, `scripts/og/render.mjs:54`
+- Share image: `scripts/og/render.mjs` writes `public/og.png`, 1200×630, in Chromium, the drop taken from `public/favicon.svg`. `scripts/og/render.mjs:16`, `scripts/og/render.mjs:18`, `scripts/og/render.mjs:51`
 - `public/robots.txt`: `User-agent: *`, `Allow: /`, `Sitemap: https://dropletsjs.dev/sitemap-index.xml`. `public/robots.txt:1`
 - Worker `dropletsjs-docs` serves `./dist` as assets only, on the custom domain `dropletsjs.dev`. `wrangler.jsonc:4`, `wrangler.jsonc:8`, `wrangler.jsonc:22`
 - Worker `html_handling` is `auto-trailing-slash`; unknown paths get `404.html` with 404. `wrangler.jsonc:12`, `wrangler.jsonc:14`
