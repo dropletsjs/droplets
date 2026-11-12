@@ -7,10 +7,8 @@
  *    The HTML parser attaches a `<template shadowrootmode>` only while it
  *    parses a document; markup inserted with `innerHTML` (core's own
  *    re-fetch after an HMR update or a form action, and many hosts) keeps
- *    it as an inert `<template>`. `hydrateShadowRoots` of
- *    `@webcomponents/template-shadowroot` attaches them; it skips its work
- *    where it believes the browser does it natively, so the templates left
- *    after it, if any, are attached here.
+ *    it as an inert `<template>`. `attachShadowRoots` attaches them, the
+ *    innermost first, whatever DOM the page runs in.
  * 2. The component's class is defined under the tag the server used (read
  *    from the markup). The element upgrades, and waits: it carries
  *    `defer-hydration`.
@@ -32,7 +30,6 @@
  */
 import type { ClientRenderContext, ComponentModule, RenderProps } from "@dropletsjs/droplets";
 import { hydrate as hydrateTemplate } from "@lit-labs/ssr-client";
-import { hydrateShadowRoots } from "@webcomponents/template-shadowroot";
 import { LitElement, render } from "lit";
 import { prefix } from "virtual:droplets-renderer-lit";
 import { adoptTag, claimTag, componentOf, tagName } from "./tags.ts";
@@ -116,7 +113,6 @@ export function hydrate(
   props: RenderProps,
   context: ClientRenderContext,
 ): Instance | Promise<Instance> {
-  hydrateShadowRoots(target);
   attachShadowRoots({ root: target });
   const component = componentOf({ module, droplet: context.droplet, kind: context.kind, base: LitElement });
   const element = target.firstElementChild;

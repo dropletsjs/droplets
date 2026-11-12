@@ -39,6 +39,7 @@ export default defineConfig({
 | `virtual.ts` | Every virtual module: the registries (`virtual:droplets`), `$droplets/env`, `$droplets/env/public`, `$droplets/env/private`, `$droplets/server`, `$droplets/drop`, `$droplets/form`, one client module per droplet, the shared CSS, the bundled config, and `/index.js` under `vite dev`. |
 | `build.ts` | The `client`, `ssr` and `server` environments, the build order, `droplets.json`, `index.js` and the stylesheet registry. |
 | `prerender.ts` | The renders of `prerender = true` droplets for their `entries`, run after the SSR build. |
+| `prerender-worker.ts` | The prerender pass's side that evaluates the SSR bundle, in a worker thread; `prerender.ts` drives it. |
 | `dev.ts` | The Hono app `vite dev` serves, the SSR module loader, and the classification of an edit (component, load or contract). |
 | `assets.ts` | File URLs on the droplet location (`renderBuiltUrl`, `new URL(…, import.meta.url)`), and `public/` at `assets/public/`. |
 | `css.ts` | Scoping through PostCSS, Tailwind (`css.tailwind`, `twPreflight`). |
@@ -253,8 +254,8 @@ restarts the server.
 - `css.tailwind` adds `@tailwindcss/vite` unless a plugin named `@tailwindcss/vite*` is already there; without Tailwind installed it throws. `css.ts:222`, `css.ts:223`, `css.ts:225`
 - `css.twPreflight: false` rewrites `@import "tailwindcss"` to theme and utilities and drops the preflight import; a preflight that still shows up warns. `css.ts:89`, `css.ts:147`
 - Prerender requests go to `http://droplets.build/droplets/<id>` as a POST of `{ props, host? }`, through `handle`, with `building` set. `prerender.ts:33`, `prerender.ts:123`, `prerender.ts:87`
-- Prerender sets the runtime env store from the mode's `.env` values while it runs. `prerender.ts:89`
-- Prerender imports a fresh copy of the SSR bundle (`?prerender=<time>`). `prerender.ts:92`
+- Prerender evaluates the SSR bundle in a worker thread (`prerender-worker.ts`, `dist/vite/prerender-worker.js` by path), started with `connect` of `core/app-thread.ts` and stopped when the pass ends; `entries` and `request` are the calls. `prerender.ts:93`, `prerender.ts:98`, `prerender.ts:144`
+- Prerender worker sets `building` and the runtime env store from the mode's `.env` values before the bundle loads. `prerender-worker.ts:31`, `prerender-worker.ts:32`, `prerender-worker.ts:33`
 - Prerender root: `dist/server/_prerendered` when the adapter ships `dist/server`, else `dist/client/_prerendered/<32 hex>` with that name written into `droplets.json` as `__prerendered`. `prerender.ts:53`, `prerender.ts:54`, `prerender.ts:83`
 - Prerender removes the previous build's renders first. `prerender.ts:73`, `prerender.ts:74`
 - Prerender file: `<id>/<16 hex of sha256(key)>.json`, listed in `<id>/index.json`. `prerender.ts:42`, `prerender.ts:161`

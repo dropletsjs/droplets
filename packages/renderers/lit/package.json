@@ -63,8 +63,7 @@
   },
   "dependencies": {
     "@lit-labs/ssr": "^4.1.0",
-    "@lit-labs/ssr-client": "^1.1.8",
-    "@webcomponents/template-shadowroot": "^0.2.1"
+    "@lit-labs/ssr-client": "^1.1.8"
   },
   "peerDependencies": {
     "@dropletsjs/droplets": "workspace:^",
@@ -76,6 +75,7 @@
     "@dropletsjs/droplets": "workspace:*",
     "@dropletsjs/shared": "workspace:*",
     "@types/node": "^24.9.0",
+    "happy-dom": "^21.0.4",
     "lit": "^3.3.3",
     "tsdown": "catalog:",
     "typescript": "^5.9.3",

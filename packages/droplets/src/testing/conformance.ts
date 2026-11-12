@@ -24,6 +24,17 @@
  * the bundle loads, is the same node after hydration, and stays hidden under
  * the element when the server HTML has no marker.
  *
+ * The server runs in a worker thread of its own (`conformance-server.ts`):
+ * its module graph and its globals are not the test's, as a server's are
+ * not a page's, so a renderer's server build (a DOM shim, the elements it
+ * defines) and its browser bundles never meet. In the DOM, the checks look
+ * where a page shows things (`composed.ts`): into every shadow root,
+ * attached or declarative (`<template shadowrootmode>`), and through a
+ * `<slot>` to the light-DOM children it places, so a component in shadow
+ * DOM passes as one in light DOM does. In HTML, comments are ignored: the
+ * markers an engine leaves around what it rendered (`<!--lit-part-->`,
+ * `<!--[-->`, `<!---->`) say nothing of the content.
+ *
  * The vitest config needs happy-dom (`environment: "happy-dom"` or the
  * pragma above) with stylesheet loading tolerated:
  * `environmentOptions: { happyDOM: { settings: { handleDisabledFileLoadingAsSuccess: true } } }`.
@@ -103,7 +114,7 @@
  * @module
  */
 import { existsSync } from "node:fs";
-import { readdir, readFile, rm } from "node:fs/promises";
+import { readdir, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createBuilder } from "vite";
@@ -111,12 +122,11 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { DropletsAdapter } from "../adapters.ts";
 import { packageDist } from "../core/paths.ts";
 import type { DropletRenderer } from "../renderer.ts";
-import { createDropletsApp, type DropletsApp } from "../runtime/app.ts";
-import { createServerApp, type SsrModule } from "../server/app.ts";
 import type { DropletsManifest } from "../server/manifest.ts";
-import { createPrerenderedLoader, PRERENDER_DIR } from "../server/prerendered.ts";
-import { resolveConfig } from "../core/config.ts";
+import { PRERENDER_DIR } from "../server/prerendered.ts";
 import { droplets } from "../vite/plugin.ts";
+import { find, findAll, parse } from "./composed.ts";
+import { readFrom, type Served, type ServerThread, startServer } from "./server-thread.ts";
 
 export type ConformanceOptions = {
   renderer: DropletRenderer;
@@ -169,17 +179,11 @@ function actionOf({ html, testid }: ActionOfInput): string | undefined {
     .replace(/&amp;/g, "&");
 }
 
-type ReadFromInput = { dir: string };
+type BareInput = { html: string };
 
-/** Reads a file of `dir` as text; `null` for one the build did not write. */
-function readFrom({ dir }: ReadFromInput): (path: string) => Promise<string | null> {
-  return async (path) => {
-    try {
-      return await readFile(resolve(dir, path), "utf8");
-    } catch {
-      return null;
-    }
-  };
+/** `html` without its comments: the markers an engine leaves around what it rendered say nothing of the content. */
+function bare({ html }: BareInput): string {
+  return html.replace(/<!--[\s\S]*?-->/g, "");
 }
 
 type UntilInput = { check: () => void | Promise<void>; timeout?: number };
@@ -204,8 +208,30 @@ function tick(): Promise<unknown> {
 
 /** The children marker as the engines print it: `data-droplet-children` may get `=""`, the style may be normalized. */
 const MARKER = /<div data-droplet-children(?:="")? style="display:\s*contents;?"><\/div>/;
-/** The host's children, where the component rendered them. */
-const IN_MARKER = "[data-droplet-children] > [data-droplet-slot]";
+
+type MarkersInInput = { root: ParentNode; inside: string };
+
+/** The children markers where the component's element matching `inside` shows them: directly, or through a slot. */
+function markersIn({ root, inside }: MarkersInInput): HTMLElement[] {
+  const where = find({ root, selector: inside });
+  return where ? findAll({ root: where, selector: "[data-droplet-children]" }) : [];
+}
+
+/** The host's container, in a marker the element matching `inside` shows; `null` when it is not there. */
+function containerIn({ root, inside }: MarkersInInput): HTMLElement | null {
+  for (const marker of markersIn({ root, inside })) {
+    const container = marker.querySelector<HTMLElement>(":scope > [data-droplet-slot]");
+    if (container) return container;
+  }
+  return null;
+}
+
+type KidInInput = MarkersInInput & { kid: string };
+
+/** The host's child `#kid`, in the container the element matching `inside` shows; `null` when it is not there. */
+function kidIn({ root, inside, kid }: KidInInput): HTMLElement | null {
+  return containerIn({ root, inside })?.querySelector<HTMLElement>(`:scope > #${kid}`) ?? null;
+}
 
 type ClickUntilLiveInput = { el: HTMLElement };
 
@@ -215,7 +241,7 @@ type ClickUntilLiveInput = { el: HTMLElement };
  * it happened. Resolves with the count reached.
  */
 async function clickUntilLive({ el }: ClickUntilLiveInput): Promise<number> {
-  const button = () => el.querySelector("[data-testid=count]") as HTMLElement | null;
+  const button = () => find({ root: el, selector: "[data-testid=count]" });
   let count = 0;
   await until({
     check: async () => {
@@ -259,9 +285,9 @@ export function rendererConformance({
   /** The prerendered renders: server-only, next to the SSR bundle. */
   const readRendered = readFrom({ dir: resolve(outDir, "server", PRERENDER_DIR) });
 
-  let app: DropletsApp;
+  let server: ServerThread;
+  let app: Served;
   let manifest: DropletsManifest;
-  let ssr: SsrModule;
 
   type GetInput = { path: string; init?: RequestInit };
   const get = ({ path, init }: GetInput) => app.request(`${origin}${path}`, init);
@@ -311,32 +337,12 @@ export function rendererConformance({
 
       manifest = JSON.parse((await read("droplets.json")) ?? "null") as DropletsManifest;
       expect(manifest, "dist/client/droplets.json").toBeTruthy();
-      ssr = (await import(pathToFileURL(resolve(outDir, "server/entry-server.js")).href)) as SsrModule;
-      app = createServerApp({
-        ssr,
-        config: resolveConfig({ element }),
-        assets: {
-          buildHash: manifest.__hash,
-          loadClientModule: async (id) => {
-            const file = manifest.droplets[id]?.client;
-            return file ? read(file) : null;
-          },
-          loadEntryClient: () => read(manifest.__entryClient),
-          entryModule: async () => manifest.__entryModule ?? null,
-          loadGlobalStyle: () => read(manifest.__globalCss),
-          dropletStyles: async (id) => manifest.droplets[id]?.css ?? [],
-          loadIndex: async () => manifest.__index,
-          externals: manifest.__externals,
-          assetHandler: async (c) => {
-            const body = await read(c.req.path.slice(1));
-            return body === null ? c.text("Not Found", 404) : c.body(body);
-          },
-          loadPrerendered: createPrerenderedLoader(readRendered),
-        },
-      });
+      server = startServer({ outDir, element });
+      app = server.app;
     }, 180_000);
 
     afterAll(async () => {
+      await server?.stop();
       await rm(outDir, { recursive: true, force: true });
     });
 
@@ -349,15 +355,16 @@ export function rendererConformance({
         // Where to load from comes from /index.js, never from the markup.
         expect(html).not.toContain("data-droplet-location");
         expect(html).toMatch(/data-render-id="[a-z0-9]+"/);
-        expect(html).toMatch(/<h1 data-testid="greeting">Hello Ana!<\/h1>/);
-        // One empty marker, where the element puts the host's container.
+        expect(bare({ html })).toMatch(/<h1 data-testid="greeting">Hello Ana!<\/h1>/);
+        // One empty marker, where the element puts the host's container, shown where the component renders its children.
         expect(html.match(/data-droplet-children/g)).toHaveLength(1);
-        expect(html).toMatch(new RegExp(`data-testid="children"[^>]*>(\\s|<!--[^>]*-->)*${MARKER.source}`));
+        expect(html).toMatch(MARKER);
+        expect(markersIn({ root: parse({ html }), inside: "[data-testid=children]" })).toHaveLength(1);
         expect(html.endsWith(`</div></${element}>`)).toBe(true);
 
         // POST with a JSON body answers the same fragment.
         const posted = await (await post({ path: "/droplets/hello", body: { props: { who: "Posted" } } })).text();
-        expect(posted).toContain("Hello Posted!");
+        expect(bare({ html: posted })).toContain("Hello Posted!");
       });
 
       it("inlines the server data and the context for the browser", async () => {
@@ -374,8 +381,9 @@ export function rendererConformance({
         expect(res.status).toBe(500);
         const html = await res.text();
         expect(html).toContain("data-droplet-error");
-        expect(html).toMatch(/data-testid="error"[^>]*>\[hello\] Sorry, ref 42</);
-        expect(html).toMatch(new RegExp(`data-testid="error-children"[^>]*>(\\s|<!--[^>]*-->)*${MARKER.source}`));
+        expect(bare({ html })).toMatch(/data-testid="error"[^>]*>\[hello\] Sorry, ref 42</);
+        expect(html).toMatch(MARKER);
+        expect(markersIn({ root: parse({ html }), inside: "[data-testid=error-children]" })).toHaveLength(1);
         // What left the server, before the handleError of +droplet.ts.
         expect(payload({ html, attribute: "data-droplet-data" })).toEqual({ error: { message: "Sorry, ref 42" } });
 
@@ -406,7 +414,7 @@ export function rendererConformance({
           data: unknown;
           nonce: string;
         };
-        expect(stored.html).toContain("<h1>Page 1</h1>");
+        expect(bare({ html: stored.html })).toContain("<h1>Page 1</h1>");
         // transform runs per request, never at build.
         expect(stored.html).toContain("@HOST@");
         // No host at build: a token of this build in place of host.origin.
@@ -422,8 +430,8 @@ export function rendererConformance({
         expect(answer.headers.get("cache-control")).toBe("public, max-age=60");
         expect(answer.headers.get("vary")).toContain("x-droplet-location");
         const html = await answer.text();
-        expect(html).toContain("<h1>Page 2</h1>");
-        expect(html).toContain("<p>host.test</p>");
+        expect(bare({ html })).toContain("<h1>Page 2</h1>");
+        expect(bare({ html })).toContain("<p>host.test</p>");
         // The token, replaced by this request's host.
         expect(payload({ html, attribute: "data-droplet-data" })).toMatchObject({
           data: { page: 2, building: true, home: "https://host.test/home" },
@@ -437,8 +445,8 @@ export function rendererConformance({
         // A load that sets nothing: kept out of shared caches.
         expect(liveAnswer.headers.get("cache-control")).toBe("private, no-store");
         const live = await liveAnswer.text();
-        expect(live).toContain("<h1>Page 3</h1>");
-        expect(live).toContain("<p>shop.test</p>");
+        expect(bare({ html: live })).toContain("<h1>Page 3</h1>");
+        expect(bare({ html: live })).toContain("<p>shop.test</p>");
         expect(payload({ html: live, attribute: "data-droplet-data" })).toMatchObject({
           data: { page: 3, building: false, home: "https://shop.test/home" },
         });
@@ -463,24 +471,13 @@ export function rendererConformance({
         expect(broken.status).toBe(500);
         const brokenHtml = await broken.text();
         expect(brokenHtml).toContain("data-droplet-error");
-        expect(brokenHtml).toMatch(/data-testid="docs-error"[^>]*>This page is unavailable</);
+        expect(bare({ html: brokenHtml })).toMatch(/data-testid="docs-error"[^>]*>This page is unavailable</);
         expect(payload({ html: brokenHtml, attribute: "data-droplet-data" })).toEqual({ error: { message: "This page is unavailable" } });
       });
 
       it("stops prerendering a render that reads more of host than the build knows", async () => {
-        const renderDroplet = ssr.renderDroplet ?? ssr.default;
-        if (!renderDroplet) throw new Error("the SSR bundle exports no renderDroplet");
-        const building = createDropletsApp({
-          element,
-          health: false,
-          renderDroplet,
-          ...(ssr.getDropletMeta ? { getDropletMeta: ssr.getDropletMeta } : {}),
-          ...(ssr.validateDropletProps ? { validateProps: ssr.validateDropletProps } : {}),
-          ...(ssr.renderError ? { renderError: ssr.renderError } : {}),
-          ...(ssr.tokens ? { tokens: ssr.tokens } : {}),
-          building: true,
-        });
-        const res = await building.request("http://droplets.build/droplets/docs", {
+        // The SSR bundle as the build's prerender pass drives it (`building`).
+        const res = await server.building.request("http://droplets.build/droplets/docs", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ props: { page: 7 } }),
@@ -492,7 +489,7 @@ export function rendererConformance({
 
       it("runs form actions and renders their result as form, for a native submit without DROPLETS_SECRET", async () => {
         const plain = await (await get({ path: "/droplets/guestbook" })).text();
-        expect(plain).toMatch(/data-testid="form"[^>]*>none</);
+        expect(bare({ html: plain })).toMatch(/data-testid="form"[^>]*>none</);
         // Where the forms post: the neutral action URLs, the same before and after any JavaScript.
         expect(actionOf({ html: plain, testid: "sign" })).toBe(actionOn({ path: "/droplets/guestbook" }));
         expect(actionOf({ html: plain, testid: "leave" })).toBe(actionOn({ path: "/droplets/guestbook?/leave" }));
@@ -504,7 +501,7 @@ export function rendererConformance({
         expect(signed.status).toBe(200);
         expect(signed.headers.get("cache-control")).toBe("private, no-store");
         const html = await signed.text();
-        expect(html).toMatch(/data-testid="form"[^>]*>Thanks, Ana</);
+        expect(bare({ html })).toMatch(/data-testid="form"[^>]*>Thanks, Ana</);
         // The load ran again; the result goes with its data, for hydration.
         if (!byAttribute) {
           expect(payload({ html, attribute: "data-droplet-data" })).toEqual({ data: { count: 1 }, form: { message: "Thanks, Ana" } });
@@ -513,7 +510,7 @@ export function rendererConformance({
 
         const refused = await submit({ path: "/droplets/guestbook", fields: { name: "" } });
         expect(refused.status).toBe(422);
-        expect(await refused.text()).toMatch(/data-testid="form"[^>]*>A name, please</);
+        expect(bare({ html: await refused.text() })).toMatch(/data-testid="form"[^>]*>A name, please</);
 
         const left = await submit({ path: "/droplets/guestbook?/leave", fields: {} });
         expect(left.status).toBe(303);
@@ -542,7 +539,7 @@ export function rendererConformance({
           expect(page.status).toBe(200);
           expect(page.headers.get("cache-control")).toBe("private, no-store");
           const html = await page.text();
-          expect(html).toMatch(/data-testid="form"[^>]*>Thanks, Ana</);
+          expect(bare({ html })).toMatch(/data-testid="form"[^>]*>Thanks, Ana</);
           if (!byAttribute) {
             expect(payload({ html, attribute: "data-droplet-data" })).toEqual({ data: { count: 1 }, form: { message: "Thanks, Ana" } });
           }
@@ -558,7 +555,7 @@ export function rendererConformance({
 
           const refused = await submit({ path: "/droplets/guestbook", fields: { name: "" }, headers: nativeSubmit });
           expect(refused.status).toBe(303);
-          expect(await (await renderOn({ host: refused.headers.get("location") ?? "" })).text()).toMatch(
+          expect(bare({ html: await (await renderOn({ host: refused.headers.get("location") ?? "" })).text() })).toMatch(
             /data-testid="form"[^>]*>A name, please</,
           );
 
@@ -578,11 +575,11 @@ export function rendererConformance({
             .replace(/=+$/, "");
           for (const bad of [`${forged}.${mac}`, `${body}.${"A".repeat(43)}`, `${body}${"A".repeat(2048)}.${mac}`]) {
             const html = await (await renderOn({ host: `${PAGE}&${key()}=${bad}` })).text();
-            expect(html).toMatch(/data-testid="form"[^>]*>none</);
+            expect(bare({ html })).toMatch(/data-testid="form"[^>]*>none</);
           }
           // Another build's key is not this one's.
           const other = await (await renderOn({ host: `${PAGE}&__droplet_form_guestbook_other1=${value}` })).text();
-          expect(other).toMatch(/data-testid="form"[^>]*>none</);
+          expect(bare({ html: other })).toMatch(/data-testid="form"[^>]*>none</);
         });
 
         it("goes back only to a page on this server or a trusted origin", async () => {
@@ -616,10 +613,10 @@ export function rendererConformance({
           expect(res.status).toBe(303);
           const back = res.headers.get("location") ?? "";
           expect(back.startsWith(`https://shop.test/products/7?${key()}=`)).toBe(true);
-          expect(await (await renderOn({ host: back })).text()).toMatch(/data-testid="form"[^>]*>Thanks, Ana</);
+          expect(bare({ html: await (await renderOn({ host: back })).text() })).toMatch(/data-testid="form"[^>]*>Thanks, Ana</);
           // Minted for that page: worthless on another page of the same origin.
           const elsewhere = `https://shop.test/products/8?${key()}=${new URL(back).searchParams.get(key())}`;
-          expect(await (await renderOn({ host: elsewhere })).text()).toMatch(/data-testid="form"[^>]*>none</);
+          expect(bare({ html: await (await renderOn({ host: elsewhere })).text() })).toMatch(/data-testid="form"[^>]*>none</);
         });
 
         it("keeps the JSON answer for an enhanced form", async () => {
@@ -666,7 +663,7 @@ export function rendererConformance({
         const served = await (await get({ path: "/droplets/guestbook", init: { headers: evil } })).text();
         expect(actionOf({ html: served, testid: "sign" })).toBe(actionOn({ path: "/droplets/guestbook" }));
         const live = await (await submit({ path: "/droplets/guestbook", fields: { name: "Ana" }, headers: evil })).text();
-        expect(live).toMatch(/data-testid="form"[^>]*>Thanks, Ana</);
+        expect(bare({ html: live })).toMatch(/data-testid="form"[^>]*>Thanks, Ana</);
         expect(actionOf({ html: live, testid: "leave" })).toBe(actionOn({ path: "/droplets/guestbook?/leave" }));
         for (const html of [served, live]) expect(html).not.toContain("evil.example");
       });
@@ -682,9 +679,11 @@ export function rendererConformance({
       it("renders a JSON render that carries form with it, live", async () => {
         const res = await post({ path: "/droplets/guestbook", body: { props: {}, form: { message: "Thanks, Bo" } } });
         expect(res.status).toBe(200);
-        expect(await res.text()).toMatch(/data-testid="form"[^>]*>Thanks, Bo</);
+        expect(bare({ html: await res.text() })).toMatch(/data-testid="form"[^>]*>Thanks, Bo</);
         // Without form, the stored render.
-        expect(await (await post({ path: "/droplets/guestbook", body: { props: {} } })).text()).toMatch(/data-testid="form"[^>]*>none</);
+        expect(bare({ html: await (await post({ path: "/droplets/guestbook", body: { props: {} } })).text() })).toMatch(
+          /data-testid="form"[^>]*>none</,
+        );
       });
 
       it("answers an action in JSON to a request that accepts it", async () => {
@@ -762,12 +761,20 @@ export function rendererConformance({
       let requests: { url: string; method: string; type: string; accept: string }[] = [];
       /** While set, a form action's answer waits for it. */
       let holdActions: Promise<void> | null = null;
-      /** The forms whose submit reached the document un-prevented: the browser's, not enhanced. */
+      /** The forms whose submit reached the end of its path un-prevented: the browser's, not enhanced. */
       let native: string[] = [];
       // Prevented here, once nothing else did: happy-dom would navigate the test's window.
-      const onDocumentSubmit = (event: Event) => {
+      const onRootSubmit = (event: Event) => {
         if (!event.defaultPrevented) native.push((event.target as HTMLElement).dataset["testid"] ?? "?");
         event.preventDefault();
+      };
+      /** Where a submit ends: the document, or the shadow root it never leaves. */
+      const roots = new Set<Node>();
+      type ListenAtInput = { root: Node };
+      const listenAt = ({ root }: ListenAtInput) => {
+        if (roots.has(root)) return;
+        roots.add(root);
+        root.addEventListener("submit", onRootSubmit);
       };
       let realFetch: typeof fetch;
       /** Resolved before any bundle loads; a test replaces it to hold the bundles back. */
@@ -818,7 +825,7 @@ export function rendererConformance({
           if (!request.headers.has("origin")) request.headers.set("origin", origin);
           return app.request(request);
         }) as typeof fetch;
-        document.addEventListener("submit", onDocumentSubmit);
+        listenAt({ root: document });
         // What /index.js records before the entry: where it was loaded from.
         const servers = ((globalThis as unknown as Record<symbol, Record<string, { origin?: string }>>)[Symbol.for("droplets.servers")] ??=
           {});
@@ -846,21 +853,21 @@ export function rendererConformance({
 
       afterAll(() => {
         globalThis.fetch = realFetch;
-        document.removeEventListener("submit", onDocumentSubmit);
+        for (const root of roots) root.removeEventListener("submit", onRootSubmit);
       });
 
       it("hydrates the server markup in place, keeping the DOM and the host's children", async () => {
         fetches = [];
         const el = mount({ html: await withChildren({ path: "/droplets/hello?who=Ana", kid: "kid-hydrate" }) });
-        const greeting = el.querySelector("[data-testid=greeting]");
+        const greeting = find({ root: el, selector: "[data-testid=greeting]" });
         expect(greeting?.textContent).toBe("Hello Ana!");
-        expect(el.querySelector("[data-testid=count]")?.textContent?.trim()).toBe("0");
+        expect(find({ root: el, selector: "[data-testid=count]" })?.textContent?.trim()).toBe("0");
         if (interactive) await clickUntilLive({ el });
         else await settle();
         // The same node: adopted, not re-created (or the same content, rendered again).
-        if (adopts) expect(el.querySelector("[data-testid=greeting]")).toBe(greeting);
-        else expect(el.querySelector("[data-testid=greeting]")?.textContent).toBe("Hello Ana!");
-        expect(el.querySelector(`[data-testid=children] ${IN_MARKER} > #kid-hydrate`)?.textContent).toBe("from host");
+        if (adopts) expect(find({ root: el, selector: "[data-testid=greeting]" })).toBe(greeting);
+        else expect(find({ root: el, selector: "[data-testid=greeting]" })?.textContent).toBe("Hello Ana!");
+        expect(kidIn({ root: el, inside: "[data-testid=children]", kid: "kid-hydrate" })?.textContent).toBe("from host");
         expect(document.querySelectorAll("#kid-hydrate")).toHaveLength(1);
         // Inline data: nothing fetched.
         expect(fetches.filter((u) => u.includes("/_data"))).toEqual([]);
@@ -872,19 +879,19 @@ export function rendererConformance({
         try {
           const el = mount({ html: await withChildren({ path: "/droplets/hello?who=Ana", kid: "kid-early" }) });
           // Right at connect, nothing loaded yet: the container sits in the server's marker, shown.
-          const container = el.querySelector<HTMLElement>(`[data-testid=children] ${IN_MARKER}`);
+          const container = containerIn({ root: el, inside: "[data-testid=children]" });
           expect(container).not.toBeNull();
           expect(container?.hidden).toBe(false);
           expect(container?.querySelector("#kid-early")?.textContent).toBe("from host");
           await tick();
-          expect(el.querySelector(`[data-testid=children] ${IN_MARKER}`)).toBe(container);
+          expect(containerIn({ root: el, inside: "[data-testid=children]" })).toBe(container);
 
           release();
           bundles = Promise.resolve();
           if (interactive) await clickUntilLive({ el });
           else await settle();
           // Hydrated: the same container node, in the adopted marker, shown.
-          expect(el.querySelector(`[data-testid=children] ${IN_MARKER}`)).toBe(container);
+          expect(containerIn({ root: el, inside: "[data-testid=children]" })).toBe(container);
           expect(container?.hidden).toBe(false);
           expect(document.querySelectorAll("#kid-early")).toHaveLength(1);
         } finally {
@@ -893,19 +900,22 @@ export function rendererConformance({
         }
       });
 
-      it("keeps the container hidden under the element when the server HTML has no marker", async () => {
+      it("keeps the container in the document, out of sight, when the component does not render its children", async () => {
         // docs hydrates, static-note never does; neither renders its children.
         for (const [path, kid] of [
           ["/droplets/docs?page=3", "kid-docs"],
           ["/droplets/static-note", "kid-note"],
         ] as const) {
           const el = mount({ html: await withChildren({ path, kid }) });
-          const container = el.querySelector<HTMLElement>(":scope > [data-droplet-slot]");
+          const container = el.querySelector<HTMLElement>("[data-droplet-slot]");
           expect(container, path).not.toBeNull();
-          expect(container?.hidden, path).toBe(true);
+          // Hidden under the element without a marker in the server HTML; in a
+          // marker a shadow-DOM component leaves unslotted, out of what the page shows.
+          const outOfSight = () => container?.hidden === true || find({ root: el, selector: "[data-droplet-slot]" }) === null;
+          expect(outOfSight(), path).toBe(true);
           await settle();
-          expect(el.querySelector(":scope > [data-droplet-slot]"), path).toBe(container);
-          expect(container?.hidden, path).toBe(true);
+          expect(el.querySelector("[data-droplet-slot]"), path).toBe(container);
+          expect(outOfSight(), path).toBe(true);
           expect(document.querySelectorAll(`#${kid}`), path).toHaveLength(1);
         }
       });
@@ -917,9 +927,12 @@ export function rendererConformance({
         // Nothing rendered yet: the container waits under the element, hidden.
         expect(el.querySelector<HTMLElement>(":scope > [data-droplet-slot]")?.hidden).toBe(true);
         await until({
-          check: () => expect(el.querySelector(`[data-droplet-entry] [data-testid=frame] ${IN_MARKER} > #kid-frame`)).not.toBeNull(),
+          check: () => {
+            const entry = el.querySelector("[data-droplet-entry]");
+            expect(entry && kidIn({ root: entry, inside: "[data-testid=frame]", kid: "kid-frame" })).not.toBeNull();
+          },
         });
-        expect(el.querySelector<HTMLElement>("[data-droplet-slot]")?.hidden).toBe(false);
+        expect(find({ root: el, selector: "[data-droplet-slot]" })?.hidden).toBe(false);
         expect(document.querySelectorAll("#kid-frame")).toHaveLength(1);
         // Light DOM: no shadow root anywhere.
         expect(el.shadowRoot).toBeNull();
@@ -927,14 +940,14 @@ export function rendererConformance({
 
       it("hydrates the error page with the host's children in its marker", async () => {
         const el = mount({ html: await withChildren({ path: "/droplets/hello?who=crash", kid: "kid-error" }) });
-        const message = el.querySelector("[data-testid=error]");
+        const message = find({ root: el, selector: "[data-testid=error]" });
         expect(message?.textContent).toBe("[hello] Sorry, ref 42");
-        expect(el.querySelector(`[data-testid=error-children] ${IN_MARKER} > #kid-error`)).not.toBeNull();
+        expect(kidIn({ root: el, inside: "[data-testid=error-children]", kid: "kid-error" })).not.toBeNull();
         await tick();
         await tick();
-        if (adopts) expect(el.querySelector("[data-testid=error]")).toBe(message);
-        else expect(el.querySelector("[data-testid=error]")?.textContent).toBe("[hello] Sorry, ref 42");
-        expect(el.querySelector(`[data-testid=error-children] ${IN_MARKER} > #kid-error`)).not.toBeNull();
+        if (adopts) expect(find({ root: el, selector: "[data-testid=error]" })).toBe(message);
+        else expect(find({ root: el, selector: "[data-testid=error]" })?.textContent).toBe("[hello] Sorry, ref 42");
+        expect(kidIn({ root: el, inside: "[data-testid=error-children]", kid: "kid-error" })).not.toBeNull();
         expect(document.querySelectorAll("#kid-error")).toHaveLength(1);
       });
 
@@ -946,7 +959,7 @@ export function rendererConformance({
         try {
           const el = mount({ html: await (await get({ path: "/droplets/guestbook" })).text() });
           type ActionInput = { testid: string };
-          const action = ({ testid }: ActionInput) => el.querySelector(`[data-testid=${testid}]`)?.getAttribute("action");
+          const action = ({ testid }: ActionInput) => find({ root: el, selector: `[data-testid=${testid}]` })?.getAttribute("action");
           expect(action({ testid: "sign" })).toBe(actionOn({ path: "/droplets/guestbook" }));
           if (!byAttribute) await until({ check: () => expect(imported).toContain("guestbook") });
           await settle();
@@ -966,12 +979,12 @@ export function rendererConformance({
         fetches = [];
         const res = await submit({ path: "/droplets/guestbook", fields: { name: "" } });
         const el = mount({ html: await res.text() });
-        const message = el.querySelector("[data-testid=form]");
+        const message = find({ root: el, selector: "[data-testid=form]" });
         expect(message?.textContent).toBe("A name, please");
         if (!byAttribute) await until({ check: () => expect(imported).toContain("guestbook") });
         await settle();
-        if (adopts) expect(el.querySelector("[data-testid=form]")).toBe(message);
-        expect(el.querySelector("[data-testid=form]")?.textContent).toBe("A name, please");
+        if (adopts) expect(find({ root: el, selector: "[data-testid=form]" })).toBe(message);
+        expect(find({ root: el, selector: "[data-testid=form]" })?.textContent).toBe("A name, please");
         // Inline data: nothing fetched.
         expect(fetches.filter((u) => u.includes("/droplets/guestbook"))).toEqual([]);
       });
@@ -984,13 +997,13 @@ export function rendererConformance({
           fetches = [];
           visit({ url: back });
           const el = mount({ html: await (await renderOn({ host: back })).text() });
-          const message = el.querySelector("[data-testid=form]");
+          const message = find({ root: el, selector: "[data-testid=form]" });
           expect(message?.textContent).toBe("A name, please");
           if (!byAttribute) await until({ check: () => expect(imported).toContain("guestbook") });
           await settle();
-          if (adopts) expect(el.querySelector("[data-testid=form]")).toBe(message);
-          expect(el.querySelector("[data-testid=form]")?.textContent).toBe("A name, please");
-          expect(el.querySelector("[data-testid=sign]")?.getAttribute("action")).toBe(
+          if (adopts) expect(find({ root: el, selector: "[data-testid=form]" })).toBe(message);
+          expect(find({ root: el, selector: "[data-testid=form]" })?.textContent).toBe("A name, please");
+          expect(find({ root: el, selector: "[data-testid=sign]" })?.getAttribute("action")).toBe(
             actionOn({ path: "/droplets/guestbook", page: `${origin}/book` }),
           );
           expect(fetches.filter((u) => u.includes("/droplets/guestbook"))).toEqual([]);
@@ -1017,16 +1030,18 @@ export function rendererConformance({
          * `formAction` buttons send one), so it gets an empty one.
          */
         const submitForm = ({ target }: SubmitFormInput) => {
+          listenAt({ root: target.getRootNode() });
           const event = new SubmitEvent("submit", { bubbles: true, cancelable: true });
           Object.defineProperty(event, "detail", { value: {} });
           target.dispatchEvent(event);
         };
-        const field = () =>
-          el.querySelector<HTMLInputElement>("[data-testid=sign] input[name=name]") ?? expect.unreachable("the sign form's name field");
         type FormInput = { testid: string };
         const form = ({ testid }: FormInput) =>
-          el.querySelector<HTMLFormElement>(`[data-testid=${testid}]`) ?? expect.unreachable(`form ${testid}`);
-        const message = () => el.querySelector("[data-testid=form]")?.textContent;
+          find<HTMLFormElement>({ root: el, selector: `[data-testid=${testid}]` }) ?? expect.unreachable(`form ${testid}`);
+        const field = () =>
+          find<HTMLInputElement>({ root: form({ testid: "sign" }), selector: "input[name=name]" }) ??
+          expect.unreachable("the sign form's name field");
+        const message = () => find({ root: el, selector: "[data-testid=form]" })?.textContent;
         /** The form posts to the guestbook's actions so far. */
         const actionPosts = () =>
           requests.filter((r) => r.method === "POST" && r.type.includes("form") && r.url.startsWith(`${origin}/droplets/guestbook`));
@@ -1059,7 +1074,7 @@ export function rendererConformance({
           await fresh();
           const href = globalThis.location.href;
           try {
-            const before = el.querySelector("[data-testid=form]");
+            const before = find({ root: el, selector: "[data-testid=form]" });
             await submitEnhanced({ testid: "sign", name: "Ana" });
             await until({ check: () => expect(message()).toBe("Thanks, Ana") });
             const sent = actionPosts().at(-1) ?? expect.unreachable("an action post");
@@ -1070,7 +1085,7 @@ export function rendererConformance({
               expect(
                 requests.some((r) => r.method === "POST" && r.type === "application/json" && /\/droplets\/guestbook$/.test(r.url)),
               ).toBe(true);
-              expect(el.querySelector("[data-testid=form]")).not.toBe(before);
+              expect(find({ root: el, selector: "[data-testid=form]" })).not.toBe(before);
               expect(imported).not.toContain("guestbook");
             } else {
               // Rendered again in the browser, with its loads run again.
@@ -1156,7 +1171,9 @@ export function rendererConformance({
 
       it("shows the error page for a load that fails in the browser", async () => {
         const el = mount({ html: `<${element} data-droplet="hello" data-params='{"who":"crash"}'></${element}>` });
-        await until({ check: () => expect(el.querySelector("[data-testid=error]")?.textContent).toBe("[hello] Sorry, ref 42") });
+        await until({
+          check: () => expect(find({ root: el, selector: "[data-testid=error]" })?.textContent).toBe("[hello] Sorry, ref 42"),
+        });
       });
 
       it("remounts from the fragment asked for again (dev.strategy remount, and hmr's fallback), with the host's children carried over", async () => {
@@ -1169,13 +1186,13 @@ export function rendererConformance({
         // `dev.strategy: "remount"`, and under `"hmr"` an engine without HMR
         // of its own (or an edit its HMR did not take); with HMR the
         // framework swaps the component and keeps what it can.
-        await until({ check: () => expect(el.querySelector("[data-testid=count]")?.textContent?.trim()).toBe("0") });
-        expect(el.querySelector("[data-testid=greeting]")?.textContent).toBe("Hello Ana!");
+        await until({ check: () => expect(find({ root: el, selector: "[data-testid=count]" })?.textContent?.trim()).toBe("0") });
+        expect(find({ root: el, selector: "[data-testid=greeting]" })?.textContent).toBe("Hello Ana!");
         if (interactive) await clickUntilLive({ el });
         // A server fragment is asked for again, as the host's server would; its data comes inline.
         expect(fetches.filter((u) => /\/droplets\/hello$/.test(u))).toHaveLength(1);
         expect(fetches.filter((u) => u.includes("/_data"))).toHaveLength(0);
-        expect(el.querySelector(`[data-testid=children] ${IN_MARKER} > #kid-hmr`)).not.toBeNull();
+        expect(kidIn({ root: el, inside: "[data-testid=children]", kid: "kid-hmr" })).not.toBeNull();
         expect(document.querySelectorAll("#kid-hmr")).toHaveLength(1);
       });
 
@@ -1195,13 +1212,13 @@ export function rendererConformance({
         const host = { fill: () => {}, empty: () => {} };
         const handle = await bundle.default(target, { who: "Ana", greeting: "Hello Ana!" }, host, { location: origin, props: {} });
         try {
-          await until({ check: () => expect(target.querySelector("[data-testid=greeting]")?.textContent).toBe("Hello Ana!") });
+          await until({ check: () => expect(find({ root: target, selector: "[data-testid=greeting]" })?.textContent).toBe("Hello Ana!") });
           const clicks = interactive ? await clickUntilLive({ el: target }) : 0;
           const kept = await bundle.update(handle, { who: "Bo", greeting: "Hello Bo!" });
           // An instance that cannot take new props remounts instead: nothing to check here.
           if (!kept) return;
-          await until({ check: () => expect(target.querySelector("[data-testid=greeting]")?.textContent).toBe("Hello Bo!") });
-          if (interactive) expect(Number(target.querySelector("[data-testid=count]")?.textContent?.trim())).toBe(clicks);
+          await until({ check: () => expect(find({ root: target, selector: "[data-testid=greeting]" })?.textContent).toBe("Hello Bo!") });
+          if (interactive) expect(Number(find({ root: target, selector: "[data-testid=count]" })?.textContent?.trim())).toBe(clicks);
         } finally {
           await bundle.unmount(handle);
           target.remove();

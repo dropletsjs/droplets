@@ -1,19 +1,14 @@
 import { createHash, randomBytes } from "node:crypto";
 import { rm } from "node:fs/promises";
 import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { connect } from "../core/app-thread.ts";
 import { loadJsonFile, writeTextFile } from "../core/fs.ts";
 import { logger } from "../core/logger.ts";
-import { createDropletsApp } from "../runtime/app.ts";
-import { createDevLog } from "../runtime/dev-log.ts";
-import { setRuntimeEnv } from "../runtime/env-store.ts";
-import type { SsrModule } from "../server/app.ts";
+import { packageDist } from "../core/paths.ts";
 import type { DropletsManifest } from "../server/manifest.ts";
 import { PRERENDER_DIR, prerenderIndexPath, type PrerenderIndex } from "../server/prerendered.ts";
+import type { PrerenderWorkerData } from "./prerender-worker.ts";
 import type { PluginState } from "./state.ts";
-
-/** Read by `building` in `$droplets/env` when the SSR bundle loads. */
-const BUILDING = Symbol.for("droplets.building");
 
 /** What the fragment answers while building. */
 type BuildRender = {
@@ -64,6 +59,10 @@ export function prerenderRoot(state: PluginState): { dir: string; assets?: strin
  * else `host` of the config, else host-agnostic; a render
  * that reads more of `host` than it can have stops the build. Returns how
  * many renders it wrote.
+ *
+ * The bundle is evaluated in a worker thread (`prerender-worker.ts`): it
+ * finds the globals a server has, not the build process's, and what it
+ * installs stays with it.
  */
 type PrerenderInput = { state: PluginState; ssrEntry: string };
 
@@ -83,41 +82,20 @@ export async function prerender({ state, ssrEntry }: PrerenderInput): Promise<nu
     await writeTextFile({ path: manifestPath, contents: `${JSON.stringify({ ...manifest, __prerendered: root.assets }, null, 2)}\n` });
   }
 
-  const global = globalThis as { [BUILDING]?: boolean };
-  global[BUILDING] = true;
-  // Private variables read at runtime come from the mode's `.env` here.
-  setRuntimeEnv(state.env.values);
+  const workerData: PrerenderWorkerData = {
+    ssrEntry,
+    element: state.config.element,
+    buildHash: state.buildHash,
+    location: state.config.location,
+    host: state.config.host,
+    env: state.env.values,
+  };
+  const app = connect({ file: resolve(packageDist, "vite/prerender-worker.js"), workerData });
   try {
-    // A fresh copy: `building` is read once, when the bundle is evaluated.
-    const ssr = (await import(`${pathToFileURL(ssrEntry).href}?prerender=${Date.now()}`)) as SsrModule;
-    const renderDroplet = ssr.renderDroplet ?? ssr.default;
-    if (!renderDroplet || !ssr.getEntries) {
-      throw new Error("droplets: the SSR bundle cannot prerender (no renderDroplet or getEntries)");
-    }
-    const app = createDropletsApp({
-      devLog: createDevLog(),
-      element: state.config.element,
-      health: false,
-      renderDroplet,
-      ...(ssr.getDropletMeta ? { getDropletMeta: ssr.getDropletMeta } : {}),
-      ...(ssr.getHandle ? { getHandle: ssr.getHandle } : {}),
-      ...(ssr.getHandleError ? { getHandleError: ssr.getHandleError } : {}),
-      ...(ssr.validateDropletProps ? { validateProps: ssr.validateDropletProps } : {}),
-      ...(ssr.renderError ? { renderError: ssr.renderError } : {}),
-      buildHash: state.buildHash,
-      // The renders' tokens are the bundle's own: one nonce for both.
-      ...(ssr.tokenNonce === undefined ? {} : { tokenNonce: ssr.tokenNonce }),
-      ...(ssr.tokens === undefined ? {} : { tokens: ssr.tokens }),
-      building: true,
-      location: state.config.location,
-      // An entry without `host` renders for this one: the app knows it.
-      host: state.config.host,
-    });
-
     let count = 0;
     for (const entry of targets) {
       const index: PrerenderIndex = {};
-      for (const event of await ssr.getEntries(entry.id)) {
+      for (const event of await app.call<Array<{ props: Record<string, unknown>; host?: string }>>("entries", entry.id)) {
         const host = event.host;
         const props = event.props;
         const response = await app.request(`${PRERENDER_ORIGIN}/droplets/${entry.id}`, {
@@ -163,7 +141,6 @@ export async function prerender({ state, ssrEntry }: PrerenderInput): Promise<nu
     }
     return count;
   } finally {
-    delete global[BUILDING];
-    setRuntimeEnv(undefined);
+    await app.stop();
   }
 }

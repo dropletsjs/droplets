@@ -35,8 +35,10 @@
 - `build` runs tsdown, then the tests (`tsdown && vitest run`), because the integration tests build against `dist/`; `build:dist` only compiles.
   Checked by: `package.json`.
 - While editing, `pnpm dev:lib` (repo root) keeps `dist/` rebuilt; an example's Vite server restarts after a change to the plugin's `config` hook.
-- The renderer contract is checked by `rendererConformance()` from `./testing`, which the renderer packages' conformance tests run and `test/conformance.test.ts` runs on `fakeRenderer()`.
-  Checked by: `test/conformance.test.ts`, `packages/renderers/*/test/conformance.test.ts`.
+- The renderer contract is checked by `rendererConformance()` from `./testing`, which the renderer packages' conformance tests run and `test/conformance.test.ts` runs on `fakeRenderer()`; the kit's server renders in a worker thread, its DOM checks look through shadow roots and slots, and its HTML checks ignore comments.
+  Checked by: `test/conformance.test.ts`, `packages/renderers/*/test/conformance.test.ts` (Lit's, for a server build with a DOM shim and components in shadow DOM).
+- The SSR bundle is evaluated in a worker thread (`src/core/app-thread.ts`) wherever a process that is not the server drives it: the build's prerender pass and the conformance kit.
+  Checked by: `test/integration/prerender-host.test.ts`, `packages/renderers/lit/test/conformance.test.ts`.
 - Runtime CSS lives in `.css` files imported with `?inline`.
   Checked by: `cssInline()` in `tsdown.config.ts`, `tests/packages/test/packed.test.ts`.
 - New public API (config options, routes, the element contract, the renderer contract, `$droplets/*` modules) comes with the maintainer's go and a matching change in `apps/docs/`.

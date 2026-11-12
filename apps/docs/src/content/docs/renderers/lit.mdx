@@ -1,6 +1,6 @@
 ---
 title: Lit
-description: "Lit droplets: djs add, +droplet.lit.ts, declarative shadow DOM, hydrateShadowRoots, styles in the shadow root, Lit Labs SSR, Workers, with a live droplet."
+description: "Lit droplets: djs add, +droplet.lit.ts, declarative shadow DOM, shadow roots attached for innerHTML, styles in the shadow root, Lit Labs SSR, Workers, with a live droplet."
 tableOfContents: false
 ---
 
@@ -141,14 +141,13 @@ in the server's log.
   once per page, before any droplet defines its class; `hydrate` then adopts
   the server's nodes in place, without rendering them again. `firstUpdated`
   runs then, which is where the demo sets `hydrated`.
-- **Markup inserted with `innerHTML`: `hydrateShadowRoots`.** The HTML parser
-  attaches a declarative shadow root only while it parses a page: a fragment
-  a host inserts with `innerHTML`, like the ones the droplet element fetches
-  itself after a form action or an edit in dev, keeps it as an inert
-  `<template>`. `hydrate` attaches those first, with `hydrateShadowRoots` of
-  `@webcomponents/template-shadowroot` and a fallback of its own for any it
-  leaves, so such a fragment hydrates like one in the page. Until its script
-  runs, it shows nothing of its shadow content.
+- **Markup inserted with `innerHTML`.** The HTML parser attaches a
+  declarative shadow root only while it parses a page: a fragment a host
+  inserts with `innerHTML`, like the ones the droplet element fetches itself
+  after a form action or an edit in dev, keeps it as an inert `<template>`.
+  `hydrate` attaches those first, innermost first, so such a fragment
+  hydrates like one in the page. Until its script runs, it shows nothing of
+  its shadow content.
 - **Styles live in the shadow root.** Write them as `static styles`. The
   droplet's `style.css`, a CSS file a component imports, the shared
   `css.path` stylesheet (Tailwind included) and the host's styles reach the
@@ -194,12 +193,16 @@ in the server's log.
 
 ### Tests
 
-The renderer does not run `rendererConformance()`. Its HTML checks read
-through Lit's `<!--lit-part-->` comments and its DOM queries stop at shadow
-roots, and happy-dom shares one `customElements` between the server render
-and the browser bundles in one test, so the same tag is defined twice. Its
-own vitest suite covers the server side, a Workers build included, and
-Playwright covers the browser in real Chromium.
+The renderer runs `rendererConformance()` like every other, with
+`css: false`: a component's styles live in its shadow root, so the client
+build extracts none. The kit renders the server side in a worker thread,
+where Lit's DOM shim finds no happy-dom and defines its elements apart from
+the browser bundles'; its DOM checks look into shadow roots and through
+slots, and its HTML checks ignore Lit's `<!--lit-part-->` comments. The
+renderer's own vitest suite covers the server side further, a Workers build
+included, and Playwright checks in real Chromium what only a browser shows:
+the parser attaching declarative shadow roots, styles inside the shadow
+root, and the replayed click inside it.
 
 ## The example
 

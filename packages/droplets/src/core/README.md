@@ -29,6 +29,7 @@ const droplets = await discoverDroplets({ dropletsRoot: "/app/src/droplets", ren
 | `api-routes.ts` | scans the API folder for `+server.ts` and turns folders into route segments | Node, build and dev |
 | `paths.ts` | absolute paths of the compiled runtime files in this package's `dist/` | Node, build and dev |
 | `fs.ts` | small `node:fs` helpers: missing files read as `null` or `false` | Node |
+| `app-thread.ts` | an app answering from a worker thread: `connect` and `answer`, requests and responses as plain data | Node, the build and the conformance kit |
 
 ### Config
 
@@ -202,6 +203,9 @@ builds and runs them.
 - Paths into `dist/`: `runtime/entry-client.js`, `entry-server.js`, `server.js`, `props.js`, `load.js`, `env-store.js`, `request-store.js`, `form.js`, `enhance.js`, `server-records.js`, `client-init.js`. `paths.ts:31`, `paths.ts:56`
 - Paths into `dist/` all name tsdown entries, so their names stay fixed. `../../tsdown.config.ts:12`, `../../tsdown.config.ts:16`
 - `toViteFsPath` turns an absolute path into `/@fs/<path>` with forward slashes. `paths.ts:60`
+- `connect({ file, workerData })` starts `file` in a worker thread that shares `process.env`; `call(method, ...args)` is answered by the thread's named handler, `request(url, init)` as a `Response`; a thread error rejects every call. `app-thread.ts:79`, `app-thread.ts:80`
+- `answer(handlers)` runs in the thread: a call reaches a handler through `Object.hasOwn`, an unknown name or a throw answers the error's message. `app-thread.ts:23`
+- Requests cross the thread as `{ url, method, headers, body }` with a text body (a `URLSearchParams` is its string; another body is dropped); responses as `{ status, headers, body }`. `app-thread.ts:40`, `app-thread.ts:52`
 - `fileExists` is true for files only; a missing or unreadable path is false. `fs.ts:22`, `fs.ts:25`
 - `loadTextFile` returns `null` for a missing file and throws any other read error. `fs.ts:34`, `fs.ts:35`
 - `loadJsonFile` returns `null` for a missing or malformed file. `fs.ts:48`, `fs.ts:53`

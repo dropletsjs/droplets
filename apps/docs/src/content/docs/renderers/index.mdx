@@ -180,6 +180,7 @@ share an extension passes `plugins` as a function of a `RendererScope`:
 `scope.include` is a RegExp matching the modules tagged for it, to hand to
 its framework's Vite plugin (`include`) so that plugin leaves the others'
 files alone. `@dropletsjs/droplets/testing` ships `rendererConformance()`, the
-vitest suite every renderer passes but Lit (see [its page](/renderers/lit/#tests)),
-and `fakeRenderer()`, a complete reference renderer. See the
+vitest suite every renderer passes (Lit's shadow DOM included, see
+[its page](/renderers/lit/#tests)), and `fakeRenderer()`, a complete
+reference renderer. See the
 [API reference](/reference/api/#renderers).

@@ -28,7 +28,8 @@
 - A client entry imports only the framework and `@dropletsjs/droplets` client modules: no Node built-ins, no server module.
   Checked by: `tests/packages/test/packed.test.ts`.
 - `build` is `tsdown && vitest run`: the tests import `dist/`, and a failing suite stops `pnpm build`.
-- Every renderer but Lit runs `rendererConformance()` from `@dropletsjs/droplets/testing` in `test/conformance.test.ts`, on `rendererTests` (happy-dom); Lit runs its own suite under Node and in Chromium (`tests/examples`).
+- Every renderer runs `rendererConformance()` from `@dropletsjs/droplets/testing` in `test/conformance.test.ts`, under happy-dom (`rendererTests`, or the file's pragma where the package's other tests run under Node, as Lit's do); the kit's server renders in a worker thread, so a server build that shims the DOM (Lit SSR) passes it too.
+  Checked by: `test/conformance.test.ts` in each renderer.
 - `./form` is opt-in progressive enhancement over `@dropletsjs/droplets/enhance`; a form without it posts as any form does.
 - The renderer contract is public API: a change needs the maintainer's approval and a matching change in `apps/docs/src/content/docs/renderers/index.mdx` ("Writing a renderer").
 - A change to one renderer's behaviour usually belongs in the others and in `examples/frameworks/*`.

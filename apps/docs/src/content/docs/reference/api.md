@@ -607,7 +607,11 @@ For renderer packages; it imports vitest.
 renderer passes. It builds a fixture app with the renderer and checks
 server rendering, inline data, hydration, client-only mounting, the error
 page and boundary, children, prerendering, form actions and their URLs,
-native and enhanced submits, Post/Redirect/Get and HMR.
+native and enhanced submits, Post/Redirect/Get and HMR. The server renders
+in a worker thread of its own, so a server build that shims the DOM or
+defines custom elements never meets the browser bundles; the DOM checks
+look into shadow roots, attached or declarative, and through slots; the
+HTML checks ignore an engine's comment markers.
 
 | Option | Default | What it is |
 | --- | --- | --- |

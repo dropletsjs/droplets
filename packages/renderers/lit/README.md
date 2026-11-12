@@ -90,8 +90,7 @@ export default class HelloError extends DropletErrorElement<DropletErrorProps> {
   `style.css`, the shared stylesheet and the host's CSS reach the light DOM
   only; inherited properties and CSS custom properties flow in.
 - **`innerHTML`:** a fragment inserted with `innerHTML` keeps its
-  `<template shadowrootmode>` inert. `hydrate` attaches it first
-  (`@webcomponents/template-shadowroot`, then a fallback of its own), then
+  `<template shadowrootmode>` inert. `hydrate` attaches it first, then
   adopts the nodes without rendering them again.
 - **Forms:** `<form method="post" action=${this.actionUrl()}>` posts
   natively. `enhance()` of `@dropletsjs/renderer-lit/form` posts it by fetch
@@ -125,7 +124,8 @@ lit({
   template (`src/template.ts`), the element with `defer-hydration`, its
   shadow root as `<template shadowrootmode="open">` and the children marker
   in light DOM.
-- Browser hydrate (`src/client.ts`): attach inert declarative shadow roots,
+- Browser hydrate (`src/client.ts`): attach the inert declarative shadow
+  roots (`attachShadowRoots`, innermost first),
   define the class under the tag the server used, `hydrate` of
   `@lit-labs/ssr-client`, then remove `defer-hydration`. When another class
   holds the tag, it warns and mounts afresh.
@@ -139,10 +139,14 @@ lit({
 `pnpm --filter @dropletsjs/renderer-lit build` runs tsdown, then the tests,
 under Node with no DOM globals, as on a server. `test/integration/workers.test.ts`
 builds the fixture with `@dropletsjs/adapter-cloudflare` and runs
-`worker.js` in process, so that adapter must be built. The Lit renderer
-does not run `rendererConformance()` today; what happens in a browser
-(declarative shadow DOM, hydration, `innerHTML` insertion, forms, replayed
-clicks) is checked in Chromium by `tests/examples/e2e/lit.spec.ts`.
+`worker.js` in process, so that adapter must be built.
+`test/conformance.test.ts` runs `rendererConformance()` on
+`test/fixtures/conformance` under happy-dom (its pragma), with `css: false`:
+a component's styles live in its shadow root, so the client build extracts
+none. The kit's server renders in a worker thread, where Lit's DOM shim
+finds no happy-dom. What only a real browser shows (the parser attaching
+declarative shadow roots, styles inside the shadow root, the replayed click
+inside it) is checked in Chromium by `tests/examples/e2e/lit.spec.ts`.
 
 ## Facts
 
@@ -168,7 +172,7 @@ clicks) is checked in Chromium by `tests/examples/e2e/lit.spec.ts`.
 - Server registry is the `customElements` Lit's DOM shim puts on `globalThis`, read at render time. `src/render.ts:27`
 - Host template sets `data`, `form` and `actionUrl` (droplet) or `error` (error page) as properties, never attributes. `src/template.ts:23`, `src/template.ts:25`
 - Host template puts the children marker `<div data-droplet-children style="display: contents">` in the element's light DOM. `src/template.ts:25`
-- Client hydrate attaches inert `<template shadowrootmode>` roots: `hydrateShadowRoots`, then the renderer's own pass, innermost first. `src/client.ts:119`, `src/client.ts:120`, `src/client.ts:55`
+- Client hydrate attaches inert `<template shadowrootmode>` roots itself (`attachShadowRoots`), innermost first; a browser without native declarative shadow DOM needs no polyfill for it. `src/client.ts:116`, `src/client.ts:47`
 - Client hydrate defines the class under the tag the server markup carries, hydrates with `@lit-labs/ssr-client`, then removes `defer-hydration`. `src/client.ts:123`, `src/client.ts:134`, `src/client.ts:135`
 - Client hydrate of a tag another class holds warns `[droplets] <droplet>: <tag> is defined by another class on this page` and mounts afresh. `src/client.ts:125`, `src/client.ts:132`
 - Client mount awaits `data`; when it rejects it renders the error page from `handle` (the droplet's `handleError`), nothing when `handle` rejects, and rethrows without an error page. `src/client.ts:79`, `src/client.ts:83`, `src/client.ts:85`, `src/client.ts:81`
@@ -183,10 +187,10 @@ clicks) is checked in Chromium by `tests/examples/e2e/lit.spec.ts`.
 - `enhance` reads its options at each submit; without `onResult` it calls the result's `update()`. `src/form.ts:66`, `src/form.ts:74`
 - `enhance` returns Lit's `DirectiveResult<typeof EnhanceDirective>`. `src/form.ts:94`
 - Package exports are `.`, `./server`, `./client`, `./element` and `./form`. `package.json:25`, `package.json:38`, `package.json:42`
-- Dependencies are `@lit-labs/ssr`, `@lit-labs/ssr-client` and `@webcomponents/template-shadowroot`; peers `@dropletsjs/droplets`, `lit ^3.3.0`, `vite ^8.0.0`. `package.json:64`, `package.json:69`
+- Dependencies are `@lit-labs/ssr` and `@lit-labs/ssr-client`; peers `@dropletsjs/droplets`, `lit ^3.3.0`, `vite ^8.0.0`. `package.json:64`, `package.json:68`
 - Node engine is `>=22`. `package.json:53`
 - Build script runs tsdown, then the tests. `package.json:56`
 - graphCheck: client entries `client`, `client-dev`, `client-setup`, `element`, `form`; server `index`, `server`, `plugin`, `render`. `tsdown.config.ts:17`, `tsdown.config.ts:18`
-- Tests run under Node with no DOM globals. `vitest.config.ts:10`
-- Conformance: the Lit renderer does not run `rendererConformance()` today; browser behaviour is checked by `tests/examples` in Chromium. `vitest.config.ts:9`, `../../../tests/examples/e2e/lit.spec.ts:54`
+- Tests run under Node with no DOM globals; `test/conformance.test.ts` alone runs under happy-dom, by its pragma, with the stylesheet setting of `happyDom` from the config. `vitest.config.ts:11`, `vitest.config.ts:12`, `test/conformance.test.ts:1`
+- Conformance: `rendererConformance({ renderer: lit(), css: false })` on `test/fixtures/conformance`; what only a browser shows is checked by `tests/examples/e2e/lit.spec.ts` in Chromium. `test/conformance.test.ts:12`, `test/conformance.test.ts:17`
 - Workers: the fixture built with `cloudflare()` renders in a process without `document` or `HTMLElement`. `test/integration/workers.test.ts:55`

@@ -206,7 +206,8 @@ in `src/hooks.server.ts` never runs for `/index.js`, `/env.js` and `/assets/*`.
 Other tsdown entries keep a fixed name in `dist/` because code finds them by
 path (`src/core/paths.ts`, the plugin's generated modules, the renderers'
 `server`/`client` paths): the runtime pieces under `runtime/`, the script
-renderer under `script/`, the conformance fixture's adapter entry and the fake
+renderer under `script/`, the prerender pass's worker under `vite/`, and the
+conformance fixture's adapter entry, the kit's server thread and the fake
 renderer under `testing/`.
 
 ### Folders
@@ -264,10 +265,10 @@ renderer under `testing/`.
 - Peer dependencies: `vite` `^8.0.0`; `vitest`, `tailwindcss`, `@tailwindcss/vite` optional. `package.json:91`, `package.json:108`
 - Script `build` is `tsdown && vitest run`; `build:dist` is `tsdown`; `dev` is `tsdown --watch`; `typecheck` is `tsc -p tsconfig.json`. `package.json:75`
 - tsdown entries: the eight public entries, then the files found by path, then `runtime/dev-element.ts` in its own file so a production build drops it whole. `tsdown.config.ts:6`, `tsdown.config.ts:15`, `tsdown.config.ts:27`
-- tsdown entries found by path: `runtime/entry-client`, `entry-server`, `props`, `load`, `env-store`, `request-store`, `form`, `client-init`, `server-records`, `script/server`, `script/client`, `testing/conformance-entry`, `testing/fake-renderer/server`, `testing/fake-renderer/client`. `tsdown.config.ts:16`
+- tsdown entries found by path: `runtime/entry-client`, `entry-server`, `props`, `load`, `env-store`, `request-store`, `form`, `client-init`, `server-records`, `host-tokens`, `vite/prerender-worker`, `script/server`, `script/client`, `testing/conformance-entry`, `testing/conformance-server`, `testing/fake-renderer/server`, `testing/fake-renderer/client`. `tsdown.config.ts:16`
 - tsdown bundles no bare import except Oxc's runtime helpers. `tsdown.config.ts:35`
 - graphCheck `client` list: `runtime/entry-client`, `props`, `load`, `form`, `enhance`, `client-init`, `server-records`, `dev-element`, `script/client`, `testing/fake-renderer/client`. `tsdown.config.ts:39`
-- graphCheck `server` list: `runtime/app`, `entry-server`, `server`, `env-store`, `request-store`, `security`, `cookies`, `element`, `index`, `vite`, `cli`, `testing/index`, `testing/conformance`, and the folders `vite/`, `core/`, `add/`, `css/`. `tsdown.config.ts:51`
+- graphCheck `server` list: `runtime/app`, `entry-server`, `server`, `env-store`, `request-store`, `host-tokens`, `security`, `cookies`, `element`, `index`, `vite`, `cli`, `testing/index`, `testing/conformance`, `testing/conformance-server`, `testing/server-thread`, `testing/composed`, and the folders `vite/`, `core/`, `add/`, `css/`. `tsdown.config.ts:53`
 - Runtime CSS is imported with `?inline` through `cssInline()`. `tsdown.config.ts:37`
 - tsconfig maps `virtual:droplets*`, `$droplets/env*`, `$droplets/server`, `$droplets/drop`, `$droplets/form` to `src/types/*` (and `src/runtime/server.ts`) for the package's own typecheck. `tsconfig.json:5`
 - vitest aliases the virtual modules to `test/stubs/*` and runs `test/**/*.test.ts` in Node with `test/setup.ts`. `vitest.config.ts:8`, `vitest.config.ts:17`
@@ -290,6 +291,10 @@ renderer under `testing/`.
 - `rendererConformance` defaults: `element` `test-droplet`, `interactive` true, `css` true, `adopts` true, `outDir` `<root>/dist-conformance`. `src/testing/conformance.ts:237`
 - `rendererConformance` `enhance`: `"wrapper"` (default) or `"attribute"` for template engines. `src/testing/conformance.ts:147`
 - `rendererConformance` runs on `fakeRenderer()` and `test/fixtures/app` in this package. `test/conformance.test.ts:7`
+- `rendererConformance` serves the fixture from a worker thread (`testing/conformance-server.js`, started by `startServer`), which shares the environment, so `vi.stubEnv` reaches it; a second app there renders as the build's prerender pass does (`building`). `src/testing/server-thread.ts:41`, `src/testing/conformance-server.ts:50`
+- `rendererConformance` DOM checks look where a page shows things: `find`/`findAll` of `composed.ts` go into every shadow root, attached or declarative (`<template shadowrootmode>`), and through a `<slot>` to the light children it places; a selector matches one element, never a path across trees. `src/testing/composed.ts:73`, `src/testing/composed.ts:86`
+- `rendererConformance` HTML checks ignore comments (`bare`), and read the server markup inert, parsed in a `<template>` (`parse`). `src/testing/conformance.ts:185`, `src/testing/composed.ts:99`
+- `rendererConformance` takes the host's children as out of sight when their container is hidden under the element, or sits in a marker a shadow-DOM component leaves unslotted. `src/testing/conformance.ts:901`
 - `fakeRenderer()` is named `fake` and handles `.fake.js`. `src/testing/fake-renderer/index.ts:31`
 - `createServerApp` throws when the SSR bundle exports neither `renderDroplet` nor a default. `src/server/app.ts:84`
 - `cors` allowing every origin warns once under `vite dev` (`devLog`); `createServerApp` warns about nothing. `src/runtime/app.ts:847`, `src/runtime/dev-log.ts:62`
