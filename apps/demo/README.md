@@ -114,7 +114,8 @@ are limited to a few kilobytes (`limits` in `droplets.config.ts`).
 - locally, `pnpm dev` writes a random one to `.env.local` (gitignored) the
   first time, and `pnpm start` reads it from there;
 - the docs build generates one per run for the server it starts;
-- the Worker reads it from a Worker secret: `wrangler secret put DROPLETS_SECRET`.
+- the Worker reads it from a Worker secret, uploaded with the first deploy
+  and rotated with `wrangler secret put DROPLETS_SECRET` ([Deploying](#deploying)).
 
 ### Tests
 
@@ -131,10 +132,28 @@ The Worker `dropletsjs-demo` on the custom domain `demo.dropletsjs.dev`
 (`wrangler.jsonc`), deployed by hand, never from CI:
 
 ```bash
+pnpm --filter @dropletsjs/demo deploy:cloudflare   # build:cloudflare, then wrangler deploy
+```
+
+Every command runs the `wrangler` the demo declares, from `apps/demo`; never
+`npx wrangler`. The secret is random, at least 32 bytes
+(`openssl rand -base64 48`). The first deploy uploads it with the Worker,
+from a temporary JSON file: a `wrangler secret put` before the Worker exists
+creates an empty Worker of that name.
+
+```bash
 pnpm --filter @dropletsjs/demo build:cloudflare
-cd apps/demo
-npx wrangler secret put DROPLETS_SECRET   # once: openssl rand -base64 32
-npx wrangler deploy
+tmp=$(mktemp)   # mode 0600
+printf '{"DROPLETS_SECRET":"%s"}\n' "$(openssl rand -base64 48)" > "$tmp"
+pnpm --filter @dropletsjs/demo exec wrangler deploy --secrets-file "$tmp"
+rm "$tmp"
+```
+
+Later deploys (`deploy:cloudflare`) keep the secret. To rotate it, which
+invalidates the vote results already signed:
+
+```bash
+openssl rand -base64 48 | pnpm --filter @dropletsjs/demo exec wrangler secret put DROPLETS_SECRET
 ```
 
 `wrangler.jsonc` sets no `run_worker_first`: static assets answer the
@@ -173,6 +192,7 @@ so after a demo deploy, build and deploy the docs against it
 - Script `build` is `vite build`, then `scripts/export-testimonials.mjs`. `package.json:10`
 - Script `build:cloudflare` is `DROPLETS_ADAPTER=cloudflare vite build`, then `scripts/export-testimonials.mjs`. `package.json:11`
 - Script `deploy:cloudflare` is `build:cloudflare`, then `wrangler deploy`. `package.json:13`
+- `wrangler` is a dev dependency at the catalog's range; the deploy and secret commands run it through pnpm, never `npx`. `package.json:54`, `../../pnpm-workspace.yaml:32`
 - Script `start` runs `dist/server.js` with `.env.local` if it exists. `package.json:14`
 - Script `typecheck` runs `djs sync`, `vue-tsc` and `svelte-check --fail-on-warnings`. `package.json:17`
 - Script `test` is `vitest run`. `package.json:18`

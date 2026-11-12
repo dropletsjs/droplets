@@ -1,7 +1,7 @@
 // The demo droplets the docs embed, at https://demo.dropletsjs.dev.
-// Build with `pnpm --filter @dropletsjs/demo build:cloudflare`, then
-// `wrangler deploy` from this directory (apps/demo/README.md). The form
-// secret is a Worker secret: `wrangler secret put DROPLETS_SECRET`.
+// Deploy with `pnpm --filter @dropletsjs/demo deploy:cloudflare`; the first
+// deploy uploads the form secret with `--secrets-file`, a later
+// `wrangler secret put DROPLETS_SECRET` rotates it (apps/demo/README.md).
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "dropletsjs-demo",
