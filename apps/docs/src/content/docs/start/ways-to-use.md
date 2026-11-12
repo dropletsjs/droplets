@@ -34,8 +34,8 @@ What the host does:
 
 - fetches `GET /droplets/<id>?prop=value`, or `POST /droplets/<id>` with a
   JSON body `{ "props": { … } }` for props that do not fit in a query string;
-- tells the droplets server which public URL the browser uses for it, either
-  with `x-droplet-location` on each fetch (trusted only for the server's own
+- tells the droplets server its droplet location, the URL the browser
+  reaches it at, either with `x-droplet-location` on each fetch (trusted only for the server's own
   origin and the `trustedOrigins` / `DROPLETS_TRUSTED_ORIGINS` entries) or
   once at build with `location` in `droplets.config.ts`;
 - loads `/index.js` once per page, from that same location;

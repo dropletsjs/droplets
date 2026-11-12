@@ -15,7 +15,8 @@ each fragment and emits it as HTML.
 async function fragment(page: PageRequest, id: string, params = new URLSearchParams()): Promise<Fragment> {
   const url = `${internal}/droplets/${encodeURIComponent(id)}?${params}`;
   const headers: Record<string, string> = { accept: "text/html", "x-droplet-location": origin, referer: origin + page.path };
-  if (page.cookie) headers["cookie"] = page.cookie;
+  const cookie = shopCookies(page.cookie);
+  if (cookie) headers["cookie"] = cookie;
   const result: Fragment = { html: "", status: 502, location: null, cookies: [], link: null };
   const response = await fetch(url, { headers, redirect: "manual", cache: "no-store" });
   result.status = response.status;
@@ -47,8 +48,9 @@ async function fragment(page: PageRequest, id: string, params = new URLSearchPar
 - `shopPage()` in `lib/shop-page.tsx` takes `page` from the page's own path
   and query and the browser's `Cookie` (from `headers()`). `fragment()` sends
   `GET /droplets/<id>?<params>` to `SHOP_INTERNAL_URL` with
-  `accept: text/html`, `x-droplet-location` set to this host's public origin
-  (`SHOP_PUBLIC_URL`), that `Cookie`, and the page's URL as `referer`.
+  `accept: text/html`, `x-droplet-location` set to the origin of
+  `SHOP_PUBLIC_URL`, the shop's own cookies from it (`cart_id`,
+  `shop_admin`) and the page's URL as `referer`.
   `cache: "no-store"` keeps Next from caching it.
 - `redirect: "manual"` keeps a droplet's 3xx, which `shopPage()` answers with
   Next's `redirect(location, RedirectType.replace)`.
@@ -107,8 +109,8 @@ export function Fragment({ html }: { html: string }) {
 
 `shopPage` fetches the page's fragments, plus `toast-center` and
 `shopping-cart` with `variant=badge` for the header, in parallel
-(`Promise.all`) with `x-droplet-location`, the browser's `Cookie` (from
-`headers()`) and the page's path and query as `Referer`: the droplet's
+(`Promise.all`) with `x-droplet-location`, the shop's cookies from the browser's `Cookie` (from
+`headers()`) and the page's URL as `Referer`: the droplet's
 [`host`](/integrate/http-contract/#host-where-the-droplet-renders). It never
 follows redirects and pastes only `text/html` answers; anything else becomes
 a "droplet is unavailable" note. The product page first reads
@@ -158,20 +160,12 @@ with its `Set-Cookie` untouched, minus
 shop is down it answers `502`. The shop's cookies are first-party, and
 nothing is cross-origin.
 
-### The shop's environment
-
-- `DROPLETS_TRUSTED_ORIGINS: http://localhost:8007`: the only origin whose
-  [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location) and
-  [form posts](/integrate/http-contract/#form-posts-the-origin-check) the shop accepts.
-- `DROPLETS_SECRET`: signs a form's result on the redirect back to the page
-  when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)).
-- `ADMIN_USER`, `ADMIN_PASSWORD`, `SHOP_SECRET`: the demo login
-  (admin / droplets) and the key its cookie is signed with (from the environment, see Run it).
-
 ### Gotchas
 
 - **A server component cannot set cookies.** Only Server Actions, Route
-  Handlers and middleware may; the page streams, so its headers may be gone.
+  Handlers and Next's request proxy (the `proxy` file, `middleware` before
+  Next.js 16; this example has none) may; the page streams, so its headers
+  may be gone.
   A fragment's `Set-Cookie` on a page render is dropped (`shopPage` logs a
   warning). The shop sets cookies only from form actions and `/api`, which go
   through the route handlers, so its cart and login work. A droplet that sets
@@ -184,8 +178,8 @@ nothing is cross-origin.
 - **A droplet's redirect goes out as Next's 307**: `redirect()` takes no status.
 - `suppressHydrationWarning` on the wrapper: the droplets hydrate themselves
   and may change their markup before React compares it.
-- **A fragment that is not pasted is read, not cancelled.** Next's `fetch`
-  hands back a tee of the body, and cancelling one branch waits for the
+- **A fragment that is not pasted is read, not canceled.** Next's `fetch`
+  hands back a tee of the body, and canceling one branch waits for the
   other forever, so `fragment()` reads the small body with
   `response.arrayBuffer()` instead.
 - `lib/droplets.ts`, `lib/shop.ts` and `lib/shop-page.tsx` import
@@ -199,10 +193,11 @@ docker compose up --build
 open http://localhost:8007/gallery   # log in as admin / droplets
 ```
 
-Set `SHOP_SECRET` and `DROPLETS_SECRET` first (32 or more random characters
-each, `openssl rand -hex 32`), in the environment or a `.env` file beside
-`docker-compose.yml`: compose refuses to start without them. `pnpm test:hosts`
-generates its own for a run.
+Set `SHOP_SECRET` and `DROPLETS_SECRET` first; compose refuses to start
+without them. The shop trusts one origin besides its own,
+`DROPLETS_TRUSTED_ORIGINS: http://localhost:8007`, this host's; the rest of
+its environment is the same on every host: see
+[Running a host](/integrate/hosts/shop-demo/#running-a-host).
 
 ## The Svelte example
 

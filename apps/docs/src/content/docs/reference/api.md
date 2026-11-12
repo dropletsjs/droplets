@@ -84,8 +84,9 @@ export const load: (event: DropletLoadEvent) => unknown;  // { host, props, data
 export const handleError: HandleDropletError;
 ```
 
-Only `+droplet.ts` and `+droplet.server.ts` are read as a droplet's load
-files; `.js` spellings of them are not looked for.
+The load files are `+droplet.ts` and `+droplet.server.ts`, each looked up
+as `.ts`, then `.js`. A load file spelled `.mts`, `.mjs`, `.cts` or `.cjs` is
+not loaded and warns once, under `vite dev` and `vite build`.
 
 ### `src/api/**/+server.ts`
 
@@ -280,7 +281,7 @@ headers when `cors` is set.
 | --- | --- |
 | `Link` | `preload` for `style.css` and each stylesheet, `modulepreload` for the entry and, for `hydrate = true`, `client.js`. On the droplet location. |
 | `Vary` | `x-droplet-location`, `forwarded`, `x-forwarded-host`, `x-forwarded-proto`, `x-forwarded-port`, `x-forwarded-prefix`, `origin`; with `location` set, `origin` only. |
-| `x-droplets-build` | The build hash, on `_data`. |
+| `x-droplets-build` | The build hash, on every fragment and `_data` answer, `404` and `405` included. |
 
 A fragment answers `200`, the action's status after an action, or `500`
 with the error page when a load failed. A no-JavaScript result carried back
@@ -297,7 +298,7 @@ name are resolved before the body is read; the action reads it.
 | Two `?/name` keys | `400 One action per request: ?/name once` |
 | No `actions` export | `405`, `allow: GET` |
 | No action by that name | `404 No action named "<name>"` |
-| `accept` contains `application/json` | `{ type: "success", status: 200, data? }`, `{ type: "failure", status, data? }` with the failure's status, or `200 { type: "redirect", status, location }` |
+| `accept` prefers `application/json` to `text/html` (by weight; `*/*` alone does not count) | `{ type: "success", status: 200, data? }`, `{ type: "failure", status, data? }` with the failure's status, or `200 { type: "redirect", status, location }` |
 | A native post, with `DROPLETS_SECRET` | `303` back to the page (`__droplet_return` or the `Referer`, on this server, `host` or a trusted origin; else `400`), the result signed in `__droplet_form_<droplet>_<build>` |
 | A native post, without `DROPLETS_SECRET` | The fragment, rendered with `form` |
 | `redirect()` from the action | `303` (native) or the JSON redirect, only to this server, `host` or a listed trusted origin (`"*"` never counts); else `400` in both modes |
@@ -662,7 +663,7 @@ Its `./server` and `./client` exports are the modules core imports by path.
 | `partials` | Handlebars | `"src/partials"` | The partials folder, relative to the root; `false` for none. |
 | `helpers` | Handlebars | `src/handlebars.ts` (or `.js`) when it exists | The module whose exported functions are helpers; `false` for none. |
 | `compile` | Handlebars | none | Options for `Handlebars.precompile`. |
-| `prefix` | Lit | the droplets `element` | Tags are `<prefix>-<droplet id>`; must match `^[a-z][a-z0-9._-]*$`. |
+| `prefix` | Lit | the droplets `element` | Tags are `<prefix>-<droplet id>`; must match `^[a-z][a-z0-9-]*$`, else `lit()` throws. |
 
 Each `./form` wrapper applies `enhanceDropletForm` of `$droplets/form` to
 one form while it is in the page, with the same options (typed with
@@ -771,7 +772,7 @@ The optional files are `+droplet.server.ts` (a server load), `+droplet.ts`
 `<style>` block in Svelte, Vue and Handlebars, a `style.css` the component
 imports in React, Preact, Solid and Hono JSX.
 
-A framework the Vite config does not list yet is offered greyed out.
+A framework the Vite config does not list yet is offered grayed out.
 Picking it warns of what follows and asks to go ahead:
 
 - the framework is installed with the package manager, and the renderer as

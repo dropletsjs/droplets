@@ -33,11 +33,11 @@ export default config({
   // Pages on other origins embed these droplets: let their browsers in.
   cors: true,                       // or Hono cors() options: { origin: [...] }
 
-  // Where browsers reach this server, fixed at build: see "The public location" below.
+  // Where browsers reach this server, fixed at build: see "The droplet location" below.
   location: "https://shop.example/mfe",
   // The page every droplet renders on, fixed at build: see "A fixed host" below.
   host: "https://shop.example",
-  // Hosts whose pages post forms to these droplets: see "Form posts" below.
+  // Host pages' origins that post forms to these droplets: see "Trusted origins" below.
   trustedOrigins: ["https://shop.example"],
   csrf: { checkOrigin: true },      // the default
   limits: { multipart: 20 * 1024 * 1024 }, // bytes; the others keep their defaults
@@ -68,11 +68,11 @@ export default config({
 | `apiFolder` | `"src/api"` | Folder scanned for `**/+server.ts`, served under `/api/`; inside the project, as `dropletsFolder`. |
 | `element` | `"djs-droplet"` | Tag name of the element that hosts every droplet. Lowercase with a hyphen. See [The element name](#the-element-name). |
 | `cors` | off | `true` sends `Access-Control-Allow-Origin: *` on every route (`/api/*`, `_data`, `/index.js` included), and warns once under `vite dev`; an object is passed to Hono's `cors()`. Needed whenever a page on another origin embeds your droplets. Prefer an origin list (`{ origin: ["https://shop.example"] }`) for anything not public: with `*`, any page can read what an employee's browser can reach on an intranet server. |
-| `location` | computed per request | Where browsers reach this server, fixed at build: its public origin, with the path prefix a proxy serves it under (`"https://shop.example/mfe"`). One value, no query, hash or credentials, never `"*"`. See [The public location](#the-public-location). |
+| `location` | computed per request | Where browsers reach this server, fixed at build: its public origin, with the path prefix a proxy serves it under (`"https://shop.example/mfe"`). One value, no query, hash or credentials, never `"*"`. See [The droplet location](#the-droplet-location). |
 | `host` | computed per request | The origin of the page every droplet renders on, fixed at build (`"https://shop.example"`, no path, never `"*"`). Prerendering renders an entry without its own `host` there. See [A fixed host](#a-fixed-host). |
-| `trustedOrigins` | `[]` | Origins, besides the server's own, allowed to send form submissions: the hosts whose pages post to your droplets. `"*"` trusts every origin. The `DROPLETS_TRUSTED_ORIGINS` environment variable (comma-separated, read at runtime on every adapter) adds to it. When set (without `"*"`), it also bounds `host`: a host on another origin becomes the location's origin. A location header naming one of these origins is trusted too, and `"*"` trusts any ([Trusting any location](/guides/security/#trusting-any-location)). The same list (without `"*"`) says where a form posted without JavaScript may be sent back to. See [Form posts](/integrate/http-contract/#form-posts-the-origin-check) and [Security model](/guides/security/). |
+| `trustedOrigins` | `[]` | Origins, besides this server's own, that you trust: their pages may post forms and receive redirects, and a location header may name them. `"*"` trusts any origin to post. `DROPLETS_TRUSTED_ORIGINS` adds more at runtime. See [Trusted origins](#trusted-origins). |
 | `csrf.checkOrigin` | `true` | Answer `403` to a cross-site form submission (form-urlencoded, multipart or `text/plain` body, or none at all with an `Origin`) to `/droplets/*` or `/api/*` from an origin that is not trusted. `false` turns the check off. |
-| `fragmentCacheControl` | `"private, no-store"` | The default `Cache-Control` of fragments and `_data`, when neither the droplet's load ([`setHeaders`](/guides/writing-droplets/#setheaders)) nor `handle` set one. `false` sends none. See [Caching](/guides/security/#caching). |
+| `fragmentCacheControl` | `"private, no-store"` | The default `Cache-Control` of fragments and `_data`, when neither the droplet's load ([`setHeaders`](/guides/server/#setheaders)) nor `handle` set one. `false` sends none. See [Caching](/guides/security/#caching). |
 | `publicCacheControl` | `"no-cache"` | The `Cache-Control` of `public/`, served at `/assets/public/*` in a build, on every adapter. Its files keep their names, so by default the browser revalidates them each time (an `ETag`, `304`). A string replaces it (`"public, max-age=3600"`), `false` sends none; the `ETag` and `304` stay. Hashed files, `/index.js` and `/env.js` keep their own. See [Caching](/guides/security/#caching). |
 | `limits.json` | 1 MB | Largest JSON body, in bytes: render requests and `+server.ts`. Bigger answers `413`. |
 | `limits.form` | 1 MB | Largest form-urlencoded or `text/plain` body. |
@@ -90,10 +90,40 @@ export default config({
 `health` and `importMap` must be paths the framework does not own: outside
 `/`, `/index.js`, `/env.js`, `/index.css`, `/droplets/`, `/assets/` and `/api/`.
 
-### The public location
+### Trusted origins
+
+`trustedOrigins` lists the origins of the host pages you trust, besides
+this server's own (`DROPLETS_TRUSTED_ORIGINS`, comma-separated and read at
+runtime on every adapter, adds to it). An origin in the list:
+
+- **may post forms** to `/droplets/*` and `/api/*`: the
+  [`Origin` check](/integrate/http-contract/#form-posts-the-origin-check)
+  lets its pages through;
+- **may receive redirects**: an action, a load, `handle` or a `+server.ts`
+  handler may [redirect](/guides/security/#redirects) there, and a form
+  posted without JavaScript may be
+  [sent back](/guides/actions/#without-javascript-postredirectget) to a
+  page on it;
+- **may name the droplet location**: a location header naming it is
+  trusted ([below](#the-droplet-location));
+- **bounds `host`**: with a list, a reported host page on another origin
+  (and not this server) becomes the droplet location's origin, and
+  [`hostFrom()`](/guides/server/#taking-the-page-from-referer) accepts only
+  these origins or this server.
+
+`"*"` trusts every origin to post and any location header to name the
+droplet location; it never counts as a redirect target, and it bounds no
+`host`. It warns under `vite dev` and `vite build`; read
+[Trusting any location](/guides/security/#trusting-any-location) first.
+
+```ts
+export default config({ trustedOrigins: ["https://shop.example", "https://www.shop.example"] });
+```
+
+### The droplet location
 
 The URLs a fragment writes about the server (its stylesheet, `Link`
-preloads, action URLs, `droplet.origin`) are on its public location: where
+preloads, action URLs, `droplet.origin`) are on its droplet location: where
 the browser reaches `/index.js`. Behind a proxy that is not the address the
 request arrived at, so the server reads it from the request, in this order
 ([details](/integrate/http-contract/#where-it-comes-from)):
@@ -247,9 +277,9 @@ droplets({
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `path` | `./src/app.css` if it exists | The stylesheet every droplet shares. It comes first in each droplet's `style.css`; `/index.css` serves it too (`404` when it is empty or absent). A path that does not exist fails the build. `false` for none. |
-| `scoped` | `true` | Prefix every selector of every stylesheet with the element: the shared one, what droplets import, CSS modules, Svelte and Vue styles. See [Styles](/guides/writing-droplets/#styles). |
+| `scoped` | `true` | Prefix every selector of every stylesheet with the element: the shared one, what droplets import, CSS modules, Svelte and Vue styles. See [Scoping](/guides/styling/#scoping). |
 | `tailwind` | `false` | Add `@tailwindcss/vite`, unless the Vite config already has it. Install `tailwindcss` and `@tailwindcss/vite` yourself. |
-| `twPreflight` | `true` | Keep Tailwind's preflight (its reset). `false` leaves it out, for host pages that bring their own. No effect without Tailwind. |
+| `twPreflight` | `true` | Keep Tailwind's preflight (its reset). `false` leaves it out, for host pages that bring their own. No effect without Tailwind. See [Tailwind](/guides/styling/#tailwind). |
 
 Tailwind is detected, not assumed: it is on when `@tailwindcss/vite` is in
 the Vite config, whether you put it there or `tailwind: true` did. Without

@@ -17,7 +17,7 @@ renders it to HTML, and the button works once the bundle takes over.
 
 ## Add it to a project
 
-<AddRenderer framework="hono-jsx" />
+<AddRenderer framework="hono-jsx" brief />
 
 `--framework hono` works too.
 
@@ -29,19 +29,12 @@ renders it to HTML, and the button works once the bundle takes over.
 | `+error.tsx`, `+error.jsx` | The error page, optional. |
 | `+droplet.ts`, `+droplet.server.ts` | The loads, as for every framework: [Writing droplets](/guides/writing-droplets/#the-load-chain). |
 
-### Which `.tsx` files are Hono's
-
-Hono JSX shares `.tsx` and `.jsx` with React, Preact and Solid. With Hono JSX
-the only one of them in `renderers`, every `.tsx` droplet is Hono's. With two
-or more, each droplet file says which it is:
-
-1. **An import** of `hono/jsx` or `@dropletsjs/renderer-hono-jsx`, a subpath
-   included (`hono/jsx/dom`): the file is Hono's. Only `hono/jsx` counts:
-   a droplet that imports `hono/client` or `hono/cookie` says nothing.
-2. **Otherwise a comment**, `/** @jsxImportSource hono/jsx */`, decides. `djs add`
-   writes it at the top of every Hono JSX component, and it is also what
-   types the file's JSX for Hono when `tsconfig.json` names another
-   `jsxImportSource`.
+**Which `.tsx` files are Hono's.** When Hono JSX is the only `.tsx`
+framework in `renderers`, all of them. Next to React, Preact or Solid, a droplet file is
+Hono's when it imports `hono/jsx` or `@dropletsjs/renderer-hono-jsx`, a subpath included (`hono/jsx/dom`; `hono/client` and `hono/cookie` do not count), or carries a `/** @jsxImportSource hono/jsx */`
+comment (`djs add` writes one at the top of every Hono JSX component), and
+names no other `.tsx` framework. See
+[Which renderer a `.tsx` file belongs to](/renderers/#which-renderer-a-tsx-file-belongs-to).
 
 ```tsx
 // src/droplets/hello/+droplet.tsx

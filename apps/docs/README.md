@@ -26,7 +26,8 @@ is listed in `astro.config.mjs`; a new page goes there too, since the pages'
 "Next" links follow it:
 
 1. Start here (what a droplet is, the ways to use Droplets, setup)
-2. Writing droplets
+2. Writing droplets (Writing droplets, Styling, Actions, Prerendering,
+   Errors, Server code, Development, Configuration)
 3. Renderers (Overview, then one page per renderer, plain script included)
 4. Integrating (any stack, a client-only page, the HTTP contract, Known
    hosts with one page per host, WordPress)
@@ -203,7 +204,9 @@ response headers of `public/_headers`. It is deployed by hand, not from CI.
 
 The fragments must come from the demo build that is live, so deploy the demo
 first ([apps/demo](../demo/README.md#deploying)), then build the docs against
-it:
+it. From a clean checkout, `pnpm install --frozen-lockfile` and `pnpm build`
+come first; with `DEMO_URL` set, `with-demo.mjs` builds nothing of the demo
+but runs its `djs sync`, since the pages read the demo's sources:
 
 ```bash
 DEMO_URL=https://demo.dropletsjs.dev pnpm docs:build
@@ -236,17 +239,27 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - Docs `deploy:cloudflare` runs `wrangler deploy` (the declared `wrangler` dev dependency) and builds nothing. `package.json:11`
 - Node version: the repository requires Node 22 or newer. `../../package.json:9`
 - Content collection: Starlight's `docsLoader()`, which reads `src/content/docs/` only. `src/content.config.ts:6`
-- Sidebar order is the `sidebar` constant, passed to Starlight; the "Next" links and the page order of `llms-full.txt` follow it. `astro.config.mjs:23`, `astro.config.mjs:114`, `astro.config.mjs:117`
-- Sidebar groups, in order: Start here, Writing droplets, Renderers, Integrating, In the browser, Deployment, Security, Reference. `astro.config.mjs:25`, `astro.config.mjs:29`, `astro.config.mjs:41`, `astro.config.mjs:57`, `astro.config.mjs:83`, `astro.config.mjs:84`, `astro.config.mjs:85`, `astro.config.mjs:86`
-- Sidebar Renderers group: Overview, Svelte, Vue, React, Preact, Solid, Hono JSX, Handlebars, Lit, plain script; collapsed. `astro.config.mjs:42`
-- Sidebar Integrating group: any stack, a client-only page, HTTP contract, Known hosts (collapsed, one page per host plus the shop demo), WordPress. `astro.config.mjs:59`, `astro.config.mjs:60`, `astro.config.mjs:63`, `astro.config.mjs:80`
-- `DOCS_SITE` defaults to `https://dropletsjs.dev`, `DOCS_BASE` to `/`. `astro.config.mjs:10`, `astro.config.mjs:11`
-- `trailingSlash` is `"always"`. `astro.config.mjs:95`
-- Component scripts of `src/components/*.astro` are never inlined (`assetsInlineLimit` returns `false` for them). `astro.config.mjs:17`, `astro.config.mjs:20`
-- `vite` stays external at prerender time, for `AddRenderer`'s `parseAst`. `astro.config.mjs:100`
-- Sidebar Start here group: what is a droplet, ways to use Droplets, getting started, manual setup. `astro.config.mjs:26`
-- `starlight-llms-txt` writes `/llms.txt`, `/llms-full.txt` and `/llms-small.txt` at build, pages in sidebar order (`promote`). `astro.config.mjs:116`, `astro.config.mjs:117`
-- `llms-*.txt` leave out the live droplets (`.live-droplet`), the Examples box (`.droplet-examples`) and the heading anchor links (`.sl-anchor-link`). `astro.config.mjs:119`
+- Sidebar order is the `sidebar` constant, passed to Starlight; the "Next" links, the sections of `llms.txt` and the page order of `llms-full.txt` follow it. `astro.config.mjs:29`, `astro.config.mjs:133`, `astro.config.mjs:112`, `astro.config.mjs:138`
+- Sidebar groups, in order: Start here, Writing droplets, Renderers, Integrating, In the browser, Deployment, Security, Reference. `astro.config.mjs:31`, `astro.config.mjs:35`, `astro.config.mjs:48`, `astro.config.mjs:64`, `astro.config.mjs:90`, `astro.config.mjs:91`, `astro.config.mjs:92`, `astro.config.mjs:93`
+- Sidebar Renderers group: Overview, Svelte, Vue, React, Preact, Solid, Hono JSX, Handlebars, Lit, plain script; collapsed. `astro.config.mjs:48`, `astro.config.mjs:49`
+- Sidebar Integrating group: any stack, a client-only page, HTTP contract, Known hosts (collapsed, one page per host plus the shop demo), WordPress. `astro.config.mjs:64`, `astro.config.mjs:66`, `astro.config.mjs:70`, `astro.config.mjs:71`, `astro.config.mjs:87`
+- `DOCS_SITE` defaults to `https://dropletsjs.dev`, `DOCS_BASE` to `/`. `astro.config.mjs:12`, `astro.config.mjs:13`
+- `trailingSlash` is `"always"`. `astro.config.mjs:102`
+- Component scripts of `src/components/*.astro` are never inlined (`assetsInlineLimit` returns `false` for them). `astro.config.mjs:23`, `astro.config.mjs:26`
+- `vite` stays external at prerender time, for `AddRenderer`'s `parseAst`. `astro.config.mjs:107`
+- Sidebar Start here group: what is a droplet, ways to use Droplets, getting started, manual setup. `astro.config.mjs:31`
+- Sidebar Writing droplets group: writing droplets, styling, actions, prerendering, errors, server code, development, configuration. `astro.config.mjs:35`
+- `starlight-llms-txt` writes `/llms.txt`, `/llms-full.txt`, `/llms-small.txt` and the sets `/_llms-txt/renderers.txt` and `/_llms-txt/known-hosts.txt` at build, pages in sidebar order (`promote`). `astro.config.mjs:136`, `astro.config.mjs:138`, `astro.config.mjs:144`
+- `src/plugins/llms-txt.mjs` (`llmsTxt`) rewrites those files after the build (`astro:build:done`), then checks them. `astro.config.mjs:111`, `src/plugins/llms-txt.mjs:53`
+- `llms.txt`: the title, the home page's hero tagline as the summary, `llmsDetails` (what Droplets is and its essentials), the documentation sets, one section per sidebar group with each page's title, absolute URL and `description`, then the optional links. `src/plugins/llms-txt.mjs:19`, `src/plugins/llms-txt.mjs:225`, `src/plugins/llms-txt.mjs:243`
+- In `llms-full.txt`, `llms-small.txt` and the sets, every page starts with its title, `Source: <its URL>` and its description. `src/plugins/llms-txt.mjs:147`
+- In those files, root-relative and `#` links are absolute on `DOCS_SITE` and `DOCS_BASE`, table cells carry no padding, no two blank lines follow each other (code included) and a heading with nothing under it is dropped. `src/plugins/llms-txt.mjs:136`, `src/plugins/llms-txt.mjs:171`, `src/plugins/llms-txt.mjs:206`, `src/plugins/llms-txt.mjs:220`
+- The pages are told apart by `LLMS_PAGE_BREAK`, the plugin's `pageSeparator`; the outputs separate them by a blank line. `src/plugins/llms-txt.mjs:16`, `astro.config.mjs:139`
+- `llms-*.txt` leave out the section "A note from the author" of `start/what-is-a-droplet` (`omit`). `astro.config.mjs:114`, `src/plugins/llms-txt.mjs:195`
+- `llms-small.txt` leaves out the renderer pages but the overview, the known hosts and the WordPress tutorial (`exclude`), and notes and tips (the plugin's default); it keeps its lines and the `<details>` (`minify`). Its `<SYSTEM>` line names the pages it leaves out. `astro.config.mjs:141`, `astro.config.mjs:143`, `src/plugins/llms-txt.mjs:93`
+- `llms-*.txt` leave out the live droplets (`.live-droplet`), the Examples box (`.droplet-examples`), the heading anchor links (`.sl-anchor-link`), every `img`, the tour video (`.droplet-tour`), the host recordings and screenshots (`.host-demo`), the host gallery (`.host-grid`), the fragment anatomy's mock-up and hint (`.ax-mock`, `.ax-hint`), the diagram figures (`.dg`) and a page's sentences about what is on screen (`.screen-only`, the lead-ins of `hello` and the Examples box). `astro.config.mjs:170`
+- A diagram rendered for `llms-*.txt` (its page's URL ends in `.txt`) writes `**Diagram: <title>.** <desc>` in place of the figure. `src/components/Diagram.astro:41`, `src/components/Diagram.astro:50`
+- The docs build fails when a page is not in the sidebar, two pages share a title, `llms.txt` lacks a sidebar page, an `omit` heading is gone, or a line outside code in `llms-full.txt`, `llms-small.txt` or a set has a link without a scheme, an image, or "Full screen", "Download as SVG", "Section titled" or "Hover, focus or tap". `src/plugins/llms-txt.mjs:59`, `src/plugins/llms-txt.mjs:72`, `src/plugins/llms-txt.mjs:271`, `src/plugins/llms-txt.mjs:33`
 - Base links: after the build, root-relative `<a href>` get the `base` prefix; nothing changes when `base` is `/`. `src/plugins/base-links.mjs:23`, `src/plugins/base-links.mjs:24`
 - Expressive Code options live in `ec.config.mjs` (themes `github-dark`, `github-light`). `ec.config.mjs:12`
 - `docs:dev` starts the demo's dev server (`pnpm run dev` in `../demo`) with `DOCS_PORT`. `scripts/dev.mjs:37`
@@ -254,14 +267,14 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - `docs:dev` waits up to 30 s for `http://localhost:5180/health` before starting astro dev. `scripts/dev.mjs:12`, `scripts/dev.mjs:40`
 - `docs:dev` runs astro dev with `DEMO_URL` and `DEMO_PUBLIC_URL` both `http://localhost:5180`. `scripts/dev.mjs:54`
 - `docs:dev` stops both servers when either exits. `scripts/dev.mjs:30`
-- `with-demo.mjs` with `DEMO_URL` already set builds and starts nothing and runs the command against it. `scripts/with-demo.mjs:42`
-- `with-demo.mjs` fails unless `packages/droplets/dist/vite.js` exists: run `pnpm build` first. `scripts/with-demo.mjs:50`
-- `with-demo.mjs` builds the demo with `DROPLETS_ADAPTER=node`. `scripts/with-demo.mjs:54`
-- `with-demo.mjs` starts the demo's `dist/server.js` on a free `127.0.0.1` port. `scripts/with-demo.mjs:61`, `scripts/with-demo.mjs:68`
-- `with-demo.mjs` demo env: `PORT` and a random 32-byte `DROPLETS_SECRET`; nothing about the location, which the demo's build fixes. `scripts/with-demo.mjs:72`, `scripts/with-demo.mjs:75`, `../demo/droplets.config.ts:29`
-- `with-demo.mjs` waits up to 20 s for the demo's `/health`; a demo that exits or never answers fails the run. `scripts/with-demo.mjs:88`, `scripts/with-demo.mjs:90`
-- `with-demo.mjs` runs the command with `DEMO_URL` and `DEMO_PUBLIC_URL`, stops the demo, and prints its log on failure. `scripts/with-demo.mjs:102`, `scripts/with-demo.mjs:104`
-- `DEMO_PUBLIC_URL` defaults to `https://demo.dropletsjs.dev`. `src/components/live-droplet.ts:19`, `scripts/with-demo.mjs:47`
+- `with-demo.mjs` with `DEMO_URL` already set builds and starts nothing: it runs the demo's `djs sync` (the pages read the demo's sources, whose tsconfig extends `.droplets/tsconfig.json`), then the command against it. `scripts/with-demo.mjs:48`, `scripts/with-demo.mjs:49`
+- `with-demo.mjs` fails unless `packages/droplets/dist/vite.js` exists, with or without `DEMO_URL`: run `pnpm build` first. `scripts/with-demo.mjs:44`
+- `with-demo.mjs` builds the demo with `DROPLETS_ADAPTER=node`. `scripts/with-demo.mjs:59`
+- `with-demo.mjs` starts the demo's `dist/server.js` on a free `127.0.0.1` port. `scripts/with-demo.mjs:66`, `scripts/with-demo.mjs:73`
+- `with-demo.mjs` demo env: `PORT` and a random 32-byte `DROPLETS_SECRET`; nothing about the location, which the demo's build fixes. `scripts/with-demo.mjs:77`, `scripts/with-demo.mjs:80`, `../demo/droplets.config.ts:29`
+- `with-demo.mjs` waits up to 20 s for the demo's `/health`; a demo that exits or never answers fails the run. `scripts/with-demo.mjs:93`, `scripts/with-demo.mjs:95`
+- `with-demo.mjs` runs the command with `DEMO_URL` and `DEMO_PUBLIC_URL`, stops the demo, and prints its log on failure. `scripts/with-demo.mjs:107`, `scripts/with-demo.mjs:109`
+- `DEMO_PUBLIC_URL` defaults to `https://demo.dropletsjs.dev`. `src/components/live-droplet.ts:19`, `scripts/with-demo.mjs:55`
 - `DEMO_URL` unset: a page with a live droplet throws at build. `src/components/live-droplet.ts:39`
 - `DEMO_URL` and `DEMO_PUBLIC_URL` must be `http(s)` URLs. `src/components/live-droplet.ts:29`
 - Live droplet element: the demo renders in `<djs-demo>`. `src/components/live-droplet.ts:17`
@@ -282,10 +295,10 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - `RendererDemo` reads every file of `../demo/src/droplets/counter-*/` with `?raw`. `src/components/RendererDemo.astro:24`
 - `RendererDemo` file order: the component, `+droplet.ts`, `+droplet.server.ts`, the rest. `src/components/RendererDemo.astro:39`
 - `RendererDemo` throws when the droplet folder has no files. `src/components/RendererDemo.astro:50`
-- `AddRenderer` uses `djs add`'s catalog and `addRenderer` config edit. `src/components/AddRenderer.astro:9`, `src/components/AddRenderer.astro:10`
+- `AddRenderer` uses `djs add`'s catalog and `addRenderer` config edit. `src/components/AddRenderer.astro:11`, `src/components/AddRenderer.astro:12`
 - Renderer pages: each embeds `RendererDemo` with its `counter-<renderer>`. `src/content/docs/renderers/svelte.mdx:15`, `src/content/docs/renderers/vue.mdx:16`, `src/content/docs/renderers/react.mdx:16`, `src/content/docs/renderers/preact.mdx:16`, `src/content/docs/renderers/solid.mdx:15`, `src/content/docs/renderers/hono-jsx.mdx:16`, `src/content/docs/renderers/handlebars.mdx:17`, `src/content/docs/renderers/lit.mdx:16`, `src/content/docs/renderers/script.mdx:19`
-- Live droplets on guide pages: `hello`, `poll`, `crash` (with `toggle`), `counter`. `src/content/docs/start/what-is-a-droplet.mdx:39`, `src/content/docs/guides/actions.mdx:263`, `src/content/docs/guides/errors.mdx:93`, `src/content/docs/guides/in-the-browser.mdx:87`
-- WordPress tutorial steps: the starting point, a plugin that brings in the droplets, WordPress owns the data, the login is WordPress's, prerender at container start, run it, the result. `src/content/docs/integrate/wordpress.mdx:18`, `src/content/docs/integrate/wordpress.mdx:55`, `src/content/docs/integrate/wordpress.mdx:288`, `src/content/docs/integrate/wordpress.mdx:428`, `src/content/docs/integrate/wordpress.mdx:597`, `src/content/docs/integrate/wordpress.mdx:660`, `src/content/docs/integrate/wordpress.mdx:732`
+- Live droplets on guide pages: `hello` (twice: what a droplet is, and Styling for theming from the page's `--djs-*` properties), `poll`, `crash` (with `toggle`), `counter`. `src/content/docs/start/what-is-a-droplet.mdx:40`, `src/content/docs/guides/styling.mdx:219`, `src/content/docs/guides/actions.mdx:196`, `src/content/docs/guides/errors.mdx:93`, `src/content/docs/guides/in-the-browser.mdx:87`
+- WordPress tutorial steps: the starting point, a plugin that brings in the droplets, WordPress owns the data, the login is WordPress's, prerender at container start, run it, the result. `src/content/docs/integrate/wordpress.mdx:18`, `src/content/docs/integrate/wordpress.mdx:55`, `src/content/docs/integrate/wordpress.mdx:298`, `src/content/docs/integrate/wordpress.mdx:438`, `src/content/docs/integrate/wordpress.mdx:633`, `src/content/docs/integrate/wordpress.mdx:697`, `src/content/docs/integrate/wordpress.mdx:774`
 - CSP check: every inline script the browser runs (no type, a JavaScript type or `module`) needs its sha256 in `script-src`. `scripts/csp-hashes.mjs:27`, `scripts/csp-hashes.mjs:38`
 - CSP check skips data payloads such as `<script type="application/text" data-droplet-payload="data">`. `scripts/csp-hashes.mjs:29`
 - CSP check fails on a missing or stale hash. `scripts/csp-hashes.mjs:44`, `scripts/csp-hashes.mjs:45`, `scripts/csp-hashes.mjs:80`
@@ -294,22 +307,22 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - CSP header for every path is in `_headers`. `public/_headers:20`
 - `_headers` caches `/_astro/*` and Pagefind's hashed chunks for a year, immutable. `public/_headers:29`, `public/_headers:34`, `public/_headers:36`
 - `_headers` revalidates `/hosts/*` on every request. `public/_headers:41`
-- CI runs `pnpm docs:build`, then `pnpm docs:check-csp`. `../../.github/workflows/ci.yml:55`, `../../.github/workflows/ci.yml:57`
+- CI runs `pnpm docs:build`, then `pnpm docs:check-csp`. `../../.github/workflows/ci.yml:58`, `../../.github/workflows/ci.yml:60`
 - Diagram scenes: wide 620 px, narrow 360 px. `src/components/diagram-kit.ts:23`, `src/components/diagram-kit.ts:24`
-- Diagram type sizes: title 15, label 14, body 13, small 12.5, code 13, code small 12.5 px, written as `font-size` attributes. `src/components/diagram-kit.ts:26`, `src/components/Diagram.astro:89`
+- Diagram type sizes: title 15, label 14, body 13, small 12.5, code 13, code small 12.5 px, written as `font-size` attributes. `src/components/diagram-kit.ts:26`, `src/components/Diagram.astro:101`
 - `Diagram` fails the build when a scene's width is not 620 or 360 px, or a scene has more than 10 nodes. `src/components/Diagram.astro:27`, `src/components/Diagram.astro:32`, `src/components/Diagram.astro:34`
-- `Diagram` shows the narrow scene when its figure is under 620 px wide (a container query). `src/components/Diagram.astro:340`
-- `Diagram` buttons: "Full screen" (`data-dg-open`) and "SVG" (`data-dg-svg`), hidden until the script runs. `src/components/Diagram.astro:103`, `src/components/Diagram.astro:104`
-- Diagram viewer: one `<dialog>` per page, opened with `showModal()` on the scene that is on screen. `src/components/Diagram.astro:305`
-- Diagram viewer zoom: 0.2 to 8 times; wheel, two-pointer pinch, one-pointer drag; keys `+`/`=`, `-`/`_`, `0` (fit), arrows (pan), `Esc`. `src/components/Diagram.astro:115`, `src/components/Diagram.astro:230`, `src/components/Diagram.astro:250`, `src/components/Diagram.astro:266`
-- Diagram SVG download: `<id>.svg`, with `fill`, `stroke`, `stroke-width`, `stroke-dasharray`, `opacity` and the font properties computed and written in, on the page's `--djs-surface-100`. `src/components/Diagram.astro:118`, `src/components/Diagram.astro:164`
+- `Diagram` shows the narrow scene when its figure is under 620 px wide (a container query). `src/components/Diagram.astro:352`
+- `Diagram` buttons: "Full screen" (`data-dg-open`) and "SVG" (`data-dg-svg`), hidden until the script runs. `src/components/Diagram.astro:115`, `src/components/Diagram.astro:116`
+- Diagram viewer: one `<dialog>` per page, opened with `showModal()` on the scene that is on screen. `src/components/Diagram.astro:317`
+- Diagram viewer zoom: 0.2 to 8 times; wheel, two-pointer pinch, one-pointer drag; keys `+`/`=`, `-`/`_`, `0` (fit), arrows (pan), `Esc`. `src/components/Diagram.astro:127`, `src/components/Diagram.astro:242`, `src/components/Diagram.astro:262`, `src/components/Diagram.astro:278`
+- Diagram SVG download: `<id>.svg`, with `fill`, `stroke`, `stroke-width`, `stroke-dasharray`, `opacity` and the font properties computed and written in, on the page's `--djs-surface-100`. `src/components/Diagram.astro:130`, `src/components/Diagram.astro:176`
 - `sequence()` in `diagram-kit.ts` draws the sequence figures (`FormFlow`, `WordPressFlow`). `src/components/diagram-kit.ts:191`
-- Diagrams on pages: `RenderModes`, `RunsWhere`, `FormFlow`, `PrerenderLookup`, `LocationFlow`, `HostsHub`, `ShopPage`, `ShopFlow`, `WordPressFlow`, `ElementLifecycle`, `BrowserLoads`. `src/content/docs/guides/writing-droplets.mdx:75`, `src/content/docs/guides/writing-droplets.mdx:701`, `src/content/docs/guides/actions.mdx:158`, `src/content/docs/guides/prerendering.mdx:62`, `src/content/docs/integrate/http-contract.mdx:199`, `src/content/docs/integrate/hosts/overview.mdx:19`, `src/content/docs/integrate/hosts/shop-demo.mdx:23`, `src/content/docs/integrate/hosts/shop-demo.mdx:49`, `src/content/docs/integrate/wordpress.mdx:294`, `src/content/docs/guides/in-the-browser.mdx:65`, `src/content/docs/guides/deployment.mdx:344`
+- Diagrams on pages: `RenderModes`, `RunsWhere`, `FormFlow`, `PrerenderLookup`, `LocationFlow`, `HostsHub`, `ShopPage`, `ShopFlow`, `WordPressFlow`, `ElementLifecycle`, `BrowserLoads`. `src/content/docs/guides/writing-droplets.mdx:79`, `src/content/docs/guides/writing-droplets.mdx:496`, `src/content/docs/guides/actions.mdx:157`, `src/content/docs/guides/prerendering.mdx:82`, `src/content/docs/integrate/http-contract.mdx:228`, `src/content/docs/integrate/hosts/overview.mdx:19`, `src/content/docs/integrate/hosts/shop-demo.mdx:23`, `src/content/docs/integrate/hosts/shop-demo.mdx:49`, `src/content/docs/integrate/wordpress.mdx:304`, `src/content/docs/guides/in-the-browser.mdx:65`, `src/content/docs/guides/deployment.mdx:363`
 - Tour poster: `gen.mjs` writes `scripts/poster/tour-poster.svg`; `render.mjs` writes `public/hosts/tour.webp` in Chromium. `scripts/poster/gen.mjs:111`, `scripts/poster/render.mjs:11`, `scripts/poster/render.mjs:33`
-- Tour video `public/hosts/tour.mp4` plays with `tour.webp` as its poster on the home page. `src/components/DropletTour.astro:15`, `src/content/docs/index.mdx:19`
+- Tour video `public/hosts/tour.mp4` plays with `tour.webp` as its poster on the home page. `src/components/DropletTour.astro:15`, `src/content/docs/index.mdx:47`
 - Site title and description (103 characters, whole in link previews) live in `site.mjs`, read by `astro.config.mjs`; `scripts/og/render.mjs` reads the title and the `ogImage` text. `site.mjs:3`, `site.mjs:6`, `site.mjs:11`, `astro.config.mjs:5`, `scripts/og/render.mjs:10`
 - Home page `<title>`, `og:title` and `twitter:title`: "Droplets: server-rendered components for any stack", from its frontmatter `head`. `src/content/docs/index.mdx:4`
-- Every page's head: `og:image` and `twitter:image` (absolute, `<DOCS_SITE><DOCS_BASE>og.png`), `og:image:width` 1200, `og:image:height` 630, `og:image:alt` and `twitter:image:alt`; Starlight writes `twitter:card` `summary_large_image`. `astro.config.mjs:15`, `astro.config.mjs:112`, `site.mjs:10`
+- Every page's head: `og:image` and `twitter:image` (absolute, `<DOCS_SITE><DOCS_BASE>og.png`), `og:image:width` 1200, `og:image:height` 630, `og:image:alt` and `twitter:image:alt`; Starlight writes `twitter:card` `summary_large_image`. `astro.config.mjs:16`, `astro.config.mjs:119`, `site.mjs:10`
 - Share image: `scripts/og/render.mjs` writes `public/og.png`, 1200×630, in Chromium, the drop taken from `public/favicon.svg`. `scripts/og/render.mjs:16`, `scripts/og/render.mjs:18`, `scripts/og/render.mjs:51`
 - `public/robots.txt`: `User-agent: *`, `Allow: /`, `Sitemap: https://dropletsjs.dev/sitemap-index.xml`. `public/robots.txt:1`
 - Worker `dropletsjs-docs` serves `./dist` as assets only, on the custom domain `dropletsjs.dev`. `wrangler.jsonc:4`, `wrangler.jsonc:8`, `wrangler.jsonc:22`

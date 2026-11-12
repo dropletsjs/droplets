@@ -3,6 +3,11 @@ title: Getting started
 description: "npm create droplets: a new project, a first droplet, dev, build, and a plain HTML page that embeds it."
 ---
 
+The quick path: `npm create droplets` writes a project with a first
+droplet, and the steps below run it, edit it, build it and embed it in a
+plain page. To add Droplets to a project you have, or to see what each file
+does, follow [Manual setup](/start/manual-setup/) instead.
+
 You need Node 22 or newer. The examples use npm and Svelte; every other
 package manager and [renderer](/renderers/) works the same way.
 
@@ -68,6 +73,17 @@ my-widgets/
   .vscode/extensions.json  the Svelte editor extension (below)
 ```
 
+There is one starter droplet per framework you picked, `hello-<framework>`
+(`hello-hono` for Hono JSX). `.droplets/` holds each droplet's generated
+[`./$types`](/guides/writing-droplets/#types-types) and is not in git.
+`vite dev` and `vite build` keep it up to date; `djs sync` (`npm run sync`)
+writes it without them, `prepare` runs it after every install, and
+`npm run typecheck` runs it before `tsc`.
+
+With more than one adapter, `vite build` builds for Node (or the first one
+chosen), and `DROPLETS_ADAPTER=<adapter> vite build` for another; the
+`build:<adapter>` and `start:<adapter>` scripts do that.
+
 `.vscode/extensions.json` recommends the editor extensions the frameworks
 you picked need: `svelte.svelte-vscode` for Svelte, `Vue.volar` for Vue,
 `runem.lit-plugin` for Lit. React, Preact, Solid, Hono JSX and Handlebars
@@ -80,15 +96,6 @@ later), `pnpm-workspace.yaml` for pnpm (`minimumReleaseAge`),
 `.yarnrc.yml` for Yarn (`npmMinimalAgeGate`, Yarn 4.10 and later),
 `bunfig.toml` for Bun (`minimumReleaseAge`) and `deno.json` for Deno
 (`minimumDependencyAge`).
-
-There is one starter droplet per framework you picked, `hello-<framework>`
-(`hello-hono` for Hono JSX). `.droplets/` holds each droplet's generated
-[`./$types`](/guides/writing-droplets/#types-types); it is not in git, and
-`djs sync` writes it again.
-
-With more than one adapter, `vite build` builds for Node (or the first one
-chosen), and `DROPLETS_ADAPTER=<adapter> vite build` for another; the
-`build:<adapter>` and `start:<adapter>` scripts do that.
 
 ## 3. Run it
 
@@ -103,9 +110,9 @@ npm run dev
 | `http://localhost:5173/droplets/hello-svelte?who=Ana` | The fragment another page embeds |
 | `http://localhost:5173/droplets/hello-svelte/_data?who=Ana` | The server load's result, as JSON: `{"data":{"greeting":"Hello Ana!"}}` |
 
-## 4. The first droplet
+## 4. Edit the starter droplet
 
-The starter droplet is a component and a server load:
+The starter droplet is a server load and a component:
 
 ```ts
 // src/droplets/hello-svelte/+droplet.server.ts
@@ -120,7 +127,7 @@ export const load = ({ props }: LoadEvent) => {
 
 Give the component a button:
 
-```svelte
+```svelte ins={11,18}
 <!-- src/droplets/hello-svelte/+droplet.svelte -->
 <script module lang="ts">
   export const ssr = true;
@@ -143,22 +150,14 @@ Give the component a button:
 </section>
 ```
 
-Save it: the droplet updates in place through Svelte's own HMR, and the
-page does not reload. Svelte 5 creates the component again, so `clicks`
-starts over. An edit to `+droplet.server.ts` brings the new `data` to the
-running component and keeps `clicks`. See
-[Hot updates](/guides/development/#hot-updates). `data` is what the load
-returns: the load's result, typed through `./$types`, so neither file
-spells it out. The template uses `{#await}` so it also works with Svelte's
-[`experimental.async`](/renderers/svelte/#specifics), which hands a droplet
-mounted in the browser a promise. The flags (`ssr`,
-`hydrate`, `prerender`) are explained in
-[Writing droplets](/guides/writing-droplets/#flags).
+Save it: the droplet updates in place, without a page reload. `data` is
+the load's result, typed through `./$types`, so neither file spells it out.
+`ssr` and `hydrate` are the droplet's [flags](/guides/writing-droplets/#flags);
+[Hot updates](/guides/development/#hot-updates) says what survives an edit.
 
-Props come from the caller, so the load checks them itself. For more than
-one prop, a [props schema](/guides/writing-droplets/#a-props-schema) in
-`+droplet.ts` checks and coerces them before any load runs, and refuses bad
-ones with a `400`.
+Props come from the caller, so this load checks `who` itself. A
+[props schema](/guides/writing-droplets/#a-props-schema) in `+droplet.ts`
+does it for every prop, before any load runs.
 
 ## 5. Add a droplet: `djs add`
 
@@ -177,20 +176,10 @@ npx djs add counter --framework svelte --target full --hydrate visible --with se
 It writes `src/droplets/counter/` (`+droplet.svelte` with
 `hydrate = "visible"` and a `<style>` block, and `+droplet.server.ts`), then
 its `./$types`. A framework the Vite config does not list yet is installed
-and added to it, after a warning. Every option is in the
-[API reference](/reference/api/#djs-add).
+and added to it, after asking ([Add a renderer](/renderers/#add-a-renderer)).
+Every option is in the [API reference](/reference/api/#djs-add).
 
-## 6. Types: `djs sync`
-
-```bash
-npm run typecheck   # djs sync, then tsc
-```
-
-`vite dev` and `vite build` keep `.droplets/` up to date. `djs sync`
-(`npm run sync`) writes it without either, for a type check on a fresh
-checkout; `prepare` runs it after every install.
-
-## 7. Build and run
+## 6. Build and run
 
 ```bash
 npm run build     # dist/client, dist/server, dist/server.js
@@ -203,7 +192,7 @@ machine needs Node, `dist/` and whatever your droplets import, nothing
 else. `PORT` moves it. See [Deployment](/guides/deployment/) for Workers,
 Bun, Deno and Docker.
 
-## 8. Embed it in a plain HTML page
+## 7. Embed it in a plain HTML page
 
 Any page, served by anything, needs the entry script once and the droplet
 element. The simplest page writes the element itself, and the droplet
@@ -244,6 +233,6 @@ examples, [Any other stack](/integrate/any-stack/) has the exact headers, and
 about the pages that embed it.
 
 [Manual setup](/start/manual-setup/), the next page, sets the same project
-up by hand. [Writing droplets](/guides/writing-droplets/) covers the flags,
+up by hand, for an existing project or to see what each file does. [Writing droplets](/guides/writing-droplets/) covers the flags,
 the load chain and props; [Actions](/guides/actions/) and
 [Prerendering](/guides/prerendering/) follow it.

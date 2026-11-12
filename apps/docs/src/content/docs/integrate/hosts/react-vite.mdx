@@ -50,7 +50,7 @@ target.replaceChildren(element);
 ```
 
 ```nginx
-# nginx.conf
+# nginx.conf (trimmed)
 location ~ ^/(index\.js$|env\.js$|index\.css$|droplets/|assets/|api/) {
   proxy_pass http://shop:8300;
   proxy_set_header Cookie $shop_cookie;
@@ -172,18 +172,6 @@ const shop: ProxyOptions = {
 const proxy = { "^/index\\.js$": shop, "^/env\\.js$": shop, "^/index\\.css$": shop, "/droplets/": shop, "/assets/": shop, "/api/": shop };
 ```
 
-### The shop's environment
-
-- `DROPLETS_TRUSTED_ORIGINS: http://localhost:8004`: the only origin whose
-  [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location) and
-  [form posts](/integrate/http-contract/#form-posts-the-origin-check) the shop accepts.
-- `DROPLETS_SECRET`: signs a form's result on the redirect back to the page
-  ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)). Here
-  it is the login's native post that uses it: the `303` lands back on the
-  app's page, whose fragments are fetched again with that URL as `Referer`.
-- `ADMIN_USER`, `ADMIN_PASSWORD`, `SHOP_SECRET`: the demo login
-  (admin / droplets) and the key its cookie is signed with (from the environment, see Run it).
-
 ### Gotchas
 
 - **No server rendering, no page without JavaScript.** The pages render in
@@ -204,10 +192,13 @@ docker compose up --build
 open http://localhost:8004/gallery   # log in as admin / droplets
 ```
 
-Set `SHOP_SECRET` and `DROPLETS_SECRET` first (32 or more random characters
-each, `openssl rand -hex 32`), in the environment or a `.env` file beside
-`docker-compose.yml`: compose refuses to start without them. `pnpm test:hosts`
-generates its own for a run.
+Set `SHOP_SECRET` and `DROPLETS_SECRET` first; compose refuses to start
+without them. The shop trusts one origin besides its own,
+`DROPLETS_TRUSTED_ORIGINS: http://localhost:8004`, this host's; the rest of
+its environment is the same on every host: see
+[Running a host](/integrate/hosts/shop-demo/#running-a-host). Here `DROPLETS_SECRET` serves the login's native post: its `303` lands
+back on the app's page, whose fragments are fetched again with that URL as
+`Referer`.
 
 ## The Svelte example
 
@@ -265,9 +256,12 @@ export function Droplet({ id, props = {}, mode = "fragment", origin = DROPLETS_U
     const url = new URL(`/droplets/${encodeURIComponent(id)}`, origin);
     for (const [key, value] of Object.entries(props)) url.searchParams.set(key, String(value));
 
-    fetch(url, { signal: controller.signal })
+    fetch(url, { signal: controller.signal, redirect: "manual", headers: { accept: "text/html" } })
       .then(async (response) => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (response.type === "opaqueredirect") throw new Error("redirected");
+        const isFragment =
+          (response.ok || response.status === 500) && (response.headers.get("content-type") ?? "").startsWith("text/html");
+        if (!isFragment) throw new Error(`HTTP ${response.status}`);
         const template = document.createElement("template");
         template.innerHTML = await response.text();
         target.replaceChildren(template.content);

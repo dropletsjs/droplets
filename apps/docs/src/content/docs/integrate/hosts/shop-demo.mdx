@@ -164,6 +164,36 @@ fragment's redirect on: nginx asks the fragment first (`auth_request`) and
 redirects itself, and the single-page app replaces its URL without `v`
 when the fragment answers a redirect.
 
+## Running a host
+
+Each host is a Docker Compose project in `examples/hosts/<id>`: the host
+(`web`), the shop (`shop`, reachable from `web` only) and, for the host's
+basic page, the Svelte example's droplets server (`droplets`). Every
+port is published on `127.0.0.1` only. Two secrets come from the
+environment or a `.env` file beside `docker-compose.yml`, 32 or more random
+characters each (`openssl rand -hex 32`); compose refuses to start without
+them, and `pnpm test:hosts` generates its own for a run:
+
+```bash
+cd examples/hosts/express
+export SHOP_SECRET=$(openssl rand -hex 32) DROPLETS_SECRET=$(openssl rand -hex 32)
+docker compose up --build
+open http://localhost:8003/gallery   # log in as admin / droplets
+```
+
+The shop's environment is the same in every host's compose file, its
+trusted origin aside:
+
+| Variable | Value | What for |
+| --- | --- | --- |
+| `DROPLETS_TRUSTED_ORIGINS` | the host's own origin (`http://localhost:8003` for Express) | The only origin besides its own whose [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-droplet-location) and [form posts](/integrate/http-contract/#form-posts-the-origin-check) the shop accepts; a `host` outside it renders as the shop's own origin |
+| `DROPLETS_SECRET` | from the environment | Signs a form's result on the redirect back to the page when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)) |
+| `SHOP_SECRET` | from the environment | The key the admin session cookie is signed with |
+| `ADMIN_USER`, `ADMIN_PASSWORD` | `admin`, `droplets` | The demo login |
+
+Each host's page has its ports, the values it gives itself (the shop's
+internal URL and its own public origin) and its command.
+
 ## Each host, recorded
 
 The test (`tests/hosts` in the repository) starts each host's

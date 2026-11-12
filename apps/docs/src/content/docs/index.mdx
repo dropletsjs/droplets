@@ -10,7 +10,7 @@ head:
     attrs: { name: "twitter:title", content: "Droplets: server-rendered components for any stack" }
 template: splash
 hero:
-  tagline: "Components you can embed from any stack. One component, one server-rendered fragment, one script. Write it in Svelte, Vue, Solid, React, Preact, Hono JSX, Handlebars or Lit."
+  tagline: "Server-rendered components you can embed from any stack, as a Vite plugin on Hono. Write each one in Svelte, Vue, Solid, React, Preact, Hono JSX, Handlebars or Lit."
   actions:
     - text: Get started
       link: start/getting-started/
@@ -23,16 +23,16 @@ hero:
 import { Card, CardGrid } from "@astrojs/starlight/components";
 import DropletTour from "../../components/DropletTour.astro";
 
-<DropletTour />
+Droplets serves each of your components at its own URL, as a fragment of
+server-rendered HTML. Any server that can make an HTTP request (nginx, PHP,
+WordPress, Express, Next.js, FastAPI) fetches the fragment, pastes it into its
+page and loads one script; the component then comes alive there, with its
+own data, styles and JavaScript.
 
-**If micro-frontends were a framework.** Droplets grew out of SvelteKit
-and keeps the patterns that work there: `+` files, `load` on the server and
-on both sides, form actions with `fail()` and `redirect()`,
-`hooks.server.ts` and `hooks.client.ts`, `$droplets/env/*`, prerendering
-with `entries`. They are reshaped for islands of server-rendered HTML that
-live inside someone else's page, served by any stack and written in any of
-eight frameworks. Droplets is an independent project, not affiliated with
-Svelte or SvelteKit.
+It is for teams that need the same interactive widgets in several apps or
+stacks, that add components to an existing site piece by piece, or that ship
+UI on their own schedule. For one application in one framework, that
+framework's own meta-framework does the job better.
 
 ```html
 <!-- Any page, any server: paste the fragment, load one script. -->
@@ -43,6 +43,8 @@ Svelte or SvelteKit.
   <h1>Hello Ana!</h1>
 </acme-widgets>
 ```
+
+<DropletTour />
 
 <CardGrid stagger>
   <Card title="The component is the unit" icon="puzzle">
@@ -72,3 +74,10 @@ Svelte or SvelteKit.
     when a load or the component fails.
   </Card>
 </CardGrid>
+
+## Where it comes from
+
+Droplets grew out of SvelteKit: `+` files, loads, form actions,
+hooks and prerendering, reshaped for components that live inside someone
+else's page. It is an independent project, not affiliated with Svelte or
+SvelteKit. [What is a droplet?](/start/what-is-a-droplet/) explains the rest.

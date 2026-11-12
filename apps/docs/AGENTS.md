@@ -19,6 +19,8 @@
   Checked by: `pnpm docs:build` (`Diagram.astro` fails on any other scene width; the sizes live in `diagram-kit.ts` only); screenshots at 1280 and 390 px, light and dark, on review.
 - Every diagram has the same full-screen viewer (wheel, pinch and drag; `+`, `-`, `0`, arrows, `Esc`; a close button) and SVG download, from `Diagram.astro` alone, in a bundled script; no figure has its own, and no external script or package draws them.
   Checked by: `pnpm docs:check-csp`; review.
+- The pages are for people, `llms.txt`, `llms-full.txt`, `llms-small.txt` and the sets under `/_llms-txt/` for AI: `llms.txt` indexes every sidebar page with its absolute URL and description; the others carry the pages as text, with absolute links and no images, media, live droplets or button labels, and each diagram as its description. A page needs no change for them: what is a screen, not text, is left out by a selector in `astro.config.mjs`.
+  Checked by: `pnpm docs:build` (`src/plugins/llms-txt.mjs`).
 - The WordPress tutorial is a story in steps: the shop, a plugin that brings in the droplets, then WordPress takes over the data and the login.
 - `pnpm docs:build` builds and starts `../demo` first (after `pnpm build` at the root) and fails without it.
   Checked by: `scripts/with-demo.mjs`, `src/components/live-droplet.ts`.

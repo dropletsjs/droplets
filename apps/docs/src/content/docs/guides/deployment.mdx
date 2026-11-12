@@ -352,7 +352,7 @@ When a reverse proxy fronts the droplets server:
   TLS proxy that forwards to plain HTTP on `localhost`, set `location` or
   send a trusted location header, so `https://` is the location and the
   cookies are `Secure`;
-- keep the `cache-control` headers it sends; they are safe to honour: `/index.js`
+- keep the `cache-control` headers it sends; they are safe to honor: `/index.js`
   and `/index.css` are `no-store`, `/env.js` is `public, max-age=600` (`DROPLETS_ENV_MAX_AGE`),
   fragments and `_data` are `private, no-store` (`fragmentCacheControl`),
   `/assets/public/*` is `no-cache` (`publicCacheControl`) with an `ETag`,

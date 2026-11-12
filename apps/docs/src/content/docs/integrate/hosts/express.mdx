@@ -14,7 +14,7 @@ on the server and pastes it into the page it sends.
 // src/shop.js (trimmed)
 const fragmentHeaders = (req) => {
   const headers = { accept: "text/html", "x-droplet-location": origin, referer: origin + req.originalUrl };
-  const cookie = req.get("cookie");
+  const cookie = shopCookies(req.get("cookie"));
   if (cookie) headers.cookie = cookie;
   return headers;
 };
@@ -55,7 +55,7 @@ async function fragment(req, id, params = new URLSearchParams()) {
 - `fragment()` asks the shop for `GET /droplets/<id>?<params>` on its
   internal address (`SHOP_INTERNAL_URL`), with `accept: text/html`,
   `x-droplet-location` set to this host's public origin (the origin of
-  `SHOP_PUBLIC_URL`), the browser's `Cookie` as it came, and the page's URL
+  `SHOP_PUBLIC_URL`), the browser's `Cookie` cut down to the shop's own `cart_id` and `shop_admin`, and the page's URL
   as `referer`. `redirect: "manual"` keeps a droplet's 3xx, which `render()`
   answers as it is.
 - Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
@@ -147,17 +147,6 @@ The browser only ever talks to `localhost:8003`, so there is no CORS, and
 the shop's cookies (`cart_id`, `shop_admin`) are first-party. The shop sets
 them only from form actions and `/api`, which always come through here.
 
-### The shop's environment
-
-- `DROPLETS_TRUSTED_ORIGINS: http://localhost:8003`: the only origin whose
-  [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location) and
-  [form posts](/integrate/http-contract/#form-posts-the-origin-check) the shop accepts
-  besides its own.
-- `DROPLETS_SECRET`: signs a form's result on the redirect back to the page
-  when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)).
-- `ADMIN_USER`, `ADMIN_PASSWORD`, `SHOP_SECRET`: the demo login
-  (admin / droplets) and the key its cookie is signed with (from the environment, see Run it).
-
 ### Gotchas
 
 - **The proxy drops `content-encoding` and `content-length`** (and the
@@ -183,10 +172,11 @@ docker compose up --build
 open http://localhost:8003/gallery   # log in as admin / droplets
 ```
 
-Set `SHOP_SECRET` and `DROPLETS_SECRET` first (32 or more random characters
-each, `openssl rand -hex 32`), in the environment or a `.env` file beside
-`docker-compose.yml`: compose refuses to start without them. `pnpm test:hosts`
-generates its own for a run.
+Set `SHOP_SECRET` and `DROPLETS_SECRET` first; compose refuses to start
+without them. The shop trusts one origin besides its own,
+`DROPLETS_TRUSTED_ORIGINS: http://localhost:8003`, this host's; the rest of
+its environment is the same on every host: see
+[Running a host](/integrate/hosts/shop-demo/#running-a-host).
 
 ## The Svelte example
 

@@ -21,7 +21,7 @@ the page could make one count.
 
 ## Add it to a project
 
-<AddRenderer framework="handlebars" />
+<AddRenderer framework="handlebars" brief />
 
 ## The files
 
@@ -77,7 +77,7 @@ export const upper = (value: unknown) => String(value).toUpperCase();
 | | |
 | --- | --- |
 | Server rendering | yes: `ssr = true`, the default; `ssr = false` renders the template in the browser instead |
-| `hydrate` | `true` (the default), `"visible"`, `"interactive"`, `false`; none adds behaviour, see below |
+| `hydrate` | `true` (the default), `"visible"`, `"interactive"`, `false`; none adds behavior, see below |
 | Prerendering | yes: `prerender = true` with `entries` |
 | Forms | `<form method="post" action="{{action "add"}}">`, posted natively; `data-droplet-enhance` posts it by `fetch` |
 
@@ -114,7 +114,7 @@ droplets: src/partials/footer.hbs: a partial has no <style>: put it in the dropl
 
 ## Specifics
 
-- **No behaviour in the browser.** A template is HTML with holes; Handlebars
+- **No behavior in the browser.** A template is HTML with holes; Handlebars
   has no events or state, so the renderer has nothing to attach. `hydrate`
   keeps the server's HTML and wires the host's children into it; `mount`
   renders the template in the browser (an `ssr = false` droplet, an error

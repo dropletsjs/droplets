@@ -13,7 +13,9 @@
 // nothing about the location is passed to it here.
 //
 // With DEMO_URL already set (a deployed demo: DEMO_URL=https://demo.dropletsjs.dev),
-// nothing is built or started and the command runs against that server.
+// nothing is built or started and the command runs against that server, after
+// the demo's `djs sync`: the pages read the demo's sources, and its tsconfig
+// extends the .droplets/tsconfig.json that sync (or a demo build) writes.
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -39,7 +41,13 @@ function run(env) {
   return child.status ?? 1;
 }
 
+if (!existsSync(fileURLToPath(new URL("../../../packages/droplets/dist/vite.js", import.meta.url)))) {
+  fail("the droplets packages are not built: run `pnpm build` at the repository root first");
+}
+
 if (process.env.DEMO_URL) {
+  const sync = spawnSync("pnpm", ["run", "sync"], { cwd: demo, stdio: "inherit" });
+  if (sync.status !== 0) fail("the demo's djs sync failed");
   console.log(`[with-demo] using the demo server at ${process.env.DEMO_URL}`);
   process.exit(run({}));
 }
@@ -47,9 +55,6 @@ if (process.env.DEMO_URL) {
 const publicUrl = new URL(process.env.DEMO_PUBLIC_URL || "https://demo.dropletsjs.dev");
 
 // 1. Build the demo for Node.
-if (!existsSync(fileURLToPath(new URL("../../../packages/droplets/dist/vite.js", import.meta.url)))) {
-  fail("the droplets packages are not built: run `pnpm build` at the repository root first");
-}
 console.log("[with-demo] building apps/demo (node)…");
 const build = spawnSync("pnpm", ["run", "build"], { cwd: demo, stdio: "inherit", env: { ...process.env, DROPLETS_ADAPTER: "node" } });
 if (build.status !== 0) fail("the demo build failed");

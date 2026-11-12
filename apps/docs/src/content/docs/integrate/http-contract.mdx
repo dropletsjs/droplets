@@ -25,7 +25,7 @@ interface; anything that can make a request can host a droplet.
 | `ALL /api/*` | Your [`+server.ts`](/guides/server/#api-routes) endpoints |
 | `GET /health` | `ok`, for health checks (`health` option) |
 | `GET /importmap`, `/importmap.js` | The [import map](/guides/server/#import-maps), when there are externals |
-| `GET /` | The `index` page in production; the [devtools page](/guides/development/#the-devtools-page) in `vite dev` |
+| `GET /` | The `index` page in production (a placeholder without one, `404` with `index: false`); the [devtools page](/guides/development/#the-devtools-page) in `vite dev` |
 
 Header names follow one rule: what a request sends is singular,
 `x-droplet-*` (`x-droplet-location`, `x-droplet-props`); what a response
@@ -182,9 +182,12 @@ GET /droplets/products/_data?category=mugs
   { "data": { "products": [ … ] } }
 ```
 
-## `x-droplet-location`: the public location
+## `x-droplet-location`: the droplet location
 
-The droplets server's location is where the **browser** reaches it: the
+{/* The old anchor, linked from pages written before the rename. */}
+<span id="x-droplet-location-the-public-location"></span>
+
+The droplet location is where the **browser** reaches the droplets server: the
 origin, and the path prefix if there is one, under which the browser loads
 `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and `/api/*`:
 
@@ -265,7 +268,7 @@ you use it.
 The allow-list is the guard that matters. Fragments answer
 `Vary: x-droplet-location, forwarded, x-forwarded-host, x-forwarded-proto, x-forwarded-port, x-forwarded-prefix, origin`
 when they are cacheable, but CDNs ignore `Vary` on custom headers (most
-only honour `Accept-Encoding`), so a shared cache can still hand one
+only honor `Accept-Encoding`), so a shared cache can still hand one
 request's fragment to everyone. With a location that is not on the list,
 that fragment would point its stylesheet, `Link` preloads and form actions
 at the attacker. The proxy or host should still **overwrite** these headers
@@ -294,7 +297,7 @@ where it **renders**: the host page. A host tells it, first match wins:
 
 1. `"host"` in a POST body: `{ "host": "https://shop.example/product/mug", "props": { … } }`;
 2. `Origin`, as browsers send it;
-3. else the origin of the droplets server's [location](#x-droplet-location-the-public-location).
+3. else the origin of the droplets server's [location](#x-droplet-location-the-droplet-location).
 
 `Origin` carries no path, so `host.pathname` is `/` unless a body gave one,
 or `handle` read it from `Referer` or `X-Forwarded-Uri`; see
@@ -371,7 +374,7 @@ answered:
 Action URLs (`actionUrl()` of `$droplets/form`, `{{action}}` in Handlebars)
 are `<location>/droplets/<id>?/<name>&<props>&__droplet_return=<page>`, the
 same on the server, in the browser and in a prerender, on the
-[public location](#x-droplet-location-the-public-location), never an
+[droplet location](#x-droplet-location-the-droplet-location), never an
 untrusted header's. `<page>` is the page the form is on, its origin and
 path, encoded: `host` on the server, `window.location` in the browser.
 
@@ -444,7 +447,7 @@ or `DELETE` whose body is form-urlencoded, multipart or `text/plain`, or has
 no content type at all. Such a request to `/droplets/*` or `/api/*` is
 answered `403` before `handle` runs, unless its `Origin` header is:
 
-- the server's own origin, or its [location](#x-droplet-location-the-public-location)'s, or
+- the server's own origin, or its [location](#x-droplet-location-the-droplet-location)'s, or
 - in `trustedOrigins` in `droplets.config.ts`, or in the
   `DROPLETS_TRUSTED_ORIGINS` environment variable (comma-separated, read at
   runtime, added to the config's list); `"*"` trusts every origin; or

@@ -1,6 +1,6 @@
 ---
 title: Server code
-description: "hooks.server.ts, API routes, environment variables and import maps."
+description: "hooks.server.ts, host and setHeaders, cookies, event.fetch, API routes and calling them from a droplet, environment variables and import maps."
 ---
 
 Server code in Droplets follows SvelteKit's conventions. It never sees Hono:
@@ -97,20 +97,120 @@ export const handleError: HandleServerError = ({ error, event, status, message }
 Errors inside a droplet's loads go to the droplet's own `handleError` first;
 see [Errors](/guides/errors/).
 
+## `host`
+
+`event.host` is the page a droplet renders on, the host page, as a `URL`.
+`handle`, a droplet's loads, `transform` and its actions get it. It is not
+where the droplet itself is served from: that is the droplet
+[location](/integrate/http-contract/#x-droplet-location-the-droplet-location)
+(`x-droplet-location` on the server, the URL `/index.js` came from in the
+browser, `droplet.url()` from `$droplets/drop`). The fragment's own URL is
+`request.url`.
+
+### Where it comes from
+
+On the server, first match wins:
+
+1. `host` in a render request's JSON body: `{ "host": "https://shop.example/product/mug", "props": { … } }`;
+2. `Origin`;
+3. the origin of the droplet location.
+
+- Only `http:` and `https:` URLs count; a value that is not one is skipped
+  for the next source.
+- `Origin` carries an origin only, so the path is `/` unless the body gave
+  one.
+- With [`trustedOrigins`](/guides/configuration/#trusted-origins) set, a
+  host page outside it (and not this server) becomes the droplet location's
+  origin.
+- With [`host`](/guides/configuration/#a-fixed-host) in
+  `droplets.config.ts`, `event.host` is that origin, with the body's path
+  and query when the body names a page on it; `Origin` is not read.
+
+### Taking the page from `Referer`
+
+`handle` in `src/hooks.server.ts` sees `event.host` first and may replace
+it; loads, `transform` and the context sent to the browser get what
+`handle` left. A host page's server that sends the page's URL as `Referer`
+(or `X-Forwarded-Uri`) gives the droplet the full path too:
+
+```ts
+// src/hooks.server.ts
+import { hostFrom, type Handle } from "$droplets/server";
+
+export const handle: Handle = ({ event, resolve }) => {
+  event.host = hostFrom(event.request.headers.get("referer")) ?? event.host;
+  return resolve(event);
+};
+```
+
+`hostFrom` checks a candidate the way the default is checked: an `http:` or
+`https:` URL without credentials or hash, and, with `trustedOrigins` set,
+one of them or this server. Anything else, a missing or malformed header
+included, gives `null`. `handle` may still set any `URL` it likes;
+`hostFrom` is the safe way to take one from a request.
+
+### In the browser
+
+The universal load's `host` is the page itself (`window.location`, without
+its `#hash`), read when the droplet mounts. It does not follow a
+single-page app's navigation afterwards. A universal load that renders from
+`host.pathname` hydrates cleanly only when the server got the same path.
+
+While prerendering, see [`host` at build](/guides/prerendering/#host-at-build).
+
+### Never for access
+
+`host` comes from the request: any client can send any value. Render with
+it; never decide from it who may see what. Embedding a droplet also tells
+its server the page's URL; see [Who sees what](/guides/security/#who-sees-what).
+
+## `setHeaders`
+
+`setHeaders` in a server load sets headers on the droplet's answers: the
+fragment and `_data`. Fragments are sent `cache-control: private, no-store`
+unless the load says otherwise, so a droplet that is the same for everyone
+opens itself to caches here:
+
+```ts
+// src/droplets/products/+droplet.server.ts
+import type { LoadEvent } from "$droplets/server";
+
+export const load = async ({ props, setHeaders }: LoadEvent) => {
+  setHeaders({ "cache-control": "public, max-age=60" });
+  return { products: await db.products(props.category) };
+};
+```
+
+- **Each header once.** As in SvelteKit, `setHeaders` throws when a header
+  is set a second time. An [action](/guides/actions/) shares it with the
+  load that renders after it.
+- **Plain strings, no cookies.** Names and values are strings without line
+  breaks, and `set-cookie` is refused: cookies are set in `handle`,
+  `+server.ts` or an action.
+- **Only on what rendered.** The headers go out when the droplet renders or
+  loads; an error answer, or a load that failed and shows its error page,
+  carries none of them.
+- **Prerendered renders keep theirs.** A render made at build is served
+  with the headers its load set at build.
+- **`handle` has the last word.** It sees the response after and may change
+  any of them. A `vary` the load sets is kept, and the headers the
+  location and `host` come from are [added to it](/guides/security/#caching).
+- `transform` and the universal load have no `setHeaders`.
+
 ## Cookies
 
 `event.cookies` works as in SvelteKit, on the event of `handle` and
 `+server.ts` handlers. A droplet's server load and `transform` get cookies to
 read only (`get` and `getAll`, the `ReadonlyCookies` type): a droplet renders
-as a host asked for it, and what it set would reach the browser only if that
-host passed it on. `cookies.set()` and `cookies.delete()` throw there; set
+as a host page's server asked for it, and what it set would reach the
+browser only if that server passed it on. `cookies.set()` and `cookies.delete()` throw there; set
 cookies in `handle` or `+server.ts`.
 
 ```ts
 // src/api/login/+server.ts
 import { timingSafeEqual } from "node:crypto";
 import { error, json, type RequestHandler } from "$droplets/server";
-import { ADMIN_PASSWORD } from "$droplets/env/private";
+import { env } from "$droplets/env/private";
 
 const same = (a: string, b: string) => {
   const [x, y] = [Buffer.from(a), Buffer.from(b)];
@@ -118,14 +218,18 @@ const same = (a: string, b: string) => {
 };
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
+  const expected = env.ADMIN_PASSWORD; // declared in src/env.ts: ADMIN_PASSWORD: {}
   const form = await request.formData();
-  if (!same(String(form.get("password") ?? ""), ADMIN_PASSWORD)) error(401, "Wrong password");
+  if (!expected || !same(String(form.get("password") ?? ""), expected)) error(401, "Wrong password");
   cookies.set("session", await sign("admin"), { path: "/", maxAge: 60 * 60 * 8 });
   return json({ ok: true });
 };
 ```
 
-Compare secrets in constant time (`timingSafeEqual` on Node, Bun and Deno;
+`ADMIN_PASSWORD` is declared in `src/env.ts` (see
+[Environment variables](#environment-variables)); a runtime variable may be
+unset, so the handler refuses everyone without it. Compare secrets in
+constant time (`timingSafeEqual` on Node, Bun and Deno;
 `crypto.subtle.timingSafeEqual` on Workers), and store a hash, not the
 password, in anything real.
 
@@ -138,10 +242,10 @@ password, in anything real.
 | `serialize(name, value, options)` | The `Set-Cookie` value, for a response you build yourself. |
 
 `options.path` is required, and absolute (`"/"`, `"/admin"`): the response
-may reach the browser through a host, under the host's URLs. Defaults:
+may reach the browser through a host page's server, under its URLs. Defaults:
 `httpOnly: true`, `sameSite: "lax"`, and `secure: true` except over plain
 HTTP to `localhost` or a loopback address (the dev server), judged by the
-server's public [location](/integrate/http-contract/#x-droplet-location-the-public-location).
+server's public [location](/integrate/http-contract/#x-droplet-location-the-droplet-location).
 `sameSite: "none"` without `secure: true` throws: browsers drop such a
 cookie. Values are `encodeURIComponent`ed unless you pass `encode`. Setting
 the same name, domain and path twice sends the last one.
@@ -149,10 +253,10 @@ the same name, domain and path twice sends the last one.
 Whatever answers the request carries the cookies: the fragment, `_data`,
 the endpoint's response (even one with immutable headers, such as
 `Response.redirect()`), an `error()` or `redirect()`, or a response `handle`
-returns without resolving. A fragment the host's server fetches hands its
+returns without resolving. A fragment the host page's server fetches hands its
 `Set-Cookie` to that server; see
 [Cookies](/guides/security/#cookies) in the Security model for how cookies
-reach the browser (same origin, or a host that forwards them, never their
+reach the browser (same origin, or a host page's server that forwards them, never their
 `Domain`).
 
 Cookies do not exist at build: using them while prerendering throws
@@ -179,55 +283,66 @@ export const load = async ({ fetch }: LoadEvent) => {
 };
 ```
 
-A URL is this server's when it is relative (resolved against
-`request.url`, the request as the server received it, so `/api/x` is the
-route `/api/x` whatever prefix a proxy adds), absolute on the request's own
-origin, or absolute under the droplet
-[location](/integrate/http-contract/#x-droplet-location-the-public-location),
-prefix included: with the server at `https://shop.example/mfe`,
-`https://shop.example/mfe/api/x` is `/api/x`, while
-`https://shop.example/other` is another site and goes to the network. Such
-a request is dispatched into the app as a request of its own, exactly as
-one from outside: the location is resolved again, the `Origin` check and
-the body limits apply, `handle` runs (with `locals` of its own), the route
-is matched, and a path no route matches answers `404` from the app, never
-from the network. `/api/*`, the `/droplets/*` routes and the files the app
-serves all answer this way. Being internal grants nothing: a location
-header on it is trusted only against `trustedOrigins`, a `redirect()` it
-answers passes the same bound, a form token is checked the same way.
+### Which URLs are this server's
 
-What it carries from the request it runs for, each unless `init` sets the
-header itself:
+A URL is answered in-process when it is:
+
+1. **relative**, resolved against `request.url`, the request as the server
+   received it: `/api/x` is the route `/api/x` whatever prefix a proxy
+   adds;
+2. **absolute on the request's own origin**;
+3. **absolute under the droplet
+   [location](/integrate/http-contract/#x-droplet-location-the-droplet-location)**,
+   prefix included: with the server at `https://shop.example/mfe`,
+   `https://shop.example/mfe/api/x` is `/api/x`, while
+   `https://shop.example/other` is another site and goes to the network.
+
+Such a request is dispatched into the app as a request of its own, exactly
+as one from outside: the location is resolved again, the `Origin` check and
+the body limits apply, `handle` runs (with `locals` of its own), and the
+route is matched. `/api/*`, the `/droplets/*` routes and the files the app
+serves all answer this way; a path no route matches answers `404` from the
+app, never from the network.
+
+Being internal grants nothing: a location header on it is trusted only
+against `trustedOrigins`, a `redirect()` it answers passes the same bound,
+and a form token is checked the same way.
+
+### What it carries
+
+From the request it runs for, each unless `init` sets that header itself:
 
 - `cookie` and `authorization`, except with `credentials: "omit"`;
-- the location and host headers, `x-droplet-location`, `Forwarded`,
-  `X-Forwarded-Host`, `X-Forwarded-Proto`, `X-Forwarded-Port`,
-  `X-Forwarded-Prefix` and `Origin`, so the internal request resolves the
-  same location and `host` (and a form post passes the `Origin` check when
-  the outer request did; one made from a request without an `Origin` sets
-  `headers: { origin: event.url.origin }`).
+- the headers the location and `host` come from: `x-droplet-location`,
+  `Forwarded`, `X-Forwarded-Host`, `X-Forwarded-Proto`,
+  `X-Forwarded-Port`, `X-Forwarded-Prefix` and `Origin`. The internal
+  request resolves the same location and `host`, and a form post passes
+  the `Origin` check when the outer request did. One made from a request
+  without an `Origin` sets `headers: { origin: event.url.origin }`.
 
 Nothing else of the incoming request: not its body, not any other header.
 A request to another origin gets only what `init` says, never the
 incoming cookies or `authorization`, nor any header you did not set.
 
-A `Set-Cookie` an internal answer carries stays on that `Response`
-(`response.headers.getSetCookie()`); it does not reach the outer response,
-for the reason a load cannot set cookies: a droplet's answer may be
-fetched by a host's server. Set it yourself where cookies can be set.
+### Limits
 
-A request that fetches itself, directly or through other routes, stops at
-four nested internal requests: the fifth throws an `Error` naming the URL,
-which the outermost request answers as `500` through
-[`handleError`](#handleerror). Call the code a route runs rather than
-the route when the two are in the same server.
-
-While prerendering there is no incoming request: an internal request
-carries no cookies, and an endpoint that reads `cookies` answers the
-build's `500` (`CookiesInPrerenderError` in its body) rather than stopping
-the build; `handle` runs for it as for any build-time render. A fetch to
-another origin at build goes to the network and its result is stored with
-the render. `vite dev` behaves exactly as a built server does.
+- **Cookies stay on the answer.** A `Set-Cookie` an internal answer carries
+  stays on that `Response` (`response.headers.getSetCookie()`); it does not
+  reach the outer response, for the reason a load cannot set cookies: a
+  droplet's answer may be fetched by a host page's server. Set it yourself
+  where cookies can be set.
+- **Four levels deep.** A request that fetches itself, directly or through
+  other routes, stops at four nested internal requests: the fifth throws an
+  `Error` naming the URL, which the outermost request answers as `500`
+  through [`handleError`](#handleerror). Call the code a route runs rather
+  than the route when the two are in the same server.
+- **At build.** While prerendering there is no incoming request: an
+  internal request carries no cookies, and an endpoint that reads `cookies`
+  answers the build's `500` (`CookiesInPrerenderError` in its body) rather
+  than stopping the build; `handle` runs for it as for any build-time
+  render. A fetch to another origin at build goes to the network and its
+  result is stored with the render.
+- `vite dev` behaves exactly as a built server does.
 
 ## API routes
 
@@ -275,11 +390,52 @@ matched most specific first. `+server.ts` and `+server.js` are the only
 names read.
 
 `$droplets/server` provides `json()`, `text()`, `error()`, `redirect()`,
-`sequence()` and the event types. A `redirect()` from a handler is resolved
-against `event.url`, the request's URL on the location, and answered only
-on the server's own origin, its location's, a `trustedOrigins` entry or
-`host` of the config, else `400` `{ "message": "Bad Request: the endpoint redirects off this site" }`
-([Security](/guides/security/#redirects)).
+`fail()`, `sequence()`, `hostFrom()` and the event types; the full list is
+in the [API reference](/reference/api/#dropletsjsdropletsserver).
+
+A `redirect()` from a handler is resolved against `event.url`, the
+request's URL on the droplet location. It is answered only when its target
+is on this server, its location, a
+[trusted origin](/guides/configuration/#trusted-origins) or the configured
+`host`; any other answers `400`
+`{ "message": "Bad Request: the endpoint redirects off this site" }`
+([Redirects](/guides/security/#redirects)).
+
+### Calling a route from a droplet
+
+A droplet runs inside someone else's page, so a relative `fetch("/api/…")`
+in the browser reaches the host page's server, not yours. `$droplets/drop`
+knows the droplet location, in the browser and during server rendering:
+
+```ts
+// src/lib/api.ts: neutral, any droplet in any framework can import it
+import droplet from "$droplets/drop";
+
+export async function bumpCounter(by = 1): Promise<number> {
+  const response = await fetch(droplet.url("/api/counter"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ by }),
+  });
+  return (await response.json()).count;
+}
+```
+
+- `droplet.url()` joins the path to `droplet.origin`, the droplet location
+  with its path prefix: in the browser the URL `/index.js` was loaded from,
+  on the server the request's location.
+- Cross-origin calls need [`cors`](/guides/security/#cors) on the droplets
+  server, as the bundles do.
+- Send JSON with its content type. A cross-site `POST` with a string body
+  and no content type goes out as `text/plain`, which the
+  [`Origin` check](/guides/security/#csrf-the-origin-check) answers `403`
+  unless the page's origin is trusted.
+- A host page that proxies the droplets server under its own origin proxies
+  `/api/*` too.
+- In a server load, use [`event.fetch`](#eventfetch) instead: it answers
+  this server's routes in-process.
+
+See [`$droplets/drop`](/reference/api/#dropletsdrop).
 
 ## Environment variables
 
@@ -381,7 +537,7 @@ export const importmap: ImportMapHandler = ({ externals }) => ({
 
 The server answers it at `/importmap` (the `importMap` option) as a
 `<script type="importmap">` block, and at `/importmap.js` as a classic script
-that inserts that block. A host includes one of them **before** `/index.js`;
+that inserts that block. A host page includes one of them **before** `/index.js`;
 the script must be a plain one (no `type="module"`, `defer` or `async`), so it
 runs before any module.
 Both are on only when the client build has externals, and answer `404`

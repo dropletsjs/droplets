@@ -18,9 +18,9 @@ export const rendererTests: ViteUserConfig = {
   test: { include: ["test/**/*.test.ts"], ...happyDom, testTimeout: 60_000 },
 };
 
-/** An adapter's suite: it builds the fixture app and serves it. */
+/** An adapter's suite: it builds the fixture app in a `beforeAll` and serves it, so hooks get the tests' 60 s too. */
 export const adapterTests: ViteUserConfig = {
-  test: { include: ["test/**/*.test.ts"], environment: "node", testTimeout: 60_000 },
+  test: { include: ["test/**/*.test.ts"], environment: "node", testTimeout: 60_000, hookTimeout: 60_000 },
 };
 
 /** The framework's own fixture app (the fake renderer of `@dropletsjs/droplets/testing`, element `test-droplet`), which every adapter's tests build. */

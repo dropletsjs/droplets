@@ -17,7 +17,7 @@ button works once the bundle hydrates it.
 
 ## Add it to a project
 
-<AddRenderer framework="react" />
+<AddRenderer framework="react" brief />
 
 ## The files
 
@@ -30,25 +30,12 @@ button works once the bundle hydrates it.
 The flags are literal `export const` declarations of the component file. A
 flag exported from `+droplet.ts` or `+droplet.server.ts` is ignored.
 
-### Which `.tsx` files are React's
-
-React shares `.tsx` and `.jsx` with Preact, Solid and Hono JSX. With React
-the only one of them in `renderers`, every `.tsx` droplet is React's. With
-two or more, each droplet file says which it is, by what it names:
-
-- **an import** of `react`, `react-dom` or `@dropletsjs/renderer-react`, a
-  subpath included (`react/jsx-runtime`);
-- **or a comment**, `/** @jsxImportSource react */`. `djs add` writes it at
-  the top of every React component, and it is also what types the file's JSX
-  for React when `tsconfig.json` names another `jsxImportSource`.
-
-A droplet file that names no framework, or names two, fails the build. An
-`+error.tsx` that names none is the droplet's framework.
-
-The first `.tsx` framework `djs add` installs sets `"jsx": "react-jsx"` in
-`tsconfig.json` with its own `jsxImportSource`: `"react"` for React. That
-setting only types the files; next to another `.tsx` framework, the renderer
-compiles React's modules for `react` whatever it says.
+**Which `.tsx` files are React's.** When React is the only `.tsx`
+framework in `renderers`, all of them. Next to Preact, Solid or Hono JSX, a droplet file is
+React's when it imports `react`, `react-dom` or `@dropletsjs/renderer-react`, a subpath included (`react/jsx-runtime`), or carries a `/** @jsxImportSource react */`
+comment (`djs add` writes one at the top of every React component), and
+names no other `.tsx` framework. See
+[Which renderer a `.tsx` file belongs to](/renderers/#which-renderer-a-tsx-file-belongs-to).
 
 ```tsx
 // src/droplets/hello/+droplet.tsx

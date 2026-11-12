@@ -94,7 +94,7 @@ build, so run `pnpm build` after it.
 - `graphCheck` fails when a client entry reaches a chunk holding server code, and prints the import chain. `tsdown.ts:136`
 - `happyDom` is the happy-dom environment with `handleDisabledFileLoadingAsSuccess`, so a `<link rel="stylesheet">` the element appends does not throw. `vitest.ts:10`
 - `rendererTests` runs `test/**/*.test.ts` in happy-dom with a 60 s test timeout. `vitest.ts:16`
-- `adapterTests` runs `test/**/*.test.ts` in the Node environment with a 60 s test timeout. `vitest.ts:21`
+- `adapterTests` runs `test/**/*.test.ts` in the Node environment with a 60 s test and hook timeout (the fixture build runs in a `beforeAll`). `vitest.ts:21`, `vitest.ts:23`
 - `FIXTURE_ROOT` is `packages/droplets/test/fixtures/app/`, the fake-renderer fixture app every adapter's tests build. `vitest.ts:26`
 - `buildFixtureApp({ outDir, plugins })` empties `outDir`, then builds the fixture app with Vite's `createBuilder` and `plugins`, silently; it throws when `packages/droplets/dist/vite.js` is missing. `vitest.ts:31`
 - `freePort()` resolves a port the OS has free on every interface (a probe listens on port 0, then closes): a suite takes it for a server it spawns, never a fixed port another run may hold. `vitest.ts:42`

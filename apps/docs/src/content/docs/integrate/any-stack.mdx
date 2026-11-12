@@ -27,7 +27,7 @@ browser then talks to one origin, and the droplets' cookies are first-party.
 | Header | On | Value | Why |
 | --- | --- | --- | --- |
 | `accept: text/html` | your request | exactly that | What every example sends. A `GET` fragment is HTML whatever `accept` says; on an action `POST` (the proxy), `accept: application/json` is what makes the answer JSON, so the proxy passes the browser's `accept` on unchanged. |
-| `x-droplet-location` | your request | your public origin, written out in your config: `https://www.example.com` | The URLs the fragment writes (its stylesheet, its `Link` preloads, its form actions) point there. Honoured only when its origin is trusted: the droplets server's own, or listed in `trustedOrigins` or `DROPLETS_TRUSTED_ORIGINS`. A droplets server built with [`location`](/guides/configuration/#a-fixed-location) in its config reads no location header: send it anyway, it costs nothing. See [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location). |
+| `x-droplet-location` | your request | your public origin, written out in your config: `https://www.example.com` | The URLs the fragment writes (its stylesheet, its `Link` preloads, its form actions) point there. Honored only when its origin is trusted: the droplets server's own, or listed in `trustedOrigins` or `DROPLETS_TRUSTED_ORIGINS`. A droplets server built with [`location`](/guides/configuration/#a-fixed-location) in its config reads no location header: send it anyway, it costs nothing. See [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-droplet-location). |
 | `Cookie` | your request | the browser's `Cookie` header, as it came | The droplet's `handle` and loads see the visitor's session, cart and login. |
 | `Referer` | your request | the page's own URL, query included: `https://www.example.com/product/mug?v=3` | A `handle` that reads it with [`hostFrom`](/guides/writing-droplets/#host) gets the page as the droplet's `host`. After a form posted without JavaScript, the query carries the form's result ([Post/Redirect/Get](/guides/actions/#without-javascript-postredirectget)). |
 | redirects | your HTTP client | not followed: `redirect: "manual"` | A `3xx` is the droplet's answer (a moved product, a login). Answer the browser with the same status and `Location`. Following it would make your server request a URL someone else chose. |
@@ -37,7 +37,7 @@ browser then talks to one origin, and the droplets' cookies are first-party.
 
 ## The fetch
 
-The same steps in a dozen lines of JavaScript-flavoured pseudocode. Every
+The same steps in about twenty lines of JavaScript-flavored pseudocode. Every
 known host has this function in its own language:
 
 ```js
@@ -81,8 +81,8 @@ droplets server, every method, body streamed:
 
 | Path | What the browser asks for |
 | --- | --- |
-| `/index.js` | A small file, `no-store`; it imports `/env.js` and the element from `/assets/` |
-| `/env.js` | The public variables read at runtime, a script `/index.js` imports; without `/env.js`, no droplet hydrates |
+| `/index.js` | A small file, `no-store`; it imports the element from `/assets/`, and `/env.js` when the project has public variables read at runtime |
+| `/env.js` | The public variables read at runtime, only when `src/env.ts` declares one (`404` otherwise). When it exists and is not proxied, `/index.js` fails to load and no droplet hydrates |
 | `/index.css` | The shared stylesheet's import, `no-store`, for a page that links it itself |
 | `/droplets/*` | `client.js` bundles, `style.css`, `_data` refreshes and form actions (`POST /droplets/<id>?/name`) |
 | `/assets/*` | The entry client, shared chunks, stylesheets, images, and `public/` at `/assets/public/` |
@@ -99,7 +99,8 @@ them after `x-droplet-location`, and trusts them only against its
 allow-list), do not follow redirects, and pass `Set-Cookie` back untouched.
 If your HTTP client decodes the body, drop
 `content-encoding` and `content-length` from the answer. In nginx, from
-`examples/hosts/nginx/nginx.conf`:
+`examples/hosts/nginx/nginx.conf`, where `PUBLIC_ORIGIN` is called
+`SHOP_PUBLIC_URL`:
 
 ```nginx
 location ~ ^/(index\.js$|env\.js$|index\.css$|droplets/|assets/|api/) {
@@ -124,7 +125,7 @@ On the droplets server:
 
 | Variable | Value | What for |
 | --- | --- | --- |
-| `DROPLETS_TRUSTED_ORIGINS` | `https://www.example.com`, comma-separated for several | The origins whose `x-droplet-location` it honours, and the origins whose form posts pass the [`Origin` check](/integrate/http-contract/#form-posts-the-origin-check). Added to `trustedOrigins` in `droplets.config.ts`, read at runtime. |
+| `DROPLETS_TRUSTED_ORIGINS` | `https://www.example.com`, comma-separated for several | The origins whose `x-droplet-location` it honors, and the origins whose form posts pass the [`Origin` check](/integrate/http-contract/#form-posts-the-origin-check). Added to `trustedOrigins` in `droplets.config.ts`, read at runtime. |
 | `DROPLETS_ENV_MAX_AGE` | `600` by default | Seconds a browser or CDN may keep `/env.js`, the public variables read at runtime; `0` sends `no-store`. Read at runtime; an invalid value keeps `600`. |
 | `DROPLETS_SECRET` | 32 or more random bytes | Signs a form's result on the `303` back to your page when JavaScript is off. Without it, such a post answers the droplet's fragment instead. |
 | `PORT` | `server.port` of the config, `8000` by default | Where `node dist/server.js` (and Bun's) listens; `deno serve` picks its own port, and `vite dev` does not read it. |
@@ -139,7 +140,11 @@ On your server, two values the known hosts read from their environment
 | Variable | Example | What for |
 | --- | --- | --- |
 | `DROPLETS_INTERNAL_URL` | `http://droplets:8000` | Where your server reaches the droplets server: fragment fetches and the proxy |
-| `DROPLETS_PUBLIC_URL` | `https://www.example.com` | Where the browser reaches the droplets routes: sent as `x-droplet-location` |
+| `PUBLIC_ORIGIN` | `https://www.example.com` | Your pages' public origin, where the browser reaches the proxied droplets routes: sent as `x-droplet-location` |
+
+The example hosts call the second one `SHOP_PUBLIC_URL`. Their basic pages,
+which load the droplets server without a proxy, use `DROPLETS_PUBLIC_URL`,
+the droplets server's own public URL, instead.
 
 ## Security checklist
 

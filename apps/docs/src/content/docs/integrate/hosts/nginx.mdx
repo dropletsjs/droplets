@@ -66,7 +66,7 @@ location @unavailable {
   to `GET /droplets/<id>?<query>` on the shop. `$args` is the page's own
   query, passed whole: the shop drops what a droplet does not take.
 - The subrequest carries the browser's `Cookie`, cut down to the shop's own
-  `cart_id` and `shop_admin` by the `map` at the top of the file
+  `cart_id` and `shop_admin` by a `map` before the shop's `server` block
   (`$shop_cookie`), so another app's cookie on this origin stays here. nginx
   adds `Accept: text/html`, the page's URL as `Referer` (`$request_uri` is
   the page's in a subrequest) and `x-droplet-location`, and clears
@@ -83,7 +83,7 @@ location @unavailable {
   `x-droplet-location` in place of any a client sent, and clears
   `Forwarded` and `X-Forwarded-*`, so nothing a browser sends names another
   location.
-- The shop honours that header because its `DROPLETS_TRUSTED_ORIGINS`
+- The shop honors that header because its `DROPLETS_TRUSTED_ORIGINS`
   lists the origin, and writes every fragment's URLs (its stylesheet, its
   form actions) on it.
 
@@ -167,24 +167,10 @@ not-found layout.
 `/assets/*` and `/api/*` to the shop with `x-droplet-location` set to
 `${SHOP_PUBLIC_URL}`, `Forwarded` and `X-Forwarded-*` cleared, and the
 browser's `Cookie` cut down to the shop's own `cart_id` and `shop_admin`
-(the `map` at the top of the file). Bodies, `Set-Cookie` and `303`s
+(a `map` before the shop's `server` block). Bodies, `Set-Cookie` and `303`s
 pass through as they are, so the cart and the login cookies are
 first-party, and nothing is cross-origin. `client_max_body_size 4m` lets
 the admin's image uploads through.
-
-### The shop's environment
-
-- `DROPLETS_TRUSTED_ORIGINS: http://localhost:8081`: where the host pages
-  are. The shop honours the
-  [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location)
-  nginx sends because its origin is listed, and accepts
-  [form posts](/integrate/http-contract/#form-posts-the-origin-check) from
-  it. It also bounds `event.host`: a host page outside it renders as the
-  shop's own origin.
-- `DROPLETS_SECRET`: signs a form's result on the redirect back to the page
-  when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)).
-- `ADMIN_USER`, `ADMIN_PASSWORD`, `SHOP_SECRET`: the demo login
-  (admin / droplets) and the key its cookie is signed with (from the environment, see Run it).
 
 ### Gotchas
 
@@ -217,8 +203,8 @@ location ~ "^/product/(?<slug>[a-z0-9]+(?:-[a-z0-9]+)*)$" {
 ```
 
 `/_product-check` turns the fragment's 404 into a 401 and any 3xx into a
-403 (`auth_request` only passes those on); the `map` blocks at the top of
-the file split `v` off the page's query.
+403 (`auth_request` only passes those on); the `map` blocks before the shop's `server`
+block split `v` off the page's query.
 
 ### Run it
 
@@ -228,10 +214,11 @@ docker compose up --build
 open http://localhost:8081/gallery   # log in as admin / droplets
 ```
 
-Set `SHOP_SECRET` and `DROPLETS_SECRET` first (32 or more random characters
-each, `openssl rand -hex 32`), in the environment or a `.env` file beside
-`docker-compose.yml`: compose refuses to start without them. `pnpm test:hosts`
-generates its own for a run.
+Set `SHOP_SECRET` and `DROPLETS_SECRET` first; compose refuses to start
+without them. The shop trusts one origin besides its own,
+`DROPLETS_TRUSTED_ORIGINS: http://localhost:8081`, this host's; the rest of
+its environment is the same on every host: see
+[Running a host](/integrate/hosts/shop-demo/#running-a-host).
 
 `pnpm test:hosts nginx` runs the shop flow against this stack, from the
 repository root.
@@ -296,9 +283,10 @@ server {
     try_files $uri $uri/ =404;
   }
 
-  # Everything the droplets server owns: the entry client, the droplet routes
-  # (fragments, bundles, styles, _data), the shared assets and its /api
-  # endpoints.
+  # Everything the droplets server owns: the entry client and what it imports
+  # (/env.js, the runtime public variables; /index.css, the shared
+  # stylesheet), the droplet routes (fragments, bundles, styles, _data), the
+  # shared assets and its /api endpoints.
   location ~ ^/(index\.js$|env\.js$|index\.css$|droplets/|assets/|api/) {
     proxy_pass http://droplets;
     proxy_set_header x-droplet-location ${DROPLETS_PUBLIC_URL};
@@ -314,7 +302,7 @@ The includes here go to `/droplets/<id>` directly, through the same
 proxy location, so they get the same `x-droplet-location`. nginx tells the
 droplets server where it is: `DROPLETS_PUBLIC_URL` (`http://localhost:8080`)
 is written into the config when the container starts, so the header is
-never built from the request. The droplets server honours it because its
+never built from the request. The droplets server honors it because its
 origin is listed:
 
 ```yaml
@@ -359,7 +347,7 @@ location /mfe/ {
 `$host` comes from the client's `Host` header, so the droplets server uses
 that location only when its origin is in `DROPLETS_TRUSTED_ORIGINS`; any
 other falls back to the request's own origin (with a warning under
-`vite dev`). See [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location)
+`vite dev`). See [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-droplet-location)
 for the order the headers are read in.
 
 ## IIS

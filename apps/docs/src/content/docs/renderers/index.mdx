@@ -4,6 +4,8 @@ description: "Svelte, Vue, React, Preact, Solid, Hono JSX, Handlebars, Lit and p
 tableOfContents: false
 ---
 
+import AddRenderer from "../../../components/AddRenderer.astro";
+
 The core of Droplets knows nothing about UI frameworks. A **renderer** turns
 a component file into server HTML and a browser bundle, and claims the file
 names it handles. You list the ones you use in `vite.config.ts`:
@@ -23,8 +25,8 @@ export default defineConfig({
 
 A `+droplet.svelte` then goes to Svelte and a `+droplet.vue` to Vue, in the
 same project and on the same page. `djs add <name> --framework <name>`
-installs a renderer and adds it there for you; each page below says exactly
-what it changes.
+installs a renderer and adds it there for you: see
+[Add a renderer](#add-a-renderer).
 
 Each page has the same droplet, live: the demo server's load returns a start
 count and the framework's name, the server renders it, the browser hydrates
@@ -37,15 +39,15 @@ like for like.
 
 | Renderer | Droplet file | Server-rendered | `hydrate` | Client JS | Notes |
 | --- | --- | --- | --- | --- | --- |
-| [Svelte](/renderers/svelte/) | `+droplet.svelte` | yes | all four | 17.1 kB | Svelte 5 in runes mode; flags in `<script module>` |
-| [Vue](/renderers/vue/) | `+droplet.vue` | yes | all four | 30.3 kB | wrapped in `<Suspense>`: `await props.data` works |
-| [React](/renderers/react/) | `+droplet.tsx`, `.jsx` | yes | all four | 69.9 kB | React 19; Fast Refresh on any host page |
-| [Preact](/renderers/preact/) | `+droplet.tsx`, `.jsx` | yes | all four | 7.9 kB | `data` is always the value; no React alias |
-| [Solid](/renderers/solid/) | `+droplet.tsx`, `.jsx` | yes | all four | 8.9 kB | hydration keyed per render |
-| [Hono JSX](/renderers/hono-jsx/) | `+droplet.tsx`, `.jsx` | yes | all four | 8.7 kB | `hono/jsx`; hydration renders again |
-| [Handlebars](/renderers/handlebars/) | `+droplet.hbs` | yes | all four | 0 with `hydrate = false`, 7.3 kB with `true` | no behaviour in the browser; flags in a comment |
-| [Lit](/renderers/lit/) | `+droplet.lit.ts`, `.lit.js` | yes (Lit Labs) | all four | 11.3 kB | declarative shadow DOM; styles live in the shadow root |
-| [Plain script](/renderers/script/) | `+droplet.script.ts`, `.script.js` | no: an empty element | always `true` (client only) | 1.6 kB | built in, no package; `(data, el)` |
+| [Svelte](/renderers/svelte/) | `+droplet.svelte` | yes | all four | 17 kB | Svelte 5 in runes mode; flags in `<script module>` |
+| [Vue](/renderers/vue/) | `+droplet.vue` | yes | all four | 30 kB | wrapped in `<Suspense>`: `await props.data` works |
+| [React](/renderers/react/) | `+droplet.tsx`, `.jsx` | yes | all four | 70 kB | React 19; Fast Refresh on any host page |
+| [Preact](/renderers/preact/) | `+droplet.tsx`, `.jsx` | yes | all four | 8 kB | `data` is always the value; no React alias |
+| [Solid](/renderers/solid/) | `+droplet.tsx`, `.jsx` | yes | all four | 9 kB | hydration keyed per render |
+| [Hono JSX](/renderers/hono-jsx/) | `+droplet.tsx`, `.jsx` | yes | all four | 9 kB | `hono/jsx`; hydration renders again |
+| [Handlebars](/renderers/handlebars/) | `+droplet.hbs` | yes | all four | 0 with `hydrate = false`, 7 kB with `true` | no behavior in the browser; flags in a comment |
+| [Lit](/renderers/lit/) | `+droplet.lit.ts`, `.lit.js` | yes (Lit Labs) | all four | 11 kB | declarative shadow DOM; styles live in the shadow root |
+| [Plain script](/renderers/script/) | `+droplet.script.ts`, `.script.js` | no: an empty element | always `true` (client only) | 2 kB | built in, no package; `(data, el)` |
 
 </div>
 
@@ -54,18 +56,14 @@ like for like.
   `ssr = false` (rendered in the browser only) and `prerender = true` work
   with every renderer but the plain script, which renders nothing on the
   server anyway.
-- **Client JS** is measured, not estimated: the JavaScript a page loads for
-  that renderer's counter in apps/demo's build (`pnpm --filter
-  @dropletsjs/demo build`), gzipped: the droplet's bundle and every chunk it
-  imports that `/index.js` does not already load, the framework included.
-  On top of it, every page loads the
-  droplets runtime once, from `/index.js` (10.2 kB in that build), whatever
-  the frameworks. Svelte 5.57, Vue 3.5, React 19.3, Preact 11.1, Solid 1.9,
-  Hono 4.13, Handlebars 4.7 and Lit 3.3; a second droplet in the same
-  framework shares the framework's chunk.
-- **`.tsx` and `.jsx`** belong to four renderers: a droplet file goes to the
-  one whose package it imports, or the one its `@jsxImportSource` comment
-  names. See [Several frameworks in one project](#several-frameworks-in-one-project).
+- **Client JS**, rounded: the gzipped JavaScript a page loads for that
+  renderer's counter in a build of apps/demo, the droplet's bundle and every
+  chunk it imports, the framework included. Every page also loads the
+  droplets runtime once, from `/index.js`, whatever the frameworks, and a
+  second droplet in the same framework shares the framework's chunk. Measure
+  your own with `vite build`: the sizes move with each framework release.
+- **`.tsx` and `.jsx`** belong to four renderers; see
+  [Which renderer a `.tsx` file belongs to](#which-renderer-a-tsx-file-belongs-to).
 
 A droplet folder whose component no listed renderer claims fails the build
 and names the package to install:
@@ -73,6 +71,14 @@ and names the package to install:
 ```
 droplets: counter/+droplet.vue: no renderer for .vue; install @dropletsjs/renderer-vue and add vue() to renderers
 ```
+
+## Add a renderer
+
+`djs add` writes a droplet, and installs and registers its renderer when the
+project lacks it. Here it adds React to a project that uses Svelte; each
+renderer's page has its own command and packages.
+
+<AddRenderer framework="react" existing="svelte" />
 
 ## Renderer options
 
@@ -113,20 +119,6 @@ src/
     hono/Card.tsx                 Hono's own: /** @jsxImportSource hono/jsx */
 ```
 
-- **Shared extensions.** React, Preact, Solid and Hono JSX all claim `.tsx`
-  and `.jsx`. A droplet file in a shared extension belongs to the renderer
-  whose package it imports (`react`, `preact`, `solid-js`, `hono/jsx`, or the
-  renderer's own `@dropletsjs/renderer-*`); when it imports none of them, a
-  `/** @jsxImportSource <package> */` comment decides. With only one of the
-  four in `renderers`, every `.tsx` file is its own and needs neither. A file
-  that says nothing, or imports two of them, fails the build:
-
-  ```
-  droplets: counter/+droplet.tsx: react, solid, preact and hono-jsx all handle this file and it imports none of them; import from react, solid-js, preact or hono/jsx, or add a /** @jsxImportSource <package> */ comment
-  ```
-
-  A package entry may be a subpath: Hono JSX owns `hono/jsx`, not `hono`, so
-  a droplet that imports `hono/client` or `hono/cookie` stays neutral.
 - **Compiled once per framework.** When two listed renderers share an
   extension, every module a droplet reaches is compiled for that droplet's
   framework (the plugin tags it `?droplets-renderer=<name>`), so a neutral `lib/format.tsx` imported by a
@@ -152,10 +144,41 @@ src/
   one folder fail the build (`counter/ has 2 droplet components
   (+droplet.svelte, +droplet.vue); keep one`).
 
+### Which renderer a `.tsx` file belongs to
+
+React, Preact, Solid and Hono JSX all claim `.tsx` and `.jsx`. With only one
+of them in `renderers`, every `.tsx` file is its own. With two or more, a
+droplet file belongs to the one whose package it names, by an import (a
+subpath included) or by a `/** @jsxImportSource <package> */` comment:
+
+| Renderer | Its packages |
+| --- | --- |
+| React | `react`, `react-dom`, `@dropletsjs/renderer-react` |
+| Preact | `preact`, `preact-render-to-string`, `@dropletsjs/renderer-preact` |
+| Solid | `solid-js`, `@dropletsjs/renderer-solid` |
+| Hono JSX | `hono/jsx`, `@dropletsjs/renderer-hono-jsx` |
+
+`djs add` writes the comment at the top of every component it creates. Hono
+JSX owns `hono/jsx`, not `hono`, so a droplet that imports `hono/client` or
+`hono/cookie` names nothing. A file that names none of the four, or two of
+them, fails the build:
+
+```
+droplets: counter/+droplet.tsx: react, solid, preact and hono-jsx all handle this file and it imports none of them; import from react, solid-js, preact or hono/jsx, or add a /** @jsxImportSource <package> */ comment
+```
+
+An `+error.tsx` that names none, or several, is the droplet's framework.
+The comment also types the file's JSX for its framework when
+`tsconfig.json` names another `jsxImportSource`.
+
+### The examples
+
 `examples/shop` puts six frameworks in one project: nine droplets, each in
-the framework that suits it. `examples/frameworks/<name>` has one example per
-framework instead, one droplet per mode plus a script droplet, and apps/demo, which serves the live
-droplets of these pages, all nine.
+the framework that suits it. `examples/frameworks/<name>` has one project
+per framework: one droplet per mode (`client`, `ssr-hydrate`,
+`ssr-nohydrate`); the Svelte one adds a script droplet, the Lit one a form.
+apps/demo, which serves the live droplets of these pages, has all nine
+counters.
 
 ## Writing a renderer
 

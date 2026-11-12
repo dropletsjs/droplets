@@ -35,12 +35,24 @@ for (const [name, scene, width] of [
   }
 }
 
+// starlight-llms-txt renders each page with the request of its own route,
+// so a .txt URL means the page is becoming llms-*.txt: the figure gives way
+// to its label and description (the config removes .dg there).
+const asText = Astro.url.pathname.endsWith(".txt");
+
 const scenes = [
   { scene: wide, key: `${id}-wide`, cls: "dg-wide" },
   { scene: narrow, key: `${id}-narrow`, cls: "dg-narrow" },
 ];
 ---
 
+{
+  asText && (
+    <p>
+      <strong>Diagram: {title}.</strong> {desc}
+    </p>
+  )
+}
 <figure class="dg" data-diagram={id}>
   <div class="dg-stage">
     {

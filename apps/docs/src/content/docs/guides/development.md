@@ -241,7 +241,7 @@ host page's `<head>` as `<style>` elements. `public/` is served at
 styles reach the browser through the droplet's client module. A droplet with
 `hydrate = false` never loads that module, so it renders without its component
 styles in dev, and with them in a build. The shared stylesheet, Tailwind
-included, is unaffected: Vite injects it with `/index.js`.
+included, is unaffected: Vite injects it with `/index.js`. See [Styling](/guides/styling/#pitfalls).
 
 **Flags are read before compiling.** They must be literals in the
 component; see [Flags](/guides/writing-droplets/#flags).

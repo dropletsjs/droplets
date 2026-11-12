@@ -61,7 +61,7 @@ Public pieces: `$droplets/server` (`./server`, `server.ts`) and `./enhance`
 | Route | Answer |
 |---|---|
 | `GET /health` | `ok` (path from `health`, `false` turns it off). |
-| `GET /` | The index page when there is one (the dev page), else 404. |
+| `GET /` | What `loadIndex` returns: in a build the `index` file (by default `index.html` in the root, or a placeholder page without one), under `vite dev` the devtools page; 404 with `index: false`. |
 | `GET /index.js` | The element loader as `loadEntryClient` gives it (the build's `index.js`, the dev loader), `no-store`. |
 | `GET /env.js` | The public runtime variables as a script, `public, max-age=600` (`DROPLETS_ENV_MAX_AGE`); 404 without any. |
 | `GET /index.css` | An `@import` of the shared stylesheet, `no-store`; `404` without one. |

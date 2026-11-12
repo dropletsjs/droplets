@@ -1,0 +1,400 @@
+---
+title: Styling
+description: "How a droplet's CSS reaches the page, how it is scoped to the element, theming a droplet from the host page, Tailwind, each renderer, images and fonts, and the pitfalls."
+---
+
+import LiveDroplet from "../../../components/LiveDroplet.astro";
+
+A droplet's CSS lands in pages you do not control, next to the host page's
+own CSS. Droplets keeps the two apart: a droplet's stylesheets are linked
+inside its element, and every selector in them is rewritten to match only
+inside that element. What the host page sets on the element, its inherited
+properties and its CSS custom properties, still flows in: that is how a host
+page themes a droplet.
+
+## How styles reach the page
+
+A droplet has two kinds of stylesheets:
+
+- **The shared stylesheet**, `css.path` in the plugin options
+  (`./src/app.css` when that file exists; `false` for none). It is the same
+  for every droplet: design tokens, base styles, Tailwind.
+- **Its own**: `<style>` blocks, CSS a component imports, CSS modules. A
+  component several droplets share gets a stylesheet of its own, which each
+  of them lists.
+
+Each droplet that has any stylesheet gets `/droplets/<id>/style.css`, a
+small file of `@import`s: the shared stylesheet first, then the stylesheets
+of the components it imports, then its own. The fragment links it inside
+the element, ahead of the markup, never in the host page's `<head>`:
+
+```html
+<acme-widgets data-droplet="promo" data-droplet-build="a151d9" …>
+  <link rel="stylesheet" href="https://drops.example/droplets/promo/style.css?c=a151d9" data-droplet-style>
+  <div style="display: contents" data-droplet-entry>…the server's markup…</div>
+</acme-widgets>
+```
+
+- The link moves with the element wherever the host page puts it.
+- The browser downloads each file once, however many droplets list it.
+- A droplet without any stylesheet (and no shared one) has no `style.css`:
+  the URL answers `404`, and the fragment links none.
+- An element the host page writes itself, without that link, adds it when it
+  connects ([In the browser](/guides/in-the-browser/#styles)).
+- `/index.css` imports the shared stylesheet alone, for a host page that
+  wants to link it itself (in its `<head>`, say, so it loads before any
+  droplet). Its rules are scoped too, so it still only styles the elements.
+  It answers `404` when there is no shared stylesheet or it is empty.
+
+Styles belong to the component: `+droplet.<ext>`, `+error.<ext>`, the
+modules they import, or a `<style>` block. CSS reached from `+droplet.ts` or
+`+droplet.server.ts`, directly or through what they import, fails
+`vite build` and shows as an error in `vite dev`, with the import chain.
+CSS imported as a string (`?url`, `?raw`, `?inline`) is not a stylesheet
+and is fine anywhere.
+
+## Scoping
+
+Every stylesheet is confined to the droplet element: `css.scoped`, on by
+default. Without it, a droplet's `* { box-sizing: border-box }`, `body`
+font or `.button` class would restyle every page that embeds it, and the
+host page's own `.button` would collide with it. A PostCSS plugin rewrites
+every selector so it only matches inside the element; with
+[`element: "acme-widgets"`](/guides/configuration/#the-element-name):
+
+| You write | The host page gets |
+| --- | --- |
+| `.p-4 { … }` | `acme-widgets .p-4 { … }` |
+| `*, ::before, ::after { … }` | `acme-widgets *, acme-widgets ::before, … { … }` |
+| `:root { … }`, `html { … }`, `body { … }`, `:host { … }` | `acme-widgets { … }` |
+| `html body .x { … }` | `acme-widgets .x { … }` |
+| `acme-widgets .x { … }` | unchanged |
+| `@keyframes`, `@font-face`, `@property` | unchanged (nothing to scope) |
+
+That covers the shared stylesheet, CSS a component imports, CSS modules,
+and Svelte, Vue and Handlebars component styles, in `vite dev` and in a
+build. Rules inside `@media`, `@supports` and `@layer` are scoped the same
+way.
+
+`:root` is the handy way to style the element itself, since it becomes the
+element:
+
+```css
+/* src/app.css */
+:root {
+  display: block;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  line-height: 1.5;
+}
+```
+
+With `css.scoped: false` nothing is rewritten. Keep every stylesheet free
+of resets and element selectors then: they apply to the whole host page.
+
+The plugin runs after your own PostCSS plugins: those of an inline
+`css.postcss` in `vite.config.ts`, else those of your `postcss.config.js`
+(or any file PostCSS reads), found as Vite finds it, with its options. A
+config file that fails to load fails the build, naming the file. For a
+PostCSS pipeline of your own outside Vite, `scopeStylesPlugin` is exported
+from `@dropletsjs/droplets/postcss`:
+
+```js
+// postcss.config.js
+import { scopeStylesPlugin } from "@dropletsjs/droplets/postcss";
+export default { plugins: [scopeStylesPlugin({ element: "acme-widgets" })] };
+```
+
+## Theming from the host page
+
+The droplet element sits in the host page's DOM, so the usual CSS
+inheritance applies across it:
+
+- **Inherited properties flow in**: `font-family`, `color`, `line-height`
+  and the other inherited properties the host page sets on `body` or a
+  parent reach the droplet's markup, unless the droplet sets its own.
+- **CSS custom properties flow in**: a `--brand` the host page sets on
+  `:root` is readable anywhere inside the droplet with `var(--brand)`. This
+  is the way to theme a droplet: the host page owns the values, the droplet
+  reads them with a fallback.
+- **The host page can style the element itself**: its `display`, margins,
+  width, and any custom properties, with a selector on the element
+  (`acme-widgets[data-droplet="promo"]`).
+
+In the droplet, read the host page's properties through names of your own,
+each with a fallback for pages that set nothing:
+
+```css
+/* src/app.css (droplets server) */
+:root {
+  --promo-accent: var(--brand, #2563eb);
+  --promo-surface: var(--surface, #ffffff);
+  --promo-ink: var(--ink, #111827);
+
+  display: block;
+  color: var(--promo-ink);
+}
+
+.promo {
+  padding: 1rem 1.25rem;
+  border-left: 4px solid var(--promo-accent);
+  border-radius: 8px;
+  background: var(--promo-surface);
+}
+
+.promo button {
+  background: var(--promo-accent);
+  color: #ffffff;
+  font: inherit;
+}
+```
+
+Do not define `--brand` itself in the droplet's `:root`: that rule becomes
+`acme-widgets { --brand: … }`, set on the element, and it hides the value
+the host page set above it.
+
+The host page sets the values, switches them for dark mode, and places the
+element:
+
+```html
+<!-- the host page -->
+<style>
+  :root {
+    --brand: #cc3a00;
+    --surface: #ffffff;
+    --ink: #16191d;
+    font-family: "Inter", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface: #181c20;
+      --ink: #e8ecef;
+    }
+  }
+  acme-widgets[data-droplet="promo"] {
+    max-width: 40rem;
+    margin-block: 2rem;
+  }
+</style>
+<script type="module" src="https://drops.example/index.js"></script>
+
+<main>
+  <!-- the fragment of GET https://drops.example/droplets/promo, inlined by the host's server -->
+  <acme-widgets data-droplet="promo" …>…</acme-widgets>
+</main>
+```
+
+The droplet's font comes from the host page, its accent from `--brand`,
+and it turns dark with the page. A host page with a theme switch (a
+`data-theme` attribute or a class on `<html>`) redefines the same
+properties under that selector, and the droplet follows the switch as well.
+A droplet that used `@media (prefers-color-scheme: dark)` itself would
+follow the operating system instead, whatever the page shows.
+
+The element's own `display` and margins are a tie between the host page's
+`acme-widgets { … }` and the droplet's `:root { … }`, both one element
+selector; the droplet's stylesheet comes later in the document and wins.
+Use a more specific selector in the host page, as above with
+`[data-droplet="promo"]`.
+
+Every droplet on this site works this way. The demo's shared stylesheet
+reads the docs' own `--djs-*` color tokens, with fallbacks for other pages:
+
+```css
+/* apps/demo/src/app.css */
+:root {
+  --demo-ink: var(--djs-ink, #16191d);
+  --demo-surface: var(--djs-surface-200, #ffffff);
+  --demo-accent: var(--djs-accent, #cc3a00);
+  /* … */
+  display: block;
+  color: var(--demo-ink);
+  font-family: var(--djs-font-sans, ui-sans-serif, system-ui, sans-serif);
+}
+```
+
+Switch this page between the light and the dark theme: the card follows,
+though its stylesheet comes from the demo's origin and knows nothing of this
+site.
+
+<LiveDroplet id="hello" props={{ who: "reader" }} caption="This is a live droplet served by apps/demo: its colors and font are this page's --djs-* custom properties." />
+
+## Tailwind
+
+Turn it on with `css: { tailwind: true }` in the plugin options and install
+`tailwindcss` and `@tailwindcss/vite`. A Vite config that already has
+`@tailwindcss/vite` counts too. With scoping, `@import "tailwindcss"` is the
+right thing to write:
+
+- its preflight reset becomes the droplets' own reset, inside the element
+  only;
+- its theme variables sit on the element and inherit into the droplet;
+- its utilities only apply inside the element.
+
+```css
+/* src/app.css */
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    display: block;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+}
+```
+
+With Tailwind on and no `src/app.css`, the shared stylesheet is that
+`@import "tailwindcss"` on its own; with `css.scoped: false` it leaves the
+preflight out, so the reset never lands on the host page.
+
+**When the host page has Tailwind's preflight too**, the droplets need not
+bring a second one: `twPreflight: false` leaves it out. Keep it in
+`vite dev`, where no host page brings one, and leave it out of the build:
+
+```ts
+// vite.config.ts
+export default defineConfig(({ command }) => ({
+  plugins: [droplets({ css: { tailwind: true, twPreflight: command === "serve" } })],
+}));
+```
+
+See [Preflight in dev only](/guides/configuration/#preflight-in-dev-only)
+for what `twPreflight: false` rewrites.
+
+Tailwind generates one stylesheet per droplets server, from the classes all
+its droplets use. Two droplets servers on one page each bring their own:
+their utilities are scoped to their own element, so they do not collide,
+but nothing is shared between them.
+
+## Per renderer
+
+- **Svelte.** `<style>` blocks are scoped by Svelte and to the element.
+  Svelte sees its styles before it compiles them and drops a selector that
+  names an element its template lacks, so the prefix is written
+  `:global(acme-widgets)`, which Svelte leaves alone. `:global(.x)` escapes
+  Svelte's own scoping, not the element's: it becomes `acme-widgets .x`,
+  and `:global(body) .x` becomes `acme-widgets .x` like any `body .x`.
+- **Vue.** SFC `<style>` blocks, `scoped` included, go to the droplet's
+  stylesheet and are scoped to the element. `+error.vue` compiles in
+  custom-element mode, so its styles travel with its markup: in the
+  fragment on the server, moved to a `<style data-droplet-vue>` in the
+  document's head in the browser.
+- **React, Preact, Solid, Hono JSX.** Import a CSS file or a CSS module
+  from the component (`import "./card.css"`); it goes to the droplet's
+  stylesheet.
+- **Handlebars.** `<style>` blocks, inline or `<style src="./theme.css">`,
+  at the top of the template, outside `{{#…}}` blocks and with no `{{…}}`
+  inside. They are taken out at build and become the droplet's stylesheet,
+  scoped to the element. Partials have none. See
+  [Handlebars](/renderers/handlebars/).
+- **Lit.** Styles live in the shadow root: write them as `static styles`.
+  The droplet's `style.css`, a CSS file a component imports, the shared
+  stylesheet (Tailwind included) and the host page's CSS reach the light
+  DOM only: the element itself and the host page's children. Inherited
+  properties and custom properties do cross the shadow boundary, so theme a
+  Lit droplet with custom properties, set in `src/app.css` on `:root` or by
+  the host page. See [Lit](/renderers/lit/).
+- **Script droplets.** `el` is inside the element, in the light DOM: the
+  shared stylesheet and a CSS file the script imports apply to what it adds.
+  `djs add <name> --framework script --with css` writes such a file. See
+  [Plain script](/renderers/script/).
+
+## Images, fonts and `public/`
+
+Every URL a droplet writes for its own files is on the droplet location,
+the place the host page loads `/index.js` from, path prefix included: never
+a root-relative `/assets/…`, which would point at the host page's own
+server. That holds in the server's HTML, after hydration and when the
+droplet mounts in the browser, for a page on another origin and behind a
+proxy's prefix (`x-droplet-location: https://shop.example/mfe`).
+
+**Import the file** from the component, or from a module it imports:
+
+```svelte
+<script lang="ts">
+  import logo from "./logo.png";
+</script>
+
+<img src={logo} alt="" width="24" height="24" />
+```
+
+- The server renders `<img src="https://drops.example/assets/logo-B2x9kQ1p.png">`,
+  and `https://shop.example/mfe/assets/logo-B2x9kQ1p.png` for a request
+  whose location is `https://shop.example/mfe`.
+- In the browser the bundle works the URL out from its own address
+  (`new URL("../../assets/logo-B2x9kQ1p.png", import.meta.url)`), so it
+  stays on whatever location served it.
+- Files under 4 KB become `data:` URLs (Vite's `build.assetsInlineLimit`).
+- `new URL("./logo.png", import.meta.url).href` in a component gives the
+  same URL, on the server and in the browser. In a server file
+  (`*.server.*`, `server/`) it stays the file on the server's disk, to read.
+
+**In CSS**, `url(./bg.png)` is the file next to the stylesheet and
+`url(/img/a.png)` is `public/img/a.png`. The build writes both relative to
+the stylesheet (`url(./bg-Cq3x.png)`, `url(./public/img/a.png)`), and the
+stylesheet is on the droplet location. Fonts work the same way:
+
+```css
+/* src/app.css */
+@font-face {
+  font-family: "Acme Sans";
+  src: url(./fonts/acme-sans.woff2) format("woff2");
+  font-display: swap;
+}
+```
+
+A font on another origin than the host page needs CORS: set `cors` on the
+droplets server ([CORS](/guides/security/#cors)).
+
+**`public/`** is copied to `dist/client/assets/public/` and served at
+`/assets/public/<file>` by every adapter and by `vite dev`, with
+`cache-control: no-cache` (the default of
+[`publicCacheControl`](/guides/configuration/#options)) and an `ETag`:
+browsers ask again each time and get a `304` while the file is the same,
+since its name does not change between builds. Nothing of `public/` is
+served at the root (`/robots.txt` is a `404`). Name a public file with
+`droplet.url()`:
+
+```ts
+import droplet from "$droplets/drop";
+
+const terms = droplet.url("assets/public/terms.pdf");
+```
+
+Files are public. `handle` never runs for `/index.js`, `/env.js` or
+`/assets/*` (see [`handle`](/guides/server/#handle)); keep a file only some
+users may see behind an endpoint or a signed URL.
+
+## Pitfalls
+
+- **`@keyframes`, `@font-face` and `@property` stay global.** Scoping
+  rewrites selectors, not names: an animation or a font family named like
+  one of the host page's replaces it, or is replaced by it. Prefix the
+  names (`acme-fade`, `"Acme Sans"`).
+- **The host page's CSS reaches in.** Outside a Lit shadow root, the
+  droplet's markup is the host page's DOM: the host page's `p`, `button` or
+  `.content a` rules apply to it. A scoped rule (`acme-widgets p`, two
+  element selectors) beats the host page's `p` but loses to its
+  `.content p`. Give the droplet its own reset (Tailwind's preflight is
+  one), or set back what the host page changes, as the
+  [WordPress tutorial](/integrate/wordpress/#the-shop-screen-in-wp-admin)
+  does for wp-admin.
+- **No flash of unstyled content.** A droplet the element renders in the
+  browser (client-only, an element the host page wrote, a re-render) mounts
+  once its stylesheet has loaded, or failed. Server markup is not held back:
+  its link sits ahead of it in the fragment, so a page that has the fragment
+  in its HTML loads the stylesheet before it shows that markup. A fragment a
+  host page inserts with script (`innerHTML`, htmx) is on screen as soon as
+  it is inserted, so it can show unstyled for a moment while its stylesheet
+  loads; linking [`/index.css`](#how-styles-reach-the-page) in the page's
+  `<head>` brings the shared part early.
+- **`vite dev` injects styles instead.** There is no `style.css` under
+  `vite dev` (it answers `404`, and fragments link none): Vite injects the
+  styles into the host page's `<head>` as `<style>` elements, the shared
+  stylesheet with `/index.js` and component styles with the droplet's
+  bundle. They are scoped as in a build. A droplet with `hydrate = false`
+  never loads its bundle, so it shows without its component styles in dev,
+  and with them in a build; see
+  [Known limitations](/guides/development/#known-limitations).
+- **A new element name changes every selector.** The prefix is the
+  `element` option; a host page that styles `acme-widgets` needs the new
+  name too.

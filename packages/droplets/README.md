@@ -154,7 +154,7 @@ export const load = ({ props }: LoadEvent) => {
 | `GET /assets/public/*` | The project's `public/` folder, `publicCacheControl` with an `ETag` |
 | `ALL /api`, `/api/*` | `+server.ts` endpoints |
 | `GET /health` | `ok` (the `health` option; before `handle`) |
-| `GET /` | The index page when the build has one, else `404` |
+| `GET /` | The index page: the `index` file, by default `index.html` in the root, or a placeholder page without one; `404` with `index: false` |
 
 A host fetching fragments through an internal address sends the public
 location in `x-droplet-location`, with its origin listed in `trustedOrigins`

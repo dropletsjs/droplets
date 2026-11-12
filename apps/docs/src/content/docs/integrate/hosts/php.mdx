@@ -15,7 +15,7 @@ curl and prints them into the template.
 function shop_fragments(array $wanted): array
 {
     $headers = ['accept' => 'text/html', 'x-droplet-location' => shop_origin(), 'referer' => shop_origin() . shop_raw_target()];
-    $cookie = shop_request_header('cookie');
+    $cookie = shop_cookie_header();
     if ($cookie !== null) {
         $headers['cookie'] = $cookie;
     }
@@ -53,11 +53,12 @@ function shop_fragments(array $wanted): array
 ```
 
 - `shop_fragments()` sends `GET /droplets/<id>?<params>` for every fragment
-  at once to `SHOP_INTERNAL_URL`, with `accept: text/html`, `x-droplet-location` set to
-  this host's public origin (`shop_origin()`, the origin of
-  `SHOP_PUBLIC_URL`), the browser's `Cookie` as it came, and the page's URL
-  as `referer`: `shop_origin()` plus `shop_raw_target()`, which is
-  `$_SERVER['REQUEST_URI']`, the path and query as the browser sent them.
+  at once to `SHOP_INTERNAL_URL`, with `accept: text/html` and
+  `x-droplet-location` set to `shop_origin()`, the origin of
+  `SHOP_PUBLIC_URL`. It passes on the browser's `Cookie` cut down to the
+  shop's own `cart_id` and `shop_admin`, and the page's URL as `referer`:
+  `shop_origin()` plus `shop_raw_target()`, the path and query as the
+  browser sent them (`$_SERVER['REQUEST_URI']`).
 - curl never follows a redirect, so a droplet's 3xx is kept: `shop_render()`
   answers it with a `Location` header, and sends the fragments'
   `Set-Cookie` with the page.
@@ -170,16 +171,6 @@ no longer hold once curl has decoded the body. The shop's cookies are
 first-party, and nothing is cross-origin; the shop sets them only from form
 actions and `/api`, which come through here.
 
-### The shop's environment
-
-- `DROPLETS_TRUSTED_ORIGINS: http://localhost:8009`: the only origin whose
-  [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location) and
-  [form posts](/integrate/http-contract/#form-posts-the-origin-check) the shop accepts.
-- `DROPLETS_SECRET`: signs a form's result on the redirect back to the page
-  when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)).
-- `ADMIN_USER`, `ADMIN_PASSWORD`, `SHOP_SECRET`: the demo login
-  (admin / droplets) and the key its cookie is signed with (from the environment, see Run it).
-
 ### Gotchas
 
 - **PHP parses multipart posts into `$_POST` and `$_FILES`** and leaves
@@ -189,7 +180,8 @@ actions and `/api`, which come through here.
 - **No cookie jar.** No curl handle has `CURLOPT_COOKIEFILE`,
   `CURLOPT_COOKIEJAR` or a share handle, and each lives for one request:
   a `Set-Cookie` from one visitor's answer is never sent with another's.
-  The browser's own `Cookie` header is what goes out. (A long-running PHP
+  What goes out is the browser's own `Cookie`, cut down to `cart_id` and
+  `shop_admin`. (A long-running PHP
   server that reuses handles across requests must keep it that way.)
 - **`$_GET` merges repeated keys and renames `a.b` to `a_b`.** The shop's
   pages read `QUERY_STRING` themselves (`shop_query()`) and pass the pairs
@@ -209,10 +201,11 @@ docker compose up --build
 open http://localhost:8009/gallery   # log in as admin / droplets
 ```
 
-Set `SHOP_SECRET` and `DROPLETS_SECRET` first (32 or more random characters
-each, `openssl rand -hex 32`), in the environment or a `.env` file beside
-`docker-compose.yml`: compose refuses to start without them. `pnpm test:hosts`
-generates its own for a run.
+Set `SHOP_SECRET` and `DROPLETS_SECRET` first; compose refuses to start
+without them. The shop trusts one origin besides its own,
+`DROPLETS_TRUSTED_ORIGINS: http://localhost:8009`, this host's; the rest of
+its environment is the same on every host: see
+[Running a host](/integrate/hosts/shop-demo/#running-a-host).
 
 ## The Svelte example
 

@@ -119,8 +119,9 @@ per mode, from the `droplets` service (`examples/frameworks/svelte`):
 
 That page loads `/index.js` from the droplets server's own public URL
 (`DROPLETS_PUBLIC_URL`), so that server runs with `cors: true` and lists
-that URL in `DROPLETS_TRUSTED_ORIGINS`: the `x-droplet-location` the
-shortcode sends is not the address WordPress reaches it at. Only a
+that URL, and the site's own origin, in `DROPLETS_TRUSTED_ORIGINS`: the
+`x-droplet-location` the shortcode sends is not the address WordPress
+reaches it at. Only a
 `text/html` answer is pasted (a 2xx, or a 500 carrying the droplet's error
 page), a redirect is never followed, and the shortcode passes no cookie on. The shop's droplets come from
 the site's own origin instead, through the plugin's proxy.
@@ -252,7 +253,7 @@ multipart post (the admin's image upload) out again from `$_POST` and
 `wordpress-init` runs `site/init.sh` with WP-CLI on every start. On an
 empty database (`wp core is-installed` fails) it builds the site: WordPress
 with the stock Twenty Twenty-Five theme and the demo login admin /
-droplets, the catalogue ([step 3](#3-wordpress-owns-the-data)), then
+droplets, the catalog ([step 3](#3-wordpress-owns-the-data)), then
 ordinary pages with the shortcodes in `wp:shortcode` blocks:
 
 | Page | Template | Content |
@@ -297,12 +298,12 @@ Three things WordPress would get in the way of:
 ## 3. WordPress owns the data
 
 A mature platform keeps its own data: its editors already work in
-wp-admin, its comments already have moderation. So the catalogue moves into
+wp-admin, its comments already have moderation. So the catalog moves into
 WordPress, and the droplets server reads it back.
 
 <WordPressFlow />
 
-### The catalogue: a post type and its meta
+### The catalog: a post type and its meta
 
 `shop-catalogue.php` registers the `product` post type with `show_in_rest`
 at `wp/v2/products`. The title is the product's name, the content its
@@ -348,7 +349,7 @@ add_filter('rest_allow_anonymous_comments', static function (bool $allowed, WP_R
 
 ### The import
 
-`init.sh` imports the demo data once with `wp eval-file /site/import.php`,
+`init.sh` imports the demo data once with `wp --user=admin eval-file /site/import.php`,
 before it activates the plugin: examples/shop's generated mock data (20
 products, their images, 278 comments) as `product` posts with meta (a 20
 percent sale on every fourth product), Media Library attachments set as
@@ -424,7 +425,7 @@ export const wpProduct = z.object({
 ```
 
 One WordPress page fetches several fragments at once, each wanting the
-catalogue: they share one read, kept a second (`src/lib/server/site.ts`).
+catalog: they share one read, kept a second (`src/lib/server/site.ts`).
 A write through wp-shop forgets it at once; an edit in wp-admin shows
 within that second.
 
@@ -488,14 +489,14 @@ function droplets_shop_user_assertion(string $method, string $path): ?string
 - An unsafe method gets one only when the browser's `Origin` is the site's
   own; wp-shop's `Origin` check refuses the rest anyway.
 
-wp-shop's `handle` checks it into `locals.admin` (`hostAdmin` in
-`src/lib/server/admin.ts`, `verifyAssertion` in
-`src/lib/server/host-identity.ts`), in this order: at most 1 KB and the
-shape; the MAC with `crypto.subtle.verify`, before anything is decoded;
+wp-shop's `handle` checks it into `locals.admin`, in this order: at most
+1 KB and the shape; the MAC with `crypto.subtle.verify`, before anything is decoded;
 plain `JSON.parse`; own keys copied into an object without a prototype
 (`Object.hasOwn`), each checked for its type; then `exp`, the method, the
 path and `aud`. Anything else is no admin, and so is everything when the
-secret is missing or short.
+secret is missing or short. The checks are `hostAdmin` in
+`src/lib/server/admin.ts` and `verifyAssertion` in
+`src/lib/server/host-identity.ts`.
 
 ```ts
 // src/hooks.server.ts
@@ -505,7 +506,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   // WordPress sends its page's URL as Referer: `host` gets the path, so a
   // relative redirect after an action lands where it should.
-  if (!building) event.host = hostFrom(event.request.headers.get("referer")) ?? event.host;
+  event.locals.page = building ? null : pageFrom(event);
+  event.host = event.locals.page ?? event.host;
 
   const response = await resolve(event);
   if (event.locals.admin || PRIVATE_API.test(event.url.pathname)) response.headers.set("cache-control", "private, no-store");
@@ -514,10 +516,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 ```
 
 The same `handle` makes the `Referer` the plugin sends the droplet's
-`host`. [`hostFrom`](/guides/writing-droplets/#host) takes it only when it
-is a web URL on an origin in `trustedOrigins` (here
-`DROPLETS_TRUSTED_ORIGINS`, the site's origin) or wp-shop's own; anything
-else keeps the default `host`. An answer to an admin, and every
+`host`, and keeps it as `locals.page`. `pageFrom` reads it with
+[`hostFrom`](/guides/writing-droplets/#host), which takes a web URL within
+`trustedOrigins` (here `DROPLETS_TRUSTED_ORIGINS`, the site's origin); with
+no list set, `pageFrom` keeps only wp-shop's own pages. Anything else keeps
+the default `host`, and `locals.page` is `null`. An answer to an admin, and every
 `/api/cart*` and `/api/auth*` answer, is `private, no-store`.
 
 ### The Shop screen in wp-admin
@@ -561,9 +564,10 @@ that redirect on `template_redirect` at priority 1, before WordPress's own guess
 redirect to `wp-login.php`. None of the public droplets (gallery, cart,
 toasts) are in wp-admin.
 
-Rendered without an admin anyway (a host that puts it on a public page, a
-missing secret), the droplet shows a link to
-`/wp-login.php?redirect_to=<the page>`, the path and query of its `host`,
+Rendered without an admin anyway (put on a public page, or with a missing
+secret), the droplet shows a link to
+`/wp-login.php?redirect_to=<the page>`, the path and query of the page it
+renders on (its `host`),
 never a redirect; WordPress logs the visitor in and sends them back, and
 the next fragment fetch carries the assertion. Each of its actions checks
 again on its own and answers `fail(401)` without an admin.
@@ -600,13 +604,36 @@ The filter runs at priority 30: WordPress's `wp_validate_auth_cookie` runs
 on `determine_current_user` at 10 and returns false for a request with no
 cookie, which would undo an earlier answer.
 
-[Host-asserted identity](/guides/security/#host-asserted-identity) on the
-security page says when this pattern is fine.
+### When this pattern is fine
+
+A droplets server with no login of its own can take the visitor's identity
+from its host this way only when all of these hold:
+
+- **The host is the only way in.** The droplets server is on a private
+  network, its port not published; the browser reaches it through the
+  host's server, which fetches the fragments and proxies the rest.
+- **The host strips the header.** It forwards a short list of request
+  headers, never the assertion's, and not its own login cookies.
+- **Each direction has its own secret**, 32 bytes or more, from the
+  environment on both sides, and both sides refuse the two when they are
+  equal, so a key that leaks signs one direction only.
+- **An assertion is bound to one request**: the user, the role, an expiry
+  at most a minute out, the method, the path and query, and the audience.
+  A captured one is worth one URL for a minute.
+- **The host checks unsafe requests too**: it signs a form post only when
+  the browser's `Origin` is its own, and the droplets server's `Origin`
+  check runs as for every form post.
+- **The writes back are an allow-list**: one method and route, anchored,
+  so whoever holds that secret can make those writes and nothing more.
+
+Where the droplets server is reachable from the internet, or the host
+cannot strip headers, give it a login of its own instead, as the shop
+does. The [Security model](/guides/security/) has the rest.
 
 ## 5. Prerender at container start
 
 The product page is prerendered once per product, under its version `v`
-(`entries()` returns `{ slug, v }`), and the full oldest-first comment pages
+(`entries()` returns `{ props: { slug, v } }`), and the full oldest-first comment pages
 too, as in the shop. Both read WordPress, which is not running during
 `docker build`. So the image holds the sources and its start script
 builds:
@@ -623,7 +650,7 @@ until it answers `200`, JSON, with an `X-WP-Total` above 0, for 10 minutes
 at most (`WP_WAIT_MINUTES`).
 
 `wordpress-init` activates the plugin last, after the import: the product
-route exists only then, so wp-shop never builds from half a catalogue. A
+route exists only then, so wp-shop never builds from half a catalog. A
 restart builds again from what WordPress has then.
 
 `v` is a short hash (the first 10 hex characters of a SHA-256) of what the
@@ -633,7 +660,8 @@ products), never of stock or prices. A post's
 stored page would be passed over for nothing. An edit in wp-admin to the
 title or the text gives a new `v`: the shop's links carry it, the page
 renders live, and an old link redirects to the page without `v`, as in
-[the shop](/integrate/hosts/shop-demo/).
+[the shop](/integrate/hosts/shop-demo/), when the request names a trusted
+page (`locals.page`); without one, the old link renders live.
 
 The template writes placeholders where stock and prices go
 (`%live:stock-label%`, `%live:price%`, …), and
@@ -642,14 +670,13 @@ every request, HTML-escaped, over the stored page and a live one alike:
 
 ```ts
 // src/droplets/product-page/+droplet.server.ts
-export const transform = async ({ html, props, host }: TransformEvent) => {
+export const transform = async ({ html, props, locals }: TransformEvent) => {
   const slug = String(props["slug"]);
   const [live, versions] = await Promise.all([liveValues(slug), pageVersions()]);
   if (!live) return `<p class="gone">This product is no longer available. <a href="/gallery">Back to the gallery</a></p>`;
 
-  if (props["v"] !== undefined && props["v"] !== versions.get(slug)) {
-    // …
-    const canonical = new URL(host);
+  if (props["v"] !== undefined && props["v"] !== versions.get(slug) && locals.page) {
+    const canonical = new URL(locals.page);
     canonical.searchParams.delete("v");
     redirect(302, canonical.href);
   }
@@ -658,12 +685,13 @@ export const transform = async ({ html, props, host }: TransformEvent) => {
 };
 ```
 
-`host` is the WordPress page, from the `Referer` the plugin sends, so the
-redirect goes to the same page without `v`. `fillVersions` gives the
+`locals.page` is the WordPress page, from the `Referer` the plugin sends,
+so the redirect goes to the same page without `v`; any other page gets the
+live render. `fillVersions` gives the
 related products' links their pages' current `v`.
 
 Set a product's stock to 0 in wp-admin and its prerendered page says "Out
-of stock" within a second (the catalogue read is kept that long), its
+of stock" within a second (the catalog read is kept that long), its
 render id unchanged.
 
 ## 6. Run it
@@ -686,11 +714,11 @@ starts five services:
 
 | Service | Port | What it is |
 | --- | --- | --- |
-| `wordpress` | 8008, public | `wordpress:6-php8.3-apache` with the plugin copied in (its `Dockerfile`): the shop's pages, the proxy, the REST API, wp-admin, the `[droplet]` page at `/` |
-| `wordpress-init` | none | WP-CLI: installs WordPress, imports the catalogue, builds the site, activates the plugin, then exits |
+| `wordpress` | 8008, on `127.0.0.1` | `wordpress:6-php8.3-apache` with the plugin copied in (its `Dockerfile`): the shop's pages, the proxy, the REST API, wp-admin, the `[droplet]` page at `/` |
+| `wordpress-init` | none | WP-CLI: installs WordPress, imports the catalog, builds the site, activates the plugin, then exits |
 | `db` | internal only | MariaDB for WordPress |
 | `wp-shop` | 8310, internal only | the shop's droplets (`examples/wp-shop`): waits for WordPress's REST API, builds, serves; reachable from WordPress only |
-| `droplets` | 8000, public | the Svelte example's droplets server, for the `[droplet]` page only |
+| `droplets` | 8000, on `127.0.0.1` | the Svelte example's droplets server, for the `[droplet]` page only |
 
 | On `wordpress` | Value | Used for |
 | --- | --- | --- |
@@ -706,12 +734,12 @@ starts five services:
 | `WP_PUBLIC_URL` | WordPress's public origin, `http://localhost:8008`: images must be on it |
 | `WP_SHOP_HOST_SECRET` | verifies `x-wp-shop-user` (32+ bytes; the same value on WordPress) |
 | `WP_SHOP_SERVICE_SECRET` | signs `x-wp-shop-service`, the writes back (32+ bytes; the same value on WordPress; never `WP_SHOP_HOST_SECRET`'s) |
-| `DROPLETS_TRUSTED_ORIGINS` | `http://localhost:8008`, the only origin whose [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location) and [form posts](/integrate/http-contract/#form-posts-the-origin-check) it accepts |
+| `DROPLETS_TRUSTED_ORIGINS` | `http://localhost:8008`, the only origin whose [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-droplet-location) and [form posts](/integrate/http-contract/#form-posts-the-origin-check) it accepts |
 | `DROPLETS_SECRET` | signs a form's result on the redirect back to the page when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)) |
-| `WP_SHOP_DATABASE` | the carts' SQLite file (default `wp-shop.db`) |
 
-The compose file takes the secrets from the environment and refuses to start
-without them; the WordPress login, admin / droplets, is a demo value.
+wp-shop keeps the carts in a SQLite file, `wp-shop.db` unless
+`WP_SHOP_DATABASE` names another. The compose file takes the secrets from
+the environment and refuses to start without them; the WordPress login, admin / droplets, is a demo value.
 
 The shop is up a little after WordPress: `wordpress-init` waits for the
 database, imports, then activates the plugin, about a minute after start;
@@ -719,13 +747,13 @@ wp-shop builds once the products route answers.
 
 ### The tests
 
-- `pnpm --filter @dropletsjs/example-wp-shop test`: the assertion's negative
-  cases (a tampered payload or MAC, expired, the wrong method, path or
-  audience, oversize, `__proto__`, no secret, the other direction's secret,
-  both secrets equal), malformed WordPress answers
-  (not JSON, not a list, too large, a redirect, items out of shape, images
-  elsewhere), then wp-shop built and served against a stand-in WordPress.
-  Part of `pnpm check`.
+- `pnpm --filter @dropletsjs/example-wp-shop test`, part of `pnpm check`,
+  runs three groups. The assertion's negative cases: a tampered payload or
+  MAC, expired, the wrong method, path or audience, oversize, `__proto__`,
+  no secret, the other direction's secret, both secrets equal. Malformed
+  WordPress answers: not JSON, not a list, too large, a redirect, items out
+  of shape, images elsewhere. Then wp-shop built and served against a
+  stand-in WordPress.
 - `pnpm test:hosts wordpress`: `e2e/shop-wordpress.spec.ts`, the flow in a
   browser: the gallery, a product page with a comment posted (a WordPress
   comment, shown at once), the cart; a login at wp-login.php,

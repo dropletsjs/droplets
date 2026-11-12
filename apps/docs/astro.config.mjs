@@ -4,6 +4,7 @@ import { defineConfig } from "astro/config";
 import starlightLlmsTxt from "starlight-llms-txt";
 import { description, ogImage, title } from "./site.mjs";
 import { baseLinks } from "./src/plugins/base-links.mjs";
+import { LLMS_PAGE_BREAK, llmsDetails, llmsTxt } from "./src/plugins/llms-txt.mjs";
 
 // Where the site is served: https://dropletsjs.dev by default. Both come
 // from the environment, so the same pages also build for another origin or
@@ -34,6 +35,7 @@ const sidebar = [
     label: "Writing droplets",
     items: [
       "guides/writing-droplets",
+      "guides/styling",
       "guides/actions",
       "guides/prerendering",
       "guides/errors",
@@ -106,6 +108,11 @@ export default defineConfig({
   },
   integrations: [
     baseLinks(),
+    llmsTxt({
+      sidebar,
+      pages: ["index", ...slugs(sidebar)],
+      omit: [{ page: "start/what-is-a-droplet", heading: "A note from the author" }],
+    }),
     starlight({
       title,
       description,
@@ -125,10 +132,56 @@ export default defineConfig({
       ],
       sidebar,
       plugins: [
+        // For AI readers; src/plugins/llms-txt.mjs finishes and checks the files after the build.
         starlightLlmsTxt({
+          details: llmsDetails,
           promote: ["index", ...slugs(sidebar)],
-          // The live droplets and the examples box are the demo's markup, the anchors "Section titled …" links.
-          customSelectors: { all: [".live-droplet", ".droplet-examples", ".sl-anchor-link"] },
+          pageSeparator: LLMS_PAGE_BREAK,
+          // llms-small.txt: the core pages; the renderer and host pages are in the sets below.
+          exclude: ["renderers/*", "integrate/hosts/**", "integrate/wordpress"],
+          // Keeps llms-small.txt in lines, headings and tables, and the one <details>, the fragment's parts.
+          minify: { whitespace: false, details: false },
+          customSets: [
+            {
+              label: "Renderers",
+              paths: ["renderers", "renderers/*"],
+              description:
+                "the overview and one page per renderer: Svelte, Vue, React, Preact, Solid, Hono JSX, Handlebars, Lit and plain scripts",
+            },
+            {
+              label: "Known hosts",
+              paths: ["integrate/hosts/**", "integrate/wordpress"],
+              description:
+                "each host example's page (nginx, Express, React + Vite, Astro, SvelteKit, Next.js, FastAPI, Sinatra, PHP, htmx), the shop demo they embed and the WordPress tutorial",
+            },
+          ],
+          optionalLinks: [
+            { label: "Source code", url: "https://github.com/dropletsjs/droplets", description: "the packages, the docs and the examples" },
+            {
+              label: "Framework examples",
+              url: "https://github.com/dropletsjs/droplets/tree/main/examples/frameworks",
+              description: "one project per renderer, with the same droplets in each",
+            },
+          ],
+          // Screens, not text: the live droplets and the examples box (the demo's markup), the
+          // heading anchors ("Section titled …"), images, videos and screenshots, the fragment
+          // anatomy's mock-up, diagrams (Diagram.astro writes their description instead), and
+          // .screen-only, a page's sentence about what is on screen.
+          customSelectors: {
+            all: [
+              ".live-droplet",
+              ".droplet-examples",
+              ".sl-anchor-link",
+              "img",
+              ".droplet-tour",
+              ".host-demo",
+              ".host-grid",
+              ".ax-mock",
+              ".ax-hint",
+              ".dg",
+              ".screen-only",
+            ],
+          },
         }),
       ],
       lastUpdated: false,

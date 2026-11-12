@@ -16,7 +16,7 @@ and the button works once the bundle hydrates it.
 
 ## Add it to a project
 
-<AddRenderer framework="solid" />
+<AddRenderer framework="solid" brief />
 
 ## The files
 
@@ -26,18 +26,12 @@ and the button works once the bundle hydrates it.
 | `+error.tsx`, `+error.jsx` | The error page, optional. |
 | `+droplet.ts`, `+droplet.server.ts` | The loads, as for every framework: [Writing droplets](/guides/writing-droplets/#the-load-chain). |
 
-### Which `.tsx` files are Solid's
-
-Solid shares `.tsx` and `.jsx` with React, Preact and Hono JSX. With Solid
-the only one of them in `renderers`, every `.tsx` droplet is Solid's. With
-two or more, each droplet file says which it is:
-
-1. **An import** of `solid-js` or `@dropletsjs/renderer-solid`, a subpath
-   included (`solid-js/store`): the file is Solid's.
-2. **Otherwise a comment**, `/** @jsxImportSource solid-js */`, decides. `djs add`
-   writes it at the top of every Solid component, and it is also what types
-   the file's JSX for Solid when `tsconfig.json` names another
-   `jsxImportSource`.
+**Which `.tsx` files are Solid's.** When Solid is the only `.tsx`
+framework in `renderers`, all of them. Next to React, Preact or Hono JSX, a droplet file is
+Solid's when it imports `solid-js` or `@dropletsjs/renderer-solid`, a subpath included (`solid-js/store`), or carries a `/** @jsxImportSource solid-js */`
+comment (`djs add` writes one at the top of every Solid component), and
+names no other `.tsx` framework. See
+[Which renderer a `.tsx` file belongs to](/renderers/#which-renderer-a-tsx-file-belongs-to).
 
 ```tsx
 // src/droplets/hello/+droplet.tsx

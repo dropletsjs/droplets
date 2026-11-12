@@ -1,10 +1,12 @@
 ---
 /**
- * The "Add it to a project" steps of a renderer page, from `djs add`'s own
- * code, so they cannot drift from it: what it installs comes from its
- * catalog (packages/droplets/src/add/catalog.ts), and the vite.config.ts it
- * shows is the output of its config edit (add/vite-config.ts) on a small
- * project that uses `existing` already.
+ * What `djs add` does for a renderer, from its own code, so the page cannot
+ * drift from it: what it installs comes from its catalog
+ * (packages/droplets/src/add/catalog.ts), and the vite.config.ts it shows is
+ * the output of its config edit (add/vite-config.ts) on a small project that
+ * uses `existing` already. `brief` is a renderer page's version: the command,
+ * the packages and the steps by hand; the walk-through lives once, on the
+ * renderers overview.
  */
 import { Code } from "@astrojs/starlight/components";
 import { FRAMEWORKS, packageName, type FrameworkName } from "../../../../packages/droplets/src/add/catalog.ts";
@@ -15,9 +17,10 @@ interface Props {
   framework: Exclude<FrameworkName, "script">;
   /** The renderer the example project lists already. */
   existing?: Exclude<FrameworkName, "script">;
+  brief?: boolean;
 }
 
-const { framework: name, existing = name === "svelte" ? "react" : "svelte" } = Astro.props;
+const { framework: name, existing = name === "svelte" ? "react" : "svelte", brief = false } = Astro.props;
 const framework = FRAMEWORKS.find((f) => f.name === name);
 const before = FRAMEWORKS.find((f) => f.name === existing);
 if (!framework || !before) throw new Error(`AddRenderer: unknown renderer "${name}" or "${existing}"`);
@@ -51,74 +54,116 @@ const byHand = [
 ].join("\n");
 ---
 
-<Code code={`npx djs add counter --framework ${flag}`} lang="bash" />
+{
+  brief ? (
+    <>
+      <Code code={`npx djs add counter --framework ${flag}`} lang="bash" />
+      <p>
+        It installs what the project lacks and adds <code>{framework.factory}()</code> to <code>renderers</code> in
+        <code>vite.config.ts</code>, asking first, then writes <code>src/droplets/counter/+droplet{framework.extension}</code>.
+      </p>
+      {
+        framework.jsxImportSource && (
+          <p>
+            As the project's first <code>.tsx</code> framework, it also sets
+            <code>{`"jsx": "react-jsx", "jsxImportSource": "${framework.jsxImportSource}"`}</code> in <code>tsconfig.json</code>.
+          </p>
+        )
+      }
+      <p>
+        Every step it takes is in <a href="/renderers/#add-a-renderer">Add a renderer</a>. What it installs for {framework.label}:
+      </p>
+      <table>
+        <thead><tr><th>Package</th><th>Installed as</th></tr></thead>
+        <tbody>
+          {
+            install.map((row) => (
+              <tr>
+                <td><code>{row.spec}</code></td>
+                <td>{row.as}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+      {name === "handlebars" && <p>The renderer brings Handlebars itself: <code>handlebars</code> is its dependency, not yours.</p>}
+      <p>By hand:</p>
+      <Code code={byHand} lang="bash" />
+      <p>then <code>{`import { ${framework.factory} } from "${framework.package}"`}</code> and <code>{framework.factory}()</code> in <code>renderers</code>.</p>
+    </>
+  ) : (
+    <>
+      <Code code={`npx djs add counter --framework ${flag}`} lang="bash" />
 
-<p>
-  When <code>vite.config.ts</code> does not list {framework.label} yet, <code>djs add</code> says what it will change and
-  asks before it does (<code>--yes</code> goes ahead without asking):
-</p>
+      <p>
+        When <code>vite.config.ts</code> does not list {framework.label} yet, <code>djs add</code> says what it will change and
+        asks before it does (<code>--yes</code> goes ahead without asking):
+      </p>
 
-<ol>
-  <li>
-    <p>It installs what the project lacks, with the package manager that runs it (<code>--pm</code> picks another):</p>
-    <table>
-      <thead><tr><th>Package</th><th>Installed as</th></tr></thead>
-      <tbody>
+      <ol>
+        <li>
+          <p>It installs what the project lacks, with the package manager that runs it (<code>--pm</code> picks another):</p>
+          <table>
+            <thead><tr><th>Package</th><th>Installed as</th></tr></thead>
+            <tbody>
+              {
+                install.map((row) => (
+                  <tr>
+                    <td><code>{row.spec}</code></td>
+                    <td>{row.as}</td>
+                  </tr>
+                ))
+              }
+            </tbody>
+          </table>
+          {name === "handlebars" && <p>The renderer brings Handlebars itself: <code>handlebars</code> is its dependency, not yours.</p>}
+        </li>
+        <li>
+          <p>
+            It adds the renderer to <code>vite.config.ts</code>: an import after the last one, and <code>{framework.factory}()</code> at the
+            end of <code>renderers</code>. In a project that has <code>{before.factory}()</code> already:
+          </p>
+          <Code code={after.trimEnd()} lang="ts" meta={meta} />
+          <p>
+            A config it cannot edit with confidence (<code>renderers</code> built elsewhere, a spread, two <code>droplets()</code> calls) is
+            left as it is, and <code>djs add</code> prints these two lines to add by hand.
+          </p>
+        </li>
         {
-          install.map((row) => (
-            <tr>
-              <td><code>{row.spec}</code></td>
-              <td>{row.as}</td>
-            </tr>
-          ))
+          framework.jsxImportSource && (
+            <li>
+              <p>
+                If it is the project's first <code>.tsx</code> framework, it turns JSX on in <code>tsconfig.json</code>:
+                <code>{`"jsx": "react-jsx", "jsxImportSource": "${framework.jsxImportSource}"`}</code>, and <code>src/**/*.tsx</code> in
+                <code>include</code> when the patterns there leave <code>.tsx</code> out. A <code>tsconfig.json</code> that sets
+                <code>jsx</code> already, itself or through a relative <code>extends</code>, is left alone.
+              </p>
+            </li>
+          )
         }
-      </tbody>
-    </table>
-    {name === "handlebars" && <p>The renderer brings Handlebars itself: <code>handlebars</code> is its dependency, not yours.</p>}
-  </li>
-  <li>
-    <p>
-      It adds the renderer to <code>vite.config.ts</code>: an import after the last one, and <code>{framework.factory}()</code> at the
-      end of <code>renderers</code>. In a project that has <code>{before.factory}()</code> already:
-    </p>
-    <Code code={after.trimEnd()} lang="ts" meta={meta} />
-    <p>
-      A config it cannot edit with confidence (<code>renderers</code> built elsewhere, a spread, two <code>droplets()</code> calls) is
-      left as it is, and <code>djs add</code> prints these two lines to add by hand.
-    </p>
-  </li>
-  {
-    framework.jsxImportSource && (
-      <li>
-        <p>
-          If it is the project's first <code>.tsx</code> framework, it turns JSX on in <code>tsconfig.json</code>:
-          <code>{`"jsx": "react-jsx", "jsxImportSource": "${framework.jsxImportSource}"`}</code>, and <code>src/**/*.tsx</code> in
-          <code>include</code> when the patterns there leave <code>.tsx</code> out. A <code>tsconfig.json</code> that sets
-          <code>jsx</code> already, itself or through a relative <code>extends</code>, is left alone.
-        </p>
-      </li>
-    )
-  }
-  <li>
-    <p>
-      It asks for the target and the optional files, writes <code>src/droplets/counter/+droplet{framework.extension}</code> (and the
-      files you picked), then its <code>./$types</code>.
-    </p>
-  </li>
-</ol>
+        <li>
+          <p>
+            It asks for the target and the optional files, writes <code>src/droplets/counter/+droplet{framework.extension}</code> (and the
+            files you picked), then its <code>./$types</code>.
+          </p>
+        </li>
+      </ol>
 
-<p>
-  With the renderer in <code>vite.config.ts</code> already, it installs and edits nothing: it only writes the droplet. To answer the
-  questions up front, pass them:
-</p>
+      <p>
+        With the renderer in <code>vite.config.ts</code> already, it installs and edits nothing: it only writes the droplet. To answer the
+        questions up front, pass them:
+      </p>
 
-<Code
-  code={`npx djs add counter --framework ${flag} --target full --hydrate visible --with server,error --yes`}
-  lang="bash"
-/>
+      <Code
+        code={`npx djs add counter --framework ${flag} --target full --hydrate visible --with server,error --yes`}
+        lang="bash"
+      />
 
-<p>Every option is in the <a href="/reference/api/#djs-add"><code>djs add</code> reference</a>. By hand, it is the same:</p>
+      <p>Every option is in the <a href="/reference/api/#djs-add"><code>djs add</code> reference</a>. By hand, it is the same:</p>
 
-<Code code={byHand} lang="bash" />
+      <Code code={byHand} lang="bash" />
 
-<p>then the import and <code>{framework.factory}()</code> in <code>renderers</code>, as above.</p>
+      <p>then the import and <code>{framework.factory}()</code> in <code>renderers</code>, as above.</p>
+    </>
+  )
+}

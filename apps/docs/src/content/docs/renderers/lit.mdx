@@ -28,7 +28,7 @@ directives render their first value.
 
 ## Add it to a project
 
-<AddRenderer framework="lit" />
+<AddRenderer framework="lit" brief />
 
 ## The files
 
@@ -129,7 +129,7 @@ in the server's log.
   action, the same string on the server and in the browser. `DropletElement`
   and `DropletErrorElement` of `@dropletsjs/renderer-lit/element` declare
   them; a plain `LitElement` declares them itself with `attribute: false`.
-  Declare fields, never initialise them as class fields (`data = …`): a class
+  Declare fields, never initialize them as class fields (`data = …`): a class
   field hides the property Lit defines. Give state its initial value in the
   constructor, as the demo does.
 - **Data is always a value.** Lit has no suspense: when a droplet mounts in

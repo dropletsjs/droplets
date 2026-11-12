@@ -1,6 +1,6 @@
 ---
 title: Prerendering
-description: "Rendering droplets at build time: prerender, entries, host at build, the stored renders and transform."
+description: "Rendering droplets at build time: prerender and entries, where the renders live, host at build, and transform."
 ---
 
 import PrerenderLookup from "../../../components/PrerenderLookup.astro";
@@ -20,71 +20,93 @@ export const entries = (() => [
 ]) satisfies Entries;
 ```
 
-- Renders go through `handle`, with `building` from `$droplets/env` set to
-  `true`.
-- They are stored with the server, never as public files, and read per
+## Where the renders live
+
+- **With the server, never as public files.** Renders are read per
   request: from `dist/server/_prerendered/` on Node, Bun and Deno; on
   Workers through the assets binding, from a directory of `dist/client`
   named anew every build that only the Worker knows. Nothing is bundled.
-- Listed props are served from the store (and `_data` answers from it).
-  Other props render live, or answer `404` when `ssr = false`. A render made
-  for a host serves that host only (origin and path, never the query); see
-  below.
-- A prop set whose load fails is stored as its error page, served with a
-  `500`. One that answers `error()` or `redirect()` warns at build and renders
-  live.
-- In `vite dev`, everything renders live, and `host` of the config is
-  ignored: an entry without its own `host` is host-agnostic there.
+- **Listed props are served from the store** (and `_data` answers from
+  it). Other props render live, or answer `404` when `ssr = false`. A
+  render made for a host page serves that page only (origin and path,
+  never the query); see below.
+- **A failed load is stored too**: a prop set whose load fails is stored as
+  its error page, served with a `500`. One that answers `error()` or
+  `redirect()` warns at build and renders live.
+- **Renders go through `handle`**, with `building` from `$droplets/env` set
+  to `true`.
+- **`vite dev` renders everything live**, and ignores the configured
+  `host`: an entry without its own `host` is host-agnostic there.
 
 ## `host` at build
 
-Each entry renders for the first host it can have:
+A render made at build has no request, so it may not know the page it will
+be shown on. The rule: **in a host-agnostic render, read only
+`host.origin`, `host.pathname` and `host.href`** (or `String(host)`). They
+are filled in with each request's page; anything else stops the build.
+
+```ts
+// src/droplets/banner/+droplet.server.ts
+import type { LoadEvent } from "./$types";
+
+export const load = ({ host }: LoadEvent) => ({
+  sale: `${host.origin}/sale`, // fine: filled in per request
+  // host.searchParams.get("ref") would stop the build
+});
+```
+
+Each entry renders for the first host page it can have:
 
 1. the entry's `host`;
-2. [`host`](/guides/configuration/#options) in `droplets.config.ts` (`host: "https://shop.example"`);
+2. [`host`](/guides/configuration/#a-fixed-host) in `droplets.config.ts` (`host: "https://shop.example"`);
 3. none: the render is **host-agnostic**.
 
-A render for the entry's `host` is a real `URL` to its loads, and is stored
-under its props and that host's origin and path. A request gets it only when
-its own `host` matches.
+- **For the entry's `host`**, the loads get a real `URL`, and the render is
+  stored under its props and that page's origin and path. A request gets it
+  only when its own `host` matches.
+- **For the configured `host`**, the loads get a real `URL` of that origin:
+  `host.hostname`, `host.protocol` and `host.port` read as they are, and
+  `host.search` and `host.hash` are empty. Its page is not known at build,
+  so `host.pathname` and `host.href` are filled in with each request's
+  page. It is stored under its props and the origin alone, and serves every
+  page of that origin.
+- **With [`location`](/guides/configuration/#both-fixed) set too**, a
+  render for the configured `host` holds nothing to fill in:
+  `host.pathname` is `/`, `host.href` is the origin's root, and the render
+  is served exactly as stored.
 
-A render for `host` of the config is a real `URL` of that origin too:
-`host.hostname`, `host.protocol` and `host.port` read as they are, and
-`host.search` and `host.hash` are empty. Its page is not known at build:
-`host.pathname` and `host.href` are the path token below, filled in with each
-request's page. It is stored under its props and the origin alone, and
-serves every page of that origin.
-
-A request looks for the render made for its page, then the one for `host`
-of the config, then the host-agnostic one of the same props; with none, it
-renders live.
+A request looks for the render made for its page, then the one for the
+configured `host`, then the host-agnostic one of the same props; with none,
+it renders live.
 
 <PrerenderLookup />
 
-With `location` set too ([Both fixed](/guides/configuration/#both-fixed)),
-a render holds no token: `host.pathname` is `/` and `host.href` is the
-origin's root, and the render is served exactly as stored.
+When a render reads another field of a host-agnostic `host`
+(`host.searchParams`, `host.hostname`, …), the build stops, even when the
+droplet's code catches the error: the render answers `500` with
+`x-droplets-prerender-error: host`, and `vite build` fails with
+`HostUrlPropsErrorInPrerender`'s message. Give that entry a `host`, set
+`host` in `droplets.config.ts`, or render it live.
+[`cookies`](/guides/server/#cookies) stop the build the same way: there is
+no request at build.
 
-A host-agnostic render gets a stand-in for `host`: `host.origin`,
-`host.pathname` and `host.href` (and `String(host)`, `JSON.stringify`) give
-the tokens `__$DROPLET_HOST$__` and `__$DROPLET_PATH$__`. Every render made
-at build, with a host or without, has the droplets server's location as a
-token too, `http://droplets.invalid/__$DROPLET_LOCATION$__` (`droplet.origin`,
-action URLs, imported files), replaced with the location of each request that
-serves it. Each token carries the build's nonce (`__$DROPLET_HOST_<nonce>$__`).
-`<a href="{host.origin}/sale">` is stored as `<a href="__$DROPLET_HOST$__/sale">`,
-and every request that serves it gets the tokens replaced with its own
-`host`, after `handle` and before `transform`: in the HTML (escaped for
-attributes), in the inline data, and in their `encodeURIComponent` forms.
-Use them in text and attribute positions: inside an inline `<script>` or
-`<style>` they get HTML escaping, not JavaScript or CSS escaping.
-Logic on the value cannot be computed at build, so any other field
-(`host.searchParams`, `host.hostname`, …) throws
-`HostUrlPropsErrorInPrerender` and **stops the build**, even when the
-droplet's code catches it: the build's render answers `500` with
-`x-droplets-prerender-error: host`, and `vite build` fails with its message. Give that entry a `host`, set `host` in
-`droplets.config.ts`, or render it live. [`cookies`](/guides/server/#cookies) stop the build the same
-way: there is no request at build.
+### How the values are filled in
+
+- **Tokens.** In a host-agnostic render, `host.origin`, `host.pathname` and
+  `host.href` (and `String(host)`, `JSON.stringify`) give the tokens
+  `__$DROPLET_HOST$__` and `__$DROPLET_PATH$__`. Without `location` in the
+  config, every render made at build also holds the droplet location as
+  `http://droplets.invalid/__$DROPLET_LOCATION$__` (`droplet.origin`,
+  action URLs, imported files). Each token carries the build's nonce
+  (`__$DROPLET_HOST_<nonce>$__`), so content cannot fake one.
+- **Per request.** The banner's `sale` above is stored as
+  `__$DROPLET_HOST$__/sale`, in its markup and its inline data. Every request that serves it gets
+  the tokens replaced with its own `host` and location, after `handle` and
+  before `transform`: in the HTML (escaped for attributes), in the inline
+  data, and in their `encodeURIComponent` forms.
+- **Text and attributes only.** The values are HTML-escaped. Inside an
+  inline `<script>` or `<style>` they get HTML escaping, not JavaScript or
+  CSS escaping, so do not use them there.
 
 ## `transform`
 

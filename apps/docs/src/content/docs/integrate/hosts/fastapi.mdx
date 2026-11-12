@@ -21,7 +21,7 @@ client = httpx.AsyncClient(
 async def fragment(request: Request, droplet: str, params: list[tuple[str, str]] | None = None) -> dict:
     url = f"{SHOP_INTERNAL_URL}/droplets/{quote(droplet, safe='')}?{urlencode(params or [])}"
     headers = {"accept": "text/html", "x-droplet-location": SHOP_ORIGIN, "referer": SHOP_ORIGIN + _raw_target(request)}
-    cookie = request.headers.get("cookie")
+    cookie = _shop_cookies(request)
     if cookie:
         headers["cookie"] = cookie
     result = {"html": Markup(""), "status": 502, "location": None, "cookies": [], "link": None}
@@ -46,11 +46,11 @@ async def fragment(request: Request, droplet: str, params: list[tuple[str, str]]
 ```
 
 - `fragment()` sends `GET /droplets/<id>?<params>` to `SHOP_INTERNAL_URL`
-  with `accept: text/html`, `x-droplet-location` set to this host's public origin
-  (`SHOP_ORIGIN`, the scheme and host of `SHOP_PUBLIC_URL`), the browser's
-  `Cookie` as it came, and the page's URL as `referer`: `SHOP_ORIGIN` plus
-  the path and query as the browser sent them (`_raw_target()` reads
-  `raw_path` and `query_string` from the ASGI scope).
+  with `accept: text/html` and `x-droplet-location` set to `SHOP_ORIGIN`,
+  the origin of `SHOP_PUBLIC_URL`. It passes on the browser's `Cookie` cut
+  down to the shop's own `cart_id` and `shop_admin`, and the page's URL as
+  `referer`: `SHOP_ORIGIN` plus the path and query as the browser sent them
+  (`_raw_target()` reads `raw_path` and `query_string` from the ASGI scope).
 - The shared client never follows a redirect (`follow_redirects=False`), so
   a droplet's 3xx is answered as it is, and never keeps a cookie (a
   `CookieJar` that accepts no domain). `render` sends the fragments'
@@ -159,23 +159,13 @@ The shop's cookies (`cart_id`, `shop_admin`) are first-party, and nothing
 is cross-origin; the shop sets them only from form actions and `/api`,
 which come through here.
 
-### The shop's environment
-
-- `DROPLETS_TRUSTED_ORIGINS: http://localhost:8001`: the only origin whose
-  [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location) and
-  [form posts](/integrate/http-contract/#form-posts-the-origin-check) the shop accepts.
-- `DROPLETS_SECRET`: signs a form's result on the redirect back to the page
-  when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)).
-- `ADMIN_USER`, `ADMIN_PASSWORD`, `SHOP_SECRET`: the demo login
-  (admin / droplets) and the key its cookie is signed with (from the environment, see Run it).
-
 ### Gotchas
 
 - **The shared `httpx` client must not keep cookies.** Its default jar would
   store the first visitor's `cart_id` (or admin session) from a proxied
   answer and send it with everyone else's requests. The client gets a
-  `CookieJar` that accepts no domain; the browser's `Cookie` header is
-  forwarded as it is.
+  `CookieJar` that accepts no domain; what goes out is the browser's own
+  `Cookie`, cut down to `cart_id` and `shop_admin`.
 - **`Markup` only for the shop's HTML.** Jinja escapes everything else; the
   "unavailable" note is built with `Markup.format`, so the droplet's id is
   escaped. See [For hosts](/guides/security/#for-hosts).
@@ -190,10 +180,11 @@ docker compose up --build
 open http://localhost:8001/gallery   # log in as admin / droplets
 ```
 
-Set `SHOP_SECRET` and `DROPLETS_SECRET` first (32 or more random characters
-each, `openssl rand -hex 32`), in the environment or a `.env` file beside
-`docker-compose.yml`: compose refuses to start without them. `pnpm test:hosts`
-generates its own for a run.
+Set `SHOP_SECRET` and `DROPLETS_SECRET` first; compose refuses to start
+without them. The shop trusts one origin besides its own,
+`DROPLETS_TRUSTED_ORIGINS: http://localhost:8001`, this host's; the rest of
+its environment is the same on every host: see
+[Running a host](/integrate/hosts/shop-demo/#running-a-host).
 
 ## The Svelte example
 
@@ -203,7 +194,7 @@ JavaScript runs on the host: Python fetches the fragments and a template
 prints them.
 
 ```python
-# main.py
+# main.py (trimmed)
 DROPLETS_INTERNAL_URL = os.environ.get("DROPLETS_INTERNAL_URL", "http://localhost:8000")
 DROPLETS_PUBLIC_URL = os.environ.get("DROPLETS_PUBLIC_URL", "http://localhost:8000")
 

@@ -1,11 +1,17 @@
 ---
 title: Writing droplets
-description: "Folder structure, the flags, the load chain, props, types, data as a promise, children, styles and script droplets."
+description: "A droplet's folder, its three flags, the load chain, props and their schema, types, data as a promise, children and script droplets."
 ---
 
 import DropletExamples from "../../../components/DropletExamples.astro";
 import RenderModes from "../../../components/RenderModes.astro";
 import RunsWhere from "../../../components/RunsWhere.astro";
+
+A droplet is one folder: a component, and the code that loads its data.
+This page covers what goes in that folder and how the pieces connect.
+[Styling](/guides/styling/) covers its CSS and files,
+[Actions](/guides/actions/) its forms, and [Server code](/guides/server/)
+what runs around it on the server.
 
 ## Structure
 
@@ -15,40 +21,36 @@ One folder per droplet, under `dropletsFolder` (`src/droplets` by default):
 src/droplets/<name>/
   +droplet.<ext>       # required: the component (.svelte, .vue, .tsx, .hbs…)
   +droplet.ts          # optional: load, props schema, handleError; server and browser
-  +droplet.server.ts   # optional: load, handleError, entries, transform; server only
+  +droplet.server.ts   # optional: load, handleError, entries, transform, actions; server only
   +error.<ext>         # optional: the error page, in the same framework
 ```
-
-Instead of a component, a droplet can be plain browser code: a
-`+droplet.script.ts` (or `.js`), with the same loads. See
-[Plain script](/renderers/script/).
 
 `djs add <name>` writes one, asking for the framework, the target and the
 optional files (see [`djs add`](/reference/api/#djs-add)).
 
-The folder name is the route id, and it must be lowercase kebab-case
-(`^[a-z0-9]+(-[a-z0-9]+)*$`): `hello-world/` is served as `hello-world`. A
-folder named otherwise (`HelloWorld/`, `hello_world/`) is not a droplet:
-`vite dev` and `vite build` ignore it and warn once, listing such folders.
-`+Droplet.vue` with a capital D also works. No id is
-reserved; every droplet route lives under `/droplets/<id>`.
+- **The folder name is the droplet's id**, served under `/droplets/<id>`.
+  It must be lowercase kebab-case (`^[a-z0-9]+(-[a-z0-9]+)*$`):
+  `hello-world/` works. A folder named otherwise (`HelloWorld/`,
+  `hello_world/`) is not a droplet: `vite dev` and `vite build` skip it and
+  warn once, listing such folders. No id is reserved.
+- **The component's extension picks the [renderer](/renderers/)** that
+  builds it. `+Droplet.vue` with a capital D works too. One component per
+  folder: a `+droplet.svelte` next to a `+droplet.vue` is an error that says
+  which one to keep.
+- **Anything else is imported as usual**, from the folder or anywhere in the
+  project. A component several droplets share lives wherever you like; the
+  dev server tracks which droplets depend on it.
 
-The component's extension picks the [renderer](/renderers/) that
-builds it. One component per folder: a `+droplet.svelte` next to a
-`+droplet.vue` is an error that says which one to keep.
-
-Anything else in the folder, or anywhere in the project, is imported as
-usual. A component shared by several droplets lives wherever you like; the
-dev server tracks which droplets depend on it.
+Instead of a component, a droplet can be plain browser code: a
+`+droplet.script.ts` (see [Script droplets](#script-droplets)).
 
 ## Flags
 
 Three flags decide how a droplet is delivered. They live in the droplet's
-component, `+droplet.<ext>`, and nowhere else: `<script module>` in Svelte, a
-plain `<script>` in Vue, named exports in React, Preact, Solid, Hono JSX and
-Lit, the opening comment in Handlebars. Each
-[renderer's page](/renderers/) shows where. A script droplet has none: it is
-always client only.
+component, `+droplet.<ext>`, and nowhere else: `<script module>` in Svelte,
+a plain `<script>` in Vue, named exports in React, Preact, Solid, Hono JSX
+and Lit, the opening comment in Handlebars. Each
+[renderer's page](/renderers/) shows where.
 
 ```svelte
 <script module lang="ts">
@@ -61,46 +63,46 @@ always client only.
 | `ssr` | `hydrate` | Result |
 | --- | --- | --- |
 | `true` | `true` | Server-rendered, then hydrated. The default. |
-| `true` | `false` | Server-rendered only. No bundle is built or served for it. |
+| `true` | `false` | Server-rendered only: HTML and CSS, no bundle built or served. |
 | `false` | `true` | Client-only. The server load still runs and its data comes inline. |
+| `false` | `false` | Nothing reaches the page: the fragment is an empty element, and no bundle is built. With `prerender = true`, the render made at build is served instead. |
 | `true` | `"visible"` | Server-rendered; hydrates when it is about to scroll into view. |
 | `true` | `"interactive"` | Server-rendered; hydrates on the first interaction with it. |
 
-`"visible"` and `"interactive"` are [lazy hydration](/guides/in-the-browser/#lazy-hydration);
-a host can also override `hydrate` per element with `data-droplet-hydrate`.
+`"visible"` and `"interactive"` are
+[lazy hydration](/guides/in-the-browser/#lazy-hydration); a host page can
+also override `hydrate` per element with `data-droplet-hydrate`.
 
 Side by side, with [prerendering](/guides/prerendering/): what the host page
 receives in each mode, and when the droplet's JavaScript loads.
 
 <RenderModes />
 
-The same list of testimonials, rendered by five droplets of the demo server,
-one per combination of flags. They share one Svelte component; each tab says
-what its flags make the server and the browser do, and the console under it
-lists what this page asks the demo for.
+The demo server renders the same list of testimonials with five droplets,
+one per combination of flags, all sharing one Svelte component.
+
+<p class="screen-only">Each tab says what its droplet's flags make the server and the browser do, and the console under it lists what this page asks the demo for.</p>
 
 <DropletExamples />
 
-The flags must be literals. They are read from the component's exports
-before anything is compiled, because they decide *how* the droplet is built.
-Only a top-level `export const` counts: the component is parsed, so a
-commented-out `// export const ssr = false` or a flag inside a string is no
-flag. `ssr` and `prerender` take `true` or `false`; `hydrate` takes `true`,
-`false`, `"visible"` or `"interactive"`. Any other value, or another form
-(`export const ssr = !dev`, `export let`, `export { x as ssr }`), warns
-under `vite dev` and `vite build` and keeps the default.
+Rules for the flags:
 
-Flags live only in the component and are read from there. An `ssr`,
-`hydrate` or `prerender` exported from `+droplet.ts` or `+droplet.server.ts`
-is not a flag: it changes nothing.
+- **Literal values, top-level `export const`.** The flags decide how the
+  droplet is built, so they are read from the component's source before
+  anything is compiled. `ssr` and `prerender` take `true` or `false`;
+  `hydrate` takes `true`, `false`, `"visible"` or `"interactive"`.
+- **Anything else keeps the default, with a warning** under `vite dev` and
+  `vite build`: another value, or another form (`export const ssr = !dev`,
+  `export let`, `export { x as ssr }`). A commented-out
+  `// export const ssr = false` or a flag inside a string is no flag.
+- **Only the component counts.** An `ssr`, `hydrate` or `prerender`
+  exported from `+droplet.ts` or `+droplet.server.ts` changes nothing.
+- **One set of flags per droplet.** `+error.*`, the droplet's error
+  boundary, follows the droplet's flags: it renders on the server when the
+  droplet does, hydrates when the droplet does and ships in the droplet's
+  bundle. Flags declared in the error page are ignored, with a warning.
 
-**One set of flags per droplet.** `+error.*` is the droplet's error boundary
-and follows the droplet's flags: it renders on the server when the droplet
-does, hydrates when the droplet does and ships in the droplet's bundle. Flags
-declared in the error page are ignored, with a warning in `vite dev` and `vite build`.
-
-A droplet with `hydrate = false` is the cheapest thing you can ship: HTML and
-CSS, nothing else. Its `<style>` is still extracted and served.
+A [script droplet](#script-droplets) has no flags: it is always client only.
 
 ## The load chain
 
@@ -150,153 +152,95 @@ export const load = ({ data }: { data: ServerData }) => ({
 Keep it pure: it has to produce the same result on both sides, or the
 hydrated markup will not match what the server rendered.
 
-Both files are optional. With neither, `data` is `undefined` and the component
-simply renders. Both return a plain object, or nothing. A `Response` (from
-`json()`, say) is refused: responses belong in [`+server.ts`](/guides/server/#api-routes).
+Both files are optional. With neither, `data` is `undefined` and the
+component simply renders. Both return a plain object, or nothing. A
+`Response` (from `json()`, say) is refused: responses belong in
+[`+server.ts`](/guides/server/#api-routes).
 
-`error(status, message)` and `redirect(status, location)` from
-`$droplets/server` stop a server load and answer as an endpoint would: the
-fragment responds with that status, no component renders. Anything else a
-load throws goes to the [error page](/guides/errors/).
+### When a load stops
 
-A `redirect()` from a load or `transform` is answered as an absolute
-`location`, resolved against [`host`](#host), the page the droplet renders
-on, and only when that target is on the droplets server's own origin, its
-location's, a [`trustedOrigins`](/guides/configuration/#options) entry or
-[`host`](/guides/configuration/#a-fixed-host) of the config, the same bound
-an [action's redirect](/guides/actions/) passes; any other target answers
-`400` instead, `Bad Request: the droplet redirects off this site`, with a
-line in the server log. A redirect is for a page: a native form post, or a
-host's own navigation after it fetched the fragment. The element never
-follows one: it fetches `_data` with `redirect: "manual"`, so a redirecting
-load answers it an opaque response, which it logs
-(`<id>: _data answered opaqueredirect`) and renders nothing for, as it does
-for any answer that is not data.
+- `error(status, message)` from `$droplets/server` stops a server load: the
+  fragment answers with that status, and no component renders.
+- `redirect(status, location)` answers the fragment request with a
+  redirect, for the browser or the host page's server to follow. A relative
+  target is resolved against [`host`](#host).
+- The target must be on this server, its droplet location, a
+  [trusted origin](/guides/configuration/#trusted-origins) or the configured
+  [`host`](/guides/configuration/#a-fixed-host). Any other target answers
+  `400` (`Bad Request: the droplet redirects off this site`), with a line in
+  the server log.
+- The element never follows a redirect. When the `_data` request it sends
+  is answered with one, it logs `<id>: _data answered opaqueredirect` and
+  renders nothing.
+- Anything else a load throws goes to the [error page](/guides/errors/).
 
 ### `host`
 
-`host` in load events is where the droplet renders: the host page, as a
-`URL`. Where the droplet itself lives is its
-[location](/integrate/http-contract/#x-droplet-location-the-public-location)
-(`x-droplet-location` on the server, the URL `/index.js` came from in the
-browser, `droplet.url()` from `$droplets/drop`); the fragment's own URL is
-`request.url`.
+`host` in a load's event is the page the droplet renders on, as a `URL`:
+the host page. It is not where the droplet itself is served from; that is
+its droplet location (`droplet.url()` from `$droplets/drop`).
 
-On the server, first match wins:
-
-1. `host` in a render request's JSON body: `{ "host": "https://shop.example/product/mug", "props": { … } }`;
-2. `Origin`;
-3. the origin of the droplets server's location.
-
-With [`host`](/guides/configuration/#a-fixed-host) in `droplets.config.ts`,
-`host` is that origin, with the body's path and query when the body names a
-page on it; `Origin` is not read.
-
-Only `http:` and `https:` URLs count; a value that is not one is skipped for
-the next source. With `trustedOrigins` set, a host outside it (and not this
-server) becomes the location's origin. `Origin` carries an origin only, so
-the path is `/` unless the body gave one.
-`handle` in `src/hooks.server.ts` sees it first and may replace it; loads,
-`transform` and the context sent to the browser get what `handle` left. A
-host that sends its page as `Referer` (or `X-Forwarded-Uri`) gets the path too:
-
-```ts
-// src/hooks.server.ts
-import { hostFrom, type Handle } from "$droplets/server";
-
-export const handle: Handle = ({ event, resolve }) => {
-  event.host = hostFrom(event.request.headers.get("referer")) ?? event.host;
-  return resolve(event);
-};
-```
-
-`hostFrom` checks a candidate the way the default is checked: an `http:` or
-`https:` URL without credentials or hash, and, with `trustedOrigins` set, one
-of them or this server. Anything else, a missing or malformed header
-included, gives `null`. `handle` may still set any `URL` it likes; `hostFrom`
-is the safe way to take one from a request.
-
-`host` comes from the request: any client can send any value. Render with
-it; never decide from it who may see what. Embedding a droplet also tells
-its server the page's URL; see [Who sees what](/guides/security/#who-sees-what).
-
-In the browser, the universal load's `host` is the page itself
-(`window.location`, without its `#hash`), read when the droplet mounts. It does not follow a
-single-page app's navigation afterwards. A universal load that renders from
-`host.pathname` hydrates cleanly only when the server got the same path.
-
-While prerendering, see [`host` at build](/guides/prerendering/#host-at-build).
+On the server it comes from the request (a render body's `"host"`, else
+`Origin`), so any client can send any value: render with it, never decide
+from it who may see what. In the browser it is `window.location`, read when
+the droplet mounts. [`host` on the server](/guides/server/#host) has where
+it comes from, how `handle` can take the full page URL from `Referer` with
+`hostFrom()`, and what the configured `host` changes; while prerendering,
+see [`host` at build](/guides/prerendering/#host-at-build).
 
 ### `setHeaders`
 
-`setHeaders` in a server load sets headers on the droplet's answers: the
+`setHeaders` in a server load sets headers on the droplet's answers, the
 fragment and `_data`. Fragments are sent `cache-control: private, no-store`
 unless the load says otherwise, so a droplet that is the same for everyone
 opens itself to caches here:
 
 ```ts
-// src/droplets/products/+droplet.server.ts
-import type { LoadEvent } from "$droplets/server";
-
 export const load = async ({ props, setHeaders }: LoadEvent) => {
   setHeaders({ "cache-control": "public, max-age=60" });
   return { products: await db.products(props.category) };
 };
 ```
 
-As in SvelteKit, each header can be set once (`setHeaders` throws on the
-second), names and values are plain strings without line breaks, and
-`set-cookie` is refused: cookies are set in `handle`, `+server.ts` or an
-[action](/guides/actions/). The
-headers go out when the droplet renders or loads; an error answer, or a load
-that failed and shows its error page, carries none of them. A prerendered
-render keeps the headers its load set at build and is served with them.
-`handle` sees the response after and may change any of them. A `vary` the
-load sets is kept, and the [host headers](/guides/security/#caching) are
-added to it. `transform` and the universal load have no `setHeaders`.
-
-## Form posts and prerendering
-
-Two parts of a droplet have pages of their own:
-[Actions](/guides/actions/) (form posts, with and without JavaScript) and
-[Prerendering](/guides/prerendering/) (`prerender`, `entries`, `transform`).
+Each header can be set once, and `set-cookie` is refused.
+[`setHeaders`](/guides/server/#setheaders) in Server code has the rules.
 
 ## Props
 
-Props are how a caller parameterises a droplet. Where they come from
-depends on the request:
+Props are how a caller parameterizes a droplet: which product, which page.
+Where they come from depends on the request:
 
-- **A `GET`** (a fragment or `_data`): the query string when it has any key
-  that is not reserved (below), `/droplets/hello?who=Ana` giving
-  `props.who === "Ana"`; else the `x-droplet-props` header, base64-encoded
-  JSON, for props too large or too structured for a URL; else `{}`. Query
-  values are strings, and a repeated key gives its first value.
+- **A `GET`** (a fragment or `_data`): the query string,
+  `/droplets/hello?who=Ana` giving `props.who === "Ana"`. Query values are
+  strings, and a repeated key gives its first value. Without any
+  non-reserved key in the query, the `x-droplet-props` header,
+  base64-encoded JSON, for props too large or too structured for a URL;
+  else `{}`.
 - **A `POST` with a JSON body**: `props` of the body, `{ "props": { … } }`,
   or `{ "host": "…", "props": { … } }` to also say where the droplet renders.
   The query and `x-droplet-props` are not read.
 - **A form post to an [action](/guides/actions/)**: the action URL's query,
   else `x-droplet-props`; never the form body.
 
-A malformed `x-droplet-props` is ignored (with a warning under `vite dev`),
-and one over 8 KB answers `431`.
+The component never receives props directly: they reach it through a load.
 
 Props are client input, as `host` is: anyone can send any props. Check them
-(a [schema](#a-props-schema)) and never trust them for access; see
-[Security model](/guides/security/#request-input).
+with a [schema](#a-props-schema) and never trust them for access; see
+[Request input](/guides/security/#request-input).
 
-`c`, `t`, `__cb`, `noSSR`, `clientOnly` and `__droplet_return` are reserved
-query keys, as are a key that starts with `/` (an action's name, `?/add`) and
-any `__droplet_form_*` key: they never become props. The component itself
-never receives props: they reach it through a load.
+Limits and reserved names:
+
+- A malformed `x-droplet-props` is ignored (with a warning under
+  `vite dev`); one over 8 KB answers `431`.
+- `c`, `t`, `__cb`, `noSSR`, `clientOnly` and `__droplet_return` are
+  reserved query keys, as are a key that starts with `/` (an action's name,
+  `?/add`) and any `__droplet_form_*` key: they never become props.
 
 ### A props schema
 
-`export const props` in `+droplet.ts` validates them with any
-[Standard Schema](https://standardschema.dev) library (zod, valibot, arktype…).
-It runs before every load: on the server before `+droplet.server.ts`, in the
-browser when no server rendered the droplet. Its output replaces the props, so
-`?page=2` from a URL and `{ page: 2 }` from a POST body meet as the same
-value. Props it refuses answer `400` before any load runs.
+`export const props` in `+droplet.ts` validates props with any
+[Standard Schema](https://standardschema.dev) library (zod, valibot,
+arktype…):
 
 ```ts
 // src/droplets/article/+droplet.ts
@@ -307,13 +251,22 @@ export const props = z.object({
 });
 ```
 
-The schema may be async: it can ask a server whether page 2 exists before
-anything renders.
+- It runs before every load: on the server before `+droplet.server.ts`, in
+  the browser when no server rendered the droplet.
+- Its output replaces the props, so `?page=2` from a URL and `{ page: 2 }`
+  from a POST body meet as the same value.
+- Props it refuses answer `400` before any load runs.
+- It may be async: it can ask a server whether page 2 exists before
+  anything renders.
 
-The library is yours: droplets calls the schema's `~standard.validate` and
-nothing else, and ships none of its own. A droplet that loads in the browser
-carries its schema there, so its size counts. The same `page` in two other
-libraries, each giving `{ page: number }` to the load and to `./$types`:
+The library is yours: Droplets calls the schema's `~standard.validate` and
+nothing else, and ships no validator of its own. A droplet that loads in the
+browser carries its schema there, so its size counts.
+
+<details>
+<summary>The same schema in valibot and arktype</summary>
+
+Each gives `{ page: number }` to the load and to `./$types`:
 
 ```ts
 // valibot
@@ -333,7 +286,10 @@ export const props = type({
 });
 ```
 
-#### JSON Schema
+</details>
+
+<details>
+<summary>A JSON Schema as the props schema</summary>
 
 A JSON Schema describes props without checking them; a validator does that.
 Wrapped once as a Standard Schema, it works like the others:
@@ -383,14 +339,17 @@ export const props = jsonSchema({
 });
 ```
 
-`json-schema-to-ts` gives `./$types` the props' type (`{ page?: number }`
-here). `@cfworker/json-schema` runs without `eval`, so it works on Workers and
-under a strict Content Security Policy; `ajv` compiles schemas with
-`new Function` and does not.
+- `json-schema-to-ts` gives `./$types` the props' type (`{ page?: number }`
+  here).
+- `@cfworker/json-schema` runs without `eval`, so it works on Workers and
+  under a strict Content Security Policy; `ajv` compiles schemas with
+  `new Function` and does not.
+- A JSON Schema checks values; it does not convert them. `?page=2` arrives
+  as the string `"2"` and fails `type: "integer"`, and no `default` is
+  filled in. It fits props that callers send as JSON: a POST body or
+  `x-droplet-props`.
 
-A JSON Schema checks values; it does not convert them. `?page=2` arrives as
-the string `"2"` and fails `type: "integer"`, and no `default` is filled in.
-It fits props that callers send as JSON: a POST body or `x-droplet-props`.
+</details>
 
 ## Types: `./$types`
 
@@ -433,15 +392,19 @@ Annotate a load's parameter (`({ props }: LoadEvent) => …`) or use
 replace the return type the component's `Data` is read from. The same goes
 for `handleError` (`satisfies HandleDropletError`, from `$droplets/server`).
 
-The files live in `.droplets/types/`, mirroring the droplet folders, and
-`.droplets/tsconfig.json` maps them next to the droplets with `rootDirs`:
-extend it from your `tsconfig.json`. It also lists, under `files`, each
-`+droplet.tsx` that sits next to a `+droplet.ts`: TypeScript's `include`
-globs keep only the `.ts` of two files with the same name, so without it the
-component would never be checked. Your own `files` replaces that list, so
-leave `files` out of your `tsconfig.json`. `vite dev` rewrites them as droplets
-come and go, `vite build` writes them too, and `djs sync` writes them without
-either, for a type check on a fresh checkout (`"prepare": "djs sync"`).
+Where the files live and how TypeScript finds them:
+
+- They are written to `.droplets/types/`, mirroring the droplet folders.
+  `.droplets/tsconfig.json` maps them next to the droplets with `rootDirs`:
+  extend it from your `tsconfig.json`.
+- It also lists, under `files`, each `+droplet.tsx` that sits next to a
+  `+droplet.ts`: TypeScript's `include` globs keep only the `.ts` of two
+  files with the same name, so without it the component would never be
+  checked. Your own `files` replaces that list, so leave `files` out of your
+  `tsconfig.json`.
+- `vite dev` rewrites them as droplets come and go, `vite build` writes them
+  too, and `djs sync` writes them without either, for a type check on a
+  fresh checkout (`"prepare": "djs sync"`).
 
 Outside a droplet folder (a shared component, say), or before the project
 has `./$types`, each renderer exports the generic form, which you fill in by
@@ -481,8 +444,9 @@ without `experimental.async` and Handlebars wait for the data instead, so
 
 ## Children
 
-A droplet can render content the host puts inside it. Each renderer hands the
-component a `children` value; where it renders, the host's content appears:
+A droplet can render content the host page puts inside it. Each renderer
+hands the component a `children` value; where it renders, the host page's
+content appears:
 
 ```svelte
 <script lang="ts">
@@ -496,158 +460,20 @@ component a `children` value; where it renders, the host's content appears:
 </section>
 ```
 
-The host writes its content in one `<div data-droplet-slot>` inside the element;
-see [Host children](/guides/in-the-browser/#host-children) for the browser
-side and the rules.
+The host page writes its content in one `<div data-droplet-slot>` inside the
+element; see [Host children](/guides/in-the-browser/#host-children) for the
+browser side and the rules.
 
 ## Styles
 
-A droplet's stylesheets come in two kinds:
-
-- **the shared stylesheet**, `css.path` in the plugin options (default
-  `./src/app.css`), the same for every droplet: Tailwind, fonts, base styles;
-- **its own**: `<style>` blocks, CSS a component imports, CSS modules. A
-  component several droplets share gets a stylesheet of its own, which they
-  all list.
-
-**Styles belong to the component**: `+droplet.<ext>`, `+error.<ext>`, the
-modules they import, or a `<style>` block. CSS reached from `+droplet.ts` or
-`+droplet.server.ts`, directly or through what they import, fails
-`vite build` and shows as an error in `vite dev`, with the import chain.
-CSS imported as a string (`?url`, `?raw`, `?inline`) is not a stylesheet and
-is fine anywhere.
-
-`/droplets/<id>/style.css` imports both, the shared one first, and is linked
-inside the element, never in the host's `<head>` (see
-[the fragment](/integrate/http-contract/#the-fragment)). The browser downloads
-each file once, whatever the number of droplets that list it. A droplet
-without any stylesheet (and no shared one) has no `style.css`: the URL
-answers `404` and the fragment links none. Under `vite dev` there is no
-`style.css` at all; Vite injects the styles (see
-[Known limitations](/guides/development/#known-limitations)).
-
-**Every stylesheet lands in pages you do not control.** To keep them from
-restyling the host, the framework confines them to the droplet element
-(`css.scoped`, on by default): a PostCSS plugin rewrites every selector so it
-only matches inside the element. That covers the shared stylesheet, CSS a
-component imports, CSS modules, and Svelte and Vue component styles.
-
-| You write | The host page gets |
-| --- | --- |
-| `.p-4 { … }` | `acme-widgets .p-4 { … }` |
-| `*, ::before, ::after { … }` | `acme-widgets *, acme-widgets ::before, … { … }` |
-| `:root { … }`, `html { … }`, `body { … }`, `:host { … }` | `acme-widgets { … }` |
-| `@keyframes`, `@font-face`, `@property` | unchanged (nothing to scope) |
-
-Svelte sees its `<style>` blocks before it compiles them, and drops a
-selector naming an element its template lacks; there the prefix is written
-`:global(acme-widgets)`, which Svelte leaves alone. A Svelte
-`:global(body) .x` becomes `acme-widgets .x` like any `body .x`.
-
-### Tailwind
-
-Turn it on with `css: { tailwind: true }` and install `tailwindcss` and
-`@tailwindcss/vite`. With scoping, `@import "tailwindcss"` is the right thing
-to write: its preflight reset becomes the droplets' own reset, its theme
-variables sit on the element and inherit into the droplet, and its utilities
-only apply inside. `:root` is a handy way to style the element itself:
-
-```css
-/* src/app.css */
-@import "tailwindcss";
-
-@layer base {
-  :root {
-    display: block;
-    font-family: ui-sans-serif, system-ui, sans-serif;
-  }
-}
-```
-
-When the host pages load Tailwind's preflight themselves, leave the
-droplets' out of the build with `twPreflight`; see
-[Preflight in dev only](/guides/configuration/#preflight-in-dev-only).
-
-Tailwind generates one stylesheet per droplets server, from the classes all
-its droplets use. Two droplets servers on one page each bring their own:
-their utilities are scoped to their own element, so they do not collide, but
-nothing is shared between them.
-
-### Notes
-
-Scoping does not rename `@keyframes` or `@font-face` names, which stay
-global.
-
-The plugin is added to Vite's `css.postcss` after your own PostCSS plugins:
-those of an inline `css.postcss` in `vite.config.ts`, else those of your
-`postcss.config.js` (or any file PostCSS reads), found as Vite finds it, with
-its options; a `css.postcss` string names the folder to search from. A config
-file that fails to load fails the build, naming the file. For a PostCSS
-pipeline of your own outside Vite, `scopeStylesPlugin` is exported from
-`@dropletsjs/droplets/postcss`:
-
-```js
-// postcss.config.js
-import { scopeStylesPlugin } from "@dropletsjs/droplets/postcss";
-export default { plugins: [scopeStylesPlugin({ element: "acme-widgets" })] };
-```
-
-With `css.scoped: false` nothing is rewritten; keep every stylesheet free of
-resets and element selectors then, since they apply to the whole host page.
-
-## Files: images, fonts, `public/`
-
-Every URL a droplet writes for its own files is on the droplet location, the
-place the host page loads `/index.js` from, path prefix included: never a
-root-relative `/assets/…`, which would point at the host's own server. That
-holds in the server's HTML, after hydration and when the droplet mounts in
-the browser, for a page on another origin and behind a proxy's prefix
-(`x-droplet-location: https://shop.example/mfe`).
-
-**Import the file** from the component, or from a module it imports:
-
-```svelte
-<script lang="ts">
-  import logo from "./logo.png";
-</script>
-
-<img src={logo} alt="" width="24" height="24" />
-```
-
-The server renders
-`<img src="https://drops.example/assets/logo-B2x9kQ1p.png">`, and
-`https://shop.example/mfe/assets/logo-B2x9kQ1p.png` for a request whose
-location is `https://shop.example/mfe`. In the browser the bundle works the
-URL out from its own address (`new URL("../../assets/logo-B2x9kQ1p.png",
-import.meta.url)`), so it stays on whatever location served it. Files under
-4 KB become `data:` URLs (Vite's `build.assetsInlineLimit`).
-
-`new URL("./logo.png", import.meta.url).href` in a component gives the same
-URL, on the server and in the browser. In a server file (`*.server.*`,
-`server/`) it stays the file on the server's disk, to read.
-
-**In CSS**, `url(./bg.png)` is the file next to the stylesheet and
-`url(/img/a.png)` is `public/img/a.png`; the build writes both relative to
-the stylesheet (`url(./bg-Cq3x.png)`, `url(./public/img/a.png)`), and the
-stylesheet is on the droplet location.
-
-**`public/`** is copied to `dist/client/assets/public/` and served at
-`/assets/public/<file>` by every adapter and by `vite dev`, with
-`cache-control: no-cache` (the default of
-[`publicCacheControl`](/guides/configuration/#options)) and an `ETag`: browsers
-ask again each time and get a `304` while the file is the same, since its name
-does not change between builds. Nothing of `public/` is served at the root (`/robots.txt` is a 404).
-Name a public file with `droplet.url()`:
-
-```ts
-import droplet from "$droplets/drop";
-
-const terms = droplet.url("assets/public/terms.pdf");
-```
-
-Files are public. `handle` never runs for `/index.js`, `/env.js` or `/assets/*` (see
-[`handle`](/guides/server/#handle)); keep a file only some users may see
-behind an endpoint or a signed URL.
+Every droplet gets the shared stylesheet (`src/app.css` by default) and its
+own: `<style>` blocks, imported CSS, CSS modules. Both are linked inside the
+droplet's element as `/droplets/<id>/style.css`, and every selector is
+scoped to the element, so a droplet's CSS never restyles the host page.
+Styles belong to the component: CSS reached from `+droplet.ts` or
+`+droplet.server.ts` fails the build. [Styling](/guides/styling/) has the
+details: scoping, theming from the host page, Tailwind, each renderer, and
+images, fonts and `public/`.
 
 ## Script droplets
 
@@ -661,37 +487,6 @@ exports warns and is ignored. No renderer is needed: it is built in.
 [Plain script](/renderers/script/) has the details, a live one and an
 example.
 
-## Calling your API
-
-A droplet runs inside someone else's page, so a relative `fetch("/api/…")`
-reaches the host, not your droplets server. `$droplets/drop` knows the
-droplets server's public origin, in the browser and during server rendering:
-
-```ts
-// src/lib/api.ts: neutral, any droplet in any framework can import it
-import droplet from "$droplets/drop";
-
-export async function bumpCounter(by = 1): Promise<number> {
-  const response = await fetch(droplet.url("/api/counter"), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ by }),
-  });
-  return (await response.json()).count;
-}
-```
-
-`droplet.url()` joins the path to `droplet.origin`, the droplets server's
-location with its path prefix: in the browser the URL `/index.js` was
-loaded from, on the server the request's location. Cross-origin calls need
-`cors` on the droplets server, as the bundles do. Send JSON with its
-content type: a cross-site `POST` with a string body and no content type
-goes out as `text/plain`, which the
-[`Origin` check](/guides/security/#csrf-the-origin-check) answers `403`
-unless the page's origin is trusted. A host that proxies the droplets
-server under its own origin proxies `/api/*` too. See
-[`$droplets/drop`](/reference/api/#dropletsdrop).
-
 ## Where code runs
 
 Every file sits on one side of a line the build enforces. Server code stays
@@ -700,6 +495,18 @@ returned, never the code that produced it:
 
 <RunsWhere />
 
+- **Server files** are names with `.server.` in them, any extension
+  (`+droplet.server.ts`, `hooks.server.ts`, `db.server.tsx`…), `+server.*`
+  routes, and files under a folder named `server/`, in any case.
+- **Only server files may import** `$droplets/server` and
+  `$droplets/env/private`.
+- **No server file reaches a browser bundle.** One that client code
+  reaches, through any import chain, fails `vite build` and the `vite dev`
+  import, naming the chain.
+
+[Server-only code](/guides/security/#server-only-code) has the full rules,
+[Environment variables](/guides/server/#environment-variables) the secrets.
+
 `$droplets/env` exports three booleans, usable anywhere:
 
 | Export | `true` when |
@@ -707,14 +514,3 @@ returned, never the code that produced it:
 | `browser` | running in the browser |
 | `dev` | running under `vite dev` |
 | `building` | `vite build` is prerendering |
-
-Server-only modules (`$droplets/server`, `$droplets/env/private`) can only be
-imported by server files: names with `.server.` in them, any extension
-(`+droplet.server.ts`, `hooks.server.ts`, `db.server.tsx`…), `+server.*`
-routes, or files under a folder named `server/`, in any case (`Server/`,
-`db.SERVER.ts`). Any other file that imports them fails `vite build` and
-the `vite dev` import, and server files themselves never reach a browser
-bundle: one that client code reaches fails the same way, naming the import
-chain. See
-[Environment variables](/guides/server/#environment-variables) and
-[Server-only code](/guides/security/#server-only-code).

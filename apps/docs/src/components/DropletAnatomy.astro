@@ -214,6 +214,8 @@ const pieces = (text: string) => text.split("`").map((s, i) => ({ s, code: i % 2
                 </svg>
               )}
               <span class="ax-fname">{f.name}</span>
+              {/* Not rendered in the flex box; keeps the name and the roles apart in llms-*.txt. */}
+              {" "}
               {f.roles.length > 0 && (
                 <span class="ax-roles">
                   {f.roles.map((r, i) => (
@@ -272,7 +274,7 @@ const pieces = (text: string) => text.split("`").map((s, i) => ({ s, code: i % 2
     </details>
   </noscript>
 
-  <figcaption>Hover, focus or tap a part of the fragment, or a file.</figcaption>
+  <figcaption class="ax-hint">Hover, focus or tap a part of the fragment, or a file.</figcaption>
 </figure>
 
 <script>

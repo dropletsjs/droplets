@@ -1,6 +1,6 @@
 ---
 title: Actions
-description: "Form posts to a droplet: actions, where a form posts, Post/Redirect/Get without JavaScript, and enhanced forms."
+description: "Form posts to a droplet: actions and what they return, where a form posts, Post/Redirect/Get without JavaScript, enhanced forms, and the limits of a form's result."
 ---
 
 import FormFlow from "../../../components/FormFlow.astro";
@@ -50,56 +50,50 @@ export const actions = {
 <form method="post" action={leave}><button>Leave</button></form>
 ```
 
-The action's event is a load's, with full `cookies` (an action may set them),
-and its `request` with the body unread: the action reads it, as
-`formData()` or otherwise. `props` come from the query string (or
-`x-droplet-props`) through the schema, never from the form; nothing of the
-body is merged into anything. What it returns:
+The action's event is a load's, with full `cookies` (an action may set
+them) and its `request` with the body unread: the action reads it, as
+`formData()` or otherwise, and checks each field. `props` come from the
+action URL's query (or `x-droplet-props`) through the schema, never from
+the form; nothing of the body is merged into anything.
 
-- **a plain JSON object, or nothing**: success, status `200`;
+## What an action returns
+
+- **A plain JSON object, or nothing**: success, status `200`.
 - **`fail(status, data?)`**: a failure with a `400`–`599` status (any other
-  throws), and data for the form to show;
-- **`redirect()`**, thrown or returned: a `303` to where it points, resolved
-  against `host` and only on this server, a trusted origin or `host` of the
-  config, the bound every redirect a droplet answers passes
-  ([Security](/guides/security/#redirects)); anywhere else is `400`;
+  throws), and data for the form to show.
+- **`redirect()`**, thrown or returned: a `303` to where it points. The
+  target must be on this server, its droplet location, a
+  [trusted origin](/guides/configuration/#trusted-origins) or the
+  configured `host`; anywhere else answers `400`
+  ([Redirects](/guides/security/#redirects)).
 - **`error()`**: answered as a load's `error()`.
 
 Then the droplet renders again: its load runs, and the component gets the
-result as `form`, `undefined` on any other render (`{{form.…}}` in
-Handlebars). That render is always live, also for a prerendered droplet.
-How it gets there depends on the request, not the URL: one whose `accept`
-prefers JSON over HTML (`application/json`, as an
-[enhanced form](#enhancing-a-form) sends; a browser's `text/html, …` does
-not) gets the result, `{ type, status, data? }` or
-`{ type: "redirect", status, location }`, and the page renders it in place;
-a form posted without JavaScript is sent back to its page with the result
-([Post/Redirect/Get](#without-javascript-postredirectget)). The
-returned data must be plain JSON (object literals, arrays, strings, finite
-numbers, booleans, `null`): a `Date`, a class instance or a function answers
-`500`.
+result as `form` (`{{form.…}}` in Handlebars), `undefined` on any other
+render. That render is always live, also for a prerendered droplet.
 
-`setHeaders` is shared with the load that follows: a header both set
-throws, as two loads would. The [HTTP contract](/integrate/http-contract/#form-actions)
-has the statuses. In `./$types`, `Actions` types the object,
-`DropletActions` maps each exported action to what `form` gets after it
-(its result or its `fail()` data), and `ActionData` is what `form` can be:
-any of them, or `undefined`.
+- The returned data must be plain JSON (object literals, arrays, strings,
+  finite numbers, booleans, `null`): a `Date`, a class instance or a
+  function answers `500`.
+- `setHeaders` is shared with the load that follows: a header both set
+  throws, as two loads would.
+- In `./$types`, `Actions` types the object, `DropletActions` maps each
+  action to what `form` gets after it (its result or its `fail()` data),
+  and `ActionData` is what `form` can be: any of them, or `undefined`.
+
+How the result reaches the page depends on the request, not the URL. An
+[enhanced form](#enhancing-a-form) asks for JSON and renders the result in
+place; a form posted without JavaScript is sent back to its page with the
+result ([Post/Redirect/Get](#without-javascript-postredirectget)). The
+[HTTP contract](/integrate/http-contract/#form-actions) has every status.
 
 ## Where a form posts
 
 A droplet renders inside someone else's page, so `<form method="post">`
 without an `action` would post to the host page. `actionUrl(name?)` from
 `$droplets/form` gives the URL of the droplet's action `name` (`default`
-without one) on the droplets server: `${location}/droplets/<id>?/<name>`,
-with the props that are strings, numbers or booleans in the query, so the
-action and the render after it get them (other props do not travel in the
-URL), and last the page the form is on, its origin and path, as
-`__droplet_return`: where a form posted without JavaScript is
-[sent back to](#without-javascript-postredirectget). The server, the
-browser and a prerender give the same string, so hydration finds the same
-markup. In Handlebars it is `action="{{action "add"}}"`,
-`action="{{action}}"` for `default`.
+without one) on the droplets server. In Handlebars it is
+`action="{{action "add"}}"`, `action="{{action}}"` for `default`.
 
 ```ts
 import { actionUrl } from "$droplets/form";
@@ -110,152 +104,87 @@ actionUrl<DropletActions>("add");
 actionUrl("add", { droplet: "cart", props: { productId: "p1" } }); // the same, from anywhere
 ```
 
-With `DropletActions` it takes only the names `actions` exports (and no
-name only when there is a `default`). It knows the droplet that renders
-now, and throws outside a render unless given `{ droplet }` (and
-`{ props }`). In the browser it knows the render only while the component
-renders synchronously, so call it as the component sets up: in a Svelte or
-Vue script, a Solid body, `useState(() => actionUrl("add"))` in React,
-Preact and Hono JSX (a React re-render, or a mount after an `await`, is no longer
-inside the render), or pass `{ droplet, props }`.
+- **It is on the droplet location**, as for
+  [`$droplets/drop`](/guides/server/#calling-a-route-from-a-droplet): the
+  configured [`location`](/guides/configuration/#a-fixed-location), else a
+  trusted location header, else the request's own origin; in the browser,
+  the URL the page loaded `/index.js` from. An untrusted location never
+  reaches an action URL.
+- **It carries the props** that are strings, numbers or booleans, so the
+  action and the render after it get them. Other props do not travel in
+  the URL.
+- **It ends with the page the form is on**, its origin and path, as
+  `__droplet_return`: where a form posted without JavaScript is
+  [sent back to](#without-javascript-postredirectget). That is `event.host`
+  on the server and `window.location` in the browser, without query or
+  hash.
+- **It is the same string everywhere**: on the server, in the browser and
+  in a prerender, so hydration finds the same markup. A prerendered render
+  fills in the location and the page per request.
+- **With `DropletActions`** it takes only the names `actions` exports (and
+  no name only when there is a `default`).
 
-The location is where the droplets server is reached, as for
-[`$droplets/drop`](/guides/writing-droplets/#calling-your-api). On the
-server it is [`location`](/guides/configuration/#a-fixed-location) when the
-config sets it; else a
-[trusted `x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location)
-or forwarded header, else the request's own origin (an untrusted location
-never reaches an action URL). In the browser it is the URL the page loaded
-`/index.js` from. A prerendered droplet without `location` in the config
-holds a token there (`http://droplets.invalid/__$DROPLET_LOCATION_<nonce>$__`),
-replaced per request with the location it is served from, before
-`transform`.
-
-The page is `event.host` on the server (its `origin` and `pathname`; at
-prerender the host tokens, filled per request like the location) and
-`window.location` in the browser: the same page whenever `host` is the
-page's URL, as it is for a fragment the element fetches and for a host that
-passes `"host"` (see [`host`](/guides/writing-droplets/#host)). Its query and hash never go in, and
-`__droplet_return` is a reserved key: a prop of that name never travels and
-never replaces it, and the key is never in `host` or the props.
+`actionUrl()` knows the droplet that renders now, and throws outside a
+render unless given `{ droplet }` (and `{ props }`). In the browser it
+knows the render only while the component renders synchronously, so call it
+as the component sets up: in a Svelte or Vue script, a Solid body,
+`useState(() => actionUrl("add"))` in React, Preact and Hono JSX (a React
+re-render, or a mount after an `await`, is no longer inside the render), or
+pass `{ droplet, props }`.
 
 Without anything else, a form posts as any form does: the browser
 navigates to the action on the droplets server. That works before the
 page's JavaScript runs, or without it, and the answer takes the browser
 back to the host page.
 
-### Without JavaScript: Post/Redirect/Get
+## Without JavaScript: Post/Redirect/Get
 
-A native post (one whose `accept` does not prefer JSON) is answered with a `303`,
-never with the droplet's fragment as a page of its own:
+With [`DROPLETS_SECRET`](#setup-droplets_secret) set, a form posted
+natively (its `accept` does not prefer JSON, as a browser's `text/html, …`
+does not) is answered with a `303`, never with the droplet's fragment as a
+page of its own:
 
 - **success or `fail()`**: back to the page the form was on, with the
   result signed in the query:
   `https://shop.example/product/mug?ref=1&__droplet_form_cart_36a187=eyJzd…Q.hT0…`.
-  The page loads again, the host renders the droplet as always, and the
-  droplet renders with `form`;
+  The page loads again, the host page renders the droplet as always, and
+  the droplet renders with `form`;
 - **`redirect()`**: to where it points.
 
-The round trip, for a host that fetches fragments on its server, with
-`DROPLETS_SECRET` set (below):
+A reload then never posts again. The round trip, for a host page whose
+server fetches fragments, with `DROPLETS_SECRET` set:
 
 <FormFlow />
 
-Which page: the action URL names it in `__droplet_return` (origin and
-path). When the `Referer` is that same page, the `Referer` is used, so the
-page's own query (`?ref=1`) comes back too; otherwise `__droplet_return`;
-without one, a `Referer` that passes on its own. Browsers send a page on
-another origin only as its origin in `Referer` (the default
-`strict-origin-when-cross-origin`): `__droplet_return` is what lands the
-user back on `/product/mug` rather than the host's `/`. The page's query
-loses any `?/name` key (the `GET` that follows never lands on an action
-URL), `__droplet_return`, older `__droplet_form_*` keys and its hash.
+The page to go back to comes from `__droplet_return` in the action URL,
+with the page's own query (`?ref=1`) when the browser's `Referer` is that
+same page. It must be on this server (its droplet location included), a
+trusted origin or the configured `host`, and never one of the droplets
+routes; else the post answers `400` and its action does not run. The
+[HTTP contract](/integrate/http-contract/#postredirectget) has how the page
+is picked and what the signed value holds.
 
-Every target must be on the droplets server's own origin (its location's
-included), an origin in [`trustedOrigins`](/guides/configuration/)
-(or `DROPLETS_TRUSTED_ORIGINS`), or [`host`](/guides/configuration/#a-fixed-host)
-of the config, compared by exact origin, `http:` or `https:` only. `"*"` never counts here: it trusts every origin to post,
-never as a place to send the browser (an open redirect). A page to go back
-to is never one of the droplets server's own, under
-`<location>/droplets/` (a fragment or an action URL). A post with no page
-that passes answers `400` and its action does not run; a `redirect()`
-elsewhere answers `400` too (with an error in the log), to an enhanced
-form's JSON request as well.
-
-A host page with `Referrer-Policy: no-referrer` cannot post to the droplets
-server at all: under that policy the browser sends `Origin: null` with a
-form post, which the [`Origin` check](/integrate/http-contract/#form-posts-the-origin-check)
-answers `403`. Give the page `<meta name="referrer"
-content="strict-origin-when-cross-origin">` (or that `Referrer-Policy`
-header), the browsers' default: the origin alone goes to another origin,
-and `__droplet_return` does the rest. Proxying the droplets routes under
-the host's own origin keeps the full `Referer` under the default policy,
-but not under `no-referrer`, which sends `Origin: null` to its own origin
-too.
-
-The result travels as `__droplet_form_<droplet>_<build>`, one key per
-droplet and build, so forms of several droplets on one page each get their
-own; a new result replaces any `__droplet_form_*` the page's URL had. Its
-value is base64url JSON `{ status, data, exp, action }`, a `.`, and an
-HMAC-SHA256 of the droplet, the build, the page it goes back to (origin and
-path) and that JSON, keyed with `DROPLETS_SECRET`: a result minted for one
-page shows on that page only, never on another page of a trusted origin. A
-droplet rendering (a fragment, or `_data` for one the browser renders)
-reads its own key from `host`, verifies the MAC against `host`'s origin and
-path before it parses anything, checks that it has not expired (five
-minutes) and that the droplet still exports the action, and renders with
-its `data` as `form`,
-live, never from a [prerendered](/guides/prerendering/) render, with
-`cache-control: private, no-store`. Anything else (another droplet's or
-build's key, a changed byte, an expired value) is ignored: the droplet
-renders as if there were none. `host`, as `handle`, loads and actions see
-it, never has these keys; the browser's universal load does not either.
-
-For the droplet to see the result, `host` must be the page's URL with its
-query: the browser sends it with `_data`, and a host fetching fragments on
-its server passes it in a render request's body (`{ "host": … }`) or as
-`Referer`, read by a `handle` with [`hostFrom`](/guides/writing-droplets/#host).
+For the droplet to see the result, its `host` must be the page's URL with
+its query. The browser sends it with `_data` on its own; a host page's
+server passes it as `"host"` in a render request's body, or as `Referer`
+for a `handle` that reads it with
+[`hostFrom`](/guides/server/#taking-the-page-from-referer).
 
 A form in a droplet [prerendered](/guides/prerendering/#host-at-build) for
-`host` of the config returns to the page the render was made for, not the
+the configured `host` returns to the page the render was made for, not the
 visitor's: the path is filled in per request, the query is not (see
 [A fixed host](/guides/configuration/#a-fixed-host)).
 
-What to know:
+### Setup: `DROPLETS_SECRET`
 
-- **`DROPLETS_SECRET`** (32 or more random bytes, read at runtime, e.g.
-  `openssl rand -base64 32`) is required. Without it, or shorter, a native
-  post gets the droplet's fragment rendered with `form` as its answer, and
-  `vite dev` says so once. Every instance serving the same build needs the
-  same value.
-- **2 KB at most.** A value over 2 KB keeps `status` and `action` and drops
-  `data`, with a warning under `vite dev`: `form` is then `undefined`. Return
-  field names and short messages, not documents.
-- **Readable by anyone who holds the URL.** The secret signs the result; it
-  does not hide it. The JSON is base64url, readable without the secret, and
-  it rides in the URL: in history, logs and `Referer`s. Return field names
-  and message codes, never the submitted values, secrets or anything used
-  for authorization:
-
-  ```ts
-  // Bad: the address, the reason and a session id, readable by anyone with the URL.
-  return fail(422, { email, error: `No account for ${email}`, session: locals.sessionId });
-  // Good: which field, and a code the component turns into a message.
-  return fail(422, { field: "email", code: "unknown_account" });
-  ```
-
-- **Display only.** Anyone who posts the form can make a URL that shows its
-  result to someone else for five minutes. Never use `form` to decide what
-  someone may do.
-- **It shows again on reload.** For five minutes a no-JavaScript user who
-  reloads the page (or goes back to it) sees the result again: it is in the
-  URL. Do not hang one-shot effects on `form` (a toast that counts, an
-  analytics event, "clear the cart now"): what must happen once happens in
-  the action.
-- Repeated instances of one droplet on a page all show the result.
-
-[Security model](/guides/security/#form-actions-without-javascript) has the
-token's properties in one list.
+The result is signed with `DROPLETS_SECRET`: 32 or more random bytes
+(`openssl rand -base64 32`), read at runtime, the same on every instance
+serving a build, kept as a secret. Rotating it voids the results of the
+last five minutes and nothing else. Without it, or shorter, a native post
+gets the droplet's fragment rendered with `form` as its answer, a page of
+its own, and `vite dev` says so once.
+[Deployment](/guides/deployment/#droplets_secret) shows how to set it on
+each platform.
 
 ## Enhancing a form
 
@@ -273,7 +202,7 @@ and this page's Content-Security-Policy allows that origin in
 `connect-src` and `form-action`. Without JavaScript the vote still posts
 and comes back ([Post/Redirect/Get](#without-javascript-postredirectget)),
 but this page is static, built once: it cannot render the result its URL
-carries, as a host that renders on each request would.
+carries, as a host page rendered on each request would.
 
 Opt in per form, and its submit goes by `fetch` and the result shows in
 place. Each renderer's `/form` subpath wraps the same
@@ -343,14 +272,18 @@ export default function Cart() {
 <form method="post" action="{{action "add"}}" data-droplet-enhance>…</form>
 ```
 
-An enhanced form intercepts only a `POST` to its own droplet's action:
-exactly `<location>/droplets/<id>` by origin and path, the hosting
-element's. A submit elsewhere (another droplet, the host page, another
-origin, a `javascript:` `formaction`), a `GET`, a `text/plain` form or one
-with a `target` other than `_self` is the browser's. With `action`, only
-that action is intercepted. The submit sends `new FormData(form, submitter)` (the
-submitter's `formaction` and `formenctype` count) with
-`accept: application/json`, and then:
+What an enhanced form takes over:
+
+- **Only a `POST` to its own droplet's action**: exactly
+  `<location>/droplets/<id>` by origin and path, the hosting element's. With
+  `action`, only that action.
+- **Everything else stays the browser's**: a submit elsewhere (another
+  droplet, the host page, another origin, a `javascript:` `formaction`), a
+  `GET`, a `text/plain` form, or one with a `target` other than `_self`.
+- **What it sends**: `new FormData(form, submitter)` (the submitter's
+  `formaction` and `formenctype` count) with `accept: application/json`.
+
+Then:
 
 - **success or failure**: the droplet renders again with `form` and fresh
   data, its loads run as a `_data` refresh. A `hydrate = false` droplet
@@ -381,7 +314,7 @@ addEventListener("droplets:action", (event) => {
 
 `data` is a copy of what the action returned or `fail()`ed with, as plain
 JSON; `undefined` for a redirect. A second submit while one is in flight is
-ignored. A form among the host's
+ignored. A form among the host page's
 [children](/guides/in-the-browser/#host-children), or in a nested droplet,
 belongs to them, not to the droplet around it. The options:
 
@@ -403,3 +336,46 @@ keeps for itself starts over; `onResult` can apply the result without it.
 `enhanceDropletForm(form, options)` itself returns the function that
 removes it, for a form outside these wrappers.
 
+## Limits you will hit
+
+A form posted without JavaScript carries its result in the page's URL.
+That shapes what an action should return:
+
+- **2 KB at most.** A result over 2 KB keeps `status` and `action` and
+  drops `data`, with a warning under `vite dev`: `form` is then
+  `undefined`. Return field names and short messages, not documents.
+- **Readable by anyone who holds the URL.** The secret signs the result; it
+  does not hide it. The JSON is base64url, readable without the secret, and
+  it rides in the URL: in history, logs and `Referer`s. Return field names
+  and message codes, never the submitted values, secrets or anything used
+  for authorization:
+
+  ```ts
+  // Bad: the address, the reason and a session id, readable by anyone with the URL.
+  return fail(422, { email, error: `No account for ${email}`, session: locals.sessionId });
+  // Good: which field, and a code the component turns into a message.
+  return fail(422, { field: "email", code: "unknown_account" });
+  ```
+
+- **Display only.** Anyone who posts the form can make a URL that shows its
+  result to someone else for five minutes, and a result minted for one page
+  shows on that page only. Never use `form` to decide what someone may do.
+- **It shows again on reload.** For five minutes a no-JavaScript user who
+  reloads the page (or goes back to it) sees the result again: it is in the
+  URL. Do not hang one-shot effects on `form` (a toast that counts, an
+  analytics event, "clear the cart now"): what must happen once happens in
+  the action.
+- **Every instance shows it.** Repeated instances of one droplet on a page
+  all render with the result.
+- **No posts from a `no-referrer` page.** Under
+  `Referrer-Policy: no-referrer` the browser sends `Origin: null` with a
+  form post, which the
+  [`Origin` check](/integrate/http-contract/#form-posts-the-origin-check)
+  answers `403`, even with the droplets routes proxied under the host
+  page's own origin. Give the page
+  `<meta name="referrer" content="strict-origin-when-cross-origin">` (or
+  that header), the browsers' default: `__droplet_return` then carries the
+  path.
+
+[Form actions without JavaScript](/guides/security/#form-actions-without-javascript)
+in the Security model lists the signed value's properties.

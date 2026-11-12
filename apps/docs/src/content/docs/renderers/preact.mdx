@@ -17,7 +17,7 @@ hydrates it.
 
 ## Add it to a project
 
-<AddRenderer framework="preact" />
+<AddRenderer framework="preact" brief />
 
 ## The files
 
@@ -30,24 +30,12 @@ hydrates it.
 The flags are literal `export const` declarations of the component file. A
 flag exported from `+droplet.ts` or `+droplet.server.ts` is ignored.
 
-### Which `.tsx` files are Preact's
-
-Preact has no extension of its own: it shares `.tsx` and `.jsx` with React,
-Solid and Hono JSX. With Preact the only one of them in `renderers`, every
-`.tsx` droplet is Preact's. With two or more, each droplet file says which
-it is, by what it names:
-
-- **an import** of `preact`, `preact-render-to-string` or
-  `@dropletsjs/renderer-preact`, a subpath included (`preact/hooks`);
-- **or a comment**, `/** @jsxImportSource preact */`. `djs add` writes it at
-  the top of every Preact component, and it is also what types the file's
-  JSX for Preact when `tsconfig.json` names another `jsxImportSource`, as
-  apps/demo's (`react`) does. The demo's counter has both.
-
-A droplet file that names no framework, or names two, fails the build. An
-`+error.tsx` that names none is the droplet's framework. A name such as
-`+droplet.preact.tsx` would not help: it still ends in `.tsx`, which the
-other three claim as well.
+**Which `.tsx` files are Preact's.** When Preact is the only `.tsx`
+framework in `renderers`, all of them. Next to React, Solid or Hono JSX, a droplet file is
+Preact's when it imports `preact`, `preact-render-to-string` or `@dropletsjs/renderer-preact`, a subpath included (`preact/hooks`), or carries a `/** @jsxImportSource preact */`
+comment (`djs add` writes one at the top of every Preact component), and
+names no other `.tsx` framework. A name such as `+droplet.preact.tsx` would not help: it still ends in `.tsx`. See
+[Which renderer a `.tsx` file belongs to](/renderers/#which-renderer-a-tsx-file-belongs-to).
 
 ```tsx
 // src/droplets/hello/+droplet.tsx

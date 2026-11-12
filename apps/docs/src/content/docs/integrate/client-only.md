@@ -101,7 +101,7 @@ target.replaceChildren(element);
 | `data-droplet` | The droplet id. An id the build does not have leaves the element inert. |
 | `data-droplet-props` | The props as plain JSON: `data-droplet-props='{"who":"Ana"}'`. |
 | `data-droplet-context` | Base64 of the UTF-8 JSON `{ "host": …, "props": { … } }`; `host` is optional. Used before `data-droplet-props` when both are set; one that does not parse is logged and `data-droplet-props` is read instead. |
-| `data-droplet-hydrate` | Optional: `"visible"` waits until the element is about to scroll into view; `"false"` keeps a framework droplet from running. |
+| `data-droplet-hydrate` | Optional, over the droplet's own `hydrate` flag: `"true"` (or empty) at once, `"visible"` when the element is about to scroll into view, `"interactive"` on the first interaction (at once for an element the page writes, which has no server markup to interact with), `"false"` never, except for a script droplet. It cannot wake a droplet whose flag is `hydrate = false`, which ships no bundle. |
 
 The attributes are read once, when the element connects; changing them later
 does nothing. To show other props, replace the element.

@@ -21,9 +21,10 @@ a folder of them and answers, for each one:
 | Word | Meaning |
 | --- | --- |
 | **fragment** | The HTML a droplets server answers for `GET /droplets/<id>`: the droplet element with its data and server-rendered markup, ready to paste into a page. |
-| **host** | The page that embeds a droplet, and the server or app that renders that page (nginx, Express, WordPress, a single-page app). In a load, `host` is that page's URL. |
-| **`x-droplet-location`** | The request header a host sends with a fragment fetch: the droplets server's public location, as the browser sees it. See [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location). |
-| **location** | Where the browser reaches the droplets server: the origin, and path prefix, that `/index.js` was loaded from. On the server it is computed per request (a trusted `x-droplet-location`, else the request's own origin), or fixed at build with [`location`](/guides/configuration/#a-fixed-location). |
+| **host** | The server or app that embeds a droplet in its pages (nginx, Express, WordPress, a single-page app). The page itself is the **host page**. |
+| **`host`** | In a load, the host page's URL (a `URL`). In `droplets.config.ts`, the host page's origin, fixed at build ([A fixed host](/guides/configuration/#a-fixed-host)). The HTTP `Host` header is another thing. |
+| **droplet location** | Where the browser reaches the droplets server: the origin, and path prefix, that `/index.js` was loaded from. On the server it is computed per request (a trusted `x-droplet-location`, else the request's own origin), or fixed at build with [`location`](/guides/configuration/#a-fixed-location). |
+| **`x-droplet-location`** | The request header a host sends with a fragment fetch: the droplet location, as the browser sees it. See [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-droplet-location). |
 | **context** | What a droplet renders with: `{ host, props }`, carried in the fragment of a droplet that hydrates (`data-droplet-payload="context"`) so the browser can ask for the same data again. |
 | **renderer** | The package that renders one framework's components: `@dropletsjs/renderer-svelte`, `-vue`, `-react` and the others. See [Renderers](/renderers/). |
 | **element** | The custom element every droplet renders in, `<djs-droplet>` by default, named per server with the `element` option. `/index.js` defines it. |
@@ -32,9 +33,9 @@ A droplet is one folder:
 
 <DropletAnatomy />
 
-Here is `hello` itself, a Svelte droplet: its server load greets `who`,
-the docs fetched the fragment when this page was built, and the demo's
-`/index.js` hydrated it in your browser.
+The demo's `hello` is a Svelte droplet whose server load greets `who`.
+
+<p class="screen-only">Here it is: the docs fetched its fragment when this page was built, and the demo's `/index.js` hydrated it in your browser.</p>
 
 <LiveDroplet id="hello" props={{ who: "docs reader" }} caption="This is a live droplet served by apps/demo: rendered on its server, hydrated here." />
 
