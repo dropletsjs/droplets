@@ -29,7 +29,7 @@ export default defineConfig({
 |---|---|
 | `@dropletsjs/shared/tsdown` | `base`, `bareImport`, `cssInline()`, `graphCheck()`, `isServerPath()`, `GraphCheckOptions` |
 | `@dropletsjs/shared/tsconfig.base.json` (also `./tsconfig`) | the compiler options every workspace project extends |
-| `@dropletsjs/shared/vitest` | `rendererTests`, `adapterTests`, `happyDom`, `FIXTURE_ROOT`, `buildFixtureApp()`, `waitForServer()` |
+| `@dropletsjs/shared/vitest` | `rendererTests`, `adapterTests`, `happyDom`, `FIXTURE_ROOT`, `buildFixtureApp()`, `waitForServer()`, `stopServer()` |
 | `@dropletsjs/shared/env` | `loadEnvLocal()` |
 | `@dropletsjs/shared/catalog` | `catalogRanges()`, `workspaceCatalog()`: the pnpm catalog's tool ranges |
 
@@ -98,6 +98,7 @@ build, so run `pnpm build` after it.
 - `FIXTURE_ROOT` is `packages/droplets/test/fixtures/app/`, the fake-renderer fixture app every adapter's tests build. `vitest.ts:26`
 - `buildFixtureApp({ outDir, plugins })` empties `outDir`, then builds the fixture app with Vite's `createBuilder` and `plugins`, silently; it throws when `packages/droplets/dist/vite.js` is missing. `vitest.ts:31`
 - `waitForServer({ url, child, name })` polls `url` every 100 ms, up to 100 times, until it answers ok; it throws as soon as `child` exits, naming `name` and the exit code. `vitest.ts:44`
+- `stopServer({ child, timeout })` sends `child` SIGTERM and resolves once it has exited, sending SIGKILL after `timeout` ms (default 5000); it resolves at once for a missing or exited child. `vitest.ts:59`
 - `loadEnvLocal()` loads the repository root's `.env.local` with `process.loadEnvFile`, only when the file exists. `env.ts:4`
 - `loadEnvLocal()` finds `.env.local` two folders above `env.ts`, the repository root. `env.ts:5`
 - `tsconfig.base.json` targets ES2023 with `lib` ES2023, DOM and DOM.Iterable, `module` ESNext and `moduleResolution` bundler. `tsconfig.base.json:4`

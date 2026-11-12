@@ -26,6 +26,7 @@ import { cpSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { fileURLToPath } from "node:url";
 import { chromium, type Browser, type Page } from "@playwright/test";
+import { stopServer } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const here = (path: string) => fileURLToPath(new URL(path, import.meta.url));
@@ -171,7 +172,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await browser?.close();
   host?.close();
-  server?.kill();
+  await stopServer({ child: server });
   rmSync(project, { recursive: true, force: true });
 });
 

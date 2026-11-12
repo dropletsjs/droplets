@@ -10,6 +10,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { stopServer } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const here = (path: string) => fileURLToPath(new URL(path, import.meta.url));
@@ -62,7 +63,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  server?.kill();
+  // Vite writes into the project until it exits.
+  await stopServer({ child: server });
   rmSync(project, { recursive: true, force: true });
 });
 

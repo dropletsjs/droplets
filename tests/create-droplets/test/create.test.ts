@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { stopServer } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const exec = promisify(execFile);
@@ -95,9 +96,7 @@ describe("git", () => {
 describe.each(CASES.map((c, i) => [c.name, c, 8300 + i] as const))("%s", (name, { frameworks, args }, port) => {
   const project = join(tmp, name);
   let server: ChildProcess | undefined;
-  afterAll(() => {
-    server?.kill();
-  });
+  afterAll(() => stopServer({ child: server }));
 
   it("writes the project", async () => {
     await create([name, ...args, "--yes", "--no-install", "--no-git"]);

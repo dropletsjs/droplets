@@ -8,6 +8,7 @@ import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { cpSync, readFileSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { stopServer } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const exec = promisify(execFile);
@@ -62,9 +63,7 @@ beforeAll(async () => {
   await djs(["add", "script-loaded", "--framework", "script", "--with", "server,universal,css", "--yes"]);
 });
 
-afterAll(() => {
-  server?.kill();
-});
+afterAll(() => stopServer({ child: server }));
 
 describe("djs add", () => {
   it("registers every framework it brings in, once, and turns JSX on", () => {

@@ -52,3 +52,15 @@ export async function waitForServer({ url, child, name }: WaitForServerInput): P
   }
   throw new Error(`${url} never answered`);
 }
+
+export type StopServerInput = { child: ChildProcess | undefined; timeout?: number };
+
+/** Sends `child` SIGTERM and resolves once it has exited, sending SIGKILL after `timeout` ms (default 5 s); a child that never started or already exited resolves at once. */
+export async function stopServer({ child, timeout = 5_000 }: StopServerInput): Promise<void> {
+  if (!child || child.exitCode !== null || child.signalCode !== null) return;
+  const exited = new Promise<void>((done) => child.once("exit", () => done()));
+  child.kill();
+  const timer = setTimeout(() => child.kill("SIGKILL"), timeout);
+  await exited;
+  clearTimeout(timer);
+}
