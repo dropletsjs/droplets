@@ -25,6 +25,7 @@
 - `pnpm docs:build` builds and starts `../demo` first (after `pnpm build` at the root) and fails without it.
   Checked by: `scripts/with-demo.mjs`, `src/components/live-droplet.ts`.
 - The docs are built against the demo build that is live: the demo deploys first.
+  Checked by: `needs: deploy-demo` on `deploy-docs` in `.github/workflows/ci.yml`, `../../tests/packages/test/workflows.test.ts` ("ci.yml's Cloudflare deploys").
 - The dev server runs with the agent variables unset, since Astro backgrounds `astro dev` when it detects a coding agent: `env -u CLAUDECODE -u AI_AGENT -u CLAUDE_CODE_ENTRYPOINT pnpm docs:dev`.
 - A public API change comes with its matching change here.
 

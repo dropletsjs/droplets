@@ -1,7 +1,9 @@
 /**
  * Every workflow runs on GitHub-hosted runners, from `pull_request` and
- * `push` events only (AGENTS.md rule 22), and the release workflow's publish
- * job runs only from a public repository. The workflows are read line by
+ * `push` events only (AGENTS.md rule 22), the release workflow's publish
+ * job runs only from a public repository, and the Cloudflare deploys run
+ * only on a push to main, after every other CI job, in the `cloudflare`
+ * environment, the only jobs that name its secrets. The workflows are read line by
  * line, with no YAML parser: a form of `on` or `runs-on` the reader does not
  * know fails the suite, so a workflow never passes because it went unread.
  */
@@ -64,21 +66,67 @@ function runners(source: string): string[] {
     .map((line) => unquote(withoutComment(line.replace(/^\s*runs-on\s*:/, ""))));
 }
 
-type JobConditionInput = { source: string; job: string };
-
-/** The job-level `if` of `job` under `jobs:`, as written, or undefined when the job has none. */
-function jobCondition({ source, job }: JobConditionInput): string | undefined {
+/** The job ids under the top-level `jobs:`, in order. */
+function jobIds(source: string): string[] {
   const lines = source.split("\n");
-  const start = lines.findIndex((line) => line === `  ${job}:`);
-  if (start === -1) throw new Error(`no job \`${job}\``);
+  const start = lines.indexOf("jobs:");
+  if (start === -1) throw new Error("no top-level `jobs`");
+  const ids: string[] = [];
   for (const line of lines.slice(start + 1)) {
     if (!isContent(line)) continue;
-    if (indentOf(line) <= 2) return undefined;
-    const condition = /^ {4}if\s*:(.*)$/.exec(line)?.[1];
-    if (condition !== undefined) return withoutComment(condition);
+    if (indentOf(line) === 0) break;
+    if (indentOf(line) !== 2) continue;
+    const id = /^([A-Za-z_][\w-]*):$/.exec(withoutComment(line))?.[1];
+    if (id === undefined) throw new Error(`cannot read \`${line.trim()}\` under \`jobs\``);
+    ids.push(id);
+  }
+  return ids;
+}
+
+type JobInput = { source: string; job: string };
+
+/** The lines of `job` under `jobs:`, its header excluded. */
+function jobLines({ source, job }: JobInput): string[] {
+  const lines = source.split("\n");
+  const start = lines.findIndex((line) => indentOf(line) === 2 && withoutComment(line) === `${job}:`);
+  if (start === -1) throw new Error(`no job \`${job}\``);
+  const body: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    if (isContent(line) && indentOf(line) <= 2) break;
+    body.push(line);
+  }
+  return body;
+}
+
+type JobKeyInput = JobInput & { key: string };
+
+/** The inline value of the job-level `key` of `job`, as written, or undefined when the job has none. */
+function jobKey({ source, job, key }: JobKeyInput): string | undefined {
+  for (const line of jobLines({ source, job })) {
+    const value = new RegExp(`^ {4}${key}\\s*:(.*)$`).exec(line)?.[1];
+    if (value !== undefined) return withoutComment(value);
   }
   return undefined;
 }
+
+/** The job-level `if` of `job` under `jobs:`, as written, or undefined when the job has none. */
+function jobCondition({ source, job }: JobInput): string | undefined {
+  return jobKey({ source, job, key: "if" });
+}
+
+/** A job's `needs`, inline (`needs: a`, `needs: [a, b]`); a block list fails the suite. */
+function jobNeeds({ source, job }: JobInput): string[] {
+  const value = jobKey({ source, job, key: "needs" });
+  if (value === undefined) return [];
+  if (value === "") throw new Error(`cannot read the block \`needs\` of \`${job}\``);
+  return value
+    .replace(/^\[(.*)\]$/, "$1")
+    .split(",")
+    .map((name) => unquote(name.trim()));
+}
+
+const DEPLOY_JOBS = ["deploy-demo", "deploy-docs"];
+const DEPLOY_CONDITION = "github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'dropletsjs/droplets'";
 
 describe("the workflows", () => {
   it("finds the workflow files", () => {
@@ -101,6 +149,45 @@ describe("the workflows", () => {
     const condition = jobCondition({ source: readFileSync(join(workflowsDir, "release.yml"), "utf8"), job: "publish" });
     expect(condition).toMatch(/^github\.event\.repository\.private == false && /);
     expect(condition).not.toMatch(/\|\|/);
+  });
+
+  describe("ci.yml's Cloudflare deploys", () => {
+    const source = readFileSync(join(workflowsDir, "ci.yml"), "utf8");
+    const others = jobIds(source).filter((job) => !DEPLOY_JOBS.includes(job));
+
+    it("has both deploy jobs and the four it waits for", () => {
+      expect(jobIds(source)).toEqual(expect.arrayContaining(DEPLOY_JOBS));
+      expect(others.sort()).toEqual(["check", "docker", "e2e", "hosts"]);
+    });
+
+    it.each(DEPLOY_JOBS)("%s runs only on a push to main of dropletsjs/droplets", (job) => {
+      expect(jobCondition({ source, job })).toBe(DEPLOY_CONDITION);
+    });
+
+    it("deploys only a commit every other job passed, the demo before the docs", () => {
+      expect(jobNeeds({ source, job: "deploy-demo" }).sort()).toEqual([...others].sort());
+      expect(jobNeeds({ source, job: "deploy-docs" }).sort()).toEqual([...others, "deploy-demo"].sort());
+    });
+
+    it.each(DEPLOY_JOBS)("%s runs in the cloudflare environment, its credentials on steps only", (job) => {
+      expect(jobKey({ source, job, key: "environment" })).toBe("cloudflare");
+      expect(jobKey({ source, job, key: "env" })).toBeUndefined();
+      expect(jobLines({ source, job }).join("\n")).not.toMatch(/cache: (pnpm|npm)|actions\/cache/);
+    });
+
+    it.each(DEPLOY_JOBS)("%s leaves the Worker's DROPLETS_SECRET alone", (job) => {
+      const code = jobLines({ source, job }).filter(isContent).join("\n");
+      expect(code).not.toMatch(/DROPLETS_SECRET|secrets-file|secret put/);
+    });
+
+    it("names the Cloudflare secrets in the deploy jobs alone", () => {
+      for (const name of workflows) {
+        const text = readFileSync(join(workflowsDir, name), "utf8");
+        const jobs = jobIds(text).filter((job) => name !== "ci.yml" || !DEPLOY_JOBS.includes(job));
+        for (const job of jobs) expect(jobLines({ source: text, job }).join("\n"), `${name}: ${job}`).not.toMatch(/CLOUDFLARE_/);
+      }
+      for (const job of others) expect(jobLines({ source, job }).join("\n"), job).not.toMatch(/secrets\./);
+    });
   });
 });
 
@@ -133,5 +220,15 @@ describe("the workflow reader", () => {
     expect(jobCondition({ source, job: "a" })).toBeUndefined();
     expect(jobCondition({ source, job: "b" })).toBe("y");
     expect(() => jobCondition({ source, job: "c" })).toThrow();
+  });
+
+  it("reads job ids and inline needs, and refuses a block list of needs", () => {
+    const source =
+      "on: push\njobs:\n  a:\n    runs-on: ubuntu-latest\n  b-c: # why\n    needs: [a, 'd']\n  e:\n    needs: a\n  f:\n    needs:\n      - a\n";
+    expect(jobIds(source)).toEqual(["a", "b-c", "e", "f"]);
+    expect(jobNeeds({ source, job: "a" })).toEqual([]);
+    expect(jobNeeds({ source, job: "b-c" })).toEqual(["a", "d"]);
+    expect(jobNeeds({ source, job: "e" })).toEqual(["a"]);
+    expect(() => jobNeeds({ source, job: "f" })).toThrow();
   });
 });

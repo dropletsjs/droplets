@@ -19,6 +19,8 @@
   Checked by: `test/examples.test.ts`.
 - Every workflow in `.github/workflows/` runs on a GitHub-hosted runner, from `pull_request` and `push` events only.
   Checked by: `test/workflows.test.ts`.
+- The Cloudflare deploys in `ci.yml` run only on a push to `main` of `dropletsjs/droplets`, after every other CI job and the demo before the docs, in the `cloudflare` environment; they are the only jobs that name the Cloudflare secrets.
+  Checked by: `test/workflows.test.ts` ("ci.yml's Cloudflare deploys").
 - The suite packs the packages' `dist/`: `pnpm build` first, then `pnpm test:integration`.
 - A behaviour change comes with a test; a fix with a test that failed before it.
 

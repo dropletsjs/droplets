@@ -195,7 +195,7 @@ its own install. The hosts are outside the pnpm workspace, so
 - Typecheck of a named host without a `typecheck` script exits 2. `typecheck.mjs:25`
 - Typecheck strips `npm_config_*` and `node_modules/.bin` from the environment. `typecheck.mjs:36`
 - Typecheck runs `npm ci --no-audit --no-fund`, then `npm run typecheck`. `typecheck.mjs:46`
-- CI runs the typecheck in its own job, no Docker. `../../.github/workflows/ci.yml:94`
+- CI runs the typecheck in its own job, no Docker. `../../.github/workflows/ci.yml:100`
 - Scripts: `e2e` is `node run.mjs`, `test` is `vitest run`, `typecheck:hosts` is `node typecheck.mjs`. `package.json:8`
 - vitest runs `test/**/*.test.ts` in the Node environment. `vitest.config.ts:5`
 - `shop-css.test.ts` finds every `shop.css` under `examples/hosts` outside `node_modules`, expects one per shop host and WordPress, and all but WordPress's byte-equal to express's. `test/shop-css.test.ts:14`, `test/shop-css.test.ts:22`, `test/shop-css.test.ts:38`

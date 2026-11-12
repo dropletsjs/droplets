@@ -166,7 +166,9 @@ it. Link between pages with root-relative paths (`/guides/configuration/`);
 the build prefixes them when the site is served from a sub-path. A change to
 a config option, a route or the `<djs-droplet>` contract needs a matching docs
 change. See `apps/docs/README.md` for how to show live droplets in pages and how to
-deploy. A live droplet is a real one from `apps/demo`: `pnpm docs:build`
+deploy. CI deploys the demo, then the docs, on every green push to `main`
+(the `deploy-demo` and `deploy-docs` jobs, GitHub environment `cloudflare`);
+the same commands deploy by hand. A live droplet is a real one from `apps/demo`: `pnpm docs:build`
 builds and starts the demo server and inlines its fragments, and
 `pnpm docs:dev` runs the demo's dev server next to Astro. A droplet the
 docs need goes in `apps/demo/src/droplets/`, with its tests in

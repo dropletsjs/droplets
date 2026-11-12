@@ -29,5 +29,8 @@
   Checked by: `test/server.test.ts` ("server-only code"), `test/worker.test.ts` ("serves nothing server-only", "uploads no server code").
 - `DROPLETS_SECRET` lives in the gitignored `.env.local` or a Worker secret, never in a committed file.
 - The demo deploys before the docs, and the docs are then built against it.
+  Checked by: `needs: deploy-demo` on `deploy-docs` in `.github/workflows/ci.yml`, `../../tests/packages/test/workflows.test.ts` ("deploys only a commit every other job passed, the demo before the docs").
+- CI deploys the demo only on a push to `main`, after every other CI job, in the `cloudflare` environment, and never sets or reads `DROPLETS_SECRET`.
+  Checked by: `../../tests/packages/test/workflows.test.ts` ("ci.yml's Cloudflare deploys").
 
 If you need the facts, read them from `README.md` (`## Facts`, one per line: grep for the subject).

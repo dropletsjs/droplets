@@ -9,8 +9,11 @@ name: CI
 #   NEVER be attached to this repository (or to an org runner group it can
 #   use): once it is public, any fork PR could run arbitrary code on that
 #   machine.
-# - The token is read-only, checkout does not persist it, and no secrets are
-#   referenced anywhere in this file.
+# - The token is read-only and checkout does not persist it. Only the two
+#   deploy jobs reference secrets: they run on a push to main of
+#   dropletsjs/droplets after every other job passed, in the `cloudflare`
+#   environment (restricted to main), with no dependency cache, and the
+#   Cloudflare credentials reach the deploy steps alone.
 # - Every action is pinned to a full commit SHA; Dependabot bumps them.
 
 on:
@@ -127,3 +130,70 @@ jobs:
           curl -sf -o /dev/null "http://localhost:8000/droplets/client/client.js"
           curl -sf -o /dev/null http://localhost:8000/index.js
           docker stop droplets
+
+  deploy-demo:
+    name: Deploy the demo (Cloudflare)
+    needs: [check, e2e, hosts, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'dropletsjs/droplets'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: cloudflare
+    permissions:
+      contents: read
+    concurrency:
+      group: deploy-demo
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      # No dependency cache in a job with secrets: a poisoned cache must not reach it.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile
+      # The unit tests ran in the check job's build.
+      - run: pnpm build:dist
+      # build:cloudflare, then wrangler deploy. DROPLETS_SECRET is already a
+      # Worker secret, which a deploy keeps.
+      - run: pnpm --filter @dropletsjs/demo deploy:cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+  deploy-docs:
+    name: Deploy the docs (Cloudflare)
+    # The pages inline fragments of the live demo build: the demo deploys first.
+    needs: [check, e2e, hosts, docker, deploy-demo]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'dropletsjs/droplets'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: cloudflare
+    permissions:
+      contents: read
+    concurrency:
+      group: deploy-docs
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:dist
+      # With DEMO_URL set, nothing of the demo is built or started: the pages
+      # fetch their fragments from the deployed demo.
+      - run: pnpm docs:build
+        env:
+          DEMO_URL: https://demo.dropletsjs.dev
+      - run: pnpm docs:check-csp
+      - run: pnpm --filter @dropletsjs/docs deploy:cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}

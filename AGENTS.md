@@ -39,7 +39,7 @@ pnpm docs:check-csp   # after docs:build: every inline script hash is in apps/do
 pnpm typecheck:hosts  # npm ci + npm run typecheck in each Node host (examples/hosts/*, outside the workspace)
 ```
 
-`pnpm test` = vitest over `packages/**` and `tests/**`; `pnpm test:integration` = `tests/**` only, what `check` runs after `build`. `pnpm test:hosts [host…]` needs Docker and the gitignored `.env.local` (see `.env.example`). CI (`.github/workflows/ci.yml`) runs `check`, `docs:build`, `docs:check-csp`, `test:e2e`, `typecheck:hosts` and a Docker smoke test.
+`pnpm test` = vitest over `packages/**` and `tests/**`; `pnpm test:integration` = `tests/**` only, what `check` runs after `build`. `pnpm test:hosts [host…]` needs Docker and the gitignored `.env.local` (see `.env.example`). CI (`.github/workflows/ci.yml`) runs `check`, `docs:build`, `docs:check-csp`, `test:e2e`, `typecheck:hosts` and a Docker smoke test; on a push to `main` that passes them all it deploys the demo, then the docs, to Cloudflare.
 
 ## Rules
 

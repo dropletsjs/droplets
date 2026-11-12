@@ -70,7 +70,13 @@ the files the scan must reach.
 (no YAML parser in the suite's dependencies): the top-level `on` names only
 `pull_request` and `push`, and every `runs-on` is a GitHub-hosted label
 (`ubuntu-*`, `macos-*`, `windows-*`). A form of `on` it cannot read fails
-the suite, and a `runs-on` list or expression fails the label check.
+the suite, and a `runs-on` list or expression fails the label check. In
+`ci.yml` the two Cloudflare deploys, `deploy-demo` and `deploy-docs`, run
+only on a push to `main` of `dropletsjs/droplets`, need the four other jobs
+(the docs also the demo's deploy), run in the environment `cloudflare` with
+no job-level `env` and no dependency cache, and never touch
+`DROPLETS_SECRET`; no other job in any workflow names `CLOUDFLARE_*`, and
+no other job in `ci.yml` names a secret.
 
 ### Changing it
 
@@ -109,6 +115,8 @@ suite reads it from there.
 - Examples' ranges: in the workspace examples every tool of the pnpm catalog is at the catalog's literal range; the hosts' toolchains are their own. `test/examples.test.ts:84`
 - `test/attributes.test.ts` scans the sources under `SCANNED` (the runtime, every renderer's `src/`, the devtools' `src/`) for `data-*` names in strings, templates, JSX attributes and `dataset` accesses, and fails on any that is not `data-droplet` or `data-droplet-*`. `test/attributes.test.ts:21`, `test/attributes.test.ts:58`
 - `KEY_FILES` names the files the attribute scan must reach, so a moved folder fails the suite. `test/attributes.test.ts:37`
-- Workflows: every `.github/workflows/*.yml` has a top-level `on` naming only `pull_request` and `push`. `test/workflows.test.ts:17`, `test/workflows.test.ts:26`
-- Workflows: every `runs-on` matches `ubuntu-*`, `macos-*` or `windows-*`; a list or an expression fails. `test/workflows.test.ts:18`, `test/workflows.test.ts:59`
-- Workflows are read line by line; an `on` form the reader does not know throws. `test/workflows.test.ts:26`
+- Workflows: every `.github/workflows/*.yml` has a top-level `on` naming only `pull_request` and `push`. `test/workflows.test.ts:20`, `test/workflows.test.ts:29`
+- Workflows: every `runs-on` matches `ubuntu-*`, `macos-*` or `windows-*`; a list or an expression fails. `test/workflows.test.ts:21`, `test/workflows.test.ts:62`
+- Workflows are read line by line; an `on` form the reader does not know throws. `test/workflows.test.ts:29`
+- Workflows: `ci.yml`'s `deploy-demo` and `deploy-docs` have the job-level `if` `DEPLOY_CONDITION` (push, `refs/heads/main`, `dropletsjs/droplets`). `test/workflows.test.ts:129`
+- Workflows: a job id under `jobs:` it cannot read throws, and so does a block-list `needs`. `test/workflows.test.ts:80`, `test/workflows.test.ts:121`

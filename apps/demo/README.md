@@ -129,7 +129,12 @@ are limited to a few kilobytes (`limits` in `droplets.config.ts`).
 ### Deploying
 
 The Worker `dropletsjs-demo` on the custom domain `demo.dropletsjs.dev`
-(`wrangler.jsonc`), deployed by hand, never from CI:
+(`wrangler.jsonc`). CI deploys it on every push to `main` once every other
+CI job has passed (`deploy-demo` in `.github/workflows/ci.yml`), in the
+GitHub environment `cloudflare`, which holds `CLOUDFLARE_API_TOKEN` (a
+secret) and `CLOUDFLARE_ACCOUNT_ID` (a variable) and deploys from `main`
+only; the docs deploy after it. The job runs the same command, which works
+by hand too, with a Wrangler login or those two variables:
 
 ```bash
 pnpm --filter @dropletsjs/demo deploy:cloudflare   # build:cloudflare, then wrangler deploy
@@ -149,7 +154,8 @@ pnpm --filter @dropletsjs/demo exec wrangler deploy --secrets-file "$tmp"
 rm "$tmp"
 ```
 
-Later deploys (`deploy:cloudflare`) keep the secret. To rotate it, which
+Later deploys (`deploy:cloudflare`, by hand or from CI) keep the secret;
+CI never sets, reads or prints it. To rotate it, which
 invalidates the vote results already signed:
 
 ```bash
@@ -179,7 +185,8 @@ answered before `handle` and carry no such header.
 Every build has a new build hash, and a page only hydrates fragments of the
 build its `/index.js` comes from. The docs inline fragments at their build,
 so after a demo deploy, build and deploy the docs against it
-([apps/docs](../docs/README.md#deploying)).
+([apps/docs](../docs/README.md#deploying)); CI's `deploy-docs` job does,
+right after `deploy-demo`.
 
 ## Facts
 
@@ -202,6 +209,11 @@ so after a demo deploy, build and deploy the docs against it
 - Script `build:cloudflare` is `DROPLETS_ADAPTER=cloudflare vite build`, then `scripts/export-testimonials.mjs`. `package.json:11`
 - Script `deploy:cloudflare` is `build:cloudflare`, then `wrangler deploy`. `package.json:13`
 - `wrangler` is a dev dependency at the catalog's range; the deploy and secret commands run it through pnpm, never `npx`. `package.json:54`, `../../pnpm-workspace.yaml:32`
+- CI job `deploy-demo` runs `pnpm --filter @dropletsjs/demo deploy:cloudflare` after `pnpm build:dist`. `../../.github/workflows/ci.yml:158`, `../../.github/workflows/ci.yml:161`
+- `deploy-demo` runs only on a push to `main` of `dropletsjs/droplets`, after `check`, `e2e`, `hosts` and `docker`. `../../.github/workflows/ci.yml:136`, `../../.github/workflows/ci.yml:137`
+- `deploy-demo` runs in the GitHub environment `cloudflare`, with no dependency cache; `CLOUDFLARE_API_TOKEN` (secret) and `CLOUDFLARE_ACCOUNT_ID` (variable) reach the deploy step only. `../../.github/workflows/ci.yml:140`, `../../.github/workflows/ci.yml:163`, `../../.github/workflows/ci.yml:164`
+- `deploy-demo` passes no `--secrets-file`: `DROPLETS_SECRET` stays the Worker secret already set. `../../.github/workflows/ci.yml:161`
+- `deploy-demo` runs one at a time (concurrency group `deploy-demo`, never cancelled). `../../.github/workflows/ci.yml:144`
 - Script `start` runs `dist/server.js` with `.env.local` if it exists. `package.json:14`
 - Script `typecheck` runs `djs sync`, `vue-tsc` and `svelte-check --fail-on-warnings`. `package.json:17`
 - Script `test` is `vitest run`. `package.json:18`

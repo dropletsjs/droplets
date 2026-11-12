@@ -201,7 +201,11 @@ another origin needs its own.
 
 The site is an assets-only Cloudflare Worker (`wrangler.jsonc`):
 `apps/docs/dist` served as static assets on the custom domain, with the
-response headers of `public/_headers`. It is deployed by hand, not from CI.
+response headers of `public/_headers`. CI deploys it on every push to
+`main`, right after the demo (`deploy-docs` in `.github/workflows/ci.yml`,
+`needs: deploy-demo`), in the GitHub environment `cloudflare`, with the
+commands below. They work by hand too, with a Wrangler login or
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` set.
 
 The fragments must come from the demo build that is live, so deploy the demo
 first ([apps/demo](../demo/README.md#deploying)), then build the docs against
@@ -238,6 +242,9 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - `pnpm docs:check-csp` runs `scripts/csp-hashes.mjs`. `../../package.json:24`
 - Docs `typecheck` is `astro check`. `package.json:13`
 - Docs `deploy:cloudflare` runs `wrangler deploy` (the declared `wrangler` dev dependency) and builds nothing. `package.json:11`
+- CI job `deploy-docs` runs `pnpm build:dist`, `pnpm docs:build` with `DEMO_URL=https://demo.dropletsjs.dev`, `pnpm docs:check-csp`, then `pnpm --filter @dropletsjs/docs deploy:cloudflare`. `../../.github/workflows/ci.yml:189`, `../../.github/workflows/ci.yml:194`, `../../.github/workflows/ci.yml:195`, `../../.github/workflows/ci.yml:196`
+- `deploy-docs` needs `deploy-demo` and the four other CI jobs, and runs only on a push to `main` of `dropletsjs/droplets`. `../../.github/workflows/ci.yml:169`, `../../.github/workflows/ci.yml:170`
+- `deploy-docs` runs in the GitHub environment `cloudflare`, with no dependency cache; the Cloudflare credentials reach the deploy step only. `../../.github/workflows/ci.yml:173`, `../../.github/workflows/ci.yml:198`, `../../.github/workflows/ci.yml:199`
 - Node version: the repository requires Node 22 or newer. `../../package.json:9`
 - Content collection: Starlight's `docsLoader()`, which reads `src/content/docs/` only. `src/content.config.ts:6`
 - Sidebar order is the `sidebar` constant, passed to Starlight; the "Next" links, the sections of `llms.txt` and the page order of `llms-full.txt` follow it. `astro.config.mjs:29`, `astro.config.mjs:134`, `astro.config.mjs:113`, `astro.config.mjs:139`
@@ -308,7 +315,7 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - CSP header for every path is in `_headers`. `public/_headers:20`
 - `_headers` caches `/_astro/*` and Pagefind's hashed chunks for a year, immutable. `public/_headers:29`, `public/_headers:34`, `public/_headers:36`
 - `_headers` revalidates `/hosts/*` on every request. `public/_headers:41`
-- CI runs `pnpm docs:build`, then `pnpm docs:check-csp`. `../../.github/workflows/ci.yml:58`, `../../.github/workflows/ci.yml:60`
+- CI runs `pnpm docs:build`, then `pnpm docs:check-csp`. `../../.github/workflows/ci.yml:61`, `../../.github/workflows/ci.yml:63`
 - Diagram scenes: wide 620 px, narrow 360 px. `src/components/diagram-kit.ts:23`, `src/components/diagram-kit.ts:24`
 - Diagram type sizes: title 15, label 14, body 13, small 12.5, code 13, code small 12.5 px, written as `font-size` attributes. `src/components/diagram-kit.ts:26`, `src/components/Diagram.astro:101`
 - `Diagram` fails the build when a scene's width is not 620 or 360 px, or a scene has more than 10 nodes. `src/components/Diagram.astro:27`, `src/components/Diagram.astro:32`, `src/components/Diagram.astro:34`
