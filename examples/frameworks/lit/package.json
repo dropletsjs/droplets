@@ -33,8 +33,8 @@
     "@dropletsjs/adapter-deno": "^1.0.0",
     "@dropletsjs/adapter-node": "^1.0.0",
     "@dropletsjs/devtools": "^1.0.0",
-    "@types/node": "^24.9.0",
-    "typescript": "^5.9.3",
+    "@types/node": "^22.20.5",
+    "typescript": "^6.0.3",
     "vite": "^8.3.5",
     "wrangler": "^4.157.0"
   }

@@ -15,9 +15,9 @@ packages:
 # (packages/create-droplets/versions.ts).
 catalog:
   "@biomejs/biome": 2.6.5
-  "@playwright/test": 1.61.1
+  "@playwright/test": 1.64.1
   "@tailwindcss/vite": ^4.3.4
-  "@types/node": ^24.9.0
+  "@types/node": ^22.20.5
   "@types/react": ^19.3.0
   "@types/react-dom": ^19.3.0
   starlight-llms-txt: ^0.12.0
@@ -25,7 +25,7 @@ catalog:
   tailwindcss: ^4.3.4
   # Builds the published packages (packages/shared).
   tsdown: 0.23.5
-  typescript: ^5.9.3
+  typescript: ^6.0.3
   vite: ^8.3.5
   vitest: ^5.1.0
   vue-tsc: ^3.3.14

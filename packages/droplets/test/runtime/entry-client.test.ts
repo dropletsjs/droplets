@@ -919,7 +919,7 @@ describe("children", () => {
 
   it("takes the container out right before hydrate and back in through fill, the same node", async () => {
     vi.stubGlobal("fetch", vi.fn());
-    const seen: Array<{ parent: Node | null; hidden: boolean }> = [];
+    const seen: Array<{ parent: Node | null; hidden: HTMLElement["hidden"] }> = [];
     const fake = markerModule({
       default: vi.fn((target: HTMLElement, _data: unknown, host: ChildrenHost, info: RenderInfo) => {
         // What an engine sees while it compares the server markup: an empty marker.
@@ -1219,7 +1219,8 @@ describe("children", () => {
   it("moves with moveBefore where the browser has it, and re-inserts otherwise", async () => {
     vi.stubGlobal("fetch", vi.fn());
     expect(typeof mod.DjsDropletElement.prototype.connectedMoveCallback).toBe("function");
-    const proto = Element.prototype as Element & { moveBefore?: (node: Node, child: Node | null) => void };
+    // TypeScript 6's DOM lib declares moveBefore on every Element; this test adds and removes it.
+    const proto: { moveBefore?: (node: Node, child: Node | null) => void } = Element.prototype;
     const moveBefore = vi.fn(function (this: Element, node: Node, child: Node | null) {
       // As in browsers: both sides must be in the same connected state.
       if (node.isConnected !== this.isConnected) throw new Error("HierarchyRequestError");

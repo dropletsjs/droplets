@@ -23,6 +23,10 @@ updates:
       npm-minor-patch:
         update-types: [minor, patch]
     # Majors still arrive one PR each, ungrouped.
+    ignore:
+      # @types/node stays on the line of the Node floor (engines `node >=22`).
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "deps"
     versioning-strategy: increase-if-necessary
