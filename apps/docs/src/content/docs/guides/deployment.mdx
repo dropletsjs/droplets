@@ -332,7 +332,8 @@ separate-process setup.
 When a reverse proxy fronts the droplets server:
 
 - forward `/index.js`, `/env.js`, `/index.css`, `/droplets/*` and
-  `/assets/*` to it (and `/api/*` and `/importmap` if you use them);
+  `/assets/*` to it (and `/api/*` if you use it, `/importmap` and
+  `/importmap.js` with an [import map](/guides/import-maps/));
 - set `x-droplet-location` to the public URL, written out in the proxy's
   configuration (never built from the request's `Host`, and overwriting any
   `x-droplet-location` a client sent), so fragments point at the proxy. Under

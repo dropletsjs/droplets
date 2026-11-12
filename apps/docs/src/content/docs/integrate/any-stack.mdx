@@ -88,8 +88,8 @@ droplets server, every method, body streamed:
 | `/assets/*` | The entry client, shared chunks, stylesheets, images, and `public/` at `/assets/public/` |
 | `/api/*` | Your [`+server.ts`](/guides/server/#api-routes) endpoints, which [`$droplets/drop`](/reference/api/#dropletsdrop) calls |
 
-One more only with [externals](/guides/server/#import-maps):
-`/importmap.js`. The rest of the
+One more only with [externals](/guides/import-maps/):
+`/importmap.js` (and `/importmap`, if your server inlines the map). The rest of the
 [routes](/integrate/http-contract/#routes) are for servers, not browsers.
 
 On each proxied request, set `x-droplet-location` to your public origin,

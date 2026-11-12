@@ -80,7 +80,7 @@ export default config({
 | `limits.props` | 8 KB | Largest `x-droplet-props` header; bigger answers `431`. `Infinity` lifts any limit. |
 | `health` | `"/health"` | Path answering `ok`, before `handle` runs, so an auth hook cannot break it. `false` turns it off. |
 | `index` | `index.html` in the root, else a placeholder | What `/` serves in `vite preview` and production: an HTML file, served as written. A path that does not exist fails `vite build`. `false` answers `404`. In `vite dev`, `/` belongs to the [devtools](/guides/development/#the-devtools-page). |
-| `importMap` | `"/importmap"`, when the client build has externals | Where the [import map](/guides/server/#import-maps) is served; `<path>.js` answers the inserting script. `false` turns both off. |
+| `importMap` | `"/importmap"`, when the client build has externals | Where the [import map](/guides/import-maps/) is served; `<path>.js` answers the inserting script. `false` turns both off. |
 | `warnImportMap` | `true` | In dev, warn about externals the map misses, keys that are not external, and version drift. |
 | `dev.server.port` | `5173` | Dev port, unless `vite.config.ts` sets `server.port`. |
 | `dev.strategy` | `"hmr"` | What a droplet on a page does when its files change. `"hmr"` is the framework's own HMR, with new data for a load edit and a notice for a new render contract. `"remount"` loads the droplet again, `"reload"` reloads the page, and `"manual"` does nothing. See [Hot updates](/guides/development/#hot-updates). |
@@ -312,7 +312,7 @@ on the droplet location (your own `renderBuiltUrl` answers first). Anything
 else in `vite.config.ts` is yours; `build.outDir` is respected.
 Client externals are declared in
 `environments.client.build.rolldownOptions.external`; see
-[Import maps](/guides/server/#import-maps).
+[Shared libraries (import maps)](/guides/import-maps/).
 
 ## Environment variables
 

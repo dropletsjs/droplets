@@ -1,6 +1,6 @@
 ---
 title: Server code
-description: "hooks.server.ts, host and setHeaders, cookies, event.fetch, API routes and calling them from a droplet, environment variables and import maps."
+description: "hooks.server.ts, host and setHeaders, cookies, event.fetch, API routes and calling them from a droplet, and environment variables."
 ---
 
 Server code in Droplets follows SvelteKit's conventions. It never sees Hono:
@@ -508,40 +508,8 @@ Like SvelteKit, a variable is private and dynamic unless it says otherwise:
 
 ## Import maps
 
-A large library several droplets use (a grid, a chart engine) can stay out of
-every droplet bundle and load once from an import map instead. Declare it
-external the Vite way:
-
-```ts
-// vite.config.ts
-export default defineConfig({
-  plugins: [droplets({ adapter: node(), renderers: [svelte()] })],
-  environments: {
-    client: { build: { rolldownOptions: { external: ["ag-grid-community"] } } },
-  },
-});
-```
-
-and map it per request in `src/importmap.server.ts`:
-
-```ts
-// src/importmap.server.ts
-import type { ImportMapHandler } from "$droplets/server";
-
-export const importmap: ImportMapHandler = ({ externals }) => ({
-  imports: {
-    "ag-grid-community": "https://cdn.jsdelivr.net/npm/ag-grid-community@35.0.1/+esm",
-  },
-});
-```
-
-The server answers it at `/importmap` (the `importMap` option) as a
-`<script type="importmap">` block, and at `/importmap.js` as a classic script
-that inserts that block. A host page includes one of them **before** `/index.js`;
-the script must be a plain one (no `type="module"`, `defer` or `async`), so it
-runs before any module.
-Both are on only when the client build has externals, and answer `404`
-without the file. The plugin applies the same externals in dev, where the map
-gets Vite's `/@id/` spellings, and warns (`warnImportMap`) about externals it
-does not map, keys that are not external, and versions that differ from the
-installed package.
+A large library several droplets use can stay out of every droplet bundle and
+load once from an import map: declared external in the Vite config, mapped
+per request in `src/importmap.server.ts`, and included by the host page
+through `/importmap` or `/importmap.js` before `/index.js`. See
+[Shared libraries (import maps)](/guides/import-maps/).

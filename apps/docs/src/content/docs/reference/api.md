@@ -120,7 +120,8 @@ async; Droplets never waits for it, and a throw or rejection is logged. See
 
 `export const importmap: ImportMapHandler`,
 `({ request, url, externals }) => ImportMap`: the import map for the bare
-imports the client build leaves external, served at `importMap`.
+imports the client build leaves external, served at `importMap`. See
+[Shared libraries (import maps)](/guides/import-maps/).
 
 ### `src/env.ts`
 

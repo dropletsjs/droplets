@@ -36,6 +36,7 @@ const sidebar = [
     items: [
       "guides/writing-droplets",
       "guides/styling",
+      "guides/import-maps",
       "guides/actions",
       "guides/prerendering",
       "guides/errors",

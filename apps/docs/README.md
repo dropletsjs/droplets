@@ -26,8 +26,9 @@ is listed in `astro.config.mjs`; a new page goes there too, since the pages'
 "Next" links follow it:
 
 1. Start here (what a droplet is, the ways to use Droplets, setup)
-2. Writing droplets (Writing droplets, Styling, Actions, Prerendering,
-   Errors, Server code, Development, Configuration)
+2. Writing droplets (Writing droplets, Styling, Shared libraries (import
+   maps), Actions, Prerendering, Errors, Server code, Development,
+   Configuration)
 3. Renderers (Overview, then one page per renderer, plain script included)
 4. Integrating (any stack, a client-only page, the HTTP contract, Known
    hosts with one page per host, WordPress)
@@ -239,25 +240,25 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - Docs `deploy:cloudflare` runs `wrangler deploy` (the declared `wrangler` dev dependency) and builds nothing. `package.json:11`
 - Node version: the repository requires Node 22 or newer. `../../package.json:9`
 - Content collection: Starlight's `docsLoader()`, which reads `src/content/docs/` only. `src/content.config.ts:6`
-- Sidebar order is the `sidebar` constant, passed to Starlight; the "Next" links, the sections of `llms.txt` and the page order of `llms-full.txt` follow it. `astro.config.mjs:29`, `astro.config.mjs:133`, `astro.config.mjs:112`, `astro.config.mjs:138`
-- Sidebar groups, in order: Start here, Writing droplets, Renderers, Integrating, In the browser, Deployment, Security, Reference. `astro.config.mjs:31`, `astro.config.mjs:35`, `astro.config.mjs:48`, `astro.config.mjs:64`, `astro.config.mjs:90`, `astro.config.mjs:91`, `astro.config.mjs:92`, `astro.config.mjs:93`
-- Sidebar Renderers group: Overview, Svelte, Vue, React, Preact, Solid, Hono JSX, Handlebars, Lit, plain script; collapsed. `astro.config.mjs:48`, `astro.config.mjs:49`
-- Sidebar Integrating group: any stack, a client-only page, HTTP contract, Known hosts (collapsed, one page per host plus the shop demo), WordPress. `astro.config.mjs:64`, `astro.config.mjs:66`, `astro.config.mjs:70`, `astro.config.mjs:71`, `astro.config.mjs:87`
+- Sidebar order is the `sidebar` constant, passed to Starlight; the "Next" links, the sections of `llms.txt` and the page order of `llms-full.txt` follow it. `astro.config.mjs:29`, `astro.config.mjs:134`, `astro.config.mjs:113`, `astro.config.mjs:139`
+- Sidebar groups, in order: Start here, Writing droplets, Renderers, Integrating, In the browser, Deployment, Security, Reference. `astro.config.mjs:31`, `astro.config.mjs:35`, `astro.config.mjs:49`, `astro.config.mjs:65`, `astro.config.mjs:91`, `astro.config.mjs:92`, `astro.config.mjs:93`, `astro.config.mjs:94`
+- Sidebar Renderers group: Overview, Svelte, Vue, React, Preact, Solid, Hono JSX, Handlebars, Lit, plain script; collapsed. `astro.config.mjs:49`, `astro.config.mjs:50`
+- Sidebar Integrating group: any stack, a client-only page, HTTP contract, Known hosts (collapsed, one page per host plus the shop demo), WordPress. `astro.config.mjs:65`, `astro.config.mjs:67`, `astro.config.mjs:71`, `astro.config.mjs:72`, `astro.config.mjs:88`
 - `DOCS_SITE` defaults to `https://dropletsjs.dev`, `DOCS_BASE` to `/`. `astro.config.mjs:12`, `astro.config.mjs:13`
-- `trailingSlash` is `"always"`. `astro.config.mjs:102`
+- `trailingSlash` is `"always"`. `astro.config.mjs:103`
 - Component scripts of `src/components/*.astro` are never inlined (`assetsInlineLimit` returns `false` for them). `astro.config.mjs:23`, `astro.config.mjs:26`
-- `vite` stays external at prerender time, for `AddRenderer`'s `parseAst`. `astro.config.mjs:107`
+- `vite` stays external at prerender time, for `AddRenderer`'s `parseAst`. `astro.config.mjs:108`
 - Sidebar Start here group: what is a droplet, ways to use Droplets, getting started, manual setup. `astro.config.mjs:31`
-- Sidebar Writing droplets group: writing droplets, styling, actions, prerendering, errors, server code, development, configuration. `astro.config.mjs:35`
-- `starlight-llms-txt` writes `/llms.txt`, `/llms-full.txt`, `/llms-small.txt` and the sets `/_llms-txt/renderers.txt` and `/_llms-txt/known-hosts.txt` at build, pages in sidebar order (`promote`). `astro.config.mjs:136`, `astro.config.mjs:138`, `astro.config.mjs:144`
-- `src/plugins/llms-txt.mjs` (`llmsTxt`) rewrites those files after the build (`astro:build:done`), then checks them. `astro.config.mjs:111`, `src/plugins/llms-txt.mjs:53`
+- Sidebar Writing droplets group: writing droplets, styling, shared libraries (import maps), actions, prerendering, errors, server code, development, configuration. `astro.config.mjs:35`
+- `starlight-llms-txt` writes `/llms.txt`, `/llms-full.txt`, `/llms-small.txt` and the sets `/_llms-txt/renderers.txt` and `/_llms-txt/known-hosts.txt` at build, pages in sidebar order (`promote`). `astro.config.mjs:137`, `astro.config.mjs:139`, `astro.config.mjs:145`
+- `src/plugins/llms-txt.mjs` (`llmsTxt`) rewrites those files after the build (`astro:build:done`), then checks them. `astro.config.mjs:112`, `src/plugins/llms-txt.mjs:53`
 - `llms.txt`: the title, the home page's hero tagline as the summary, `llmsDetails` (what Droplets is and its essentials), the documentation sets, one section per sidebar group with each page's title, absolute URL and `description`, then the optional links. `src/plugins/llms-txt.mjs:19`, `src/plugins/llms-txt.mjs:225`, `src/plugins/llms-txt.mjs:243`
 - In `llms-full.txt`, `llms-small.txt` and the sets, every page starts with its title, `Source: <its URL>` and its description. `src/plugins/llms-txt.mjs:147`
 - In those files, root-relative and `#` links are absolute on `DOCS_SITE` and `DOCS_BASE`, table cells carry no padding, no two blank lines follow each other (code included) and a heading with nothing under it is dropped. `src/plugins/llms-txt.mjs:136`, `src/plugins/llms-txt.mjs:171`, `src/plugins/llms-txt.mjs:206`, `src/plugins/llms-txt.mjs:220`
-- The pages are told apart by `LLMS_PAGE_BREAK`, the plugin's `pageSeparator`; the outputs separate them by a blank line. `src/plugins/llms-txt.mjs:16`, `astro.config.mjs:139`
-- `llms-*.txt` leave out the section "A note from the author" of `start/what-is-a-droplet` (`omit`). `astro.config.mjs:114`, `src/plugins/llms-txt.mjs:195`
-- `llms-small.txt` leaves out the renderer pages but the overview, the known hosts and the WordPress tutorial (`exclude`), and notes and tips (the plugin's default); it keeps its lines and the `<details>` (`minify`). Its `<SYSTEM>` line names the pages it leaves out. `astro.config.mjs:141`, `astro.config.mjs:143`, `src/plugins/llms-txt.mjs:93`
-- `llms-*.txt` leave out the live droplets (`.live-droplet`), the Examples box (`.droplet-examples`), the heading anchor links (`.sl-anchor-link`), every `img`, the tour video (`.droplet-tour`), the host recordings and screenshots (`.host-demo`), the host gallery (`.host-grid`), the fragment anatomy's mock-up and hint (`.ax-mock`, `.ax-hint`), the diagram figures (`.dg`) and a page's sentences about what is on screen (`.screen-only`, the lead-ins of `hello` and the Examples box). `astro.config.mjs:170`
+- The pages are told apart by `LLMS_PAGE_BREAK`, the plugin's `pageSeparator`; the outputs separate them by a blank line. `src/plugins/llms-txt.mjs:16`, `astro.config.mjs:140`
+- `llms-*.txt` leave out the section "A note from the author" of `start/what-is-a-droplet` (`omit`). `astro.config.mjs:115`, `src/plugins/llms-txt.mjs:195`
+- `llms-small.txt` leaves out the renderer pages but the overview, the known hosts and the WordPress tutorial (`exclude`), and notes and tips (the plugin's default); it keeps its lines and the `<details>` (`minify`). Its `<SYSTEM>` line names the pages it leaves out. `astro.config.mjs:142`, `astro.config.mjs:144`, `src/plugins/llms-txt.mjs:93`
+- `llms-*.txt` leave out the live droplets (`.live-droplet`), the Examples box (`.droplet-examples`), the heading anchor links (`.sl-anchor-link`), every `img`, the tour video (`.droplet-tour`), the host recordings and screenshots (`.host-demo`), the host gallery (`.host-grid`), the fragment anatomy's mock-up and hint (`.ax-mock`, `.ax-hint`), the diagram figures (`.dg`) and a page's sentences about what is on screen (`.screen-only`, the lead-ins of `hello` and the Examples box). `astro.config.mjs:171`
 - A diagram rendered for `llms-*.txt` (its page's URL ends in `.txt`) writes `**Diagram: <title>.** <desc>` in place of the figure. `src/components/Diagram.astro:41`, `src/components/Diagram.astro:50`
 - The docs build fails when a page is not in the sidebar, two pages share a title, `llms.txt` lacks a sidebar page, an `omit` heading is gone, or a line outside code in `llms-full.txt`, `llms-small.txt` or a set has a link without a scheme, an image, or "Full screen", "Download as SVG", "Section titled" or "Hover, focus or tap". `src/plugins/llms-txt.mjs:59`, `src/plugins/llms-txt.mjs:72`, `src/plugins/llms-txt.mjs:271`, `src/plugins/llms-txt.mjs:33`
 - Base links: after the build, root-relative `<a href>` get the `base` prefix; nothing changes when `base` is `/`. `src/plugins/base-links.mjs:23`, `src/plugins/base-links.mjs:24`
@@ -322,7 +323,7 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - Tour video `public/hosts/tour.mp4` plays with `tour.webp` as its poster on the home page. `src/components/DropletTour.astro:15`, `src/content/docs/index.mdx:47`
 - Site title and description (103 characters, whole in link previews) live in `site.mjs`, read by `astro.config.mjs`; `scripts/og/render.mjs` reads the title and the `ogImage` text. `site.mjs:3`, `site.mjs:6`, `site.mjs:11`, `astro.config.mjs:5`, `scripts/og/render.mjs:10`
 - Home page `<title>`, `og:title` and `twitter:title`: "Droplets: server-rendered components for any stack", from its frontmatter `head`. `src/content/docs/index.mdx:4`
-- Every page's head: `og:image` and `twitter:image` (absolute, `<DOCS_SITE><DOCS_BASE>og.png`), `og:image:width` 1200, `og:image:height` 630, `og:image:alt` and `twitter:image:alt`; Starlight writes `twitter:card` `summary_large_image`. `astro.config.mjs:16`, `astro.config.mjs:119`, `site.mjs:10`
+- Every page's head: `og:image` and `twitter:image` (absolute, `<DOCS_SITE><DOCS_BASE>og.png`), `og:image:width` 1200, `og:image:height` 630, `og:image:alt` and `twitter:image:alt`; Starlight writes `twitter:card` `summary_large_image`. `astro.config.mjs:16`, `astro.config.mjs:120`, `site.mjs:10`
 - Share image: `scripts/og/render.mjs` writes `public/og.png`, 1200×630, in Chromium, the drop taken from `public/favicon.svg`. `scripts/og/render.mjs:16`, `scripts/og/render.mjs:18`, `scripts/og/render.mjs:51`
 - `public/robots.txt`: `User-agent: *`, `Allow: /`, `Sitemap: https://dropletsjs.dev/sitemap-index.xml`. `public/robots.txt:1`
 - Worker `dropletsjs-docs` serves `./dist` as assets only, on the custom domain `dropletsjs.dev`. `wrangler.jsonc:4`, `wrangler.jsonc:8`, `wrangler.jsonc:22`

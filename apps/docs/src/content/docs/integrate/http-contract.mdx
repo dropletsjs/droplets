@@ -24,7 +24,7 @@ interface; anything that can make a request can host a droplet.
 | `GET /assets/public/*` | The project's `public/` folder, `no-cache` (`publicCacheControl`) with an `ETag` (`304` when `If-None-Match` matches) |
 | `ALL /api/*` | Your [`+server.ts`](/guides/server/#api-routes) endpoints |
 | `GET /health` | `ok`, for health checks (`health` option) |
-| `GET /importmap`, `/importmap.js` | The [import map](/guides/server/#import-maps), when there are externals |
+| `GET /importmap`, `/importmap.js` | The [import map](/guides/import-maps/), when there are externals |
 | `GET /` | The `index` page in production (a placeholder without one, `404` with `index: false`); the [devtools page](/guides/development/#the-devtools-page) in `vite dev` |
 
 Header names follow one rule: what a request sends is singular,
