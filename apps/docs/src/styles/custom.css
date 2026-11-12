@@ -290,6 +290,10 @@ mobile-starlight-toc .toggle {
 .hero .tagline {
   color: var(--djs-ink-muted);
 }
+/* The install command under the hero, as wide as the hero's copy. */
+.landing-install {
+  max-width: 40rem;
+}
 
 /* File trees and steps keep Starlight's shape, on token surfaces. */
 starlight-file-tree {

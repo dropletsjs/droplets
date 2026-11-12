@@ -7,9 +7,10 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Docs](https://img.shields.io/badge/docs-dropletsjs.dev-0ea5e9.svg)](https://dropletsjs.dev)
 
-*If micro-frontends were a framework.* Droplets grew out of SvelteKit and
-keeps the patterns that work there: `+` files, `load`, form actions with
-`fail()` and `redirect()`, server and client hooks, `$droplets/env/*`,
+*If micro-frontends were a framework.* Droplets grew out of
+[SvelteKit](https://svelte.dev/docs/kit) and keeps the patterns that work
+there: `+` files, `load`, form actions with `fail()` and `redirect()`,
+server and client hooks, `$droplets/env/*`,
 prerendering with `entries`. They are reshaped for islands of
 server-rendered HTML that live inside someone else's page. Droplets is an
 independent project, not affiliated with Svelte or SvelteKit.

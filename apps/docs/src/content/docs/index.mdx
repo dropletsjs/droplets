@@ -8,6 +8,8 @@ head:
     attrs: { property: "og:title", content: "Droplets: server-rendered components for any stack" }
   - tag: meta
     attrs: { name: "twitter:title", content: "Droplets: server-rendered components for any stack" }
+  - tag: meta
+    attrs: { property: "og:type", content: "website" }
 template: splash
 hero:
   tagline: "Server-rendered components you can embed from any stack, as a Vite plugin on Hono. Write each one in Svelte, Vue, Solid, React, Preact, Hono JSX, Handlebars or Lit."
@@ -22,6 +24,17 @@ hero:
 
 import { Card, CardGrid } from "@astrojs/starlight/components";
 import DropletTour from "../../components/DropletTour.astro";
+
+<div class="landing-install">
+
+```sh
+npm create droplets@latest my-widgets
+```
+
+[GitHub](https://github.com/dropletsjs/droplets) · [npm](https://www.npmjs.com/package/@dropletsjs/droplets) ·
+[MIT licensed](https://github.com/dropletsjs/droplets/blob/main/LICENSE)
+
+</div>
 
 Droplets serves each of your components at its own URL, as a fragment of
 server-rendered HTML. Any server that can make an HTTP request (nginx, PHP,
@@ -77,7 +90,7 @@ framework's own meta-framework does the job better.
 
 ## Where it comes from
 
-Droplets grew out of SvelteKit: `+` files, loads, form actions,
+Droplets grew out of [SvelteKit](https://svelte.dev/docs/kit): `+` files, loads, form actions,
 hooks and prerendering, reshaped for components that live inside someone
 else's page. It is an independent project, not affiliated with Svelte or
 SvelteKit. [What is a droplet?](/start/what-is-a-droplet/) explains the rest.
