@@ -274,23 +274,18 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
       if (contract) plan.contract = true;
       else if (change.component) plan.component = true;
 
-      let hydrate: HydrateMode | undefined;
-      try {
-        const mod = await runtime.loadSsrModule();
-        hydrate = (await mod.getDropletMeta?.(droplet))?.hydrate;
-      } catch (error) {
-        logger.debug("framework", "could not read droplet meta", {
-          droplet,
-          error,
-        });
-      }
+      // `hydrate` comes from the entry, never from the SSR module: evaluating
+      // it here transforms the edited component before its framework's HMR
+      // hook runs, from whatever is on disk this instant (an empty file
+      // mid-save), and plugin-vue takes that for the previous version: a
+      // template edit then reloads the component and loses its state.
       const payload: DropletUpdatePayload = {
         droplet,
         timestamp,
         kind: contract ? "contract" : change.component ? "component" : "load",
         ...(change.universal ? { universal: true } : {}),
         ...(contract ? contract : {}),
-        ...(hydrate === undefined ? {} : { hydrate }),
+        ...(after === undefined ? {} : { hydrate: after.hydrate }),
         ...(entry ? { serverLoad: entry.hasServerLoad } : {}),
       };
       server.hot.send("droplets:update", payload);

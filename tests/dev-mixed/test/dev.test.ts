@@ -289,6 +289,26 @@ describe("every renderer under vite dev", () => {
     await page.close();
   });
 
+  it("keeps Vue's count through a template edit saved in two writes: emptied, then written", async () => {
+    const { page, errors, logs } = await open();
+    await clickTo(page, "vue", 2);
+    // `writeFileSync`, like an editor's save, truncates first, and the
+    // watcher may report the empty file; a loaded machine stretches the
+    // gap. Vite's own `read()` waits for the content, a module evaluated in
+    // the hot update before the framework's hook does not.
+    const path = file("src/droplets/vue-hello/+droplet.vue");
+    const source = readFileSync(path, "utf8");
+    writeFileSync(path, "");
+    await new Promise((done) => setTimeout(done, 150));
+    writeFileSync(path, source.replace(/<p data-label>[^<]*<\/p>/, "<p data-label>Vue says hey</p>"));
+    await expect.poll(() => text(page, "vue", "[data-label]"), { timeout: 15_000 }).toBe("Vue says hey");
+    expect(await count(page, "vue"), "vue kept its count").toBe("2");
+    expect(logs.filter((line) => line.includes("remounted in place"))).toEqual([]);
+    await notReloaded(page);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
   it("brings an edit through the import graph: a Vue composable", async () => {
     const { page, errors } = await open();
     edit("src/lib/useGreeting.ts", "Vue greets", "Vue waves to");

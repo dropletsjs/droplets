@@ -47,7 +47,8 @@ set after load proves no edit reloaded the page. Under the default
   refresh in Vite's shared `oxc` options signed a Vue composable and every
   droplet answered 500).
 - A component edit keeps the count in React, Preact and Vue (a Vue
-  composable's edit included). Svelte and Solid swap in place with their own
+  composable's edit included, and a template edit saved in two writes, the
+  file emptied first). Svelte and Solid swap in place with their own
   HMR; their count starts over. Lit and Hono JSX remount in place. Handlebars
   fetches its fragment again. A script droplet runs its cleanup, then its
   function again on the same element.
@@ -135,7 +136,8 @@ droplet lists of both tests.
 - Dev test uses Chromium through `@playwright/test`. `test/dev.test.ts:143`
 - Dev test warms up once so Vite's dependency optimization reload happens before the tests. `test/dev.test.ts:144`
 - `$RefreshSig$`/`$RefreshReg$` only in React modules, `__PREFRESH__` only in Preact modules under `vite dev`. `test/dev.test.ts:173`
-- React, Preact and Vue keep the count through a component edit. `test/dev.test.ts:204`
+- React, Preact and Vue keep the count through a component edit. `test/dev.test.ts:216`
+- A Vue template edit saved in two writes (the file emptied, 150 ms, then written) keeps the count. `test/dev.test.ts:292`
 - Svelte and Solid swap in place; their count starts over and no fragment is fetched again. `test/dev.test.ts:245`
 - Lit and Hono JSX remount and log `<id>: no HMR of its framework took this edit; remounted in place`. `test/dev.test.ts:291`, `test/dev.test.ts:319`
 - Handlebars edit fetches the fragment again for a template that does not hydrate (`POST /droplets/hbs-hello`); a hydrated one (`hbs-live`) remounts in place and logs `hbs-live: no HMR of its framework took this edit; remounted in place`. `test/dev.test.ts:339`, `test/dev.test.ts:350`

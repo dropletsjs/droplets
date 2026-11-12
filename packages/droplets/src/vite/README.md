@@ -123,7 +123,8 @@ restarts the server.
 - `hotUpdate`: an edit to `src/hooks.client.*` sends `droplets:hooks-client` and no Vite update. `plugin.ts:446`, `plugin.ts:451`
 - `hotUpdate` plans an edit once per timestamp, in the first environment, and forgets plans older than 10 seconds. `plugin.ts:457`, `plugin.ts:462`
 - `hotUpdate`: an edit in a droplet folder rescans the flags; a changed registry sends `droplets:registry`. `plugin.ts:236`, `plugin.ts:243`
-- `droplets:update` goes to every affected droplet with `kind` `contract`, `component` or `load`. `plugin.ts:278`, `plugin.ts:284`
+- `droplets:update` goes to every affected droplet with `kind` `contract`, `component` or `load`. `plugin.ts:273`, `plugin.ts:279`
+- `droplets:update` takes `hydrate` from the discovered entry; `hotUpdate` never evaluates the SSR module, which would transform the edited component before its framework's HMR hook runs, from a file possibly still empty mid-save. `plugin.ts:276`
 - `hotUpdate`: a contract change or a load edit invalidates the modules and hands Vite only the stylesheets that depend on the file. `plugin.ts:481`
 - `hotUpdate`: a component edit goes through Vite's own HMR, so the framework's runs. `plugin.ts:491`
 - `generateBundle` of the client build records every bare import left external, for `importmap`'s `externals`. `plugin.ts:495`
