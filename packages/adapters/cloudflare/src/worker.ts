@@ -75,6 +75,8 @@ function createAssetLoaders({ assets }: AssetLoadersOptions): AssetLoaders {
     // keeps its names: `publicCacheControl`, with the binding's ETag and 304.
     assetHandler: async (c) => {
       const response = await assets.fetch(c.req.raw);
+      // A missing file answers as it does on Node, never with the binding's own page.
+      if (response.status === 404) return c.text("Not Found", 404, { "cache-control": "no-store" });
       if (response.status >= 400) return uncached({ response });
       if (!c.req.path.startsWith("/assets/public/")) {
         if (!response.ok) return response;

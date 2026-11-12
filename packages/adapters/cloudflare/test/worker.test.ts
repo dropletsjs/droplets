@@ -29,8 +29,8 @@ function fakeAssets({ clientRoot }: FakeAssetsInput) {
           },
         });
       } catch {
-        // Missing or a directory: the binding's own 404.
-        return new Response("Not Found", { status: 404 });
+        // Missing or a directory: the binding's own 404 page.
+        return new Response("<h1>binding 404</h1>", { status: 404, headers: { "content-type": "text/html" } });
       }
     },
   };
@@ -177,12 +177,21 @@ describe("worker", () => {
     expect(asset.headers.get("x-served-by")).toBe("assets-binding");
   });
 
-  it("sends a missing file's 404 from the binding with no-store, so it is never cached", async () => {
+  it("answers a missing file with a text Not Found and no-store, never the binding's own 404", async () => {
     for (const path of ["/assets/missing.js", "/assets/public/missing.txt"]) {
       const res = await call({ path });
       expect(res.status, path).toBe(404);
+      expect(await res.text(), path).toBe("Not Found");
+      expect(res.headers.get("content-type"), path).toContain("text/plain");
       expect(res.headers.get("cache-control"), path).toBe("no-store");
     }
+    // Any other failure of the binding passes through, with no-store.
+    const failing = { fetch: async () => new Response("binding down", { status: 503, headers: { "retry-after": "5" } }) };
+    const res = await worker.default.fetch(new Request("http://drops.test/assets/x.js"), { ...env, ASSETS: failing }, {});
+    expect(res.status).toBe(503);
+    expect(await res.text()).toBe("binding down");
+    expect(res.headers.get("retry-after")).toBe("5");
+    expect(res.headers.get("cache-control")).toBe("no-store");
   });
 
   it("serves public/ at /assets/public/, revalidated: no-cache, an ETag, 304 when it matches", async () => {

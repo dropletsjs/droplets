@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { loadJsonFile, loadTextFile } from "../src/fs.ts";
+import { loadJsonFile, loadTextFile, MalformedJsonError } from "../src/fs.ts";
 
 describe("fs", () => {
   let root: string;
@@ -23,9 +23,16 @@ describe("fs", () => {
     await expect(loadTextFile({ path: root })).rejects.toMatchObject({ code: "EISDIR" });
   });
 
-  it("loads JSON, null when missing or malformed", async () => {
+  it("loads JSON, null when missing, and tells a malformed file apart by its own error", async () => {
     expect(await loadJsonFile({ path: join(root, "good.json") })).toEqual({ a: 1 });
     expect(await loadJsonFile({ path: join(root, "nope.json") })).toBeNull();
-    expect(await loadJsonFile({ path: join(root, "bad.json") })).toBeNull();
+    const failure = await loadJsonFile({ path: join(root, "bad.json") }).then(
+      () => expect.unreachable("a parse error"),
+      (error: unknown) => error,
+    );
+    expect(failure).toBeInstanceOf(MalformedJsonError);
+    expect(failure).toMatchObject({ name: "MalformedJsonError", path: join(root, "bad.json") });
+    expect((failure as Error).message.startsWith(`${join(root, "bad.json")} is not valid JSON: `)).toBe(true);
+    expect((failure as Error).cause).toBeInstanceOf(SyntaxError);
   });
 });

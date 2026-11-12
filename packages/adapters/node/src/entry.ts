@@ -4,6 +4,7 @@ import { serve } from "@hono/node-server";
 import userConfig from "virtual:droplets-config";
 import { type DropletsApp, resolveConfig } from "@dropletsjs/droplets";
 import { createNodeServerApp } from "./app.ts";
+import { isMainModule } from "./main-module.ts";
 
 // Bundled as `dist/server.js`, next to `client/` and `server/`: paths are
 // relative to this file, not to the working directory.
@@ -39,7 +40,8 @@ export default {
   },
 };
 
-// `node dist/server.js` starts listening; importing it does not.
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// `node dist/server.js` (with or without the extension, through a symlink
+// or not) starts listening; importing it does not.
+if (isMainModule({ moduleUrl: import.meta.url, argv1: process.argv[1] })) {
   await runServer();
 }

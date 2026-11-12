@@ -117,7 +117,9 @@ When a request for a file reaches the Worker (a file that is missing, or a
 `run_worker_first` that sends it), `/assets/*` is fetched from the assets
 binding and never passes through `handle` from your hooks.
 
-- A binding answer of 400 or more is sent with `cache-control: no-store`.
+- A file the binding does not have answers `404 Not Found`, text and
+  `cache-control: no-store`, as on Node; any other binding answer of 400 or
+  more passes through with `cache-control: no-store`.
 - Every file Vite emits there is content-hashed: `cache-control: public,
   max-age=2592000, immutable` on a successful answer.
 - `/assets/public/*` keeps its names, so it is revalidated:
@@ -208,7 +210,8 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - Prerendered folder name is `_prerendered/` plus 32 hex characters, new every build, and only `droplets.json` holds it. `../../droplets/src/vite/prerender.ts:52`, `test/worker.test.ts:131`
 - Prerendered renders, `droplets.json` and `/.vite/manifest.json` answer 404 from the Worker. `test/worker.test.ts:137`, `test/worker.test.ts:144`
 - `/assets/*` forwards the original request to the binding. `src/worker.ts:77`
-- `/assets/*` binding answer with status 400 or more gets `cache-control: no-store`, so a file missing now is not cached past the deploy that adds it. `src/worker.ts:78`, `src/worker.ts:92`, `test/worker.test.ts:177`
+- `/assets/*` binding 404 answers the text `Not Found`, `404`, `cache-control: no-store`, the same answer as the Node adapter's, never the binding's own page. `src/worker.ts:79`, `test/worker.test.ts:180`
+- `/assets/*` binding answer with any other status of 400 or more passes through with `cache-control: no-store`, so a file missing now is not cached past the deploy that adds it. `src/worker.ts:80`, `src/worker.ts:94`, `test/worker.test.ts:188`
 - `/assets/*` hashed file answered 2xx gets `cache-control: public, max-age=2592000, immutable`; a status from 300 to 399 passes through untouched. `src/worker.ts:80`, `src/worker.ts:82`
 - `/assets/public/*` answered by the Worker gets `publicCacheControl` from the config (`no-cache` by default; `false` removes the binding's); a 304 or a binding `ETag` is passed on. `src/worker.ts:86`, `src/worker.ts:101`, `src/worker.ts:102`
 - `/assets/public/*` without a binding `ETag` gets one from the SHA-1 of the body in base64url, and `304` with no body when `If-None-Match` lists it. `src/worker.ts:104`, `src/worker.ts:110`

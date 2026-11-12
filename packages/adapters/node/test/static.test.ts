@@ -44,6 +44,32 @@ describe("createStaticHandler", () => {
     expect(other.headers.get("content-type")).toBe("application/octet-stream");
   });
 
+  it("knows the common types, text ones with their charset, case-insensitively", async () => {
+    const expected = new Map([
+      ["doc.txt", "text/plain; charset=utf-8"],
+      ["page.html", "text/html; charset=utf-8"],
+      ["feed.xml", "application/xml; charset=utf-8"],
+      ["notes.md", "text/markdown; charset=utf-8"],
+      ["rows.csv", "text/csv; charset=utf-8"],
+      ["app.webmanifest", "application/manifest+json; charset=utf-8"],
+      ["photo.JPEG", "image/jpeg"],
+      ["photo.jfif", "image/jpeg"],
+      ["scan.tiff", "image/tiff"],
+      ["mod.wasm", "application/wasm"],
+      ["paper.pdf", "application/pdf"],
+      ["bundle.zip", "application/zip"],
+      ["clip.mp4", "video/mp4"],
+      ["clip.webm", "video/webm"],
+      ["song.mp3", "audio/mpeg"],
+      ["song.ogg", "audio/ogg"],
+      ["song.wav", "audio/wav"],
+    ]);
+    for (const [name, type] of expected) {
+      await writeFile(join(root, "assets", name), "x");
+      expect((await app.request(`/assets/${name}`)).headers.get("content-type"), name).toBe(type);
+    }
+  });
+
   it("revalidates public/ under /assets/public/: no-cache, an ETag, 304 when it matches", async () => {
     const res = await app.request("/assets/public/img/logo.svg");
     expect(res.status).toBe(200);
@@ -81,8 +107,12 @@ describe("createStaticHandler", () => {
     expect((await none.request("/assets/style-abc.css")).headers.get("cache-control")).toBe("public, max-age=2592000, immutable");
   });
 
-  it("404s missing files", async () => {
-    expect((await app.request("/assets/nope.js")).status).toBe(404);
+  it("404s missing files with a text Not Found that is never cached", async () => {
+    const res = await app.request("/assets/nope.js");
+    expect(res.status).toBe(404);
+    expect(await res.text()).toBe("Not Found");
+    expect(res.headers.get("content-type")).toContain("text/plain");
+    expect(res.headers.get("cache-control")).toBe("no-store");
   });
 
   it("refuses to escape the assets directory", async () => {

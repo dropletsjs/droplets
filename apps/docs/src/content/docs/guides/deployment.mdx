@@ -233,14 +233,16 @@ PORT=8000 node dist/server.js
 at startup. It listens on every interface and logs nothing on start: it logs
 errors only, to stderr; see [Logging](#logging). The server finds `client/`
 and `server/` next to its own file, whatever the working directory, and
-reads `dist/client/droplets.json` once: a build made after it started needs
-a restart.
+reads `dist/client/droplets.json` on the first request and keeps it once it
+has loaded; while it is missing or not valid JSON, the server logs that once
+and reads the file again on the next request, so a build that finishes after
+it started is picked up without a restart.
 
 Importing `dist/server.js` instead of running it does **not** start listening.
 Its default export is `{ fetch }`, a standard `Request => Promise<Response>`
-handler, and `runServer()` starts listening on demand. Only
-`node dist/server.js` itself listens: not a symlink to it, not
-`node dist/server` without the extension.
+handler, and `runServer()` starts listening on demand. `node dist/server.js`
+listens, as does `node dist/server` without the extension or a symlink to
+the file.
 
 ## Bun
 
@@ -414,7 +416,8 @@ the error itself, nothing else. Those are:
 - a request failed (`<where> failed: <path>`, such as `droplet failed:
   /droplets/cart`);
 - `handleError` in `hooks.server.ts` failed, or could not be loaded;
-- on Node, Bun and Deno, `dist/client/droplets.json` is missing (not built).
+- on Node, Bun and Deno, `dist/client/droplets.json` is missing (not built)
+  or not valid JSON (the build did not finish), once per failure.
 
 Warnings are for `vite dev` and `vite build`, and never reach a production
 bundle: an untrusted forwarded location, `"*"` in `trustedOrigins`, an

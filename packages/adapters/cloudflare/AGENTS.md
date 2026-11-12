@@ -16,7 +16,7 @@
   Checked by: `test/index.test.ts`.
 - The user's wrangler config is read, never written; a `run_worker_first` that sends one of the build's files through the Worker warns once and never fails the build, and unset or `false` is silent.
   Checked by: `test/index.test.ts`.
-- A binding answer of 400 or more leaves the Worker with `no-store`.
+- A binding 404 leaves the Worker as the text `Not Found` with `no-store`, the Node adapter's answer; any other binding answer of 400 or more passes through with `no-store`.
   Checked by: `test/worker.test.ts`.
 - The Worker's bindings are the runtime environment, set on every request before it is answered.
   Checked by: `test/worker.test.ts`.

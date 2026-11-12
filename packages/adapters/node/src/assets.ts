@@ -7,7 +7,7 @@ import {
   type DropletManifestEntry,
   type DropletsManifest,
 } from "@dropletsjs/droplets";
-import { loadJsonFile, loadTextFile } from "./fs.ts";
+import { loadJsonFile, loadTextFile, MalformedJsonError } from "./fs.ts";
 
 export type AssetLoadersOptions = {
   clientRoot: string;
@@ -27,6 +27,8 @@ type LoadRelativeInput = { relativePath: string };
 
 type DropletEntryInput = { manifest: DropletsManifest; droplet: string };
 
+type FallbackInput = { message: string };
+
 /**
  * Reads built droplet assets off disk.
  *
@@ -41,16 +43,36 @@ export function createAssetLoaders({
 }: AssetLoadersOptions): DiskAssetLoaders {
   const manifestPath = resolve(clientRoot, "droplets.json");
   const prerenderedRoot = resolve(serverRoot, PRERENDER_DIR);
+  // Only a manifest that loaded is kept: a missing or malformed file is read
+  // again on the next request, so a build that finishes later is seen.
   let cached: Promise<DropletsManifest> | null = null;
+  // The failure last logged: once per failure, not per request, until a load succeeds.
+  let logged: string | null = null;
+
+  const fallback = ({ message }: FallbackInput): DropletsManifest => {
+    if (logged !== message) {
+      logged = message;
+      console.error(message);
+    }
+    return FALLBACK_MANIFEST;
+  };
 
   function loadManifest(): Promise<DropletsManifest> {
-    cached ??= loadJsonFile<DropletsManifest>({ path: manifestPath }).then((manifest) => {
-      if (!manifest) {
-        console.error(`droplets.json not found at ${manifestPath}; did you build?`);
-        return FALLBACK_MANIFEST;
-      }
-      return manifest;
-    });
+    cached ??= loadJsonFile<DropletsManifest>({ path: manifestPath }).then(
+      (manifest) => {
+        if (manifest) {
+          logged = null;
+          return manifest;
+        }
+        cached = null;
+        return fallback({ message: `droplets.json not found at ${manifestPath}; did you build?` });
+      },
+      (error: unknown) => {
+        cached = null;
+        if (error instanceof MalformedJsonError) return fallback({ message: `${error.message}; did the build finish?` });
+        throw error;
+      },
+    );
     return cached;
   }
 

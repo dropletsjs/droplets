@@ -3,25 +3,65 @@ import { resolve, sep } from "node:path";
 import { readFile } from "node:fs/promises";
 import type { Handler } from "hono";
 
+// Text types carry the charset; anything else is `application/octet-stream`.
 const CONTENT_TYPES = new Map([
   [".js", "application/javascript; charset=utf-8"],
   [".mjs", "application/javascript; charset=utf-8"],
   [".css", "text/css; charset=utf-8"],
   [".json", "application/json; charset=utf-8"],
   [".map", "application/json; charset=utf-8"],
+  [".webmanifest", "application/manifest+json; charset=utf-8"],
+  [".html", "text/html; charset=utf-8"],
+  [".htm", "text/html; charset=utf-8"],
+  [".xhtml", "application/xhtml+xml; charset=utf-8"],
+  [".xml", "application/xml; charset=utf-8"],
+  [".txt", "text/plain; charset=utf-8"],
+  [".md", "text/markdown; charset=utf-8"],
+  [".csv", "text/csv; charset=utf-8"],
+  [".vtt", "text/vtt; charset=utf-8"],
+  [".ics", "text/calendar; charset=utf-8"],
+  [".yaml", "application/yaml; charset=utf-8"],
+  [".yml", "application/yaml; charset=utf-8"],
   [".svg", "image/svg+xml"],
   [".png", "image/png"],
+  [".apng", "image/apng"],
   [".jpg", "image/jpeg"],
   [".jpeg", "image/jpeg"],
+  [".jpe", "image/jpeg"],
+  [".jfif", "image/jpeg"],
   [".gif", "image/gif"],
   [".webp", "image/webp"],
   [".avif", "image/avif"],
+  [".bmp", "image/bmp"],
+  [".tif", "image/tiff"],
+  [".tiff", "image/tiff"],
   [".ico", "image/x-icon"],
   [".woff", "font/woff"],
   [".woff2", "font/woff2"],
   [".ttf", "font/ttf"],
   [".otf", "font/otf"],
+  [".eot", "application/vnd.ms-fontobject"],
+  [".wasm", "application/wasm"],
+  [".pdf", "application/pdf"],
+  [".zip", "application/zip"],
+  [".gz", "application/gzip"],
+  [".mp4", "video/mp4"],
+  [".m4v", "video/mp4"],
+  [".webm", "video/webm"],
+  [".ogv", "video/ogg"],
+  [".mov", "video/quicktime"],
+  [".mp3", "audio/mpeg"],
+  [".m4a", "audio/mp4"],
+  [".ogg", "audio/ogg"],
+  [".oga", "audio/ogg"],
+  [".opus", "audio/ogg"],
+  [".wav", "audio/wav"],
+  [".flac", "audio/flac"],
+  [".aac", "audio/aac"],
 ]);
+
+// A file missing now may be there after the next build: never cached.
+const NOT_FOUND_HEADERS = { "cache-control": "no-store" };
 
 export type StaticHandlerOptions = {
   clientRoot: string;
@@ -55,7 +95,7 @@ export function createStaticHandler({ clientRoot, publicCacheControl = "no-cache
 
     // The path comes from the URL and `resolve` has applied its `..`: outside the folder, read nothing.
     if (filePath !== assetsRoot && !filePath.startsWith(assetsPrefix)) {
-      return c.text("Not Found", 404);
+      return c.text("Not Found", 404, NOT_FOUND_HEADERS);
     }
 
     let body: Buffer;
@@ -63,7 +103,7 @@ export function createStaticHandler({ clientRoot, publicCacheControl = "no-cache
       body = await readFile(filePath);
     } catch {
       // Missing, a directory or unreadable: a 404, never the error.
-      return c.text("Not Found", 404);
+      return c.text("Not Found", 404, NOT_FOUND_HEADERS);
     }
     c.header("content-type", contentTypeOf({ path: filePath }));
     c.header("x-content-type-options", "nosniff");

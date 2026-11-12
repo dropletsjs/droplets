@@ -50,9 +50,9 @@ Ship the whole `dist/` folder.
 
 ### How the server starts
 
-- `node dist/server.js` listens. Node must be given that exact file: through
-  a symlink, or as `node dist/server` without the extension, it loads
-  without listening.
+- `node dist/server.js` listens, as does `node dist/server` without the
+  extension or a symlink to the file: the file Node was given and this
+  module are compared as real paths.
 - Importing `dist/server.js` does not listen. Its default export is
   `{ fetch }`, a `Request => Promise<Response>` handler for Express, Fastify
   or any server that speaks the Fetch API.
@@ -81,12 +81,18 @@ and your own private variables. It logs errors only, with `console.error`. See
 
 Only `/assets/*` is served from disk, out of `dist/client/assets`. A path
 that resolves outside that folder, a missing file and a directory all answer
-`404 Not Found`. `handle` from your hooks never runs for these files.
+`404 Not Found` as text, with `cache-control: no-store` (the file may be
+there after the next build). `handle` from your hooks never runs for these
+files.
 
 - Every file Vite emits there is content-hashed: `cache-control: public,
   max-age=2592000, immutable`.
 - Every file answered carries `x-content-type-options: nosniff` with its
-  content type: a browser takes it for what the type says and nothing else.
+  content type, from a table of the common script, style, data, text, image,
+  font, WebAssembly, document, archive, video and audio extensions (text
+  types with `; charset=utf-8`); any other extension is
+  `application/octet-stream`. A browser takes it for what the type says and
+  nothing else.
 - Your `public/` folder is copied to `dist/client/assets/public/` and served
   at `/assets/public/<file>`. Those names do not change between builds, so
   they are revalidated on every use by default: `cache-control: no-cache` (`publicCacheControl`), an `ETag`
@@ -96,10 +102,13 @@ that resolves outside that folder, a missing file and a directory all answer
 
 ### `droplets.json`
 
-Read once, on the first request, and kept for the life of the process. When
-it is missing or not valid JSON, the server warns
-`droplets.json not found; did you build?` and runs with an empty manifest
-until restarted.
+Read on the first request and kept for the life of the process once it has
+loaded. When it is missing, the server logs
+`droplets.json not found at <path>; did you build?`; when it is not valid
+JSON, `<path> is not valid JSON: <parse error>; did the build finish?`. Either
+way it answers with an empty manifest and reads the file again on the next
+request, so a build that finishes later is picked up without a restart; each
+failure is logged once, not per request, until a load succeeds.
 
 ### Preview
 
@@ -129,8 +138,8 @@ by path.
 - `PORT` is read once at startup and overrides `server.port` from the config. `src/entry.ts:17`, `../../droplets/src/core/config.ts:408`
 - `PORT` is converted with `Number()`; empty, `0` or not a number falls back to `server.port`, then 8000. `../../droplets/src/core/config.ts:374`
 - `server.port` defaults to 8000. `../../droplets/src/core/config.ts:205`
-- Listening starts only when `process.argv[1]` is this file's own URL: `node dist/server.js` listens. `src/entry.ts:43`
-- Listening does not start through a symlink or for `node dist/server` without the extension. `src/entry.ts:43`
+- Listening starts when `process.argv[1]` names this file: as given, with `.js` or `.mjs` added, or through a symlink, compared as real paths (`isMainModule`). `src/entry.ts:44`, `src/main-module.ts:27`
+- Listening does not start for another file, a missing one, or no argument. `src/main-module.ts:28`, `test/main-module.test.ts:34`
 - Importing `dist/server.js` does not listen; the default export is `{ fetch }`. `src/entry.ts:35`
 - `runServer()` is exported from `dist/server.js` and starts listening. `src/entry.ts:27`
 - Listen hostname is not set: `@hono/node-server` listens on Node's default, every interface. `src/entry.ts:31`
@@ -142,19 +151,22 @@ by path.
 - `createNodeServerApp` reads `droplets.json` before it returns: `buildHash` is `__hash`, `externals` is `__externals`. `src/app.ts:26`, `src/app.ts:32`, `src/app.ts:40`
 - `serverRoot` defaults to `server` next to `clientRoot`. `src/assets.ts:40`
 - Prerendered renders are read from `<serverRoot>/_prerendered`. `src/assets.ts:43`
-- `droplets.json` is read from `<clientRoot>/droplets.json`, once per app, and cached. `src/assets.ts:42`, `src/assets.ts:47`
-- `droplets.json` missing or malformed: `console.error` `droplets.json not found at <path>; did you build?` once, and the fallback manifest. `src/assets.ts:49`, `src/fs.ts:31`
-- `droplets.json` fallback stays for the life of the process: a build after startup needs a restart. `src/assets.ts:47`
+- `droplets.json` is read from `<clientRoot>/droplets.json` on the first request; only a manifest that loaded is cached. `src/assets.ts:44`, `src/assets.ts:62`
+- `droplets.json` missing: `console.error` `droplets.json not found at <path>; did you build?`, and the fallback manifest. `src/assets.ts:67`
+- `droplets.json` malformed: `console.error` `<path> is not valid JSON: <parse error>; did the build finish?`, and the fallback manifest. `src/assets.ts:71`, `src/fs.ts:43`
+- `droplets.json` fallback is never cached: the next request reads the file again, so a build after startup needs no restart. `src/assets.ts:66`, `src/assets.ts:70`, `test/assets.test.ts:90`
+- `droplets.json` failure is logged once per failure, not per request: a different failure logs again, a load that succeeds resets it. `src/assets.ts:49`, `test/assets.test.ts:98`
 - Droplet lookup in the manifest uses `Object.hasOwn`: `__proto__` and other prototype names find nothing. `src/assets.ts:62`, `test/assets.test.ts:57`
 - Client bundles, `/index.js` and the global CSS are read from disk per request, not cached. `src/assets.ts:71`, `src/assets.ts:75`, `src/assets.ts:83`
-- File read errors other than ENOENT are thrown, not turned into null. `src/fs.ts:19`
+- File read errors other than ENOENT are thrown, not turned into null. `src/fs.ts:31`
+- `loadJsonFile` throws `MalformedJsonError` (`name`, `path`, `cause`: the `SyntaxError`) for a file that does not parse; a missing file is `null`. `src/fs.ts:12`, `src/fs.ts:43`
 - `/assets/*` is the only route that serves files from `dist/client`. `../../droplets/src/server/app.ts:125`
 - `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:338`, `../../droplets/src/runtime/app.ts:900`
 - `/assets/*` serves from `dist/client/assets`. `src/static.ts:48`
-- `/assets/*` path resolving outside `dist/client/assets` answers `404 Not Found` before any read. `src/static.ts:57`
-- `/assets/*` missing file or directory answers `404 Not Found`. `src/static.ts:66`
+- `/assets/*` path resolving outside `dist/client/assets` answers the text `404 Not Found` with `cache-control: no-store` before any read. `src/static.ts:64`, `src/static.ts:98`
+- `/assets/*` missing file or directory answers the text `404 Not Found` with `cache-control: no-store`, the same answer as the Cloudflare adapter's. `src/static.ts:106`, `test/static.test.ts:111`
 - `/assets/*` cache-control for hashed files is `public, max-age=2592000, immutable` (30 days). `src/static.ts:70`
-- `/assets/*` content type comes from a fixed extension table, case-insensitive; any other extension is `application/octet-stream`. `src/static.ts:6`, `src/static.ts:34`
+- `/assets/*` content type comes from a fixed extension table, case-insensitive: scripts, styles, JSON, source maps, web manifests, HTML, XML, text, Markdown, CSV, WebVTT, iCalendar and YAML with `; charset=utf-8`; the image, font, WebAssembly, PDF, ZIP, gzip, video and audio types without; any other extension is `application/octet-stream`. `src/static.ts:6`, `src/static.ts:72`, `test/static.test.ts:47`
 - `/assets/*` sends `x-content-type-options: nosniff` on every file answered, hashed and `public/` alike. `src/static.ts:69`, `test/static.test.ts:32`
 - `/assets/*` reads the whole file into memory per request: no streaming, no range requests. `src/static.ts:63`
 - `public/` is copied into `dist/client/assets/public/` only; Vite's own `copyPublicDir` is off. `../../droplets/src/vite/build.ts:137`, `../../droplets/src/vite/assets.ts:95`
