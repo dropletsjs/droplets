@@ -29,7 +29,7 @@ export default defineConfig({
 |---|---|
 | `@dropletsjs/shared/tsdown` | `base`, `bareImport`, `cssInline()`, `graphCheck()`, `isServerPath()`, `GraphCheckOptions` |
 | `@dropletsjs/shared/tsconfig.base.json` (also `./tsconfig`) | the compiler options every workspace project extends |
-| `@dropletsjs/shared/vitest` | `rendererTests`, `adapterTests`, `happyDom` |
+| `@dropletsjs/shared/vitest` | `rendererTests`, `adapterTests`, `happyDom`, `FIXTURE_ROOT`, `buildFixtureApp()`, `waitForServer()` |
 | `@dropletsjs/shared/env` | `loadEnvLocal()` |
 
 The exports point at the `.ts` and `.json` sources: there is no build. A
@@ -65,7 +65,7 @@ build, so run `pnpm build` after it.
 - `@dropletsjs/shared` is `private: true`: never published. `package.json:4`
 - `@dropletsjs/shared` exports `./env`, `./tsconfig`, `./tsconfig.base.json`, `./tsdown` and `./vitest`, as source files. `package.json:8`
 - `@dropletsjs/shared` has no build script; `typecheck` (`tsc -p tsconfig.json`) is its only script. `package.json:15`
-- `@dropletsjs/shared` has no dependencies; `@types/node`, `tsdown`, `typescript` and `vitest` are devDependencies. `package.json:18`
+- `@dropletsjs/shared` has no dependencies; `@types/node`, `tsdown`, `typescript`, `vite` and `vitest` are devDependencies. `package.json:18`
 - `tsdown.ts` imports only types from tsdown, because the Dockerfiles install filtered, without the workspace root. `tsdown.ts:1`
 - `bareImport` matches any specifier that does not start with `.`, `/` or a Windows drive (`C:\`, `C:/`). `tsdown.ts:9`
 - `base` builds `src/` into `dist/` as ESM, platform `neutral`, target `es2023`. `tsdown.ts:11`
@@ -90,9 +90,12 @@ build, so run `pnpm build` after it.
 - `graphCheck` lets a bare specifier through when it names a file under `src/` (a copied `.svelte`). `tsdown.ts:118`
 - `graphCheck` fails when a client entry reaches a `node:` built-in, through static or dynamic imports. `tsdown.ts:134`
 - `graphCheck` fails when a client entry reaches a chunk holding server code, and prints the import chain. `tsdown.ts:136`
-- `happyDom` is the happy-dom environment with `handleDisabledFileLoadingAsSuccess`, so a `<link rel="stylesheet">` the element appends does not throw. `vitest.ts:4`
-- `rendererTests` runs `test/**/*.test.ts` in happy-dom with a 60 s test timeout. `vitest.ts:10`
-- `adapterTests` runs `test/**/*.test.ts` in the Node environment with a 60 s test timeout. `vitest.ts:15`
+- `happyDom` is the happy-dom environment with `handleDisabledFileLoadingAsSuccess`, so a `<link rel="stylesheet">` the element appends does not throw. `vitest.ts:10`
+- `rendererTests` runs `test/**/*.test.ts` in happy-dom with a 60 s test timeout. `vitest.ts:16`
+- `adapterTests` runs `test/**/*.test.ts` in the Node environment with a 60 s test timeout. `vitest.ts:21`
+- `FIXTURE_ROOT` is `packages/droplets/test/fixtures/app/`, the fake-renderer fixture app every adapter's tests build. `vitest.ts:26`
+- `buildFixtureApp({ outDir, plugins })` empties `outDir`, then builds the fixture app with Vite's `createBuilder` and `plugins`, silently; it throws when `packages/droplets/dist/vite.js` is missing. `vitest.ts:31`
+- `waitForServer({ url, child, name })` polls `url` every 100 ms, up to 100 times, until it answers ok; it throws as soon as `child` exits, naming `name` and the exit code. `vitest.ts:44`
 - `loadEnvLocal()` loads the repository root's `.env.local` with `process.loadEnvFile`, only when the file exists. `env.ts:4`
 - `loadEnvLocal()` finds `.env.local` two folders above `env.ts`, the repository root. `env.ts:5`
 - `tsconfig.base.json` targets ES2023 with `lib` ES2023, DOM and DOM.Iterable, `module` ESNext and `moduleResolution` bundler. `tsconfig.base.json:4`

@@ -144,7 +144,10 @@ host's compose stack: the gallery, a product into the cart (the badge
 counts it), the admin login and that product's stock set to 0, the gallery
 again, and the product page saying "Out of stock". Docker and Playwright's
 Chromium are all it needs; the stacks run one at a time and are taken down
-after.
+after. Its `test/` folder holds static checks that need neither and run in
+`pnpm check`: the `shop.css` copies the same, every host's
+`x-droplet-location` from its environment, every example standing on its
+own.
 
 ```bash
 pnpm test:hosts                     # the nine shop flows (wordpress and htmx only by name)

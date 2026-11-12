@@ -12,7 +12,7 @@
 - Code that talks to the droplets server or the shop lives in `*.server.ts` files, so it never reaches the browser.
   Checked by: SvelteKit's own server-only module check in `vite build`.
 - `x-droplet-location` is the public origin from the environment (`DROPLETS_PUBLIC_URL`, `SHOP_PUBLIC_URL`), never the request's Host.
-  Checked by: `pnpm test:hosts sveltekit` (`tests/hosts/e2e/shop.spec.ts`: a post without JavaScript lands back on the host page).
+  Checked by: `pnpm test:hosts sveltekit` (`tests/hosts/e2e/shop.spec.ts`: a post without JavaScript lands back on the host page), `tests/hosts/test/location.test.ts`.
 - `DROPLETS_TRUSTED_ORIGINS` of the droplets server and of the shop in `docker-compose.yml` lists this host's origin (`WEB_URL`), and `ORIGIN` is that same origin.
   Checked by: `pnpm test:hosts sveltekit`.
 - The shop's browser requests (`/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`, `/api/*`) go through the proxy in `handle`, which forwards only its listed request headers and passes `Set-Cookie` back untouched.
@@ -24,6 +24,7 @@
   Checked by: `pnpm test:hosts sveltekit` (`tests/hosts/run.mjs`, `tests/hosts/e2e/shop.spec.ts`); needs Docker.
 - Published ports bind to `127.0.0.1` only.
 - `static/shop.css` is the same file as the other hosts' `shop.css` (all but WordPress); a change goes to all of them.
+  Checked by: `tests/hosts/test/shop-css.test.ts`.
 - `apps/docs/src/content/docs/integrate/hosts/sveltekit.mdx` states what this host does.
 - Comments explain a non-obvious why.
 

@@ -10,7 +10,7 @@ dist-*/
 
 # Written by droplets (vite, `djs sync`): each droplet's ./$types.
 .droplets/
-# Projects the ./$types test writes and removes.
+# Projects the tests write and remove (a failed run may leave one).
 packages/droplets/test/fixtures/.types-*/
 packages/droplets/test/fixtures/.load-css-*/
 packages/droplets/test/fixtures/.server-only-*/
@@ -18,6 +18,9 @@ packages/droplets/test/fixtures/.script-*/
 packages/droplets/test/fixtures/.prerender-host-*/
 packages/droplets/test/fixtures/.assets-*/
 packages/droplets/test/fixtures/.client-graph-*/
+packages/droplets/test/fixtures/.index-js-*/
+packages/droplets/test/fixtures/.hooks-client-*/
+packages/droplets/test/fixtures/.droplet-folders-*/
 packages/renderers/svelte/test/fixtures/.flags-*/
 
 # Playwright's output.

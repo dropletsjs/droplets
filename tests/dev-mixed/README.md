@@ -6,7 +6,8 @@ hydrates on a host page of another origin and takes edits through its
 framework's HMR without a reload; `test/production.test.ts` checks that none
 of that dev code reaches a `vite build` for Node or Cloudflare Workers, and
 that a build with `location` and `host` fixed holds no host or location
-token.
+token; `test/dev-gate.test.ts` reads the packages' sources and checks that
+dev code is reached through its one gate.
 
 ```bash
 pnpm build                                        # the packages' dist/ first
@@ -75,6 +76,20 @@ environment, the code each chunk renders of each module:
   `react-stack-bottom-frame` or `[Vue warn]`, no dev marker; every
   framework's droplet answers 200 from it.
 
+### `test/dev-gate.test.ts`: the sources
+
+Parses every `.ts`/`.tsx` under `packages/droplets/src` and each
+`packages/renderers/*/src` with the TypeScript compiler API, no build. A dev
+module is `runtime/dev-*.ts` or a renderer's `client-dev.ts`. A value
+import of one (type-only imports are erased) must come from another dev
+module, from `packages/droplets/src/vite/` (the build and the dev server,
+Node code that is never a bundle: they log through `dev-log.ts`), or every
+use of what it imports sits inside `if (import.meta.env.DEV) { … }`, as
+`entry-client.ts` uses `installDevElement`; a dynamic `import()` of a dev
+module sits inside that block too. Each `installDev…` call is inside the
+gate and happens once per class, and a dev module has no top-level
+expression statement.
+
 ### Changing it
 
 Dev code added to a package needs a marker in `DEV_MARKERS`: a string or
@@ -92,6 +107,11 @@ droplet lists of both tests.
 - Production `dist/` holds no file with `dev` in its name (case-insensitive). `test/production.test.ts:241`
 - Droplet `client.js` in production exports no `update` hook. `test/production.test.ts:221`
 - Production build runs `vite build` with `NODE_ENV` removed, since vitest's `NODE_ENV=test` builds for development. `test/production.test.ts:147`
+- Dev gate test reads the sources of `packages/droplets/src` and `packages/renderers/*/src`, `node_modules` and `dist` left out. `test/dev-gate.test.ts:22`, `test/dev-gate.test.ts:29`
+- Dev gate test counts `runtime/dev-*.ts` and `client-dev.ts` as dev modules and `packages/droplets/src/vite/` as build tooling, free to import them. `test/dev-gate.test.ts:33`, `test/dev-gate.test.ts:35`
+- Dev gate test takes `if (import.meta.env.DEV)` as the gate; a value import of a dev module must have every use inside one, and a dynamic `import()` of one must sit inside one. `test/dev-gate.test.ts:40`, `test/dev-gate.test.ts:87`, `test/dev-gate.test.ts:115`
+- Dev gate test fails on an `installDev…` call outside the gate or twice for one class, and expects `entry-client.ts`'s `installDevElement(DjsDropletElement)`. `test/dev-gate.test.ts:134`, `test/dev-gate.test.ts:153`
+- Dev gate test fails on an expression statement at a dev module's top level. `test/dev-gate.test.ts:156`
 - Production build recorder plugin writes `rendered-<environment>.json` per Vite environment. `test/production.test.ts:106`
 - Node production build has the environments `client`, `server` and `ssr`. `test/production.test.ts:188`
 - Cloudflare production build has the environments `client` and `server`; `worker.js` is the only file outside `client/`. `test/production.test.ts:250`

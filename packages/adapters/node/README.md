@@ -179,5 +179,5 @@ by path.
 - Runtime env comes from `process.env`: `DROPLETS_SECRET`, `DROPLETS_TRUSTED_ORIGINS`, `DROPLETS_ENV_MAX_AGE` and private variables, per read. `../../droplets/src/runtime/env-store.ts:26`
 - Node engine is `>=22`. `package.json:35`
 - Build script runs the tests before tsdown. `package.json:38`
-- Tests build the framework's fixture app and fail when `@dropletsjs/droplets` is not built. `test/build-fixture.ts:19`
+- Tests build the framework's fixture app with `buildFixtureApp()` from `@dropletsjs/shared/vitest`, which fails when `@dropletsjs/droplets` is not built. `test/build-fixture.ts:15`, `../../shared/vitest.ts:32`
 - A droplet without stylesheets has no `style.css` (404), and `/index.css` answers 404 without a shared stylesheet: its stub is not written then. `../../droplets/src/runtime/app.ts:1162`, `test/app.test.ts:187`

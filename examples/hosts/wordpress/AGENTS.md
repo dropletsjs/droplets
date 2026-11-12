@@ -8,7 +8,7 @@
 - It is outside the pnpm workspace, with its own toolchain (the WordPress and WP-CLI images) and Docker Compose; it has no `package.json`, so `pnpm typecheck:hosts` skips it.
   Checked by: `pnpm-workspace.yaml` (no `examples/hosts/*` entry), `tests/hosts/typecheck.mjs`.
 - `x-droplet-location` is the public origin from the environment (`DROPLETS_PUBLIC_URL`, `SHOP_PUBLIC_URL`), never the request's Host.
-  Checked by: `pnpm test:hosts wordpress` (`tests/hosts/e2e/shop.spec.ts`, `tests/hosts/e2e/shop-wordpress.spec.ts`).
+  Checked by: `pnpm test:hosts wordpress` (`tests/hosts/e2e/shop.spec.ts`, `tests/hosts/e2e/shop-wordpress.spec.ts`), `tests/hosts/test/location.test.ts`.
 - `DROPLETS_TRUSTED_ORIGINS` of the droplets server and of wp-shop in `docker-compose.yml` lists this site's origin (`WEB_URL`).
   Checked by: `pnpm test:hosts wordpress`.
 - The browser reaches wp-shop only through the plugin's same-origin proxy (`/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`, `/api/*`), which sends only the `cart_id` cookie and its listed headers, never a browser's `x-wp-shop-user`.

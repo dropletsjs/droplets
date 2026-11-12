@@ -10,7 +10,7 @@
 - No server renders the pages: `html/` is static, and every droplet arrives by an htmx request or an element the page writes.
   Checked by: `tests/hosts/e2e/htmx.spec.ts`.
 - nginx sends `x-droplet-location` set to `SHOP_PUBLIC_URL`, never the request's Host, and clears `Forwarded` and `X-Forwarded-*` toward the shop.
-  Checked by: `tests/hosts/e2e/htmx.spec.ts`.
+  Checked by: `tests/hosts/e2e/htmx.spec.ts`, `tests/hosts/test/location.test.ts`.
 - In `docker-compose.yml`, the droplets server's and the shop's `DROPLETS_TRUSTED_ORIGINS` list this site's `WEB_URL`.
   Checked by: `tests/hosts/e2e/htmx.spec.ts`.
 - The droplets server runs with `cors: true` and the pages set htmx's `selfRequestsOnly: false`, so htmx reaches it cross-origin, preflight included; `html/droplet-origins.js` then allows only the origins the page loads an `/index.js` from.

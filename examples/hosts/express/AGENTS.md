@@ -11,7 +11,7 @@
 - The shop flow passes against this compose stack with `pnpm test:hosts express`, and over https behind Caddy with `--https`.
   Checked by: `tests/hosts/e2e/shop.spec.ts`, run by `tests/hosts/run.mjs`.
 - In `src/droplets.js` and `src/shop.js`, `x-droplet-location` is the configured public origin (`DROPLETS_PUBLIC_URL`, `SHOP_PUBLIC_URL`), never the request's Host; `src/embedded.js` sends none.
-  Checked by: `tests/hosts/e2e/shop.spec.ts`.
+  Checked by: `tests/hosts/e2e/shop.spec.ts`, `tests/hosts/test/location.test.ts`.
 - In `docker-compose.yml`, the droplets server's `DROPLETS_TRUSTED_ORIGINS` lists `DROPLETS_URL` and this host's `WEB_URL`; the shop's lists `WEB_URL`. The https override makes the https URL both the host's `SHOP_PUBLIC_URL` and the shop's trusted origin.
   Checked by: `tests/hosts/e2e/shop.spec.ts`.
 - The proxy forwards only the listed request headers, none that names a host, and passes `Set-Cookie`, redirects and bodies back untouched.
@@ -19,6 +19,7 @@
 - A shop page inserts a fragment only when it is a 2xx or 500 `text/html` answer.
 - Published ports bind to `127.0.0.1` only.
 - `public/shop.css` is the same file as the other hosts' `shop.css` (all but WordPress); a change goes to all of them.
+  Checked by: `tests/hosts/test/shop-css.test.ts`.
 - `apps/docs/src/content/docs/integrate/hosts/express.mdx` states what this host does.
 - Comments explain a non-obvious why.
 

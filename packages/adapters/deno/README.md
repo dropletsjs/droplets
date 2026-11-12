@@ -104,4 +104,4 @@ tsdown entry: `deno()` finds `dist/entry.js` by path.
 - `DENO` names the deno binary for the tests; default `deno` on the `PATH`. `test/entry.test.ts:13`
 - `DENO` may come from the root `.env.local`; a variable already set wins. `vitest.config.ts:5`, `../../shared/env.ts:6`
 - Entry tests are skipped when `deno --version` does not succeed; the build test still runs. `test/entry.test.ts:14`, `test/entry.test.ts:31`
-- Tests build the framework's fixture app and fail when `@dropletsjs/droplets` is not built. `test/build-fixture.ts:18`
+- Tests build the framework's fixture app with `buildFixtureApp()` from `@dropletsjs/shared/vitest`, which fails when `@dropletsjs/droplets` is not built. `test/build-fixture.ts:12`, `../../shared/vitest.ts:32`

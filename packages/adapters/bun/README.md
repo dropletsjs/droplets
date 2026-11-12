@@ -106,4 +106,4 @@ root `.env.local`) for one off the `PATH`. `entry.ts` is a tsdown entry:
 - `BUN` names the bun binary for the tests; default `bun` on the `PATH`. `test/entry.test.ts:13`
 - `BUN` may come from the root `.env.local`; a variable already set wins. `vitest.config.ts:5`, `../../shared/env.ts:6`
 - Entry tests are skipped when `bun --version` does not succeed; the build test still runs. `test/entry.test.ts:14`, `test/entry.test.ts:31`
-- Tests build the framework's fixture app and fail when `@dropletsjs/droplets` is not built. `test/build-fixture.ts:18`
+- Tests build the framework's fixture app with `buildFixtureApp()` from `@dropletsjs/shared/vitest`, which fails when `@dropletsjs/droplets` is not built. `test/build-fixture.ts:12`, `../../shared/vitest.ts:32`

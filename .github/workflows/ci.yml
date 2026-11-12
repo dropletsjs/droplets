@@ -49,6 +49,8 @@ jobs:
         with:
           deno-version: v2.x
       - run: pnpm install --frozen-lockfile
+      # pnpm check runs tests/dev-mixed, which drives vite dev in Chromium.
+      - run: pnpm --filter @dropletsjs/tests-dev-mixed exec playwright install --with-deps chromium
       - run: pnpm check
       # Builds and starts apps/demo (Node) on a local port, for the live
       # droplets the pages inline; the build fails without it.

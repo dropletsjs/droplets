@@ -1,9 +1,11 @@
-`tests/dev-mixed`: every renderer in one project, under `vite dev` (render, hydrate, HMR without a reload) and in a production build (no dev code).
+`tests/dev-mixed`: every renderer in one project, under `vite dev` (render, hydrate, HMR without a reload) and in a production build (no dev code), plus the shape of the sources that keeps dev code behind its gate.
 
 ## Rules
 
 - A production build holds no dev or HMR code: no `DEV_MARKERS` text, no `update` export, no dev module, for Node and for Cloudflare's `worker.js`.
   Checked by: `test/production.test.ts`.
+- In the packages' sources, a dev module (`runtime/dev-*.ts`, a renderer's `client-dev.ts`) is value-imported only by another dev module, by the build tooling (`packages/droplets/src/vite/`), or for use inside `if (import.meta.env.DEV)`; each `installDev…` is called once per class, there; a dev module runs nothing at its top level.
+  Checked by: `test/dev-gate.test.ts`.
 - A build with `location` and `host` both fixed holds no host or location token and no `host-tokens` module in its server output or stored renders, for Node and Cloudflare; the builds that compute them per request still do.
   Checked by: `test/production.test.ts` ("a production build with location and host fixed").
 - Dev code added to a package adds its marker to `DEV_MARKERS`, and a new dev module's file name to `DEV_MODULE`, in `test/production.test.ts`.

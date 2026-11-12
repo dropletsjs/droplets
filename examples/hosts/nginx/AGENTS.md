@@ -19,6 +19,7 @@
 - An unknown product is a 404 and an old `v` a 302, decided by the `auth_request` before the page renders.
   Checked by: `tests/hosts/e2e/shop.spec.ts` ("an edited product's page is never stale").
 - `shop/shop.css` is the same file as every other host's shop layout; a change goes to all of them.
+  Checked by: `tests/hosts/test/shop-css.test.ts`.
 - Published ports bind to `127.0.0.1` only.
 - `apps/docs/src/content/docs/integrate/hosts/nginx.mdx` states what this host does.
 - Comments explain a non-obvious why.

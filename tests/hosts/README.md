@@ -4,7 +4,10 @@ The host examples in [`examples/hosts`](../../examples/hosts), end to end:
 each host's compose stack started, a flow run against it in Chromium,
 recorded, and the stack taken down. Nine hosts run the shop demo; WordPress
 and htmx have flows of their own and run only by name. `typecheck.mjs`
-type-checks every Node host without Docker.
+type-checks every Node host without Docker, and `test/` holds the static
+checks over `examples/` (vitest, no Docker): the shop's `shop.css` copies
+the same, every host's `x-droplet-location` from its environment, every
+example standing on its own.
 
 ```bash
 pnpm test:hosts                     # the nine shop flows, one at a time
@@ -12,6 +15,7 @@ pnpm test:hosts express nginx       # some, by id (the folder's name)
 pnpm test:hosts wordpress           # the WordPress showcase, with wp-shop
 pnpm test:hosts htmx                # the htmx pages
 pnpm typecheck:hosts [host…]        # npm ci + npm run typecheck per Node host, no Docker
+pnpm --filter @dropletsjs/tests-hosts test   # the static checks in test/, no Docker (pnpm test:integration runs them)
 ```
 
 The folder's own scripts are the same: `pnpm --filter @dropletsjs/tests-hosts
@@ -94,6 +98,25 @@ Recordings land in `recordings/<host>.mp4` and screenshots in
   shop's forms under `hx-boost`, and the preflight.
 - `e2e/tour.spec.ts`: the droplet tour, run alone with `TOUR=1` by `--tour`.
 
+### Static checks (`test/`)
+
+vitest over the sources of `examples/`, run by `pnpm test:integration` and
+so by `pnpm check`, with no Docker:
+
+- `test/shop-css.test.ts`: every host that runs the shop has a `shop.css`,
+  the same file in all of them; WordPress's is its own, for the Twenty
+  Twenty-Five theme's presets, as its header says.
+- `test/location.test.ts`: per host, the files that send
+  `x-droplet-location`, the value each such line may give it (an origin
+  from `SHOP_PUBLIC_URL` or `DROPLETS_PUBLIC_URL`, or nginx's `${…}`), the
+  line that reads it from the environment, and no read of the request's
+  own `Host` (in JavaScript, Python, Ruby, PHP, nginx or IIS terms) in
+  those files.
+- `test/standalone.test.ts`: `examples/shop`, `examples/wp-shop`, each
+  `examples/frameworks/*` and each `examples/hosts/*` has no `file:` or
+  `link:` dependency, no relative import or `tsconfig` `extends` reaching
+  above its own folder. `workspace:` and `catalog:` ranges are not checked.
+
 ### Type check
 
 `typecheck.mjs` takes every `examples/hosts/*` with a `package.json` and a
@@ -150,5 +173,12 @@ its own install. The hosts are outside the pnpm workspace, so
 - Typecheck strips `npm_config_*` and `node_modules/.bin` from the environment. `typecheck.mjs:36`
 - Typecheck runs `npm ci --no-audit --no-fund`, then `npm run typecheck`. `typecheck.mjs:46`
 - CI runs the typecheck in its own job, no Docker. `../../.github/workflows/ci.yml:94`
-- Scripts: `e2e` is `node run.mjs`, `typecheck:hosts` is `node typecheck.mjs`. `package.json:8`
+- Scripts: `e2e` is `node run.mjs`, `test` is `vitest run`, `typecheck:hosts` is `node typecheck.mjs`. `package.json:8`
+- vitest runs `test/**/*.test.ts` in the Node environment. `vitest.config.ts:5`
+- `shop-css.test.ts` finds every `shop.css` under `examples/hosts` outside `node_modules`, expects one per shop host and WordPress, and all but WordPress's byte-equal to express's. `test/shop-css.test.ts:14`, `test/shop-css.test.ts:22`, `test/shop-css.test.ts:37`
+- `shop-css.test.ts` expects WordPress's `shop.css` to name the theme (Twenty Twenty-Five) and use `--wp--preset--` values. `test/shop-css.test.ts:43`
+- `location.test.ts` lists per host the files that send `x-droplet-location`, the value a line may give it and the environment read it comes from. `test/location.test.ts:24`
+- `location.test.ts` fails on a host-header read (`.headers.host`, `req.hostname`, `request.host`, `HTTP_HOST`, `$host`, `$http_host`, `{HTTP_HOST}` and the like) in those files, comments left out. `test/location.test.ts:95`, `test/location.test.ts:123`
+- `standalone.test.ts` takes `examples/shop`, `examples/wp-shop`, every `examples/frameworks/*` and every `examples/hosts/*` as a root, skipping `node_modules`, `dist`, `build`, `.next`, `.svelte-kit`, `.astro`, `.venv`, `.droplets`, `.tmp` and `__pycache__`. `test/standalone.test.ts:16`, `test/standalone.test.ts:27`
+- `standalone.test.ts` fails on a `file:` or `link:` range in any `package.json`, a relative import resolving above the root in a `.js`/`.ts`/`.svelte`/`.vue`/`.astro` file, or a relative `extends` above the root in a `tsconfig*.json`. `test/standalone.test.ts:49`, `test/standalone.test.ts:62`, `test/standalone.test.ts:72`
 - Root `test:hosts` and `typecheck:hosts` run this folder's scripts. `../../package.json:40`

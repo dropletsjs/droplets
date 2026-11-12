@@ -1,3 +1,9 @@
+import type { ChildProcess } from "node:child_process";
+import { existsSync } from "node:fs";
+import { rm } from "node:fs/promises";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createBuilder, type PluginOption } from "vite";
 import type { ViteUserConfig } from "vitest/config";
 
 /** happy-dom, where a `<link rel="stylesheet">` the element appends must not throw. */
@@ -15,3 +21,34 @@ export const rendererTests: ViteUserConfig = {
 export const adapterTests: ViteUserConfig = {
   test: { include: ["test/**/*.test.ts"], environment: "node", testTimeout: 60_000 },
 };
+
+/** The framework's own fixture app (the fake renderer of `@dropletsjs/droplets/testing`, element `test-droplet`), which every adapter's tests build. */
+export const FIXTURE_ROOT = fileURLToPath(new URL("../droplets/test/fixtures/app/", import.meta.url));
+
+export type BuildFixtureAppInput = { outDir: string; plugins: PluginOption[] };
+
+/** Builds the fixture app with `plugins` (an adapter's `droplets()`) into `outDir`, emptied first; `@dropletsjs/droplets` must be built. */
+export async function buildFixtureApp({ outDir, plugins }: BuildFixtureAppInput): Promise<void> {
+  if (!existsSync(resolve(FIXTURE_ROOT, "../../../dist/vite.js"))) {
+    throw new Error("Build @dropletsjs/droplets first (pnpm build at the root).");
+  }
+  await rm(outDir, { recursive: true, force: true });
+  const builder = await createBuilder({ root: FIXTURE_ROOT, configFile: false, logLevel: "silent", build: { outDir }, plugins });
+  await builder.buildApp();
+}
+
+export type WaitForServerInput = { url: string; child: ChildProcess; name: string };
+
+/** Polls `url` every 100 ms, up to ten seconds, until it answers ok; fails as soon as `child` (the `name` server) exits. */
+export async function waitForServer({ url, child, name }: WaitForServerInput): Promise<void> {
+  for (let i = 0; i < 100; i++) {
+    if (child.exitCode !== null) throw new Error(`${name} exited with ${child.exitCode}`);
+    try {
+      if ((await fetch(url)).ok) return;
+    } catch {
+      // Not listening yet: try again.
+    }
+    await new Promise((wake) => setTimeout(wake, 100));
+  }
+  throw new Error(`${url} never answered`);
+}

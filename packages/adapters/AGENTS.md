@@ -14,7 +14,7 @@
   Checked by: `node/test/assets.test.ts`, `cloudflare/test/worker.test.ts`.
 - Bun and Deno run on the Node adapter's `createNodeServerApp`; a serving change goes there.
   Checked by: `bun/test/entry.test.ts`, `deno/test/entry.test.ts`.
-- `build` runs the tests before tsdown (`vitest run && tsdown`); `build:dist` only compiles. The tests build `packages/droplets/test/fixtures/app`, so `@dropletsjs/droplets` is built first.
+- `build` runs the tests before tsdown (`vitest run && tsdown`); `build:dist` only compiles. The tests build `packages/droplets/test/fixtures/app` through `buildFixtureApp()` from `@dropletsjs/shared/vitest`, so `@dropletsjs/droplets` is built first.
   Checked by: each `package.json`, each `test/build-fixture.ts`.
 - Every adapter's suite runs on `adapterTests` from `@dropletsjs/shared/vitest`, one test file per source file.
   Checked by: each `vitest.config.ts`.

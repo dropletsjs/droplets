@@ -1,4 +1,4 @@
-`tests/hosts`: each host in `examples/hosts` as a compose stack, a flow in Chromium against it, recorded; plus the Node hosts' type check.
+`tests/hosts`: each host in `examples/hosts` as a compose stack, a flow in Chromium against it, recorded; plus the Node hosts' type check and the static checks over `examples/` in `test/`.
 
 ## Rules
 
@@ -8,6 +8,14 @@
 - Every stack is the compose project `droplets-<host>` and is removed with `down -v` after its run, however the run ends.
   Checked by: `run.mjs`.
 - Every host in `examples/hosts` is in `HOSTS`, with a flow that runs against it.
+- The shop's `shop.css` is one file in every host that runs the shop; WordPress's is its own, for the theme's presets.
+  Checked by: `test/shop-css.test.ts`.
+- Every host sends `x-droplet-location` from its environment or config, never from the request's `Host`; a new host is listed in the test with its files.
+  Checked by: `test/location.test.ts`.
+- Every example under `examples/` stands on its own: no `file:` or `link:` dependency, no import or `tsconfig` reaching above its folder.
+  Checked by: `test/standalone.test.ts`.
+- `test/` runs under vitest without Docker, in `pnpm test:integration`; the flows stay in `e2e/`.
+  Checked by: `vitest.config.ts`, `package.json`.
 - The Node hosts sit outside the pnpm workspace and type-check with their own install: `pnpm typecheck:hosts`, in CI too.
   Checked by: `typecheck.mjs`, `../../.github/workflows/ci.yml`.
 - Recordings stay local (`recordings/`, gitignored); only `--docs` writes copies, to `apps/docs/public/hosts/`.

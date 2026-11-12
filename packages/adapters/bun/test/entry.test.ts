@@ -1,6 +1,7 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
+import { waitForServer } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildFixture, FIXTURE_ROOT } from "./build-fixture.ts";
 
@@ -13,21 +14,6 @@ const origin = `http://localhost:${port}`;
 const bunBin = process.env["BUN"] || "bun";
 const hasBun = spawnSync(bunBin, ["--version"]).status === 0;
 
-type WaitForInput = { url: string; child: ChildProcess };
-
-async function waitFor({ url, child }: WaitForInput): Promise<void> {
-  for (let i = 0; i < 100; i++) {
-    if (child.exitCode !== null) throw new Error(`bun exited with ${child.exitCode}`);
-    try {
-      if ((await fetch(url)).ok) return;
-    } catch {
-      // Not listening yet: try again.
-    }
-    await new Promise((wake) => setTimeout(wake, 100));
-  }
-  throw new Error(`${url} never answered`);
-}
-
 describe.skipIf(!hasBun)("bun entry", () => {
   let child: ChildProcess;
   let output = "";
@@ -39,7 +25,7 @@ describe.skipIf(!hasBun)("bun entry", () => {
     });
     child.stdout?.on("data", (chunk) => (output += chunk));
     child.stderr?.on("data", (chunk) => (output += chunk));
-    await waitFor({ url: `${origin}/health`, child });
+    await waitForServer({ url: `${origin}/health`, child, name: "bun" });
   });
 
   afterAll(async () => {

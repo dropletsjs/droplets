@@ -11,13 +11,13 @@ Every folder of interest has its own `AGENTS.md` with that folder's rules and a 
 - `packages/adapters/{node,cloudflare,bun,deno}`: `@dropletsjs/adapter-*`. `vite build` requires one.
 - `packages/renderers/{svelte,vue,react,preact,solid,hono-jsx,handlebars,lit}`: `@dropletsjs/renderer-*`.
 - `packages/create-droplets`: `create-droplets` (unscoped), `npm create droplets`.
-- `packages/shared`: `@dropletsjs/shared`, private, never published. `./tsdown` (`base`, `cssInline()`, `graphCheck()`), `./tsconfig.base.json` (extend it by that file path, which resolves with or without `exports`), `./vitest` (`rendererTests`, `adapterTests`, `happyDom`), `./env` (`loadEnvLocal()`).
+- `packages/shared`: `@dropletsjs/shared`, private, never published. `./tsdown` (`base`, `cssInline()`, `graphCheck()`), `./tsconfig.base.json` (extend it by that file path, which resolves with or without `exports`), `./vitest` (`rendererTests`, `adapterTests`, `happyDom`, `FIXTURE_ROOT`, `buildFixtureApp()`, `waitForServer()`), `./env` (`loadEnvLocal()`).
 - `apps/docs`: the guide, Astro Starlight. `apps/demo`: the live droplets the guide embeds; it trusts only the docs' origins.
 - `examples/frameworks/*`: one project per renderer, the same three droplets each. A change to one usually belongs in all.
 - `examples/shop`, `examples/wp-shop`: the shop demo, on SQLite and on WordPress.
 - `examples/hosts/*`: host stacks, outside the pnpm workspace (own toolchains, Docker Compose).
 - `tests/*`: end-to-end tests across packages. A package's own tests live in its `test/`.
-  `examples` (Playwright), `hosts` (Docker), `create-droplets`, `djs-add`, `dev-mixed` (`vite dev` + HMR, and the production build), `packages` (the packed tarballs).
+  `examples` (Playwright), `hosts` (Docker; `test/` static checks over `examples/` without it), `create-droplets`, `djs-add`, `dev-mixed` (`vite dev` + HMR, and the production build), `packages` (the packed tarballs).
 
 ## Where things go
 
@@ -52,7 +52,7 @@ Each rule states what holds, then what checks it. A rule that one folder alone c
 2. **A production build holds the application alone.** Dev and HMR code renders to nothing in any chunk, for every renderer and every adapter, Cloudflare's single `worker.js` included. A production server logs errors only, with plain `console.error`; every warning and the logger (`core/logger.ts`) belong to `vite dev` and `vite build`.
    Checked by: `tests/dev-mixed/test/production.test.ts` (`DEV_MARKERS`, `DEV_MODULE`); `packages/droplets/test/runtime/app.test.ts` ("createDropletsApp: what a production server logs").
 3. **Development code is its own module and enters production code through one gate.** It lives in `runtime/dev-*.ts` or a renderer's `client-dev.ts`, has no top-level side effect, and a class reaches it through at most one `if (import.meta.env.DEV) installDev…(Class)`. `import.meta.env.DEV` and `import.meta.hot` stay literal in `dist/`, so the consumer's Vite strips the dev path. New dev code adds its marker to `DEV_MARKERS`.
-   Checked by: `tests/dev-mixed/test/production.test.ts`; `tests/packages/test/packed.test.ts` ("leaves import.meta.env.DEV and import.meta.hot to the consumer's Vite").
+   Checked by: `tests/dev-mixed/test/production.test.ts`; `tests/dev-mixed/test/dev-gate.test.ts` (the sources: who imports a dev module, the one `installDev…` call per class, nothing run at a dev module's top level); `tests/packages/test/packed.test.ts` ("leaves import.meta.env.DEV and import.meta.hot to the consumer's Vite").
 4. **A package imports only what it declares.** Every import in `dist/` resolves to the package itself, a dependency, a peer, a Node built-in or a virtual id.
    Checked by: `graphCheck()` at build; `tests/packages/test/packed.test.ts` ("imports only its dependencies and peers, Node built-ins and virtual modules").
 5. **A file the code finds by path in `dist/` is a tsdown `entry`, so its name stays fixed**, and each `tsdown.config.ts` names every entry and server module in its `graphCheck` lists.
@@ -107,7 +107,7 @@ Each rule states what holds, then what checks it. A rule that one folder alone c
 16. **One vocabulary across servers, hosts and docs.** Markup attributes are `data-droplet-*`; request headers `x-droplet-*`, response headers `x-droplets-*`; framework modules `$droplets/*`, and `#` stays the user's subpath imports. Droplets live in `src/droplets/<id>/+droplet.*`, their routes under `/droplets/:id` (`/_data`, `/client.js`, `/style.css`), and `/api/` is reserved. A thing is named for what it is (`errorComponent`, `createDropletsApp`).
     Checked by: `packages/droplets/test/runtime/element.test.ts` (`data-droplet-*`), `test/runtime/app.test.ts` (the routes); names: review.
 17. **Code lives where it is used, and every project stands on its own.** Shared code is in `packages/shared`, imported by package name; code with one user is in that user's folder; the root holds repo management; `examples/*` depend on published packages only. Every workspace project declares each package, `@types/*` and tool its files use, and typechecks on its own. Tool versions live in the pnpm `catalog:` of `pnpm-workspace.yaml`, create-droplets reads the same ranges, and `minimumReleaseAge` is 7 days.
-    Checked by: pnpm's isolated `node_modules` (`shamefullyHoist: false`), `pnpm typecheck` (`pnpm -r typecheck`), `pnpm typecheck:hosts`, `packages/create-droplets/versions.ts` (throws on a missing catalog entry), `packages/create-droplets/test/files.test.ts`.
+    Checked by: pnpm's isolated `node_modules` (`shamefullyHoist: false`), `pnpm typecheck` (`pnpm -r typecheck`), `pnpm typecheck:hosts`, `tests/hosts/test/standalone.test.ts` (no `file:`/`link:` range, no import or `tsconfig` above an example's folder), `packages/create-droplets/versions.ts` (throws on a missing catalog entry), `packages/create-droplets/test/files.test.ts`.
 18. **Code style is `docs/style/code.md`** for TypeScript in `packages/*` and their tests; Biome formats and lints, and a review never comments on layout. A comment explains a non-obvious why.
     Checked by: `biome ci` in `pnpm check`; comments: review.
 
