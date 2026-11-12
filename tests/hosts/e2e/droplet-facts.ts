@@ -13,11 +13,11 @@ import type { Page } from "@playwright/test";
  *   of its generated `./$types` (`// src/droplets/login/ (hono-jsx)`). The
  *   running server exposes no framework.
  * - SSR: whether the element came with server markup, which carries a
- *   `data-render-id`; a client-only droplet has none.
+ *   `data-droplet-render`; a client-only droplet has none.
  * - prerendered or live: the page fetched again. A stored (build-time)
- *   render keeps its `data-render-id`; a live render draws a new one each
+ *   render keeps its `data-droplet-render`; a live render draws a new one each
  *   time. No header says so.
- * - hydrate: the element's `data-hydrate` (the host's choice), else the
+ * - hydrate: the element's `data-droplet-hydrate` (the host's choice), else the
  *   droplet's flag in the server's `/index.js` (its hydration map); a
  *   droplet absent from it ships no JavaScript.
  * - actions: the server's answer to a form post naming an action that
@@ -98,8 +98,8 @@ async function onPage(page: Page): Promise<OnPage | null> {
     const element = key.slice(0, key.lastIndexOf(":"));
     const droplets = [...document.querySelectorAll<HTMLElement>(`${element}[data-droplet]`)].map((node) => ({
       droplet: node.dataset["droplet"] ?? "",
-      renderId: node.getAttribute("data-render-id"),
-      hydrateAttr: node.getAttribute("data-hydrate"),
+      renderId: node.getAttribute("data-droplet-render"),
+      hydrateAttr: node.getAttribute("data-droplet-hydrate"),
     }));
     return { element, origin: record.origin, droplets };
   });
@@ -160,7 +160,7 @@ export async function readFacts(page: Page, renderers: Map<string, string>): Pro
     const droplet = /\sdata-droplet="([^"]*)"/.exec(tag)?.[1];
     if (!droplet) continue;
     const list = renderIds.get(droplet) ?? [];
-    list.push(/\sdata-render-id="([^"]*)"/.exec(tag)?.[1] ?? null);
+    list.push(/\sdata-droplet-render="([^"]*)"/.exec(tag)?.[1] ?? null);
     renderIds.set(droplet, list);
   }
 

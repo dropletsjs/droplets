@@ -38,7 +38,7 @@ type WithBoundaryInput = { root: Component; error: NonNullable<ClientRenderConte
  * it as the value: in the DOM, so two copies of this module on one page
  * (two droplets servers with Vue) share the count.
  */
-const STYLE_MARK = "data-droplets-vue";
+const STYLE_MARK = "data-droplet-vue";
 
 /** What each mounted instance injected, released when it unmounts. */
 const injectedStyles = new WeakMap<App, Injected>();

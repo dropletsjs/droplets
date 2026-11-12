@@ -20,6 +20,8 @@
 - Types the core owns (`DropletSummary`, `DropletRegistryPayload`, `DropletsPluginApi`, `DevToolSource`, `DevNotification`) are imported by name from `@dropletsjs/droplets`, never copied.
 - `build` runs tsdown, then the tests, which load `dist/`; `build:dist` only compiles.
   Checked by: `package.json`.
+- Every markup attribute the page and the tool read or write is `data-droplet-*` (`data-droplet-value`, `data-droplet-state`, `data-droplet-ok`, `data-droplet-key`), as everywhere in the framework.
+  Checked by: `../../tests/packages/test/attributes.test.ts`.
 - `dropletsDevtools()` and the types `DevtoolsPageInput` and `ServerRender` are public API: a change needs the maintainer's go and a matching change in `apps/docs/`. `renderDevtoolsPage()` is the plugin's own, in `src/page.tsx`.
 
 If you need the facts, read them from `README.md` (`## Facts`, one per line: grep for the subject).

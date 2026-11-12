@@ -43,7 +43,7 @@ Two modes:
   it. Good for content that should be visible immediately.
 - **`client`**: renders the droplet element (`<djs-svelte>`, the Svelte
   example's `element` setting; `VITE_DROPLETS_ELEMENT` overrides it) with
-  `data-droplet` and a base64 `data-context` directly. It loads from where
+  `data-droplet` and a base64 `data-droplet-context` directly. It loads from where
   `/index.js` came from, fetches its data from `/droplets/<id>/_data` and
   mounts the component. Nothing shows until the bundle loads.
 
@@ -77,7 +77,7 @@ Pages fetch their fragments from the browser with `redirect: "manual"` and
 insert one only when it is HTML (2xx, or a 500 carrying the droplet's
 error page). The cart badge (`shopping-cart`) and the toasts
 (`toast-center`, first in the layout) are client-only `<djs-shop>`
-elements with `data-params`. Login and the other forms are full-page posts
+elements with `data-droplet-props`. Login and the other forms are full-page posts
 through the proxy: the shop's `303` and `Set-Cookie` reach the browser as
 they are. A product link with an old `v` redirects; the page replaces the
 URL with one without it.
@@ -124,7 +124,7 @@ flow against the compose stack (needs Docker).
 - Droplets server's `cors: true` (the Svelte example) lets the basic page load droplets cross-origin. `../../frameworks/svelte/droplets.config.ts:16`
 - `VITE_DROPLETS_URL` defaults to `http://localhost:8000`, `VITE_DROPLETS_ELEMENT` to `djs-svelte`. `src/droplets.tsx:5`, `src/droplets.tsx:9`
 - `ensureDropletsClient()` adds `<origin>/index.js` once per page. `src/droplets.tsx:14`
-- `<Droplet>` client mode sets `data-droplet` and `data-context` (base64 JSON `{ props }`). `src/droplets.tsx:24`, `src/droplets.tsx:58`, `src/droplets.tsx:59`
+- `<Droplet>` client mode sets `data-droplet` and `data-droplet-context` (base64 JSON `{ props }`). `src/droplets.tsx:24`, `src/droplets.tsx:58`, `src/droplets.tsx:59`
 - `<Droplet>` fragment mode fetches `/droplets/<id>` with props as query parameters, `accept: text/html` and `redirect: "manual"`, and inserts it through a `<template>`. `src/droplets.tsx:65`, `src/droplets.tsx:68`, `src/droplets.tsx:80`
 - `<Droplet>` fragment mode inserts only a `text/html` answer that is 2xx or 500 (the droplet's error page); a redirect or any other answer is an error. `src/droplets.tsx:72`, `src/droplets.tsx:75`
 - `<Droplet>` that fails renders `<p className="error">`. `src/droplets.tsx:97`
@@ -136,7 +136,7 @@ flow against the compose stack (needs Docker).
 - Shop fragment fetch uses `redirect: "manual"` and `accept: text/html`. `src/shop/ShopDroplet.tsx:52`
 - Shop fragment redirect (`opaqueredirect`) calls `onRedirect`, or shows the droplet as unavailable. `src/shop/ShopDroplet.tsx:57`
 - Shop fragment is inserted only when it is 2xx or 500 and `text/html`. `src/shop/ShopDroplet.tsx:63`
-- Shop client-only droplets are `<djs-shop>` with `data-droplet` and `data-params` (JSON). `src/shop/ShopDroplet.tsx:103`, `src/shop/ShopDroplet.tsx:104`
+- Shop client-only droplets are `<djs-shop>` with `data-droplet` and `data-droplet-props` (JSON). `src/shop/ShopDroplet.tsx:103`, `src/shop/ShopDroplet.tsx:104`
 - Shop layout: `toast-center` first, `shopping-cart` with `variant: "badge"` in the header, both client-only. `src/shop/ShopApp.tsx:50`, `src/shop/ShopApp.tsx:68`
 - Shop product lookup reads `/droplets/product-page/_data?slug=`; `null` renders Not found. `src/shop/ShopDroplet.tsx:121`, `src/shop/ShopApp.tsx:127`
 - Shop gallery passes the whole query to `product-filter` and `product-library`. `src/shop/ShopApp.tsx:104`, `src/shop/ShopApp.tsx:107`

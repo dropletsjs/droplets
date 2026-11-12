@@ -45,8 +45,8 @@
 - The element, `$droplets/drop` and `$droplets/form` take the server location from `serverLocation` (`server-records.ts`), keyed `<element>:<build>`.
   Checked by: `../../test/runtime/entry-client.test.ts`.
 - Request headers are `x-droplet-*` and response headers `x-droplets-*`.
-- The server's fragment markup names the droplet with `data-droplet` and marks its payloads, style link and entry with `data-droplet-*`.
-  Checked by: `../../test/runtime/element.test.ts`.
+- Every markup attribute this folder reads or writes is `data-droplet` (the id) or `data-droplet-*`: the fragment's `data-droplet-build`, `data-droplet-render`, `data-droplet-context`, `data-droplet-error`, `data-droplet-payload="context"|"data"`, `data-droplet-style` and `data-droplet-entry`; the host's `data-droplet-props`, `data-droplet-context`, `data-droplet-hydrate` and `data-droplet-enhance`; the dev toasts' `data-droplet-key`.
+  Checked by: `../../test/runtime/element.test.ts` ("writes data-droplet and data-droplet-* attributes, nothing else"), `../../../../tests/packages/test/attributes.test.ts`.
 
 If you need the facts, read them from `README.md` (`## Facts`, one per line: grep for the subject).
 

@@ -226,7 +226,7 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - `LiveDroplet` host is the page's own URL. `src/components/LiveDroplet.astro:31`
 - `LiveDroplet` loads `<DEMO_PUBLIC_URL>/index.js` as a module script. `src/components/LiveDroplet.astro:37`
 - `LiveDroplet` `toggle` fetches a second render at build, hidden until its button is pressed. `src/components/LiveDroplet.astro:33`, `src/components/LiveDroplet.astro:39`
-- `LiveDroplet` on `droplets:stale` replaces the element with a fresh one carrying the same `data-context`. `src/components/LiveDroplet.astro:71`, `src/components/LiveDroplet.astro:79`
+- `LiveDroplet` on `droplets:stale` replaces the element with a fresh one carrying the same `data-droplet-context`. `src/components/LiveDroplet.astro:71`, `src/components/LiveDroplet.astro:79`
 - `RendererDemo` reads every file of `../demo/src/droplets/counter-*/` with `?raw`. `src/components/RendererDemo.astro:24`
 - `RendererDemo` file order: the component, `+droplet.ts`, `+droplet.server.ts`, the rest. `src/components/RendererDemo.astro:39`
 - `RendererDemo` throws when the droplet folder has no files. `src/components/RendererDemo.astro:50`
@@ -235,7 +235,7 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - Live droplets on guide pages: `hello`, `poll`, `crash` (with `toggle`), `counter`. `src/content/docs/start/what-is-a-droplet.mdx:39`, `src/content/docs/guides/actions.mdx:263`, `src/content/docs/guides/errors.mdx:93`, `src/content/docs/guides/in-the-browser.mdx:87`
 - WordPress tutorial steps: the starting point, a plugin that brings in the droplets, WordPress owns the data, the login is WordPress's, prerender at container start, run it, the result. `src/content/docs/integrate/wordpress.mdx:18`, `src/content/docs/integrate/wordpress.mdx:55`, `src/content/docs/integrate/wordpress.mdx:288`, `src/content/docs/integrate/wordpress.mdx:428`, `src/content/docs/integrate/wordpress.mdx:597`, `src/content/docs/integrate/wordpress.mdx:660`, `src/content/docs/integrate/wordpress.mdx:732`
 - CSP check: every inline script the browser runs (no type, a JavaScript type or `module`) needs its sha256 in `script-src`. `scripts/csp-hashes.mjs:27`, `scripts/csp-hashes.mjs:38`
-- CSP check skips data payloads such as `<script type="application/text" data-droplet-data>`. `scripts/csp-hashes.mjs:29`
+- CSP check skips data payloads such as `<script type="application/text" data-droplet-payload="data">`. `scripts/csp-hashes.mjs:29`
 - CSP check fails on a missing or stale hash. `scripts/csp-hashes.mjs:44`, `scripts/csp-hashes.mjs:45`, `scripts/csp-hashes.mjs:80`
 - CSP check requires the demo origin in `script-src`, `style-src`, `connect-src` and `form-action`. `scripts/csp-hashes.mjs:53`
 - CSP check fails on any other unquoted source; `data:` only in `img-src` and `font-src`. `scripts/csp-hashes.mjs:54`, `scripts/csp-hashes.mjs:67`

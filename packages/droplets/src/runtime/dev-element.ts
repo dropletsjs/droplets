@@ -13,7 +13,7 @@
  *   and the client module's fallback for an edit no framework HMR took.
  * - The dev tool (`dev.injectTool`, `index.js?injectTool=true`) and what it
  *   lists of the elements.
- * - Warnings about what a host wrote: loose children, an unknown `data-hydrate`.
+ * - Warnings about what a host wrote: loose children, an unknown `data-droplet-hydrate`.
  *
  * Nothing runs at the top level: the module only exports.
  */
@@ -100,7 +100,7 @@ export type DevElementEnv = {
   droplets: ReadonlySet<string>;
   hydration: Map<string, HydrateMode>;
   serverLoad: Set<string>;
-  /** Script droplets: the element ignores `data-hydrate="false"` on them. */
+  /** Script droplets: the element ignores `data-droplet-hydrate="false"` on them. */
   scripts: ReadonlySet<string>;
   /** Selector of what may be a direct child of the element. */
   allowedChildren: string;
@@ -308,15 +308,17 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
 
   /**
    * How the element reached the page. A server fragment carries its context
-   * (`[data-droplet-context]` or `data-context`); a `clientOnly` one has
+   * (`[data-droplet-payload="context"]` or `data-droplet-context`); a `clientOnly` one has
    * neither markup nor data for a droplet that hydrates, as an element the
    * host wrote itself.
    */
   function arrival({ element, droplet }: ArrivalInput): "fragment" | "client" {
-    const fromServer = element._readInline({ selector: "[data-droplet-context]" }).found || element.dataset["context"] !== undefined;
+    const fromServer =
+      element._readInline({ selector: '[data-droplet-payload="context"]' }).found || element.dataset["dropletContext"] !== undefined;
     if (!fromServer) return "client";
     const markup = element.querySelector(":scope > [data-droplet-entry]")?.childNodes.length ?? 0;
-    const clientOnly = env.hydration.has(droplet) && markup === 0 && !element._readInline({ selector: "[data-droplet-data]" }).found;
+    const clientOnly =
+      env.hydration.has(droplet) && markup === 0 && !element._readInline({ selector: '[data-droplet-payload="data"]' }).found;
     return clientOnly ? "client" : "fragment";
   }
 
@@ -370,13 +372,13 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
   };
 
   proto._modeOf = function (this: DjsDropletElement, input: ModeOfInput): HydrateMode {
-    const asked = this.dataset["hydrate"];
+    const asked = this.dataset["dropletHydrate"];
     if (input.flag !== false && asked !== undefined && !["", "true", "false", "visible", "interactive"].includes(asked)) {
-      console.warn(`[droplets] data-hydrate="${asked}": use true, false, visible or interactive; using the droplet's own`);
+      console.warn(`[droplets] data-droplet-hydrate="${asked}": use true, false, visible or interactive; using the droplet's own`);
     }
     if (asked === "false" && env.scripts.has(this.dataset["droplet"] ?? "")) {
       console.warn(
-        `[droplets] data-hydrate="false" on the script droplet "${this.dataset["droplet"]}" is ignored: a script droplet only runs in the browser`,
+        `[droplets] data-droplet-hydrate="false" on the script droplet "${this.dataset["droplet"]}" is ignored: a script droplet only runs in the browser`,
       );
     }
     return original.modeOf.call(this, input);
@@ -540,7 +542,7 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
       after: element._modeOf({ flag: after.hydrate, hasMarkup }),
       life,
     });
-    if (action === "hydrate" && !element._readInline({ selector: "[data-droplet-data]" }).found) {
+    if (action === "hydrate" && !element._readInline({ selector: '[data-droplet-payload="data"]' }).found) {
       // Markup that was never to hydrate came without its data: the server
       // renders it again with the data inline, and that hydrates.
       return element.update(payload);

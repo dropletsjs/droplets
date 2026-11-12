@@ -79,19 +79,19 @@ async function scripts(dir: string): Promise<string> {
   return out.join("\n");
 }
 
-/** What a fragment's `data-droplet-data` carries. */
+/** What a fragment's `data-droplet-payload="data"` carries. */
 const dataOf = (html: string) => {
-  const match = html.match(/data-droplet-data>([^<]+)</)?.[1];
+  const match = html.match(/data-droplet-payload="data">([^<]+)</)?.[1];
   return match ? JSON.parse(Buffer.from(match, "base64").toString()) : undefined;
 };
 
 /** The client-only fragment of a script droplet: the context on the element, the data payload, an empty content root. */
 function expectScriptFragment(html: string) {
   expect(html).toMatch(
-    /^<djs-droplet data-droplet="tracker" data-build="[^"]+" data-context="[^"]+"><script type="application\/text" data-droplet-data>[^<]+<\/script><div style="display: contents" data-droplet-entry><\/div><\/djs-droplet>$/,
+    /^<djs-droplet data-droplet="tracker" data-droplet-build="[^"]+" data-droplet-context="[^"]+"><script type="application\/text" data-droplet-payload="data">[^<]+<\/script><div style="display: contents" data-droplet-entry><\/div><\/djs-droplet>$/,
   );
   // Nothing that runs: the one script is the data payload.
-  expect(html.match(/<script\b[^>]*>/g)).toEqual(['<script type="application/text" data-droplet-data>']);
+  expect(html.match(/<script\b[^>]*>/g)).toEqual(['<script type="application/text" data-droplet-payload="data">']);
   expect(html).not.toContain("SCRIPT_MARKER");
 }
 

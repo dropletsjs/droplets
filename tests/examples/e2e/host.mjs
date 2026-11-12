@@ -100,7 +100,11 @@ createServer(async (request, response) => {
   if (rest === "written") {
     html(
       response,
-      page(droplets, "Written by the host", `<djs-${example} data-droplet="ssr-hydrate" data-params='{"who":"Writer"}'></djs-${example}>`),
+      page(
+        droplets,
+        "Written by the host",
+        `<djs-${example} data-droplet="ssr-hydrate" data-droplet-props='{"who":"Writer"}'></djs-${example}>`,
+      ),
     );
     return;
   }
@@ -116,14 +120,14 @@ document.getElementById("box").innerHTML = await response.text();
     return;
   }
   // One droplet's fragment, on the server, by id and props: `/<example>/one/guestbook?who=Ana`.
-  // `hydrate=interactive` is the host's own `data-hydrate` on the element, not a prop.
+  // `hydrate=interactive` is the host's own `data-droplet-hydrate` on the element, not a prop.
   const one = /^one\/([a-z-]+)$/.exec(rest ?? "");
   if (one) {
     const { searchParams } = new URL(request.url ?? "/", "http://host");
     const hydrate = searchParams.get("hydrate");
     searchParams.delete("hydrate");
     let body = await fragment(droplets, one[1], Object.fromEntries(searchParams));
-    if (hydrate && /^[a-z]+$/.test(hydrate)) body = body.replace(`<djs-${example} `, `<djs-${example} data-hydrate="${hydrate}" `);
+    if (hydrate && /^[a-z]+$/.test(hydrate)) body = body.replace(`<djs-${example} `, `<djs-${example} data-droplet-hydrate="${hydrate}" `);
     html(response, page(droplets, `The ${one[1]} droplet`, body));
     return;
   }

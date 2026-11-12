@@ -64,7 +64,7 @@ droplets server directly, in one of two ways:
 
 ```html
 <script type="module" src="https://drops.example.com/index.js"></script>
-<djs-droplet data-droplet="greeting" data-params='{"who":"Ana"}'></djs-droplet>
+<djs-droplet data-droplet="greeting" data-droplet-props='{"who":"Ana"}'></djs-droplet>
 ```
 
 What the host does: loads `/index.js` from the droplets server, and either

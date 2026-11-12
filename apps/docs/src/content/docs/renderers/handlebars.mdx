@@ -79,7 +79,7 @@ export const upper = (value: unknown) => String(value).toUpperCase();
 | Server rendering | yes: `ssr = true`, the default; `ssr = false` renders the template in the browser instead |
 | `hydrate` | `true` (the default), `"visible"`, `"interactive"`, `false`; none adds behaviour, see below |
 | Prerendering | yes: `prerender = true` with `entries` |
-| Forms | `<form method="post" action="{{action "add"}}">`, posted natively; `data-droplets-enhance` posts it by `fetch` |
+| Forms | `<form method="post" action="{{action "add"}}">`, posted natively; `data-droplet-enhance` posts it by `fetch` |
 
 The flags comment is Droplets' own syntax inside a Handlebars comment, so
 nothing else would catch a mistake in it: every mistake stops `vite build`,
@@ -125,7 +125,7 @@ droplets: src/partials/footer.hbs: a partial has no <style>: put it in the dropl
   the template, and still shows no button.
 - **A button that does something** needs one of two things:
   - a form: `{{action "add"}}` writes where it posts for an action in
-    `+droplet.server.ts`, and `data-droplets-enhance` on the `<form>` makes
+    `+droplet.server.ts`, and `data-droplet-enhance` on the `<form>` makes
     `/index.js` post it by `fetch` and render the result in place, even with
     `hydrate = false` (the server renders the fragment again). See
     [Actions](/guides/actions/);

@@ -73,7 +73,7 @@ async function postWatched(path: string) {
 }
 
 const payload = (html: string, name: "data" | "context") => {
-  const encoded = html.match(new RegExp(`data-droplet-${name}>([^<]+)<`))?.[1];
+  const encoded = html.match(new RegExp(`data-droplet-payload="${name}">([^<]+)<`))?.[1];
   return encoded ? JSON.parse(Buffer.from(encoded, "base64").toString("utf8")) : undefined;
 };
 
@@ -157,7 +157,7 @@ describe("the droplets", () => {
         expect(html).toMatch(/<output[^>]*>(?:<!--[^>]*-->)*3(?:<!--[^>]*-->)*<\/output>/);
         if (id === "handlebars") {
           // hydrate = false: no payload, no button, no bundle to fetch.
-          expect(html).not.toContain("data-droplet-data");
+          expect(html).not.toContain('data-droplet-payload="data"');
           expect(html).not.toContain("<button");
         } else {
           expect(payload(html, "data")).toEqual({ data: { framework, start: 3 } });
@@ -179,8 +179,8 @@ describe("the droplets", () => {
       expect(html).toContain('<div style="display: contents" data-droplet-entry></div>');
       expect(html).not.toContain("Add one");
       // Client only: the props ride on the element, no inline context script.
-      expect(html).toMatch(/data-context="[^"]+"/);
-      expect(html).not.toContain("data-droplet-context");
+      expect(html).toMatch(/data-droplet-context="[^"]+"/);
+      expect(html).not.toContain('data-droplet-payload="context"');
       expect(payload(html, "data")).toEqual({ data: { framework: "plain script", start: 3 } });
       expect((await call("/droplets/counter-script/client.js")).status).toBe(200);
     });

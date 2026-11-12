@@ -43,7 +43,7 @@ because the browser only ever talks to one origin.
 
 **Client-only.** A single-page app has no server to paste fragments into. It
 writes the droplet element (`<djs-droplet>` by default, named per server by
-`element`) with `data-droplet` and `data-params` directly, or fetches the
+`element`) with `data-droplet` and `data-droplet-props` directly, or fetches the
 fragment from the browser, and lets the element do the rest. The React
 example shows both. [htmx](/integrate/hosts/htmx/) does the second with no code
 at all: `hx-get` asks for the fragment and swaps it into a static page.
@@ -56,7 +56,7 @@ decides where it shows. See [Host children](/guides/in-the-browser/#host-childre
 
 ## Choosing when it hydrates
 
-`data-hydrate="visible"` or `"interactive"` on the element defers a droplet's
+`data-droplet-hydrate="visible"` or `"interactive"` on the element defers a droplet's
 JavaScript until it scrolls into view or someone interacts with it, whatever
 the component declares. See [Lazy hydration](/guides/in-the-browser/#lazy-hydration).
 

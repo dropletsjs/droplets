@@ -36,12 +36,13 @@ export type DropletElementProps = {
 
 type Html = HtmlEscapedString | Promise<HtmlEscapedString>;
 
-type PayloadScriptInput = { attribute: string; payload: string };
+type PayloadScriptInput = { name: "context" | "data"; payload: string };
 
-function payloadScript({ attribute, payload }: PayloadScriptInput): Html | string {
+/** An inline payload, `<script data-droplet-payload="<name>">`: the one marker attribute names what it carries. */
+function payloadScript({ name, payload }: PayloadScriptInput): Html | string {
   if (!payload) return "";
   // Payloads are base64, so there is nothing for HTML escaping to change.
-  return html`<script type="application/text" ${raw(attribute)}>${raw(payload)}</script>`;
+  return html`<script type="application/text" data-droplet-payload="${name}">${raw(payload)}</script>`;
 }
 
 /**
@@ -49,19 +50,19 @@ function payloadScript({ attribute, payload }: PayloadScriptInput): Html | strin
  * the client needs. Served as the fragment at `/droplets/<id>`.
  */
 export function dropletElement(props: DropletElementProps): Html {
-  const contextAttribute = props.contextAttr ? html` data-context="${props.contextAttr}"` : "";
-  const buildAttribute = props.build ? html` data-build="${props.build}"` : "";
-  const renderAttribute = props.renderId ? html` data-render-id="${props.renderId}"` : "";
+  const contextAttribute = props.contextAttr ? html` data-droplet-context="${props.contextAttr}"` : "";
+  const buildAttribute = props.build ? html` data-droplet-build="${props.build}"` : "";
+  const renderAttribute = props.renderId ? html` data-droplet-render="${props.renderId}"` : "";
   const errorAttribute = props.error ? raw(" data-droplet-error") : "";
 
   // The tag name is validated in resolveConfig; it is never user input.
   const tag = raw(props.element);
   return html`<${tag} data-droplet="${props.droplet}"${buildAttribute}${renderAttribute}${contextAttribute}${errorAttribute}>${payloadScript(
     {
-      attribute: "data-droplet-context",
+      name: "context",
       payload: props.dropletContext ?? "",
     },
-  )}${payloadScript({ attribute: "data-droplet-data", payload: props.dropletData })}${
+  )}${payloadScript({ name: "data", payload: props.dropletData })}${
     props.stylesheet ? html`<link rel="stylesheet" href="${props.stylesheet}" data-droplet-style>` : ""
   }<div style="display: contents" data-droplet-entry>${raw(props.html)}</div></${tag}>`;
 }

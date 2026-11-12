@@ -624,7 +624,7 @@ HTML checks ignore an engine's comment markers.
 | `interactive` | `true` | Whether `hello`'s button increments after hydration; `false` for templates. |
 | `css` | `true` | Whether `static-note` carries styles the client build extracts. |
 | `adopts` | `true` | Whether hydration adopts the server's DOM nodes. |
-| `enhance` | `"wrapper"` | `"attribute"` when forms opt in with `data-droplets-enhance`. |
+| `enhance` | `"wrapper"` | `"attribute"` when forms opt in with `data-droplet-enhance`. |
 | `outDir` | `<root>/dist-conformance` | Where the build goes. |
 
 `fakeRenderer()` is a complete reference renderer, named `fake`, for
@@ -651,7 +651,7 @@ Its `./server` and `./client` exports are the modules core imports by path.
 | `@dropletsjs/renderer-preact` | `preact({ plugin? })` | `.tsx`, `.jsx` | `DropletProps<Data, Form>`, `DropletErrorProps`; `./form`: `useEnhanceDropletForm(formRef, options?)` |
 | `@dropletsjs/renderer-solid` | `solid({ plugin?, vitePlugin? })` | `.tsx`, `.jsx` | `DropletProps<Data, Form>`, `DropletErrorProps`; `./form`: `enhanceDropletForm`, a directive (`use:enhanceDropletForm={options}`) |
 | `@dropletsjs/renderer-hono-jsx` | `honoJsx({ plugin? })` | `.tsx`, `.jsx` | `DropletProps<Data, Form>`, `DropletErrorProps`; `./form`: `useEnhanceDropletForm(formRef, options?)` |
-| `@dropletsjs/renderer-handlebars` | `handlebars({ partials?, helpers?, compile? })` | `.hbs` | `DropletContext<Data, Form>`, `DropletErrorContext`, `HandlebarsHelpers`; the `{{action "name"}}` and `{{children}}` helpers; `data-droplets-enhance` on a form enhances it |
+| `@dropletsjs/renderer-handlebars` | `handlebars({ partials?, helpers?, compile? })` | `.hbs` | `DropletContext<Data, Form>`, `DropletErrorContext`, `HandlebarsHelpers`; the `{{action "name"}}` and `{{children}}` helpers; `data-droplet-enhance` on a form enhances it |
 | `@dropletsjs/renderer-lit` | `lit({ prefix? })` | `.lit.ts`, `.lit.js` | `DropletProps<Data, Form>`, `DropletErrorProps`; `./element`: `DropletElement`, `DropletErrorElement`; `./form`: `enhance(options?)`, an element directive |
 | built in | none | `.script.ts`, `.script.js` | `DropletScript` from `./$types` |
 
@@ -837,15 +837,15 @@ already stops it before anything is written. See
 | Attribute | Written by | Meaning |
 | --- | --- | --- |
 | `data-droplet` | server, host | The droplet id. An unknown id keeps its markup and does nothing. |
-| `data-params` | host | Plain JSON props, read when there is no inline context or `data-context`. |
-| `data-context` | server, host | Base64 JSON `{ host, props }`, when no `[data-droplet-context]` is inlined. |
-| `data-hydrate` | host | `true` (or empty), `false`, `visible` or `interactive`: overrides the droplet's mode. It never makes a `hydrate = false` droplet hydrate, and `false` never stops a script droplet. |
-| `data-build` | server | The build that rendered it. |
-| `data-render-id` | server | The server render's id, when there is server markup. |
+| `data-droplet-props` | host | Plain JSON props, read when there is no inline context or `data-droplet-context`. |
+| `data-droplet-context` | server, host | Base64 JSON `{ host, props }`, when no `[data-droplet-payload="context"]` is inlined. |
+| `data-droplet-hydrate` | host | `true` (or empty), `false`, `visible` or `interactive`: overrides the droplet's mode. It never makes a `hydrate = false` droplet hydrate, and `false` never stops a script droplet. |
+| `data-droplet-build` | server | The build that rendered it. |
+| `data-droplet-render` | server | The server render's id, when there is server markup. |
 | `data-droplet-error` | server | The markup is the error page. |
 
-Children: `<script type="application/text" data-droplet-context>`,
-`<script type="application/text" data-droplet-data>`,
+Children: `<script type="application/text" data-droplet-payload="context">`,
+`<script type="application/text" data-droplet-payload="data">`,
 `<link rel="stylesheet" data-droplet-style>` to the droplet's `style.css`
 (added by the element when the fragment brought none, with
 `<link rel="preload" data-droplet-preload>` for the stylesheets it imports),
@@ -863,7 +863,7 @@ marker. Nothing goes into `<head>`.
 | `actionTarget()` | `{ droplet, location }`: where this droplet's actions are; `null` while it renders no known droplet of this build. |
 | `updateForm(form)` | Renders the droplet again with `form`, its loads run again; a droplet that does not hydrate gets its fragment rendered by the server with `form`. What an enhanced form calls. |
 
-A form with `data-droplets-enhance` in a droplet's own markup is enhanced
+A form with `data-droplet-enhance` in a droplet's own markup is enhanced
 by the element, for any renderer.
 
 Under `vite dev`, `/index.js` takes `strategy=hmr|remount|reload|manual`

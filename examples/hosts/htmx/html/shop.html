@@ -17,13 +17,13 @@
   <header style="max-width: 64rem; margin: 0 auto 1rem; display: flex; justify-content: space-between; align-items: center;">
     <nav><a href="/">The Svelte droplets</a></nav>
     <!-- Rendered in the browser: the element, written by the page. -->
-    <djs-shop data-droplet="shopping-cart" data-params='{"variant":"badge"}'></djs-shop>
+    <djs-shop data-droplet="shopping-cart" data-droplet-props='{"variant":"badge"}'></djs-shop>
   </header>
 
   <main style="max-width: 64rem; margin: 0 auto;">
     <h1>The shop's droplets, swapped in by htmx</h1>
 
-    <!-- A form the droplet enhances (data-droplets-enhance): it posts by
+    <!-- A form the droplet enhances (data-droplet-enhance): it posts by
          fetch and the droplet renders again in place. -->
     <section id="product" hx-boost="false"
              hx-get="/droplets/product-page?slug=clay-cylinder-mug"

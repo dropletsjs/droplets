@@ -43,7 +43,7 @@ describe("createNodeServerApp", () => {
     const html = await fragment.text();
     expect(html).toContain('data-testid="greeting">Hello Node!</h1>');
     expect(html.startsWith('<test-droplet data-droplet="hello"')).toBe(true);
-    const data = html.match(/data-droplet-data>([^<]+)</)?.[1];
+    const data = html.match(/data-droplet-payload="data">([^<]+)</)?.[1];
     // Runtime secrets come from process.env in production; .env is a build input.
     expect(data && (decode({ base64: data }) as { data: unknown }).data).toEqual({
       who: "Node",
@@ -58,7 +58,7 @@ describe("createNodeServerApp", () => {
     const docs = await (await app.request("http://drops.test/droplets/docs?page=2")).text();
     expect(docs).toContain("<h1>Page 2</h1>");
     expect(docs).toContain("<p>drops.test</p>");
-    const docsData = docs.match(/data-droplet-data>([^<]+)</)?.[1];
+    const docsData = docs.match(/data-droplet-payload="data">([^<]+)</)?.[1];
     // Stored without a host: the token, replaced by this request's host.
     expect(docsData && decode({ base64: docsData })).toEqual({
       data: { page: 2, building: true, hooked: true, home: "http://drops.test/home" },
@@ -169,7 +169,7 @@ describe("createNodeServerApp", () => {
     try {
       const app = await createNodeServerApp(paths, resolveConfig({ element: "test-droplet" }));
       const html = await (await app.request("/droplets/hello")).text();
-      const data = html.match(/data-droplet-data>([^<]+)</)?.[1];
+      const data = html.match(/data-droplet-payload="data">([^<]+)</)?.[1];
       expect(data && (decode({ base64: data }) as { data: unknown }).data).toMatchObject({ secret: "from-process" });
     } finally {
       delete process.env["FIXTURE_SECRET"];

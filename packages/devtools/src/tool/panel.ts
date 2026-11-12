@@ -103,11 +103,11 @@ function createTool(): DropletsDevTools {
   /** A notification above the pill, the panel open or not; the same `key` replaces the one before. */
   function notify(notification: DevNotification, reload: () => void): void {
     for (const old of Array.from(notes.children)) {
-      if ((old as HTMLElement).dataset["key"] === notification.key) old.remove();
+      if ((old as HTMLElement).dataset["dropletKey"] === notification.key) old.remove();
     }
     const id = `droplets-note-${++noteCount}`;
     const note = el({ tag: "div", props: { className: "note" } });
-    note.dataset["key"] = notification.key;
+    note.dataset["dropletKey"] = notification.key;
     // With a button it asks for a decision: an alert dialog; without, a polite status.
     note.setAttribute("role", notification.reload ? "alertdialog" : "status");
     const message = el({ tag: "p", props: { className: "message", id: `${id}-message`, textContent: notification.message } });

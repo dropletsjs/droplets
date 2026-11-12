@@ -308,7 +308,7 @@ describe("admin stock, and the product page's live fields", () => {
     expect(before).toContain(`class="product state-in"`);
     expect(before).not.toContain("%live:");
     expect(before).not.toContain("%v:");
-    const renderId = /data-render-id="(\w+)"/.exec(before)![1];
+    const renderId = /data-droplet-render="(\w+)"/.exec(before)![1];
 
     const cookie = await login();
     const response = await action("/droplets/product-admin?/stock", { id: product.id, stock: "0" }, { cookie });
@@ -316,7 +316,7 @@ describe("admin stock, and the product page's live fields", () => {
 
     const after = await page();
     // Still the build's render (same render id), with today's stock in it.
-    expect(/data-render-id="(\w+)"/.exec(after)![1]).toBe(renderId);
+    expect(/data-droplet-render="(\w+)"/.exec(after)![1]).toBe(renderId);
     expect(after).toContain(`class="product state-out"`);
     expect(after).toContain(`<p class="stock stock-out">Out of stock</p>`);
     expect(after).toMatch(/<button class="button primary" disabled>Out of stock<\/button>/);
@@ -397,7 +397,7 @@ describe("the product page's version (`v`)", () => {
   /** The fragment as a host fetches it for its page at `page`: the page's URL as Referer. */
   const fragment = (props: string, page = `${ORIGIN}/product/${slug}`) =>
     call(`/droplets/product-page?slug=${slug}${props}`, { headers: { accept: "text/html", referer: page } });
-  const renderId = async (response: Response) => /data-render-id="(\w+)"/.exec(await response.text())![1];
+  const renderId = async (response: Response) => /data-droplet-render="(\w+)"/.exec(await response.text())![1];
 
   it("is on every link the shop builds: cards, the cart, related products", async () => {
     const card = await bySlug(slug);
@@ -495,7 +495,7 @@ describe("comments", () => {
       const ids = [];
       for (let i = 0; i < 2; i++) {
         const html = await (await call(`/droplets/product-comments?productId=${productId}${query}`)).text();
-        ids.push(/data-render-id="(\w+)"/.exec(html)![1]);
+        ids.push(/data-droplet-render="(\w+)"/.exec(html)![1]);
       }
       return ids;
     };

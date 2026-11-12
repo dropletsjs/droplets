@@ -6,7 +6,7 @@
  *
  * Browser code with no state beyond the forms in flight, shared by
  * `$droplets/form` (a droplet's bundle), the renderers' `./form` wrappers
- * and `/index.js` (the `data-droplets-enhance` attribute). Importing it is
+ * and `/index.js` (the `data-droplet-enhance` attribute). Importing it is
  * harmless on the server: nothing runs until a form is enhanced.
  *
  * Attributes are read with `getAttribute`, never through `form.action`,
@@ -293,7 +293,7 @@ const inFlight = new WeakSet<HTMLFormElement>();
  * One submit of `form`, enhanced when it is a `POST` to its own droplet's
  * action (and to `options.action`, when given); anything else is left to
  * the browser, untouched. For `enhanceDropletForm` and the
- * `data-droplets-enhance` attribute.
+ * `data-droplet-enhance` attribute.
  */
 export function enhanceSubmit(event: Event, form: HTMLFormElement, options: EnhanceOptions = {}): void {
   if (event.defaultPrevented) return;

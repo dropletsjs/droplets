@@ -67,7 +67,7 @@ export const upper = (value: unknown) => String(value).toUpperCase();
   `+droplet.server.ts` (`{{action}}` for `default`):
   `<form method="post" action="{{action "add"}}">`. `action` and `children`
   are the renderer's helpers; a project helper by those names is ignored.
-  Such a form posts as any form does; `data-droplets-enhance` on it opts in
+  Such a form posts as any form does; `data-droplet-enhance` on it opts in
   to progressive enhancement, which `/index.js` applies: the submit goes by
   `fetch` and the droplet shows the result in place (a `hydrate = false`
   droplet gets its fragment rendered again by the server). See
@@ -167,7 +167,7 @@ templates import `dist/runtime.js` by path.
 - Styles: a block inside `{{#…}}` or containing `{{…}}` fails the build. `src/styles.ts:100`, `src/styles.ts:128`
 - Styles: a `src` block with CSS inside fails the build. `src/styles.ts:119`
 - Styles in a commented-out block are left as they are. `test/styles.test.ts:21`
-- Forms enhancement is the `data-droplets-enhance` attribute, which `/index.js` applies; the package has no `./form` export. `test/conformance.test.ts:17`, `package.json:23`
+- Forms enhancement is the `data-droplet-enhance` attribute, which `/index.js` applies; the package has no `./form` export. `test/conformance.test.ts:17`, `package.json:23`
 - Package exports are `.`, `./server` and `./client`. `package.json:23`
 - `handlebars ^4.7.10` is a dependency; peers are `@dropletsjs/droplets` and `vite ^8.0.0`. `package.json:54`, `package.json:57`
 - Node engine is `>=22`. `package.json:43`

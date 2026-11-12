@@ -115,29 +115,29 @@ with `false`, `"visible"` or `"interactive"`):
 
 Other named exports are the script's own business and say nothing.
 
-A host's `data-hydrate="false"` is ignored on a script droplet's element: a
+A host's `data-droplet-hydrate="false"` is ignored on a script droplet's element: a
 script droplet only runs in the browser, so there is nothing to keep. Under
 `vite dev` the browser console says so:
 
 ```
-[droplets] data-hydrate="false" on the script droplet "counter" is ignored: a script droplet only runs in the browser
+[droplets] data-droplet-hydrate="false" on the script droplet "counter" is ignored: a script droplet only runs in the browser
 ```
 
-`data-hydrate="visible"` still defers it until the element nears the
-viewport. `data-hydrate="interactive"` runs it at once: there is no server
+`data-droplet-hydrate="visible"` still defers it until the element nears the
+viewport. `data-droplet-hydrate="interactive"` runs it at once: there is no server
 markup to interact with.
 
 ## Specifics
 
 - **What the server sends.** The server never imports the file, so it may
   touch `window` or `document` at the top level. It is the client-only
-  fragment: the props ride on the element as `data-context`, and there is no
+  fragment: the props ride on the element as `data-droplet-context`, and there is no
   script that runs, so it stays [CSP-clean](/guides/security/), like every
   fragment.
 
   ```html
-  <djs-demo data-droplet="counter-script" data-build="…" data-context="…">
-    <script type="application/text" data-droplet-data>…</script>
+  <djs-demo data-droplet="counter-script" data-droplet-build="…" data-droplet-context="…">
+    <script type="application/text" data-droplet-payload="data">…</script>
     <link rel="stylesheet" href="…/droplets/counter-script/style.css?c=…" data-droplet-style>
     <div style="display: contents" data-droplet-entry></div>
   </djs-demo>

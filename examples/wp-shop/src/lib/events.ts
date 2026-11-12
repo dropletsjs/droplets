@@ -43,7 +43,7 @@ export function readFilter(detail: unknown): (Filter & { scope: string }) | null
 
 /**
  * `droplets:action` on `window`: after each enhanced submit (the forms with
- * `enhanceDropletForm`, its wrappers or `data-droplets-enhance`) got its
+ * `enhanceDropletForm`, its wrappers or `data-droplet-enhance`) got its
  * result, `{ droplet, action, type, status, data }`. A submit without
  * JavaScript fires none: the page it lands on renders afresh.
  */

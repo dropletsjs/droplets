@@ -42,7 +42,7 @@ page. Playwright waits for `/health` on each.
 | `/<example>/` | the three droplets (`client`, `ssr-hydrate`, `ssr-nohydrate`), fragments fetched on the server |
 | `/<example>/written` | an element the host wrote itself, no fragment: it mounts in the browser |
 | `/<example>/inserted` | a fragment fetched in the browser and inserted with `innerHTML` |
-| `/<example>/one/<id>?props` | one droplet; `hydrate=` becomes the element's `data-hydrate` |
+| `/<example>/one/<id>?props` | one droplet; `hydrate=` becomes the element's `data-droplet-hydrate` |
 | `/<example>/mfe/*` | a proxy to the example's server under a path prefix, on the host's origin |
 | `/<example>/prefixed` | the three droplets through that proxy |
 | `/svelte/script` | the Svelte example's script droplet `page-views`, twice |
@@ -84,9 +84,9 @@ the error page in its shadow root, and a click replayed after
 - Host page embeds a 500 with HTML as the droplet's error page; other failures become `<p class="error">`. `e2e/host.mjs:23`
 - Proxy `/<example>/mfe/*` forwards to the droplets server with `x-droplet-location` set to the prefix. `e2e/host.mjs:48`
 - Proxy passes back `content-type`, `cache-control`, `etag`, `location`, `vary`, `link`, `set-cookie`. `e2e/host.mjs:45`
-- `/<example>/written` writes `<djs-<example> data-droplet="ssr-hydrate" data-params='{"who":"Writer"}'>`. `e2e/host.mjs:100`
+- `/<example>/written` writes `<djs-<example> data-droplet="ssr-hydrate" data-droplet-props='{"who":"Writer"}'>`. `e2e/host.mjs:100`
 - `/<example>/inserted` fetches `ssr-hydrate` in the browser and sets it with `innerHTML`. `e2e/host.mjs:110`
-- `/<example>/one/<id>` turns `hydrate=<word>` into `data-hydrate` on the element. `e2e/host.mjs:120`
+- `/<example>/one/<id>` turns `hydrate=<word>` into `data-droplet-hydrate` on the element. `e2e/host.mjs:120`
 - `/svelte/script` embeds `page-views?page=pricing` twice. `e2e/host.mjs:95`
 - Handlebars is not interactive: no button, nothing hydrates. `e2e/examples.spec.ts:11`
 - Secret `e2e-secret-value` never appears in any script, JSON or HTML response the browser got, nor in the page. `e2e/examples.spec.ts:55`
@@ -98,7 +98,7 @@ the error page in its shadow root, and a click replayed after
 - `error(404)` in a load answers a plain 404 with its message. `e2e/examples.spec.ts:144`
 - `/api/greet/:name` answers JSON with `requestId` equal to the `x-request-id` header set by `hooks.server.ts`. `e2e/examples.spec.ts:149`
 - Script droplet tests run only for the Svelte example. `e2e/examples.spec.ts:159`
-- Script droplet fragment holds only the `data-droplet-context` and `data-droplet-data` payload scripts. `e2e/examples.spec.ts:167`
+- Script droplet fragment holds only the `data-droplet-payload="context"` and `data-droplet-payload="data"` payload scripts. `e2e/examples.spec.ts:167`
 - Script droplet `page-views` with `page=../etc` answers 400. `e2e/examples.spec.ts:174`
 - `/api/page-views` refuses arrays, `__proto__`, path-like and too-long names, non-JSON and a number. `e2e/examples.spec.ts:199`
 - `/api/page-views` with `text/plain` answers 403 or 415. `e2e/examples.spec.ts:214`

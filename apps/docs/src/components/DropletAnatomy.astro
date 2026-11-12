@@ -52,7 +52,7 @@ const notes: Note[] = [
   {
     key: "part.element",
     title: "<djs-droplet>",
-    text: "The fragment is one custom element, defined by `/index.js` on the host page. `data-droplet` names the droplet after its folder; `data-build` and `data-render-id` name the build and this render.",
+    text: "The fragment is one custom element, defined by `/index.js` on the host page. `data-droplet` names the droplet after its folder; `data-droplet-build` and `data-droplet-render` name the build and this render.",
     link: ["The fragment", "integrate/http-contract/#the-fragment"],
   },
   {
@@ -64,13 +64,13 @@ const notes: Note[] = [
   {
     key: "part.inline",
     title: "Inline payloads",
-    text: "`data-droplet-context` carries the props and the host, `data-droplet-data` the load's result, both base64 JSON. Hydration reads them, so the browser asks for nothing more.",
+    text: "`data-droplet-payload=\"context\"` carries the props and the host, `data-droplet-payload=\"data\"` the load's result, both base64 JSON. Hydration reads them, so the browser asks for nothing more.",
     link: ["On connect", "guides/in-the-browser/#what-happens-on-connect"],
   },
   {
     key: "part.inline.error",
     title: "Inline payloads",
-    text: "`data-droplet-data` now holds `{ error }`, as `handleError` left it. The browser hydrates the error page from it.",
+    text: "`data-droplet-payload=\"data\"` now holds `{ error }`, as `handleError` left it. The browser hydrates the error page from it.",
     link: ["Errors", "guides/errors/#errors-handleerror-and-error"],
   },
   {
@@ -157,13 +157,13 @@ const pieces = (text: string) => text.split("`").map((s, i) => ({ s, code: i % 2
         <button type="button" class="ax-part ax-tag" data-part="element" data-files={fileTargets(parts[0]!.from.ok)} aria-pressed="true" aria-label="djs-droplet: the element">
           <span class="ax-t">&lt;djs-droplet</span>{" "}
           <span class="ax-a">data-droplet="hello"</span>{" "}
-          <span class="ax-a">data-build="36a187"</span>{" "}
-          <span class="ax-a">data-render-id="dfks2s"</span><span data-show="error" hidden>{" "}<span class="ax-a ax-a-err">data-droplet-error</span></span><span class="ax-t">&gt;</span>
+          <span class="ax-a">data-droplet-build="36a187"</span>{" "}
+          <span class="ax-a">data-droplet-render="dfks2s"</span><span data-show="error" hidden>{" "}<span class="ax-a ax-a-err">data-droplet-error</span></span><span class="ax-t">&gt;</span>
         </button>
 
-        <button type="button" class="ax-part ax-inline" data-part="inline" data-files={fileTargets(parts[1]!.from.ok)} aria-pressed="false" aria-label="Inline payloads: data-droplet-context and data-droplet-data">
-          <span class="ax-line"><span class="ax-t">&lt;script data-droplet-context&gt;</span><span class="ax-c">{"{ host, props }"}</span></span>
-          <span class="ax-line"><span class="ax-t">&lt;script data-droplet-data&gt;</span><span class="ax-c" data-show="ok">{"{ data }"}</span><span class="ax-c ax-c-err" data-show="error" hidden>{"{ error }"}</span></span>
+        <button type="button" class="ax-part ax-inline" data-part="inline" data-files={fileTargets(parts[1]!.from.ok)} aria-pressed="false" aria-label='Inline payloads: data-droplet-payload="context" and "data"'>
+          <span class="ax-line"><span class="ax-t">&lt;script data-droplet-payload="context"&gt;</span><span class="ax-c">{"{ host, props }"}</span></span>
+          <span class="ax-line"><span class="ax-t">&lt;script data-droplet-payload="data"&gt;</span><span class="ax-c" data-show="ok">{"{ data }"}</span><span class="ax-c ax-c-err" data-show="error" hidden>{"{ error }"}</span></span>
         </button>
 
         <div class="ax-entry" data-part="markup" data-show="ok">

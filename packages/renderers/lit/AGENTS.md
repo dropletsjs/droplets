@@ -19,7 +19,7 @@ Shared renderer rules: `../AGENTS.md`.
 - `client-setup.ts` loads `lit-element-hydrate-support` before any `lit-element` is evaluated.
 - `hydrate` attaches the declarative shadow roots `innerHTML` left inert itself (`attachShadowRoots`), innermost first, in any DOM; no polyfill decides whether to.
   Checked by: `test/conformance.test.ts`, `tests/examples/e2e/lit.spec.ts`.
-- Form enhancement goes through the `enhance()` directive: a submit does not leave the shadow root, so `data-droplets-enhance` cannot reach it.
+- Form enhancement goes through the `enhance()` directive: a submit does not leave the shadow root, so `data-droplet-enhance` cannot reach it.
   Checked by: `test/conformance.test.ts`, `tests/examples/e2e/lit.spec.ts`.
 - `client-dev.ts` is the renderer's `clientDev`, imported only under `vite dev`; a production build holds none of it.
   Checked by: `tests/dev-mixed/test/production.test.ts`.

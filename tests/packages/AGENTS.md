@@ -12,6 +12,8 @@
   Checked by: `test/packed.test.ts`.
 - No source maps ship, and no JavaScript or `.d.ts` imports a `.css` file.
   Checked by: `test/packed.test.ts`.
+- Every markup attribute the runtime, the renderers and the devtools read or write is `data-droplet` or `data-droplet-*`; `test/attributes.test.ts` scans their sources (`SCANNED`) and fails on any other `data-*` name in a string, a template, a JSX attribute or a `dataset` access.
+  Checked by: `test/attributes.test.ts`.
 - Every published package built by tsdown is in `PACKAGES`.
 - Every example under `examples/` declares the published ranges: `@dropletsjs/*` at `^<the packages' version>`, the pnpm catalog's tools at the catalog's literal range (the workspace examples; the hosts bring their own toolchains), and no `workspace:` or `catalog:` range anywhere.
   Checked by: `test/examples.test.ts`.

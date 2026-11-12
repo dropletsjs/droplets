@@ -150,3 +150,4 @@ droplets with their flags, which the tool reads from each server.
 - tsdown entries are `src/index.ts`, `src/client/devtools-page.ts` and `src/tool/panel.ts`. `tsdown.config.ts:6`
 - graphCheck lists `client/devtools-page` and `tool/panel` as client entries, `index` and `page` as server code. `tsdown.config.ts:10`
 - Plugin tests fail with `Build @dropletsjs/devtools first` when `dist/client/devtools-page.js` is missing. `test/index.test.ts:36`
+- The page's mode buttons carry `data-droplet-value`, the status pill `data-droplet-ok`, a droplet's dot `data-droplet-state`; the tool's notes `data-droplet-key`, so a note with the same key replaces the old one. `src/page.tsx:58`, `src/client/devtools-page.ts:163`, `src/client/devtools-page.ts:343`, `src/client/devtools-page.ts:431`, `src/tool/panel.ts:106`

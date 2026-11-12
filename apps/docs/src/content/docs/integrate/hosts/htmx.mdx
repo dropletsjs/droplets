@@ -94,7 +94,7 @@ The code is in `examples/hosts/htmx`: two static pages (`html/index.html`,
 `/` embeds the Svelte example from its own origin, to show what a
 cross-origin page needs. `/shop` embeds the shop through the proxy, so its
 forms and cookies are the page's own; its cart badge is an element the page
-writes itself, `<djs-shop data-droplet="shopping-cart" data-params='{"variant":"badge"}'>`,
+writes itself, `<djs-shop data-droplet="shopping-cart" data-droplet-props='{"variant":"badge"}'>`,
 which renders in the browser and fetches its own data.
 
 htmx is the npm package `htmx.org` 2.0.11, pinned in `package.json` and
@@ -273,7 +273,7 @@ The shop's droplets, swapped into `/shop` through the proxy, keep both
 ways a droplet form works.
 
 **Enhanced.** The product page is a Handlebars droplet with no JavaScript
-of its own (`hydrate = false`), and its form has `data-droplets-enhance`
+of its own (`hydrate = false`), and its form has `data-droplet-enhance`
 ([enhancing a form](/guides/actions/#enhancing-a-form)), which the element
 `/index.js` defined handles. The submit goes by `fetch` to `?/add` with
 `accept: application/json`, without htmx's `HX-*` headers, and is answered
@@ -344,6 +344,6 @@ this way and checks the product page is there once.
   a droplets server treats as a [form action](/integrate/http-contract/#form-actions):
   a JSON render needs htmx's `json-enc` extension, not tried here.
 - **The droplet element is the fragment's.** Its attributes
-  (`data-hydrate` included) come from the server; the page sets them only on
+  (`data-droplet-hydrate` included) come from the server; the page sets them only on
   elements it writes itself.
 - **Media.** The recording above is written by `pnpm test:hosts htmx --docs`.

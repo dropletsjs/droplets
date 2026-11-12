@@ -8,7 +8,7 @@ export prerender = true
   product, so it never writes stock or prices itself: `{{live "…"}}` leaves a
   placeholder that `transform` in +droplet.server.ts fills on every request.
   `{{action "add"}}` posts to this droplet's `?/add`. With /index.js on the
-  page, `data-droplets-enhance` has it post the form by fetch and swap in the
+  page, `data-droplet-enhance` has it post the form by fetch and swap in the
   fragment rendered again with `form` (and tell the cart, `droplets:action`;
   the toast center turns that into a toast, since this page has no script
   to send one); without JavaScript the post answers a 303 back to the host
@@ -30,7 +30,7 @@ export prerender = true
     <p class="price"><s>{{live "was-price"}}</s> <b>{{live "price"}}</b></p>
     <p class="stock stock-{{live "stock-state"}}">{{live "stock-label"}}</p>
 
-    <form method="post" action="{{action "add"}}" class="buy" data-droplets-enhance>
+    <form method="post" action="{{action "add"}}" class="buy" data-droplet-enhance>
       <input type="hidden" name="productId" value="{{data.product.id}}">
       <label>Qty <input class="field" name="qty" type="number" min="1" max="{{live "max-qty"}}" value="1" {{live "disabled"}}></label>
       <button class="button primary" {{live "disabled"}}>{{#if form.added}}✓ Added{{else}}{{live "button-label"}}{{/if}}</button>

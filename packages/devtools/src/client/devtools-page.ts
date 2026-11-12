@@ -160,13 +160,13 @@ ui.select.addEventListener("change", () => {
 
 function renderMethod(): void {
   for (const button of ui.method.querySelectorAll("button")) {
-    button.setAttribute("aria-pressed", String(button.dataset["value"] === state.method));
+    button.setAttribute("aria-pressed", String(button.dataset["dropletValue"] === state.method));
   }
   ui.methodHint.textContent = state.method === "GET" ? "Props go in the query string." : "Props go in a JSON body: { props }.";
 }
 
 ui.method.addEventListener("click", (event) => {
-  const value = (event.target as HTMLElement).dataset["value"] as Method | undefined;
+  const value = (event.target as HTMLElement).dataset["dropletValue"] as Method | undefined;
   if (!value || value === state.method) return;
   state.method = value;
   persist();
@@ -180,7 +180,7 @@ ui.method.addEventListener("click", (event) => {
 
 function renderMode(): void {
   for (const button of ui.mode.querySelectorAll("button")) {
-    button.setAttribute("aria-pressed", String(button.dataset["value"] === state.mode));
+    button.setAttribute("aria-pressed", String(button.dataset["dropletValue"] === state.mode));
   }
   const json = state.mode === "json";
   ui.builder.hidden = json;
@@ -241,7 +241,7 @@ ui.addRow.addEventListener("click", () => {
 });
 
 ui.mode.addEventListener("click", (event) => {
-  const value = (event.target as HTMLElement).dataset["value"] as EditorMode | undefined;
+  const value = (event.target as HTMLElement).dataset["dropletValue"] as EditorMode | undefined;
   if (!value || value === state.mode) return;
   if (value === "json") {
     // The builder's props are always valid JSON.
@@ -339,9 +339,9 @@ type SetStatusInput = { text: string; ok: boolean | null };
 function setStatus({ text, ok }: SetStatusInput): void {
   ui.status.textContent = text;
   ui.pillStatus.textContent = state.droplet ? `${state.droplet} · ${text}` : text;
-  if (ok === null) delete ui.status.dataset["ok"];
-  else ui.status.dataset["ok"] = String(ok);
-  ui.pillStatus.dataset["ok"] = ui.status.dataset["ok"] ?? "";
+  if (ok === null) delete ui.status.dataset["dropletOk"];
+  else ui.status.dataset["dropletOk"] = String(ok);
+  ui.pillStatus.dataset["dropletOk"] = ui.status.dataset["dropletOk"] ?? "";
 }
 
 type PlaceholderInput = { text: string };
@@ -428,7 +428,7 @@ type ShowConnectionInput = { isOn: boolean };
 
 function showConnection({ isOn }: ShowConnectionInput): void {
   for (const dot of [ui.conn, ui.pillDot]) {
-    dot.dataset["state"] = isOn ? "on" : "off";
+    dot.dataset["dropletState"] = isOn ? "on" : "off";
     dot.title = isOn ? "Connected to the dev server" : "Dev server disconnected";
   }
 }
@@ -463,7 +463,7 @@ const renderHint = byId({ id: "dt-render-hint" });
 
 function renderRenderMode(): void {
   for (const button of renderToggle.querySelectorAll("button")) {
-    button.setAttribute("aria-pressed", String(button.dataset["value"] === data.mode));
+    button.setAttribute("aria-pressed", String(button.dataset["dropletValue"] === data.mode));
   }
   renderHint.textContent = serverMode
     ? "Rendered on the server, as by a host that renders server-side. Each render loads the page again."
@@ -471,7 +471,7 @@ function renderRenderMode(): void {
 }
 
 renderToggle.addEventListener("click", (event) => {
-  const value = (event.target as HTMLElement).dataset["value"];
+  const value = (event.target as HTMLElement).dataset["dropletValue"];
   if (!value || value === data.mode) return;
   if (value === "server") {
     if (state.droplet) location.assign(serverUrl());

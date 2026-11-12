@@ -19,7 +19,7 @@
  * ```
  *
  * The form lives in the component's shadow root: the submit event does not
- * leave it, so the `data-droplets-enhance` attribute, which `/index.js`
+ * leave it, so the `data-droplet-enhance` attribute, which `/index.js`
  * handles on the droplet element, cannot reach it. Without `enhance()` the
  * form posts as any form does, and Post/Redirect/Get works as for every
  * other renderer. On the server the directive renders nothing.

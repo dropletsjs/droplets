@@ -96,7 +96,7 @@ export default class HelloError extends DropletErrorElement<DropletErrorProps> {
   natively. `enhance()` of `@dropletsjs/renderer-lit/form` posts it by fetch
   and updates the droplet in place:
   `<form method="post" action=${this.actionUrl()} ${enhance<DropletActions>()}>`.
-  The `data-droplets-enhance` attribute cannot reach a form in a shadow
+  The `data-droplet-enhance` attribute cannot reach a form in a shadow
   root: the submit event does not leave it.
 - **`hydrate = "interactive"`** works from inside the shadow root: the
   events that start it are composed, and the replayed click reaches the

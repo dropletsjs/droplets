@@ -20,7 +20,7 @@ export type DevElementInfo = {
   element: HTMLElement;
   droplet: string;
   state: DevElementState;
-  /** When it hydrates, the host's `data-hydrate` applied; `false`: never. */
+  /** When it hydrates, the host's `data-droplet-hydrate` applied; `false`: never. */
   hydrate: HydrateMode;
   /** Its files changed and it has not loaded again since (`manual`). */
   changed: boolean;

@@ -30,7 +30,7 @@ Public pieces: `$droplets/server` (`./server`, `server.ts`) and `./enhance`
 ```html
 <!-- what a host page does -->
 <script type="module" src="https://droplets.example.com/index.js"></script>
-<djs-droplet data-droplet="counter" data-params='{"start":3}'></djs-droplet>
+<djs-droplet data-droplet="counter" data-droplet-props='{"start":3}'></djs-droplet>
 ```
 
 ## Details
@@ -151,9 +151,9 @@ Then the route.
 - A prerendered fragment is looked up by host key (origin and path), then, with `host`, by the origin-only key, then by props key. `app.ts:1234`, `app.ts:1237`, `app.ts:1238`
 - `prerenderKey` is `<propsKey> <origin><path>`, `<propsKey> <origin>` for a render for `host` of the config, or `<propsKey>` for a host-agnostic one. `props.ts:103`
 - A prerendered lookup for a droplet with `ssr = false` and no entry for these props answers 404. `app.ts:1239`
-- The fragment's context script is written only when the answer has server markup, rendered live or stored at build whatever `ssr` says; without markup (`ssr = false`, `?noSSR`, `?clientOnly`) the context goes on `data-context`. `app.ts:1531`
-- `data-droplet-data` is written only when the droplet hydrates and the request is not `clientOnly`. `app.ts:1498`
-- `data-render-id` is written only when there is server HTML. `app.ts:1497`
+- The fragment's context script is written only when the answer has server markup, rendered live or stored at build whatever `ssr` says; without markup (`ssr = false`, `?noSSR`, `?clientOnly`) the context goes on `data-droplet-context`. `app.ts:1531`
+- `data-droplet-payload="data"` is written only when the droplet hydrates and the request is not `clientOnly`. `app.ts:1498`
+- `data-droplet-render` is written only when there is server HTML. `app.ts:1497`
 - A failed render answers 500 with the error component, else the action's status, else 200. `app.ts:1506`
 - A response carrying a form result gets `cache-control: private, no-store`. `app.ts:1489`
 - `fragmentCacheControl` defaults to `private, no-store` and is set only on a 2xx answer that has none; an error, a 404, a 405 and a redirect carry no default (`perRequest`). `../core/config.ts:208`, `app.ts:971`
@@ -265,8 +265,8 @@ Then the route.
 ### Fragment markup (`element.ts`)
 
 - The fragment element is `<djs-droplet>` unless `element` says otherwise. `app.ts:107`
-- The fragment element carries `data-droplet`, and optionally `data-build`, `data-render-id`, `data-context` and `data-droplet-error`. `element.ts:59`
-- Inline payloads are `<script type="application/text">` with `data-droplet-context` or `data-droplet-data`. `element.ts:44`
+- The fragment element carries `data-droplet`, and optionally `data-droplet-build`, `data-droplet-render`, `data-droplet-context` and `data-droplet-error`. `element.ts:59`
+- Inline payloads are `<script type="application/text">` with `data-droplet-payload="context"` or `data-droplet-payload="data"`. `element.ts:44`
 - The droplet's stylesheet link carries `data-droplet-style`. `element.ts:65`
 - Server HTML sits in `<div style="display: contents" data-droplet-entry>`. `element.ts:66`
 - Inline JSON escapes `<` as `<`. `app.ts:409`
@@ -283,11 +283,11 @@ Then the route.
 
 ### The element (`entry-client.ts`)
 
-- The element reads props from the inline context script, then `data-context`, then `data-params` (plain JSON); a payload that does not parse is logged and the next one is read. `entry-client.ts:480`
+- The element reads props from the inline context script, then `data-droplet-context`, then `data-droplet-props` (plain JSON); a payload that does not parse is logged and the next one is read. `entry-client.ts:480`
 - The element's server location is `serverLocation` for its element and build. `entry-client.ts:368`
 - `_data` is fetched with POST to `<location>/droplets/<id>/_data?__cb=<now>`, a JSON body and `redirect: "manual"`. `entry-client.ts:721`
-- `data-hydrate` takes `""`, `true`, `false`, `visible` and `interactive`, case-sensitive. `entry-client.ts:1097`
-- `data-hydrate="false"` never stops a script droplet. `entry-client.ts:1106`
+- `data-droplet-hydrate` takes `""`, `true`, `false`, `visible` and `interactive`, case-sensitive. `entry-client.ts:1097`
+- `data-droplet-hydrate="false"` never stops a script droplet. `entry-client.ts:1106`
 - `interactive` without server markup hydrates at once. `entry-client.ts:1114`
 - `visible` uses a 200px root margin, 1000px without markup. `entry-client.ts:189`
 - `interactive` waits for `pointerdown`, `focusin`, `keydown` or `click`. `entry-client.ts:192`
@@ -299,7 +299,7 @@ Then the route.
 - An unknown droplet keeps its markup and does nothing. `entry-client.ts:1165`
 - Host children go into `[data-droplet-slot]` or replace `[data-droplet-children]`, moved with `moveBefore` when available. `entry-client.ts:180`
 - With several markers, the container lives in the first connected one in document order, at connect among the server's and after `fill` among the reported ones, whichever was reported first; `empty` moves it to the next, else parks it. `entry-client.ts:562`
-- `data-droplets-enhance` on a form opts it into `enhanceDropletForm`. `entry-client.ts:1266`
+- `data-droplet-enhance` on a form opts it into `enhanceDropletForm`. `entry-client.ts:1266`
 - Re-rendering a fragment needs a `text/html` answer. `entry-client.ts:1315`
 - `connectedMoveCallback` keeps the instance when the element is moved. `entry-client.ts:708`
 - `disconnectedCallback` tears down in a microtask, so a re-insert keeps the instance. `entry-client.ts:1355`
@@ -325,3 +325,4 @@ Then the route.
 - Dev toasts show at most 3, and a toast without a reload button closes after 10 s. `dev-notify.ts:94`
 - The dev tool is injected per `?injectTool=` (anything but `false` injects), else per the config. `dev-element.ts:738`
 - A second `/index.js` of one server from another build warns once in dev, naming the element and both builds (`serverBuilds`); in production it adopts the elements silently and the first build's code runs them. `dev-element.ts:183`, `entry-client.ts:1476`
+- A dev toast carries `data-droplet-key`; a notification with the same key replaces the one shown. `dev-notify.ts:48`

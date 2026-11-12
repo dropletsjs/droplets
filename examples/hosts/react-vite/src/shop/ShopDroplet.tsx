@@ -88,7 +88,7 @@ export function ShopFragment({ id, query = new URLSearchParams(), onRedirect }: 
 }
 
 /**
- * A client-only droplet: the element with `data-droplet` and `data-params`.
+ * A client-only droplet: the element with `data-droplet` and `data-droplet-props`.
  * It fetches its own data and mounts once its bundle has loaded.
  */
 export function ShopClientDroplet({ id, params }: { id: string; params: Record<string, string> }) {
@@ -101,7 +101,7 @@ export function ShopClientDroplet({ id, params }: { id: string; params: Record<s
     if (!target) return;
     const element = document.createElement(SHOP_ELEMENT);
     element.dataset["droplet"] = id;
-    element.dataset["params"] = paramsKey;
+    element.dataset["dropletProps"] = paramsKey;
     target.replaceChildren(element);
     return () => target.replaceChildren();
   }, [id, paramsKey]);

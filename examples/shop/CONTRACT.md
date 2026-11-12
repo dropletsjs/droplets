@@ -4,10 +4,10 @@ The shop is a droplets server (`pnpm build && pnpm start`, port 8300; the
 image in `Dockerfile`). A host page embeds its droplets the usual way: fetch
 `GET /droplets/<id>?<props>` on its server with `x-droplet-location`, paste
 the fragment, load `/index.js` once. The element is `<djs-shop>`. A
-client-only host writes `<djs-shop data-droplet="<id>" data-params='{…}'>`
+client-only host writes `<djs-shop data-droplet="<id>" data-droplet-props='{…}'>`
 instead.
 
-Every prop arrives as a query parameter (or a `data-params` key). Unknown
+Every prop arrives as a query parameter (or a `data-droplet-props` key). Unknown
 keys are dropped, so a host may forward its whole page query to each
 fragment. Bad values answer 400.
 
@@ -237,7 +237,7 @@ Every form is a plain `<form method="post">` to its droplet's action
 live, its forms are enhanced (opt-in, per form): `use:enhanceDropletForm`
 on the product card, `useEnhanceDropletForm` in the cart and the admin's
 `EnhancedForm`, `use:enhanceDropletForm` on the comment form and
-`data-droplets-enhance` on the product page. An enhanced submit posts by
+`data-droplet-enhance` on the product page. An enhanced submit posts by
 `fetch`, shows the result in place and dispatches `droplets:action` on
 `window`; the cart listens for it after an `?/add`. An add's result is a
 toast (see `window.shopMessageQueue`), never a message under the button. The login ships no

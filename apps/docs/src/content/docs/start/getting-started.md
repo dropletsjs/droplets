@@ -212,7 +212,7 @@ mounts in the browser:
     <script type="module" src="http://localhost:8000/index.js"></script>
   </head>
   <body>
-    <my-widgets data-droplet="hello-svelte" data-params='{"who":"Ana"}'></my-widgets>
+    <my-widgets data-droplet="hello-svelte" data-droplet-props='{"who":"Ana"}'></my-widgets>
   </body>
 </html>
 ```
@@ -229,7 +229,7 @@ instead, so the markup is there before any JavaScript runs:
 <script type="module" src="http://localhost:8000/index.js"></script>
 
 <!-- the body of GET http://localhost:8000/droplets/hello-svelte?who=Ana, pasted in -->
-<my-widgets data-droplet="hello-svelte" data-build="…" data-render-id="…">…</my-widgets>
+<my-widgets data-droplet="hello-svelte" data-droplet-build="…" data-droplet-render="…">…</my-widgets>
 ```
 
 [Known hosts](/integrate/hosts/overview/) does the same in eleven host

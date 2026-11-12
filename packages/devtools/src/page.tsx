@@ -55,7 +55,7 @@ function Segmented({ id, options }: SegmentedProps) {
   return (
     <span class="dt-seg" id={id}>
       {options.map(([value, label]) => (
-        <button type="button" data-value={value}>
+        <button type="button" data-droplet-value={value}>
           {label}
         </button>
       ))}

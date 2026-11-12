@@ -45,7 +45,7 @@ useEffect(() => {
 // ShopClientDroplet: the element alone; it fetches its own data.
 const element = document.createElement(SHOP_ELEMENT); // "djs-shop"
 element.dataset["droplet"] = id;
-element.dataset["params"] = paramsKey; // JSON.stringify(params)
+element.dataset["dropletProps"] = paramsKey; // JSON.stringify(params)
 target.replaceChildren(element);
 ```
 
@@ -74,7 +74,7 @@ location / {
   3xx into an `opaqueredirect`, which the page handles (`onRedirect`).
 - Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
   page) is inserted, through a `<template>`; anything else shows as unavailable.
-- `ShopClientDroplet` writes `<djs-shop data-droplet="…" data-params="…">`
+- `ShopClientDroplet` writes `<djs-shop data-droplet="…" data-droplet-props="…">`
   instead: nothing server-rendered, the element fetches its data once its
   bundle has loaded.
 - `ensureShopClient()` adds `<script type="module" src="/index.js">` to the
@@ -227,7 +227,7 @@ component, `<Droplet>`, with two modes:
   the droplet's own JavaScript then hydrates it.
 - **`client`** writes the droplet element itself (the server's `element`
   setting, `djs-svelte` for the Svelte example, `VITE_DROPLETS_ELEMENT`)
-  with `data-droplet` and `data-context`, the props as base64 JSON
+  with `data-droplet` and `data-droplet-context`, the props as base64 JSON
   `{ props }`. The element runs the droplet in the browser, fetching
   `/droplets/<id>/_data` when it has a server load. Nothing shows until its
   bundle loads.
@@ -256,7 +256,7 @@ export function Droplet({ id, props = {}, mode = "fragment", origin = DROPLETS_U
     if (mode === "client") {
       const element = document.createElement(DROPLETS_ELEMENT);
       element.dataset["droplet"] = id;
-      element.dataset["context"] = encodeContext(props);
+      element.dataset["dropletContext"] = encodeContext(props);
       target.replaceChildren(element);
       return () => target.replaceChildren();
     }

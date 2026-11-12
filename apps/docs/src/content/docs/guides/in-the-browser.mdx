@@ -126,10 +126,10 @@ tags are the one thing in `<head>`, in dev only.
 A host overrides the mode per element:
 
 ```html
-<djs-droplet data-droplet="comments" data-hydrate="visible">…</djs-droplet>
+<djs-droplet data-droplet="comments" data-droplet-hydrate="visible">…</djs-droplet>
 ```
 
-`data-hydrate` takes `true`, `false`, `visible` or `interactive`; an unknown
+`data-droplet-hydrate` takes `true`, `false`, `visible` or `interactive`; an unknown
 value warns in dev. It cannot turn hydration on for a droplet that ships no
 bundle (`hydrate = false` in the component), and `false` does not stop a
 [script droplet](/renderers/script/), which only runs in the browser.
@@ -165,7 +165,7 @@ A droplet's forms post to its [actions](/guides/actions/)
 as any form does: the browser navigates to the action's URL. The element
 intercepts nothing on its own. A form that opts in (a renderer's `/form`
 wrapper, `enhanceDropletForm` of `$droplets/form`, or
-`data-droplets-enhance` on the form, which `/index.js` binds for any
+`data-droplet-enhance` on the form, which `/index.js` binds for any
 droplet) posts by `fetch` instead, and only to its own droplet's action.
 [Enhancing a form](/guides/actions/#enhancing-a-form) has the code for each
 renderer and what the element does with the result: the re-render, the
@@ -220,18 +220,18 @@ the element directly. Without server markup, the droplet mounts in the browser:
 ```html
 <script type="module" src="https://drops.example.com/index.js"></script>
 
-<djs-droplet data-droplet="hello" data-params='{"who":"Ana"}'></djs-droplet>
+<djs-droplet data-droplet="hello" data-droplet-props='{"who":"Ana"}'></djs-droplet>
 ```
 
 | Attribute | Meaning |
 | --- | --- |
 | `data-droplet` | The droplet id. |
-| `data-params` | Plain JSON props. `host` in server loads is then the page's own. |
-| `data-context` | Base64 JSON `{ host, props }`, as a fragment carries it when it has no inline context. |
-| `data-hydrate` | Overrides the droplet's `hydrate` mode. |
+| `data-droplet-props` | Plain JSON props. `host` in server loads is then the page's own. |
+| `data-droplet-context` | Base64 JSON `{ host, props }`, as a fragment carries it when it has no inline context. |
+| `data-droplet-hydrate` | Overrides the droplet's `hydrate` mode. |
 
 The props come from the first of these that parses: a fragment's inline
-context script, then `data-context`, then `data-params`. One that does not
+context script, then `data-droplet-context`, then `data-droplet-props`. One that does not
 parse is logged and the next is read; with none left, the props are `{}`.
 
 The element loads from where the `<script src>` points: load `/index.js` from

@@ -56,7 +56,7 @@ export function Droplet({ id, props = {}, mode = "fragment", origin = DROPLETS_U
       const element = document.createElement(DROPLETS_ELEMENT);
       // It loads from where /index.js came from: `origin`, above.
       element.dataset["droplet"] = id;
-      element.dataset["context"] = encodeContext(props);
+      element.dataset["dropletContext"] = encodeContext(props);
       target.replaceChildren(element);
       return () => target.replaceChildren();
     }

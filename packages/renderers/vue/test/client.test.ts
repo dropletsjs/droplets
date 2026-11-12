@@ -4,7 +4,7 @@ import { hydrate, mount, unmount } from "../src/client.ts";
 import { render } from "../src/server.ts";
 import { clientContext, ErrorPage, fakeHost, serverContext } from "./doubles.ts";
 
-const injected = () => Array.from(document.head.querySelectorAll("style[data-droplets-vue]"));
+const injected = () => Array.from(document.head.querySelectorAll("style[data-droplet-vue]"));
 
 describe("an error page in the browser", () => {
   it("moves the server's <style> into the document head before hydrating, once, and takes it out on unmount", async () => {

@@ -3,7 +3,7 @@
  * The droplet element's life on a page, top to bottom, in the order of
  * runtime/entry-client.ts: /index.js runs hooks.client init() and defines
  * the element; connectedCallback leaves an unknown droplet or another
- * build's markup alone; _start picks the mode (data-hydrate over the flag),
+ * build's markup alone; _start picks the mode (data-droplet-hydrate over the flag),
  * waits for a lazy one, imports the bundle, takes the data inline or from
  * _data, and hydrates the markup or mounts fresh.
  */
@@ -40,7 +40,7 @@ function build(narrow: boolean): Scene {
   const d2 = d1 + 38 + gap + 38;
   d.line(cx, d1 + 38, cx, d2 - 40);
   d.tag(cx + 8, d1 + 42, "yes", "small", "muted");
-  d.diamond(cx, d2, sw, 76, "node", "data-hydrate, else the flag", "body");
+  d.diamond(cx, d2, sw, 76, "node", "data-droplet-hydrate, else the flag", "body");
   d.line(cx + sw / 2, d2, sx - 2, d2);
   d.text((cx + sw / 2 + sx) / 2, d2 - 7, "false", "small", "muted", "middle");
   d.card(sx, d2 - 30, sideW, "none", "stays server HTML", "label", "no bundle loads", "small");
@@ -57,7 +57,7 @@ function build(narrow: boolean): Scene {
 <Diagram
   id="lifecycle"
   title="A droplet element's life on the page"
-  desc="/index.js runs once per page: it calls init() of src/hooks.client.ts, then defines the djs-droplet element. Each element that connects checks its droplet: one this build does not know, or markup from another build, is left as it is (another build also dispatches droplets:stale). Then the mode: data-hydrate on the element, else the droplet's hydrate flag. False: it stays as the server rendered it and no bundle loads. Visible waits until it is about to scroll into view, interactive until the first interaction; true goes on at once. It imports /droplets/<id>/client.js, which runs +droplet.ts, takes its data from the fragment's inline payload, or else posts to /droplets/<id>/_data, and hydrates the server markup in place, or mounts fresh when there is none."
+  desc="/index.js runs once per page: it calls init() of src/hooks.client.ts, then defines the djs-droplet element. Each element that connects checks its droplet: one this build does not know, or markup from another build, is left as it is (another build also dispatches droplets:stale). Then the mode: data-droplet-hydrate on the element, else the droplet's hydrate flag. False: it stays as the server rendered it and no bundle loads. Visible waits until it is about to scroll into view, interactive until the first interaction; true goes on at once. It imports /droplets/<id>/client.js, which runs +droplet.ts, takes its data from the fragment's inline payload, or else posts to /droplets/<id>/_data, and hydrates the server markup in place, or mounts fresh when there is none."
   caption="From the script tag to a live droplet: a lazy mode waits, false never loads a bundle."
   wide={build(false)}
   narrow={build(true)}

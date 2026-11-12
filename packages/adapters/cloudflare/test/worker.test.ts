@@ -96,7 +96,7 @@ describe("worker", () => {
 
   it("reads runtime secrets from the Worker's bindings", async () => {
     const html = await (await call({ path: "/droplets/hello" })).text();
-    const data = html.match(/data-droplet-data>([^<]+)</)?.[1];
+    const data = html.match(/data-droplet-payload="data">([^<]+)</)?.[1];
     const decoded = data && JSON.parse(Buffer.from(data, "base64").toString("utf8"));
     expect(decoded.data).toMatchObject({ secret: "from-binding", flag: "inlined-at-build" });
     const source = await readFile(resolve(outDir, "worker.js"), "utf8");
@@ -116,7 +116,7 @@ describe("worker", () => {
   it("reads prerendered renders through the assets binding, never from the bundle", async () => {
     const docs = await (await call({ path: "/droplets/docs?page=2" })).text();
     expect(docs).toContain("<h1>Page 2</h1>");
-    const data = docs.match(/data-droplet-data>([^<]+)</)?.[1];
+    const data = docs.match(/data-droplet-payload="data">([^<]+)</)?.[1];
     expect(data && JSON.parse(Buffer.from(data, "base64").toString("utf8"))).toEqual({
       data: { page: 2, building: true, hooked: true, home: "http://drops.test/home" },
     });

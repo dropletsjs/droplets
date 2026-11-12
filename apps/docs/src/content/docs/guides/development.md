@@ -177,7 +177,7 @@ it. It needs `dropletsDevtools()` in the Vite config; without it,
 - **One panel per page**, `window.DropletsDevTools`, in a shadow root. A page
   that embeds droplets from several dev servers gets one group per server.
 - Each group lists that server's droplets on the page in document order, with
-  their mode (flags and `data-hydrate`), renderer and state: waiting, loading,
+  their mode (flags and `data-droplet-hydrate`), renderer and state: waiting, loading,
   hydrated, mounted, error, static, empty. Hovering one outlines it on the
   page; its name scrolls to it.
 - The **strategy** can be switched per server for the tab's session. Under

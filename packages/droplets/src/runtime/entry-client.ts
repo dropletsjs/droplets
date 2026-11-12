@@ -16,7 +16,7 @@ const dropletRegistry = new Set(Object.keys(dropletsById));
 const hydrationRegistry = new Map(Object.entries(dropletsHydrateById));
 /** Droplets with `+droplet.server.ts`: only they have `_data` to fetch. */
 const serverLoadRegistry = new Set(Object.keys(dropletsServerLoadById));
-/** Script droplets: browser code alone, so `data-hydrate="false"` never stops one. */
+/** Script droplets: browser code alone, so `data-droplet-hydrate="false"` never stops one. */
 const scriptRegistry = new Set(Object.keys(dropletsScriptById));
 /** Every stylesheet of each droplet that has any, relative to its server. Empty in dev. */
 const styleRegistry = new Map(Object.entries(dropletsStylesById));
@@ -103,7 +103,7 @@ export type { DropletChildrenHost };
  * that key hydration by it, and the markers the server rendered.
  */
 export type DropletRenderInfo = {
-  /** From `data-render-id`; absent for markup rendered without one. */
+  /** From `data-droplet-render`; absent for markup rendered without one. */
   renderId?: string | undefined;
   /** This droplet's server-rendered `[data-droplet-children]` markers, excluding those of nested droplets. */
   markers: () => Element[];
@@ -160,7 +160,7 @@ export { decodeBase64Json };
  * element is removed at connect.
  */
 const ALLOWED_CHILDREN =
-  "[data-droplet-entry],[data-droplet-context],[data-droplet-data],[data-droplet-slot],link[data-droplet-style],link[data-droplet-preload]";
+  '[data-droplet-entry],[data-droplet-payload="context"],[data-droplet-payload="data"],[data-droplet-slot],link[data-droplet-style],link[data-droplet-preload]';
 /** The droplet's `style.css`, linked inside the element. */
 const STYLE_LINK = "link[data-droplet-style]";
 /** What can hold focus in a droplet's markup, to put focus back after a form action renders it again. */
@@ -471,8 +471,8 @@ export class DjsDropletElement extends HTMLElement {
 
   /**
    * The context, from the first place that has it: the inline script of an
-   * SSR fragment, the `data-context` attribute of other fragments, or
-   * `data-params`, plain JSON props a host writes by hand. `host` falls
+   * SSR fragment, the `data-droplet-context` attribute of other fragments, or
+   * `data-droplet-props`, plain JSON props a host writes by hand. `host` falls
    * back to the page the droplet runs in; it goes back to the server as it
    * came, so `_data` loads see the host the fragment was rendered for. A
    * payload that does not parse is logged and the next place is read.
@@ -488,26 +488,26 @@ export class DjsDropletElement extends HTMLElement {
       };
     };
 
-    const inline = this._readInline<unknown>({ selector: "[data-droplet-context]" });
+    const inline = this._readInline<unknown>({ selector: '[data-droplet-payload="context"]' });
     if (inline.found && inline.data !== undefined) return complete(inline.data) ?? { host: here, props: {} };
 
-    const attr = this.dataset["context"];
+    const attr = this.dataset["dropletContext"];
     if (attr) {
       try {
         return complete(decodeBase64Json({ encoded: attr })) ?? { host: here, props: {} };
       } catch (error) {
-        console.error("[droplets] failed to parse data-context", error);
+        console.error("[droplets] failed to parse data-droplet-context", error);
       }
     }
 
-    const params = this.dataset["params"];
+    const params = this.dataset["dropletProps"];
     if (params) {
       try {
         const props: unknown = JSON.parse(params);
         if (isObject(props)) return { host: here, props };
-        console.error("[droplets] data-params must be a JSON object");
+        console.error("[droplets] data-droplet-props must be a JSON object");
       } catch (error) {
-        console.error("[droplets] failed to parse data-params", error);
+        console.error("[droplets] failed to parse data-droplet-props", error);
       }
     }
     return { host: here, props: {} };
@@ -594,7 +594,7 @@ export class DjsDropletElement extends HTMLElement {
 
   #renderInfo({ contentRoot, props = this._context.props }: RenderInfoInput): DropletRenderInfo {
     return {
-      renderId: this.dataset["renderId"],
+      renderId: this.dataset["dropletRender"],
       markers: () => this.#serverMarkers({ contentRoot }),
       location: this.#location(),
       props,
@@ -885,7 +885,7 @@ export class DjsDropletElement extends HTMLElement {
     try {
       const context = this._context;
       let props = context.props;
-      const inline = refresh ? { found: false, data: undefined } : this._readInline<unknown>({ selector: "[data-droplet-data]" });
+      const inline = refresh ? { found: false, data: undefined } : this._readInline<unknown>({ selector: '[data-droplet-payload="data"]' });
       const inlinePayload = (): Payload =>
         isObject(inline.data) && "error" in inline.data
           ? { failed: true, error: inline.data["error"] }
@@ -1077,7 +1077,7 @@ export class DjsDropletElement extends HTMLElement {
    * droplet's `+error.*`: hydrate or mount it from the inline error.
    */
   async #renderServerError({ droplet, contentRoot, run, cacheBust }: StartInput): Promise<boolean> {
-    const inline = this._readInline<unknown>({ selector: "[data-droplet-data]" });
+    const inline = this._readInline<unknown>({ selector: '[data-droplet-payload="data"]' });
     if (!inline.found || !isObject(inline.data) || !("error" in inline.data)) return false;
     const mod = await this._importModule({ droplet, cacheBust });
     if (!mod || run !== this._run) return false;
@@ -1153,7 +1153,7 @@ export class DjsDropletElement extends HTMLElement {
   }
 
   /**
-   * When the droplet comes alive: the host's `data-hydrate` (`true`,
+   * When the droplet comes alive: the host's `data-droplet-hydrate` (`true`,
    * `false`, `visible`, `interactive`) over the droplet's flag; `false` when
    * it ships no bundle. Without server markup there is nothing to interact
    * with, so `"interactive"` is at once.
@@ -1164,11 +1164,11 @@ export class DjsDropletElement extends HTMLElement {
     return this._modeOf({ flag, hasMarkup });
   }
 
-  /** The mode the droplet's `hydrate` flag gives this element: its `data-hydrate` over the flag. */
+  /** The mode the droplet's `hydrate` flag gives this element: its `data-droplet-hydrate` over the flag. */
   _modeOf({ flag, hasMarkup }: ModeOfInput): HydrateMode {
     if (flag === false) return false;
     let mode: HydrateMode = flag;
-    const asked = this.dataset["hydrate"];
+    const asked = this.dataset["dropletHydrate"];
     if (asked !== undefined) {
       const parsed =
         asked === "" || asked === "true"
@@ -1244,7 +1244,7 @@ export class DjsDropletElement extends HTMLElement {
 
     // A deploy happened while the page stayed open: this loader's bundles
     // are from another build. Keep the server HTML, tell the page.
-    const served = this.dataset["build"];
+    const served = this.dataset["dropletBuild"];
     if (buildHash && served && served !== buildHash) {
       this.#reportStale({ droplet, served });
       return false;
@@ -1280,7 +1280,7 @@ export class DjsDropletElement extends HTMLElement {
     const droplet = this.dataset["droplet"];
     if (!this._connected || !droplet || !dropletRegistry.has(droplet)) return null;
     // From another build than this loader: as on connect, the page decides.
-    const served = this.dataset["build"];
+    const served = this.dataset["dropletBuild"];
     if (buildHash && served && served !== buildHash) return null;
     return { droplet, location: this.#location() };
   }
@@ -1328,13 +1328,13 @@ export class DjsDropletElement extends HTMLElement {
 
   /**
    * A submit in the element's subtree, from a form of its own markup that
-   * says `data-droplets-enhance` (a template's way to opt in; components
+   * says `data-droplet-enhance` (a template's way to opt in; components
    * use `enhanceDropletForm`): enhanced as `enhanceDropletForm` would.
    * Every other form is left alone.
    */
   #onSubmit({ event }: OnSubmitInput): void {
     const form = event.target;
-    if (!(form instanceof HTMLFormElement) || !form.hasAttribute("data-droplets-enhance")) return;
+    if (!(form instanceof HTMLFormElement) || !form.hasAttribute("data-droplet-enhance")) return;
     if (form.closest("[data-droplet]") !== this) return;
     enhanceSubmit(event, form);
   }
@@ -1406,7 +1406,7 @@ export class DjsDropletElement extends HTMLElement {
 
   /** The server's new answer in place of the old one, the host's container kept. */
   #adopt({ fresh, contentRoot }: AdoptInput): void {
-    for (const name of ["data-build", "data-render-id", "data-context", "data-droplet-error"]) {
+    for (const name of ["data-droplet-build", "data-droplet-render", "data-droplet-context", "data-droplet-error"]) {
       const value = fresh.getAttribute(name);
       if (value === null) this.removeAttribute(name);
       else this.setAttribute(name, value);
@@ -1414,7 +1414,7 @@ export class DjsDropletElement extends HTMLElement {
     // Preloads this element added for a stylesheet it linked itself: the
     // answer brings its own link, or the element links one again after.
     for (const preload of this.querySelectorAll(":scope > link[data-droplet-preload]")) preload.remove();
-    for (const selector of ["[data-droplet-context]", "[data-droplet-data]", STYLE_LINK]) {
+    for (const selector of ['[data-droplet-payload="context"]', '[data-droplet-payload="data"]', STYLE_LINK]) {
       this.querySelector(`:scope > ${selector}`)?.remove();
       const node = fresh.querySelector(`:scope > ${selector}`);
       if (node) this.insertBefore(node, contentRoot);

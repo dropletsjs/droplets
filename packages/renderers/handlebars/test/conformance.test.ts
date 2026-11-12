@@ -7,12 +7,12 @@ import { handlebars } from "../src/index.ts";
 // hydration, client-only mounting, the error page, children, prerendering,
 // form actions and HMR. Handlebars has no client behaviour (the count
 // button never counts), so that check is off; its guestbook opts in to
-// enhancement with `data-droplets-enhance`. Styles come from `<style>` blocks.
+// enhancement with `data-droplet-enhance`. Styles come from `<style>` blocks.
 rendererConformance({
   renderer: handlebars(),
   // Under happy-dom `URL` is the browser one, so no `new URL(..., import.meta.url)`.
   root: resolve(dirname(fileURLToPath(import.meta.url)), "fixtures/app"),
   interactive: false,
-  // `data-droplets-enhance` on a `hydrate = false` guestbook: `/index.js` binds it.
+  // `data-droplet-enhance` on a `hydrate = false` guestbook: `/index.js` binds it.
   enhance: "attribute",
 });

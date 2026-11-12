@@ -64,9 +64,9 @@ function clientModule({ component }: ClientModuleInput) {
 type FragmentInput = { id: string; data: unknown };
 
 const fragment = ({ id, data }: FragmentInput) =>
-  `<djs-droplet data-droplet="${id}" data-build="test01">` +
-  `<script type="application/text" data-droplet-context>${encode({ host: "http://page.test/", props: {} })}</script>` +
-  `<script type="application/text" data-droplet-data>${encode({ data })}</script>` +
+  `<djs-droplet data-droplet="${id}" data-droplet-build="test01">` +
+  `<script type="application/text" data-droplet-payload="context">${encode({ host: "http://page.test/", props: {} })}</script>` +
+  `<script type="application/text" data-droplet-payload="data">${encode({ data })}</script>` +
   `<div style="display: contents" data-droplet-entry></div></djs-droplet>`;
 
 type PlaceInput = { html: string };

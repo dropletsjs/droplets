@@ -24,7 +24,7 @@ has the exact headers, for a stack that is not here):
    hydrates itself, fetching only its own bundle.
 
 A third pattern, used by single-page apps, skips the server fetch entirely:
-render `<djs-svelte data-droplet="client" data-params='{"who":"Ana"}'>`
+render `<djs-svelte data-droplet="client" data-droplet-props='{"who":"Ana"}'>`
 yourself and the client takes care of data and rendering.
 
 ## Two origins

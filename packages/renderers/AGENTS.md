@@ -7,6 +7,8 @@
   Checked by: `test/conformance.test.ts` in each renderer.
 - Every component renders the children marker `<div data-droplet-children style="display: contents">` and reports it with the host's `fill` and `empty`, while the marker is in the DOM.
   Checked by: `test/conformance.test.ts` in each renderer.
+- Every markup attribute a renderer reads or writes is `data-droplet-*` (`data-droplet-children`, `data-droplet-slot`, Vue's `data-droplet-vue` style mark); a framework's own attributes (Solid's `data-hk`, Vue's `data-v-*`) are its, named in comments only.
+  Checked by: `../../tests/packages/test/attributes.test.ts`.
 - `server`, `client`, `clientDev` and `clientSetup` are absolute paths into `dist/`, and each of those files is a tsdown `entry`, so its name stays fixed.
   Checked by: `tests/packages/test/packed.test.ts`.
 - `packages` lists the framework's runtime packages and the renderer itself, so a droplet that reaches another framework fails the build and `vite dev`.

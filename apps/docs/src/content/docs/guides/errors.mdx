@@ -119,7 +119,7 @@ handler that throws. Catch those where they happen.
 
 ## Deploys while a page is open
 
-Fragments carry the build that rendered them (`data-build`), and every
+Fragments carry the build that rendered them (`data-droplet-build`), and every
 fragment and `_data` answer carries `x-droplets-build`, a `404` or `405`
 included, so a page learns it is stale from a droplet a redeploy removed
 too. When a page loaded `index.js` from one

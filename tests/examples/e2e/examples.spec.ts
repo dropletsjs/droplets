@@ -164,9 +164,9 @@ test.describe("a script droplet: +droplet.script.ts, a page-view tracker", () =>
     const html = await response.text();
     expect(html).toContain('<div style="display: contents" data-droplet-entry></div>');
     // Client only: the props ride on the element, and the one script is the data payload (CSP-clean).
-    expect(html).toMatch(/^<djs-svelte data-droplet="page-views" [^>]*data-context="[^"]+"/);
-    expect(html.match(/<script\b[^>]*>/g)).toEqual(['<script type="application/text" data-droplet-data>']);
-    const data = html.match(/data-droplet-data>([^<]+)</)?.[1] ?? "";
+    expect(html).toMatch(/^<djs-svelte data-droplet="page-views" [^>]*data-droplet-context="[^"]+"/);
+    expect(html.match(/<script\b[^>]*>/g)).toEqual(['<script type="application/text" data-droplet-payload="data">']);
+    const data = html.match(/data-droplet-payload="data">([^<]+)</)?.[1] ?? "";
     expect(JSON.parse(Buffer.from(data, "base64").toString())).toEqual({ data: { page: "pricing", views: expect.any(Number) } });
     // The props schema runs before the load, as for any droplet.
     expect((await request.get(`${dropletsOf(exampleOf())}/droplets/page-views?page=..%2Fetc`)).status()).toBe(400);

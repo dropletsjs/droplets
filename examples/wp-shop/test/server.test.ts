@@ -74,7 +74,7 @@ const action = (path: string, fields: Record<string, string>, headers: Record<st
 
 const products = async () => ((await (await call("/api/products?limit=48")).json()) as { items: CardProduct[] }).items;
 const bySlug = async (slug: string) => (await products()).find((p) => p.slug === slug)!;
-const renderId = (html: string) => /data-render-id="(\w+)"/.exec(html)?.[1];
+const renderId = (html: string) => /data-droplet-render="(\w+)"/.exec(html)?.[1];
 
 describe("the catalogue, from WordPress", () => {
   it("lists WordPress's products with their Media Library images", async () => {

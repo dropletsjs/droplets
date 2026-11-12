@@ -242,7 +242,7 @@ Opt-in per form, as Kit's `use:enhance`; the element intercepts nothing on
 its own. `enhanceDropletForm(form, options?)` in `$droplets/form` (vanilla,
 returns its cleanup), wrapped by each renderer's `/form`: a Svelte action
 and a Solid directive (`use:enhanceDropletForm`), `useEnhanceDropletForm`
-for React, Hono JSX and Vue; `data-droplets-enhance` on a form, bound by
+for React, Hono JSX and Vue; `data-droplet-enhance` on a form, bound by
 `/index.js`, for Handlebars or any droplet. It:
 
 - intercepts only a `POST` to its own droplet's action, by exact origin and
@@ -527,7 +527,7 @@ must satisfy each rule below, and test it:
      The hydration check collects `console.error`/`warn`, which the
      production builds of the engines print little of.
 4. Built: the enhance step, as above. `enhanceDropletForm` and the
-   wrappers, `data-droplets-enhance`, `droplets:action`, `DropletActions`;
+   wrappers, `data-droplet-enhance`, `droplets:action`, `DropletActions`;
    `noJS` and `useAction()` removed. How it differs from the plan above:
    - Opt-in per form, not the element's automatic interception: a form a
      droplet did not enhance posts natively.

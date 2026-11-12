@@ -124,7 +124,7 @@ export type ElementLife = "live" | "waiting" | "static";
 
 /**
  * What one element does about its new `hydrate` mode (the host's
- * `data-hydrate` already applied to both): `hydrate` the markup there in the
+ * `data-droplet-hydrate` already applied to both): `hydrate` the markup there in the
  * new mode, `rewait` in the new mode, a console `note`, or nothing (`keep`
  * the running component, or `none` when the mode is the same).
  */

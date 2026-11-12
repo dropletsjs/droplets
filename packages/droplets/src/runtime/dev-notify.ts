@@ -45,12 +45,12 @@ function toasts(): Toasts {
       if (!host.isConnected) (document.body ?? document.documentElement).append(host);
       // The same news again (a second edit before this one was read): replaced, never stacked twice.
       for (const old of Array.from(stack.children)) {
-        if ((old as HTMLElement).dataset["key"] === notification.key) old.remove();
+        if ((old as HTMLElement).dataset["dropletKey"] === notification.key) old.remove();
       }
       const id = `droplets-toast-${++count}`;
       const toast = document.createElement("div");
       toast.className = "toast";
-      toast.dataset["key"] = notification.key;
+      toast.dataset["dropletKey"] = notification.key;
       // A toast with a button asks for a decision: an alert dialog, named
       // and described by its text; one without is a polite status.
       toast.setAttribute("role", notification.reload ? "alertdialog" : "status");

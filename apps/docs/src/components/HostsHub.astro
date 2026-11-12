@@ -40,7 +40,7 @@ function build(narrow: boolean): Scene {
     rightX + 10,
     browserR + 12,
     colW - 46,
-    "GET /droplets/:id (hx-get, fetch), or the element written with data-params, which renders itself",
+    "GET /droplets/:id (hx-get, fetch), or the element written with data-droplet-props, which renders itself",
     "small",
     "ink",
   );
@@ -53,7 +53,7 @@ function build(narrow: boolean): Scene {
 <Diagram
   id="hosts"
   title="One droplets server, two ways to fetch"
-  desc="Left: nine hosts fetch on their server: Express, Next.js, SvelteKit, Astro, FastAPI, Sinatra, PHP, WordPress and nginx with Server Side Includes. The browser asks the host for a page; the host's server sends GET /droplets/:id with x-droplet-location to the droplets server and pastes the fragment into the page. Right: the React single-page app and the htmx page let the browser do it: GET /droplets/:id with hx-get or fetch, or the element written with data-params, which renders itself. Both talk to the same droplets server."
+  desc="Left: nine hosts fetch on their server: Express, Next.js, SvelteKit, Astro, FastAPI, Sinatra, PHP, WordPress and nginx with Server Side Includes. The browser asks the host for a page; the host's server sends GET /droplets/:id with x-droplet-location to the droplets server and pastes the fragment into the page. Right: the React single-page app and the htmx page let the browser do it: GET /droplets/:id with hx-get or fetch, or the element written with data-droplet-props, which renders itself. Both talk to the same droplets server."
   caption="Solid: the host's server fetches the fragment. Dashed: the browser does."
   wide={build(false)}
   narrow={build(true)}

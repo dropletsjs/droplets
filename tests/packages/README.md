@@ -56,6 +56,14 @@ catalog (`@dropletsjs/shared/catalog`) is at the catalog's literal range.
 The hosts bring their own toolchains, so only their `@dropletsjs/*` ranges
 are checked.
 
+### The attribute scan
+
+`test/attributes.test.ts` reads the sources, not the tarballs: every
+`data-*` name the runtime, the renderers and the devtools read or write (a
+string, a template, a JSX attribute, a `dataset` access) must be
+`data-droplet` or `data-droplet-*`. `SCANNED` lists the folders, `KEY_FILES`
+the files the scan must reach.
+
 ### Changing it
 
 A new published package built by tsdown goes into `PACKAGES`. A new entry
@@ -91,3 +99,5 @@ suite reads it from there.
 - Examples' ranges: no `workspace:` or `catalog:` range in any example, hosts included. `test/examples.test.ts:60`
 - Examples' ranges: every `@dropletsjs/*` dependency is `^<the package's version>` from `packages/`, hosts included. `test/examples.test.ts:70`
 - Examples' ranges: in the workspace examples every tool of the pnpm catalog is at the catalog's literal range; the hosts' toolchains are their own. `test/examples.test.ts:84`
+- `test/attributes.test.ts` scans the sources under `SCANNED` (the runtime, every renderer's `src/`, the devtools' `src/`) for `data-*` names in strings, templates, JSX attributes and `dataset` accesses, and fails on any that is not `data-droplet` or `data-droplet-*`. `test/attributes.test.ts:21`, `test/attributes.test.ts:58`
+- `KEY_FILES` names the files the attribute scan must reach, so a moved folder fails the suite. `test/attributes.test.ts:37`

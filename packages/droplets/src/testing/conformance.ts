@@ -93,7 +93,7 @@
  *                                 <form method="post" action={actionUrl("leave")} data-testid="leave"></form>
  *                                 <form method="post" action={actionUrl("echo")} data-testid="plain"></form>
  *                               with `sign` and `leave` enhanced by the renderer's wrapper of
- *                               `enhanceDropletForm` (`data-droplets-enhance` with
+ *                               `enhanceDropletForm` (`data-droplet-enhance` with
  *                               `enhance: "attribute"`); `plain` never is
  *   +droplet.server.ts          load() → { count: 1 }
  *                               actions = {
@@ -150,7 +150,7 @@ export type ConformanceOptions = {
   /**
    * How the guestbook's forms opt in to progressive enhancement: the
    * renderer's wrapper of `enhanceDropletForm` (`"wrapper"`, the default),
-   * or the `data-droplets-enhance` attribute `/index.js` binds
+   * or the `data-droplet-enhance` attribute `/index.js` binds
    * (`"attribute"`, for templates; the guestbook then has
    * `hydrate = false`, and its fragment is replaced after an action).
    */
@@ -159,11 +159,11 @@ export type ConformanceOptions = {
   outDir?: string;
 };
 
-type PayloadInput = { html: string; attribute: "data-droplet-data" | "data-droplet-context" };
+type PayloadInput = { html: string; payload: "data" | "context" };
 
-/** The inline payload of a fragment, decoded; `undefined` when absent. */
-function payload({ html, attribute }: PayloadInput): unknown {
-  const match = html.match(new RegExp(`${attribute}>([^<]+)<`))?.[1];
+/** The inline payload of a fragment (`data-droplet-payload="data"` or `"context"`), decoded; `undefined` when absent. */
+function payload({ html, payload }: PayloadInput): unknown {
+  const match = html.match(new RegExp(`data-droplet-payload="${payload}">([^<]+)<`))?.[1];
   return match ? JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(match), (c) => c.charCodeAt(0)))) : undefined;
 }
 
@@ -351,10 +351,10 @@ export function rendererConformance({
         const res = await get({ path: "/droplets/hello?who=Ana" });
         expect(res.status).toBe(200);
         const html = await res.text();
-        expect(html.startsWith(`<${element} data-droplet="hello" data-build="${manifest.__hash}"`)).toBe(true);
+        expect(html.startsWith(`<${element} data-droplet="hello" data-droplet-build="${manifest.__hash}"`)).toBe(true);
         // Where to load from comes from /index.js, never from the markup.
         expect(html).not.toContain("data-droplet-location");
-        expect(html).toMatch(/data-render-id="[a-z0-9]+"/);
+        expect(html).toMatch(/data-droplet-render="[a-z0-9]+"/);
         expect(bare({ html })).toMatch(/<h1 data-testid="greeting">Hello Ana!<\/h1>/);
         // One empty marker, where the element puts the host's container, shown where the component renders its children.
         expect(html.match(/data-droplet-children/g)).toHaveLength(1);
@@ -369,8 +369,8 @@ export function rendererConformance({
 
       it("inlines the server data and the context for the browser", async () => {
         const html = await (await get({ path: "/droplets/hello?who=Ana" })).text();
-        expect(payload({ html, attribute: "data-droplet-data" })).toMatchObject({ data: { who: "Ana" } });
-        expect(payload({ html, attribute: "data-droplet-context" })).toEqual({ host: `${origin}/`, props: { who: "Ana" } });
+        expect(payload({ html, payload: "data" })).toMatchObject({ data: { who: "Ana" } });
+        expect(payload({ html, payload: "context" })).toEqual({ host: `${origin}/`, props: { who: "Ana" } });
         // `_data` answers the server load alone.
         const data = await post({ path: "/droplets/hello/_data", body: { props: { who: "Ana" } } });
         expect(await data.json()).toMatchObject({ data: { who: "Ana" } });
@@ -385,7 +385,7 @@ export function rendererConformance({
         expect(html).toMatch(MARKER);
         expect(markersIn({ root: parse({ html }), inside: "[data-testid=error-children]" })).toHaveLength(1);
         // What left the server, before the handleError of +droplet.ts.
-        expect(payload({ html, attribute: "data-droplet-data" })).toEqual({ error: { message: "Sorry, ref 42" } });
+        expect(payload({ html, payload: "data" })).toEqual({ error: { message: "Sorry, ref 42" } });
 
         // error() is an answer, not a failure: no error page.
         const missing = await get({ path: "/droplets/hello?who=nobody" });
@@ -396,10 +396,10 @@ export function rendererConformance({
       it("leaves a client-only droplet empty on the server", async () => {
         const html = await (await get({ path: "/droplets/frame" })).text();
         expect(html).not.toContain("data-droplet-children");
-        expect(html).not.toContain("data-render-id");
+        expect(html).not.toContain("data-droplet-render");
         expect(html).toContain('<div style="display: contents" data-droplet-entry></div>');
         // The context travels as an attribute when nothing was rendered.
-        expect(html).toMatch(/ data-context="/);
+        expect(html).toMatch(/ data-droplet-context="/);
       });
 
       it("prerenders the entries at build and serves them per request", async () => {
@@ -433,7 +433,7 @@ export function rendererConformance({
         expect(bare({ html })).toContain("<h1>Page 2</h1>");
         expect(bare({ html })).toContain("<p>host.test</p>");
         // The token, replaced by this request's host.
-        expect(payload({ html, attribute: "data-droplet-data" })).toMatchObject({
+        expect(payload({ html, payload: "data" })).toMatchObject({
           data: { page: 2, building: true, home: "https://host.test/home" },
         });
         expect(html).not.toContain("DROPLET_");
@@ -447,21 +447,21 @@ export function rendererConformance({
         const live = await liveAnswer.text();
         expect(bare({ html: live })).toContain("<h1>Page 3</h1>");
         expect(bare({ html: live })).toContain("<p>shop.test</p>");
-        expect(payload({ html: live, attribute: "data-droplet-data" })).toMatchObject({
+        expect(payload({ html: live, payload: "data" })).toMatchObject({
           data: { page: 3, building: false, home: "https://shop.test/home" },
         });
 
         // A render for one host serves that host only.
         const fixed = await (await post({ path: "/droplets/docs", body: { host: "https://fixed.test/docs", props: { page: 5 } } })).text();
-        expect(payload({ html: fixed, attribute: "data-droplet-data" })).toMatchObject({ data: { page: 5, building: true } });
+        expect(payload({ html: fixed, payload: "data" })).toMatchObject({ data: { page: 5, building: true } });
         const other = await (await post({ path: "/droplets/docs", body: { host: "https://other.test/docs", props: { page: 5 } } })).text();
-        expect(payload({ html: other, attribute: "data-droplet-data" })).toMatchObject({ data: { page: 5, building: false } });
+        expect(payload({ html: other, payload: "data" })).toMatchObject({ data: { page: 5, building: false } });
 
         // Live, the whole of host is there.
         const ref = await (
           await post({ path: "/droplets/docs", body: { host: "https://host.test/docs?ref=r1", props: { page: 7 } } })
         ).text();
-        expect(payload({ html: ref, attribute: "data-droplet-data" })).toMatchObject({ data: { page: 7, ref: "r1" } });
+        expect(payload({ html: ref, payload: "data" })).toMatchObject({ data: { page: 7, ref: "r1" } });
 
         expect((await get({ path: "/droplets/docs?page=x" })).status).toBe(400);
 
@@ -472,7 +472,7 @@ export function rendererConformance({
         const brokenHtml = await broken.text();
         expect(brokenHtml).toContain("data-droplet-error");
         expect(bare({ html: brokenHtml })).toMatch(/data-testid="docs-error"[^>]*>This page is unavailable</);
-        expect(payload({ html: brokenHtml, attribute: "data-droplet-data" })).toEqual({ error: { message: "This page is unavailable" } });
+        expect(payload({ html: brokenHtml, payload: "data" })).toEqual({ error: { message: "This page is unavailable" } });
       });
 
       it("stops prerendering a render that reads more of host than the build knows", async () => {
@@ -504,7 +504,7 @@ export function rendererConformance({
         expect(bare({ html })).toMatch(/data-testid="form"[^>]*>Thanks, Ana</);
         // The load ran again; the result goes with its data, for hydration.
         if (!byAttribute) {
-          expect(payload({ html, attribute: "data-droplet-data" })).toEqual({ data: { count: 1 }, form: { message: "Thanks, Ana" } });
+          expect(payload({ html, payload: "data" })).toEqual({ data: { count: 1 }, form: { message: "Thanks, Ana" } });
         }
         expect(actionOf({ html, testid: "sign" })).toBe(actionOn({ path: "/droplets/guestbook" }));
 
@@ -541,10 +541,10 @@ export function rendererConformance({
           const html = await page.text();
           expect(bare({ html })).toMatch(/data-testid="form"[^>]*>Thanks, Ana</);
           if (!byAttribute) {
-            expect(payload({ html, attribute: "data-droplet-data" })).toEqual({ data: { count: 1 }, form: { message: "Thanks, Ana" } });
+            expect(payload({ html, payload: "data" })).toEqual({ data: { count: 1 }, form: { message: "Thanks, Ana" } });
           }
           // The app's code never sees it: the context the browser gets has the page without it.
-          expect((payload({ html, attribute: "data-droplet-context" }) as { host?: string } | undefined)?.host ?? PAGE).toBe(PAGE);
+          expect((payload({ html, payload: "context" }) as { host?: string } | undefined)?.host ?? PAGE).toBe(PAGE);
           expect(html).not.toContain(key());
 
           // `_data` answers it too, for a droplet the browser renders.
@@ -1170,7 +1170,7 @@ export function rendererConformance({
       });
 
       it("shows the error page for a load that fails in the browser", async () => {
-        const el = mount({ html: `<${element} data-droplet="hello" data-params='{"who":"crash"}'></${element}>` });
+        const el = mount({ html: `<${element} data-droplet="hello" data-droplet-props='{"who":"crash"}'></${element}>` });
         await until({
           check: () => expect(find({ root: el, selector: "[data-testid=error]" })?.textContent).toBe("[hello] Sorry, ref 42"),
         });

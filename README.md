@@ -133,7 +133,7 @@ same shop into a WordPress site that owns the data and the login.
   droplets in different frameworks share a project and a page.
 - **Flags per droplet:** `ssr`, `hydrate` (`true`, `false`, `"visible"`,
   `"interactive"`) and `prerender`; a host overrides hydration per element
-  with `data-hydrate`. See [Writing droplets](https://dropletsjs.dev/guides/writing-droplets/).
+  with `data-droplet-hydrate`. See [Writing droplets](https://dropletsjs.dev/guides/writing-droplets/).
 - **A load chain:** `+droplet.server.ts` on the server, `+droplet.ts` on both
   sides, a Standard Schema for props (zod, valibot…), data that may be a
   promise, and generated `./$types`.

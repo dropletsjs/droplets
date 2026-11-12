@@ -161,7 +161,7 @@ export function agentsMd({ pm, adapters: chosen, frameworks, tailwind }: AgentsM
     "  the URL of `actions.name` in +droplet.server.ts on this server. In the browser",
     "  `actionUrl` knows the droplet only while it renders: call it as the component",
     "  sets up. Forms post natively; `enhanceDropletForm` (or the renderer's `/form`",
-    "  wrapper, `data-droplets-enhance` in Handlebars) posts by fetch and updates in place.",
+    "  wrapper, `data-droplet-enhance` in Handlebars) posts by fetch and updates in place.",
     "",
     "## Styles",
     "",

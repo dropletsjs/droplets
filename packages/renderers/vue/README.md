@@ -91,7 +91,7 @@ styles are inlined.
 - **Styles:** SFC `<style>` blocks, scoped included, reach the droplet's
   stylesheet. `+error.vue` compiles in custom-element mode, so its styles are
   inlined and travel with the markup: in the fragment's `head` on the server,
-  moved to `<style data-droplets-vue>` in the document head in the browser.
+  moved to `<style data-droplet-vue>` in the document head in the browser.
 - **Forms:** `actionUrl(name?)` from `$droplets/form` gives where a form posts
   for an action in `+droplet.server.ts`, the same URL on the server and in
   the browser: `const add = actionUrl("add")` in `<script setup>`, then
@@ -138,7 +138,7 @@ import only `vue` and `@dropletsjs/droplets/enhance`.
 - Client `mount` uses `createApp`; `hydrate` uses `createSSRApp`; the instance is the app. `src/client.ts:110`, `src/client.ts:125`
 - Client root renders the component under `<Suspense>`, so `await props.data` in `<script setup>` works. `src/live-props.ts:18`
 - Client `mount` with an error page wraps the root in `DropletBoundary` (`onErrorCaptured`): the first error goes through `handle`, the error page renders with its result, nothing while it runs or when it rejects. `src/client.ts:75`, `src/client.ts:104`
-- Client `mount` and `hydrate` of an error page inject its `styles` into `document.head` as `<style data-droplets-vue="<users>">`, once per text, the attribute counting the mounted instances that use it; `unmount` takes one off and removes the element at zero. `src/client.ts:59`, `src/client.ts:89`, `src/client.ts:169`
+- Client `mount` and `hydrate` of an error page inject its `styles` into `document.head` as `<style data-droplet-vue="<users>">`, once per text, the attribute counting the mounted instances that use it; `unmount` takes one off and removes the element at zero. `src/client.ts:59`, `src/client.ts:89`, `src/client.ts:169`
 - Client `hydrate` moves the target's top-level `<style>` elements (an error page's `head`) into `document.head` first, so hydration finds no mismatch. `src/client.ts:56`, `src/client.ts:122`
 - Client `unmount` calls `app.unmount()`. `src/client.ts:133`
 - Client dev `update` sets the root's props and waits for `nextTick`; the component keeps its state. `src/client-dev.ts:16`

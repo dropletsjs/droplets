@@ -29,7 +29,7 @@ is published on `127.0.0.1`.
 | Page | What it shows |
 | ---- | ------------- |
 | `/` (`html/index.html`) | The Svelte example's three droplets, from its own origin (`:8000`, cross-origin): `ssr-hydrate` on `load`, `client` on a click, `ssr-nohydrate` once `revealed`. |
-| `/shop` (`html/shop.html`) | The shop's droplets through nginx's proxy (same origin), in a body with `hx-boost`: the product page's enhanced form, the login's plain form (Post/Redirect/Get) and a product card asked for once revealed. The cart badge is an element the page writes itself (`data-droplet`, `data-params`). |
+| `/shop` (`html/shop.html`) | The shop's droplets through nginx's proxy (same origin), in a body with `hx-boost`: the product page's enhanced form, the login's plain form (Post/Redirect/Get) and a product card asked for once revealed. The cart badge is an element the page writes itself (`data-droplet`, `data-droplet-props`). |
 
 ### What it needs
 
@@ -129,7 +129,7 @@ is no code to typecheck. The guide's page:
 - Index page loads `/droplet-origins.js` after the module scripts: an `htmx:validateUrl` listener that allows this origin and the origins the page loads an `/index.js` from, no other. `html/index.html:19`, `html/droplet-origins.js:6`, `html/droplet-origins.js:13`
 - Shop page head is the same as the index page's. `html/shop.html:8`, `html/shop.html:12`
 - Shop page body has `hx-boost="true"`. `html/shop.html:16`
-- Shop page cart badge is a `<djs-shop data-droplet="shopping-cart" data-params='{"variant":"badge"}'>` the page writes. `html/shop.html:20`
+- Shop page cart badge is a `<djs-shop data-droplet="shopping-cart" data-droplet-props='{"variant":"badge"}'>` the page writes. `html/shop.html:20`
 - Shop page `product-page?slug=clay-cylinder-mug` loads in an `hx-boost="false"` section. `html/shop.html:28`, `html/shop.html:29`
 - Shop page `login?next=/shop` loads in an `hx-boost="false"` section. `html/shop.html:36`, `html/shop.html:37`
 - Shop page `product-card?slug=speckled-temple-cup` loads once `revealed`, in an `hx-boost="false"` section. `html/shop.html:45`, `html/shop.html:47`

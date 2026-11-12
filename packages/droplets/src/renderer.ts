@@ -25,8 +25,8 @@
  *   `handleError`, `entries`, `transform`), then `+droplet.ts` (`props`
  *   schema, `load`, `handleError`), then asks the renderer's
  *   {@link RendererServerModule.render} for HTML. The result is wrapped in
- *   the custom element with the inline payloads (`data-droplet-data`,
- *   `data-droplet-context`) and served as the fragment at `/droplets/<id>`.
+ *   the custom element with the inline payloads (`data-droplet-payload="data"`,
+ *   `data-droplet-payload="context"`) and served as the fragment at `/droplets/<id>`.
  * - Builds one browser bundle per droplet (`/droplets/<id>/client.js`),
  *   generated from a template that imports the component, the
  *   `+droplet.ts` module and the renderer's {@link RendererClientModule}.
@@ -101,7 +101,7 @@
  * `ssr` (default `true`), `hydrate` (default `true`) and `prerender`
  * (default `false`) decide how a droplet is built and served; `hydrate` may
  * also be `"visible"` or `"interactive"` (see {@link HydrateMode}), and a
- * host overrides it per element with `data-hydrate`. They live in the
+ * host overrides it per element with `data-droplet-hydrate`. They live in the
  * component file and nowhere else; core reads them before anything is
  * compiled. A component that is a module (`.tsx`, `.lit.ts`) is parsed and
  * its top-level `export const ssr = false` style declarations are read; a
@@ -150,7 +150,7 @@
  *
  * Core generates a short random `renderId` for every server render and hands
  * it to {@link RendererServerModule.render}; the fragment carries it as a
- * `data-render-id` attribute on the element, and the browser receives it in
+ * `data-droplet-render` attribute on the element, and the browser receives it in
  * {@link ClientRenderContext.renderId} when hydrating (a fresh one when
  * mounting). Engines that key hydration by an id (Solid's `renderId`) use it
  * on both sides so several droplets on one page never share keys. Note that
