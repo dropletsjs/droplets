@@ -825,8 +825,10 @@ Cloudflare), `vite.config.ts` (with several adapters it picks one by
 `.droplets/tsconfig.json`), `src/app.css`, one starter droplet per framework
 in `src/droplets/hello-<framework>/`, `AGENTS.md`, `.gitignore`,
 `README.md`, `svelte.config.js` with Svelte, `wrangler.jsonc` with
-Cloudflare, and the package manager's settings that install only versions
-published at least 7 days ago (`@dropletsjs/*` exempt). A file that exists
+Cloudflare, `.vscode/extensions.json` with Svelte, Vue or Lit (their editor
+extensions: `svelte.svelte-vscode`, `Vue.volar`, `runem.lit-plugin`), and
+the package manager's settings that install only versions published at
+least 7 days ago (`@dropletsjs/*` exempt). A file that exists
 already stops it before anything is written. See
 [Getting started](/start/getting-started/).
 

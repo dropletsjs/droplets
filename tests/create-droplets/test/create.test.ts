@@ -102,6 +102,7 @@ describe.each(CASES.map((c) => [c.name, c] as const))("%s", (name, { frameworks,
     await create([name, ...args, "--yes", "--no-install", "--no-git"]);
     for (const framework of frameworks) expect(existsSync(join(project, "src/droplets", starter(framework)))).toBe(true);
     expect(existsSync(join(project, "CLAUDE.md"))).toBe(name === "pair");
+    expect(existsSync(join(project, ".vscode/extensions.json"))).toBe(frameworks.some((f) => ["svelte", "vue", "lit"].includes(f)));
     if (name === "pair") expect(readFileSync(join(project, "droplets.config.ts"), "utf8")).toContain("dev: { injectTool: true }");
   });
 

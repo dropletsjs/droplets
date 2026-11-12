@@ -6,7 +6,7 @@
  */
 import { agentsMd } from "./agents.ts";
 import { ADAPTERS, commands, defaultAdapter, starterName, type Adapter, type Choices } from "./choices.ts";
-import { dropletFiles, flagsFor, packageName, VERSIONS, versionOf } from "./shared.ts";
+import { dropletFiles, flagsFor, packageName, VERSIONS, versionOf, type Framework } from "./shared.ts";
 
 const START: Record<Adapter, string> = {
   node: "node dist/server.js",
@@ -241,6 +241,22 @@ const SVELTE_CONFIG = [
   "",
 ].join("\n");
 
+// The other frameworks need no extension: VS Code's TypeScript reads their JSX, and it knows Handlebars.
+const EDITOR_EXTENSIONS: Partial<Record<Framework["name"], string>> = {
+  svelte: "svelte.svelte-vscode",
+  vue: "Vue.volar",
+  lit: "runem.lit-plugin",
+};
+
+type EditorExtensionsInput = Pick<Choices, "frameworks">;
+
+/** `.vscode/extensions.json` for the chosen frameworks, or nothing when none needs an extension. */
+export function editorExtensions({ frameworks }: EditorExtensionsInput): Record<string, string> {
+  const recommendations = frameworks.flatMap((f) => EDITOR_EXTENSIONS[f.name] ?? []);
+  if (recommendations.length === 0) return {};
+  return { ".vscode/extensions.json": `${JSON.stringify({ recommendations }, null, 2)}\n` };
+}
+
 type ReadmeInput = Pick<Choices, "name" | "pm" | "adapters">;
 
 function readme({ name, pm, adapters }: ReadmeInput): string {
@@ -344,6 +360,7 @@ export function projectFiles(choices: Choices): Record<string, string> {
     "AGENTS.md": agentsMd(choices),
     "README.md": readme(choices),
     ...packageManagerFiles(choices),
+    ...editorExtensions(choices),
   };
   if (choices.claude) files["CLAUDE.md"] = "@AGENTS.md\n";
   if (choices.adapters.includes("cloudflare")) files["wrangler.jsonc"] = wrangler(choices);

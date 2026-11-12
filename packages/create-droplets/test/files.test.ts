@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { dropletsConfig, packageJson, packageManagerFiles, projectFiles, scripts, tsconfig, viteConfig } from "../src/files.ts";
+import {
+  dropletsConfig,
+  editorExtensions,
+  packageJson,
+  packageManagerFiles,
+  projectFiles,
+  scripts,
+  tsconfig,
+  viteConfig,
+} from "../src/files.ts";
 import { FRAMEWORKS } from "../src/shared.ts";
 import { choicesWith } from "./choices-with.ts";
 
@@ -20,6 +29,25 @@ describe("the project files", () => {
       expect(files).toContain(`src/droplets/${droplet}/+droplet.server.ts`);
     }
     expect(files).toContain("svelte.config.js");
+  });
+
+  it("recommends the editor extensions of the chosen frameworks, and writes no file when none needs one", () => {
+    const recommended = (frameworks: string[]) =>
+      (
+        JSON.parse(editorExtensions(choicesWith({ frameworks }))[".vscode/extensions.json"] ?? expect.unreachable(frameworks.join())) as {
+          recommendations: string[];
+        }
+      ).recommendations;
+    expect(recommended(["svelte"])).toEqual(["svelte.svelte-vscode"]);
+    expect(recommended(["vue"])).toEqual(["Vue.volar"]);
+    expect(recommended(["lit"])).toEqual(["runem.lit-plugin"]);
+    expect(recommended(FRAMEWORKS.map((f) => f.name))).toEqual(["svelte.svelte-vscode", "Vue.volar", "runem.lit-plugin"]);
+    expect(recommended(["react", "vue"])).toEqual(["Vue.volar"]);
+    for (const framework of ["react", "preact", "solid", "hono-jsx", "handlebars"]) {
+      expect(editorExtensions(choicesWith({ frameworks: [framework] })), framework).toEqual({});
+    }
+    expect(editorExtensions(choicesWith({ frameworks: ["react", "preact", "solid", "hono-jsx", "handlebars"] }))).toEqual({});
+    expect(Object.keys(projectFiles(choicesWith({ frameworks: ["svelte"] })))).toContain(".vscode/extensions.json");
   });
 
   it("writes CLAUDE.md only for Claude, wrangler.jsonc only for Cloudflare", () => {

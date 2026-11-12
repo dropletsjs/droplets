@@ -65,7 +65,13 @@ my-widgets/
   README.md
   .gitignore            node_modules/, dist/, .droplets/, …
   .npmrc                min-release-age=7 (the package manager's own file, below)
+  .vscode/extensions.json  the Svelte editor extension (below)
 ```
+
+`.vscode/extensions.json` recommends the editor extensions the frameworks
+you picked need: `svelte.svelte-vscode` for Svelte, `Vue.volar` for Vue,
+`runem.lit-plugin` for Lit. React, Preact, Solid, Hono JSX and Handlebars
+need none; a project with only those gets no file.
 
 The package manager's settings install only versions published at least 7
 days ago, with Droplets' own packages exempt so a project made on the day of

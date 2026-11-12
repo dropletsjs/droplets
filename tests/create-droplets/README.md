@@ -37,6 +37,7 @@ repository, and removes it afterwards.
   `Initial commit from create-droplets`; inside one, no `.git` is made.
 - Per case (`only-<framework>` for each of the eight, `everything`, `pair`):
   the starter droplets are written, `CLAUDE.md` only with `--claude`,
+  `.vscode/extensions.json` only with Svelte, Vue or Lit,
   `dev: { injectTool: true }` with `--inject-tool`; `djs sync` writes
   `.droplets/tsconfig.json`; `tsc -p tsconfig.json` passes; `vite build`
   writes `dist/server.js`, which answers `/droplets/hello-<framework>?who=Ana`

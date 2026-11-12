@@ -64,6 +64,10 @@ Without a terminal, or with `--yes`, it asks nothing: the folder and
   a droplet imports only its own framework.
 - `.gitignore`, `README.md`, `svelte.config.js` with Svelte (for editor
   tooling), and `wrangler.jsonc` with Cloudflare.
+- `.vscode/extensions.json` with Svelte, Vue or Lit: the editor extensions
+  those frameworks need (`svelte.svelte-vscode`, `Vue.volar`,
+  `runem.lit-plugin`). React, Preact, Solid, Hono JSX and Handlebars need
+  none, so a project with only those gets no file.
 - The package manager's settings, installing only versions published at
   least 7 days ago (`@dropletsjs/*` exempt, so a project made on the day of a
   release installs): `.npmrc` (npm), `pnpm-workspace.yaml` (pnpm),
@@ -129,7 +133,7 @@ HTML page that embeds it:
 - Commands per pm: npm `npm run`/`npx djs`, pnpm `pnpm run`/`pnpm exec djs`, yarn `yarn run`/`yarn djs`, bun `bun run`/`bunx djs`, deno `deno task`/`deno run -A npm:@dropletsjs/droplets/djs`. `src/choices.ts:53`
 - Default adapter: `node` when chosen, else the first in `node`, `cloudflare`, `bun`, `deno` order. `src/choices.ts:77`
 - Starter droplet folder: `hello-<framework>`, `hello-hono` for Hono JSX. `src/choices.ts:70`
-- Starter droplets are `djs add`'s files for target `full`, hydrate `always`, with `+droplet.server.ts`. `src/files.ts:353`
+- Starter droplets are `djs add`'s files for target `full`, hydrate `always`, with `+droplet.server.ts`. `src/files.ts:370`
 - `package.json` scripts: `dev` `vite`, `build` `vite build`, `preview` `vite preview`, `start` for the default adapter. `src/files.ts:23`
 - `package.json` start commands: `node dist/server.js`, `wrangler dev`, `bun dist/server.js`, `deno serve -A dist/server.js`. `src/files.ts:11`
 - `package.json` other adapters get `build:<a>` (`DROPLETS_ADAPTER=<a> vite build`) and `start:<a>`. `src/files.ts:31`
@@ -146,11 +150,13 @@ HTML page that embeds it:
 - `tsconfig.json` takes `jsx: "react-jsx"` and `jsxImportSource` from the first JSX framework, and then includes `src/**/*.tsx`. `src/files.ts:173`, `src/files.ts:175`
 - `src/app.css` imports `tailwindcss` with Tailwind and makes `:root` `display: block`. `src/files.ts:196`
 - `.gitignore` lists `node_modules/`, `dist/`, `.droplets/`, `.wrangler/`, `.env.local` and `.env.*.local`. `src/files.ts:205`
-- `wrangler.jsonc` (Cloudflare): `main` `dist/worker.js`, `nodejs_compat`, assets `dist/client` bound as `ASSETS`, no `run_worker_first`: static assets answer the build's files. `src/files.ts:226`, `test/files.test.ts:47`
+- `wrangler.jsonc` (Cloudflare): `main` `dist/worker.js`, `nodejs_compat`, assets `dist/client` bound as `ASSETS`, no `run_worker_first`: static assets answer the build's files. `src/files.ts:226`, `test/files.test.ts:75`
 - `svelte.config.js` (Svelte) sets `compilerOptions: { runes: true }` for editor tooling. `src/files.ts:239`
-- `CLAUDE.md` (with `--claude`) is `@AGENTS.md`. `src/files.ts:348`
-- Release age settings: pnpm `minimumReleaseAge: 10080`, npm `min-release-age=7`, Yarn `npmMinimalAgeGate: 10080`, Bun `minimumReleaseAge = 604800`, Deno `P7D`. `src/files.ts:286`, `src/files.ts:298`, `src/files.ts:308`, `src/files.ts:320`, `src/files.ts:328`
-- Release age exemption: `@dropletsjs/*` by pattern for pnpm, npm and Yarn; every `@dropletsjs/*` package by name for Bun and Deno. `src/files.ts:299`, `src/files.ts:321`
+- `.vscode/extensions.json` recommends `svelte.svelte-vscode` for Svelte, `Vue.volar` for Vue and `runem.lit-plugin` for Lit, in catalog order. `src/files.ts:245`, `src/files.ts:255`
+- `.vscode/extensions.json` is not written when no chosen framework needs an extension (React, Preact, Solid, Hono JSX, Handlebars). `src/files.ts:256`, `test/files.test.ts:34`
+- `CLAUDE.md` (with `--claude`) is `@AGENTS.md`. `src/files.ts:365`
+- Release age settings: pnpm `minimumReleaseAge: 10080`, npm `min-release-age=7`, Yarn `npmMinimalAgeGate: 10080`, Bun `minimumReleaseAge = 604800`, Deno `P7D`. `src/files.ts:302`, `src/files.ts:314`, `src/files.ts:324`, `src/files.ts:336`, `src/files.ts:344`
+- Release age exemption: `@dropletsjs/*` by pattern for pnpm, npm and Yarn; every `@dropletsjs/*` package by name for Bun and Deno. `src/files.ts:315`, `src/files.ts:337`
 - `AGENTS.md` opens with the one-framework rule and is written for the chosen frameworks, adapters and package manager. `src/agents.ts:35`, `test/agents.test.ts:6`
 - `AGENTS.md` adds the `@jsxImportSource` note only with two or more JSX frameworks. `src/agents.ts:68`
 - Build script runs the tests, then `vite build`. `package.json:35`
