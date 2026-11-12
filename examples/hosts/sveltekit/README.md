@@ -26,7 +26,8 @@ open http://localhost:8006/gallery  # the shop (demo login: admin / droplets)
 `load` fetches `GET /droplets/<id>?who=<who>` for `client`, `ssr-hydrate` and
 `ssr-nohydrate` through `src/lib/droplets.server.ts`, with
 `x-droplet-location` set to `DROPLETS_PUBLIC_URL`. `?who=Kit` changes the
-prop. A droplet that fails renders an inline `<p class="error">`.
+prop. Only a `text/html` answer (2xx or 500) is pasted; anything else, or
+a failure, renders an inline `<p class="error">`.
 
 The page and the droplets server are different origins, so the droplets
 server runs with `cors: true` and lists this host's origin in
@@ -53,7 +54,7 @@ npm run dev        # vite dev on http://localhost:8006
 `/gallery`, `/product/[slug]`, `/login` and `/admin` embed the shop and follow
 its [`CONTRACT.md`](../../shop/CONTRACT.md).
 
-- `src/hooks.server.ts` proxies `/index.js`, `/droplets/*`, `/assets/*` and
+- `src/hooks.server.ts` proxies `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and
   `/api/*` to the shop before routing, bodies streamed, so its cookies are
   this origin's own.
 - `src/lib/shop.server.ts` is the framework-free part (Request in, Response
@@ -101,33 +102,34 @@ From the repository root:
 - `tsconfig.json` extends `.svelte-kit/tsconfig.json`, written by `svelte-kit sync`. `tsconfig.json:3`
 - `DROPLETS_INTERNAL_URL` defaults to `http://localhost:8000`. `src/lib/droplets.server.ts:4`
 - `DROPLETS_PUBLIC_URL` defaults to `http://localhost:8000`. `src/lib/droplets.server.ts:6`
-- Basic page fragment fetch sends `x-droplet-location: DROPLETS_PUBLIC_URL`. `src/lib/droplets.server.ts:17`
-- Basic page fragment that is not ok or fails renders `<p class="error">`. `src/lib/droplets.server.ts:18`, `src/lib/droplets.server.ts:21`
+- Basic page fragment fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`, never follows a redirect, 5 second timeout. `src/lib/droplets.server.ts:24`, `src/lib/droplets.server.ts:25`, `src/lib/droplets.server.ts:26`
+- Basic page pastes only a 2xx or 500 `text/html` answer; anything else renders `<p class="error">`, the id and the error escaped. `src/lib/droplets.server.ts:30`, `src/lib/droplets.server.ts:34`, `src/lib/droplets.server.ts:36`
 - Basic page droplets are `client`, `ssr-hydrate` and `ssr-nohydrate`. `src/routes/+page.server.ts:5`
 - Basic page prop `who` comes from the query, default `SvelteKit`. `src/routes/+page.server.ts:8`
 - Basic page loads `<DROPLETS_PUBLIC_URL>/index.js` in `<svelte:head>`. `src/routes/+page.svelte:8`
 - Basic page renders each fragment with `{@html}`. `src/routes/+page.svelte:19`
 - Body attributes come from `handle`, through the `%host.body%` placeholder in `app.html`. `src/app.html:9`, `src/hooks.server.ts:15`
 - Shop proxy runs in `handle` before routing for paths matching `PROXIED`. `src/hooks.server.ts:11`
-- Shop proxy paths: `/index.js`, `/droplets/*`, `/assets/*`, `/api/*`. `src/lib/shop.server.ts:74`
+- Shop proxy paths: `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`, `/api/*`. `src/lib/shop.server.ts:85`
 - Shop pages are routes under `/(shop)`. `src/hooks.server.ts:13`
 - Shop page sets `cache-control: private, no-store`. `src/hooks.server.ts:19`
 - Shop page appends the fragments' `Set-Cookie` from `locals.shopCookies` untouched, never through `cookies.set`. `src/hooks.server.ts:22`, `src/app.d.ts:5`
 - `SHOP_INTERNAL_URL` defaults to `http://localhost:8300`. `src/lib/shop-page.server.ts:9`
 - `SHOP_PUBLIC_URL` defaults to `http://localhost:8006`. `src/lib/shop-page.server.ts:10`
-- `SHOP_PUBLIC_URL` is reduced to its origin, the `x-droplet-location` value. `src/lib/shop.server.ts:91`
-- Shop proxy sends `x-droplet-location` set to that origin, never the request's Host. `src/lib/shop.server.ts:96`
-- Shop proxy forwards only `accept`, `accept-language`, `content-type`, `cookie`, `if-none-match`, `origin`, `referer`, `user-agent`, `x-droplet-props`, `x-droplets-build`. `src/lib/shop.server.ts:48`
-- Shop proxy drops hop-by-hop response headers and passes `Set-Cookie` untouched. `src/lib/shop.server.ts:62`, `src/lib/shop.server.ts:117`
-- Shop proxy concatenates the path onto the shop's base, never resolves it. `src/lib/shop.server.ts:104`
-- Shop proxy never follows redirects and streams the request body (`duplex: "half"`). `src/lib/shop.server.ts:108`, `src/lib/shop.server.ts:110`
-- Shop proxy answers 502 `The shop is unreachable.` when the shop fails. `src/lib/shop.server.ts:122`
-- Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page URL as `referer` and the browser's `cookie`. `src/lib/shop.server.ts:134`, `src/lib/shop.server.ts:135`
-- Shop fragment fetch uses `redirect: "manual"` and `cache: "no-store"`. `src/lib/shop.server.ts:138`
-- Shop fragment 3xx is kept as a redirect; only 2xx or 500 with `text/html` is inserted. `src/lib/shop.server.ts:142`, `src/lib/shop.server.ts:145`
-- Shop fragment otherwise renders `<p class="shop-unavailable">`. `src/lib/shop.server.ts:156`
-- Shop product lookup reads `/droplets/product-page/_data?slug=<slug>`. `src/lib/shop.server.ts:162`
-- Shop `Link` preloads keep only `preload` and `modulepreload` on this host's origin. `src/lib/shop.server.ts:197`, `src/lib/shop.server.ts:204`
+- `SHOP_PUBLIC_URL` is reduced to its origin, the `x-droplet-location` value. `src/lib/shop.server.ts:102`
+- Shop proxy sends `x-droplet-location` set to that origin, never the request's Host. `src/lib/shop.server.ts:107`
+- Shop proxy forwards only `accept`, `accept-language`, `content-type`, `if-none-match`, `origin`, `referer`, `user-agent`, `x-droplet-props`, `x-droplets-build`, plus `cookie` cut down to `cart_id` and `shop_admin` (`SHOP_COOKIES`). `src/lib/shop.server.ts:48`, `src/lib/shop.server.ts:74`, `src/lib/shop.server.ts:112`
+- Shop upstream timeouts: the proxy 15 s, a fragment 10 s, the product lookup 5 s. `src/lib/shop.server.ts:122`, `src/lib/shop.server.ts:153`, `src/lib/shop.server.ts:183`
+- Shop proxy drops hop-by-hop response headers and passes `Set-Cookie` untouched. `src/lib/shop.server.ts:61`, `src/lib/shop.server.ts:131`
+- Shop proxy concatenates the path onto the shop's base, never resolves it. `src/lib/shop.server.ts:117`
+- Shop proxy never follows redirects and streams the request body (`duplex: "half"`). `src/lib/shop.server.ts:121`, `src/lib/shop.server.ts:124`
+- Shop proxy answers 502 `The shop is unreachable.` when the shop fails. `src/lib/shop.server.ts:136`
+- Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page URL as `referer` and the browser's `cookie` cut down to the shop's. `src/lib/shop.server.ts:149`, `src/lib/shop.server.ts:150`
+- Shop fragment fetch uses `redirect: "manual"` and `cache: "no-store"`. `src/lib/shop.server.ts:153`
+- Shop fragment 3xx is kept as a redirect; only 2xx or 500 with `text/html` is inserted. `src/lib/shop.server.ts:157`, `src/lib/shop.server.ts:160`
+- Shop fragment otherwise renders `<p class="shop-unavailable">`. `src/lib/shop.server.ts:171`
+- Shop product lookup reads `/droplets/product-page/_data?slug=<slug>`. `src/lib/shop.server.ts:177`
+- Shop `Link` preloads keep only `preload` and `modulepreload` on this host's origin. `src/lib/shop.server.ts:213`, `src/lib/shop.server.ts:220`
 - Shop fragments of one load are fetched in parallel. `src/lib/shop-page.server.ts:22`
 - Shop page answers a fragment's redirect with its status (`redirect()`). `src/lib/shop-page.server.ts:25`
 - Shop footer stack name is `SvelteKit 2`. `src/lib/shop-page.server.ts:6`

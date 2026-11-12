@@ -79,6 +79,9 @@ Recordings land in `recordings/<host>.mp4` and screenshots in
   cart, a post without JavaScript (not on react-vite, an SPA), no shared
   cart or session between visitors, and a product page never stale after
   an edit.
+- `e2e/nginx-basic.spec.ts` (nginx only): the basic page on the droplets
+  port hydrates through the proxy, which passes `/env.js` and `/index.css`
+  on with `/index.js`.
 - `e2e/shop-wordpress.spec.ts`: the WordPress flow (a comment posted, the
   cart, WordPress's login, wp-admin's Shop screen for the stock, a logout),
   a comment without JavaScript, and the Shop screen's refusals.
@@ -131,10 +134,12 @@ its own install. The hosts are outside the pnpm workspace, so
 - `shop.spec.ts` main flow is skipped on WordPress. `e2e/shop.spec.ts:76`
 - `shop.spec.ts` no-JavaScript post is skipped on react-vite. `e2e/shop.spec.ts:247`
 - Shop admin login is `admin` / `droplets`, session cookie `shop_admin`, `httpOnly`. `e2e/shop.spec.ts:29`, `e2e/shop.spec.ts:35`
+- `nginx-basic.spec.ts` runs only for nginx, against `DROPLETS_URL` (default `http://localhost:8080`): `/env.js` and `/index.css` answer 200 through the proxy and the three droplets hydrate as their mode says. `e2e/nginx-basic.spec.ts:9`, `e2e/nginx-basic.spec.ts:12`, `e2e/nginx-basic.spec.ts:22`, `e2e/nginx-basic.spec.ts:30`
 - `shop-wordpress.spec.ts` and `wordpress-service.spec.ts` run only for wordpress. `e2e/shop-wordpress.spec.ts:13`, `e2e/wordpress-service.spec.ts:16`
 - WordPress Shop screen is `/wp-admin/admin.php?page=droplets-shop`. `e2e/wordpress.ts:8`
 - `wordpress-service.spec.ts` reads the demo service secret from `examples/hosts/wordpress/docker-compose.yml`. `e2e/wordpress-service.spec.ts:18`
 - `htmx.spec.ts` runs only for htmx; droplets server from `DROPLETS_URL`, default `http://localhost:8000`. `e2e/htmx.spec.ts:12`, `e2e/htmx.spec.ts:15`
+- `htmx.spec.ts` checks an `hx-get` to a third origin is refused with `htmx:invalidPath` and sends nothing. `e2e/htmx.spec.ts:163`, `e2e/htmx.spec.ts:183`
 - Tour reads each droplet's renderer from `djs sync` (`pnpm exec djs sync`). `e2e/droplet-facts.ts:61`
 - Typecheck covers every `examples/hosts/*` with a `package.json` and a `typecheck` script. `typecheck.mjs:18`
 - Typecheck of a named host without a `typecheck` script exits 2. `typecheck.mjs:25`

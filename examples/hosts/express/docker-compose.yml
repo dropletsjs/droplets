@@ -40,6 +40,8 @@ services:
       DROPLETS_PUBLIC_URL: ${DROPLETS_URL:-http://localhost:8000}
       SHOP_INTERNAL_URL: http://shop:8300
       SHOP_PUBLIC_URL: ${WEB_URL:-http://localhost:8003}
+      # src/embedded.js (not run here) reads DROPLETS_DIST, the droplets
+      # server's build folder, and EXPRESS_SITE_URL, its own public origin.
     depends_on:
       - droplets
       - shop

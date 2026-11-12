@@ -52,20 +52,22 @@ bundle exec ruby app.rb
 fragment) into ERB views under `views/shop/`. It follows the shop's
 [`CONTRACT.md`](../../shop/CONTRACT.md).
 
-- A same-origin proxy passes `/index.js`, `/droplets/*`, `/assets/*` and
+- A same-origin proxy passes `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and
   `/api/*` to the shop, so its cookies (the cart, the admin session) are this
   origin's own and nothing is cross-origin.
 - `x-droplet-location` is `SHOP_PUBLIC_URL`, set in the environment, never the
   request's Host. The shop lists that origin in `DROPLETS_TRUSTED_ORIGINS`.
-- Fragment fetches forward the browser's `Cookie`, send the page URL as
+- Fragment fetches forward the browser's `Cookie` cut down to the shop's own
+  `cart_id` and `shop_admin` (so does the proxy), send the page URL as
   `Referer`, never follow redirects and insert only `text/html` answers. Their
   `Set-Cookie` goes back with the page, a droplet's redirect is answered with
   its status, and their `Link` preloads on this origin go into `<head>`.
 - Every shop page fetches `toast-center` and the cart badge
   (`shopping-cart`, `variant=badge`) with its own fragments.
 - Sinatra reads a form body into `params` before the route runs, so the app
-  buffers the request body (`ShopBufferedInput`) and turns
-  `method_override` off; the proxy passes the same body on.
+  buffers the request body (`ShopBufferedInput`, up to 4 MB: a bigger one
+  is a 413) and turns `method_override` off; the proxy passes the same body
+  on.
 - The layout's stylesheet is `public/shop.css`, the same file as the other
   hosts' copy.
 
@@ -85,10 +87,10 @@ http://localhost:8002 and takes the stack down. It needs Docker.
 - `DROPLETS_INTERNAL_URL` defaults to `http://localhost:8000`. `app.rb:12`
 - `DROPLETS_PUBLIC_URL` defaults to `http://localhost:8000`. `app.rb:14`
 - Basic page droplets are `client`, `ssr-hydrate` and `ssr-nohydrate`. `app.rb:17`
-- Basic page prop `who` comes from the query, default `Sinatra`. `app.rb:42`
-- Basic page fragment fetch sends `x-droplet-location: DROPLETS_PUBLIC_URL`. `app.rb:31`
-- Basic page fragment fetch has a 5 second read timeout. `app.rb:30`
-- Basic page fragment that is not 2xx or fails renders `<p class="error">`. `app.rb:35`, `app.rb:37`
+- Basic page prop `who` comes from the query, default `Sinatra`. `app.rb:46`
+- Basic page fragment fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`; `Net::HTTP` never follows a redirect. `app.rb:32`
+- Basic page fragment fetch has 5 second open and read timeouts. `app.rb:31`
+- Basic page pastes only a 2xx or 500 `text/html` answer; anything else, or a failure, renders `<p class="error">` with the id and the error escaped. `app.rb:37`, `app.rb:39`, `app.rb:41`
 - Basic page loads `<DROPLETS_PUBLIC_URL>/index.js` as a module script. `views/index.erb:7`
 - Droplets server image is `examples/frameworks/Dockerfile`, the Svelte example by default. `docker-compose.yml:9`, `../../frameworks/Dockerfile:24`
 - Droplets server CORS: the Svelte example sets `cors: true`. `../../frameworks/svelte/droplets.config.ts:16`
@@ -101,30 +103,30 @@ http://localhost:8002 and takes the stack down. It needs Docker.
 - Web `SHOP_PUBLIC_URL` is `WEB_URL`, default `http://localhost:8002`. `docker-compose.yml:42`
 - `SHOP_INTERNAL_URL` defaults to `http://localhost:8300`, trailing slashes stripped. `shop.rb:20`
 - `SHOP_PUBLIC_URL` defaults to `http://localhost:<PORT>` and is reduced to its origin. `shop.rb:24`
-- Shop proxy sends `x-droplet-location: SHOP_ORIGIN`, never the request's Host. `shop.rb:76`
-- Shop proxy forwards only `accept`, `accept-language`, `content-type`, `cookie`, `if-none-match`, `origin`, `referer`, `user-agent`, `x-droplet-props`, `x-droplets-build`. `shop.rb:29`
-- Shop proxy drops hop-by-hop response headers and passes `Set-Cookie` untouched. `shop.rb:35`, `shop.rb:90`
-- Shop proxy paths: `/index.js`, `/droplets/*`, `/assets/*`, `/api/*`, for GET (and HEAD, which Sinatra's `get` answers too), POST, PUT, PATCH, DELETE and OPTIONS. `shop.rb:216`, `shop.rb:217`
-- Shop proxy concatenates the path onto the shop's base, never resolves it. `shop.rb:62`
-- Shop proxy asks for `accept-encoding: identity`. `shop.rb:63`
-- Shop proxy timeouts: open 5 seconds, read 10 seconds. `shop.rb:65`
-- Shop proxy answers 502 `The shop is unreachable.` when the shop fails. `shop.rb:94`
-- Request body is buffered by `ShopBufferedInput`, with `method_override` off. `shop.rb:201`, `shop.rb:214`
-- Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page URL as `referer` and the browser's `cookie`. `shop.rb:102`, `shop.rb:104`
-- Shop fragment 3xx is kept as a redirect, not followed. `shop.rb:111`
-- Shop fragment is inserted only for 2xx or 500 with `text/html`. `shop.rb:113`
-- Shop fragment otherwise renders `<p class="shop-unavailable">`. `shop.rb:122`
-- Shop page fetches `toast-center`, `shopping-cart` (`variant=badge`) and its own fragments, one thread each. `shop.rb:178`, `shop.rb:179`
-- Shop page sets `cache-control: private, no-store`. `shop.rb:181`
-- Shop page passes every fragment's `Set-Cookie` on. `shop.rb:182`
-- Shop page answers a fragment's redirect with its status and `location`. `shop.rb:184`
-- Shop `Link` preloads keep only `preload` and `modulepreload` on `SHOP_ORIGIN`. `shop.rb:150`, `shop.rb:153`
-- Shop product lookup reads `/droplets/product-page/_data?slug=<slug>`. `shop.rb:128`
-- Shop product page answers 404 with the `not_found` view for an unknown slug. `shop.rb:233`
-- Shop product comments props: `order`, `page`, `showing` from the query, plus `productId`. `shop.rb:236`
-- Shop product page props: `slug`, plus `v` from the query. `shop.rb:239`
-- Shop gallery passes the whole query to `product-filter` and `product-library`. `shop.rb:225`, `shop.rb:227`
-- Shop login passes `next`; shop admin passes `view` and `id`. `shop.rb:246`, `shop.rb:250`
+- Shop proxy sends `x-droplet-location: SHOP_ORIGIN`, never the request's Host. `shop.rb:90`
+- Shop proxy forwards only `accept`, `accept-language`, `content-type`, `if-none-match`, `origin`, `referer`, `user-agent`, `x-droplet-props`, `x-droplets-build`, plus `cookie` cut down to `cart_id` and `shop_admin` (`SHOP_COOKIES`). `shop.rb:29`, `shop.rb:35`, `shop.rb:95`
+- Shop proxy drops hop-by-hop response headers and passes `Set-Cookie` untouched. `shop.rb:41`, `shop.rb:106`
+- Shop proxy paths: `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`, `/api/*`, for GET (and HEAD, which Sinatra's `get` answers too), POST, PUT, PATCH, DELETE and OPTIONS. `shop.rb:238`, `shop.rb:239`
+- Shop proxy concatenates the path onto the shop's base, never resolves it. `shop.rb:76`
+- Shop proxy asks for `accept-encoding: identity`. `shop.rb:77`
+- Shop proxy timeouts: open 5 seconds, read 10 seconds. `shop.rb:79`
+- Shop proxy answers 502 `The shop is unreachable.` when the shop fails. `shop.rb:110`
+- Request body is buffered by `ShopBufferedInput`, up to 4 MB (`SHOP_MAX_BODY`; above it, 413), with `method_override` off. `shop.rb:38`, `shop.rb:228`, `shop.rb:229`, `shop.rb:218`
+- Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page URL as `referer` and the browser's `cookie` cut down to the shop's. `shop.rb:118`, `shop.rb:119`
+- Shop fragment 3xx is kept as a redirect, not followed. `shop.rb:127`
+- Shop fragment is inserted only for 2xx or 500 with `text/html`. `shop.rb:129`
+- Shop fragment otherwise renders `<p class="shop-unavailable">`. `shop.rb:138`
+- Shop page fetches `toast-center`, `shopping-cart` (`variant=badge`) and its own fragments, one thread each. `shop.rb:194`, `shop.rb:195`
+- Shop page sets `cache-control: private, no-store`. `shop.rb:197`
+- Shop page passes every fragment's `Set-Cookie` on. `shop.rb:198`
+- Shop page answers a fragment's redirect with its status and `location`. `shop.rb:200`
+- Shop `Link` preloads keep only `preload` and `modulepreload` on `SHOP_ORIGIN`. `shop.rb:166`, `shop.rb:169`
+- Shop product lookup reads `/droplets/product-page/_data?slug=<slug>`. `shop.rb:144`
+- Shop product page answers 404 with the `not_found` view for an unknown slug. `shop.rb:255`
+- Shop product comments props: `order`, `page`, `showing` from the query, plus `productId`. `shop.rb:258`
+- Shop product page props: `slug`, plus `v` from the query. `shop.rb:261`
+- Shop gallery passes the whole query to `product-filter` and `product-library`. `shop.rb:247`, `shop.rb:249`
+- Shop login passes `next`; shop admin passes `view` and `id`. `shop.rb:268`, `shop.rb:272`
 - Shop footer stack name is `Sinatra 4`. `shop.rb:17`
 - Shop layout loads `/shop.css`, the preloads, speculation rules and `/index.js`. `views/shop/layout.erb:7`, `views/shop/layout.erb:10`
 - Gems: `sinatra ~> 4.1`, `rackup ~> 2.2`, `webrick ~> 1.9`. `Gemfile:3`, `Gemfile:4`, `Gemfile:6`

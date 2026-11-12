@@ -6,7 +6,7 @@ One droplets server, every droplet in Handlebars, rendered in the custom element
 
 | Droplet | Mode |
 | ------- | ---- |
-| `client` | `ssr = false`: rendered in the browser, its data fetched from `/api` |
+| `client` | `ssr = false`: rendered in the browser, its data fetched from `_data` |
 | `ssr-hydrate` | rendered on the server with its load, then hydrated; `+error.hbs` is its error page |
 | `ssr-nohydrate` | `hydrate = false`: server HTML and no JavaScript |
 

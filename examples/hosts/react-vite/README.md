@@ -55,10 +55,11 @@ The shop pages use the layout every host in `examples/hosts/` shares
 router (`src/router.ts`) picks the shop or the basic page.
 
 The shop is proxied under this app's origin, so its cart and admin cookies
-are first-party and nothing is cross-origin: `/index.js`, `/droplets/*`,
+are first-party and nothing is cross-origin: `/index.js`, `/env.js`, `/index.css`, `/droplets/*`,
 `/assets/*` and `/api/*` go to the shop with a fixed `x-droplet-location`
 (`SHOP_PUBLIC_URL`, default `http://localhost:8004`), never the client's
-Host, and with `Forwarded` and `X-Forwarded-*` removed.
+Host, with `Forwarded` and `X-Forwarded-*` removed and the browser's
+`Cookie` cut down to the shop's own `cart_id` and `shop_admin`.
 
 - In the image, nginx proxies (`nginx.conf`, which answers every other
   route with `index.html`).
@@ -138,16 +139,17 @@ flow against the compose stack (needs Docker).
 - Shop product page with an old `v`: the redirect replaces the URL with one without `v`. `src/shop/ShopApp.tsx:150`, `src/shop/ShopApp.tsx:161`
 - Shop login page passes `next`; admin page passes `view` and `id`. `src/shop/ShopApp.tsx:43`, `src/shop/ShopApp.tsx:44`
 - Shop footer stack label is `React 19 + Vite`. `src/shop/ShopApp.tsx:7`
-- Image nginx proxies `/index.js`, `/droplets/*`, `/assets/*`, `/api/*` to `shop:8300`. `nginx.conf:17`, `nginx.conf:18`
-- Image nginx sets `x-droplet-location` to `${SHOP_PUBLIC_URL}`, never the request's Host. `nginx.conf:19`
-- Image nginx clears `Forwarded`, `X-Forwarded-Host`/`-Proto`/`-Prefix`/`-For`. `nginx.conf:20`, `nginx.conf:24`
-- Image nginx `client_max_body_size` is 4m. `nginx.conf:26`
-- Image nginx answers every other route with `index.html`. `nginx.conf:32`
-- Vite proxy reads `SHOP_INTERNAL_URL` (default `http://localhost:8300`) and `SHOP_PUBLIC_URL` (default `http://localhost:8004`) with `loadEnv(mode, ".", "SHOP_")`. `vite.config.ts:16`, `vite.config.ts:19`, `vite.config.ts:20`
-- Vite proxy sends `x-droplet-location: SHOP_PUBLIC_URL` and removes `forwarded` and `x-forwarded-*`. `vite.config.ts:9`, `vite.config.ts:26`, `vite.config.ts:31`
-- Vite proxy covers `^/index\.js$`, `/droplets/`, `/assets/`, `/api/`. `vite.config.ts:35`
-- Vite `build.assetsDir` is `app`, so `/assets/*` stays the shop's. `vite.config.ts:40`
-- Vite dev and preview listen on 8004 with `strictPort`. `vite.config.ts:41`, `vite.config.ts:42`
+- Image nginx proxies `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`, `/api/*` to `shop:8300`. `nginx.conf:26`, `nginx.conf:27`
+- Image nginx sets `x-droplet-location` to `${SHOP_PUBLIC_URL}`, never the request's Host. `nginx.conf:29`
+- Image nginx clears `Forwarded`, `X-Forwarded-Host`/`-Proto`/`-Prefix`/`-For`. `nginx.conf:30`, `nginx.conf:34`
+- Image nginx sends the shop only `cart_id` and `shop_admin`, from the `$shop_cookie` map. `nginx.conf:8`, `nginx.conf:28`
+- Image nginx `client_max_body_size` is 4m. `nginx.conf:36`
+- Image nginx answers every other route with `index.html`. `nginx.conf:42`
+- Vite proxy reads `SHOP_INTERNAL_URL` (default `http://localhost:8300`) and `SHOP_PUBLIC_URL` (default `http://localhost:8004`) with `loadEnv(mode, ".", "SHOP_")`. `vite.config.ts:34`, `vite.config.ts:37`, `vite.config.ts:38`
+- Vite proxy sends `x-droplet-location: SHOP_PUBLIC_URL`, removes `forwarded` and `x-forwarded-*`, and cuts `cookie` down to `cart_id` and `shop_admin`. `vite.config.ts:9`, `vite.config.ts:12`, `vite.config.ts:44`, `vite.config.ts:49`, `vite.config.ts:50`
+- Vite proxy covers `^/index\.js$`, `^/env\.js$`, `^/index\.css$`, `/droplets/`, `/assets/`, `/api/`. `vite.config.ts:56`
+- Vite `build.assetsDir` is `app`, so `/assets/*` stays the shop's. `vite.config.ts:61`
+- Vite dev and preview listen on 8004 with `strictPort`. `vite.config.ts:62`, `vite.config.ts:63`
 - No-JavaScript host test skips this host (`react*`). `../../../tests/hosts/e2e/shop.spec.ts:247`
 - `pnpm test:hosts react-vite` tests `http://localhost:8004`. `../../../tests/hosts/run.mjs:64`
 - `examples/hosts/*` is outside the pnpm workspace. `../../../pnpm-workspace.yaml:5`

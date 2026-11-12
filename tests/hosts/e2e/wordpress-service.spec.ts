@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type APIRequestContext } from "@playwright/test";
@@ -25,10 +25,18 @@ function demoSecret(name: string): string {
 const SERVICE_SECRET = demoSecret("WP_SHOP_SERVICE_SECRET");
 const HOST_SECRET = demoSecret("WP_SHOP_HOST_SECRET");
 
-/** As wp-shop signs it (src/lib/server/host-identity.ts), for this method and URI. */
-function service(method: string, uri: string, secret = SERVICE_SECRET): string {
+/** As wp-shop signs it (src/lib/server/host-identity.ts), for this method, URI and JSON body. */
+function service(method: string, uri: string, secret = SERVICE_SECRET, body?: string): string {
   // 30 s, not 60: room for a clock that differs between here and the Docker machine.
-  const claims = { sub: "admin", role: "administrator", exp: Math.floor(Date.now() / 1000) + 30, method, path: uri, aud: "wordpress" };
+  const claims = {
+    sub: "admin",
+    role: "administrator",
+    exp: Math.floor(Date.now() / 1000) + 30,
+    method,
+    path: uri,
+    aud: "wordpress",
+    ...(body === undefined ? {} : { body: createHash("sha256").update(body).digest("hex") }),
+  };
   const payload = Buffer.from(JSON.stringify(claims)).toString("base64url");
   return `${payload}.${createHmac("sha256", secret).update(payload).digest("base64url")}`;
 }
@@ -40,17 +48,28 @@ type Send = {
   form?: Record<string, string>;
   headers?: Record<string, string>;
   secret?: string;
+  /** What the header is signed for when it is not `data`: another body, or none. */
+  signedData?: unknown;
 };
 
-/** One REST request carrying `x-wp-shop-service`, signed for exactly this method and URI. */
-const send = (request: APIRequestContext, { method, uri, data, form, headers = {}, secret }: Send) =>
-  request.fetch(uri, {
+/** One REST request carrying `x-wp-shop-service`, signed for exactly this method, URI and JSON body. */
+const send = (request: APIRequestContext, { method, uri, data, form, headers = {}, secret, ...rest }: Send) => {
+  const body = data === undefined ? undefined : JSON.stringify(data);
+  const signedFor = "signedData" in rest ? rest.signedData : data;
+  const signed = signedFor === undefined ? undefined : JSON.stringify(signedFor);
+  return request.fetch(uri, {
     method,
     maxRedirects: 0,
-    headers: { accept: "application/json", "x-wp-shop-service": service(method, uri, secret), ...headers },
-    ...(data === undefined ? {} : { data }),
+    headers: {
+      accept: "application/json",
+      "x-wp-shop-service": service(method, uri, secret, signed),
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
+      ...headers,
+    },
+    ...(body === undefined ? {} : { data: body }),
     ...(form === undefined ? {} : { form }),
   });
+};
 
 async function aProduct(request: APIRequestContext): Promise<{ id: number; stock: number }> {
   const list = await request.get("/wp-json/wp/v2/products?per_page=1&_fields=id,meta");
@@ -105,6 +124,19 @@ test("x-wp-shop-service counts nowhere else", async ({ request }) => {
     uri: `/wp-json/wp/v2/products/${id}?_fields=id,meta`,
     data: { meta: { shop_stock: stock } },
     secret: HOST_SECRET,
+  });
+  // The right write, signed for another body, and for none.
+  await refused({
+    method: "POST",
+    uri: `/wp-json/wp/v2/products/${id}?_fields=id,meta`,
+    data: { meta: { shop_stock: stock + 1 } },
+    signedData: { meta: { shop_stock: stock } },
+  });
+  await refused({
+    method: "POST",
+    uri: `/wp-json/wp/v2/products/${id}?_fields=id,meta`,
+    data: { meta: { shop_stock: stock + 1 } },
+    signedData: undefined,
   });
 
   // Nothing came of them: the product as it was.

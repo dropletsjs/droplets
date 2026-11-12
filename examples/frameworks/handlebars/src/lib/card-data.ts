@@ -11,6 +11,7 @@ import logo from "./droplet.png";
  */
 export const cardData = (mode: Mode, data: Facts) => ({
   ...data,
+  greeting: `Hello ${data.who}!`,
   mode,
   logo,
   title: MODES[mode].title,

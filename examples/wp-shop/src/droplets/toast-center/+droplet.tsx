@@ -116,8 +116,9 @@ function ToastView(props: { item: Item }) {
       <p class="toast-label">
         {item.label}
         {item.count() > 1 ? (
-          <span class="toast-count" aria-label={`${item.count()} times`}>
-            ×{item.count()}
+          <span class="toast-count">
+            <span class="visually-hidden">, {item.count()} times</span>
+            <span aria-hidden="true">×{item.count()}</span>
           </span>
         ) : null}
       </p>

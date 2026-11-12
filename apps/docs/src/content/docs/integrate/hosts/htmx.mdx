@@ -17,6 +17,7 @@ from the browser, and `/index.js` makes it live.
   <script src="/vendor/htmx.min.js"></script>
   <script type="module" src="http://localhost:8000/index.js"></script>
   <script type="module" src="/index.js"></script>
+  <script src="/droplet-origins.js"></script>
 </head>
 <body hx-boost="true">
   …
@@ -30,8 +31,9 @@ from the browser, and `/index.js` makes it live.
 
 ```nginx
 # nginx.conf
-location ~ ^/(index\.js|droplets/|assets/|api/) {
+location ~ ^/(index\.js|env\.js|index\.css|droplets/|assets/|api/) {
   proxy_pass http://shop;
+  proxy_set_header Cookie $shop_cookie;
   proxy_set_header x-droplet-location ${SHOP_PUBLIC_URL};
   proxy_set_header Forwarded "";
   proxy_set_header X-Forwarded-Host "";
@@ -43,18 +45,20 @@ location ~ ^/(index\.js|droplets/|assets/|api/) {
 - When the page loads (`hx-trigger="load"`), htmx asks for
   `GET /droplets/product-page?slug=clay-cylinder-mug` from the browser and
   puts the answer inside the `<section>`, in place of its placeholder.
-- The request is same-origin, through nginx: the browser sends the shop's
-  cookies and the page's URL as `Referer` itself, and nginx adds
-  `x-droplet-location` (and clears `Forwarded` and `X-Forwarded-*`).
+- The request is same-origin, through nginx: the browser sends its cookies
+  and the page's URL as `Referer` itself, and nginx cuts the `Cookie` down
+  to the shop's own `cart_id` and `shop_admin` (a `map`), adds
+  `x-droplet-location` and clears `Forwarded` and `X-Forwarded-*`.
   `nginx.conf` is a template; the nginx image fills in `${SHOP_PUBLIC_URL}`
   (`http://localhost:8010`) when it starts.
 - `/index.js`, loaded once, defines the shop's droplet element (`djs-shop`),
   so each fragment htmx swaps in upgrades and hydrates as it lands. nginx
-  passes `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` on to the shop.
+  passes `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and `/api/*` on to the shop.
 - The `<body>` has `hx-boost="true"`, so each droplet's section has
   `hx-boost="false"` ([With `hx-boost`](#with-hx-boost)). The second
-  `/index.js` and the `htmx-config` meta are for the Svelte example's
-  droplets, which come from another origin ([Cross-origin](#cross-origin)).
+  `/index.js`, the `htmx-config` meta and `droplet-origins.js` are for the
+  Svelte example's droplets, which come from another origin
+  ([Cross-origin](#cross-origin)).
 
 ## The htmx pages, recorded
 
@@ -193,11 +197,35 @@ things need saying, one to htmx and one to the droplets server.
 
 **htmx.** htmx 2 only talks to the page's own origin by default
 (`selfRequestsOnly`); a cross-origin `hx-get` is refused with an
-`htmx:invalidPath` event and nothing is swapped. Turn it off in the page:
+`htmx:invalidPath` event and nothing is swapped. That check runs before
+htmx fires `htmx:validateUrl`, so a listener alone cannot allow an origin:
+turn it off in the page, and put the listener in its place, allowing the
+droplets servers' origins and no other. The example reads them from the
+`/index.js` scripts the page loads (`html/droplet-origins.js`, a file, so
+a page with a Content-Security-Policy needs no inline script):
 
 ```html
 <meta name="htmx-config" content='{"selfRequestsOnly": false}'>
+<script src="/droplet-origins.js"></script>
 ```
+
+```js
+// html/droplet-origins.js
+const origins = new Set(
+  Array.from(document.querySelectorAll('script[type="module"][src]'))
+    .map((script) => new URL(script.src))
+    .filter((url) => url.pathname.endsWith("/index.js"))
+    .map((url) => url.origin),
+);
+
+document.addEventListener("htmx:validateUrl", (event) => {
+  const { url, sameHost } = event.detail;
+  if (!sameHost && !origins.has(url.origin)) event.preventDefault();
+});
+```
+
+A refused URL raises htmx's own `htmx:invalidPath`, and no request goes
+out; the end-to-end test checks it with an `hx-get` to a third origin.
 
 **The droplets server.** htmx sends its own headers (`HX-Request`,
 `HX-Current-URL`, `HX-Target`, `HX-Trigger`), so the browser asks first,
@@ -293,6 +321,7 @@ example's two pages load both:
 <script src="/vendor/htmx.min.js"></script>
 <script type="module" src="http://localhost:8000/index.js"></script>
 <script type="module" src="/index.js"></script>
+<script src="/droplet-origins.js"></script>
 ```
 
 Back and forward work: htmx restores the page from its history and asks

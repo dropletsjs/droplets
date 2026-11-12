@@ -1,5 +1,5 @@
 import { building } from "$droplets/env";
-import { hostFrom, type Handle, type HandleServerError } from "$droplets/server";
+import { hostFrom, type Handle, type HandleServerError, type RequestEvent } from "$droplets/server";
 import { hostAdmin } from "./lib/server/admin.ts";
 import { CART_COOKIE, cartIdFrom } from "./lib/server/cart.ts";
 import type { HostAdmin } from "./lib/server/host-identity.ts";
@@ -14,11 +14,27 @@ declare module "@dropletsjs/droplets/server" {
     admin: HostAdmin | null;
     /** The `cart_id` cookie, when it has a cart id's shape (it may name no cart yet). */
     cartId: string | null;
+    /** The WordPress page the request came from (its `Referer`), when it is on wp-shop's own or a trusted origin. */
+    page: URL | null;
   }
 }
 
 /** Answers about one visitor: never kept by a shared cache. */
 const PRIVATE_API = /^\/api\/(?:cart|auth)(?:\/|$)/;
+
+/**
+ * The WordPress page, from the `Referer` the plugin sends with a fragment
+ * fetch and a browser with a post. `hostFrom` keeps it within
+ * `trustedOrigins` once there is a list, and trusts any origin before one
+ * is set: without `DROPLETS_TRUSTED_ORIGINS`, only wp-shop's own pages
+ * count, so a stale product link is never sent on to a stranger's page.
+ */
+function pageFrom(event: RequestEvent): URL | null {
+  const page = hostFrom(event.request.headers.get("referer"));
+  if (!page) return null;
+  const listed = process.env.DROPLETS_TRUSTED_ORIGINS?.trim();
+  return page.origin === event.url.origin || listed ? page : null;
+}
 
 /**
  * Runs for every request, build-time renders included (no headers there).
@@ -32,7 +48,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   // WordPress sends its page's URL as Referer: `host` gets the path, so a
   // relative redirect after an action lands where it should.
-  if (!building) event.host = hostFrom(event.request.headers.get("referer")) ?? event.host;
+  event.locals.page = building ? null : pageFrom(event);
+  event.host = event.locals.page ?? event.host;
 
   const response = await resolve(event);
   if (event.locals.admin || PRIVATE_API.test(event.url.pathname)) response.headers.set("cache-control", "private, no-store");

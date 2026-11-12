@@ -4,12 +4,12 @@
   import { env } from "$droplets/env/public";
   import { bumpCounter, privateFacts, readCounter, serverTime } from "./api.ts";
   import { MODES } from "./modes.ts";
-  import type { Facts, Mode, PrivateFacts } from "./types.ts";
+  import type { Loaded, Mode, PrivateFacts } from "./types.ts";
   import Badge from "./Badge.svelte";
   // A file the droplet imports: its URL is on the droplets server, wherever the page is.
   import logo from "./droplet.png";
 
-  let { mode, data }: { mode: Mode; data?: Facts | undefined } = $props();
+  let { mode, data }: { mode: Mode; data?: Loaded | undefined } = $props();
 
   let hydrated = $state(false);
   let count = $state<number | null>(null);
@@ -40,7 +40,7 @@
     <h2 class="card-title">{MODES[mode].title}</h2>
   </header>
   <p class="card-summary">{MODES[mode].summary}</p>
-  {#if data}<p class="card-greeting">Hello {data.who}!</p>{/if}
+  {#if data}<p class="card-greeting">{data.greeting}</p>{/if}
 
   <dl class="card-facts">
     <dt>Site<small>public, static</small></dt>

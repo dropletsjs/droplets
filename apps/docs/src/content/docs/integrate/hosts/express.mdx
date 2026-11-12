@@ -64,7 +64,7 @@ async function fragment(req, id, params = new URLSearchParams()) {
   the page.
 - `layout()` loads `/index.js` once; each droplet element on the page then
   hydrates itself.
-- `router.use(path, proxy)` passes `/index.js`, `/droplets/*`, `/assets/*`
+- `router.use(path, proxy)` passes `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`
   and `/api/*` on to the shop, every method, so the browser only talks to
   this origin.
 
@@ -130,14 +130,18 @@ is none; the props each page passes are in `examples/shop/CONTRACT.md`.
 
 ### What it proxies
 
-`/index.js`, `/droplets/*` (fragments, `_data`, form actions), `/assets/*`
+`/index.js`, `/env.js`, `/index.css`, `/droplets/*` (fragments, `_data`, form actions), `/assets/*`
 and `/api/*` go to the shop through one router (`router.use(path, proxy)`):
 bodies streamed, `x-droplet-location` written out, redirects not followed,
 and `Set-Cookie` passed back untouched. Of the browser's headers it forwards
-only `accept`, `accept-language`, `content-type`, `cookie`, `if-none-match`,
+only `accept`, `accept-language`, `content-type`, `if-none-match`,
 `origin`, `referer`, `user-agent`, `x-droplet-props` and `x-droplets-build`,
-so a `Forwarded` or `X-Forwarded-*` header a client sends never reaches the
-shop. When the shop is down it answers `502` `The shop is unreachable.`
+plus `cookie` cut down to the shop's own `cart_id` and `shop_admin`, so a
+`Forwarded` or `X-Forwarded-*` header a client sends never reaches the
+shop, and neither does another app's cookie on this origin. A path with a
+`.` or `..` segment, once decoded, is refused with `400`. Each request to
+the shop times out (15 seconds; fragments 10, the product lookup 5). When
+the shop is down it answers `502` `The shop is unreachable.`
 
 The browser only ever talks to `localhost:8003`, so there is no CORS, and
 the shop's cookies (`cart_id`, `shop_admin`) are first-party. The shop sets
@@ -201,13 +205,20 @@ export function createDropletClient({ internalUrl, publicUrl }) {
     for (const [key, value] of Object.entries(props)) url.searchParams.set(key, String(value));
 
     try {
-      const response = await fetch(url, { headers: { "x-droplet-location": publicUrl } });
-      if (!response.ok) {
-        return `<p class="error">droplet "${droplet}" unavailable: HTTP ${response.status}</p>`;
-      }
-      return await response.text();
+      const response = await fetch(url, {
+        headers: { accept: "text/html", "x-droplet-location": publicUrl },
+        redirect: "manual",
+        signal: AbortSignal.timeout(5000),
+      });
+      // Only an HTML answer is a fragment (a 500 carries the droplet's error
+      // page); anything else may echo the props, so it is never pasted.
+      const isFragment =
+        (response.ok || response.status === 500) && (response.headers.get("content-type") ?? "").startsWith("text/html");
+      if (isFragment) return await response.text();
+      await response.body?.cancel();
+      return `<p class="error">droplet "${escapeHtml(droplet)}" unavailable: HTTP ${response.status}</p>`;
     } catch (error) {
-      return `<p class="error">droplet "${droplet}" unavailable: ${String(error)}</p>`;
+      return `<p class="error">droplet "${escapeHtml(droplet)}" unavailable: ${escapeHtml(String(error))}</p>`;
     }
   }
 
@@ -265,7 +276,13 @@ and the Express routes share one origin: no CORS and no
 import express from "express";
 import { getRequestListener } from "@hono/node-server";
 
-const distDir = resolve(process.env.DROPLETS_DIST ?? "../../frameworks/svelte/dist");
+// The droplets server's build folder: dist/ of its `vite build`.
+const distDir = resolve(process.env.DROPLETS_DIST);
+
+// This site's public origin, written out: the droplets server takes the
+// request's own origin as its location, so the page's requests carry this
+// one, never the client's Host.
+const SITE_ORIGIN = new URL(process.env.EXPRESS_SITE_URL ?? `http://localhost:${PORT}`).origin;
 
 // The droplets server as a module: `{ fetch(request) }`, nothing listening.
 const droplets = (await import(pathToFileURL(resolve(distDir, "server.js")).href)).default;
@@ -276,9 +293,8 @@ const app = express();
 // Express renders its page by calling the handler in-process: no HTTP hop.
 app.get("/", async (req, res) => {
   const who = typeof req.query.who === "string" ? req.query.who : "Express";
-  const origin = `${req.protocol}://${req.get("host")}`;
   const fragment = async (id, props = {}) => {
-    const url = new URL(`/droplets/${id}`, origin);
+    const url = new URL(`/droplets/${id}`, SITE_ORIGIN);
     for (const [key, value] of Object.entries(props)) url.searchParams.set(key, value);
     return (await droplets.fetch(new Request(url))).text();
   };
@@ -297,9 +313,11 @@ app.get("/", async (req, res) => {
 app.use(getRequestListener(droplets.fetch));
 ```
 
-The fragment requests carry the page request's own origin, so the droplets
-server's location is that origin and every URL it writes points back at
-this server.
+The fragment requests carry `EXPRESS_SITE_URL`'s origin
+(`http://localhost:8003` by default), so the droplets server's location is
+that origin and every URL it writes points back at this server; the
+client's `Host` header plays no part. `DROPLETS_DIST` has no default: the
+script exits without it.
 
 Both are in `examples/hosts/express`. `docker compose up --build` runs the
 first (`node src/server.js`, the Dockerfile's command). The second runs from

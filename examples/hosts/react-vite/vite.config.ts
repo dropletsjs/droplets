@@ -8,8 +8,26 @@ import { defineConfig, loadEnv, type ProxyOptions } from "vite";
  */
 const HOST_HEADERS = ["forwarded", "x-forwarded-host", "x-forwarded-proto", "x-forwarded-prefix", "x-forwarded-for"];
 
+/** The shop's own cookies, the only ones it is sent: another app's on this origin stay here. */
+const SHOP_COOKIES = ["cart_id", "shop_admin"];
+
+/** The browser's `Cookie` header with the shop's cookies only, or null. */
+function shopCookies(header: string): string | null {
+  const kept = header
+    .split(";")
+    .map((pair) => pair.trim())
+    .filter((pair) => SHOP_COOKIES.includes(pair.split("=")[0]!.trim()));
+  return kept.length > 0 ? kept.join("; ") : null;
+}
+
+type ProxyRequest = {
+  getHeader(name: string): unknown;
+  setHeader(name: string, value: string): void;
+  removeHeader(name: string): void;
+};
+
 type ProxyEvents = {
-  on(event: "proxyReq", listener: (request: { removeHeader(name: string): void }) => void): void;
+  on(event: "proxyReq", listener: (request: ProxyRequest) => void): void;
 };
 
 export default defineConfig(({ mode }) => {
@@ -29,10 +47,13 @@ export default defineConfig(({ mode }) => {
       const emitter = proxy as unknown as ProxyEvents;
       emitter.on("proxyReq", (request) => {
         for (const name of HOST_HEADERS) request.removeHeader(name);
+        const cookie = shopCookies(String(request.getHeader("cookie") ?? ""));
+        if (cookie) request.setHeader("cookie", cookie);
+        else request.removeHeader("cookie");
       });
     },
   };
-  const proxy = { "^/index\\.js$": shop, "/droplets/": shop, "/assets/": shop, "/api/": shop };
+  const proxy = { "^/index\\.js$": shop, "^/env\\.js$": shop, "^/index\\.css$": shop, "/droplets/": shop, "/assets/": shop, "/api/": shop };
 
   return {
     plugins: [react()],

@@ -1,5 +1,5 @@
 import { relative, resolve } from "node:path";
-import type { Plugin } from "vite";
+import type { Plugin, ResolvedConfig } from "vite";
 import { packageRoot } from "../core/paths.ts";
 import type { PluginState } from "./state.ts";
 
@@ -10,8 +10,11 @@ import type { PluginState } from "./state.ts";
  * folder (`src/lib/server/db.ts`) is server code, in any case (`Server/`,
  * `db.SERVER.ts`): the client build fails when
  * its graph reaches one, through any chain, and the dev server refuses the
- * import, naming the chain. Dependencies and the framework's own files are
- * not checked.
+ * import, naming the chain. One reached as a file rather than a module
+ * (`new URL(…, import.meta.url)`, a CSS `url()`, `?url`, `?raw`) fails the
+ * build too, inlined or emitted, and the dev server answers 403 when the
+ * browser asks for one. Dependencies and the framework's own files are not
+ * checked.
  */
 
 const SERVER_NAME = /(?:\.|^\+)server\.[^/]+$/i;
@@ -67,12 +70,14 @@ function short({ root, id }: ShortInput): string {
   return file.startsWith(prefix) ? file.slice(prefix.length) : file;
 }
 
-type ServerOnlyErrorInput = { root: string; chain: readonly string[] };
+type ServerOnlyErrorInput = { root: string; chain: readonly string[]; asFile?: boolean };
 
-export function serverOnlyError({ root, chain }: ServerOnlyErrorInput): Error {
+export function serverOnlyError({ root, chain, asFile = false }: ServerOnlyErrorInput): Error {
   const file = chain.at(-1);
   if (file === undefined) throw new Error("droplets: an empty import chain");
-  const path = chain.map((id) => short({ root, id })).join(" -> ");
+  const path = asFile
+    ? "referenced as a file (new URL(…, import.meta.url), ?url, ?raw or a CSS url())"
+    : chain.map((id) => short({ root, id })).join(" -> ");
   return new Error(
     `droplets: ${short({ root, id: file })} is server code and cannot reach the browser: ${path}. ` +
       `Files named *.server.* or under a server/ folder run on the server only: ` +
@@ -139,9 +144,52 @@ function importerChain({ start, importer }: ImporterChainInput): string[] {
   return chain;
 }
 
+/** Vite's own test for a Git LFS pointer, which it never inlines. */
+const GIT_LFS_PREFIX = Buffer.from("version https://git-lfs.github.com");
+
+type RefuseInlinedInput = { root: string; config: ResolvedConfig; found: Set<string> };
+
+/**
+ * A file small enough to inline never reaches `generateBundle` as an asset:
+ * the one place Vite names it is the client environment's
+ * `assetsInlineLimit`, so that decision refuses a server file and otherwise
+ * answers as the user's setting would. It records the file as well, because
+ * `new URL(…, import.meta.url)` swallows the error and keeps the URL as it
+ * is: `buildEnd` then fails the build.
+ */
+function refuseInlined({ root, config, found }: RefuseInlinedInput): void {
+  const client = config.environments["client"];
+  if (!client) return;
+  const limit = client.build.assetsInlineLimit;
+  client.build.assetsInlineLimit = (file, content) => {
+    if (isServerOnlyFile({ root, id: file })) {
+      found.add(file);
+      throw serverOnlyError({ root, chain: [file], asFile: true });
+    }
+    if (typeof limit === "function") return limit(file, content);
+    const isLfsPointer = content.length >= GIT_LFS_PREFIX.length && GIT_LFS_PREFIX.compare(content, 0, GIT_LFS_PREFIX.length) === 0;
+    return content.length < Number(limit) && !isLfsPointer;
+  };
+}
+
+type RequestedFileInput = { root: string; url: string };
+
+/** The file a dev request names, under the root or through `/@fs/`; `null` when the URL is no path. */
+function requestedFile({ root, url }: RequestedFileInput): string | null {
+  let pathname: string;
+  try {
+    pathname = decodeURIComponent(new URL(url, "http://localhost").pathname);
+  } catch {
+    // Not a URL Vite's file server would answer either.
+    return null;
+  }
+  return pathname.startsWith("/@fs/") ? pathname.slice("/@fs".length) : resolve(root, `.${pathname}`);
+}
+
 /** Refuses server files in the client environment, in dev and in the build. */
 export function serverOnlyPlugin(state: PluginState): Plugin {
   let command: "serve" | "build" = "serve";
+  const reachedAsFiles = new Set<string>();
   return {
     name: "droplets:server-only",
     enforce: "pre",
@@ -149,6 +197,18 @@ export function serverOnlyPlugin(state: PluginState): Plugin {
 
     configResolved(config) {
       command = config.command;
+      if (command === "build") refuseInlined({ root: state.root, config, found: reachedAsFiles });
+    },
+
+    configureServer(server) {
+      // Ahead of Vite's file server: a browser fetching `/src/lib/server/x.txt` gets no file.
+      server.middlewares.use((req, res, next) => {
+        const file = req.url === undefined ? null : requestedFile({ root: state.root, url: req.url });
+        if (file === null || !isServerOnlyFile({ root: state.root, id: file })) return next();
+        res.statusCode = 403;
+        res.setHeader("content-type", "text/plain; charset=utf-8");
+        res.end(serverOnlyError({ root: state.root, chain: [file], asFile: true }).message);
+      });
     },
 
     resolveId: {
@@ -169,8 +229,19 @@ export function serverOnlyPlugin(state: PluginState): Plugin {
 
     buildEnd(error) {
       if (error || command !== "build" || this.environment.config.consumer !== "client") return;
+      const [asFile] = reachedAsFiles;
+      if (asFile !== undefined) this.error(serverOnlyError({ root: state.root, chain: [asFile], asFile: true }).message);
       const chain = findServerFile({ root: state.root, moduleIds: this.getModuleIds(), getModule: (id) => this.getModuleInfo(id) });
       if (chain) this.error(serverOnlyError({ root: state.root, chain }).message);
+    },
+
+    generateBundle(_options, bundle) {
+      if (this.environment.config.consumer !== "client") return;
+      for (const output of Object.values(bundle)) {
+        if (output.type !== "asset") continue;
+        const file = output.originalFileNames.find((name) => isServerOnlyFile({ root: state.root, id: resolve(state.root, name) }));
+        if (file !== undefined) this.error(serverOnlyError({ root: state.root, chain: [resolve(state.root, file)], asFile: true }).message);
+      }
     },
   };
 }

@@ -43,8 +43,9 @@ with `cors: true`.
 The `(shop)` route group has its own root layout. It follows the shop's
 `CONTRACT.md`:
 
-- Route handlers (`app/index.js`, `app/droplets/[[...path]]`,
-  `app/assets/[...path]`, `app/api/[...path]`) proxy the shop's routes
+- Route handlers (`app/index.js`, `app/env.js`, `app/index.css`,
+  `app/droplets/[[...path]]`, `app/assets/[...path]`, `app/api/[...path]`)
+  proxy the shop's routes
   under this origin, bodies streamed, so its cookies are first-party and
   nothing is cross-origin.
 - Every request to the shop carries a fixed `x-droplet-location`: the
@@ -119,27 +120,28 @@ against the compose stack (needs Docker).
 - Droplets server's `cors: true` (the Svelte example) lets the basic page load droplets cross-origin. `../../frameworks/svelte/droplets.config.ts:16`
 - Basic page droplets: `client`, `ssr-hydrate`, `ssr-nohydrate`, with `who` defaulting to `Next.js`. `app/(basic)/page.tsx:6`, `app/(basic)/page.tsx:14`
 - Basic layout loads `${DROPLETS_PUBLIC_URL}/index.js`. `app/(basic)/layout.tsx:11`
-- Basic fragment fetch sends `x-droplet-location: DROPLETS_PUBLIC_URL` with `cache: "no-store"`. `lib/droplets.ts:20`, `lib/droplets.ts:21`
-- Basic fragment non-2xx or network error renders an inline `<p class="error">`. `lib/droplets.ts:23`, `lib/droplets.ts:26`
+- Basic fragment fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL` with `cache: "no-store"`, never follows a redirect, 5 second timeout. `lib/droplets.ts:26`, `lib/droplets.ts:27`, `lib/droplets.ts:28`, `lib/droplets.ts:29`
+- Basic page pastes only a 2xx or 500 `text/html` answer; anything else renders an inline `<p class="error">`, the id and the error escaped. `lib/droplets.ts:33`, `lib/droplets.ts:39`, `lib/droplets.ts:41`
 - `DROPLETS_INTERNAL_URL` and `DROPLETS_PUBLIC_URL` default to `http://localhost:8000`. `lib/droplets.ts:5`, `lib/droplets.ts:8`
 - `SHOP_INTERNAL_URL` defaults to `http://localhost:8300`, `SHOP_PUBLIC_URL` to `http://localhost:8007`. `lib/shop-page.tsx:12`, `lib/shop-page.tsx:13`
-- Shop `x-droplet-location` is the origin of `SHOP_PUBLIC_URL`, never the request's Host. `lib/shop.ts:92`, `lib/shop.ts:97`
-- Shop proxy route handlers: `app/index.js`, `app/droplets/[[...path]]`, `app/assets/[...path]`, `app/api/[...path]`, all `force-dynamic`. `app/index.js/route.ts:5`
+- Shop `x-droplet-location` is the origin of `SHOP_PUBLIC_URL`, never the request's Host. `lib/shop.ts:103`, `lib/shop.ts:108`
+- Shop proxy route handlers: `app/index.js`, `app/env.js`, `app/index.css`, `app/droplets/[[...path]]`, `app/assets/[...path]`, `app/api/[...path]`, all `force-dynamic`. `app/index.js/route.ts:5`, `app/env.js/route.ts:5`, `app/index.css/route.ts:5`
 - Shop proxy route handlers export GET, HEAD, POST, PUT, PATCH, DELETE and OPTIONS. `app/droplets/[[...path]]/route.ts:9`
-- Shop proxy request headers allowlist: accept, accept-language, content-type, cookie, if-none-match, origin, referer, user-agent, x-droplet-props, x-droplets-build. `lib/shop.ts:49`
-- Shop proxy concatenates the path onto the shop's URL, so `//elsewhere` stays a path on the shop. `lib/shop.ts:105`
-- Shop proxy never follows redirects and streams the request body (`duplex: "half"`). `lib/shop.ts:109`, `lib/shop.ts:111`
-- Shop proxy drops connection, content-encoding, content-length, keep-alive and transfer-encoding from the answer. `lib/shop.ts:63`
-- Shop proxy passes every `Set-Cookie` on untouched. `lib/shop.ts:118`
-- Shop proxy answers 502 `The shop is unreachable.` when the shop is down. `lib/shop.ts:123`
+- Shop proxy request headers allowlist: accept, accept-language, content-type, if-none-match, origin, referer, user-agent, x-droplet-props, x-droplets-build, plus `cookie` cut down to `cart_id` and `shop_admin` (`SHOP_COOKIES`). `lib/shop.ts:49`, `lib/shop.ts:75`, `lib/shop.ts:111`
+- Shop upstream timeouts: the proxy 15 s, a fragment 10 s, the product lookup 5 s. `lib/shop.ts:121`, `lib/shop.ts:152`, `lib/shop.ts:184`
+- Shop proxy concatenates the path onto the shop's URL, so `//elsewhere` stays a path on the shop. `lib/shop.ts:118`
+- Shop proxy never follows redirects and streams the request body (`duplex: "half"`). `lib/shop.ts:123`, `lib/shop.ts:125`
+- Shop proxy drops connection, content-encoding, content-length, keep-alive and transfer-encoding from the answer. `lib/shop.ts:62`
+- Shop proxy passes every `Set-Cookie` on untouched. `lib/shop.ts:132`
+- Shop proxy answers 502 `The shop is unreachable.` when the shop is down. `lib/shop.ts:137`
 - The route handler folders decide what is proxied; `lib/shop.ts` lists no paths of its own. `app/index.js/route.ts:5`
 - Shop pages (`/gallery`, `/product/:slug`, `/admin`, `/login`) answer `cache-control: private, no-store`, set in `next.config.ts` since a server component cannot set headers. `next.config.ts:11`, `next.config.ts:13`, `next.config.ts:17`
-- Shop fragment fetch sends `accept: text/html`, the page URL as `Referer` and the browser's `Cookie`. `lib/shop.ts:135`, `lib/shop.ts:136`
-- Shop fragment is inserted only when it is 2xx or 500 and `text/html`. `lib/shop.ts:145`
-- Shop fragment that is not inserted becomes `<p class="shop-unavailable">`. `lib/shop.ts:159`
-- Shop fragment body that is not inserted is read, not cancelled (Next's fetch tees it). `lib/shop.ts:154`
-- Shop product lookup reads `/droplets/product-page/_data?slug=`; an unknown product is `notFound()`. `lib/shop.ts:165`, `app/(shop)/product/[slug]/page.tsx:15`
-- Shop `Link` preloads kept: `preload` and `modulepreload` on this host's origin only. `lib/shop.ts:200`, `lib/shop.ts:207`
+- Shop fragment fetch sends `accept: text/html`, the page URL as `Referer` and the browser's `Cookie` cut down to the shop's. `lib/shop.ts:148`, `lib/shop.ts:149`
+- Shop fragment is inserted only when it is 2xx or 500 and `text/html`. `lib/shop.ts:160`
+- Shop fragment that is not inserted becomes `<p class="shop-unavailable">`. `lib/shop.ts:174`
+- Shop fragment body that is not inserted is read, not cancelled (Next's fetch tees it). `lib/shop.ts:169`
+- Shop product lookup reads `/droplets/product-page/_data?slug=`; an unknown product is `notFound()`. `lib/shop.ts:180`, `app/(shop)/product/[slug]/page.tsx:15`
+- Shop `Link` preloads kept: `preload` and `modulepreload` on this host's origin only. `lib/shop.ts:216`, `lib/shop.ts:223`
 - Shop pages fetch `toast-center` and `shopping-cart?variant=badge` with every page. `lib/shop-page.tsx:45`, `lib/shop-page.tsx:46`
 - Shop fragment `Set-Cookie` on a page render is dropped with a warning. `lib/shop-page.tsx:52`
 - Shop fragment redirect becomes `redirect(location, RedirectType.replace)`, a 307. `lib/shop-page.tsx:54`

@@ -16,6 +16,8 @@ beforeAll(async () => {
   if (!existsSync(`${root}dist/server.js`)) throw new Error("dist/server.js is missing: run `pnpm build` first");
   rmSync(tmp, { recursive: true, force: true });
   mkdirSync(tmp, { recursive: true });
+  // The shop's config lists no trusted origin, and neither does this: only its own pages count.
+  delete process.env.DROPLETS_TRUSTED_ORIGINS;
   Object.assign(process.env, {
     SHOP_DATABASE: `${tmp}shop.db`,
     SHOP_UPLOADS: `${tmp}uploads`,
@@ -140,6 +142,15 @@ describe("/api/stock/check", () => {
     expect(response.status).toBe(400);
     expect(({} as Record<string, unknown>)["polluted"]).toBeUndefined();
   });
+
+  it("refuses a body over the limit with 413", async () => {
+    const response = await call("/api/stock/check", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: `{"ids":["p_abcdef"],"pad":"${"x".repeat(1024 * 1024)}"}`,
+    });
+    expect(response.status).toBe(413);
+  });
 });
 
 describe("the cart", () => {
@@ -245,6 +256,18 @@ describe("admin stock, and the product page's live fields", () => {
     const response = await action("/droplets/product-admin?/stock", { id: product.id, stock: "0" });
     expect(response.status).toBe(401);
     expect((await response.json()).data.reason).toBe("login");
+    expect((await bySlug("clay-cylinder-mug")).stock).toBe(product.stock);
+  });
+
+  it("refuses an admin action posted from another origin, session or not", async () => {
+    const product = await bySlug("clay-cylinder-mug");
+    const response = await call("/droplets/product-admin?/stock", {
+      method: "POST",
+      body: new URLSearchParams({ id: product.id, stock: "0" }),
+      cookie: await login(),
+      headers: { origin: "https://evil.example", accept: "application/json" },
+    });
+    expect(response.status).toBe(403);
     expect((await bySlug("clay-cylinder-mug")).stock).toBe(product.stock);
   });
 
@@ -419,6 +442,25 @@ describe("the product page's version (`v`)", () => {
   it("refuses a v that is not one", async () => {
     expect((await fragment("&v=nope")).status).toBe(400);
     expect((await fragment("&v=0123456789abcdef")).status).toBe(400);
+  });
+
+  it("renders an old v live, never a redirect, when the Referer is not a page on the shop's own or a trusted origin", async () => {
+    // The shop's config has no list and the test sets none: only its own origin counts.
+    const stranger = "https://evil.example";
+    const strangers: Record<string, string>[] = [
+      { referer: `${stranger}/product/${slug}?v=0123456789` },
+      { referer: `${stranger}/p`, origin: stranger },
+    ];
+    for (const headers of strangers) {
+      const response = await call(`/droplets/product-page?slug=${slug}&v=0123456789`, { headers: { accept: "text/html", ...headers } });
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+      expect(await response.text()).toContain("<h1>");
+    }
+    // The shop's own page: sent on, without v.
+    const own = await fragment("&v=0123456789", `${ORIGIN}/product/${slug}?v=0123456789&order=newest`);
+    expect(own.status).toBe(302);
+    expect(own.headers.get("location")).toBe(`${ORIGIN}/product/${slug}?order=newest`);
   });
 });
 

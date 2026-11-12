@@ -85,6 +85,8 @@ that resolves outside that folder, a missing file and a directory all answer
 
 - Every file Vite emits there is content-hashed: `cache-control: public,
   max-age=2592000, immutable`.
+- Every file answered carries `x-content-type-options: nosniff` with its
+  content type: a browser takes it for what the type says and nothing else.
 - Your `public/` folder is copied to `dist/client/assets/public/` and served
   at `/assets/public/<file>`. Those names do not change between builds, so
   they are revalidated on every use by default: `cache-control: no-cache` (`publicCacheControl`), an `ETag`
@@ -153,6 +155,7 @@ by path.
 - `/assets/*` missing file or directory answers `404 Not Found`. `src/static.ts:66`
 - `/assets/*` cache-control for hashed files is `public, max-age=2592000, immutable` (30 days). `src/static.ts:70`
 - `/assets/*` content type comes from a fixed extension table, case-insensitive; any other extension is `application/octet-stream`. `src/static.ts:6`, `src/static.ts:34`
+- `/assets/*` sends `x-content-type-options: nosniff` on every file answered, hashed and `public/` alike. `src/static.ts:69`, `test/static.test.ts:32`
 - `/assets/*` reads the whole file into memory per request: no streaming, no range requests. `src/static.ts:63`
 - `public/` is copied into `dist/client/assets/public/` only; Vite's own `copyPublicDir` is off. `../../droplets/src/vite/build.ts:137`, `../../droplets/src/vite/assets.ts:95`
 - `/assets/public/*` cache-control is `publicCacheControl` from the config (`no-cache` by default, none for `false`), with an `ETag` of the file's SHA-1 in base64url. `src/app.ts:41`, `src/static.ts:73`, `src/static.ts:74`

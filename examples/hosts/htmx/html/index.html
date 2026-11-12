@@ -6,7 +6,8 @@
   <title>Droplets with htmx</title>
   <!-- The same head on every page: a boosted link swaps only the <body>,
        so whatever the next page needs is loaded already. -->
-  <!-- htmx 2 refuses requests to other origins unless told otherwise. -->
+  <!-- htmx 2 refuses requests to other origins unless told otherwise;
+       droplet-origins.js then allows the droplets servers' alone. -->
   <meta name="htmx-config" content='{"selfRequestsOnly": false}'>
   <script src="/vendor/htmx.min.js"></script>
   <!-- Once per droplets server: each droplet element of that server, swapped
@@ -15,6 +16,7 @@
   <script type="module" src="http://localhost:8000/index.js"></script>
   <!-- The shop's, through this site's proxy (nginx.conf): -->
   <script type="module" src="/index.js"></script>
+  <script src="/droplet-origins.js"></script>
 </head>
 <body hx-boost="true" style="font-family: system-ui, sans-serif; background: #f8fafc; margin: 0; padding: 2rem;">
   <main style="max-width: 48rem; margin: 0 auto;">

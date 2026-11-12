@@ -90,9 +90,10 @@ function droplets_shortcode(array|string $atts): string
 
     $response = wp_remote_get($url, [
         'timeout' => 5,
-        'headers' => ['x-droplet-location' => droplets_public_url()],
+        'redirection' => 0,
+        'headers' => ['accept' => 'text/html', 'x-droplet-location' => droplets_public_url()],
     ]);
-    // a WP_Error or a status other than 200: an error paragraph instead
+    // a WP_Error, or anything but a text/html 2xx or 500: an error paragraph instead
 
     droplets_enqueue_client();                 // /index.js, once, as a module
     return wp_remote_retrieve_body($response); // trusted markup; must not be escaped
@@ -119,8 +120,9 @@ per mode, from the `droplets` service (`examples/frameworks/svelte`):
 That page loads `/index.js` from the droplets server's own public URL
 (`DROPLETS_PUBLIC_URL`), so that server runs with `cors: true` and lists
 that URL in `DROPLETS_TRUSTED_ORIGINS`: the `x-droplet-location` the
-shortcode sends is not the address WordPress reaches it at. Only a `200` is
-pasted; the shortcode passes no cookie on. The shop's droplets come from
+shortcode sends is not the address WordPress reaches it at. Only a
+`text/html` answer is pasted (a 2xx, or a 500 carrying the droplet's error
+page), a redirect is never followed, and the shortcode passes no cookie on. The shop's droplets come from
 the site's own origin instead, through the plugin's proxy.
 
 ### The shop's shortcodes
@@ -213,17 +215,24 @@ would no longer match what the droplet hydrates.
 ### The proxy
 
 `droplets_shop_proxy()` runs on `init` at priority 0, before WordPress
-routes anything, and passes `/index.js`, `/droplets/*` (fragments, `_data`,
+routes anything, and passes `/index.js`, `/env.js`, `/index.css`, `/droplets/*` (fragments, `_data`,
 form actions), `/assets/*` and `/api/*` to wp-shop (`SHOP_INTERNAL_URL`):
 
 ```php
 // shop.php
-if (preg_match('#^/(?:index\.js$|droplets/|assets/|api/)#', (string) strtok($request_uri, '?'))) {
+$path = (string) strtok($request_uri, '?');
+if (preg_match('#^/(?:index\.js$|env\.js$|index\.css$|droplets/|assets/|api/)#', $path)) {
+    if (droplets_shop_has_dot_segment($path)) {
+        status_header(400);
+        // … 'Bad request.'
+        exit;
+    }
     droplets_shop_proxy($request_uri);
 }
 ```
 
-It writes `x-droplet-location` out, forwards a short list of request headers and, of
+It refuses a path with a `.` or `..` segment once decoded, writes
+`x-droplet-location` out, forwards a short list of request headers and, of
 the cookies, only `cart_id`; it never passes on an `x-wp-shop-user` the
 browser sends, and adds its own for a logged-in admin on `/droplets/*` and
 `/api/*` ([step 4](#4-the-login-is-wordpresss)). The path is appended to
@@ -565,8 +574,8 @@ Stock and price can be edited in two places, both as that WordPress
 account: in the product's meta box, or in the admin droplet on the Shop
 screen. The droplet's `?/save` writes back to the REST API with
 `x-wp-shop-service`, the same format signed by wp-shop with
-`WP_SHOP_SERVICE_SECRET` for `aud: "wordpress"`, the write's own method and
-path, 60 seconds. The plugin checks it in `determine_current_user` and runs
+`WP_SHOP_SERVICE_SECRET` for `aud: "wordpress"`, the write's own method,
+path and body (its SHA-256), 60 seconds. The plugin checks it in `determine_current_user` and runs
 the request as that user, if they can still `manage_options`, but only for
 the one write wp-shop makes:
 

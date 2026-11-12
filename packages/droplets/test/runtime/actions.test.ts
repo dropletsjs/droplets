@@ -129,6 +129,18 @@ describe("form actions: dispatch on the body type", () => {
     expect(request.bodyUsed).toBe(false);
   });
 
+  it("echoes an unknown action's name only when it is one an action could have", async () => {
+    const { app } = actionsApp({ actions: { default: sign } });
+    const named = await app.request(submit({ path: "/droplets/guestbook?/nope", body: "name=Ana" }));
+    expect(named.status).toBe(404);
+    expect(await named.text()).toBe('No action named "nope"');
+    for (const name of ["<script>alert(1)</script>", "../x", "a.b", "", "x".repeat(300)]) {
+      const res = await app.request(submit({ path: `/droplets/guestbook?/${encodeURIComponent(name)}`, body: "name=Ana" }));
+      expect(res.status, name).toBe(404);
+      expect(await res.text(), name).toBe(name.length > 100 ? `No action named ${JSON.stringify(name.slice(0, 100))}` : "No such action");
+    }
+  });
+
   it("runs one action per request", async () => {
     const { app } = actionsApp({ actions: { default: sign, leave: sign } });
     expect((await app.request(submit({ path: "/droplets/guestbook?/default&/leave", body: "name=Ana" }))).status).toBe(400);

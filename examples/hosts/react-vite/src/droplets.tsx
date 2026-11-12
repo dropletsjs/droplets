@@ -95,5 +95,5 @@ export function Droplet({ id, props = {}, mode = "fragment", origin = DROPLETS_U
   }, [id, mode, origin, propsKey]);
 
   if (error) return <p className="error">droplet "{id}" unavailable: {error}</p>;
-  return <div ref={host} data-droplet-host={id} />;
+  return <div ref={host} data-react-host={id} />;
 }

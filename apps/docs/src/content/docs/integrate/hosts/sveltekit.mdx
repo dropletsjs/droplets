@@ -53,7 +53,7 @@ async function fragment(page: PageRequest, id: string, params = new URLSearchPar
   sent `private, no-store`.
 - Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
   page) is pasted; `{@html}` writes it unescaped.
-- `handle` in `src/hooks.server.ts` passes `/index.js`, `/droplets/*`,
+- `handle` in `src/hooks.server.ts` passes `/index.js`, `/env.js`, `/index.css`, `/droplets/*`,
   `/assets/*` and `/api/*` on to the shop before any routing:
 
 ```ts
@@ -141,14 +141,17 @@ this host's origin), and the layout loads
 
 ### What it proxies
 
-`handle` in `src/hooks.server.ts` sends `/index.js`, `/droplets/*`
+`handle` in `src/hooks.server.ts` sends `/index.js`, `/env.js`, `/index.css`, `/droplets/*`
 (fragments, `_data`, form actions), `/assets/*` and `/api/*` to
 `shop.proxy` (`src/lib/shop.server.ts`) before any routing. The proxy sends
 `x-droplet-location` (the origin of `SHOP_PUBLIC_URL`) and passes on only
-`accept`, `accept-language`, `content-type`, `cookie`, `if-none-match`,
-`origin`, `referer`, `user-agent`, `x-droplet-props` and `x-droplets-build`:
-nothing that names a host. The body streams through (`duplex: "half"`),
-redirects are not followed, and the answer comes back with its `Set-Cookie`
+`accept`, `accept-language`, `content-type`, `if-none-match`, `origin`,
+`referer`, `user-agent`, `x-droplet-props` and `x-droplets-build`, plus
+`cookie` cut down to the shop's own `cart_id` and `shop_admin`: nothing that
+names a host, and no other app's cookie on this origin. The body streams
+through (`duplex: "half"`), redirects are not followed, each request times
+out (15 seconds; fragments 10, the product lookup 5), and the answer comes
+back with its `Set-Cookie`
 untouched, minus `content-encoding`, `content-length` and the hop-by-hop
 headers. When the shop is down it answers `502`. The shop's cookies are
 first-party, and nothing is cross-origin; the shop sets them only from form
@@ -228,8 +231,10 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
 `$env/dynamic/private` (default `http://localhost:8000`) and uses the
 `fetch` SvelteKit hands to `load`, so the fragments are fetched during
 server rendering and never again on the client. It sends
-`x-droplet-location: DROPLETS_PUBLIC_URL` and renders a
-`<p class="error">` for an answer that is not ok.
+`x-droplet-location: DROPLETS_PUBLIC_URL` with `redirect: "manual"` and a
+5 second `AbortSignal.timeout`, pastes only a `text/html` answer (a 2xx, or a
+500 carrying the droplet's error page), and renders a `<p class="error">`
+for anything else, the id and the error escaped.
 
 Here the page loads `/index.js` from the droplets server's own origin
 (`http://localhost:8000`), so the browser fetches bundles and data across

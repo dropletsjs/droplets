@@ -26,7 +26,8 @@ export const load = async ({ props }: LoadEvent) => {
  * Runs on every request, over the stored page or the live one:
  *
  * 1. A link made before the product was edited (`v` is not its version
- *    now) is sent to the page without `v`, which renders live.
+ *    now) is sent to the page without `v`, which renders live. Without a
+ *    page to send it to (no Referer on a trusted origin) it renders live.
  * 2. Stock and price, from WordPress's REST API now: the template writes
  *    `%live:stock-label%`, `%live:price%`, … (see lib/live.ts), each
  *    replaced here, HTML-escaped:
@@ -38,16 +39,17 @@ export const load = async ({ props }: LoadEvent) => {
  *
  * A product WordPress no longer publishes gets a short notice instead.
  */
-export const transform = async ({ html, props, host }: TransformEvent) => {
+export const transform = async ({ html, props, locals }: TransformEvent) => {
   // `props` went through the schema in +droplet.ts: a slug, and maybe a v.
   const slug = String(props["slug"]);
   const [live, versions] = await Promise.all([liveValues(slug), pageVersions()]);
   if (!live) return `<p class="gone">This product is no longer available. <a href="/gallery">Back to the gallery</a></p>`;
 
-  if (props["v"] !== undefined && props["v"] !== versions.get(slug)) {
-    // `host` is the WordPress page, from the Referer the plugin sends (a
-    // trusted origin only, see hooks.server.ts): the same page, without `v`.
-    const canonical = new URL(host);
+  // `locals.page` is the WordPress page, from the Referer the plugin sends,
+  // only when that is on wp-shop's own or a trusted origin (hooks.server.ts):
+  // the same page, without `v`. Any other page gets the live render.
+  if (props["v"] !== undefined && props["v"] !== versions.get(slug) && locals.page) {
+    const canonical = new URL(locals.page);
     canonical.searchParams.delete("v");
     redirect(302, canonical.href);
   }

@@ -154,6 +154,38 @@ test("droplets swapped in by htmx", async ({ page, rec }) => {
 });
 
 /**
+ * The pages turn htmx's `selfRequestsOnly` off (its check runs before
+ * `htmx:validateUrl`), and `droplet-origins.js` allows only the origins the
+ * page loads an /index.js from: any other origin is refused as htmx's own
+ * `htmx:invalidPath`, and no request goes out.
+ */
+// No `page`: a page is recorded, and its video would take the flow's place.
+test("htmx reaches the droplets servers' origins and no other", async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ baseURL });
+  const page = await context.newPage();
+  const sent = requests(page);
+  await page.goto("/");
+  await expect(page.locator('djs-svelte[data-droplet="ssr-hydrate"] article')).toBeVisible();
+
+  const refused = await page.evaluate(async () => {
+    const probe = document.createElement("div");
+    probe.setAttribute("hx-get", "http://localhost:1/droplets/client");
+    probe.setAttribute("hx-trigger", "load");
+    const outcome = new Promise<string>((resolve) => {
+      probe.addEventListener("htmx:invalidPath", () => resolve("invalidPath"));
+      probe.addEventListener("htmx:beforeRequest", () => resolve("requested"));
+      setTimeout(() => resolve("nothing"), 2000);
+    });
+    document.body.append(probe);
+    (window as unknown as { htmx: { process(element: Element): void } }).htmx.process(probe);
+    return outcome;
+  });
+  expect(refused).toBe("invalidPath");
+  expect(sent.to(/^http:\/\/localhost:1\//)).toHaveLength(0);
+  await context.close();
+});
+
+/**
  * Cross-origin: htmx sends its own headers (`HX-Request`, `HX-Current-URL`,
  * …), so the browser asks first. `cors: true` on the Svelte example lets
  * any origin and echoes the headers asked for.

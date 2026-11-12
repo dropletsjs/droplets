@@ -19,12 +19,11 @@ require_once __DIR__ . '/http.php';
 /** The stack this host is, in the footer: the one thing that differs between hosts. */
 const SHOP_STACK = 'PHP 8.3';
 
-/** What the browser's request may tell the shop; nothing that names a host, nothing per hop. */
+/** What the browser's request may tell the shop; nothing that names a host, nothing per hop. `cookie` goes on filtered. */
 const SHOP_REQUEST_HEADERS = [
     'accept',
     'accept-language',
     'content-type',
-    'cookie',
     'if-none-match',
     'origin',
     'referer',
@@ -51,6 +50,9 @@ const SHOP_DROPPED_RESPONSE_HEADERS = [
     'content-length',
     'set-cookie',
 ];
+
+/** The shop's own cookies, the only ones it is sent: another app's on this origin stay here. */
+const SHOP_COOKIES = ['cart_id', 'shop_admin'];
 
 /** How this process reaches the shop (`http://shop:8300` in Docker). */
 function shop_internal_url(): string
@@ -82,6 +84,29 @@ function shop_request_header(string $name): ?string
     $key = strtoupper(str_replace('-', '_', $name));
     $value = $_SERVER['HTTP_' . $key] ?? ($key === 'CONTENT_TYPE' ? ($_SERVER['CONTENT_TYPE'] ?? null) : null);
     return is_string($value) && $value !== '' ? $value : null;
+}
+
+/** The browser's `Cookie` header with the shop's cookies only, or null. */
+function shop_cookie_header(): ?string
+{
+    $kept = [];
+    foreach (explode(';', (string) shop_request_header('cookie')) as $pair) {
+        if (in_array(trim(explode('=', $pair, 2)[0]), SHOP_COOKIES, true)) {
+            $kept[] = trim($pair);
+        }
+    }
+    return $kept === [] ? null : implode('; ', $kept);
+}
+
+/** Whether `$path` has a `.` or `..` segment once decoded: never a shop route. */
+function shop_has_dot_segment(string $path): bool
+{
+    foreach (explode('/', $path) as $segment) {
+        if (in_array(rawurldecode($segment), ['.', '..'], true)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**
@@ -136,7 +161,7 @@ function shop_send_cookies(array $cookies): void
 /** Whether `$path` is one the browser asks the shop for. */
 function shop_is_proxied(string $path): bool
 {
-    return preg_match('#^/(?:index\.js$|(?:droplets|assets|api)/)#', $path) === 1;
+    return preg_match('#^/(?:index\.js$|env\.js$|index\.css$|(?:droplets|assets|api)/)#', $path) === 1;
 }
 
 /**
@@ -154,6 +179,10 @@ function shop_proxy(): void
         if ($value !== null) {
             $headers[$name] = $value;
         }
+    }
+    $cookie = shop_cookie_header();
+    if ($cookie !== null) {
+        $headers['cookie'] = $cookie;
     }
     $body = $method === 'GET' || $method === 'HEAD' ? null : (string) file_get_contents('php://input');
 
@@ -199,7 +228,7 @@ function shop_proxy(): void
 function shop_fragments(array $wanted): array
 {
     $headers = ['accept' => 'text/html', 'x-droplet-location' => shop_origin(), 'referer' => shop_origin() . shop_raw_target()];
-    $cookie = shop_request_header('cookie');
+    $cookie = shop_cookie_header();
     if ($cookie !== null) {
         $headers['cookie'] = $cookie;
     }
@@ -317,6 +346,12 @@ function shop_render(string $view, string $title, ?string $current, array $wante
 function shop_route(string $path): bool
 {
     if (shop_is_proxied($path)) {
+        if (shop_has_dot_segment($path)) {
+            http_response_code(400);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'Bad request.';
+            return true;
+        }
         shop_proxy();
         return true;
     }

@@ -52,7 +52,7 @@ const IMMUTABLE = "public, max-age=2592000, immutable";
 /** What the adapter writes first in `dist/client/_headers`, for a `/assets/public/*` rule. */
 function adapterHeaders(publicRule: string): string {
   const files = (path: string, cacheControl: string) =>
-    `${path}\n  Access-Control-Allow-Origin: *\n  ! Cache-Control\n  Cache-Control: ${cacheControl}\n`;
+    `${path}\n  Access-Control-Allow-Origin: *\n  X-Content-Type-Options: nosniff\n  ! Cache-Control\n  Cache-Control: ${cacheControl}\n`;
   return (
     files("/index.js", "no-store") +
     files("/index.css", "no-store") +
@@ -150,37 +150,46 @@ describe("cloudflare: afterBuild", () => {
         '{ "run_worker_first": ["/api/*"] }',
         '{ "run_worker_first": ["/*", "!/index.js", "!/index.css", "!/assets/*", "!/droplets/*"] }',
       ]) {
-        await writeFile(join(root, "wrangler.json"), `{ "assets": ${assets} }`);
+        await writeFile(join(root, "wrangler.json"), `{ "compatibility_flags": ["nodejs_compat"], "assets": ${assets} }`);
         await expect(afterBuild(), assets).resolves.toBeUndefined();
       }
       await rm(join(root, "wrangler.json"));
-      await writeFile(join(root, "wrangler.toml"), '[assets]\ndirectory = "dist/client"\nrun_worker_first = false\n');
+      await writeFile(
+        join(root, "wrangler.toml"),
+        'compatibility_flags = ["nodejs_compat"]\n[assets]\ndirectory = "dist/client"\nrun_worker_first = false\n',
+      );
       await afterBuild();
       expect(warn).not.toHaveBeenCalled();
     });
 
     it("warns once, never fails, when it sends a build file through the Worker", async () => {
+      const FLAGS = '"compatibility_flags": ["nodejs_compat"], ';
       const cases = [
         [
           "wrangler.jsonc",
-          '{\n  // all of it\n  "assets": { "directory": "dist/client", "run_worker_first": true, },\n}\n',
+          `{\n  // all of it\n  ${FLAGS}"assets": { "directory": "dist/client", "run_worker_first": true, },\n}\n`,
           "true",
           "/index.js",
         ],
-        ["wrangler.json", '{ "assets": { "run_worker_first": ["/*"] } }', '["/*"]', "/index.js"],
+        ["wrangler.json", `{ ${FLAGS}"assets": { "run_worker_first": ["/*"] } }`, '["/*"]', "/index.js"],
         [
           "wrangler.json",
-          '{ "assets": { "run_worker_first": ["/droplets/*/client.js"] } }',
+          `{ ${FLAGS}"assets": { "run_worker_first": ["/droplets/*/client.js"] } }`,
           '["/droplets/*/client.js"]',
           "/droplets/x/client.js",
         ],
         [
           "wrangler.json",
-          '{ "assets": { "run_worker_first": ["/*", "!/index.js"] } }',
+          `{ ${FLAGS}"assets": { "run_worker_first": ["/*", "!/index.js"] } }`,
           '["/*","!/index.js"]',
           "/index.css, /assets/index.js",
         ],
-        ["wrangler.toml", '[assets]\ndirectory = "dist/client"\nrun_worker_first = true # always\n', "true", "/index.js"],
+        [
+          "wrangler.toml",
+          'compatibility_flags = ["nodejs_compat"]\n[assets]\ndirectory = "dist/client"\nrun_worker_first = true # always\n',
+          "true",
+          "/index.js",
+        ],
       ] as const;
       for (const [file, text, value, path] of cases) {
         warn.mockClear();
@@ -208,7 +217,10 @@ describe("cloudflare: afterBuild", () => {
         ['["/droplets/card/style.css"]', "/droplets/card/style.css"],
       ] as const) {
         warn.mockClear();
-        await writeFile(join(root, "wrangler.json"), `{ "assets": { "run_worker_first": ${list} } }`);
+        await writeFile(
+          join(root, "wrangler.json"),
+          `{ "compatibility_flags": ["nodejs_compat"], "assets": { "run_worker_first": ${list} } }`,
+        );
         await afterBuild();
         expect(messages(), list).toEqual([expect.stringContaining(`so build files (${path})`)]);
       }
@@ -223,9 +235,49 @@ describe("cloudflare: afterBuild", () => {
       await afterBuild();
       expect(messages()).toEqual([
         expect.stringContaining(
-          "could not read assets.run_worker_first in wrangler.jsonc; leave it out so static assets serve the build's files",
+          "could not read wrangler.jsonc (assets.run_worker_first, compatibility_flags); leave run_worker_first out so static assets serve the build's files",
         ),
       ]);
+    });
+  });
+
+  describe("nodejs_compat", () => {
+    const WARNING = 'compatibility_flags has no "nodejs_compat", so the Worker has no AsyncLocalStorage';
+
+    it("warns once, never fails, when compatibility_flags lacks it", async () => {
+      const cases = [
+        ["wrangler.jsonc", '{\n  // no flags\n  "assets": { "directory": "dist/client" },\n}\n'],
+        ["wrangler.json", '{ "compatibility_flags": [], "assets": { "directory": "dist/client" } }'],
+        ["wrangler.json", '{ "compatibility_flags": ["global_fetch_strictly_public"], "assets": { "directory": "dist/client" } }'],
+        ["wrangler.json", '{ "compatibility_flags": "nodejs_compat", "assets": { "directory": "dist/client" } }'],
+        ["wrangler.toml", 'name = "app"\n[assets]\ndirectory = "dist/client"\n'],
+        ["wrangler.toml", 'compatibility_flags = []\n[assets]\ndirectory = "dist/client"\n'],
+      ] as const;
+      for (const [file, text] of cases) {
+        warn.mockClear();
+        await writeFile(join(root, file), text);
+        await expect(afterBuild(), text).resolves.toBeUndefined();
+        await rm(join(root, file));
+        expect(messages(), text).toEqual([expect.stringContaining(`${file}: ${WARNING}`)]);
+        expect(messages()[0], text).toContain('set "compatibility_flags": ["nodejs_compat"]');
+        expect(messages()[0], text).toContain("https://dropletsjs.dev/guides/deployment/#cloudflare-workers");
+      }
+    });
+
+    it("stays silent with nodejs_compat, or the older nodejs_compat_v2, among other flags", async () => {
+      for (const [file, text] of [
+        ["wrangler.json", '{ "compatibility_flags": ["global_fetch_strictly_public", "nodejs_compat"], "assets": {} }'],
+        ["wrangler.json", '{ "compatibility_flags": ["nodejs_compat_v2"], "assets": {} }'],
+        [
+          "wrangler.toml",
+          'name = "app"\ncompatibility_flags = ["nodejs_compat"] # the request store\n\n[assets]\ndirectory = "dist/client"\n',
+        ],
+      ] as const) {
+        await writeFile(join(root, file), text);
+        await afterBuild();
+        await rm(join(root, file));
+      }
+      expect(warn).not.toHaveBeenCalled();
     });
   });
 });

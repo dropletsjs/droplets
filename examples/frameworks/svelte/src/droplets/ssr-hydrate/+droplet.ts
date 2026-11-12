@@ -5,10 +5,7 @@ export { props } from "../../lib/props.ts";
 
 /**
  * Runs on both sides, after the server load: on the server before
- * rendering, in the browser before hydrating. Shapes server data for the
- * component without a second request.
+ * rendering, in the browser before hydrating or mounting. Shapes server
+ * data for the component without a second request: the greeting the card shows.
  */
-export const load = ({ data }: DropletLoadEvent) => ({
-  ...data,
-  who: data.who.trim() || "world",
-});
+export const load = ({ data }: DropletLoadEvent) => ({ ...data, greeting: `Hello ${data.who}!` });

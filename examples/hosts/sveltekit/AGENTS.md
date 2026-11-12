@@ -15,7 +15,7 @@
   Checked by: `pnpm test:hosts sveltekit` (`tests/hosts/e2e/shop.spec.ts`: a post without JavaScript lands back on the host page).
 - `DROPLETS_TRUSTED_ORIGINS` of the droplets server and of the shop in `docker-compose.yml` lists this host's origin (`WEB_URL`), and `ORIGIN` is that same origin.
   Checked by: `pnpm test:hosts sveltekit`.
-- The shop's browser requests (`/index.js`, `/droplets/*`, `/assets/*`, `/api/*`) go through the proxy in `handle`, which forwards only its listed request headers and passes `Set-Cookie` back untouched.
+- The shop's browser requests (`/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`, `/api/*`) go through the proxy in `handle`, which forwards only its listed request headers and passes `Set-Cookie` back untouched.
   Checked by: `pnpm test:hosts sveltekit`.
 - A page inserts only a 2xx or 500 `text/html` fragment; a fragment's redirect is answered, never followed.
   Checked by: `pnpm test:hosts sveltekit`.

@@ -342,6 +342,30 @@ describe("client input stays data", () => {
     expect(renderDroplet).toHaveBeenCalledTimes(4);
   });
 
+  it("hands user code plain copies of client JSON: no own __proto__ key, prototypes kept", async () => {
+    const { app, renderDroplet } = fakeApp({ findAction: async () => async () => ({ ok: true }) });
+    await app.request("http://drops.example/droplets/hello", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: '{"props":{"__proto__":{"polluted":1},"a":1,"nested":{"__proto__":{"polluted":2},"b":[{"__proto__":3}]}},"form":{"__proto__":{"polluted":4},"msg":"hi"}}',
+    });
+    await app.request("http://drops.example/droplets/hello", {
+      headers: { "x-droplet-props": encodeBase64({ text: '{"__proto__":{"polluted":5},"a":1}' }) },
+    });
+    expect(renderDroplet).toHaveBeenCalledTimes(2);
+    const [fromBody, fromHeader] = renderDroplet.mock.calls as unknown as Array<[string, LoadEvent, { form?: unknown }]>;
+    if (!fromBody || !fromHeader) expect.unreachable("two renders");
+    const props = fromBody[1].props as { nested: { b: Array<Record<string, unknown>> } };
+    expect(props).toEqual({ a: 1, nested: { b: [{}] } });
+    for (const object of [props, props.nested, props.nested.b[0], fromBody[2].form, fromHeader[1].props]) {
+      expect(Object.hasOwn(object as object, "__proto__")).toBe(false);
+      expect(Object.getPrototypeOf(object)).toBe(Object.prototype);
+    }
+    expect(fromBody[2].form).toEqual({ msg: "hi" });
+    expect(fromHeader[1].props).toEqual({ a: 1 });
+    expect(Object.prototype).not.toHaveProperty("polluted");
+  });
+
   it("answers 404 for droplet ids that name prototype members", async () => {
     const { app } = fakeApp({
       getDropletMeta: (name) => ({ exists: Object.hasOwn({ hello: 1 }, name), ssr: true, hydrate: true }),

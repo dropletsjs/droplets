@@ -78,6 +78,9 @@ gives them their headers:
   max-age=2592000, immutable`.
 - `/assets/public/*`: `Cache-Control` from `publicCacheControl`
   (`no-cache` by default); with `false`, none.
+- Every rule but `/assets/public/*` (which gets it from `/assets/*`) adds
+  `X-Content-Type-Options: nosniff`, as the Worker does on the files it
+  serves itself.
 
 Each rule starts with `! Cache-Control`: Cloudflare applies every rule that
 matches and joins a header two rules set with a comma. Your own `_headers`,
@@ -104,7 +107,9 @@ It never writes the file and never fails the build:
   `assets.binding`.
 
 `nodejs_compat` gives the Worker `AsyncLocalStorage`. Without it, requests
-that overlap share one request store: the last one to start wins.
+that overlap share one request store: the last one to start wins. A wrangler
+config whose `compatibility_flags` has no `nodejs_compat` (or the older
+`nodejs_compat_v2`) makes the build warn once, never fail.
 
 ### Static files
 
@@ -162,6 +167,7 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - `_headers` is written to `dist/client/` after every build: the adapter's rules, then the project root's `_headers` after a blank line. `src/index.ts:216`, `src/index.ts:218`, `test/index.test.ts:44`, `test/index.test.ts:109`
 - `_headers` rules: `/index.js` and `/index.css` (`no-store`), `/assets/*`, `/assets/public/*`, `/droplets/:id/client.js`, `/droplets/:id/style.css`, in that order. `src/index.ts:79`, `src/index.ts:80`, `test/index.test.ts:99`
 - `_headers` sends `Access-Control-Allow-Origin: *` on every rule but `/assets/public/*`, which gets it from `/assets/*`; the `cors` config is not read. `src/index.ts:76`
+- `_headers` sends `X-Content-Type-Options: nosniff` on the same rules, and the Worker sets it on every file it serves through the binding. `src/index.ts:76`, `src/worker.ts:83`, `src/worker.ts:100`
 - `_headers` starts every rule with `! Cache-Control`: Cloudflare joins a header two matching rules set, and static assets send a `Cache-Control` of their own. `src/index.ts:76`, `src/index.ts:77`
 - `_headers` cache for `/assets/*`, `client.js` and `style.css` is `public, max-age=2592000, immutable`. `src/index.ts:64`
 - `_headers` `/assets/public/*` carries `publicCacheControl`; `false` leaves only `! Cache-Control`. `src/index.ts:77`, `test/index.test.ts:102`, `test/index.test.ts:104`
@@ -179,6 +185,9 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - `run_worker_first` list warns when a pattern matches a build file and no `!` pattern excludes it: negative patterns win. `src/index.ts:121`, `src/index.ts:126`, `test/index.test.ts:159`
 - `run_worker_first` patterns are matched against `/index.js`, `/index.css`, `/assets/index.js`, `/assets/public/index.txt`, `/droplets/x/client.js`, `/droplets/x/style.css`, and from `droplets.json` the entry module, each droplet's `client.js` and the `style.css` of each droplet with stylesheets. `src/index.ts:136`, `src/index.ts:144`, `test/index.test.ts:189`
 - `run_worker_first` pattern `*` matches anything, `/` included. `src/index.ts:106`
+- `compatibility_flags` without a flag starting with `nodejs_compat` (missing, empty, not a list) warns once after the build, never fails: `<file>: compatibility_flags has no "nodejs_compat", so the Worker has no AsyncLocalStorage…`, linking `https://dropletsjs.dev/guides/deployment/#cloudflare-workers`. `src/index.ts:80`, `src/index.ts:285`, `test/index.test.ts:244`
+- `compatibility_flags` is read from the top level of the wrangler config (JSON, JSONC or TOML), never from an `env.*` section. `src/index.ts:58`, `src/index.ts:64`
+- A wrangler config this reader cannot parse warns once that `assets.run_worker_first` and `compatibility_flags` go unchecked. `src/index.ts:278`
 - `run_worker_first` warning names the file, the value and up to five matched paths, and links `https://dropletsjs.dev/guides/deployment/#run_worker_first`. `src/index.ts:253`
 - Config in the Worker is `resolveConfig(userConfig)` with no environment: `PORT` is never read. `src/worker.ts:23`
 - Manifest is inlined into the Worker through `virtual:droplets-manifest`, the build's `droplets.json`. `src/worker.ts:2`, `../../droplets/src/vite/virtual.ts:73`

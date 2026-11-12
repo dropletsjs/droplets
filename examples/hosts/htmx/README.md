@@ -29,8 +29,12 @@ is published on `127.0.0.1`.
 ### What it needs
 
 - **Cross-origin**: `<meta name="htmx-config" content='{"selfRequestsOnly": false}'>`
-  for htmx, and `cors` on the droplets server (the Svelte example has
-  `cors: true`), which answers the preflight htmx's `HX-*` headers cause.
+  for htmx (its check runs before `htmx:validateUrl`, so a listener cannot
+  allow an origin while it is on), then `html/droplet-origins.js`, an
+  `htmx:validateUrl` listener that allows the origins the page loads an
+  `/index.js` from and refuses any other; and `cors` on the droplets server
+  (the Svelte example has `cors: true`), which answers the preflight htmx's
+  `HX-*` headers cause.
 - **One `/index.js` per droplets server**, in the `<head>`: the Svelte
   example's from `http://localhost:8000`, the shop's from this origin.
 - **`hx-boost`**: `hx-boost="false"` on each element that receives a
@@ -40,9 +44,11 @@ is published on `127.0.0.1`.
 ### nginx (`nginx.conf`)
 
 - Serves `html/` and `vendor/htmx.min.js`; `/shop` is `shop.html`.
-- Proxies `/index.js`, `/droplets/`, `/assets/` and `/api/` to the shop as
+- Proxies `/index.js`, `/env.js`, `/index.css`, `/droplets/`, `/assets/` and `/api/` to the shop as
   they are (bodies, `Set-Cookie`, redirects), so its cookies are this
-  origin's own. `x-droplet-location` is `SHOP_PUBLIC_URL`, written out,
+  origin's own; the browser's `Cookie` goes through cut down to the shop's
+  own `cart_id` and `shop_admin` (a `map`). `x-droplet-location` is
+  `SHOP_PUBLIC_URL`, written out,
   never the request's Host, and the forwarded headers a client could use to
   name another host (`Forwarded`, `X-Forwarded-Host`, `X-Forwarded-Proto`,
   `X-Forwarded-Prefix`) are cleared. The browser's `Referer` goes through:
@@ -100,26 +106,29 @@ is no code to typecheck. The guide's page:
 - htmx version is `htmx.org` 2.0.11, pinned. `package.json:7`
 - Package has only `dependencies`, no `typecheck` script, so `pnpm typecheck:hosts` skips it. `package.json:6`, `../../../tests/hosts/typecheck.mjs:32`
 - nginx upstream `shop` is `shop:8300`. `nginx.conf:9`
-- nginx listens on 80 with `absolute_redirect off`. `nginx.conf:13`, `nginx.conf:15`
-- nginx `sub_filter` rewrites `http://localhost:8000` to `DROPLETS_PUBLIC_URL` in HTML, every occurrence. `nginx.conf:22`, `nginx.conf:23`, `nginx.conf:24`
-- nginx `/shop` serves `shop.html`. `nginx.conf:30`, `nginx.conf:31`
-- nginx proxies `/index.js`, `/droplets/`, `/assets/`, `/api/` to the shop. `nginx.conf:42`, `nginx.conf:43`
-- nginx `x-droplet-location` is `SHOP_PUBLIC_URL`, never the request's Host. `nginx.conf:44`
-- nginx clears `Forwarded`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `X-Forwarded-Prefix` toward the shop. `nginx.conf:45`, `nginx.conf:48`
-- Index page sets htmx `selfRequestsOnly: false`. `html/index.html:10`
-- Index page loads `/vendor/htmx.min.js`. `html/index.html:11`
-- Index page loads the Svelte example's `/index.js` from `http://localhost:8000`. `html/index.html:15`
-- Index page loads the shop's `/index.js` from this origin. `html/index.html:17`
-- Index page body has `hx-boost="true"`. `html/index.html:19`
-- Index page `ssr-hydrate?who=htmx` is swapped in on `load`. `html/index.html:31`, `html/index.html:32`
-- Index page `client?who=Ana` is swapped into `#on-click` on a click. `html/index.html:39`, `html/index.html:40`
-- Index page `ssr-nohydrate?who=htmx` is swapped in once `revealed`. `html/index.html:47`, `html/index.html:48`
-- Shop page head is the same as the index page's. `html/shop.html:8`, `html/shop.html:11`
-- Shop page body has `hx-boost="true"`. `html/shop.html:15`
-- Shop page cart badge is a `<djs-shop data-droplet="shopping-cart" data-params='{"variant":"badge"}'>` the page writes. `html/shop.html:19`
-- Shop page `product-page?slug=clay-cylinder-mug` loads in an `hx-boost="false"` section. `html/shop.html:27`, `html/shop.html:28`
-- Shop page `login?next=/shop` loads in an `hx-boost="false"` section. `html/shop.html:35`, `html/shop.html:36`
-- Shop page `product-card?slug=speckled-temple-cup` loads once `revealed`, in an `hx-boost="false"` section. `html/shop.html:44`, `html/shop.html:46`
+- nginx listens on 80 with `absolute_redirect off`. `nginx.conf:22`, `nginx.conf:24`
+- nginx `sub_filter` rewrites `http://localhost:8000` to `DROPLETS_PUBLIC_URL` in HTML, every occurrence. `nginx.conf:31`, `nginx.conf:32`, `nginx.conf:33`
+- nginx `/shop` serves `shop.html`. `nginx.conf:39`, `nginx.conf:40`
+- nginx proxies `/index.js`, `/env.js`, `/index.css`, `/droplets/`, `/assets/`, `/api/` to the shop. `nginx.conf:52`, `nginx.conf:53`
+- nginx sends the shop only `cart_id` and `shop_admin`, from the `$shop_cookie` map. `nginx.conf:14`, `nginx.conf:54`
+- nginx `x-droplet-location` is `SHOP_PUBLIC_URL`, never the request's Host. `nginx.conf:55`
+- nginx clears `Forwarded`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `X-Forwarded-Prefix` toward the shop. `nginx.conf:56`, `nginx.conf:59`
+- Index page sets htmx `selfRequestsOnly: false`. `html/index.html:11`
+- Index page loads `/vendor/htmx.min.js`. `html/index.html:12`
+- Index page loads the Svelte example's `/index.js` from `http://localhost:8000`. `html/index.html:16`
+- Index page loads the shop's `/index.js` from this origin. `html/index.html:18`
+- Index page body has `hx-boost="true"`. `html/index.html:21`
+- Index page `ssr-hydrate?who=htmx` is swapped in on `load`. `html/index.html:33`, `html/index.html:34`
+- Index page `client?who=Ana` is swapped into `#on-click` on a click. `html/index.html:41`, `html/index.html:42`
+- Index page `ssr-nohydrate?who=htmx` is swapped in once `revealed`. `html/index.html:49`, `html/index.html:50`
+- Index page loads `/droplet-origins.js` after the module scripts: an `htmx:validateUrl` listener that allows this origin and the origins the page loads an `/index.js` from, no other. `html/index.html:19`, `html/droplet-origins.js:6`, `html/droplet-origins.js:13`
+- Shop page head is the same as the index page's. `html/shop.html:8`, `html/shop.html:12`
+- Shop page body has `hx-boost="true"`. `html/shop.html:16`
+- Shop page cart badge is a `<djs-shop data-droplet="shopping-cart" data-params='{"variant":"badge"}'>` the page writes. `html/shop.html:20`
+- Shop page `product-page?slug=clay-cylinder-mug` loads in an `hx-boost="false"` section. `html/shop.html:28`, `html/shop.html:29`
+- Shop page `login?next=/shop` loads in an `hx-boost="false"` section. `html/shop.html:36`, `html/shop.html:37`
+- Shop page `product-card?slug=speckled-temple-cup` loads once `revealed`, in an `hx-boost="false"` section. `html/shop.html:45`, `html/shop.html:47`
 - Host test runs only by name, with `e2e/htmx.spec.ts` instead of the shop flow, at `http://localhost:8010`. `../../../tests/hosts/run.mjs:68`, `../../../tests/hosts/run.mjs:70`, `../../../tests/hosts/run.mjs:71`
 - Host test waits for the droplets server's `/droplets/ssr-hydrate` on `DROPLETS_URL` too. `../../../tests/hosts/run.mjs:74`, `../../../tests/hosts/run.mjs:145`
-- Host test checks the preflight answers 204, `access-control-allow-origin: *`, and echoes the `hx-*` headers. `../../../tests/hosts/e2e/htmx.spec.ts:161`, `../../../tests/hosts/e2e/htmx.spec.ts:171`
+- Host test checks an `hx-get` to a third origin is refused (`htmx:invalidPath`) and no request goes out. `../../../tests/hosts/e2e/htmx.spec.ts:163`, `../../../tests/hosts/e2e/htmx.spec.ts:183`
+- Host test checks the preflight answers 204, `access-control-allow-origin: *`, and echoes the `hx-*` headers. `../../../tests/hosts/e2e/htmx.spec.ts:193`, `../../../tests/hosts/e2e/htmx.spec.ts:203`

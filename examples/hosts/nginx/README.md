@@ -25,7 +25,7 @@ nothing is cross-origin.
 - **SSI.** `<!--# include virtual="/droplets/ssr-hydrate?who=nginx" -->`
   makes nginx fetch the fragment while serving the page, so the browser
   receives server-rendered markup.
-- **Reverse proxy.** `/index.js`, `/droplets/*`, `/assets/*` and `/api/*`
+- **Reverse proxy.** `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and `/api/*`
   go to the droplets server. `/api/*` goes through too: a droplet builds
   its API URLs on the droplets server's public origin (`droplet.url()`),
   which here is nginx's.
@@ -47,8 +47,9 @@ two tools, no code:
   `shop/`, with one head, header and footer under `shop/_layout/`.
 - Each include goes through the internal `/_fragment/` location, which sends
   the page itself as `Referer` and keeps the browser's `Cookie`
-  (subrequests carry it), so the cart badge and the admin render for the
-  visitor. The page's query (`$args`) goes to the droplets that take it.
+  (subrequests carry it), cut down to the shop's own `cart_id` and
+  `shop_admin` by a `map`, so the cart badge and the admin render for the
+  visitor and another app's cookie on this origin stays here. The page's query (`$args`) goes to the droplets that take it.
 - Only a fragment is pasted: other error answers are replaced with a fixed
   note (`proxy_intercept_errors`), since they may echo the query.
 - The product page reads the product's id, name and category from
@@ -56,7 +57,7 @@ two tools, no code:
   out with named captures. An `auth_request` to the product fragment runs
   first: an unknown product answers 404, an old `v` a 302 to the page
   without it.
-- `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` are proxied with
+- `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and `/api/*` are proxied with
   `x-droplet-location` set to the shop's public URL and the forwarded
   headers cleared, so the login's `Set-Cookie` and `303`, the cart cookie
   and the form posts pass through untouched. Bodies up to 4 MB (admin image
@@ -97,10 +98,12 @@ and `SHOP_PUBLIC_URL` at start.
 ### IIS
 
 [`iis/web.config`](./iis/web.config) is a URL Rewrite + ARR reverse-proxy
-sketch. It has not been run on a Windows host. It sets an `X-Host` request
-header, which the droplets server does not read: send `x-droplet-location`
-with the site's public URL written out, and list its origin in the droplets
-server's `DROPLETS_TRUSTED_ORIGINS`. IIS cannot include arbitrary URLs server-side, so
+sketch. It has not been run on a Windows host. It sets
+`HTTP_X_DROPLET_LOCATION`, the `x-droplet-location` request header, to the
+site's public URL written out, clears the incoming `Forwarded` and
+`X-Forwarded-*` headers, and needs those five server variables allowed in
+`applicationHost.config`; list the URL's origin in the droplets server's
+`DROPLETS_TRUSTED_ORIGINS`. IIS cannot include arbitrary URLs server-side, so
 pair it with a page that fetches fragments itself (any of the other hosts)
 or with the client-only pattern from [`react-vite`](../react-vite).
 
@@ -108,7 +111,8 @@ or with the client-only pattern from [`react-vite`](../react-vite).
 
 No code and no `package.json`: `pnpm typecheck:hosts` skips it. From the
 repository root, `pnpm test:hosts nginx` runs the shop flow against the
-compose stack on port 8081 (needs Docker).
+compose stack on port 8081, and checks that the basic page on port 8080
+hydrates through the proxy (needs Docker).
 
 ## Facts
 
@@ -125,35 +129,38 @@ compose stack on port 8081 (needs Docker).
 - Basic server listens on 80, root `/usr/share/nginx/html`, `ssi on` for `/`. `nginx.conf:25`, `nginx.conf:28`, `nginx.conf:33`
 - Basic page includes `client`, `ssr-hydrate` and `ssr-nohydrate` with `who=nginx`. `html/index.html:21`, `html/index.html:22`, `html/index.html:23`
 - Basic page loads `/index.js` from its own origin. `html/index.html:8`
-- Basic proxy: `/index.js`, `/droplets/*`, `/assets/*`, `/api/*` go to the droplets server. `nginx.conf:40`
+- Basic proxy: `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`, `/api/*` go to the droplets server. `nginx.conf:40`
 - Basic proxy sends `x-droplet-location: ${DROPLETS_PUBLIC_URL}` and clears `Forwarded` and `X-Forwarded-Host`/`-Proto`/`-Prefix`. `nginx.conf:42`, `nginx.conf:46`
-- Shop server listens on 8081 with `absolute_redirect off`. `nginx.conf:71`, `nginx.conf:73`
-- Shop `/` answers 302 to `/gallery`. `nginx.conf:81`
-- Shop pages `/gallery`, `/login`, `/admin` are SSI rewrites to `gallery.html`, `login.html`, `admin.html`. `nginx.conf:83`, `nginx.conf:135`, `nginx.conf:139`
-- Shop product slug pattern is `[a-z0-9]+(?:-[a-z0-9]+)*`. `nginx.conf:95`
-- Shop product check: `auth_request /_product-check` asks the `product-page` fragment first. `nginx.conf:101`, `nginx.conf:112`
-- Shop product check: a 404 becomes 401, then `not-found.html` as 404. `nginx.conf:102`, `nginx.conf:123`, `nginx.conf:127`
-- Shop product check: a redirect (old `v`) becomes 403, then a 302 to the page without `v`. `nginx.conf:103`, `nginx.conf:124`, `nginx.conf:133`
-- Shop product check sends no `Cookie` and no body. `nginx.conf:113`, `nginx.conf:115`
+- Shop server listens on 8081 with `absolute_redirect off`. `nginx.conf:80`, `nginx.conf:82`
+- Shop `/` answers 302 to `/gallery`. `nginx.conf:92`
+- Shop pages `/gallery`, `/login`, `/admin` are SSI rewrites to `gallery.html`, `login.html`, `admin.html`. `nginx.conf:94`, `nginx.conf:146`, `nginx.conf:150`
+- Shop product slug pattern is `[a-z0-9]+(?:-[a-z0-9]+)*`. `nginx.conf:106`
+- Shop product check: `auth_request /_product-check` asks the `product-page` fragment first. `nginx.conf:112`, `nginx.conf:123`
+- Shop product check: a 404 becomes 401, then `not-found.html` as 404. `nginx.conf:113`, `nginx.conf:134`, `nginx.conf:138`
+- Shop product check: a redirect (old `v`) becomes 403, then a 302 to the page without `v`. `nginx.conf:114`, `nginx.conf:135`, `nginx.conf:144`
+- Shop product check sends no `Cookie` and no body. `nginx.conf:124`, `nginx.conf:126`
 - Shop `v` query param is split off by `map` blocks into `$shop_page_v` and `$shop_query_without_v`. `nginx.conf:52`, `nginx.conf:61`
-- Shop product `_data` read is kept in an SSI variable, room 64k (`subrequest_output_buffer_size`). `nginx.conf:77`, `shop/product.html:1`
+- Shop product `_data` read is kept in an SSI variable, room 64k (`subrequest_output_buffer_size`). `nginx.conf:88`, `shop/product.html:1`
 - Shop product id, name and category come from named captures on the `_data` JSON. `shop/product.html:2`
 - Shop product name and category are echoed with `encoding="entity"` or `encoding="url"`. `shop/product.html:5`, `shop/product.html:13`
-- Shop any other path answers 404. `nginx.conf:151`
-- Shop proxy: `/index.js`, `/droplets/*`, `/assets/*`, `/api/*` go to the shop with `x-droplet-location: ${SHOP_PUBLIC_URL}` and the forwarded headers cleared. `nginx.conf:156`, `nginx.conf:158`
-- Shop proxy `client_max_body_size` is 4m. `nginx.conf:164`
-- Shop fragments go through the internal `/_fragment/` location. `nginx.conf:170`, `nginx.conf:171`
-- Shop fragment `Referer` is `${SHOP_PUBLIC_URL}$request_uri`, the page itself. `nginx.conf:174`
-- Shop fragment sends `Accept: text/html` and no `Accept-Encoding`. `nginx.conf:175`, `nginx.conf:176`
-- Shop fragment errors 400, 401, 403, 404, 405, 413, 431, 502, 503, 504 become `<p class="shop-unavailable">This droplet is unavailable.</p>`; a 500 is pasted. `nginx.conf:185`, `nginx.conf:189`
-- Shop layout: `_layout/head.html`, `header.html`, `footer.html`, internal only. `nginx.conf:146`, `nginx.conf:147`
+- Shop any other path answers 404. `nginx.conf:162`
+- Shop proxy: `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`, `/api/*` go to the shop with `x-droplet-location: ${SHOP_PUBLIC_URL}` and the forwarded headers cleared. `nginx.conf:167`, `nginx.conf:169`
+- Shop proxy `client_max_body_size` is 4m. `nginx.conf:176`
+- Shop fragments go through the internal `/_fragment/` location. `nginx.conf:184`, `nginx.conf:185`
+- Shop proxy and fragment subrequests send the shop only `cart_id` and `shop_admin`, from the `$shop_cookie` map. `nginx.conf:69`, `nginx.conf:171`, `nginx.conf:188`
+- Shop fragment `Referer` is `${SHOP_PUBLIC_URL}$request_uri`, the page itself. `nginx.conf:186`
+- Shop fragment sends `Accept: text/html` and no `Accept-Encoding`. `nginx.conf:187`, `nginx.conf:189`
+- Shop fragment errors 400, 401, 403, 404, 405, 413, 431, 502, 503, 504 become `<p class="shop-unavailable">This droplet is unavailable.</p>`; a 500 is pasted. `nginx.conf:198`, `nginx.conf:202`
+- Shop layout: `_layout/head.html`, `header.html`, `footer.html`, internal only. `nginx.conf:157`, `nginx.conf:158`
 - Shop head loads `/shop.css` and `/index.js` from the shop origin, with speculation rules for `/product/*`. `shop/_layout/head.html:3`, `shop/_layout/head.html:4`, `shop/_layout/head.html:6`
 - Shop header includes `toast-center` first, then `shopping-cart?variant=badge`. `shop/_layout/header.html:2`, `shop/_layout/header.html:9`
 - Shop gallery passes `$args` to `product-filter` and `product-library`. `shop/gallery.html:16`, `shop/gallery.html:17`
 - Shop product page: `product-page` gets `slug` and `v`; `product-comments` gets `productId` and `$args`. `shop/product.html:16`, `shop/product.html:18`
-- Shop footer links the basic page at the fixed `http://localhost:8080/`. `shop/_layout/footer.html:4`
+- Shop footer links the basic page at `DROPLETS_PUBLIC_URL`, echoed by SSI from `$droplets_public_url`. `shop/_layout/footer.html:4`, `nginx.conf:85`
 - Shop footer stack label is `nginx 1.27`. `shop/_layout/footer.html:2`
-- `iis/web.config` sets `HTTP_X_DROPLET_LOCATION` (the `x-droplet-location` header the droplets server reads) to the site's public URL, written out. `iis/web.config:28`, `iis/web.config:10`
-- `iis/web.config` rewrites `index.js`, `droplets/*`, `assets/*`, `api/*` to `http://localhost:8000`. `iis/web.config:25`, `iis/web.config:26`
+- `iis/web.config` sets `HTTP_X_DROPLET_LOCATION` (the `x-droplet-location` header the droplets server reads) to the site's public URL, written out, and clears the incoming `Forwarded`, `X-Forwarded-Host`, `X-Forwarded-Proto` and `X-Forwarded-Prefix`. `iis/web.config:35`, `iis/web.config:36`, `iis/web.config:39`, `iis/web.config:11`
+- `iis/web.config` needs its five server variables allowed in `applicationHost.config`. `iis/web.config:15`
+- `iis/web.config` rewrites `index.js`, `env.js`, `index.css`, `droplets/*`, `assets/*`, `api/*` to `http://localhost:8000`. `iis/web.config:32`, `iis/web.config:33`
 - `pnpm test:hosts nginx` tests the shop on `http://localhost:8081`. `../../../tests/hosts/run.mjs:59`
+- `pnpm test:hosts nginx` also checks the basic page on `DROPLETS_URL` (`http://localhost:8080`): `/env.js` and `/index.css` come through the proxy and the three droplets hydrate. `../../../tests/hosts/e2e/nginx-basic.spec.ts:12`, `../../../tests/hosts/e2e/nginx-basic.spec.ts:22`
 - `examples/hosts/*` is outside the pnpm workspace. `../../../pnpm-workspace.yaml:5`

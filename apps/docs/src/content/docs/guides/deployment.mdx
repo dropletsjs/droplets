@@ -113,7 +113,8 @@ wrangler deploy
 `cloudflare({ assetsBinding })` names the assets binding when it is not
 `ASSETS`; the name is fixed in `dist/worker.js` at build. Without
 `nodejs_compat` the Worker has no `AsyncLocalStorage`, and requests that
-overlap share one request store. There is no `vite preview` for Workers
+overlap share one request store: `vite build` warns once when the wrangler
+config's `compatibility_flags` lacks it, and never fails. There is no `vite preview` for Workers
 (it warns and serves nothing): `wrangler dev` is the preview. With
 [`location`](/guides/configuration/#a-fixed-location) set, the URLs the
 Worker writes under `wrangler dev` point at that location.
@@ -134,14 +135,17 @@ headers:
 ```
 /index.js
   Access-Control-Allow-Origin: *
+  X-Content-Type-Options: nosniff
   ! Cache-Control
   Cache-Control: no-store
 /index.css
   Access-Control-Allow-Origin: *
+  X-Content-Type-Options: nosniff
   ! Cache-Control
   Cache-Control: no-store
 /assets/*
   Access-Control-Allow-Origin: *
+  X-Content-Type-Options: nosniff
   ! Cache-Control
   Cache-Control: public, max-age=2592000, immutable
 /assets/public/*
@@ -149,10 +153,12 @@ headers:
   Cache-Control: no-cache
 /droplets/:id/client.js
   Access-Control-Allow-Origin: *
+  X-Content-Type-Options: nosniff
   ! Cache-Control
   Cache-Control: public, max-age=2592000, immutable
 /droplets/:id/style.css
   Access-Control-Allow-Origin: *
+  X-Content-Type-Options: nosniff
   ! Cache-Control
   Cache-Control: public, max-age=2592000, immutable
 ```
@@ -161,7 +167,9 @@ The `/assets/public/*` rule carries
 [`publicCacheControl`](/guides/configuration/) (`no-cache` by default); with
 `publicCacheControl: false` it keeps only `! Cache-Control`. These files are
 public, so they are sent with `Access-Control-Allow-Origin: *` whatever
-`cors` says; `cors` applies to what the Worker answers. Cloudflare reads
+`cors` says; `cors` applies to what the Worker answers. Every file is sent
+with `X-Content-Type-Options: nosniff`, as the Node adapter sends it, so a
+browser takes it for what its `Content-Type` says and nothing else. Cloudflare reads
 `_headers` and never serves it as a file
 ([Headers](https://developers.cloudflare.com/workers/static-assets/headers/)),
 so `.assetsignore` does not list it.
@@ -333,6 +341,12 @@ When a reverse proxy fronts the droplets server:
   server reads none of these headers and writes every URL on `location`, so
   a proxy under another origin or prefix gets URLs that point elsewhere. Keep
   the droplets server unreachable except through the proxy;
+- the `secure` default of a cookie is judged by the droplet location, not
+  by the socket: a server reached over plain HTTP on a loopback address
+  sends cookies without `Secure` unless its location says `https`. Behind a
+  TLS proxy that forwards to plain HTTP on `localhost`, set `location` or
+  send a trusted location header, so `https://` is the location and the
+  cookies are `Secure`;
 - keep the `cache-control` headers it sends; they are safe to honour: `/index.js`
   and `/index.css` are `no-store`, `/env.js` is `public, max-age=600` (`DROPLETS_ENV_MAX_AGE`),
   fragments and `_data` are `private, no-store` (`fragmentCacheControl`),

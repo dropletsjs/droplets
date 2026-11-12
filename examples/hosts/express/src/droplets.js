@@ -6,19 +6,32 @@
  * fragment is stamped with the origin the browser can actually load scripts
  * from.
  */
+const escapeHtml = (value) =>
+  String(value).replace(
+    /[&<>"']/g,
+    (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char],
+  );
+
 export function createDropletClient({ internalUrl, publicUrl }) {
   async function fragment(droplet, props = {}) {
     const url = new URL(`/droplets/${encodeURIComponent(droplet)}`, internalUrl);
     for (const [key, value] of Object.entries(props)) url.searchParams.set(key, String(value));
 
     try {
-      const response = await fetch(url, { headers: { "x-droplet-location": publicUrl } });
-      if (!response.ok) {
-        return `<p class="error">droplet "${droplet}" unavailable: HTTP ${response.status}</p>`;
-      }
-      return await response.text();
+      const response = await fetch(url, {
+        headers: { accept: "text/html", "x-droplet-location": publicUrl },
+        redirect: "manual",
+        signal: AbortSignal.timeout(5000),
+      });
+      // Only an HTML answer is a fragment (a 500 carries the droplet's error
+      // page); anything else may echo the props, so it is never pasted.
+      const isFragment =
+        (response.ok || response.status === 500) && (response.headers.get("content-type") ?? "").startsWith("text/html");
+      if (isFragment) return await response.text();
+      await response.body?.cancel();
+      return `<p class="error">droplet "${escapeHtml(droplet)}" unavailable: HTTP ${response.status}</p>`;
     } catch (error) {
-      return `<p class="error">droplet "${droplet}" unavailable: ${String(error)}</p>`;
+      return `<p class="error">droplet "${escapeHtml(droplet)}" unavailable: ${escapeHtml(String(error))}</p>`;
     }
   }
 

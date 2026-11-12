@@ -19,8 +19,9 @@ location = /gallery {
 }
 
 # What the browser asks the shop for.
-location ~ ^/(index\.js|droplets/|assets/|api/) {
+location ~ ^/(index\.js|env\.js|index\.css|droplets/|assets/|api/) {
   proxy_pass http://shop;
+  proxy_set_header Cookie $shop_cookie;
   proxy_set_header x-droplet-location ${SHOP_PUBLIC_URL};
   proxy_set_header Forwarded "";
   proxy_set_header X-Forwarded-Host "";
@@ -34,6 +35,7 @@ location ^~ /_fragment/ {
   internal;
   rewrite ^/_fragment(/.*)$ $1 break;
   proxy_pass http://shop;
+  proxy_set_header Cookie $shop_cookie;
   proxy_set_header Referer ${SHOP_PUBLIC_URL}$request_uri;
   proxy_set_header Accept text/html;
   proxy_set_header Accept-Encoding "";
@@ -63,15 +65,17 @@ location @unavailable {
   to `/_fragment/droplets/<id>`, which the `/_fragment/` location rewrites
   to `GET /droplets/<id>?<query>` on the shop. `$args` is the page's own
   query, passed whole: the shop drops what a droplet does not take.
-- The subrequest carries the browser's `Cookie`. nginx adds
-  `Accept: text/html`, the page's URL as `Referer` (`$request_uri` is the
-  page's in a subrequest) and `x-droplet-location`, and clears
+- The subrequest carries the browser's `Cookie`, cut down to the shop's own
+  `cart_id` and `shop_admin` by the `map` at the top of the file
+  (`$shop_cookie`), so another app's cookie on this origin stays here. nginx
+  adds `Accept: text/html`, the page's URL as `Referer` (`$request_uri` is
+  the page's in a subrequest) and `x-droplet-location`, and clears
   `Accept-Encoding`, so the body it pastes is plain HTML.
 - The answer's body goes into the page where the include was. The error
   statuses listed in `error_page` become a fixed note instead, since their
   text may echo the query; a 500 is pasted, because it carries the droplet's
   error page.
-- The `location ~` block passes `/index.js`, `/droplets/*`, `/assets/*` and
+- The `location ~` block passes `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and
   `/api/*` to the shop, so the browser only talks to nginx.
 - `nginx.conf` is a template (the nginx image's `/etc/nginx/templates/`):
   `${SHOP_PUBLIC_URL}` is filled in when the container starts
@@ -158,10 +162,12 @@ not-found layout.
 
 ### What it proxies
 
-`location ~ ^/(index\.js|droplets/|assets/|api/)` passes `/index.js`,
-`/droplets/*` (fragments, `_data`, form actions), `/assets/*` and `/api/*`
-to the shop with `x-droplet-location` set to `${SHOP_PUBLIC_URL}` and
-`Forwarded` and `X-Forwarded-*` cleared. Bodies, `Set-Cookie` and `303`s
+`location ~ ^/(index\.js|env\.js|index\.css|droplets/|assets/|api/)` passes `/index.js`,
+`/env.js`, `/index.css`, `/droplets/*` (fragments, `_data`, form actions),
+`/assets/*` and `/api/*` to the shop with `x-droplet-location` set to
+`${SHOP_PUBLIC_URL}`, `Forwarded` and `X-Forwarded-*` cleared, and the
+browser's `Cookie` cut down to the shop's own `cart_id` and `shop_admin`
+(the `map` at the top of the file). Bodies, `Set-Cookie` and `303`s
 pass through as they are, so the cart and the login cookies are
 first-party, and nothing is cross-origin. `client_max_body_size 4m` lets
 the admin's image uploads through.
@@ -288,7 +294,7 @@ server {
   # Everything the droplets server owns: the entry client, the droplet routes
   # (fragments, bundles, styles, _data), the shared assets and its /api
   # endpoints.
-  location ~ ^/(index\.js|droplets/|assets/|api/) {
+  location ~ ^/(index\.js|env\.js|index\.css|droplets/|assets/|api/) {
     proxy_pass http://droplets;
     proxy_set_header x-droplet-location ${DROPLETS_PUBLIC_URL};
     proxy_set_header Forwarded "";
@@ -355,25 +361,31 @@ for the order the headers are read in.
 
 `examples/hosts/nginx/iis/web.config` is a URL Rewrite and Application
 Request Routing (ARR) sketch of the proxy half. It has not been run on a
-Windows host. It rewrites `index.js`, `droplets/*`, `assets/*` and `api/*`
-to `http://localhost:8000`:
+Windows host. It rewrites `index.js`, `env.js`, `index.css`, `droplets/*`,
+`assets/*` and `api/*` to `http://localhost:8000`:
 
 ```xml
 <rule name="droplets" stopProcessing="true">
-  <match url="^(index\.js|droplets/.*|assets/.*|api/.*)$" />
+  <match url="^(index\.js|env\.js|index\.css|droplets/.*|assets/.*|api/.*)$" />
   <action type="Rewrite" url="http://localhost:8000/{R:0}" />
   <serverVariables>
     <set name="HTTP_X_DROPLET_LOCATION" value="https://www.example.com" />
+    <set name="HTTP_FORWARDED" value="" />
+    <set name="HTTP_X_FORWARDED_HOST" value="" />
+    <set name="HTTP_X_FORWARDED_PROTO" value="" />
+    <set name="HTTP_X_FORWARDED_PREFIX" value="" />
   </serverVariables>
 </rule>
 ```
 
 The server variable `HTTP_X_DROPLET_LOCATION` is the `x-droplet-location`
 request header the droplets server reads: the site's public URL, written
-out, never built from the request's `Host`. To use the sketch, allow that
-variable in `applicationHost.config`, enable "proxy" in ARR's server
-settings, and list the URL's origin in the droplets server's
-`DROPLETS_TRUSTED_ORIGINS`.
+out, never built from the request's `Host`. The four after it clear the
+incoming `Forwarded` and `X-Forwarded-*` headers, as `nginx.conf` does,
+since a client could send them. To use the sketch, allow those five
+variables in `applicationHost.config` (URL Rewrite's
+`allowedServerVariables`), enable "proxy" in ARR's server settings, and
+list the URL's origin in the droplets server's `DROPLETS_TRUSTED_ORIGINS`.
 
 IIS cannot include arbitrary URLs server-side. Pair it with a page that
 fetches fragments itself (an ASP.NET page following the

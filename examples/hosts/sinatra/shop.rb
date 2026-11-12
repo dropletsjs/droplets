@@ -25,11 +25,17 @@ SHOP_ORIGIN = URI(ENV.fetch("SHOP_PUBLIC_URL", "http://localhost:#{ENV.fetch('PO
   "#{uri.scheme}://#{uri.host}#{":#{uri.port}" unless uri.port == uri.default_port}"
 end
 
-# What the browser's request may tell the shop; nothing that names a host.
+# What the browser's request may tell the shop; nothing that names a host. `cookie` goes on filtered.
 SHOP_FORWARDED_REQUEST_HEADERS = %w[
-  accept accept-language content-type cookie if-none-match origin referer
+  accept accept-language content-type if-none-match origin referer
   user-agent x-droplet-props x-droplets-build
 ].freeze
+
+# The shop's own cookies, the only ones it is sent: another app's on this origin stay here.
+SHOP_COOKIES = %w[cart_id shop_admin].freeze
+
+# The most a proxied body may weigh: an image of up to 2 MB in a 3 MB form.
+SHOP_MAX_BODY = 4 * 1024 * 1024
 
 # Per hop, or set apart (`set-cookie`, which may come more than once).
 SHOP_DROPPED_RESPONSE_HEADERS = %w[
@@ -55,6 +61,14 @@ helpers do
     value unless value.nil? || value.empty?
   end
 
+  # The browser's `Cookie` header with the shop's cookies only, or nil.
+  def shop_cookie_header
+    kept = shop_request_header("cookie").to_s.split(";").map(&:strip).select do |pair|
+      SHOP_COOKIES.include?(pair.split("=", 2).first.to_s.strip)
+    end
+    kept.empty? ? nil : kept.join("; ")
+  end
+
   # One request to the shop. `target` is a path and query: concatenated onto
   # the shop's base, never resolved, so `//elsewhere` stays a path there.
   # Net::HTTP never follows redirects.
@@ -78,6 +92,8 @@ helpers do
       value = shop_request_header(name)
       headers[name] = value if value
     end
+    cookie = shop_cookie_header
+    headers["cookie"] = cookie if cookie
     has_body = !%w[GET HEAD].include?(request.request_method)
     # From the start: Sinatra may have read a form body into `params` already.
     request.body.rewind if has_body
@@ -98,9 +114,9 @@ helpers do
   # Only an HTML answer is a fragment (a 500 carries the droplet's error
   # page); anything else may echo the props, so it is never inserted.
   def shop_fragment(id, params = [])
-    # The browser's request, as the shop should see it: its cookies, this page as the host.
+    # The browser's request, as the shop should see it: its shop cookies, this page as the host.
     headers = { "accept" => "text/html", "x-droplet-location" => SHOP_ORIGIN, "referer" => SHOP_ORIGIN + shop_raw_target }
-    cookie = shop_request_header("cookie")
+    cookie = shop_cookie_header
     headers["cookie"] = cookie if cookie
     target = "/droplets/#{URI.encode_www_form_component(id)}?#{URI.encode_www_form(params)}"
     result = { html: "", status: 502, location: nil, cookies: [], link: nil }
@@ -196,8 +212,9 @@ end
 
 # Sinatra reads a form body into `params` before the route runs, and the
 # server's input cannot be rewound; the proxy passes the same body on, so it
-# is buffered first. (The shop caps bodies at 3 MB.) Rack::MethodOverride
-# would read it even earlier, ahead of any middleware here: it is off.
+# is buffered first, up to SHOP_MAX_BODY (the shop caps bodies at 3 MB).
+# Rack::MethodOverride would read it even earlier, ahead of any middleware
+# here: it is off.
 set :method_override, false
 
 class ShopBufferedInput
@@ -207,13 +224,18 @@ class ShopBufferedInput
 
   def call(env)
     input = env["rack.input"]
-    env["rack.input"] = StringIO.new(input.read.to_s) if input
+    if input
+      body = input.read(SHOP_MAX_BODY + 1).to_s
+      return [413, { "content-type" => "text/plain" }, ["The body is too large."]] if body.bytesize > SHOP_MAX_BODY
+
+      env["rack.input"] = StringIO.new(body)
+    end
     @app.call(env)
   end
 end
 use ShopBufferedInput
 
-SHOP_PROXIED = %r{/(?:index\.js|(?:droplets|assets|api)/.*)}
+SHOP_PROXIED = %r{/(?:index\.js|env\.js|index\.css|(?:droplets|assets|api)/.*)}
 %i[get post put patch delete options].each do |verb|
   send(verb, SHOP_PROXIED) { shop_proxy }
 end

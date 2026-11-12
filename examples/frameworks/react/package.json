@@ -24,7 +24,6 @@
   "dependencies": {
     "@dropletsjs/droplets": "workspace:*",
     "@dropletsjs/renderer-react": "workspace:*",
-    "hono": "^4.13.16",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "zod": "^4.6.7"

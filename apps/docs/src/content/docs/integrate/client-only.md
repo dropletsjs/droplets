@@ -175,7 +175,7 @@ export function Droplet({ id, props = {}, mode = "fragment", origin = DROPLETS_U
     return () => target.replaceChildren();
   }, [id, mode, origin, propsKey]);
 
-  return <div ref={host} data-droplet-host={id} />;
+  return <div ref={host} data-react-host={id} />;
 }
 ```
 
@@ -195,7 +195,7 @@ element's `_data` request and a cross-origin `fetch` go out without
 credentials. When droplets need the visitor's cookies (a cart, a login),
 serve the droplets routes under the page's own origin instead. The shop pages
 of the React example do that: `vite dev`, `vite preview` and the image's
-nginx proxy `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` to the shop,
+nginx proxy `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and `/api/*` to the shop,
 with a fixed `x-droplet-location`, and the app loads `/index.js` from its own
 origin. The app's own build output then goes under another folder
 (`build.assetsDir: "app"`), since `/assets/*` is the droplets server's.

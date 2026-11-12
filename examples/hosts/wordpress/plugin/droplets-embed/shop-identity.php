@@ -13,8 +13,9 @@
  * query on wp-shop), `aud: "wp-shop"`. wp-shop's `handle` checks it.
  *
  * wp-shop → WordPress: its writes (stock and price) come back to the REST
- * API with `x-wp-shop-service`, the same format with `aud: "wordpress"`,
- * keyed with WP_SHOP_SERVICE_SECRET, a secret of its own: a leaked
+ * API with `x-wp-shop-service`, the same format with `aud: "wordpress"`
+ * and a `body` claim, the SHA-256 (hex) of the request body, so the header
+ * moves no other body; keyed with WP_SHOP_SERVICE_SECRET, a secret of its own: a leaked
  * `x-wp-shop-user` key does not sign writes, nor the other way round.
  * `determine_current_user` below runs such a request as that user, if the
  * user still can `manage_options`, and only for the routes in
@@ -149,12 +150,20 @@ function droplets_shop_user_assertion(string $method, string $path): ?string
 
 /**
  * The claims of `$header` when it is a valid assertion, keyed with
- * `$secret`, for `$aud`, this method and this path, else null. The MAC is
- * checked before anything is decoded; then plain `json_decode`, each
- * claim's type, the expiry.
+ * `$secret`, for `$aud`, this method, this path and, when `$body_sha256`
+ * is given, this body (its SHA-256, hex; a `body` claim must match it, and
+ * a header carrying one is no good for a check without it), else null. The
+ * MAC is checked before anything is decoded; then plain `json_decode`,
+ * each claim's type, the expiry.
  */
-function droplets_shop_verify_assertion(string $header, ?string $secret, string $aud, string $method, string $path): ?array
-{
+function droplets_shop_verify_assertion(
+    string $header,
+    ?string $secret,
+    string $aud,
+    string $method,
+    string $path,
+    ?string $body_sha256 = null
+): ?array {
     if ($secret === null || strlen($header) > DROPLETS_SHOP_ASSERTION_MAX) {
         return null;
     }
@@ -180,7 +189,8 @@ function droplets_shop_verify_assertion(string $header, ?string $secret, string 
         && is_int($claims['exp']) && $claims['exp'] > $now && $claims['exp'] <= $now + DROPLETS_SHOP_ASSERTION_SECONDS + 5
         && $claims['method'] === strtoupper($method)
         && $claims['path'] === $path
-        && $claims['aud'] === $aud;
+        && $claims['aud'] === $aud
+        && ($claims['body'] ?? null) === $body_sha256;
     return $ok ? $claims : null;
 }
 
@@ -189,7 +199,7 @@ $GLOBALS['droplets_shop_service_user'] = 0;
 
 /**
  * wp-shop's write back to the REST API: `x-wp-shop-service`, for this
- * method and path, names the admin it acts for. Only the requests in
+ * method, path and body, names the admin it acts for. Only the requests in
  * DROPLETS_SHOP_SERVICE_ROUTES (method and whole URI), with no method
  * override and no form fields; the user must exist and still be able to
  * `manage_options`. Anything else: the header is ignored, and WordPress's
@@ -210,7 +220,16 @@ add_filter('determine_current_user', static function ($user_id) {
     ) {
         return $user_id;
     }
-    $claims = droplets_shop_verify_assertion($header, droplets_shop_service_secret(), 'wordpress', $method, $uri);
+    // The body as sent: WordPress reads php://input again for the request.
+    $body = file_get_contents('php://input');
+    $claims = droplets_shop_verify_assertion(
+        $header,
+        droplets_shop_service_secret(),
+        'wordpress',
+        $method,
+        $uri,
+        hash('sha256', is_string($body) ? $body : '')
+    );
     if ($claims === null) {
         return $user_id;
     }

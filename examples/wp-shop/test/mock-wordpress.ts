@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { SERVICE_HEADER, verifyAssertion } from "../src/lib/server/host-identity.ts";
@@ -161,16 +162,18 @@ export async function startMockWordPress(options: { serviceSecret: string }) {
     }
     const write = /^\/wp-json\/wp\/v2\/products\/(\d+)$/.exec(url.pathname);
     if (request.method === "POST" && write) {
-      // As the plugin's `determine_current_user`: the signed header, or nobody.
+      // As the plugin's `determine_current_user`: the signed header, for this body, or nobody.
+      const raw = await readBody(request);
       const claims = await verifyAssertion(request.headers[SERVICE_HEADER] as string | undefined, options.serviceSecret, {
         aud: "wordpress",
         method: "POST",
         path: `${url.pathname}${url.search}`,
+        body: createHash("sha256").update(raw).digest("hex"),
       });
       if (!claims) return send(response, 401, { code: "rest_cannot_edit", message: "Sorry, you are not allowed to edit this post." });
       const product = state.products.find((p) => p.id === Number(write[1]));
       if (!product) return send(response, 404, { code: "rest_post_invalid_id" });
-      const { meta } = JSON.parse(await readBody(request)) as { meta: Partial<MockProduct["meta"]> };
+      const { meta } = JSON.parse(raw) as { meta: Partial<MockProduct["meta"]> };
       Object.assign(product.meta, meta);
       writes.push({ user: claims.sub, post: product.id, meta });
       return send(response, 200, productJson(product));

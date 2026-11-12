@@ -14,7 +14,7 @@ import os
 import re
 from http.cookiejar import CookieJar, DefaultCookiePolicy
 from pathlib import Path
-from urllib.parse import parse_qsl, quote, urlencode, urlsplit
+from urllib.parse import parse_qsl, quote, unquote, urlencode, urlsplit
 
 import httpx
 from fastapi import APIRouter, Request
@@ -33,12 +33,11 @@ SHOP_INTERNAL_URL = os.environ.get("SHOP_INTERNAL_URL", "http://localhost:8300")
 _public = urlsplit(os.environ.get("SHOP_PUBLIC_URL", "http://localhost:8001"))
 SHOP_ORIGIN = f"{_public.scheme}://{_public.netloc}"
 
-# What the browser's request may tell the shop; nothing that names a host.
+# What the browser's request may tell the shop; nothing that names a host. `cookie` goes on filtered.
 FORWARDED_REQUEST_HEADERS = [
     "accept",
     "accept-language",
     "content-type",
-    "cookie",
     "if-none-match",
     "origin",
     "referer",
@@ -56,6 +55,9 @@ DROPPED_RESPONSE_HEADERS = {
     "set-cookie",
     "transfer-encoding",
 }
+
+# The shop's own cookies, the only ones it is sent: another app's on this origin stay here.
+SHOP_COOKIES = ("cart_id", "shop_admin")
 
 router = APIRouter()
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
@@ -77,6 +79,19 @@ def _raw_target(request: Request) -> str:
     return f"{path}?{query}" if query else path
 
 
+def _shop_cookies(request: Request) -> str | None:
+    """The browser's `Cookie` header with the shop's cookies only, or None."""
+    pairs = (pair.strip() for pair in request.headers.get("cookie", "").split(";"))
+    kept = [pair for pair in pairs if pair.split("=", 1)[0].strip() in SHOP_COOKIES]
+    return "; ".join(kept) if kept else None
+
+
+def _has_dot_segment(request: Request) -> bool:
+    """A `.` or `..` segment, once decoded: never a shop route."""
+    path = request.scope["raw_path"].decode("latin-1")
+    return any(unquote(segment) in (".", "..") for segment in path.split("/"))
+
+
 def _set_cookies(response: Response, cookies: list[str]) -> None:
     # Untouched: the shop never sets Domain, so they belong to this origin.
     for cookie in cookies:
@@ -90,15 +105,22 @@ METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 
 
 @router.api_route("/index.js", methods=METHODS, include_in_schema=False)
+@router.api_route("/env.js", methods=METHODS, include_in_schema=False)
+@router.api_route("/index.css", methods=METHODS, include_in_schema=False)
 @router.api_route("/droplets/{rest:path}", methods=METHODS, include_in_schema=False)
 @router.api_route("/assets/{rest:path}", methods=METHODS, include_in_schema=False)
 @router.api_route("/api/{rest:path}", methods=METHODS, include_in_schema=False)
 async def proxy(request: Request) -> Response:
+    if _has_dot_segment(request):
+        return Response("Bad request.", status_code=400, media_type="text/plain")
     headers = {"x-droplet-location": SHOP_ORIGIN}
     for name in FORWARDED_REQUEST_HEADERS:
         value = request.headers.get(name)
         if value:
             headers[name] = value
+    cookie = _shop_cookies(request)
+    if cookie:
+        headers["cookie"] = cookie
     has_body = request.method not in ("GET", "HEAD")
     # Concatenated, not resolved: a path like `//elsewhere` stays a path on the shop.
     upstream_request = client.build_request(
@@ -135,9 +157,9 @@ async def fragment(request: Request, droplet: str, params: list[tuple[str, str]]
     page); anything else may echo the props, so it is never inserted.
     """
     url = f"{SHOP_INTERNAL_URL}/droplets/{quote(droplet, safe='')}?{urlencode(params or [])}"
-    # The browser's request, as the shop should see it: its cookies, this page as the host.
+    # The browser's request, as the shop should see it: its shop cookies, this page as the host.
     headers = {"accept": "text/html", "x-droplet-location": SHOP_ORIGIN, "referer": SHOP_ORIGIN + _raw_target(request)}
-    cookie = request.headers.get("cookie")
+    cookie = _shop_cookies(request)
     if cookie:
         headers["cookie"] = cookie
     result = {"html": Markup(""), "status": 502, "location": None, "cookies": [], "link": None}

@@ -113,6 +113,22 @@ describe("the catalogue, from WordPress", () => {
     expect(old.headers.get("location")).toBe(`${HOST}/product/brass-pen-holder`);
   });
 
+  it("renders an old v live, never a redirect, when the Referer is not a page on WordPress or wp-shop", async () => {
+    const stranger = "https://evil.example";
+    const strangers: Record<string, string>[] = [
+      { referer: `${stranger}/product/brass-pen-holder?v=0123456789` },
+      { referer: `${stranger}/p`, origin: stranger },
+    ];
+    for (const headers of strangers) {
+      const response = await call("/droplets/product-page?slug=brass-pen-holder&v=0123456789", {
+        headers: { accept: "text/html", ...headers },
+      });
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+      expect(await response.text()).toContain("<h1>Brass Pen Holder</h1>");
+    }
+  });
+
   it("prerenders full oldest-first comment pages, the rest live", async () => {
     const ids = async (query: string) => {
       const html = await (await call(`/droplets/product-comments?productId=p_10${query}`)).text();
@@ -229,6 +245,40 @@ describe("the cart, in wp-shop's SQLite", () => {
       headers: { origin: "http://evil.example" },
     });
     expect(response.status).toBe(403);
+  });
+});
+
+describe("the JSON API's input", () => {
+  it("takes __proto__ as data, never as a prototype", async () => {
+    const response = await call("/api/stock/check", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: `{"__proto__":{"ids":["p_10"],"polluted":1}}`,
+    });
+    expect(response.status).toBe(400);
+    expect(({} as Record<string, unknown>)["polluted"]).toBeUndefined();
+  });
+
+  it("refuses a body over the limit with 413", async () => {
+    const response = await call("/api/stock/check", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: `{"ids":["p_10"],"pad":"${"x".repeat(1024 * 1024)}"}`,
+    });
+    expect(response.status).toBe(413);
+  });
+
+  it("refuses a bad query with 400", async () => {
+    for (const path of [
+      "/api/products?limit=0",
+      "/api/products?limit=49",
+      "/api/products?sort=evil",
+      "/api/products?cursor=%00",
+      "/api/comments?productId=nope",
+      "/api/comments?productId=p_10&showing=7",
+    ]) {
+      expect((await call(path)).status, path).toBe(400);
+    }
   });
 });
 

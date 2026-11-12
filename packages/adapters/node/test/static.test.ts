@@ -31,6 +31,7 @@ describe("createStaticHandler", () => {
     expect(js.status).toBe(200);
     expect(js.headers.get("content-type")).toBe("application/javascript; charset=utf-8");
     expect(js.headers.get("cache-control")).toBe("public, max-age=2592000, immutable");
+    expect(js.headers.get("x-content-type-options")).toBe("nosniff");
     expect(await js.text()).toBe("export const a = 1;");
 
     const css = await app.request("/assets/style-abc.css");
@@ -48,6 +49,7 @@ describe("createStaticHandler", () => {
     expect(res.status).toBe(200);
     expect(await res.text()).toBe("<svg/>");
     expect(res.headers.get("content-type")).toBe("image/svg+xml");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
     expect(res.headers.get("cache-control")).toBe("no-cache");
     const etag = res.headers.get("etag") ?? expect.unreachable("an etag");
     expect(etag).toMatch(/^"[\w-]+"$/);

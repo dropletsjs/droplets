@@ -6,7 +6,7 @@
   Checked by: `package.json`.
 - wp-shop has no login of its own: the WordPress account is the admin, asserted by the plugin's signed `x-wp-shop-user`.
   Checked by: `test/unit.test.ts` ("x-wp-shop-user, the host-asserted identity"), `test/server.test.ts`.
-- `x-wp-shop-user` is read in this order: size cap and shape, the MAC, then `JSON.parse`, own keys into a prototype-less object, each claim's type, then `exp`, method, path and `aud`.
+- `x-wp-shop-user` is read in this order: size cap and shape, the MAC, then `JSON.parse`, own keys into a prototype-less object, each claim's type, then `exp`, method, path, `aud` and, on a write back, the body's SHA-256.
   Checked by: `test/unit.test.ts`.
 - Each direction has its own secret, 32+ bytes: `WP_SHOP_HOST_SECRET` (WordPress → wp-shop) and `WP_SHOP_SERVICE_SECRET` (wp-shop → WordPress); equal values refuse both.
   Checked by: `test/unit.test.ts` ("the two secrets").

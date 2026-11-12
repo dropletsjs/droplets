@@ -293,7 +293,12 @@ changes them. See [Body limits](/integrate/http-contract/#body-limits).
   route or anything under a `server/` folder that client code reaches,
   directly or through other modules, fails `vite build` and is refused by
   `vite dev`, with the import chain. Case does not matter: `Server/`,
-  `SERVER/` and `db.Server.ts` count as server files. A universal
+  `SERVER/` and `db.Server.ts` count as server files. The same holds for a
+  server file named as a file rather than imported as a module:
+  `new URL("./keys.server.json", import.meta.url)`, a CSS `url()`, a `?url`,
+  `?raw` or `?inline` import fails the build whether Vite would inline it as
+  a `data:` URI or emit it, and `vite dev` answers 403 when the browser asks
+  for one (`/src/lib/server/keys.txt`). A universal
   `+droplet.ts` runs in the browser and cannot import them. Dependencies in `node_modules` are not
   checked: keep secrets in your own server files.
 - Load results are inlined into the page. Never return a private value, a
@@ -353,8 +358,10 @@ actions and `+server.ts` handlers should too:
   (object literals, arrays, strings, finite numbers, booleans, `null`): a
   `Date`, a class instance or a function answers `500`. A signed form
   result is parsed with plain `JSON.parse` and copied into objects without
-  prototypes, `__proto__` dropped; enhanced forms read an answer with own
-  keys only.
+  prototypes, `__proto__` dropped; props and `form` from a JSON body or
+  `x-droplet-props` are copied the same way, as ordinary objects without an
+  own `__proto__` key and at most 64 levels deep; enhanced forms read an
+  answer with own keys only.
 - **Own properties only.** An action name is looked up as an own function of
   a plain `actions` object, and must match `[A-Za-z_][\w-]*`: `__proto__`,
   `constructor` or `toString` answer `404`. Manifest and registry lookups use

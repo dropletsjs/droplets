@@ -103,21 +103,22 @@ in Chromium, each embedded in a host page on another origin
 - Props schema: `who`, a trimmed string of at most 200 characters, default `world`. `svelte/src/lib/props.ts:11`
 - Server load answers 404 for a `who` longer than 40 characters. `svelte/src/lib/server/facts.ts:21`
 - Server load throws for `who=crash`, which renders the error page. `svelte/src/lib/server/facts.ts:23`
+- Universal load of `ssr-hydrate` and `ssr-nohydrate` adds `greeting` (`Hello <who>!`) to the server's facts; the card shows it. `svelte/src/droplets/ssr-hydrate/+droplet.ts:11`, `svelte/src/lib/types.ts:19`
 - Error page content comes from `handleError` in `ssr-hydrate/+droplet.server.ts`; the original error stays on the server. `svelte/src/droplets/ssr-hydrate/+droplet.server.ts:10`
 - Counter is one in-memory value per server process, shared by every droplet. `svelte/src/lib/server/counter.ts:6`
-- `POST /api/counter` adds `by` when it is an integer within ±100, else 1. `svelte/src/api/counter/+server.ts:10`
+- `POST /api/counter` takes one JSON object of at most 64 bytes (413 above); its own `by` is an integer within ±100, 1 when left out; anything else is 400. `svelte/src/api/counter/+server.ts:5`, `svelte/src/api/counter/+server.ts:32`, `svelte/src/api/counter/+server.ts:34`
 - `GET /api/env` answers what the private variables tell, never their values. `svelte/src/api/env/+server.ts:5`, `svelte/src/lib/server/facts.ts:8`
 - `GET /api/greet/<name>` answers 400 for a name longer than 40 characters. `svelte/src/api/greet/[name]/+server.ts:5`
 - `$droplets/drop` `droplet.url(path)` points API calls at the droplets server, not the host page. `svelte/src/lib/api.ts:10`
 - Env variables: `API_TOKEN` private runtime, `BUILD_CHANNEL` private static, `PUBLIC_SITE_NAME` public static, `PUBLIC_BANNER` public runtime. `svelte/src/env.ts:9`
 - `.env` holds demo values for `PUBLIC_SITE_NAME`, `PUBLIC_BANNER` and `BUILD_CHANNEL`, no secret. `svelte/.env:5`
-- `handle` hook sets `event.locals.requestId` (8 characters) and the `x-request-id` response header. `svelte/src/hooks.server.ts:15`, `svelte/src/hooks.server.ts:19`
+- `handle` hook sets `event.locals.requestId` (8 characters) and the `x-request-id` response header. `svelte/src/hooks.server.ts:15`, `svelte/src/hooks.server.ts:18`
 - Svelte example adds the `page-views` script droplet, its props a slug `page` defaulting to `home`. `svelte/src/droplets/page-views/+droplet.ts:9`
 - `POST /api/page-views` takes `application/json` only (415), at most 256 bytes (413), one own `page` slug (400). `svelte/src/api/page-views/+server.ts:27`, `svelte/src/api/page-views/+server.ts:31`, `svelte/src/api/page-views/+server.ts:42`
 - Lit example adds `guestbook`, a default form action that answers `fail(422)` without a name. `lit/src/droplets/guestbook/+droplet.server.ts:8`
 - Wrangler config: `main` is `dist/worker.js`, `nodejs_compat` on, the `ASSETS` binding over `dist/client`, no `run_worker_first`: static assets answer the build's files with `dist/client/_headers`. `svelte/wrangler.jsonc:4`, `svelte/wrangler.jsonc:7`, `svelte/wrangler.jsonc:10`
 - `typecheck` runs `djs sync` first; Svelte uses `svelte-check`, Vue `vue-tsc`, the others `tsc`. `svelte/package.json:22`, `vue/package.json:22`, `react/package.json:22`
-- Droplets packages are `workspace:*` dependencies inside the repository. `svelte/package.json:25`
+- Droplets packages are `workspace:*` dependencies inside the repository; the renderer is a `dependencies` entry, the adapters and devtools `devDependencies`. `svelte/package.json:25`, `svelte/package.json:26`, `svelte/package.json:31`
 - Dockerfile builds the example named by `EXAMPLE`, `svelte` by default. `Dockerfile:24`
 - Dockerfile compiles the packages with `build:dist` (no unit tests) before the example's `build`. `Dockerfile:35`
 - Docker image runs `node dist/server.js` as user `node` on port 8000. `Dockerfile:45`, `Dockerfile:46`, `Dockerfile:47`

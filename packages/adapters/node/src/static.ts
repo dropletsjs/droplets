@@ -66,6 +66,7 @@ export function createStaticHandler({ clientRoot, publicCacheControl = "no-cache
       return c.text("Not Found", 404);
     }
     c.header("content-type", contentTypeOf({ path: filePath }));
+    c.header("x-content-type-options", "nosniff");
     if (!filePath.startsWith(publicPrefix)) {
       c.header("cache-control", "public, max-age=2592000, immutable");
       return c.body(new Uint8Array(body));

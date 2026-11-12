@@ -4,7 +4,7 @@ import type { HandleDropletError } from "$droplets/server";
 export { load } from "../../lib/server/facts.ts";
 
 /**
- * What `+error.tsx` shows when the load throws. It runs on the server
+ * What `+error.lit.ts` shows when the load throws. It runs on the server
  * only, so the original error never reaches the page.
  */
 export const handleError = (() => ({

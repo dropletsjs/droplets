@@ -17,6 +17,7 @@
  */
 import type { DevLog } from "./dev-log.ts";
 import { ACTION_NAME } from "./form.ts";
+import { plainJson } from "./plain-json.ts";
 
 /** How long a minted result is honoured. */
 export const FORM_RESULT_TTL_MS = 5 * 60 * 1000;
@@ -31,7 +32,6 @@ const VERSION = "droplets-form-v2";
 /** base64url without padding, one `.`, then 32 bytes of MAC (43 characters). */
 const SHAPE = /^([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]{43})$/;
 const FORBIDDEN_NAMES = new Set(["__proto__", "constructor", "prototype"]);
-const MAX_DEPTH = 64;
 
 const encoder = new TextEncoder();
 
@@ -141,42 +141,6 @@ export async function mintFormResult({ secret, scope, result, now = Date.now() }
   return { value: await seal({ secret, scope, body: base }), dropped: false };
 }
 
-/** Marks a value `plainCopy` refuses. */
-const REFUSED = Symbol("refused");
-
-type PlainCopyInput = { value: unknown; depth?: number };
-
-/**
- * Plain JSON data, copied: arrays as arrays, objects as null-prototype
- * objects without a `__proto__` key. What `JSON.parse` gave cannot hold
- * anything else, but nothing is taken on trust.
- */
-function plainCopy({ value, depth = 0 }: PlainCopyInput): unknown {
-  if (depth > MAX_DEPTH) return REFUSED;
-  if (value === null || typeof value === "string" || typeof value === "boolean") return value;
-  if (typeof value === "number") return Number.isFinite(value) ? value : REFUSED;
-  if (Array.isArray(value)) {
-    const items: unknown[] = [];
-    for (const item of value) {
-      const copy = plainCopy({ value: item, depth: depth + 1 });
-      if (copy === REFUSED) return REFUSED;
-      items.push(copy);
-    }
-    return items;
-  }
-  if (typeof value !== "object") return REFUSED;
-  const proto: unknown = Object.getPrototypeOf(value);
-  if (proto !== Object.prototype && proto !== null) return REFUSED;
-  const copy = Object.create(null) as Record<string, unknown>;
-  for (const key of Object.keys(value)) {
-    if (key === "__proto__") continue;
-    const item = plainCopy({ value: (value as Record<string, unknown>)[key], depth: depth + 1 });
-    if (item === REFUSED) return REFUSED;
-    copy[key] = item;
-  }
-  return copy;
-}
-
 export type ReadFormResultInput = { secret: string; scope: FormResultScope; value: unknown; now?: number };
 
 /**
@@ -225,8 +189,8 @@ export async function readFormResult({ secret, scope, value, now = Date.now() }:
   result.action = action;
   result.status = status;
   if (Object.hasOwn(record, "data")) {
-    const data = plainCopy({ value: record["data"] });
-    if (data === REFUSED) return null;
+    const data = plainJson({ value: record["data"], nullPrototype: true });
+    if (data === undefined) return null;
     result.data = data;
   }
   return result;

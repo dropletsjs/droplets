@@ -34,6 +34,7 @@ export default function ShoppingCart({ data, form }: DropletProps) {
   const [checked, setChecked] = useState<StockCheck | null>(null);
   const [checking, setChecking] = useState(false);
   const close = useRef<HTMLButtonElement>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
   // Its own forms, enhanced: a result with the cart shows in place, the
   // drawer stays open; anything else renders the droplet with `form`.
   // Named with the droplet and its props: the component may suspend on
@@ -95,7 +96,11 @@ export default function ShoppingCart({ data, form }: DropletProps) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: the check runs when the cart opens, not on every change to it.
   useEffect(() => {
     if (!open && !inline) return;
-    if (!inline) close.current?.focus();
+    if (!inline) {
+      // Modal: the page behind is inert; Escape and a click on the backdrop (`closedby`) close it.
+      dialog.current?.showModal();
+      close.current?.focus();
+    }
     // What the check takes at most (50): a line past that keeps its own figures.
     const ids = cart.items.slice(0, 50).map((line) => line.productId);
     // Closed before the answer: it is not shown.
@@ -108,12 +113,9 @@ export default function ShoppingCart({ data, form }: DropletProps) {
         .catch(() => {})
         .finally(() => current && setChecking(false));
     }
-    const onKey = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
-    window.addEventListener("keydown", onKey);
     return () => {
       current = false;
       setChecking(false);
-      window.removeEventListener("keydown", onKey);
     };
   }, [open, inline]);
 
@@ -146,7 +148,7 @@ export default function ShoppingCart({ data, form }: DropletProps) {
                   <button type="submit" className="button" name="qty" value={line.qty - 1} aria-label="One less">
                     −
                   </button>
-                  <span aria-label="Quantity">{line.qty}</span>
+                  <output aria-label="Quantity">{line.qty}</output>
                   <button
                     type="submit"
                     className="button"
@@ -227,19 +229,16 @@ export default function ShoppingCart({ data, form }: DropletProps) {
       </button>
 
       {open ? (
-        <div className="cart-layer">
-          <div className="cart-backdrop" onClick={() => setOpen(false)} />
-          <aside className="cart-drawer" role="dialog" aria-modal="true" aria-label="Your cart">
-            <header>
-              <h2>Your cart {cart.count ? `(${cart.count})` : ""}</h2>
-              <button ref={close} type="button" className="cart-close" aria-label="Close" onClick={() => setOpen(false)}>
-                ×
-              </button>
-            </header>
+        <dialog ref={dialog} className="cart-drawer" aria-label="Your cart" closedby="any" onClose={() => setOpen(false)}>
+          <header>
+            <h2>Your cart {cart.count ? `(${cart.count})` : ""}</h2>
+            <button ref={close} type="button" className="cart-close" aria-label="Close" onClick={() => setOpen(false)}>
+              ×
+            </button>
+          </header>
 
-            {panel}
-          </aside>
-        </div>
+          {panel}
+        </dialog>
       ) : null}
     </div>
   );

@@ -59,7 +59,7 @@ async def fragment(request: Request, droplet: str, params: list[tuple[str, str]]
 - Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
   page) becomes `Markup`, which Jinja prints unescaped.
 - `templates/shop/layout.html` loads `/index.js` once. One handler, `proxy`,
-  passes `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` on to the shop.
+  passes `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and `/api/*` on to the shop.
 
 ## The shop demo, recorded
 
@@ -128,6 +128,8 @@ each droplet takes: the whole query to `product-filter` and
 METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 
 @router.api_route("/index.js", methods=METHODS, include_in_schema=False)
+@router.api_route("/env.js", methods=METHODS, include_in_schema=False)
+@router.api_route("/index.css", methods=METHODS, include_in_schema=False)
 @router.api_route("/droplets/{rest:path}", methods=METHODS, include_in_schema=False)
 @router.api_route("/assets/{rest:path}", methods=METHODS, include_in_schema=False)
 @router.api_route("/api/{rest:path}", methods=METHODS, include_in_schema=False)
@@ -136,13 +138,16 @@ async def proxy(request: Request) -> Response:
     …
 ```
 
-`proxy` covers `/index.js`, `/droplets/*` (fragments, `_data`, form
+`proxy` covers `/index.js`, `/env.js`, `/index.css`, `/droplets/*` (fragments, `_data`, form
 actions), `/assets/*` and `/api/*`. It sends the shop `x-droplet-location`
 written out and only these of the browser's headers: `accept`,
-`accept-language`, `content-type`, `cookie`, `if-none-match`, `origin`,
-`referer`, `user-agent`, `x-droplet-props` and `x-droplets-build`. The
-target is the raw path and query concatenated onto `SHOP_INTERNAL_URL`, never
-resolved, so `//elsewhere` stays a path on the shop. The request body and the
+`accept-language`, `content-type`, `if-none-match`, `origin`, `referer`,
+`user-agent`, `x-droplet-props` and `x-droplets-build`, plus `cookie` cut
+down to the shop's own `cart_id` and `shop_admin`, so another app's cookie
+on this origin stays here. The target is the raw path and query
+concatenated onto `SHOP_INTERNAL_URL`, never resolved, so `//elsewhere` stays
+a path on the shop; a path with a `.` or `..` segment, once decoded, is
+refused with `400`. The request body and the
 answer are streamed (`client.send(…, stream=True)` into a
 `StreamingResponse`); the answer keeps its status, every `Set-Cookie` and
 any redirect, without `connection`, `keep-alive`, `transfer-encoding`,
@@ -202,15 +207,22 @@ IDS = ["client", "ssr-hydrate", "ssr-nohydrate"]
 async def fetch_droplet(client: httpx.AsyncClient, droplet: str, **props: str) -> Markup:
     query = f"?{urlencode(props)}" if props else ""
     try:
+        # Never follows a redirect (the client's default).
         response = await client.get(
-            f"{DROPLETS_INTERNAL_URL}/droplets/{droplet}{query}",
-            headers={"x-droplet-location": DROPLETS_PUBLIC_URL},
+            f"{DROPLETS_INTERNAL_URL}/droplets/{quote(droplet, safe='')}{query}",
+            headers={"accept": "text/html", "x-droplet-location": DROPLETS_PUBLIC_URL},
             timeout=5.0,
         )
-        response.raise_for_status()
-        return Markup(response.text)
     except httpx.HTTPError as error:
-        return Markup(f'<p class="error">droplet "{droplet}" unavailable: {error}</p>')
+        # The error names the internal URL: it goes to the log, not the page.
+        print(f"[droplets] {droplet}: {error!r}")
+        return Markup('<p class="error">droplet "{}" unavailable</p>').format(droplet)
+    # Only an HTML answer is a fragment (a 500 carries the droplet's error
+    # page); anything else may echo the props, so it is never pasted.
+    is_html = response.headers.get("content-type", "").startswith("text/html")
+    if (response.is_success or response.status_code == 500) and is_html:
+        return Markup(response.text)
+    return Markup('<p class="error">droplet "{}" unavailable: HTTP {}</p>').format(droplet, response.status_code)
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, who: str = "FastAPI") -> HTMLResponse:
@@ -233,9 +245,12 @@ async def index(request: Request, who: str = "FastAPI") -> HTMLResponse:
 {% endfor %}
 ```
 
-`Markup` marks the fragment as safe, so Jinja does not escape it. A non-2xx
-answer or a failed request (`raise_for_status()`, `httpx.HTTPError`) prints
-an error paragraph instead. Here the page loads `/index.js` from the droplets
+`Markup` marks the fragment as safe, so Jinja does not escape it. Only a
+`text/html` answer is pasted (a 2xx, or a 500 carrying the droplet's error
+page); any other answer prints an error paragraph with its status, built
+with `Markup.format` so the id is escaped. A failed request
+(`httpx.HTTPError`) prints a fixed one and logs the error, since its message
+names the internal URL. Here the page loads `/index.js` from the droplets
 server's public URL, another origin than the page, so the Svelte example
 runs with `cors: true` and `DROPLETS_TRUSTED_ORIGINS` lists both
 `DROPLETS_URL` and this host's `WEB_URL`. The same fetch works from Flask,

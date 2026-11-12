@@ -119,7 +119,7 @@ test.describe("every droplet, embedded from another origin", () => {
 test("the props schema runs before every server load", async ({ request }) => {
   const example = exampleOf();
   const droplets = dropletsOf(example);
-  // lib/props.ts trims `who` and defaults it.
+  // lib/props.ts trims `who` and defaults it; the universal load in +droplet.ts then derives the greeting on the server.
   expect(await textOf(await request.get(`${droplets}/droplets/ssr-nohydrate?who=%20%20Ana%20%20`))).toContain("Hello Ana!");
   expect(await textOf(await request.get(`${droplets}/droplets/ssr-hydrate`))).toContain("Hello world!");
   // A POST body can carry any JSON; a number is refused before the load runs.
@@ -264,8 +264,24 @@ test("a droplet the host writes itself mounts in the browser, data and all", asy
   const watch = await open(page, "written");
   const it = card(page, "ssr-hydrate");
   await expect(it).toBeVisible();
+  // The greeting is the universal load's output: here it ran in the browser, on the server load's _data.
   await expect(it.locator(".card-greeting")).toHaveText("Hello Writer!");
   await expect(it.getByTestId("banner")).toHaveText("from the e2e run");
   if (interactive(exampleOf())) await expect(it.getByTestId("hydrated")).toHaveText("yes");
   expect(watch.errors).toEqual([]);
+});
+
+test("the counter's API takes plain data only", async ({ request }) => {
+  const url = `${dropletsOf(exampleOf())}/api/counter`;
+  const post = (data: string) => request.post(url, { data, headers: { "content-type": "application/json" } });
+  const read = async () => ((await (await request.get(url)).json()) as { count: number }).count;
+  const before = await read();
+  expect(((await (await post('{"by":2}')).json()) as { count: number }).count).toBe(before + 2);
+  // `__proto__` is an own field like any other: it holds no `by`, so the count moves by 1.
+  expect(((await (await post('{"__proto__":{"by":50}}')).json()) as { count: number }).count).toBe(before + 3);
+  for (const body of ["null", "[]", '"5"', "nope", '{"by":"5"}', '{"by":1000}', '{"by":1.5}']) {
+    expect((await post(body)).status(), body).toBe(400);
+  }
+  expect((await post(`{"by":1,"pad":"${"a".repeat(100)}"}`)).status()).toBe(413);
+  expect(await read()).toBe(before + 3);
 });

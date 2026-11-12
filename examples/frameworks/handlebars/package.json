@@ -23,8 +23,7 @@
   },
   "dependencies": {
     "@dropletsjs/droplets": "workspace:*",
-    "handlebars": "^4.7.10",
-    "hono": "^4.13.16",
+    "@dropletsjs/renderer-handlebars": "workspace:*",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -33,7 +32,6 @@
     "@dropletsjs/adapter-deno": "workspace:*",
     "@dropletsjs/adapter-node": "workspace:*",
     "@dropletsjs/devtools": "workspace:*",
-    "@dropletsjs/renderer-handlebars": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "tailwindcss": "catalog:",

@@ -94,7 +94,7 @@ The pages are `/gallery` (hero, `product-filter`, `product-library`),
 and `/admin`; [`CONTRACT.md`](../shop/CONTRACT.md) says which
 props each takes from the page's URL.
 
-Each host proxies `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` to the
+Each host proxies `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and `/api/*` to the
 shop under its own origin, so the cart and admin cookies are first-party and
 nothing is cross-origin, with a fixed `x-droplet-location` (the host's public
 origin, never the request's Host). Hosts that render on the server fetch the

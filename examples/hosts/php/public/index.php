@@ -37,14 +37,18 @@ if ($path === '/' && in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD
     $ids = ['client', 'ssr-hydrate', 'ssr-nohydrate'];
     $responses = http_all(array_map(static fn(string $id) => [
         'url' => $droplets_internal . '/droplets/' . rawurlencode($id) . '?' . http_build_query(['who' => $who]),
-        'headers' => ['x-droplet-location' => $droplets_public],
+        'headers' => ['accept' => 'text/html', 'x-droplet-location' => $droplets_public],
     ], $ids), 5);
     $fragments = [];
     foreach ($ids as $index => $id) {
         $response = $responses[$index];
-        $fragments[] = $response['status'] === 200
+        // Only an HTML answer is a fragment (a 500 carries the droplet's error
+        // page); anything else may echo the props, so it is never pasted.
+        $status = $response['status'];
+        $is_html = str_starts_with((string) http_header($response, 'content-type'), 'text/html');
+        $fragments[] = (($status >= 200 && $status < 300) || $status === 500) && $is_html
             ? $response['body'] // trusted markup from the droplets server; never escaped
-            : sprintf('<p class="error">droplet "%s" unavailable: %s</p>', h($id), $response['status'] ? 'HTTP ' . $response['status'] : 'unreachable');
+            : sprintf('<p class="error">droplet "%s" unavailable: %s</p>', h($id), $status ? 'HTTP ' . $status : 'unreachable');
     }
     echo view('index', ['droplets_public' => $droplets_public, 'fragments' => $fragments]);
     return;

@@ -27,14 +27,18 @@ def fetch_droplet(droplet, props = {})
   uri = URI("#{DROPLETS_INTERNAL_URL}/droplets/#{droplet}")
   uri.query = URI.encode_www_form(props) unless props.empty?
 
-  response = Net::HTTP.start(uri.host, uri.port, read_timeout: 5) do |http|
-    http.get(uri.request_uri, { "x-droplet-location" => DROPLETS_PUBLIC_URL })
+  # Net::HTTP never follows a redirect.
+  response = Net::HTTP.start(uri.host, uri.port, open_timeout: 5, read_timeout: 5) do |http|
+    http.get(uri.request_uri, { "accept" => "text/html", "x-droplet-location" => DROPLETS_PUBLIC_URL })
   end
-  return response.body if response.is_a?(Net::HTTPSuccess)
+  # Only an HTML answer is a fragment (a 500 carries the droplet's error
+  # page); anything else may echo the props, so it is never pasted.
+  is_html = response["content-type"].to_s.start_with?("text/html")
+  return response.body if (response.is_a?(Net::HTTPSuccess) || response.code == "500") && is_html
 
-  %(<p class="error">droplet "#{droplet}" unavailable: HTTP #{response.code}</p>)
+  %(<p class="error">droplet "#{Rack::Utils.escape_html(droplet)}" unavailable: HTTP #{response.code}</p>)
 rescue StandardError => e
-  %(<p class="error">droplet "#{droplet}" unavailable: #{Rack::Utils.escape_html(e.message)}</p>)
+  %(<p class="error">droplet "#{Rack::Utils.escape_html(droplet)}" unavailable: #{Rack::Utils.escape_html(e.message)}</p>)
 end
 
 get "/" do

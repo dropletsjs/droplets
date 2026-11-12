@@ -213,6 +213,57 @@ describe("server files in the client build", () => {
     await expect(build(root)).rejects.toThrow(/src\/hooks\.client\.js -> src\/lib\/util\.js -> src\/lib\/server\/keys\.js/);
   }, 90_000);
 
+  describe("reached as a file, not a module", () => {
+    const LARGE = `export const secret = ${JSON.stringify("sk_live_do_not_ship".repeat(400))};\n`;
+
+    it("fails on new URL(…, import.meta.url) of a server file, inlined as data: or emitted as an asset", async () => {
+      const inlined = await built({
+        "src/droplets/card/+droplet.fake.js":
+          "const url = new URL('../../lib/server/keys.js', import.meta.url);\nexport default () => `<a href=${url}>card</a>`;\n",
+        "src/lib/server/keys.js": SECRET,
+      });
+      await expect(build(inlined)).rejects.toThrow(/src\/lib\/server\/keys\.js is server code and cannot reach the browser/);
+      const emitted = await built({
+        "src/droplets/card/+droplet.fake.js":
+          "const url = new URL('./keys.server.js', import.meta.url);\nexport default () => `<a href=${url}>card</a>`;\n",
+        "src/droplets/card/keys.server.js": LARGE,
+      });
+      await expect(build(emitted)).rejects.toThrow(/src\/droplets\/card\/keys\.server\.js is server code and cannot reach the browser/);
+    }, 90_000);
+
+    it("fails on ?url, ?raw and ?inline imports of a server file", async () => {
+      for (const query of ["?url", "?raw", "?inline"]) {
+        const root = await built({
+          "src/droplets/card/+droplet.fake.js": `import value from './keys.server.txt${query}';\nexport default () => \`<p>\${value}</p>\`;\n`,
+          "src/droplets/card/keys.server.txt": "sk_live_do_not_ship\n",
+        });
+        await expect(build(root), query).rejects.toThrow(
+          /src\/droplets\/card\/keys\.server\.txt is server code and cannot reach the browser/,
+        );
+      }
+    }, 120_000);
+
+    it("fails on a CSS url() of a server file", async () => {
+      const root = await built({
+        "src/droplets/card/+droplet.fake.js": "import './card.css';\nexport default () => `<p class=card>card</p>`;\n",
+        "src/droplets/card/card.css": ".card { background: url(../../lib/server/bg.svg); }\n",
+        "src/lib/server/bg.svg": "<svg xmlns='http://www.w3.org/2000/svg'><text>sk_live_do_not_ship</text></svg>\n",
+      });
+      await expect(build(root)).rejects.toThrow(/src\/lib\/server\/bg\.svg is server code and cannot reach the browser/);
+    }, 90_000);
+
+    it("builds a look-alike referenced as a file", async () => {
+      const root = await built({
+        "src/droplets/card/+droplet.fake.js":
+          "import raw from '../../lib/observer.txt?raw';\nconst url = new URL('../../lib/webserver.svg', import.meta.url);\nexport default () => `<p>${raw}${url}</p>`;\n",
+        "src/lib/observer.txt": "ok\n",
+        "src/lib/webserver.svg": "<svg xmlns='http://www.w3.org/2000/svg'/>\n",
+      });
+      await build(root);
+      expect(existsSync(join(root, "dist/client/droplets/card/client.js"))).toBe(true);
+    }, 90_000);
+  });
+
   it("fails when src/hooks.client.ts imports $droplets/env/private", async () => {
     const root = await built({
       "src/hooks.client.ts": "import { env } from '$droplets/env/private';\nexport const init = () => { void env; };\n",
@@ -241,6 +292,7 @@ describe("server files in the client build", () => {
         "src/shared/SERVER/count.js": "export const n = 1;\n",
         "src/droplets/card/mixed.js": "import { secret } from './keys.Server.ts';\nexport const mixed = secret;\n",
         "src/droplets/card/keys.Server.ts": SECRET,
+        "src/lib/server/secret.txt": "sk_live_do_not_ship\n",
       });
       server = await createServer({
         root,
@@ -299,5 +351,47 @@ describe("server files in the client build", () => {
     it("lets the SSR environment import them", async () => {
       await expect(server.environments.ssr.transformRequest("/src/droplets/card/+droplet.ts")).resolves.toBeTruthy();
     });
+
+    it("refuses a server file asked for directly, with any query", async () => {
+      for (const url of [
+        "/src/droplets/card/db.server.ts",
+        "/src/droplets/card/db.server.ts?raw",
+        "/src/droplets/card/db.server.ts?url",
+        "/src/lib/server/count.js",
+        "/src/shared/SERVER/count.js?import",
+      ]) {
+        await expect(server.environments.client.transformRequest(url), url).rejects.toThrow(/is server code and cannot reach the browser/);
+      }
+      await expect(server.environments.ssr.transformRequest("/src/lib/server/count.js?raw")).resolves.toBeTruthy();
+    });
+
+    it("refuses a server file the browser fetches as a file", async () => {
+      const listening = await createServer({
+        root,
+        configFile: false,
+        logLevel: "silent",
+        plugins: [droplets({ renderers: [fakeRenderer()] })],
+        server: { port: 0, host: "127.0.0.1", hmr: false, watch: null },
+      });
+      await listening.listen();
+      try {
+        const base = listening.resolvedUrls?.local[0] ?? expect.unreachable("a dev server URL");
+        for (const path of [
+          "/src/droplets/card/db.server.ts",
+          "/src/lib/server/count.js?t=1",
+          "/src/lib/keys.server.tsx",
+          "/src/shared/SERVER/count.js",
+          "/src/lib/server/secret.txt",
+          "/src/lib/%73erver/secret.txt",
+        ]) {
+          const res = await fetch(new URL(path, base));
+          expect(res.status, path).toBe(403);
+          expect(await res.text(), path).not.toContain("sk_live_do_not_ship");
+        }
+        expect((await fetch(new URL("/src/droplets/card/+droplet.fake.js", base))).status).toBe(200);
+      } finally {
+        await listening.close();
+      }
+    }, 30_000);
   });
 });

@@ -47,17 +47,38 @@ function toJson({ text }: ToJsonInput): string {
   return out.replace(/,(\s*[}\]])/g, "$1");
 }
 
-type ReadRunWorkerFirstInput = { file: string; text: string };
+type ReadWranglerConfigInput = { file: string; text: string };
 
-/** `assets.run_worker_first` of a wrangler config's text, `undefined` when it is not set; throws when the text does not parse. */
-function readRunWorkerFirst({ file, text }: ReadRunWorkerFirstInput): unknown {
+/** What the adapter reads of a wrangler config: each `undefined` when it is not set. */
+type WranglerConfig = { runWorkerFirst: unknown; compatibilityFlags: unknown };
+
+type TomlValueInput = { section: string; key: string };
+
+/** The JSON value of `key = …` in a TOML section's text (`[`, `]`, strings, booleans), `undefined` when the line is absent. */
+function tomlValue({ section, key }: TomlValueInput): unknown {
+  const value = new RegExp(`^\\s*${key}\\s*=\\s*(.+?)\\s*(?:#.*)?$`, "m").exec(section)?.[1];
+  return value === undefined ? undefined : JSON.parse(value.replace(/'/g, '"'));
+}
+
+/** `assets.run_worker_first` and the top-level `compatibility_flags` of a wrangler config's text; throws when the text does not parse. */
+function readWranglerConfig({ file, text }: ReadWranglerConfigInput): WranglerConfig {
   if (file.endsWith(".toml")) {
-    const section = /^\[assets\]\s*$([\s\S]*?)(?=^\[|(?![\s\S]))/m.exec(text)?.[1] ?? "";
-    const value = /^\s*run_worker_first\s*=\s*(.+?)\s*(?:#.*)?$/m.exec(section)?.[1];
-    return value === undefined ? undefined : JSON.parse(value.replace(/'/g, '"'));
+    const top = /^([\s\S]*?)(?=^\[|(?![\s\S]))/m.exec(text)?.[1] ?? "";
+    const assets = /^\[assets\]\s*$([\s\S]*?)(?=^\[|(?![\s\S]))/m.exec(text)?.[1] ?? "";
+    return {
+      runWorkerFirst: tomlValue({ section: assets, key: "run_worker_first" }),
+      compatibilityFlags: tomlValue({ section: top, key: "compatibility_flags" }),
+    };
   }
-  const config = JSON.parse(toJson({ text })) as { assets?: { run_worker_first?: unknown } };
-  return config.assets?.run_worker_first;
+  const config = JSON.parse(toJson({ text })) as { assets?: { run_worker_first?: unknown }; compatibility_flags?: unknown };
+  return { runWorkerFirst: config.assets?.run_worker_first, compatibilityFlags: config.compatibility_flags };
+}
+
+type HasNodeCompatInput = { flags: unknown };
+
+/** Whether `compatibility_flags` turns Node compatibility on (`nodejs_compat`, or an older `nodejs_compat_v2`). */
+function hasNodeCompat({ flags }: HasNodeCompatInput): boolean {
+  return Array.isArray(flags) && flags.some((flag) => typeof flag === "string" && flag.startsWith("nodejs_compat"));
 }
 
 const DEPLOYMENT_DOCS = "https://dropletsjs.dev/guides/deployment/";
@@ -74,7 +95,7 @@ type HeadersBlockInput = { publicCacheControl: string | false };
  */
 function headersBlock({ publicCacheControl }: HeadersBlockInput): string {
   const files = (path: string, cacheControl: string) =>
-    `${path}\n  Access-Control-Allow-Origin: *\n  ! Cache-Control\n  Cache-Control: ${cacheControl}\n`;
+    `${path}\n  Access-Control-Allow-Origin: *\n  X-Content-Type-Options: nosniff\n  ! Cache-Control\n  Cache-Control: ${cacheControl}\n`;
   const publicRule = `/assets/public/*\n  ! Cache-Control\n${publicCacheControl === false ? "" : `  Cache-Control: ${publicCacheControl}\n`}`;
   return [
     files("/index.js", "no-store"),
@@ -247,17 +268,24 @@ export function cloudflare(options: CloudflareAdapterOptions = {}): DropletsAdap
         );
         return;
       }
-      let value: unknown;
+      let read: WranglerConfig;
       try {
-        value = readRunWorkerFirst({ file, text: await readFile(resolve(root, file), "utf8") });
+        read = readWranglerConfig({ file, text: await readFile(resolve(root, file), "utf8") });
       } catch {
         // Text this reader does not parse (broken JSON, a TOML value JSON does not take): warn, never fail the build.
         logger.warn(
           "framework",
-          `could not read assets.run_worker_first in ${file}; leave it out so static assets serve the build's files with dist/client/_headers, see ${DEPLOYMENT_DOCS}#run_worker_first`,
+          `could not read ${file} (assets.run_worker_first, compatibility_flags); leave run_worker_first out so static assets serve the build's files with dist/client/_headers, and set compatibility_flags to ["nodejs_compat"], see ${DEPLOYMENT_DOCS}#cloudflare-workers`,
         );
         return;
       }
+      if (!hasNodeCompat({ flags: read.compatibilityFlags })) {
+        logger.warn(
+          "framework",
+          `${file}: compatibility_flags has no "nodejs_compat", so the Worker has no AsyncLocalStorage and requests that overlap share one request store; set "compatibility_flags": ["nodejs_compat"], see ${DEPLOYMENT_DOCS}#cloudflare-workers`,
+        );
+      }
+      const value = read.runWorkerFirst;
       const matched = workerFirstPaths({ value, paths: await filePaths({ manifestPath }) });
       if (matched.length > 0) {
         const shown = matched.length > 5 ? `${matched.slice(0, 5).join(", ")}, …` : matched.join(", ");

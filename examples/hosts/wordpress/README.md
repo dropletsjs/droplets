@@ -84,7 +84,7 @@ droplets, with WordPress holding the data.
   on fragment fetches and proxied `/droplets/*` and `/api/*` requests; an
   unsafe request gets one only with this site's `Origin`. wp-shop's writes
   back to the REST API carry `x-wp-shop-service` (`WP_SHOP_SERVICE_SECRET`,
-  a secret of its own), honoured in `determine_current_user` for
+  a secret of its own, for one method, path and body), honoured in `determine_current_user` for
   `POST /wp-json/wp/v2/products/<id>` only and checked again in
   `rest_pre_dispatch`.
 
@@ -129,7 +129,7 @@ pass on, `*` for all) and any other attribute as a fixed prop.
 - `/product/<slug>` maps to the Product page (a rewrite rule, flushed by
   `wordpress-init` and on activation), and the shop's `?page=N` stays the
   shop's on shop pages.
-- On `init`, `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` are
+- On `init`, `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and `/api/*` are
   proxied to wp-shop (`SHOP_INTERNAL_URL`), so its cart cookie is this
   site's own and nothing is cross-origin. The proxy forwards a short list of
   headers (never a browser's `x-wp-shop-user`) and only the `cart_id`
@@ -185,55 +185,57 @@ product write only) and the WordPress cases of
 - `DROPLETS_PUBLIC_URL` defaults to `http://localhost:8000`, read with `getenv()`. `plugin/droplets-embed/droplets-embed.php:40`
 - `[droplet]` without an `id` renders `[droplet] needs an id attribute`. `plugin/droplets-embed/droplets-embed.php:55`
 - `[droplet]` `id` goes through `sanitize_key`; every other attribute is a prop in the query. `plugin/droplets-embed/droplets-embed.php:53`, `plugin/droplets-embed/droplets-embed.php:61`
-- `[droplet]` fetch sends `x-droplet-location: DROPLETS_PUBLIC_URL`, 5 second timeout. `plugin/droplets-embed/droplets-embed.php:65`, `plugin/droplets-embed/droplets-embed.php:66`
-- `[droplet]` answer that is not 200 or fails renders `<p class="error">`. `plugin/droplets-embed/droplets-embed.php:70`, `plugin/droplets-embed/droplets-embed.php:78`
-- `[droplet]` enqueues `<DROPLETS_PUBLIC_URL>/index.js` once, with `wp_enqueue_script_module`. `plugin/droplets-embed/droplets-embed.php:96`, `plugin/droplets-embed/droplets-embed.php:98`
+- `[droplet]` fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`, 5 second timeout, no redirect followed. `plugin/droplets-embed/droplets-embed.php:65`, `plugin/droplets-embed/droplets-embed.php:66`, `plugin/droplets-embed/droplets-embed.php:67`
+- `[droplet]` pastes only a 2xx or 500 `text/html` answer; a failure or anything else renders `<p class="error">`. `plugin/droplets-embed/droplets-embed.php:70`, `plugin/droplets-embed/droplets-embed.php:81`, `plugin/droplets-embed/droplets-embed.php:82`
+- `[droplet]` enqueues `<DROPLETS_PUBLIC_URL>/index.js` once, with `wp_enqueue_script_module`. `plugin/droplets-embed/droplets-embed.php:100`, `plugin/droplets-embed/droplets-embed.php:102`
 - `SHOP_INTERNAL_URL` defaults to `http://localhost:8300`; compose sets `http://wp-shop:8310`. `plugin/droplets-embed/shop.php:68`, `docker-compose.yml:65`
 - `SHOP_PUBLIC_URL` defaults to `http://localhost:8008` and is reduced to its origin. `plugin/droplets-embed/shop.php:78`
-- Shop requests send `x-droplet-location` from `SHOP_PUBLIC_URL`, never the client's Host. `plugin/droplets-embed/shop.php:201`, `plugin/droplets-embed/shop.php:286`
+- Shop requests send `x-droplet-location` from `SHOP_PUBLIC_URL`, never the client's Host. `plugin/droplets-embed/shop.php:201`, `plugin/droplets-embed/shop.php:304`
 - Shop cookies sent to wp-shop: `cart_id` only; WordPress's login cookies stay on the site. `plugin/droplets-embed/shop.php:60`, `plugin/droplets-embed/shop.php:92`
 - Shop proxy forwards only `accept`, `accept-language`, `content-type`, `if-none-match`, `origin`, `referer`, `user-agent`, `x-droplet-props`, `x-droplets-build`, plus `cookie` filtered to `cart_id` (`DROPLETS_SHOP_COOKIES`), never `x-wp-shop-user`. `plugin/droplets-embed/shop.php:33`, `plugin/droplets-embed/shop.php:92`, `plugin/droplets-embed/shop.php:197`
 - Shop proxy drops hop-by-hop response headers and passes `Set-Cookie` untouched. `plugin/droplets-embed/shop.php:46`, `plugin/droplets-embed/shop.php:243`
-- Shop proxy paths: `/index.js`, `/droplets/*`, `/assets/*`, `/api/*`, on `init` at priority 0. `plugin/droplets-embed/shop.php:265`, `plugin/droplets-embed/shop.php:269`
+- Shop proxy paths: `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`, `/api/*`, on `init` at priority 0. `plugin/droplets-embed/shop.php:276`, `plugin/droplets-embed/shop.php:287`
+- Shop proxy refuses a path with a `.` or `..` segment, once decoded, with 400. `plugin/droplets-embed/shop.php:259`, `plugin/droplets-embed/shop.php:278`
 - Shop proxy adds `x-wp-shop-user` on `/droplets/*` and `/api/*` only. `plugin/droplets-embed/shop.php:204`
 - Shop proxy rebuilds a multipart body from `$_POST` and `$_FILES` when `php://input` is empty. `plugin/droplets-embed/shop.php:216`, `plugin/droplets-embed/shop.php:147`
 - Shop proxy concatenates the path onto `SHOP_INTERNAL_URL`, never follows redirects, 15 second timeout. `plugin/droplets-embed/shop.php:223`, `plugin/droplets-embed/shop.php:227`
 - Shop proxy answers 502 `The shop is unreachable.` when wp-shop fails. `plugin/droplets-embed/shop.php:232`
-- Shop fragments are fetched in parallel with `Requests::request_multiple`, no redirects followed, 5 second timeout. `plugin/droplets-embed/shop.php:305`, `plugin/droplets-embed/shop.php:308`
-- Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page URL as `referer` and the visitor's `cookie` filtered to `cart_id`. `plugin/droplets-embed/shop.php:284`, `plugin/droplets-embed/shop.php:289`
-- Shop fragment fetch carries its own `x-wp-shop-user` for its path and query. `plugin/droplets-embed/shop.php:300`
-- Shop fragment is inserted only for 2xx or 500 with `text/html`; otherwise `<p class="shop-unavailable">`. `plugin/droplets-embed/shop.php:321`, `plugin/droplets-embed/shop.php:329`
-- Shop product lookup reads `/droplets/product-page/_data?slug=<slug>`. `plugin/droplets-embed/shop.php:338`
-- Shop `Link` preloads keep only `preload` and `modulepreload` on this site's origin. `plugin/droplets-embed/shop.php:370`
-- `[shop_droplet]` `query` names the page's query keys to forward, `*` for all; other attributes are fixed props. `plugin/droplets-embed/shop.php:398`, `plugin/droplets-embed/shop.php:412`
-- Shop fragments are fetched on `template_redirect` at priority 20, from the page and the header and footer parts. `plugin/droplets-embed/shop.php:467`, `plugin/droplets-embed/shop.php:525`
-- Shop page answers a fragment's redirect with its status. `plugin/droplets-embed/shop.php:513`
-- Shop page sets `Cache-Control: private, no-store`. `plugin/droplets-embed/shop.php:517`
-- Shop page fills shortcode placeholders at the end of the output buffer, after WordPress's content filters. `plugin/droplets-embed/shop.php:522`, `plugin/droplets-embed/shop.php:528`
-- Shop page enqueues `/index.js` (through the proxy) as a module. `plugin/droplets-embed/shop.php:523`
-- `[shop_product]` without a slug redirects to `/gallery`; an unknown slug answers 404. `plugin/droplets-embed/shop.php:484`, `plugin/droplets-embed/shop.php:519`
-- Shop product comments props: `order`, `page`, `showing` from the query, plus `productId`; product page props: `slug`, plus `v`. `plugin/droplets-embed/shop.php:429`, `plugin/droplets-embed/shop.php:430`
-- Shop toasts (`toast-center`) go first in the body on `wp_body_open`, once per page. `plugin/droplets-embed/shop.php:612`
-- `/product/<slug>` rewrites to the `product` page with the `shop_product` query var. `plugin/droplets-embed/shop.php:625`
-- Shop `?page=N` is removed from WordPress's query on a page with a shop shortcode. `plugin/droplets-embed/shop.php:636`
-- Shop pages skip `redirect_canonical`, so their query stays. `plugin/droplets-embed/shop.php:647`
-- Shop stylesheet `shop.css` is enqueued on every front-end page. `plugin/droplets-embed/shop.php:667`
-- Shop admin droplets: `product-admin` only; it never renders on a public page. `plugin/droplets-embed/shop-admin.php:37`, `plugin/droplets-embed/shop.php:573`
+- Shop fragments are fetched in parallel with `Requests::request_multiple`, no redirects followed, 5 second timeout. `plugin/droplets-embed/shop.php:323`, `plugin/droplets-embed/shop.php:326`
+- Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page URL as `referer` and the visitor's `cookie` filtered to `cart_id`. `plugin/droplets-embed/shop.php:302`, `plugin/droplets-embed/shop.php:307`
+- Shop fragment fetch carries its own `x-wp-shop-user` for its path and query. `plugin/droplets-embed/shop.php:318`
+- Shop fragment is inserted only for 2xx or 500 with `text/html`; otherwise `<p class="shop-unavailable">`. `plugin/droplets-embed/shop.php:339`, `plugin/droplets-embed/shop.php:347`
+- Shop product lookup reads `/droplets/product-page/_data?slug=<slug>`. `plugin/droplets-embed/shop.php:356`
+- Shop `Link` preloads keep only `preload` and `modulepreload` on this site's origin. `plugin/droplets-embed/shop.php:388`
+- `[shop_droplet]` `query` names the page's query keys to forward, `*` for all; other attributes are fixed props. `plugin/droplets-embed/shop.php:416`, `plugin/droplets-embed/shop.php:430`
+- Shop fragments are fetched on `template_redirect` at priority 20, from the page and the header and footer parts. `plugin/droplets-embed/shop.php:485`, `plugin/droplets-embed/shop.php:543`
+- Shop page answers a fragment's redirect with its status. `plugin/droplets-embed/shop.php:531`
+- Shop page sets `Cache-Control: private, no-store`. `plugin/droplets-embed/shop.php:535`
+- Shop page fills shortcode placeholders at the end of the output buffer, after WordPress's content filters. `plugin/droplets-embed/shop.php:540`, `plugin/droplets-embed/shop.php:546`
+- Shop page enqueues `/index.js` (through the proxy) as a module. `plugin/droplets-embed/shop.php:541`
+- `[shop_product]` without a slug redirects to `/gallery`; an unknown slug answers 404. `plugin/droplets-embed/shop.php:502`, `plugin/droplets-embed/shop.php:537`
+- Shop product comments props: `order`, `page`, `showing` from the query, plus `productId`; product page props: `slug`, plus `v`. `plugin/droplets-embed/shop.php:447`, `plugin/droplets-embed/shop.php:448`
+- Shop toasts (`toast-center`) go first in the body on `wp_body_open`, once per page. `plugin/droplets-embed/shop.php:630`
+- `/product/<slug>` rewrites to the `product` page with the `shop_product` query var. `plugin/droplets-embed/shop.php:643`
+- Shop `?page=N` is removed from WordPress's query on a page with a shop shortcode. `plugin/droplets-embed/shop.php:654`
+- Shop pages skip `redirect_canonical`, so their query stays. `plugin/droplets-embed/shop.php:665`
+- Shop stylesheet `shop.css` is enqueued on every front-end page. `plugin/droplets-embed/shop.php:685`
+- Shop admin droplets: `product-admin` only; it never renders on a public page. `plugin/droplets-embed/shop-admin.php:37`, `plugin/droplets-embed/shop.php:591`
 - Shop screen is the top-level menu page `droplets-shop`, capability `manage_options`. `plugin/droplets-embed/shop-admin.php:31`, `plugin/droplets-embed/shop-admin.php:34`, `plugin/droplets-embed/shop-admin.php:58`
 - Shop screen fetches its fragment on `load-<hook>` and answers 403 without `manage_options`. `plugin/droplets-embed/shop-admin.php:69`, `plugin/droplets-embed/shop-admin.php:82`
 - Shop screen enqueues `shop-admin.css` and `/index.js` on its own hook suffix only. `plugin/droplets-embed/shop-admin.php:110`, `plugin/droplets-embed/shop-admin.php:114`
 - Shop screen puts its fragment's preloads in `admin_head`. `plugin/droplets-embed/shop-admin.php:118`
 - `/admin` on a 404 redirects (302) to the Shop screen. `plugin/droplets-embed/shop-admin.php:140`, `plugin/droplets-embed/shop-admin.php:141`
-- `x-wp-shop-user` claims: `sub`, `role: administrator`, `exp` 60 seconds out, `method`, `path`, `aud: wp-shop`, HMAC-SHA256. `plugin/droplets-embed/shop-identity.php:138`, `plugin/droplets-embed/shop-identity.php:147`
-- `x-wp-shop-user` is signed only for a logged-in user who can `manage_options`. `plugin/droplets-embed/shop-identity.php:131`
-- `x-wp-shop-user` for an unsafe method needs this site's `Origin`. `plugin/droplets-embed/shop-identity.php:135`
-- Shop secrets shorter than 32 bytes are ignored. `plugin/droplets-embed/shop-identity.php:59`
-- Shop secrets that are equal are both refused, and the log says why. `plugin/droplets-embed/shop-identity.php:78`
-- Assertion check: size cap 1024, MAC compared with `hash_equals` before `json_decode`, every claim typed, expiry bounded. `plugin/droplets-embed/shop-identity.php:37`, `plugin/droplets-embed/shop-identity.php:165`, `plugin/droplets-embed/shop-identity.php:168`
-- `x-wp-shop-service` logs in only on `POST /wp-json/wp/v2/products/<id>` (optional `_fields`), with no method override and no form fields. `plugin/droplets-embed/shop-identity.php:48`, `plugin/droplets-embed/shop-identity.php:207`
-- `x-wp-shop-service` runs in `determine_current_user` at priority 30, after WordPress's cookie check. `plugin/droplets-embed/shop-identity.php:223`
-- `x-wp-shop-service` user must exist and still be able to `manage_options`. `plugin/droplets-embed/shop-identity.php:218`
-- `x-wp-shop-service` request routed anywhere but the product write gets 403 in `rest_pre_dispatch`. `plugin/droplets-embed/shop-identity.php:52`, `plugin/droplets-embed/shop-identity.php:239`
+- `x-wp-shop-user` claims: `sub`, `role: administrator`, `exp` 60 seconds out, `method`, `path`, `aud: wp-shop`, HMAC-SHA256. `plugin/droplets-embed/shop-identity.php:139`, `plugin/droplets-embed/shop-identity.php:148`
+- `x-wp-shop-user` is signed only for a logged-in user who can `manage_options`. `plugin/droplets-embed/shop-identity.php:132`
+- `x-wp-shop-user` for an unsafe method needs this site's `Origin`. `plugin/droplets-embed/shop-identity.php:136`
+- Shop secrets shorter than 32 bytes are ignored. `plugin/droplets-embed/shop-identity.php:60`
+- Shop secrets that are equal are both refused, and the log says why. `plugin/droplets-embed/shop-identity.php:79`
+- Assertion check: size cap 1024, MAC compared with `hash_equals` before `json_decode`, every claim typed, expiry bounded. `plugin/droplets-embed/shop-identity.php:38`, `plugin/droplets-embed/shop-identity.php:174`, `plugin/droplets-embed/shop-identity.php:177`
+- `x-wp-shop-service` logs in only on `POST /wp-json/wp/v2/products/<id>` (optional `_fields`), with no method override and no form fields. `plugin/droplets-embed/shop-identity.php:49`, `plugin/droplets-embed/shop-identity.php:217`
+- `x-wp-shop-service` runs in `determine_current_user` at priority 30, after WordPress's cookie check. `plugin/droplets-embed/shop-identity.php:242`
+- `x-wp-shop-service` also names the body: its `body` claim is the SHA-256 (hex) of `php://input`, checked with the other claims; a header without one is no good for a write. `plugin/droplets-embed/shop-identity.php:193`, `plugin/droplets-embed/shop-identity.php:224`
+- `x-wp-shop-service` user must exist and still be able to `manage_options`. `plugin/droplets-embed/shop-identity.php:237`
+- `x-wp-shop-service` request routed anywhere but the product write gets 403 in `rest_pre_dispatch`. `plugin/droplets-embed/shop-identity.php:53`, `plugin/droplets-embed/shop-identity.php:258`
 - Catalogue post type `product`: not public, `show_in_rest` at `products`, no rewrite. `plugin/droplets-embed/shop-catalogue.php:46`, `plugin/droplets-embed/shop-catalogue.php:50`, `plugin/droplets-embed/shop-catalogue.php:51`, `plugin/droplets-embed/shop-catalogue.php:53`
 - Catalogue meta in REST with a schema: `shop_price_cents`, `shop_stock`, `shop_sale_pct` (0 to 90), `shop_category`, `shop_details` (300 chars). `plugin/droplets-embed/shop-catalogue.php:59`, `plugin/droplets-embed/shop-catalogue.php:70`
 - Catalogue meta is written only by a user who can `edit_post`. `plugin/droplets-embed/shop-catalogue.php:57`

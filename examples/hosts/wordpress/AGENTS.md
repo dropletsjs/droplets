@@ -11,7 +11,7 @@
   Checked by: `pnpm test:hosts wordpress` (`tests/hosts/e2e/shop.spec.ts`, `tests/hosts/e2e/shop-wordpress.spec.ts`).
 - `DROPLETS_TRUSTED_ORIGINS` of the droplets server and of wp-shop in `docker-compose.yml` lists this site's origin (`WEB_URL`).
   Checked by: `pnpm test:hosts wordpress`.
-- The browser reaches wp-shop only through the plugin's same-origin proxy (`/index.js`, `/droplets/*`, `/assets/*`, `/api/*`), which sends only the `cart_id` cookie and its listed headers, never a browser's `x-wp-shop-user`.
+- The browser reaches wp-shop only through the plugin's same-origin proxy (`/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`, `/api/*`), which sends only the `cart_id` cookie and its listed headers, never a browser's `x-wp-shop-user`.
   Checked by: `pnpm test:hosts wordpress`.
 - `x-wp-shop-user` is signed by the plugin alone, for a logged-in user who can `manage_options`, for one method and path, 60 seconds; an unsafe request gets one only with this site's `Origin`.
   Checked by: `tests/hosts/e2e/shop-wordpress.spec.ts` (Origin, capability and logged-out cases).

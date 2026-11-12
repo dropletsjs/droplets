@@ -104,6 +104,8 @@ the error page in its shadow root, and a click replayed after
 - `/api/page-views` with `text/plain` answers 403 or 415. `e2e/examples.spec.ts:214`
 - Imported image `src` is `<droplets server or prefix>/assets/droplet-<hash>.png` and loads. `e2e/examples.spec.ts:228`
 - Behind the prefix, every asset, droplet, API and `/index.js` request keeps the prefix. `e2e/examples.spec.ts:249`
+- `POST /api/counter` refuses `null`, an array, a string, non-JSON and a `by` that is not an integer within ±100 (400) and a body over 64 bytes (413); `__proto__` is an own field like any other. `e2e/examples.spec.ts:274`
+- The greeting a card shows is the universal load's output, on the server (`?who=Ana`) and in the browser (a host-written element). `e2e/examples.spec.ts:122`, `e2e/examples.spec.ts:268`
 - Lit: server markup carries a declarative shadow root, hydration deferred. `e2e/lit.spec.ts:41`
 - Lit: hydration keeps the nodes the server rendered. `e2e/lit.spec.ts:54`
 - Lit: a fragment inserted with `innerHTML` gets its shadow root attached, then hydrates. `e2e/lit.spec.ts:108`

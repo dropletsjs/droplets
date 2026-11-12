@@ -7,7 +7,7 @@
   "name": "dropletsjs-demo",
   "main": "dist/worker.js",
   "compatibility_date": "2026-11-01",
-  // Svelte's server renderer uses AsyncLocalStorage from node:async_hooks.
+  // Svelte's server renderer and the request store use AsyncLocalStorage from node:async_hooks.
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "dist/client",

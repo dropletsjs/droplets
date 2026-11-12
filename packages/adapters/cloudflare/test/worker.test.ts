@@ -158,6 +158,7 @@ describe("worker", () => {
     expect(await entry.text()).toContain(`import "./${manifest.__entryModule}";\n`);
     const module = await call({ path: `/${manifest.__entryModule}` });
     expect(module.headers.get("cache-control")).toContain("immutable");
+    expect(module.headers.get("x-content-type-options")).toBe("nosniff");
     expect(await module.text()).toContain("test-droplet");
 
     const globalCss = await call({ path: "/index.css" });
@@ -189,6 +190,7 @@ describe("worker", () => {
     expect(res.status).toBe(200);
     expect(await res.text()).toBe("User-agent: *\n");
     expect(res.headers.get("cache-control")).toBe("no-cache");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
     const etag = res.headers.get("etag") ?? expect.unreachable("an etag");
     expect(etag).toMatch(/^"[\w-]+"$/);
     const again = await call({ path: "/assets/public/robots.txt", init: { headers: { "if-none-match": etag } } });

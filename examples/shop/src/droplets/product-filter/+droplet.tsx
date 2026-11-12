@@ -43,51 +43,53 @@ export default function ProductFilter({ data }: DropletProps) {
   const all = categories.reduce((n, c) => n + c.count, 0);
 
   return (
-    <form method="get" class="filter" role="search" onSubmit={submitted}>
-      <label class="search">
-        <span class="visually-hidden">Search</span>
-        <input class="field" type="search" name="q" value={current.q} placeholder="Search…" maxlength={80} />
-      </label>
-
-      <fieldset class="categories" onChange={changed}>
-        <legend>Category</legend>
-        <label>
-          <input type="radio" name="category" value="" checked={current.category === ""} />
-          <span>All</span> <small>{all}</small>
+    <search>
+      <form method="get" class="filter" onSubmit={submitted}>
+        <label class="search">
+          <span class="visually-hidden">Search</span>
+          <input class="field" type="search" name="q" value={current.q} placeholder="Search…" maxlength={80} />
         </label>
-        {categories.map((category) => (
-          <label key={category.slug}>
-            <input type="radio" name="category" value={category.slug} checked={current.category === category.slug} />
-            <span>{category.name}</span> <small>{category.count}</small>
+
+        <fieldset class="categories" onChange={changed}>
+          <legend>Category</legend>
+          <label>
+            <input type="radio" name="category" value="" checked={current.category === ""} />
+            <span>All</span> <small>{all}</small>
           </label>
-        ))}
-      </fieldset>
+          {categories.map((category) => (
+            <label key={category.slug}>
+              <input type="radio" name="category" value={category.slug} checked={current.category === category.slug} />
+              <span>{category.name}</span> <small>{category.count}</small>
+            </label>
+          ))}
+        </fieldset>
 
-      <label class="sort">
-        <span>Sort</span>
-        <select class="field" name="sort" onChange={changed}>
-          <option value="new" selected={current.sort === "new"}>
-            Newest
-          </option>
-          <option value="price-asc" selected={current.sort === "price-asc"}>
-            Price, low to high
-          </option>
-          <option value="price-desc" selected={current.sort === "price-desc"}>
-            Price, high to low
-          </option>
-        </select>
-      </label>
+        <label class="sort">
+          <span>Sort</span>
+          <select class="field" name="sort" onChange={changed}>
+            <option value="new" selected={current.sort === "new"}>
+              Newest
+            </option>
+            <option value="price-asc" selected={current.sort === "price-asc"}>
+              Price, low to high
+            </option>
+            <option value="price-desc" selected={current.sort === "price-desc"}>
+              Price, high to low
+            </option>
+          </select>
+        </label>
 
-      <label class="toggle">
-        <input type="checkbox" name="onSale" value="1" checked={current.onSale} onChange={changed} />
-        <span>On sale only</span>
-      </label>
+        <label class="toggle">
+          <input type="checkbox" name="onSale" value="1" checked={current.onSale} onChange={changed} />
+          <span>On sale only</span>
+        </label>
 
-      {current.scope !== "main" ? <input type="hidden" name="scope" value={current.scope} /> : null}
-      {/* Without JavaScript this submits the form; hydrated, every change applies at once. */}
-      <button type="submit" class={hydrated ? "button visually-hidden" : "button"}>
-        Apply
-      </button>
-    </form>
+        {current.scope !== "main" ? <input type="hidden" name="scope" value={current.scope} /> : null}
+        {/* Without JavaScript this submits the form; hydrated, every change applies at once. */}
+        <button type="submit" class={hydrated ? "button visually-hidden" : "button"}>
+          Apply
+        </button>
+      </form>
+    </search>
   );
 }

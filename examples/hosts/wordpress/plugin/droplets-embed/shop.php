@@ -255,6 +255,17 @@ function droplets_shop_proxy(string $request_uri): void
     exit;
 }
 
+/** Whether `$path` has a `.` or `..` segment once decoded: never a shop route. */
+function droplets_shop_has_dot_segment(string $path): bool
+{
+    foreach (explode('/', $path) as $segment) {
+        if (in_array(rawurldecode($segment), ['.', '..'], true)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /** On `init`, before WordPress routes anything: the shop's own paths go to the shop. */
 function droplets_shop_route_proxy(): void
 {
@@ -262,7 +273,14 @@ function droplets_shop_route_proxy(): void
     if ($request_uri === '' || $request_uri[0] !== '/') {
         return;
     }
-    if (preg_match('#^/(?:index\.js$|droplets/|assets/|api/)#', (string) strtok($request_uri, '?'))) {
+    $path = (string) strtok($request_uri, '?');
+    if (preg_match('#^/(?:index\.js$|env\.js$|index\.css$|droplets/|assets/|api/)#', $path)) {
+        if (droplets_shop_has_dot_segment($path)) {
+            status_header(400);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'Bad request.';
+            exit;
+        }
         droplets_shop_proxy($request_uri);
     }
 }

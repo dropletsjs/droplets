@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { env } from "$droplets/env/public";
 import { bumpCounter, privateFacts, readCounter, serverTime } from "./api.ts";
 import { MODES } from "./modes.ts";
-import type { Facts, Mode, PrivateFacts } from "./types.ts";
+import type { Loaded, Mode, PrivateFacts } from "./types.ts";
 // A file the droplet imports: its URL is on the droplets server, wherever the page is.
 import logo from "./droplet.png";
 
-export function Card({ mode, data }: { mode: Mode; data?: Facts }) {
+export function Card({ mode, data }: { mode: Mode; data?: Loaded }) {
   const [hydrated, setHydrated] = useState(false);
   const [count, setCount] = useState<number | null>(null);
   const [fetched, setFetched] = useState<PrivateFacts | null>(null);
@@ -34,7 +34,7 @@ export function Card({ mode, data }: { mode: Mode; data?: Facts }) {
         <h2 className="card-title">{MODES[mode].title}</h2>
       </header>
       <p className="card-summary">{MODES[mode].summary}</p>
-      {data ? <p className="card-greeting">Hello {data.who}!</p> : null}
+      {data ? <p className="card-greeting">{data.greeting}</p> : null}
 
       <dl className="card-facts">
         <dt>

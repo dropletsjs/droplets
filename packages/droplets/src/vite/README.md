@@ -217,7 +217,9 @@ restarts the server.
 - Server file check skips virtual ids, files outside the root, `node_modules` and the framework's own `dist/` and `src/`. `server-only.ts:47`, `server-only.ts:50`, `server-only.ts:51`, `server-only.ts:52`
 - Server file under `vite build`: the client environment's `buildEnd` walks the graph from the entries and fails on the first server file, naming the chain. `server-only.ts:170`, `server-only.ts:92`
 - Server file under `vite dev`: `resolveId` in the client environment refuses an import that resolves to one, naming the importer chain. `server-only.ts:157`, `server-only.ts:166`
-- Server file error message: `<file> is server code and cannot reach the browser: <chain>`. `server-only.ts:77`
+- Server file reached as a file under `vite build` (`new URL(…, import.meta.url)`, a CSS `url()`, `?url`, `?raw`): the client environment's `assetsInlineLimit` is wrapped to record and refuse one before Vite inlines it, `buildEnd` fails on what was recorded, and `generateBundle` fails on an emitted asset whose `originalFileNames` name one. `server-only.ts:160`, `server-only.ts:232`, `server-only.ts:238`
+- Server file asked for directly under `vite dev` (`GET /src/lib/server/x.txt`, any query, `/@fs/` included): a middleware ahead of Vite's file server answers 403 with the error message. `server-only.ts:203`
+- Server file error message: `<file> is server code and cannot reach the browser: <chain>`; for a file reference the chain reads `referenced as a file (new URL(…, import.meta.url), ?url, ?raw or a CSS url())`. `server-only.ts:75`, `server-only.ts:79`
 - Renderer ownership: a module belongs to a renderer by its `extensions`, its `suffixes`, or a file inside one of its `packages`. `renderer-graphs.ts:65`
 - Renderer ownership: a subpath package (`hono/jsx`) owns that folder at any depth of the package. `renderer-graphs.ts:83`
 - Cross-framework check skips script droplets, and the script renderer owns nothing. `renderer-graphs.ts:128`, `renderer-graphs.ts:138`

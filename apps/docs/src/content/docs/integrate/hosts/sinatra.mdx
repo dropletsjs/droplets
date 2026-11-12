@@ -50,7 +50,7 @@ end
 - Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
   page) is pasted; `<%= %>` prints it unescaped.
 - `views/shop/layout.erb` loads `/index.js` once. `SHOP_PROXIED`, routed for
-  every verb, passes `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` on
+  every verb, passes `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and `/api/*` on
   to the shop.
 
 ## The shop demo, recorded
@@ -127,13 +127,15 @@ SHOP_PROXIED = %r{/(?:index\.js|(?:droplets|assets|api)/.*)}
 end
 ```
 
-`/index.js`, `/droplets/*` (fragments, `_data`, form actions), `/assets/*`
+`/index.js`, `/env.js`, `/index.css`, `/droplets/*` (fragments, `_data`, form actions), `/assets/*`
 and `/api/*` go to `shop_proxy`, for those verbs and `HEAD`, which Sinatra
 routes with every `get`. It sends the shop `x-droplet-location` written out
 and only these of the browser's headers: `accept`, `accept-language`,
-`content-type`, `cookie`, `if-none-match`, `origin`, `referer`, `user-agent`,
-`x-droplet-props` and `x-droplets-build`, with `accept-encoding: identity`
-so the body comes back as it is. The target is the raw path and query
+`content-type`, `if-none-match`, `origin`, `referer`, `user-agent`,
+`x-droplet-props` and `x-droplets-build`, plus `cookie` cut down to the
+shop's own `cart_id` and `shop_admin` (another app's cookie on this origin
+stays here), with `accept-encoding: identity` so the body comes back as it
+is. The target is the raw path and query
 concatenated onto the shop's base, never resolved, so `//elsewhere` stays a
 path on the shop. The answer comes back with its status, every `Set-Cookie`
 and any redirect, without `connection`, `keep-alive`, `transfer-encoding`,
@@ -158,7 +160,8 @@ sets them only from form actions and `/api`, which come through here.
 
 - **Sinatra reads a form body before the route runs**, and the server's input
   cannot be rewound. A small middleware (`ShopBufferedInput`) buffers it so
-  the proxy can pass the same body on, and `method_override` is off, since
+  the proxy can pass the same body on, up to 4 MB (the admin's image
+  uploads; a bigger body is a `413`), and `method_override` is off, since
   `Rack::MethodOverride` would read it even earlier.
 - **Sinatra's ERB does not escape `<%= %>` by default**, which is how the
   fragments are pasted; the views escape everything else with `h()`. See [For hosts](/guides/security/#for-hosts).
@@ -191,14 +194,18 @@ def fetch_droplet(droplet, props = {})
   uri = URI("#{DROPLETS_INTERNAL_URL}/droplets/#{droplet}")
   uri.query = URI.encode_www_form(props) unless props.empty?
 
-  response = Net::HTTP.start(uri.host, uri.port, read_timeout: 5) do |http|
-    http.get(uri.request_uri, { "x-droplet-location" => DROPLETS_PUBLIC_URL })
+  # Net::HTTP never follows a redirect.
+  response = Net::HTTP.start(uri.host, uri.port, open_timeout: 5, read_timeout: 5) do |http|
+    http.get(uri.request_uri, { "accept" => "text/html", "x-droplet-location" => DROPLETS_PUBLIC_URL })
   end
-  return response.body if response.is_a?(Net::HTTPSuccess)
+  # Only an HTML answer is a fragment (a 500 carries the droplet's error
+  # page); anything else may echo the props, so it is never pasted.
+  is_html = response["content-type"].to_s.start_with?("text/html")
+  return response.body if (response.is_a?(Net::HTTPSuccess) || response.code == "500") && is_html
 
-  %(<p class="error">droplet "#{droplet}" unavailable: HTTP #{response.code}</p>)
+  %(<p class="error">droplet "#{Rack::Utils.escape_html(droplet)}" unavailable: HTTP #{response.code}</p>)
 rescue StandardError => e
-  %(<p class="error">droplet "#{droplet}" unavailable: #{Rack::Utils.escape_html(e.message)}</p>)
+  %(<p class="error">droplet "#{Rack::Utils.escape_html(droplet)}" unavailable: #{Rack::Utils.escape_html(e.message)}</p>)
 end
 
 get "/" do

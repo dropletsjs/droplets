@@ -3,8 +3,8 @@
 A demo shop as one droplets server: nine droplets in six frameworks on
 SQLite, with form actions that work without JavaScript, cookies, uploads, a
 login and an admin. Its element is `<djs-shop>`. Every host example in
-[`examples/hosts`](../hosts) except WordPress builds the same pages around it
-(`/gallery`, `/product/<slug>`, `/login`, `/admin`); the docs'
+[`examples/hosts`](../hosts) except WordPress and htmx builds the same pages
+around it (`/gallery`, `/product/<slug>`, `/login`, `/admin`); the docs'
 [shop demo](https://dropletsjs.dev/integrate/hosts/shop-demo/) shows each one
 recorded.
 
@@ -60,7 +60,7 @@ their own.
 | `ADMIN_USER`, `ADMIN_PASSWORD` | the one admin; login is refused while either is unset |
 | `SHOP_SECRET` | signs the `shop_admin` cookie; under 32 characters the login answers 503 |
 | `DROPLETS_SECRET` | signs a form's result when JavaScript is off (Post/Redirect/Get) |
-| `DROPLETS_TRUSTED_ORIGINS` | the host origins whose pages post forms here, comma-separated |
+| `DROPLETS_TRUSTED_ORIGINS` | the host origins whose pages post forms here and get a stale product link sent back, comma-separated |
 | `SHOP_DATABASE`, `SHOP_IMAGES`, `SHOP_UPLOADS` | where the database, the seeded images and the uploads live |
 
 ### Docker
@@ -119,7 +119,8 @@ rewrites their text with an LLM, a development tool run once: it needs
 - Cart cookie `cart_id` lasts 30 days, `HttpOnly`, `SameSite=Lax`, path `/`. `src/lib/server/cart.ts:13`, `src/lib/server/cart.ts:15`
 - Cart line quantity is clamped to the stock and to 20. `src/lib/server/cart.ts:22`, `src/lib/server/cart.ts:104`
 - `handle` reads the admin session and the cart id into `locals`, except at build. `src/hooks.server.ts:26`, `src/hooks.server.ts:27`
-- `handle` sets `event.host` from the `Referer`, so a relative redirect after an action lands on the proxied page. `src/hooks.server.ts:31`
+- `handle` sets `locals.page` and `event.host` from the `Referer` when its origin is the shop's own or, with `DROPLETS_TRUSTED_ORIGINS` set, a trusted one; a relative redirect after an action lands on that page. `src/hooks.server.ts:28`, `src/hooks.server.ts:47`
+- A stale `v` redirects 302 to `locals.page` without `v`; without such a page the product page renders live. `src/droplets/product-page/+droplet.server.ts:57`
 - `/api/cart*` and `/api/auth*` answer `cache-control: private, no-store`. `src/hooks.server.ts:17`, `src/hooks.server.ts:34`
 - `handleError` logs the error and answers `Something broke in the shop.`. `src/hooks.server.ts:38`
 - Client `init` installs `window.shopMessageQueue` before any droplet starts and relays `product-page` adds as toasts. `src/hooks.client.ts:7`

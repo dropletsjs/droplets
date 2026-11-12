@@ -40,7 +40,7 @@ What the host does:
   once at build with `location` in `droplets.config.ts`;
 - loads `/index.js` once per page, from that same location;
 - either serves the droplets routes under its own origin through a proxy
-  (`/index.js`, `/droplets/*`, `/assets/*`, `/api/*`: no CORS, cookies are
+  (`/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`, `/api/*`: no CORS, cookies are
   first-party), or lets the browser reach the droplets server on another
   origin, which then needs `cors` in its config.
 

@@ -129,11 +129,18 @@ export function originCheck(options: OriginCheck): MiddlewareHandler {
   };
 }
 
+export type IsJsonTypeInput = { type: string };
+
+/** Whether a media type (from `mediaType`) is JSON: `application/json` or a `+json` suffix. */
+export function isJsonType({ type }: IsJsonTypeInput): boolean {
+  return type === "application/json" || type.endsWith("+json");
+}
+
 type LimitForInput = { type: string; limits: BodyLimits };
 
 /** The limit for a body of this media type. */
 function limitFor({ type, limits }: LimitForInput): number {
-  if (type === "application/json" || type.endsWith("+json")) return limits.json;
+  if (isJsonType({ type })) return limits.json;
   if (type === "application/x-www-form-urlencoded" || type === "text/plain") return limits.form;
   return limits.multipart;
 }

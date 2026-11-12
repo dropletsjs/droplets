@@ -81,14 +81,15 @@ droplets server, every method, body streamed:
 
 | Path | What the browser asks for |
 | --- | --- |
-| `/index.js` | A small file, `no-store`; it imports the element from `/assets/` |
+| `/index.js` | A small file, `no-store`; it imports `/env.js` and the element from `/assets/` |
+| `/env.js` | The public variables read at runtime, a script `/index.js` imports; without `/env.js`, no droplet hydrates |
+| `/index.css` | The shared stylesheet's import, `no-store`, for a page that links it itself |
 | `/droplets/*` | `client.js` bundles, `style.css`, `_data` refreshes and form actions (`POST /droplets/<id>?/name`) |
 | `/assets/*` | The entry client, shared chunks, stylesheets, images, and `public/` at `/assets/public/` |
 | `/api/*` | Your [`+server.ts`](/guides/server/#api-routes) endpoints, which [`$droplets/drop`](/reference/api/#dropletsdrop) calls |
 
-Two more only when you use them: `/index.css` (the shared stylesheet, for a
-page that links it itself) and `/importmap.js` (with
-[externals](/guides/server/#import-maps)). The rest of the
+One more only with [externals](/guides/server/#import-maps):
+`/importmap.js`. The rest of the
 [routes](/integrate/http-contract/#routes) are for servers, not browsers.
 
 On each proxied request, set `x-droplet-location` to your public origin,
@@ -101,7 +102,7 @@ If your HTTP client decodes the body, drop
 `examples/hosts/nginx/nginx.conf`:
 
 ```nginx
-location ~ ^/(index\.js|droplets/|assets/|api/) {
+location ~ ^/(index\.js|env\.js|index\.css|droplets/|assets/|api/) {
   proxy_pass http://shop;
   proxy_set_header x-droplet-location ${SHOP_PUBLIC_URL};
   proxy_set_header Forwarded "";

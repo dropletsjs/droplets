@@ -5,11 +5,11 @@ import { computed, onMounted, ref } from "vue";
 import { env } from "$droplets/env/public";
 import { bumpCounter, privateFacts, readCounter, serverTime } from "./api.ts";
 import { MODES } from "./modes.ts";
-import type { Facts, Mode, PrivateFacts } from "./types.ts";
+import type { Loaded, Mode, PrivateFacts } from "./types.ts";
 // A file the droplet imports: its URL is on the droplets server, wherever the page is.
 import logo from "./droplet.png";
 
-const props = defineProps<{ mode: Mode; data?: Facts }>();
+const props = defineProps<{ mode: Mode; data?: Loaded }>();
 
 const hydrated = ref(false);
 const count = ref<number | null>(null);
@@ -43,7 +43,7 @@ async function bump() {
       <h2 class="card-title">{{ MODES[mode].title }}</h2>
     </header>
     <p class="card-summary">{{ MODES[mode].summary }}</p>
-    <p v-if="data" class="card-greeting">Hello {{ data.who }}!</p>
+    <p v-if="data" class="card-greeting">{{ data.greeting }}</p>
 
     <dl class="card-facts">
       <dt>Site<small>public, static</small></dt>

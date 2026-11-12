@@ -1,6 +1,6 @@
 /** @jsxImportSource preact */
 import { Card } from "../../lib/Card.tsx";
-// Generated from this folder's files: `data` is what the server load returns.
+// Generated from this folder's files: `data` is what `load` in +droplet.ts returns.
 import type { DropletProps } from "./$types";
 
 export const ssr = true;

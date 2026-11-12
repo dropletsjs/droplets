@@ -53,8 +53,8 @@ async function fragment(page: PageRequest, id: string, params = new URLSearchPar
 - Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
   page) is pasted; `set:html` writes it unescaped.
 - `is:inline` keeps Astro from bundling the `/index.js` script. Endpoints that
-  export `ALL` (`src/pages/index.js.ts`, `src/pages/{droplets,assets,api}/[...path].ts`)
-  pass `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` on to the shop.
+  export `ALL` (`src/pages/{index.js,env.js,index.css}.ts`, `src/pages/{droplets,assets,api}/[...path].ts`)
+  pass `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and `/api/*` on to the shop.
 
 ## The shop demo, recorded
 
@@ -127,8 +127,9 @@ The `toast-center` fragment comes first in its body; `/index.js` installs
 
 ### What it proxies
 
-Endpoints that export `ALL` forward `/index.js` (`src/pages/index.js.ts`),
-`/droplets/*` (fragments, `_data`, form actions), `/assets/*` and `/api/*`
+Endpoints that export `ALL` forward `/index.js`, `/env.js` and `/index.css`
+(`src/pages/{index.js,env.js,index.css}.ts`), `/droplets/*` (fragments,
+`_data`, form actions), `/assets/*` and `/api/*`
 (`src/pages/{droplets,assets,api}/[...path].ts`) to `shop.proxy(request)`
 in `src/lib/shop.ts`:
 
@@ -138,10 +139,13 @@ export const ALL: APIRoute = ({ request }) => shop.proxy(request);
 ```
 
 The proxy sends `x-droplet-location` (the origin of `SHOP_PUBLIC_URL`) and
-passes on only `accept`, `accept-language`, `content-type`, `cookie`,
+passes on only `accept`, `accept-language`, `content-type`,
 `if-none-match`, `origin`, `referer`, `user-agent`, `x-droplet-props` and
-`x-droplets-build`: nothing that names a host. The body streams through
-(`duplex: "half"`), redirects are not followed, and the answer comes back
+`x-droplets-build`, plus `cookie` cut down to the shop's own `cart_id` and
+`shop_admin`: nothing that names a host, and no other app's cookie on this
+origin. The body streams through (`duplex: "half"`), redirects are not
+followed, each request times out (15 seconds; fragments 10, the product
+lookup 5), and the answer comes back
 with its `Set-Cookie` untouched, minus `content-encoding`, `content-length`
 and the hop-by-hop headers. When the shop is down it answers `502`. The
 shop's cookies are first-party, and nothing is cross-origin; the shop sets
@@ -220,11 +224,20 @@ export async function fragment(
   const url = new URL(`/droplets/${encodeURIComponent(droplet)}`, DROPLETS_INTERNAL_URL);
   for (const [key, value] of Object.entries(props)) url.searchParams.set(key, value);
   try {
-    const response = await fetch(url, { headers: { "x-droplet-location": DROPLETS_PUBLIC_URL } });
-    if (!response.ok) return `<p class="error">droplet "${droplet}" unavailable: HTTP ${response.status}</p>`;
-    return await response.text();
+    const response = await fetch(url, {
+      headers: { accept: "text/html", "x-droplet-location": DROPLETS_PUBLIC_URL },
+      redirect: "manual",
+      signal: AbortSignal.timeout(5000),
+    });
+    // Only an HTML answer is a fragment (a 500 carries the droplet's error
+    // page); anything else may echo the props, so it is never pasted.
+    const isFragment =
+      (response.ok || response.status === 500) && (response.headers.get("content-type") ?? "").startsWith("text/html");
+    if (isFragment) return await response.text();
+    await response.body?.cancel();
+    return `<p class="error">droplet "${escapeHtml(droplet)}" unavailable: HTTP ${response.status}</p>`;
   } catch (error) {
-    return `<p class="error">droplet "${droplet}" unavailable: ${String(error)}</p>`;
+    return `<p class="error">droplet "${escapeHtml(droplet)}" unavailable: ${escapeHtml(String(error))}</p>`;
   }
 }
 ```

@@ -29,7 +29,8 @@ export const load = async ({ props }: LoadEvent) => {
  *
  * 1. A link made before the product was edited (`v` is not its version
  *    now) is sent to the page without `v`, which renders live: the stored
- *    page for that `v` is stale, and this one is never served.
+ *    page for that `v` is stale, and this one is never served. Without a
+ *    page to send it to (no Referer on a trusted origin) it renders live.
  * 2. Stock and price: the template writes `%live:stock-label%`,
  *    `%live:price%`, … where they go (see lib/live.ts); each is replaced
  *    with the value the database has now:
@@ -44,16 +45,17 @@ export const load = async ({ props }: LoadEvent) => {
  *
  * A product archived since the build gets a short notice instead of a page.
  */
-export const transform = async ({ html, props, host }: TransformEvent) => {
+export const transform = async ({ html, props, locals }: TransformEvent) => {
   // `props` went through the schema in +droplet.ts: a slug, and maybe a v.
   const slug = String(props["slug"]);
   const [live, versions] = await Promise.all([liveValues(slug), pageVersions()]);
   if (!live) return `<p class="gone">This product is no longer available. <a href="/gallery">Back to the gallery</a></p>`;
 
-  if (props["v"] !== undefined && props["v"] !== versions.get(slug)) {
-    // `host` is the host page, from the Referer its server sends (a trusted
-    // origin only, see hooks.server.ts): the same page, without `v`.
-    const canonical = new URL(host);
+  // `locals.page` is the host page, from the Referer its server sends, only
+  // when that is on the shop's own or a trusted origin (hooks.server.ts):
+  // the same page, without `v`. Any other page gets the live render.
+  if (props["v"] !== undefined && props["v"] !== versions.get(slug) && locals.page) {
+    const canonical = new URL(locals.page);
     canonical.searchParams.delete("v");
     redirect(302, canonical.href);
   }

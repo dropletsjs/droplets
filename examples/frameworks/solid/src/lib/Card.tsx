@@ -1,15 +1,14 @@
-/** @jsxImportSource solid-js */
 // The card every droplet of this example shows, in its own mode. The
 // modules next to it (api.ts, modes.ts) are plain TypeScript.
 import { createSignal, onMount, Show } from "solid-js";
 import { env } from "$droplets/env/public";
 import { bumpCounter, privateFacts, readCounter, serverTime } from "./api.ts";
 import { MODES } from "./modes.ts";
-import type { Facts, Mode, PrivateFacts } from "./types.ts";
+import type { Loaded, Mode, PrivateFacts } from "./types.ts";
 // A file the droplet imports: its URL is on the droplets server, wherever the page is.
 import logo from "./droplet.png";
 
-export function Card(props: { mode: Mode; data?: Facts | undefined }) {
+export function Card(props: { mode: Mode; data?: Loaded | undefined }) {
   const [hydrated, setHydrated] = createSignal(false);
   const [count, setCount] = createSignal<number | null>(null);
   const [fetched, setFetched] = createSignal<PrivateFacts | null>(null);
@@ -35,7 +34,7 @@ export function Card(props: { mode: Mode; data?: Facts | undefined }) {
         <h2 class="card-title">{MODES[props.mode].title}</h2>
       </header>
       <p class="card-summary">{MODES[props.mode].summary}</p>
-      <Show when={props.data}>{(data) => <p class="card-greeting">Hello {data().who}!</p>}</Show>
+      <Show when={props.data}>{(data) => <p class="card-greeting">{data().greeting}</p>}</Show>
 
       <dl class="card-facts">
         <dt>

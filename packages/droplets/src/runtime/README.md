@@ -131,9 +131,10 @@ Then the route.
 ### Props
 
 - Fragment props come from the query minus the reserved keys, else from the base64 `x-droplet-props` header. `app.ts:386`
-- A malformed `x-droplet-props` is ignored; under `vite dev` it warns `ignoring malformed x-droplet-props header`. `app.ts:400`, `dev-log.ts:69`
+- A malformed `x-droplet-props` (bad base64 or JSON, not an object, not plain JSON, nested past 64 levels) is ignored; under `vite dev` it warns `ignoring malformed x-droplet-props header`. `app.ts:405`, `app.ts:411`, `dev-log.ts:69`
+- Props from a JSON body or `x-droplet-props`, and `form` from a JSON body, reach user code through `plainJson` (`plain-json.ts`): a copy with ordinary prototypes and no own `__proto__` key, refused past 64 levels or for anything `JSON.parse` could not produce. `plain-json.ts:13`, `app.ts:342`, `app.ts:411`
 - POST props for a render come from the JSON body (`props`, `context`); an action POST takes them from the query. `app.ts:798`
-- The JSON body is read only for POST with a content type containing `application/json`; malformed JSON gives no props. `app.ts:325`
+- The JSON body is read only for POST whose parsed media type `isJsonType` takes (`application/json` or `+json`, the reading `limitFor` uses; `text/xml; a=application/json` is not one); malformed JSON gives no props. `app.ts:334`, `security.ts:135`
 - Reserved query keys are `__cb`, `c`, `t`, `noSSR`, `clientOnly`, `__droplet_return`, every key starting with `/` and every key starting with `__droplet_form_`. `form.ts:26`
 - `clientOnly` and `noSSR` in the query count by presence. `app.ts:787`
 - Props validation errors (`PropsError`) answer 400 with `Invalid props: …`. `entry-server.ts:143`
@@ -188,7 +189,7 @@ Then the route.
 
 - A request names one action at most; two `?/name` keys answer 400 `One action per request: ?/name once`. `app.ts:1551`
 - A droplet without `actions` answers 405 with `allow: GET`. `app.ts:1578`
-- An unknown action answers 404 `No action named "<name>"`, the name cut to 100 characters. `app.ts:1562`
+- An unknown action answers 404 `No action named "<name>"`, the name cut to 100 characters, when the name matches `ACTION_NAME`; any other name answers 404 `No such action` without echoing it. `app.ts:1582`
 - Action names match `^[A-Za-z_][\w-]*$`. `form.ts:141`
 - An action is found only through `ACTION_NAME`, a deny list (`__proto__`, `constructor`, `prototype`) and `Object.hasOwn`. `entry-server.ts:316`
 - An action answers JSON when `accept` contains `application/json`. `app.ts:1565`
@@ -213,7 +214,7 @@ Then the route.
 - `DROPLETS_SECRET` should be at least 32 bytes; a missing or shorter one is ignored, with a warning once under `vite dev`. `form-token.server.ts:28`, `form-token.server.ts:80`, `dev-log.ts:55`
 - The token's MAC covers the version `droplets-form-v2`, the droplet, the build and the page. `form-token.server.ts:111`
 - A form token's status must be 200 or 400-599. `form-token.server.ts:222`
-- A form token's data is copied into null-prototype objects. `form-token.server.ts:154`
+- A form token's data is copied into null-prototype objects (`plainJson` with `nullPrototype`). `form-token.server.ts:192`
 
 ### Cookies
 
@@ -233,6 +234,9 @@ Then the route.
 - `text()` sets `text/plain; charset=utf-8`. `server.ts:508`
 - A thrown `HttpError` answers its status and message; a thrown `Redirect` answers its location as written. `app.ts:727`
 - Any other thrown error is logged and answers 500 with `handleError`'s message, never a stack. `app.ts:727`
+- What no handler caught goes to Hono's `onError`, which answers through `failure` and `handleError` too: JSON for `_data` and `/api/*`, text elsewhere, logged as `request failed: <path>`. `app.ts:847`
+- The log line of a failure names where it failed, then the path once: `droplet failed: /droplets/x`, `endpoint failed: /api/x`, `action <name> failed: …`. `app.ts:739`, `app.ts:1734`
+- The fragment's context is serialized inside the render's `try`, so a value `JSON.stringify` refuses answers through `handleError`. `app.ts:1489`
 - Without `handleError`, production renders answer `Internal Error`. `load.ts:40`
 
 ### `/api`

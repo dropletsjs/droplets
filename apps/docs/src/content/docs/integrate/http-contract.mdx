@@ -163,7 +163,7 @@ GET /droplets/products/_data?category=mugs
 
 The droplets server's location is where the **browser** reaches it: the
 origin, and the path prefix if there is one, under which the browser loads
-`/index.js`, `/droplets/*`, `/assets/*` and `/api/*`:
+`/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and `/api/*`:
 
 - the host's own origin when the host proxies those paths
   (`https://www.example.com`), as every [known host](/integrate/hosts/overview/) does;
@@ -441,7 +441,12 @@ Bodies over a limit answer `413` before `handle` runs, judged by
 `content-length` or counted as they stream: 1 MB of JSON, 1 MB of
 form-urlencoded or `text/plain`, 10 MB of multipart or anything else. An
 `x-droplet-props` header over 8 KB answers `431`; send larger props in a
-`POST` body. Change them with `limits` in `droplets.config.ts`.
+`POST` body. Change them with `limits` in `droplets.config.ts`. A body is
+JSON by its media type (`application/json` or a `+json` suffix, parameters
+ignored), the same reading for the limit and for the render: a `text/xml`
+body never renders as a context. What a JSON body or `x-droplet-props`
+carries reaches the droplet as a copy, ordinary objects without an own
+`__proto__` key, 64 levels deep at most; deeper input counts as no body.
 
 ## Cookies
 

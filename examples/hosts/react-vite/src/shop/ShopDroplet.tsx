@@ -82,7 +82,7 @@ export function ShopFragment({ id, query = new URLSearchParams(), onRedirect }: 
   return (
     <>
       {error ? <p className="shop-unavailable">The {id} droplet is unavailable ({error}).</p> : null}
-      <div ref={host} data-droplet-host={id} />
+      <div ref={host} data-react-host={id} />
     </>
   );
 }

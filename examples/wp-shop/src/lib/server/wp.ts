@@ -2,7 +2,7 @@ import * as z from "zod/mini";
 import { CATEGORY_SLUGS } from "../categories.ts";
 import { SLUG } from "../schemas.ts";
 import type { Comment, CommentOrder } from "../types.ts";
-import { type HostAdmin, MAX_LIFETIME_S, SERVICE_HEADER, secretPair, signAssertion } from "./host-identity.ts";
+import { type HostAdmin, MAX_LIFETIME_S, SERVICE_HEADER, secretPair, bodyDigest, signAssertion } from "./host-identity.ts";
 import { plainLine, plainText } from "./text.ts";
 
 /**
@@ -80,11 +80,11 @@ async function readCapped(response: Response, max: number): Promise<string> {
 
 type Answer = { status: number; headers: Headers; body: unknown };
 
-/** One REST call: `path` under `/wp-json/`, JSON in and out. */
+/** One REST call: `path` under `/wp-json/`, JSON in (`body`, already serialized) and out. */
 async function call(
   config: WpConfig,
   path: string,
-  init: { method?: string; body?: unknown; headers?: Record<string, string> } = {},
+  init: { method?: string; body?: string; headers?: Record<string, string> } = {},
 ): Promise<Answer> {
   if (!path.startsWith("/wp-json/")) throw new WordPressError(`not a REST path: ${path}`);
   const url = `${config.internalUrl.replace(/\/+$/, "")}${path}`;
@@ -99,7 +99,7 @@ async function call(
         ...(init.body === undefined ? {} : { "content-type": "application/json" }),
         ...init.headers,
       },
-      ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
+      ...(init.body === undefined ? {} : { body: init.body }),
     });
   } catch (error) {
     throw new WordPressError(`${path}: unreachable (${(error as Error).message})`);
@@ -369,8 +369,8 @@ export async function wordpressReady(config: WpConfig): Promise<boolean> {
  * request. wp-shop holds no WordPress password: the write carries
  * `x-wp-shop-service`, an assertion like the plugin's, signed with
  * WP_SHOP_SERVICE_SECRET (never WP_SHOP_HOST_SECRET: equal ones are
- * refused), for `aud: "wordpress"`, this one method and path, 60 s. The
- * plugin checks it in `determine_current_user`, on this route only
+ * refused), for `aud: "wordpress"`, this one method, path and body (its
+ * SHA-256), 60 s. The plugin checks it in `determine_current_user`, on this route only
  * (`POST /wp-json/wp/v2/products/<id>`), and runs the request as that user
  * (who must still be able to `manage_options`); WordPress's own checks
  * (`edit_post`, the meta's schema) apply as for any REST write.
@@ -385,15 +385,20 @@ export async function updateProduct(
   if (error) throw new WordPressError(error);
   if (!secret) throw new WordPressError("WP_SHOP_SERVICE_SECRET is not set (32+ bytes): wp-shop cannot write to WordPress");
   const path = `/wp-json/wp/v2/products/${post}?_fields=${PRODUCT_FIELDS}`;
+  const body = JSON.stringify({ meta });
   const assertion = await signAssertion(
-    { sub: admin.name, role: admin.role, exp: Math.floor(Date.now() / 1000) + MAX_LIFETIME_S, method: "POST", path, aud: "wordpress" },
+    {
+      sub: admin.name,
+      role: admin.role,
+      exp: Math.floor(Date.now() / 1000) + MAX_LIFETIME_S,
+      method: "POST",
+      path,
+      aud: "wordpress",
+      body: await bodyDigest(body),
+    },
     secret,
   );
-  const answer = await call(config, path, {
-    method: "POST",
-    body: { meta },
-    headers: { [SERVICE_HEADER]: assertion },
-  });
+  const answer = await call(config, path, { method: "POST", body, headers: { [SERVICE_HEADER]: assertion } });
   if (answer.status !== 200) throw new WordPressError(`${path}: HTTP ${answer.status} (${errorCode(answer.body) ?? "no code"})`);
   const [product] = await withImages(config, [answer.body]);
   if (!product) throw new WordPressError(`${path}: the answer is not a product`);
@@ -410,7 +415,7 @@ export type CommentResult = { ok: true; held: boolean } | { ok: false; reason: "
 export async function createComment(config: WpConfig, post: number, author: string, content: string): Promise<CommentResult> {
   const answer = await call(config, `/wp-json/wp/v2/comments?_fields=${COMMENT_FIELDS}`, {
     method: "POST",
-    body: { post, author_name: author, content },
+    body: JSON.stringify({ post, author_name: author, content }),
   });
   if (answer.status === 201) {
     const comment = wpComment.safeParse(answer.body);

@@ -6,14 +6,6 @@
 </script>
 
 <section class="card">
-  <p class="code">Oops</p>
+  <p class="card-error">Oops</p>
   <p class="card-summary">{error.message}</p>
 </section>
-
-<style>
-  /* Compiled with injected CSS: these styles travel with the markup. */
-  .code {
-    font: 600 2.5rem/1 ui-monospace, monospace;
-    color: #be123c;
-  }
-</style>

@@ -66,20 +66,23 @@ in it.
 - Without `v` the page always renders live: `/product/<slug>` is the
   canonical, shareable URL. A host's route must work without it.
 - An old `v` answers `302` to the host page without `v`, its other
-  parameters kept. The host passes that redirect on, as any fragment's.
+  parameters kept, when the `Referer` names a page on the shop's own or a
+  trusted origin (`DROPLETS_TRUSTED_ORIGINS`); from any other page it
+  renders live. The host passes that redirect on, as any fragment's.
 
 All of it is in `transform`, which runs over the stored page and the live
 one alike:
 
 ```ts
-export const transform = async ({ html, props, host }: TransformEvent) => {
+export const transform = async ({ html, props, locals }: TransformEvent) => {
   const slug = String(props["slug"]);
   const [live, versions] = await Promise.all([liveValues(slug), pageVersions()]);
   if (!live) return `<p class="gone">This product is no longer available. …</p>`;
 
-  // An old link: `host` is the host page (from the Referer its server sends).
-  if (props["v"] !== undefined && props["v"] !== versions.get(slug)) {
-    const canonical = new URL(host);
+  // An old link: `locals.page` is the host page (from the Referer its
+  // server sends), set by `handle` for a trusted origin only.
+  if (props["v"] !== undefined && props["v"] !== versions.get(slug) && locals.page) {
+    const canonical = new URL(locals.page);
     canonical.searchParams.delete("v");
     redirect(302, canonical.href);
   }

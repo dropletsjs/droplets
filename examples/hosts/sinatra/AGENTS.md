@@ -11,7 +11,7 @@
   Checked by: `pnpm test:hosts sinatra` (`tests/hosts/e2e/shop.spec.ts`: a post without JavaScript lands back on the host page).
 - `DROPLETS_TRUSTED_ORIGINS` of the droplets server and of the shop in `docker-compose.yml` lists this host's origin (`WEB_URL`).
   Checked by: `pnpm test:hosts sinatra`.
-- The shop's browser requests (`/index.js`, `/droplets/*`, `/assets/*`, `/api/*`) go through this host's same-origin proxy, which forwards only its listed request headers and passes `Set-Cookie` back untouched.
+- The shop's browser requests (`/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`, `/api/*`) go through this host's same-origin proxy, which forwards only its listed request headers and passes `Set-Cookie` back untouched.
   Checked by: `pnpm test:hosts sinatra`.
 - A page inserts only a 2xx or 500 `text/html` fragment; a fragment's redirect is answered, never followed.
   Checked by: `pnpm test:hosts sinatra`.

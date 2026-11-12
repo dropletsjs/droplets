@@ -125,7 +125,7 @@ so after a demo deploy, build and deploy the docs against it
 - `dev-secret.mjs` writes a random `DROPLETS_SECRET` to `.env.local` (mode 0600) when there is none of at least 32 characters. `scripts/dev-secret.mjs:10`, `scripts/dev-secret.mjs:12`
 - `.env.local` is gitignored. `../../.gitignore:28`
 - Worker name `dropletsjs-demo`, entry `dist/worker.js`. `wrangler.jsonc:7`, `wrangler.jsonc:8`
-- Worker uses `nodejs_compat` (Svelte's server renderer needs `node:async_hooks`). `wrangler.jsonc:11`
+- Worker uses `nodejs_compat`: Svelte's server renderer and the request store (`AsyncLocalStorage`) need `node:async_hooks`. `wrangler.jsonc:11`
 - Worker assets: `dist/client` through the `ASSETS` binding. `wrangler.jsonc:13`, `wrangler.jsonc:14`
 - Worker sets no `run_worker_first`: static assets answer the build's files with `_headers` (`Access-Control-Allow-Origin: *`), the rest reaches the Worker. `wrangler.jsonc:12`, `test/worker.test.ts:108`, `test/worker.test.ts:112`, `test/worker.test.ts:134`
 - Worker runs only on the custom domain `demo.dropletsjs.dev`; no `*.workers.dev` or preview URLs. `wrangler.jsonc:17`, `wrangler.jsonc:18`, `wrangler.jsonc:19`

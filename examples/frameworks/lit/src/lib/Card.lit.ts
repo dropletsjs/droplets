@@ -6,7 +6,7 @@ import { DropletElement } from "@dropletsjs/renderer-lit/element";
 import { env } from "$droplets/env/public";
 import { bumpCounter, privateFacts, readCounter, serverTime } from "./api.ts";
 import { MODES } from "./modes.ts";
-import type { Facts, Mode, PrivateFacts } from "./types.ts";
+import type { Loaded, Mode, PrivateFacts } from "./types.ts";
 // A file the droplet imports: its URL is on the droplets server, wherever the page is.
 import logo from "./droplet.png";
 
@@ -112,7 +112,7 @@ export const cardStyles = css`
   }
 `;
 
-export abstract class Card extends DropletElement<{ data: Facts | undefined }> {
+export abstract class Card extends DropletElement<{ data: Loaded | undefined }> {
   static override styles = cardStyles;
   static override properties = {
     hydrated: { state: true },
@@ -160,7 +160,7 @@ export abstract class Card extends DropletElement<{ data: Facts | undefined }> {
           <h2 class="card-title">${MODES[this.mode].title}</h2>
         </header>
         <p class="card-summary">${MODES[this.mode].summary}</p>
-        ${data ? html`<p class="card-greeting">Hello ${data.who}!</p>` : nothing}
+        ${data ? html`<p class="card-greeting">${data.greeting}</p>` : nothing}
 
         <dl class="card-facts">
           <dt>Site<small>public, static</small></dt>

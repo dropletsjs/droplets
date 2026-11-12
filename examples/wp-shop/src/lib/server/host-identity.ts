@@ -12,15 +12,16 @@
  * its method, and its path and query on wp-shop. `aud` says which way it
  * goes: `wp-shop` for the plugin's, `wordpress` for wp-shop's own writes
  * back (`x-wp-shop-service`, see wp.ts), so one is never taken for the
- * other. The writes back have a key of their own, WP_SHOP_SERVICE_SECRET:
- * the two must differ (`secretPair`). The plugin strips any
- * `x-wp-shop-user` the browser sent.
+ * other. A write back also names its body, `body`: the SHA-256 (hex) of
+ * the bytes sent, so a signed header moves no other body. The writes back
+ * have a key of their own, WP_SHOP_SERVICE_SECRET: the two must differ
+ * (`secretPair`). The plugin strips any `x-wp-shop-user` the browser sent.
  *
  * Reading one, in this order: a size cap and the shape, then the MAC
  * (`crypto.subtle.verify`) before anything is parsed, then plain
  * `JSON.parse`, own keys copied into an object without a prototype, each
- * checked for its type, then `exp`, the method, the path and `aud`.
- * Anything else is no identity at all: the request is a visitor's.
+ * checked for its type, then `exp`, the method, the path, `aud` and the
+ * body. Anything else is no identity at all: the request is a visitor's.
  *
  * Plain functions with the secret passed in, so the tests drive them;
  * hooks.server.ts calls them with the environment's.
@@ -51,6 +52,8 @@ export type Claims = {
   /** The path and query on the receiving server, as sent. */
   path: string;
   aud: Audience;
+  /** The SHA-256 of the request body, hex: on wp-shop's writes back only. */
+  body?: string;
 };
 
 /** Who `locals.admin` is: the WordPress account behind the request. */
@@ -101,7 +104,9 @@ const LOGIN = /^[A-Za-z0-9 _.@-]{1,60}$/;
 const METHOD = /^[A-Z]{3,7}$/;
 /** A path and query, as a request line has it: starts with one `/`. */
 const PATH = /^\/(?![/\\])[\x21-\x7e]{0,2047}$/;
-const CLAIM_KEYS = ["sub", "role", "exp", "method", "path", "aud"] as const;
+/** A SHA-256, hex. */
+const BODY = /^[0-9a-f]{64}$/;
+const CLAIM_KEYS = ["sub", "role", "exp", "method", "path", "aud", "body"] as const;
 
 /** Signs `claims`: what the plugin does (host secret), and wp-shop for its writes back (service secret). */
 export async function signAssertion(claims: Claims, secret: string): Promise<string> {
@@ -110,8 +115,14 @@ export async function signAssertion(claims: Claims, secret: string): Promise<str
   return `${payload}.${toBase64url(new Uint8Array(mac))}`;
 }
 
-/** What the request must be for the assertion to count. */
-export type Expected = { aud: Audience; method: string; path: string; now?: number };
+/** The SHA-256 of `text`, hex: what a write's `body` claim holds. */
+export async function bodyDigest(text: string): Promise<string> {
+  const hash = await crypto.subtle.digest("SHA-256", encoder.encode(text));
+  return Buffer.from(hash).toString("hex");
+}
+
+/** What the request must be for the assertion to count; `body` is the received body's digest, for a write. */
+export type Expected = { aud: Audience; method: string; path: string; body?: string; now?: number };
 
 /** The claims of a valid assertion for this request, or `null`. Never throws. */
 export async function verifyAssertion(
@@ -148,18 +159,21 @@ export async function verifyAssertion(
   for (const name of CLAIM_KEYS) {
     if (Object.hasOwn(parsed, name)) claims[name] = (parsed as Record<string, unknown>)[name];
   }
-  const { sub, role, exp, method, path, aud } = claims;
+  const { sub, role, exp, method, path, aud, body } = claims;
   if (typeof sub !== "string" || !LOGIN.test(sub)) return null;
   if (role !== "administrator") return null;
   if (typeof exp !== "number" || !Number.isSafeInteger(exp)) return null;
   if (typeof method !== "string" || !METHOD.test(method)) return null;
   if (typeof path !== "string" || !PATH.test(path)) return null;
   if (aud !== "wp-shop" && aud !== "wordpress") return null;
+  if (body !== undefined && (typeof body !== "string" || !BODY.test(body))) return null;
 
   const now = Math.floor((expected.now ?? Date.now()) / 1000);
   if (exp <= now || exp > now + MAX_LIFETIME_S + SKEW_S) return null;
   if (method !== expected.method.toUpperCase() || path !== expected.path || aud !== expected.aud) return null;
-  return { sub, role, exp, method, path, aud };
+  // The body claim and the body received: both or neither, and the same.
+  if ((body ?? null) !== (expected.body ?? null)) return null;
+  return { sub, role, exp, method, path, aud, ...(typeof body === "string" ? { body } : {}) };
 }
 
 /** The admin a verified assertion names. */

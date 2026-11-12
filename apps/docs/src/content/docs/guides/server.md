@@ -189,6 +189,10 @@ included: `405`. A path no route matches answers `404`
 
 A folder in brackets is a parameter (`[name]`) or the rest of the path
 (`[...path]`), and one in parentheses (`(admin)`) adds nothing to the URL.
+A parameter's value is the path segment percent-decoded, `%2F` included:
+`/api/greet/a%2Fb` gives `params.name === "a/b"`, one segment still, and
+`[...path]` joins its decoded segments with `/`. Treat a parameter as the
+input it is: check its length and shape before it names anything.
 Any other bracket form (`[[optional]]`, matchers), a repeated parameter
 name, a segment after `[...rest]`, or two routes of the same shape
 (`a/[id]` and `a/[slug]`) fail `vite dev` and `vite build`. Routes are
@@ -258,7 +262,10 @@ Like SvelteKit, a variable is private and dynamic unless it says otherwise:
   under a `server/` folder (`src/lib/server/db.ts`) that client code reaches,
   directly or through other modules, fails the build and is refused by the
   dev server, with the import chain in the message. Case does not matter:
-  `src/lib/Server/db.ts` and `db.SERVER.ts` are server files too. Keep connection strings
+  `src/lib/Server/db.ts` and `db.SERVER.ts` are server files too, and so is
+  one reached as a file (`new URL(…, import.meta.url)`, a CSS `url()`, a
+  `?url` or `?raw` import): inlined or emitted, it fails the build, and the
+  dev server answers 403 when the browser fetches it. Keep connection strings
   and keys in those files and read them from `+droplet.server.ts`; a
   universal `+droplet.ts` runs in the browser and cannot import them.
 - Never return a private value from a load: load results are inlined into

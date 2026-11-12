@@ -34,7 +34,7 @@ origins, so the droplets server runs with `cors: true`
 `/gallery`, `/product/<slug>`, `/login` and `/admin` embed the shop (see its
 [`CONTRACT.md`](../../shop/CONTRACT.md)):
 
-- a same-origin proxy for `/index.js`, `/droplets/*`, `/assets/*` and
+- a same-origin proxy for `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and
   `/api/*` (bodies streamed, `Set-Cookie` and redirects passed back
   untouched), so the cart and admin cookies are this origin's own; it
   forwards a fixed list of request headers, none that names a host;
@@ -73,14 +73,16 @@ A droplets server's `vite build` writes `dist/server.js`, which exports
 renders its page by calling `fetch()` in-process (no HTTP hop) and mounts it
 with `@hono/node-server`'s `getRequestListener` for every other route, so
 droplet routes and Express routes share one origin: no CORS, no
-`x-droplet-location`. The droplets server then takes the request's own
-origin (`req.protocol` and the `Host` header) as its location.
+`x-droplet-location`. The in-process requests carry `EXPRESS_SITE_URL`
+(default `http://localhost:<PORT>`) as their origin, which the droplets
+server takes as its location: never the client's `Host` header.
+`DROPLETS_DIST`, the droplets server's build folder, has no default.
 
 ```bash
 # from the repository root
 pnpm build && pnpm --filter @dropletsjs/example-svelte build
 cd examples/hosts/express && npm install
-npm run start:embedded   # DROPLETS_DIST defaults to ../../frameworks/svelte/dist
+DROPLETS_DIST=../../frameworks/svelte/dist npm run start:embedded
 open http://localhost:8003
 ```
 
@@ -94,6 +96,8 @@ open http://localhost:8003
 | `SHOP_PUBLIC_URL` | web | `${WEB_URL:-http://localhost:8003}` |
 | `DROPLETS_TRUSTED_ORIGINS` | droplets | the droplets URL and this host's URL |
 | `DROPLETS_TRUSTED_ORIGINS` | shop | this host's URL |
+| `DROPLETS_DIST` | `src/embedded.js` only | none: the droplets server's build folder, required |
+| `EXPRESS_SITE_URL` | `src/embedded.js` only | `http://localhost:<PORT>`: the site's public origin |
 
 `WEB_PORT`, `WEB_URL`, `DROPLETS_PORT` and `DROPLETS_URL` move the published
 ports and public URLs; `tests/hosts/run.mjs` sets them for
@@ -150,43 +154,45 @@ stack; `--https` for the Caddy variant). The guide's page:
 - Host shop defaults: `SHOP_INTERNAL_URL` `http://localhost:8300`, `SHOP_PUBLIC_URL` `http://localhost:<PORT>`. `src/server.js:23`, `src/server.js:24`
 - Host basic page `who` defaults to `Express`. `src/server.js:29`
 - Host log line: `express host listening on http://localhost:<port>`. `src/server.js:45`
-- Droplet client fragment fetch sends `x-droplet-location: publicUrl`. `src/droplets.js:15`
-- Droplet client fragment failure renders an inline `<p class="error">`. `src/droplets.js:17`, `src/droplets.js:21`
-- Droplet client script tag loads `${publicUrl}/index.js`. `src/droplets.js:26`
-- Embedded `DROPLETS_DIST` defaults to `../../frameworks/svelte/dist`, resolved from the working directory. `src/embedded.js:16`
-- Embedded imports `dist/server.js` and uses its default export `{ fetch }`. `src/embedded.js:19`
-- Embedded fragment URL origin comes from `req.protocol` and the `Host` header. `src/embedded.js:29`
-- Embedded renders fragments by calling `droplets.fetch()` in-process. `src/embedded.js:33`
-- Embedded page loads `/index.js` from its own origin. `src/embedded.js:41`
-- Embedded mounts every other route on the droplets handler via `getRequestListener`. `src/embedded.js:47`
-- Embedded log line: `express + droplets listening on http://localhost:<port>`. `src/embedded.js:50`
+- Droplet client fragment fetch sends `accept: text/html` and `x-droplet-location: publicUrl`, never follows a redirect, 5 second timeout. `src/droplets.js:22`, `src/droplets.js:23`, `src/droplets.js:24`
+- Droplet client pastes only a 2xx or 500 `text/html` answer; anything else renders an inline `<p class="error">`, the id and the error escaped. `src/droplets.js:28`, `src/droplets.js:32`, `src/droplets.js:34`
+- Droplet client script tag loads `${publicUrl}/index.js`. `src/droplets.js:39`
+- Embedded needs `DROPLETS_DIST`, the droplets server's build folder, resolved from the working directory; without it, it exits 2. `src/embedded.js:18`, `src/embedded.js:22`
+- Embedded imports `dist/server.js` and uses its default export `{ fetch }`. `src/embedded.js:32`
+- Embedded fragment URLs are on `EXPRESS_SITE_URL` (default `http://localhost:<PORT>`), never the client's Host. `src/embedded.js:29`, `src/embedded.js:43`
+- Embedded renders fragments by calling `droplets.fetch()` in-process. `src/embedded.js:45`
+- Embedded page loads `/index.js` from its own origin. `src/embedded.js:53`
+- Embedded mounts every other route on the droplets handler via `getRequestListener`. `src/embedded.js:59`
+- Embedded log line: `express + droplets listening on http://localhost:<port>`. `src/embedded.js:62`
 - Shop footer stack name is `Express 5`. `src/shop.js:16`
-- Shop proxy forwards only `accept`, `accept-language`, `content-type`, `cookie`, `if-none-match`, `origin`, `referer`, `user-agent`, `x-droplet-props`, `x-droplets-build`. `src/shop.js:19`
-- Shop proxy drops `connection`, `content-encoding`, `content-length`, `keep-alive`, `transfer-encoding` from the answer and re-sets `set-cookie`. `src/shop.js:33`, `src/shop.js:92`
-- Shop proxy routes are `/index.js`, `/droplets`, `/assets`, `/api`, every method. `src/shop.js:42`, `src/shop.js:101`
-- Shop `x-droplet-location` is the origin of `SHOP_PUBLIC_URL`, never the request's Host. `src/shop.js:65`, `src/shop.js:71`
-- Shop proxy URL is concatenated with `req.originalUrl`, not resolved: `//elsewhere` stays a path on the shop. `src/shop.js:79`
-- Shop proxy streams the request body and never follows redirects. `src/shop.js:82`, `src/shop.js:84`
-- Shop proxy sends no body for `HEAD` or an empty upstream body. `src/shop.js:93`
-- Shop proxy answers 502 `The shop is unreachable.` when the shop is down. `src/shop.js:97`
-- Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page as `referer` and the browser's `cookie`. `src/shop.js:107`, `src/shop.js:109`
-- Shop fragment fetch uses `redirect: "manual"`; a 3xx keeps its `location`. `src/shop.js:123`, `src/shop.js:128`
-- Shop fragment inserted only when 2xx or 500 and `text/html`. `src/shop.js:130`, `src/shop.js:131`
-- Shop fragment otherwise renders `<p class="shop-unavailable">` with the id escaped. `src/shop.js:140`
-- Shop product lookup reads `/droplets/product-page/_data?slug=` and needs string `id` and `name`. `src/shop.js:146`, `src/shop.js:152`
-- Shop `Link` preloads kept only for `preload`/`modulepreload` on the public origin. `src/shop.js:171`, `src/shop.js:178`
-- Shop layout speculation rules prefetch `/product/*`, eagerness `moderate`. `src/shop.js:203`
-- Shop layout loads `/shop.css` and `/index.js` from this origin. `src/shop.js:201`, `src/shop.js:204`
-- Shop pages always fetch `toast-center` and `shopping-cart` with `variant=badge`. `src/shop.js:234`, `src/shop.js:235`
-- Shop pages answer `cache-control: private, no-store` and every fragment's `Set-Cookie`. `src/shop.js:239`, `src/shop.js:240`
-- Shop page redirect: the first fragment with a `location` answers the page with its status. `src/shop.js:241`, `src/shop.js:242`
-- Shop stylesheet `/shop.css` is served from `public/`. `src/shop.js:253`
-- Gallery passes the whole query to `product-filter` and `product-library`. `src/shop.js:262`, `src/shop.js:263`
-- Product page answers 404 when the product is not found. `src/shop.js:282`
-- Product page comments props are `order`, `page`, `showing` plus `productId`. `src/shop.js:287`, `src/shop.js:288`
-- Product page props are `v` (when the link had one) plus `slug`. `src/shop.js:291`, `src/shop.js:292`
-- Login page passes `next`. `src/shop.js:315`
-- Admin page passes `view` and `id`. `src/shop.js:324`
+- Shop proxy forwards only `accept`, `accept-language`, `content-type`, `if-none-match`, `origin`, `referer`, `user-agent`, `x-droplet-props`, `x-droplets-build`, plus `cookie` cut down to `cart_id` and `shop_admin` (`SHOP_COOKIES`). `src/shop.js:19`, `src/shop.js:44`, `src/shop.js:97`
+- Shop proxy refuses a path with a `.` or `..` segment, once decoded, with 400. `src/shop.js:56`, `src/shop.js:91`
+- Shop upstream timeouts: the proxy 15 s, a fragment 10 s, the product lookup 5 s. `src/shop.js:108`, `src/shop.js:147`, `src/shop.js:175`
+- Shop proxy drops `connection`, `content-encoding`, `content-length`, `keep-alive`, `transfer-encoding` from the answer and re-sets `set-cookie`. `src/shop.js:32`, `src/shop.js:116`
+- Shop proxy routes are `/index.js`, `/env.js`, `/index.css`, `/droplets`, `/assets`, `/api`, every method. `src/shop.js:41`, `src/shop.js:125`
+- Shop `x-droplet-location` is the origin of `SHOP_PUBLIC_URL`, never the request's Host. `src/shop.js:85`, `src/shop.js:92`
+- Shop proxy URL is concatenated with `req.originalUrl`, not resolved: `//elsewhere` stays a path on the shop. `src/shop.js:102`
+- Shop proxy streams the request body and never follows redirects. `src/shop.js:105`, `src/shop.js:107`
+- Shop proxy sends no body for `HEAD` or an empty upstream body. `src/shop.js:117`
+- Shop proxy answers 502 `The shop is unreachable.` when the shop is down. `src/shop.js:121`
+- Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page as `referer` and the browser's `cookie` cut down to the shop's. `src/shop.js:132`, `src/shop.js:133`
+- Shop fragment fetch uses `redirect: "manual"`; a 3xx keeps its `location`. `src/shop.js:147`, `src/shop.js:152`
+- Shop fragment inserted only when 2xx or 500 and `text/html`. `src/shop.js:154`, `src/shop.js:155`
+- Shop fragment otherwise renders `<p class="shop-unavailable">` with the id escaped. `src/shop.js:164`
+- Shop product lookup reads `/droplets/product-page/_data?slug=` and needs string `id` and `name`. `src/shop.js:170`, `src/shop.js:180`
+- Shop `Link` preloads kept only for `preload`/`modulepreload` on the public origin. `src/shop.js:199`, `src/shop.js:206`
+- Shop layout speculation rules prefetch `/product/*`, eagerness `moderate`. `src/shop.js:231`
+- Shop layout loads `/shop.css` and `/index.js` from this origin. `src/shop.js:229`, `src/shop.js:232`
+- Shop pages always fetch `toast-center` and `shopping-cart` with `variant=badge`. `src/shop.js:262`, `src/shop.js:263`
+- Shop pages answer `cache-control: private, no-store` and every fragment's `Set-Cookie`. `src/shop.js:267`, `src/shop.js:268`
+- Shop page redirect: the first fragment with a `location` answers the page with its status. `src/shop.js:269`, `src/shop.js:270`
+- Shop stylesheet `/shop.css` is served from `public/`. `src/shop.js:281`
+- Gallery passes the whole query to `product-filter` and `product-library`. `src/shop.js:290`, `src/shop.js:291`
+- Product page answers 404 when the product is not found. `src/shop.js:310`
+- Product page comments props are `order`, `page`, `showing` plus `productId`. `src/shop.js:315`, `src/shop.js:316`
+- Product page props are `v` (when the link had one) plus `slug`. `src/shop.js:319`, `src/shop.js:320`
+- Login page passes `next`. `src/shop.js:343`
+- Admin page passes `view` and `id`. `src/shop.js:352`
 - Scripts: `start` runs `src/server.js`, `start:embedded` runs `src/embedded.js`. `package.json:7`, `package.json:8`
 - Typecheck script is `tsc --noEmit`. `package.json:9`
 - Dependencies are `express` ^5.1.0 and `@hono/node-server` ^2.1.6 (for `embedded.js`); no `@dropletsjs/*` package. `package.json:12`, `package.json:13`

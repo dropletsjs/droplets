@@ -1394,6 +1394,63 @@ describe("createDropletsApp: where props come from", () => {
   });
 });
 
+describe("createDropletsApp: the JSON body", () => {
+  const post = (type: string, body: string) => ({ method: "POST", headers: { "content-type": type }, body });
+
+  it("reads it by the parsed media type, as the size limit does", async () => {
+    const { app } = fakeApp();
+    const body = JSON.stringify({ props: { who: "Body" } });
+    for (const type of ["application/json", "application/json; charset=utf-8", "application/ld+json", "APPLICATION/JSON"]) {
+      expect(await (await app.request("/droplets/hello/_data", post(type, body))).text(), type).toContain("Body");
+    }
+    for (const type of [
+      "text/xml; a=application/json",
+      "text/plain",
+      "application/jsonx",
+      "application/x-www-form-urlencoded; boundary=application/json",
+    ]) {
+      const res = await app.request("/droplets/hello/_data", post(type, body));
+      expect(await res.text(), type).not.toContain("Body");
+    }
+  });
+
+  it("treats a body or x-droplet-props nested past 64 levels as none", async () => {
+    const { app, renderDroplet } = fakeApp();
+    const deep = `${"[".repeat(100)}1${"]".repeat(100)}`;
+    const body = await app.request("/droplets/hello", post("application/json", `{"props":{"who":"Deep","list":${deep}}}`));
+    expect(body.status).toBe(200);
+    const header = await app.request("/droplets/hello", { headers: { "x-droplet-props": btoa(`{"who":"Deep","list":${deep}}`) } });
+    expect(header.status).toBe(200);
+    const shallow = await app.request(
+      "/droplets/hello",
+      post("application/json", `{"props":{"who":"Shallow","list":${"[".repeat(60)}1${"]".repeat(60)}}}`),
+    );
+    expect(await shallow.text()).toContain("Shallow");
+    expect(renderDroplet.mock.calls.map((call) => (call[1].props as { who?: string } | undefined)?.who)).toEqual([
+      undefined,
+      undefined,
+      "Shallow",
+    ]);
+  });
+
+  it("answers what no handler caught through handleError, as text or JSON by the route", async () => {
+    const handleError = vi.fn(() => ({ message: "Try later" }));
+    const { app } = fakeApp({
+      getDropletMeta: () => {
+        throw new Error("registry down");
+      },
+      getHandleError: () => handleError,
+    });
+    const text = await app.request("/droplets/hello", post("application/json", "{}"));
+    expect(text.status).toBe(500);
+    expect(await text.text()).toBe("Try later");
+    const data = await app.request("/droplets/hello/_data", post("application/json", "{}"));
+    expect(data.status).toBe(500);
+    expect(await data.json()).toEqual({ message: "Try later" });
+    expect(handleError).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("createDropletsApp: the query as it came", () => {
   it("hands every event the request as it came, the query untouched", async () => {
     const seen: string[] = [];
@@ -2334,5 +2391,30 @@ describe("createDropletsApp: what a production server logs", () => {
       ["handleError in hooks.server.ts failed", new Error("hook broke")],
     ]);
     for (const [message] of error.mock.calls) expect(String(message)).not.toMatch(/^\[droplets/);
+  });
+
+  it("names an endpoint's path once", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const cause = new TypeError("by is not a number");
+    const { app } = fakeApp({
+      devLog: undefined,
+      matchApi: apiOf({
+        routes: [
+          [
+            [
+              { type: "static", value: "api" },
+              { type: "static", value: "counter" },
+            ],
+            {
+              POST: () => {
+                throw cause;
+              },
+            },
+          ],
+        ],
+      }),
+    });
+    expect((await app.request("/api/counter", { method: "POST" })).status).toBe(500);
+    expect(error.mock.calls).toEqual([["endpoint failed: /api/counter", cause]]);
   });
 });

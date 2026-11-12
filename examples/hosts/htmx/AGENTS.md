@@ -13,8 +13,9 @@
   Checked by: `tests/hosts/e2e/htmx.spec.ts`.
 - In `docker-compose.yml`, the droplets server's and the shop's `DROPLETS_TRUSTED_ORIGINS` list this site's `WEB_URL`.
   Checked by: `tests/hosts/e2e/htmx.spec.ts`.
-- The droplets server runs with `cors: true` and the pages set htmx's `selfRequestsOnly: false`, so htmx reaches it cross-origin, preflight included.
-  Checked by: `tests/hosts/e2e/htmx.spec.ts` ("the droplets server answers htmx's preflight").
+- The droplets server runs with `cors: true` and the pages set htmx's `selfRequestsOnly: false`, so htmx reaches it cross-origin, preflight included; `html/droplet-origins.js` then allows only the origins the page loads an `/index.js` from.
+  Checked by: `tests/hosts/e2e/htmx.spec.ts` ("the droplets server answers htmx's preflight", "htmx reaches the droplets servers' origins and no other").
+- The shop's proxy sends the shop only its own cookies (`cart_id`, `shop_admin`), by a `map` in `nginx.conf`.
 - Every page has the same `<head>`, with one `/index.js` per droplets server, since a boosted link swaps only the `<body>`.
   Checked by: `tests/hosts/e2e/htmx.spec.ts`.
 - Each element that receives a droplet has `hx-boost="false"`, so the droplet's forms stay its own.

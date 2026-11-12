@@ -80,6 +80,7 @@ function createAssetLoaders({ assets }: AssetLoadersOptions): AssetLoaders {
         if (!response.ok) return response;
         const cached = new Response(response.body, response);
         cached.headers.set("cache-control", "public, max-age=2592000, immutable");
+        cached.headers.set("x-content-type-options", "nosniff");
         return cached;
       }
       if (!response.ok && response.status !== 304) return response;
@@ -98,6 +99,7 @@ function uncached({ response }: UncachedInput): Response {
 /** `cacheControl` (none for `false`) with an `ETag`: the binding's, else one from the content, answered 304 when it matches. */
 async function revalidated({ response, ifNoneMatch, cacheControl }: RevalidatedInput): Promise<Response> {
   const headers = new Headers(response.headers);
+  headers.set("x-content-type-options", "nosniff");
   if (cacheControl === false) headers.delete("cache-control");
   else headers.set("cache-control", cacheControl);
   if (response.status === 304 || headers.has("etag")) return new Response(response.body, { status: response.status, headers });

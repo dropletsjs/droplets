@@ -44,7 +44,7 @@ server runs with `cors: true`. `?who=` is passed to every droplet.
 
 `app/shop.php` adds five pages that fetch the shop's fragments on the
 server, all of a page's at once, into the templates under
-`app/views/shop/`. It proxies `/index.js`, `/droplets/*` (fragments,
+`app/views/shop/`. It proxies `/index.js`, `/env.js`, `/index.css`, `/droplets/*` (fragments,
 `_data`, form actions), `/assets/*` and `/api/*` to the shop under this
 host's own origin, so its cookies (the cart, the admin session) are
 first-party and nothing is cross-origin. It follows the shop's
@@ -53,13 +53,15 @@ first-party and nothing is cross-origin. It follows the shop's
 - `x-droplet-location` is the origin of `SHOP_PUBLIC_URL`, written out in
   the environment: never the request's Host. The shop lists that origin in
   `DROPLETS_TRUSTED_ORIGINS`.
-- Fragment fetches forward the browser's `Cookie`, send the page URL
+- Fragment fetches forward the browser's `Cookie` cut down to the shop's
+  own `cart_id` and `shop_admin` (so does the proxy), send the page URL
   (`REQUEST_URI`, query included) as `Referer`, never follow redirects, and
   insert only `text/html` answers (2xx, or a 500 carrying the droplet's
   error page). Their `Set-Cookie` goes back with the page, their `Link`
   preloads into its `<head>`, and a redirect is passed on.
 - The proxy forwards an allowlist of the browser's headers and the body as
-  it came, and answers with the shop's status, its headers less the per-hop
+  it came, refuses a path with a `.` or `..` segment once decoded (400),
+  and answers with the shop's status, its headers less the per-hop
   ones (and `Content-Length`/`Content-Encoding`, since curl decodes the
   body), every `Set-Cookie` and any redirect untouched.
 - No curl handle has a cookie file, a cookie jar or a share handle, and
@@ -123,10 +125,10 @@ into a page.
 - Compose web service environment: `DROPLETS_INTERNAL_URL`, `DROPLETS_PUBLIC_URL`, `SHOP_INTERNAL_URL`, `SHOP_PUBLIC_URL`. `docker-compose.yml:39`, `docker-compose.yml:42`
 - `DROPLETS_INTERNAL_URL` and `DROPLETS_PUBLIC_URL` default to `http://localhost:8000`. `public/index.php:17`, `public/index.php:19`
 - PHP built-in server: a file in `public/` is served as it is (`return false`). `public/index.php:25`
-- Basic page answers only GET and HEAD on `/`; anything unrouted is a plain-text 404. `public/index.php:33`, `public/index.php:53`
+- Basic page answers only GET and HEAD on `/`; anything unrouted is a plain-text 404. `public/index.php:33`, `public/index.php:57`
 - Basic page droplets: `client`, `ssr-hydrate`, `ssr-nohydrate`, with `who` defaulting to `PHP`. `public/index.php:36`, `public/index.php:37`
-- Basic fragment fetch sends `x-droplet-location: DROPLETS_PUBLIC_URL`, timeout 5 s. `public/index.php:40`, `public/index.php:41`
-- Basic fragment that is not a 200 renders an inline `<p class="error">`. `public/index.php:47`
+- Basic fragment fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`, timeout 5 s. `public/index.php:40`, `public/index.php:41`
+- Basic page pastes only a 2xx or 500 `text/html` answer; anything else renders an inline `<p class="error">`. `public/index.php:49`, `public/index.php:51`
 - Basic page loads `<DROPLETS_PUBLIC_URL>/index.js`. `app/views/index.php:7`
 - Droplets server's `cors: true` (the Svelte example) lets the basic page load droplets cross-origin. `../../frameworks/svelte/droplets.config.ts:16`
 - curl: requests in parallel with `curl_multi`, redirects never followed, http and https only. `app/http.php:19`, `app/http.php:39`, `app/http.php:40`
@@ -135,30 +137,31 @@ into a page.
 - curl: no cookie file, cookie jar or share handle; each handle lives for one request. `app/http.php:6`, `app/http.php:83`
 - curl: a failed request has status 0 and is logged with `error_log`. `app/http.php:75`, `app/http.php:78`
 - `h()` escapes with `htmlspecialchars` (`ENT_QUOTES | ENT_SUBSTITUTE`, UTF-8). `app/http.php:104`
-- `SHOP_INTERNAL_URL` defaults to `http://localhost:8300`. `app/shop.php:58`
-- Shop `x-droplet-location` is the origin of `SHOP_PUBLIC_URL` (default `http://localhost:8009`), never the request's Host. `app/shop.php:66`, `app/shop.php:68`
-- Shop proxy request headers allowlist: accept, accept-language, content-type, cookie, if-none-match, origin, referer, user-agent, x-droplet-props, x-droplets-build. `app/shop.php:23`
-- Shop proxy drops per-hop headers, content-encoding, content-length, and whatever `Connection` names. `app/shop.php:40`, `app/shop.php:172`
-- Shop proxied paths: `/index.js`, `/droplets/`, `/assets/`, `/api/`. `app/shop.php:139`
-- Shop proxy forwards `php://input` as the body for methods other than GET and HEAD. `app/shop.php:158`
-- Shop proxy concatenates the raw request target onto the shop's URL, so `//elsewhere` stays a path on the shop. `app/shop.php:161`
-- Shop proxy timeout is 15 s; an unreachable shop is 502 `The shop is unreachable.` `app/shop.php:161`, `app/shop.php:165`
-- Shop proxy passes every `Set-Cookie` on untouched. `app/shop.php:130`, `app/shop.php:184`
-- Shop query is parsed from `QUERY_STRING` as pairs: repeated keys and dotted names kept. `app/shop.php:91`
-- Shop fragment fetch sends `accept: text/html`, the page URL as `Referer` and the browser's `Cookie`. `app/shop.php:201`, `app/shop.php:204`
-- Shop fragment is inserted only when it is 2xx or 500 and `text/html`. `app/shop.php:226`
-- Shop fragment that is not inserted becomes `<p class="shop-unavailable">`. `app/shop.php:233`
-- Shop product lookup reads `/droplets/product-page/_data?slug=`; an unknown product renders `not-found` with 404. `app/shop.php:243`, `app/shop.php:335`
+- `SHOP_INTERNAL_URL` defaults to `http://localhost:8300`. `app/shop.php:60`
+- Shop `x-droplet-location` is the origin of `SHOP_PUBLIC_URL` (default `http://localhost:8009`), never the request's Host. `app/shop.php:68`, `app/shop.php:70`
+- Shop proxy request headers allowlist: accept, accept-language, content-type, if-none-match, origin, referer, user-agent, x-droplet-props, x-droplets-build, plus `cookie` cut down to `cart_id` and `shop_admin` (`SHOP_COOKIES`). `app/shop.php:23`, `app/shop.php:55`, `app/shop.php:183`
+- Shop proxy refuses a path with a `.` or `..` segment, once decoded, with 400. `app/shop.php:102`, `app/shop.php:349`
+- Shop proxy drops per-hop headers, content-encoding, content-length, and whatever `Connection` names. `app/shop.php:39`, `app/shop.php:201`
+- Shop proxied paths: `/index.js`, `/env.js`, `/index.css`, `/droplets/`, `/assets/`, `/api/`. `app/shop.php:164`
+- Shop proxy forwards `php://input` as the body for methods other than GET and HEAD. `app/shop.php:187`
+- Shop proxy concatenates the raw request target onto the shop's URL, so `//elsewhere` stays a path on the shop. `app/shop.php:190`
+- Shop proxy timeout is 15 s; an unreachable shop is 502 `The shop is unreachable.` `app/shop.php:190`, `app/shop.php:194`
+- Shop proxy passes every `Set-Cookie` on untouched. `app/shop.php:155`, `app/shop.php:213`
+- Shop query is parsed from `QUERY_STRING` as pairs: repeated keys and dotted names kept. `app/shop.php:116`
+- Shop fragment fetch sends `accept: text/html`, the page URL as `Referer` and the browser's `Cookie` cut down to the shop's. `app/shop.php:230`, `app/shop.php:231`
+- Shop fragment is inserted only when it is 2xx or 500 and `text/html`. `app/shop.php:255`
+- Shop fragment that is not inserted becomes `<p class="shop-unavailable">`. `app/shop.php:262`
+- Shop product lookup reads `/droplets/product-page/_data?slug=`; an unknown product renders `not-found` with 404. `app/shop.php:272`, `app/shop.php:370`
 - Shop product name and category from `_data` are escaped with `h()` in the breadcrumb. `app/views/shop/product.php:3`, `app/views/shop/product.php:4`
-- Shop `Link` preloads kept: `preload` and `modulepreload` on this host's origin only. `app/shop.php:273`
-- Shop pages send `Cache-Control: private, no-store`. `app/shop.php:291`
-- Shop pages pass on every fragment's `Set-Cookie`, then a fragment's redirect with its own status. `app/shop.php:292`, `app/shop.php:295`
-- Shop pages fetch `toast-center` and `shopping-cart?variant=badge` with every page. `app/shop.php:290`
-- Shop pages answer only GET and HEAD. `app/shop.php:324`
-- Shop gallery passes the whole query to `product-filter` and `product-library`. `app/shop.php:331`
-- Shop product page: `product-comments` gets `order`, `page`, `showing` and `productId`; `product-page` gets `slug` and `v`. `app/shop.php:338`, `app/shop.php:341`
-- Shop cart page renders `shopping-cart?variant=inline`. `app/shop.php:347`
-- Shop login page passes `next`; admin page passes `view` and `id`. `app/shop.php:349`, `app/shop.php:351`
+- Shop `Link` preloads kept: `preload` and `modulepreload` on this host's origin only. `app/shop.php:302`
+- Shop pages send `Cache-Control: private, no-store`. `app/shop.php:320`
+- Shop pages pass on every fragment's `Set-Cookie`, then a fragment's redirect with its own status. `app/shop.php:321`, `app/shop.php:324`
+- Shop pages fetch `toast-center` and `shopping-cart?variant=badge` with every page. `app/shop.php:319`
+- Shop pages answer only GET and HEAD. `app/shop.php:359`
+- Shop gallery passes the whole query to `product-filter` and `product-library`. `app/shop.php:366`
+- Shop product page: `product-comments` gets `order`, `page`, `showing` and `productId`; `product-page` gets `slug` and `v`. `app/shop.php:373`, `app/shop.php:376`
+- Shop cart page renders `shopping-cart?variant=inline`. `app/shop.php:382`
+- Shop login page passes `next`; admin page passes `view` and `id`. `app/shop.php:384`, `app/shop.php:386`
 - Shop layout loads `/shop.css` and `/index.js` from this origin, with speculation rules for `/product/*`. `app/views/shop/layout.php:7`, `app/views/shop/layout.php:10`, `app/views/shop/layout.php:11`
 - Shop footer stack label is `PHP 8.3`. `app/shop.php:20`
 - `pnpm test:hosts php` tests `http://localhost:8009`. `../../../tests/hosts/run.mjs:62`

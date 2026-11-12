@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@dropletsjs/droplets": "workspace:*",
-    "hono": "^4.13.16",
+    "@dropletsjs/renderer-svelte": "workspace:*",
     "svelte": "^5.57.3",
     "zod": "^4.6.7"
   },
@@ -33,7 +33,6 @@
     "@dropletsjs/adapter-deno": "workspace:*",
     "@dropletsjs/adapter-node": "workspace:*",
     "@dropletsjs/devtools": "workspace:*",
-    "@dropletsjs/renderer-svelte": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "svelte-check": "catalog:",

@@ -31,7 +31,7 @@ server runs with `cors: true` (`examples/frameworks/svelte/droplets.config.ts`).
 
 ### The shop demo (`shop.py`)
 
-- `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` are proxied to the
+- `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and `/api/*` are proxied to the
   shop under this origin, bodies streamed both ways, so its cookies (the
   cart, the admin session) are first-party and nothing is cross-origin. The
   proxy forwards a fixed list of request headers (none that names a host)
@@ -39,7 +39,9 @@ server runs with `cors: true` (`examples/frameworks/svelte/droplets.config.ts`).
 - `x-droplet-location` is `SHOP_PUBLIC_URL`, written out in the
   environment: never the request's Host. The shop lists that origin in
   `DROPLETS_TRUSTED_ORIGINS`.
-- The pages fetch their fragments concurrently with the browser's `Cookie`,
+- The pages fetch their fragments concurrently with the browser's `Cookie`
+  cut down to the shop's own `cart_id` and `shop_admin` (so does the proxy,
+  which also refuses a path with a `.` or `..` segment once decoded),
   the page URL as `Referer`, and never follow redirects. Only an HTML answer
   (2xx or 500) is inserted, into the Jinja templates under
   `templates/shop/`. Their `Set-Cookie` goes back with the page, a droplet's
@@ -107,42 +109,44 @@ Node hosts only. The guide's page:
 - Basic page `DROPLETS_INTERNAL_URL` and `DROPLETS_PUBLIC_URL` default to `http://localhost:8000`. `main.py:23`, `main.py:25`
 - Basic page droplets are `client`, `ssr-hydrate`, `ssr-nohydrate`. `main.py:28`
 - Basic page includes the shop router. `main.py:34`
-- Basic page fragment fetch sends `x-droplet-location: DROPLETS_PUBLIC_URL`, timeout 5 s. `main.py:43`, `main.py:44`
-- Basic page fragment failure (`httpx.HTTPError`, any non-2xx) renders an inline `<p class="error">`. `main.py:46`, `main.py:49`
-- Basic page `who` defaults to `FastAPI`. `main.py:53`
-- Basic page opens one `httpx.AsyncClient` per request and fetches the three fragments with `asyncio.gather`. `main.py:54`, `main.py:55`
+- Basic page fragment fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`, timeout 5 s, no redirect followed. `main.py:44`, `main.py:45`
+- Basic page fragment failure (`httpx.HTTPError`) is logged and renders a fixed inline `<p class="error">`: the error names the internal URL. `main.py:47`, `main.py:49`, `main.py:50`
+- Basic page pastes only a 2xx or 500 `text/html` answer; anything else renders `<p class="error">` with the status, the id escaped by `Markup.format`. `main.py:53`, `main.py:54`, `main.py:56`
+- Basic page `who` defaults to `FastAPI`. `main.py:60`
+- Basic page opens one `httpx.AsyncClient` per request and fetches the three fragments with `asyncio.gather`. `main.py:61`, `main.py:62`
 - Basic page template loads `{{ droplets_public_url }}/index.js`. `templates/index.html:7`
 - Shop footer stack name is `FastAPI`. `shop.py:27`
 - Shop `SHOP_INTERNAL_URL` defaults to `http://localhost:8300`, trailing slashes stripped. `shop.py:30`
 - Shop origin is scheme and host of `SHOP_PUBLIC_URL`, default `http://localhost:8001`. `shop.py:33`, `shop.py:34`
-- Shop proxy forwards only `accept`, `accept-language`, `content-type`, `cookie`, `if-none-match`, `origin`, `referer`, `user-agent`, `x-droplet-props`, `x-droplets-build`. `shop.py:37`
-- Shop proxy drops `connection`, `content-encoding`, `content-length`, `keep-alive`, `transfer-encoding` from the answer and re-appends `set-cookie`. `shop.py:51`, `shop.py:124`
-- Shop httpx client is shared by every visitor, never follows redirects, timeout 10 s. `shop.py:66`, `shop.py:67`, `shop.py:68`
-- Shop httpx client cookie jar accepts no domain: nothing is remembered between visitors. `shop.py:69`
-- Shop proxy and fragment `Referer` use the raw path and query as the browser sent them. `shop.py:73`
-- Shop proxy methods are `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`. `shop.py:89`
-- Shop proxy routes are `/index.js`, `/droplets/*`, `/assets/*`, `/api/*`. `shop.py:92`, `shop.py:95`
-- Shop `x-droplet-location` is the `SHOP_PUBLIC_URL` origin, never the request's Host. `shop.py:97`
-- Shop proxy URL is concatenated, not resolved: `//elsewhere` stays a path on the shop. `shop.py:106`
-- Shop proxy streams the request body and the answer. `shop.py:108`, `shop.py:111`
-- Shop proxy answers 502 `The shop is unreachable.` when the shop is down. `shop.py:114`
-- Shop proxy sends no body for `HEAD`. `shop.py:117`
-- Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page as `referer` and the browser's `cookie`. `shop.py:139`, `shop.py:142`
-- Shop fragment 3xx keeps its `location`. `shop.py:151`
-- Shop fragment inserted only when 2xx or 500 and `text/html`. `shop.py:152`
-- Shop fragment otherwise renders `<p class="shop-unavailable">` with the id escaped (`Markup.format`). `shop.py:159`
-- Shop product lookup reads `/droplets/product-page/_data?slug=` and needs string `id` and `name`. `shop.py:167`, `shop.py:175`
-- Shop `Link` preloads kept only for `preload`/`modulepreload` on the public origin. `shop.py:197`, `shop.py:200`
-- Shop pages always fetch `toast-center` and `shopping-cart` with `variant=badge`, concurrently. `shop.py:231`, `shop.py:233`
-- Shop page redirect: the first fragment with a `location` answers the page with its status. `shop.py:238`, `shop.py:240`
-- Shop pages answer `cache-control: private, no-store` and every fragment's `Set-Cookie`. `shop.py:257`, `shop.py:258`
-- Shop stylesheet `/shop.css` is served from `static/shop.css` as `text/css`. `shop.py:265`, `shop.py:267`
-- Gallery passes the whole query to `product-filter` and `product-library`. `shop.py:279`
-- Product page answers 404 when the product is not found. `shop.py:287`
-- Product page comments props are `order`, `page`, `showing` plus `productId`. `shop.py:288`
-- Product page props are `slug` plus `v` (when the link had one). `shop.py:291`
-- Login page passes `next`. `shop.py:306`
-- Admin page passes `view` and `id`. `shop.py:317`
+- Shop proxy forwards only `accept`, `accept-language`, `content-type`, `if-none-match`, `origin`, `referer`, `user-agent`, `x-droplet-props`, `x-droplets-build`, plus `cookie` cut down to `cart_id` and `shop_admin` (`SHOP_COOKIES`). `shop.py:37`, `shop.py:60`, `shop.py:121`
+- Shop proxy refuses a path with a `.` or `..` segment, once decoded, with 400. `shop.py:89`, `shop.py:114`
+- Shop proxy drops `connection`, `content-encoding`, `content-length`, `keep-alive`, `transfer-encoding` from the answer and re-appends `set-cookie`. `shop.py:50`, `shop.py:146`
+- Shop httpx client is shared by every visitor, never follows redirects, timeout 10 s. `shop.py:68`, `shop.py:69`, `shop.py:70`
+- Shop httpx client cookie jar accepts no domain: nothing is remembered between visitors. `shop.py:71`
+- Shop proxy and fragment `Referer` use the raw path and query as the browser sent them. `shop.py:75`
+- Shop proxy methods are `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`. `shop.py:104`
+- Shop proxy routes are `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`, `/api/*`. `shop.py:107`, `shop.py:112`
+- Shop `x-droplet-location` is the `SHOP_PUBLIC_URL` origin, never the request's Host. `shop.py:116`
+- Shop proxy URL is concatenated, not resolved: `//elsewhere` stays a path on the shop. `shop.py:128`
+- Shop proxy streams the request body and the answer. `shop.py:130`, `shop.py:133`
+- Shop proxy answers 502 `The shop is unreachable.` when the shop is down. `shop.py:136`
+- Shop proxy sends no body for `HEAD`. `shop.py:139`
+- Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page as `referer` and the browser's `cookie` cut down to the shop's. `shop.py:161`, `shop.py:162`
+- Shop fragment 3xx keeps its `location`. `shop.py:173`
+- Shop fragment inserted only when 2xx or 500 and `text/html`. `shop.py:174`
+- Shop fragment otherwise renders `<p class="shop-unavailable">` with the id escaped (`Markup.format`). `shop.py:181`
+- Shop product lookup reads `/droplets/product-page/_data?slug=` and needs string `id` and `name`. `shop.py:189`, `shop.py:197`
+- Shop `Link` preloads kept only for `preload`/`modulepreload` on the public origin. `shop.py:219`, `shop.py:222`
+- Shop pages always fetch `toast-center` and `shopping-cart` with `variant=badge`, concurrently. `shop.py:253`, `shop.py:255`
+- Shop page redirect: the first fragment with a `location` answers the page with its status. `shop.py:260`, `shop.py:262`
+- Shop pages answer `cache-control: private, no-store` and every fragment's `Set-Cookie`. `shop.py:279`, `shop.py:280`
+- Shop stylesheet `/shop.css` is served from `static/shop.css` as `text/css`. `shop.py:287`, `shop.py:289`
+- Gallery passes the whole query to `product-filter` and `product-library`. `shop.py:301`
+- Product page answers 404 when the product is not found. `shop.py:309`
+- Product page comments props are `order`, `page`, `showing` plus `productId`. `shop.py:310`
+- Product page props are `slug` plus `v` (when the link had one). `shop.py:313`
+- Login page passes `next`. `shop.py:328`
+- Admin page passes `view` and `id`. `shop.py:339`
 - Shop layout loads `/shop.css` and `/index.js` from this origin. `templates/shop/layout.html:7`, `templates/shop/layout.html:12`
 - Shop layout speculation rules prefetch `/product/*`, eagerness `moderate`. `templates/shop/layout.html:11`
 - Shop layout puts the toasts fragment first in the body. `templates/shop/layout.html:15`

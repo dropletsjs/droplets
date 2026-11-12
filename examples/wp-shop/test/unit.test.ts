@@ -4,10 +4,12 @@ import { commentEntries } from "../src/lib/comment-entries.ts";
 import { fillLive, liveToken, type LiveValues } from "../src/lib/live.ts";
 import { PRODUCT_ID } from "../src/lib/schemas.ts";
 import {
+  bodyDigest,
   type Claims,
   MAX_ASSERTION_BYTES,
   SAME_SECRETS,
   secretPair,
+  SERVICE_HEADER,
   signAssertion,
   verifyAssertion,
 } from "../src/lib/server/host-identity.ts";
@@ -132,6 +134,27 @@ describe("x-wp-shop-user, the host-asserted identity", () => {
 });
 
 // ---- WordPress's REST answers, as untrusted input ---------------------------
+
+describe("x-wp-shop-service, the write and its body", () => {
+  const path = "/wp-json/wp/v2/products/11?_fields=id";
+  const write = (over: Partial<Claims> = {}) => claims({ aud: "wordpress", path, ...over });
+  const forWrite = { ...expected, aud: "wordpress" as const, path };
+
+  it("counts for the body it was signed for, and no other", async () => {
+    const body = JSON.stringify({ meta: { shop_stock: 0 } });
+    const digest = await bodyDigest(body);
+    expect(digest).toMatch(/^[0-9a-f]{64}$/);
+    const header = await signAssertion(write({ body: digest }), SERVICE_SECRET);
+    expect(await verifyAssertion(header, SERVICE_SECRET, { ...forWrite, body: digest })).toMatchObject({ sub: "admin", body: digest });
+    expect(await verifyAssertion(header, SERVICE_SECRET, { ...forWrite, body: await bodyDigest(`${body} `) })).toBeNull();
+    // A header for a body is no good without one, and one without a body no good for one.
+    expect(await verifyAssertion(header, SERVICE_SECRET, forWrite)).toBeNull();
+    expect(await verifyAssertion(await signAssertion(write(), SERVICE_SECRET), SERVICE_SECRET, { ...forWrite, body: digest })).toBeNull();
+    // A body claim that is no SHA-256.
+    const odd = signRaw(JSON.stringify(write({ body: "abc" })), SERVICE_SECRET);
+    expect(await verifyAssertion(odd, SERVICE_SECRET, { ...forWrite, body: "abc" })).toBeNull();
+  });
+});
 
 describe("WordPress's REST answers", () => {
   let wp: MockWordPress;
@@ -312,6 +335,28 @@ describe("WordPress's REST answers", () => {
       }),
     ).rejects.toThrow(SAME_SECRETS);
     expect(wp.writes.length).toBe(writes);
+  });
+
+  it("is refused by WordPress for a body other than the one signed, and for a header without a body", async () => {
+    const writes = wp.writes.length;
+    const path = "/wp-json/wp/v2/products/11?_fields=id";
+    const signed = JSON.stringify({ meta: { shop_stock: 0, shop_price_cents: 999 } });
+    const sent = JSON.stringify({ meta: { shop_stock: 0, shop_price_cents: 1 } });
+    const fresh = {
+      sub: "admin",
+      role: "administrator",
+      exp: Math.floor(Date.now() / 1000) + 60,
+      method: "POST",
+      path,
+      aud: "wordpress",
+    } as const;
+    const post = async (header: string, body: string) =>
+      (await fetch(`${wp.url}${path}`, { method: "POST", headers: { "content-type": "application/json", [SERVICE_HEADER]: header }, body }))
+        .status;
+    expect(await post(await signAssertion({ ...fresh, body: await bodyDigest(signed) }, SERVICE_SECRET), sent)).toBe(401);
+    expect(await post(await signAssertion(fresh, SERVICE_SECRET), signed)).toBe(401);
+    expect(await post(await signAssertion({ ...fresh, body: await bodyDigest(signed) }, SERVICE_SECRET), signed)).toBe(200);
+    expect(wp.writes.length).toBe(writes + 1);
   });
 });
 

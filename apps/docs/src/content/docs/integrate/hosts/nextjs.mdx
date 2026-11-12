@@ -54,8 +54,9 @@ async function fragment(page: PageRequest, id: string, params = new URLSearchPar
   Next's `redirect(location, RedirectType.replace)`.
 - Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
   page) is pasted; `Fragment` writes it with `dangerouslySetInnerHTML`.
-- Route handlers (`app/index.js/route.ts`, `app/droplets/[[...path]]`,
-  `app/assets/[...path]`, `app/api/[...path]`) pass `/index.js`,
+- Route handlers (`app/index.js/route.ts`, `app/env.js/route.ts`,
+  `app/index.css/route.ts`, `app/droplets/[[...path]]`, `app/assets/[...path]`,
+  `app/api/[...path]`) pass `/index.js`, `/env.js`, `/index.css`,
   `/droplets/*`, `/assets/*` and `/api/*` on to the shop.
 
 ## The shop demo, recorded
@@ -129,9 +130,10 @@ body; `/index.js` installs `window.shopMessageQueue` before any droplet starts
 
 ### What it proxies
 
-Route handlers (`app/index.js/route.ts`, `app/droplets/[[...path]]`,
-`app/assets/[...path]`, `app/api/[...path]`, all `force-dynamic`) pass
-`/index.js`, `/droplets/*` (fragments, `_data`, form actions), `/assets/*`
+Route handlers (`app/index.js/route.ts`, `app/env.js/route.ts`,
+`app/index.css/route.ts`, `app/droplets/[[...path]]`, `app/assets/[...path]`,
+`app/api/[...path]`, all `force-dynamic`) pass
+`/index.js`, `/env.js`, `/index.css`, `/droplets/*` (fragments, `_data`, form actions), `/assets/*`
 and `/api/*` to the shop. Each is the same file:
 
 ```ts
@@ -145,10 +147,13 @@ export { proxy as GET, proxy as HEAD, proxy as POST, proxy as PUT, proxy as PATC
 
 `shop.proxy` in `lib/shop.ts` sends `x-droplet-location` (the origin of
 `SHOP_PUBLIC_URL`) and passes on only `accept`, `accept-language`,
-`content-type`, `cookie`, `if-none-match`, `origin`, `referer`,
-`user-agent`, `x-droplet-props` and `x-droplets-build`: nothing that names a
-host. The body streams through (`duplex: "half"`), redirects are not
-followed, and the answer comes back with its `Set-Cookie` untouched, minus
+`content-type`, `if-none-match`, `origin`, `referer`, `user-agent`,
+`x-droplet-props` and `x-droplets-build`, plus `cookie` cut down to the
+shop's own `cart_id` and `shop_admin`: nothing that names a host, and no
+other app's cookie on this origin. The body streams through
+(`duplex: "half"`), redirects are not followed, each request times out (15
+seconds; fragments 10, the product lookup 5), and the answer comes back
+with its `Set-Cookie` untouched, minus
 `content-encoding`, `content-length` and the hop-by-hop headers. When the
 shop is down it answers `502`. The shop's cookies are first-party, and
 nothing is cross-origin.
@@ -215,13 +220,22 @@ export async function fragment(
   try {
     // Fragments are per-request content; never let Next cache them.
     const response = await fetch(url, {
-      headers: { "x-droplet-location": DROPLETS_PUBLIC_URL },
+      headers: { accept: "text/html", "x-droplet-location": DROPLETS_PUBLIC_URL },
       cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(5000),
     });
-    if (!response.ok) return `<p class="error">droplet "${droplet}" unavailable: HTTP ${response.status}</p>`;
-    return await response.text();
+    // Only an HTML answer is a fragment (a 500 carries the droplet's error
+    // page); anything else may echo the props, so it is never pasted.
+    const isFragment =
+      (response.ok || response.status === 500) && (response.headers.get("content-type") ?? "").startsWith("text/html");
+    if (isFragment) return await response.text();
+    // Read, not cancelled: Next's fetch hands back a tee of the body, and
+    // cancelling one branch waits for the other, forever. It is small.
+    await response.arrayBuffer();
+    return `<p class="error">droplet "${escapeHtml(droplet)}" unavailable: HTTP ${response.status}</p>`;
   } catch (error) {
-    return `<p class="error">droplet "${droplet}" unavailable: ${String(error)}</p>`;
+    return `<p class="error">droplet "${escapeHtml(droplet)}" unavailable: ${escapeHtml(String(error))}</p>`;
   }
 }
 ```

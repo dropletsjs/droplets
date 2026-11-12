@@ -51,8 +51,9 @@ target.replaceChildren(element);
 
 ```nginx
 # nginx.conf
-location ~ ^/(index\.js$|droplets/|assets/|api/) {
+location ~ ^/(index\.js$|env\.js$|index\.css$|droplets/|assets/|api/) {
   proxy_pass http://shop:8300;
+  proxy_set_header Cookie $shop_cookie;
   proxy_set_header x-droplet-location ${SHOP_PUBLIC_URL};
   proxy_set_header Forwarded "";
   proxy_set_header X-Forwarded-Host "";
@@ -77,7 +78,7 @@ location / {
   instead: nothing server-rendered, the element fetches its data once its
   bundle has loaded.
 - `ensureShopClient()` adds `<script type="module" src="/index.js">` to the
-  head once. `nginx.conf` passes `/index.js`, `/droplets/*`, `/assets/*` and
+  head once. `nginx.conf` passes `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and
   `/api/*` to the shop and answers every other path with `index.html`; it is
   a template, and the nginx image fills in `${SHOP_PUBLIC_URL}`
   (`http://localhost:8004`) when it starts.
@@ -130,12 +131,14 @@ before any droplet starts (the shop's `src/hooks.client.ts`):
 
 ### What it proxies
 
-`location ~ ^/(index\.js$|droplets/|assets/|api/)` in `nginx.conf` passes
-`/index.js`, `/droplets/*` (fragments, `_data`, form actions), `/assets/*`
-and `/api/*` to the shop with `x-droplet-location` written out and
+`location ~ ^/(index\.js$|env\.js$|index\.css$|droplets/|assets/|api/)` in `nginx.conf` passes
+`/index.js`, `/env.js`, `/index.css`, `/droplets/*` (fragments, `_data`, form actions), `/assets/*`
+and `/api/*` to the shop with `x-droplet-location` written out,
 `Forwarded`/`X-Forwarded-*` cleared (the shop reads them only as a fallback
-for its location, and trusts them only against its allow-list), and bodies
-up to 4 MB for the admin's image uploads. Every request the page makes is
+for its location, and trusts them only against its allow-list), the
+browser's `Cookie` cut down to the shop's own `cart_id` and `shop_admin`
+(the `map` at the top of the file), and bodies up to 4 MB for the admin's
+image uploads. Every request the page makes is
 same-origin: no CORS, and the shop's cookies are the app's own. The
 enhanced forms (adding to the cart) post by `fetch`; the login form is a
 native post through the proxy, so the shop's `303` and `Set-Cookie` reach
@@ -147,6 +150,7 @@ does the same:
 ```ts
 // vite.config.ts (trimmed)
 const HOST_HEADERS = ["forwarded", "x-forwarded-host", "x-forwarded-proto", "x-forwarded-prefix", "x-forwarded-for"];
+const SHOP_COOKIES = ["cart_id", "shop_admin"]; // shopCookies() keeps these of the browser's Cookie
 
 const env = loadEnv(mode, ".", "SHOP_");
 const target = env["SHOP_INTERNAL_URL"] ?? "http://localhost:8300";
@@ -159,10 +163,13 @@ const shop: ProxyOptions = {
     const emitter = proxy as unknown as ProxyEvents;
     emitter.on("proxyReq", (request) => {
       for (const name of HOST_HEADERS) request.removeHeader(name);
+      const cookie = shopCookies(String(request.getHeader("cookie") ?? ""));
+      if (cookie) request.setHeader("cookie", cookie);
+      else request.removeHeader("cookie");
     });
   },
 };
-const proxy = { "^/index\\.js$": shop, "/droplets/": shop, "/assets/": shop, "/api/": shop };
+const proxy = { "^/index\\.js$": shop, "^/env\\.js$": shop, "^/index\\.css$": shop, "/droplets/": shop, "/assets/": shop, "/api/": shop };
 ```
 
 ### The shop's environment
@@ -273,7 +280,7 @@ export function Droplet({ id, props = {}, mode = "fragment", origin = DROPLETS_U
   }, [id, mode, origin, propsKey]);
 
   if (error) return <p className="error">droplet "{id}" unavailable: {error}</p>;
-  return <div ref={host} data-droplet-host={id} />;
+  return <div ref={host} data-react-host={id} />;
 }
 ```
 

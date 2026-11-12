@@ -15,12 +15,11 @@ import express, { Router } from "express";
 /** The stack this host is, in the footer: the one thing that differs between hosts. */
 const STACK = "Express 5";
 
-/** What the browser's request may tell the shop; nothing that names a host. */
+/** What the browser's request may tell the shop; nothing that names a host. `cookie` goes on filtered. */
 const FORWARDED_REQUEST_HEADERS = [
   "accept",
   "accept-language",
   "content-type",
-  "cookie",
   "if-none-match",
   "origin",
   "referer",
@@ -39,7 +38,28 @@ const DROPPED_RESPONSE_HEADERS = new Set([
   "transfer-encoding",
 ]);
 
-const PROXIED = ["/index.js", "/droplets", "/assets", "/api"];
+const PROXIED = ["/index.js", "/env.js", "/index.css", "/droplets", "/assets", "/api"];
+
+/** The shop's own cookies, the only ones it is sent: another app's on this origin stay here. */
+const SHOP_COOKIES = ["cart_id", "shop_admin"];
+
+/** The browser's `Cookie` header with the shop's cookies only, or null. */
+function shopCookies(header) {
+  const kept = [];
+  for (const pair of (header ?? "").split(";")) {
+    if (SHOP_COOKIES.includes(pair.split("=")[0].trim())) kept.push(pair.trim());
+  }
+  return kept.length > 0 ? kept.join("; ") : null;
+}
+
+/** A `.` or `..` segment, once decoded (or one that does not decode): never a shop route. */
+function hasDotSegment(path) {
+  try {
+    return path.split("/").some((segment) => [".", ".."].includes(decodeURIComponent(segment)));
+  } catch {
+    return true;
+  }
+}
 
 const escapeHtml = (value) =>
   String(value).replace(
@@ -68,11 +88,14 @@ export function shop({ internalUrl, publicUrl }) {
   // ---- The proxy --------------------------------------------------------
 
   async function proxy(req, res) {
+    if (hasDotSegment(req.originalUrl.split("?")[0])) return res.status(400).type("text").send("Bad request.");
     const headers = new Headers({ "x-droplet-location": origin });
     for (const name of FORWARDED_REQUEST_HEADERS) {
       const value = req.get(name);
       if (value) headers.set(name, value);
     }
+    const cookie = shopCookies(req.get("cookie"));
+    if (cookie) headers.set("cookie", cookie);
     const hasBody = req.method !== "GET" && req.method !== "HEAD";
     try {
       // Concatenated, not resolved: a path like `//elsewhere` stays a path on the shop.
@@ -82,6 +105,7 @@ export function shop({ internalUrl, publicUrl }) {
         body: hasBody ? Readable.toWeb(req) : undefined,
         duplex: "half",
         redirect: "manual",
+        signal: AbortSignal.timeout(15_000),
       });
       res.status(upstream.status);
       upstream.headers.forEach((value, name) => {
@@ -102,10 +126,10 @@ export function shop({ internalUrl, publicUrl }) {
 
   // ---- Fragments --------------------------------------------------------
 
-  /** The browser's request, as the shop should see it: its cookies, this page as the host. */
+  /** The browser's request, as the shop should see it: its shop cookies, this page as the host. */
   const fragmentHeaders = (req) => {
     const headers = { accept: "text/html", "x-droplet-location": origin, referer: origin + req.originalUrl };
-    const cookie = req.get("cookie");
+    const cookie = shopCookies(req.get("cookie"));
     if (cookie) headers.cookie = cookie;
     return headers;
   };
@@ -120,7 +144,7 @@ export function shop({ internalUrl, publicUrl }) {
     /** @type {{ html: string, status: number, location: string | null, cookies: string[], link: string | null }} */
     const result = { html: "", status: 502, location: null, cookies: [], link: null };
     try {
-      const response = await fetch(url, { headers: fragmentHeaders(req), redirect: "manual" });
+      const response = await fetch(url, { headers: fragmentHeaders(req), redirect: "manual", signal: AbortSignal.timeout(10_000) });
       result.status = response.status;
       result.cookies = response.headers.getSetCookie();
       result.link = response.headers.get("link");
@@ -145,7 +169,11 @@ export function shop({ internalUrl, publicUrl }) {
   async function product(slug) {
     const url = `${internal}/droplets/product-page/_data?${new URLSearchParams({ slug })}`;
     try {
-      const response = await fetch(url, { headers: { "x-droplet-location": origin, accept: "application/json" }, redirect: "manual" });
+      const response = await fetch(url, {
+        headers: { "x-droplet-location": origin, accept: "application/json" },
+        redirect: "manual",
+        signal: AbortSignal.timeout(5000),
+      });
       if (!response.ok) return null;
       const body = /** @type {any} */ (await response.json());
       const found = body?.data?.product;

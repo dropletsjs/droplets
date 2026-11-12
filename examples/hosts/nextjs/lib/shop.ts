@@ -45,12 +45,11 @@ export type PageRequest = {
 /** One preload from a fragment's `Link` header. */
 export type Preload = { rel: "preload" | "modulepreload"; href: string; as?: string };
 
-/** What the browser's request may tell the shop; nothing that names a host. */
+/** What the browser's request may tell the shop; nothing that names a host. `cookie` goes on filtered. */
 const FORWARDED_REQUEST_HEADERS = [
   "accept",
   "accept-language",
   "content-type",
-  "cookie",
   "if-none-match",
   "origin",
   "referer",
@@ -71,6 +70,18 @@ const DROPPED_RESPONSE_HEADERS = new Set([
 
 /** Statuses that carry no body. */
 const NO_BODY = new Set([101, 204, 205, 304]);
+
+/** The shop's own cookies, the only ones it is sent: another app's on this origin stay here. */
+const SHOP_COOKIES = ["cart_id", "shop_admin"];
+
+/** The browser's `Cookie` header with the shop's cookies only, or null. */
+function shopCookies(header: string | null): string | null {
+  const kept: string[] = [];
+  for (const pair of (header ?? "").split(";")) {
+    if (SHOP_COOKIES.includes(pair.split("=")[0]!.trim())) kept.push(pair.trim());
+  }
+  return kept.length > 0 ? kept.join("; ") : null;
+}
 
 export const escapeHtml = (value: unknown) =>
   String(value).replace(
@@ -97,6 +108,8 @@ export function createShop({ internalUrl, publicUrl }: ShopConfig) {
       const value = request.headers.get(name);
       if (value) headers.set(name, value);
     }
+    const cookie = shopCookies(request.headers.get("cookie"));
+    if (cookie) headers.set("cookie", cookie);
     const hasBody = request.method !== "GET" && request.method !== "HEAD";
     try {
       // Concatenated, not resolved: a path like `//elsewhere` stays a path on the shop.
@@ -105,6 +118,7 @@ export function createShop({ internalUrl, publicUrl }: ShopConfig) {
         headers,
         body: hasBody ? request.body : undefined,
         redirect: "manual",
+        signal: AbortSignal.timeout(15_000),
         // Streams the body through (Node's fetch wants it said).
         duplex: "half",
       } as RequestInit);
@@ -131,10 +145,11 @@ export function createShop({ internalUrl, publicUrl }: ShopConfig) {
   async function fragment(page: PageRequest, id: string, params = new URLSearchParams()): Promise<Fragment> {
     const url = `${internal}/droplets/${encodeURIComponent(id)}?${params}`;
     const headers: Record<string, string> = { accept: "text/html", "x-droplet-location": origin, referer: origin + page.path };
-    if (page.cookie) headers["cookie"] = page.cookie;
+    const cookie = shopCookies(page.cookie);
+    if (cookie) headers["cookie"] = cookie;
     const result: Fragment = { html: "", status: 502, location: null, cookies: [], link: null };
     try {
-      const response = await fetch(url, { headers, redirect: "manual", cache: "no-store" });
+      const response = await fetch(url, { headers, redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(10_000) });
       result.status = response.status;
       result.cookies = response.headers.getSetCookie();
       result.link = response.headers.get("link");
@@ -166,6 +181,7 @@ export function createShop({ internalUrl, publicUrl }: ShopConfig) {
         headers: { "x-droplet-location": origin, accept: "application/json" },
         redirect: "manual",
         cache: "no-store",
+        signal: AbortSignal.timeout(5000),
       });
       if (!response.ok) return null;
       const body = (await response.json()) as { data?: { product?: Partial<Product> } } | null;

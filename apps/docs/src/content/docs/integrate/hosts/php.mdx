@@ -64,7 +64,7 @@ function shop_fragments(array $wanted): array
 - Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
   page) is pasted; `<?= ?>` prints it unescaped.
 - `app/views/shop/layout.php` loads `/index.js` once. `shop_is_proxied()`
-  sends `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` to
+  sends `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and `/api/*` to
   `shop_proxy()`, which passes them on to the shop.
 
 ## The shop demo, recorded
@@ -151,14 +151,17 @@ function shop_is_proxied(string $path): bool
 ```
 
 `shop_route()` checks it first, for every method, before any page route:
-`/index.js`, `/droplets/*` (fragments, `_data`, form actions), `/assets/*`
+`/index.js`, `/env.js`, `/index.css`, `/droplets/*` (fragments, `_data`, form actions), `/assets/*`
 and `/api/*` go to `shop_proxy()`. It passes the request on with
 `x-droplet-location` written out and only these of the browser's headers:
-`accept`, `accept-language`, `content-type`, `cookie`, `if-none-match`,
-`origin`, `referer`, `user-agent`, `x-droplet-props` and `x-droplets-build`.
-The body is `php://input` as it came, and the target is `REQUEST_URI`
-concatenated onto `SHOP_INTERNAL_URL`, never resolved, so `//elsewhere`
-stays a path on the shop. A shop that does not answer within 15 seconds is
+`accept`, `accept-language`, `content-type`, `if-none-match`, `origin`,
+`referer`, `user-agent`, `x-droplet-props` and `x-droplets-build`, plus
+`cookie` cut down to the shop's own `cart_id` and `shop_admin`, so another
+app's cookie on this origin stays here. The body is `php://input` as it
+came, and the target is `REQUEST_URI` concatenated onto
+`SHOP_INTERNAL_URL`, never resolved, so `//elsewhere` stays a path on the
+shop; a path with a `.` or `..` segment, once decoded, is refused with
+`400`. A shop that does not answer within 15 seconds is
 `502` `The shop is unreachable.` The answer comes back with its status, every
 `Set-Cookie` and any redirect untouched, and without the per-hop headers
 (`Connection` and what it names, `Keep-Alive`, `Transfer-Encoding`,
@@ -221,14 +224,18 @@ $droplets_public = rtrim(getenv('DROPLETS_PUBLIC_URL') ?: 'http://localhost:8000
     $ids = ['client', 'ssr-hydrate', 'ssr-nohydrate'];
     $responses = http_all(array_map(static fn(string $id) => [
         'url' => $droplets_internal . '/droplets/' . rawurlencode($id) . '?' . http_build_query(['who' => $who]),
-        'headers' => ['x-droplet-location' => $droplets_public],
+        'headers' => ['accept' => 'text/html', 'x-droplet-location' => $droplets_public],
     ], $ids), 5);
     $fragments = [];
     foreach ($ids as $index => $id) {
         $response = $responses[$index];
-        $fragments[] = $response['status'] === 200
+        // Only an HTML answer is a fragment (a 500 carries the droplet's error
+        // page); anything else may echo the props, so it is never pasted.
+        $status = $response['status'];
+        $is_html = str_starts_with((string) http_header($response, 'content-type'), 'text/html');
+        $fragments[] = (($status >= 200 && $status < 300) || $status === 500) && $is_html
             ? $response['body'] // trusted markup from the droplets server; never escaped
-            : sprintf('<p class="error">droplet "%s" unavailable: %s</p>', h($id), $response['status'] ? 'HTTP ' . $response['status'] : 'unreachable');
+            : sprintf('<p class="error">droplet "%s" unavailable: %s</p>', h($id), $status ? 'HTTP ' . $status : 'unreachable');
     }
 ```
 

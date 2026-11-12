@@ -4,7 +4,7 @@ import { cors } from "hono/cors";
 import { decodeBase64Json, encodeBase64 } from "./base64.ts";
 import { createCookies, prerenderCookies, readonlyCookies } from "./cookies.ts";
 import { readRuntimeEnv } from "./env-store.ts";
-import { backUrl, formResultKey, isReservedQueryKey, RETURN_KEY, splitFormResults } from "./form.ts";
+import { ACTION_NAME, backUrl, formResultKey, isReservedQueryKey, RETURN_KEY, splitFormResults } from "./form.ts";
 import { formSecret, mintFormResult, readFormResult } from "./form-token.server.ts";
 import { fixedHost, fixedPrerenderHost, headerLocations, hostFromHeaders, parseHost, withinTrusted } from "./host.ts";
 import type { HostTokenReplacers } from "./host-tokens.ts";
@@ -14,7 +14,8 @@ import { prerenderKey, propsKey } from "./props.ts";
 import { requestInfo, withRequestInfo } from "./request-store.ts";
 import { createLoadHeaders, storedHeaders } from "./load-headers.ts";
 import { publicEnvScript, serverKey } from "./server-records.ts";
-import { mediaType, originCheck, sizeLimits, trustedOriginsWith } from "./security.ts";
+import { plainJson } from "./plain-json.ts";
+import { isJsonType, mediaType, originCheck, sizeLimits, trustedOriginsWith } from "./security.ts";
 import { allowedMethods, API_METHODS, type ApiMatch, type ApiMethod } from "./routes.ts";
 import {
   HttpError,
@@ -323,17 +324,23 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 type ReadBodyJsonInput = { c: AppContext };
 
+/**
+ * The JSON body of a render request as plain data (`plainJson`: no
+ * `__proto__` key, 64 levels at most), or `undefined`: not a POST, not a
+ * JSON media type (the one `sizeLimits` reads), malformed, not an object.
+ * A malformed body is treated as "no body"; the droplet still renders.
+ */
 async function readBodyJson({ c }: ReadBodyJsonInput): Promise<Record<string, unknown> | undefined> {
-  if (c.req.method !== "POST") return undefined;
-  if (!(c.req.header("content-type") ?? "").includes("application/json")) return undefined;
+  if (c.req.method !== "POST" || !isJsonType({ type: mediaType({ request: c.req.raw }) })) return undefined;
+  let parsed: unknown;
   try {
     // A clone, so `event.request` stays readable for the droplet's own load.
-    const body: unknown = await c.req.raw.clone().json();
-    return isObject(body) ? body : undefined;
+    parsed = await c.req.raw.clone().json();
   } catch {
-    // A malformed body is treated as "no body"; the droplet still renders.
     return undefined;
   }
+  const body = plainJson({ value: parsed });
+  return isObject(body) ? body : undefined;
 }
 
 type ContextFromBodyInput = { body: Record<string, unknown> | undefined };
@@ -394,12 +401,16 @@ function propsFromRequest({ c, devLog }: PropsFromRequestInput): Record<string, 
   // Props too large or too structured for a query string.
   const encoded = c.req.header("x-droplet-props");
   if (encoded) {
+    let decoded: unknown;
     try {
-      const props: unknown = decodeBase64Json({ encoded });
-      if (isObject(props)) return props;
+      decoded = decodeBase64Json({ encoded });
     } catch {
       devLog?.malformedProps();
+      return undefined;
     }
+    const props = plainJson({ value: decoded });
+    if (isObject(props)) return props;
+    devLog?.malformedProps();
   }
   return undefined;
 }
@@ -832,6 +843,10 @@ function createDropletMiddleware(options: DropletsAppOptions): MiddlewareHandler
 /** The core Hono app over render and asset callbacks: `createServerApp`, `createNodeServerApp` and `createDevApp` build one for production, Node and `vite dev`. */
 export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
   const app = new Hono<AppEnv>();
+  // What no handler caught leaves the same way as everything else: through `handleError`.
+  app.onError((error, c) =>
+    failure({ c, options, error, as: c.req.path.endsWith("/_data") || c.req.path.startsWith("/api") ? "json" : "text", where: "request" }),
+  );
   const dropletMiddleware = createDropletMiddleware(options);
   const element = options.element ?? "djs-droplet";
   const health = options.health === undefined ? "/health" : options.health;
@@ -1369,6 +1384,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     let renderId: string | undefined;
     let payload: DropletPayload = { data: undefined };
     let assets: FragmentAssets;
+    let contextData: string;
     // What the load set, or what a build-time render kept.
     let answerHeaders: Iterable<[string, string]> = ctx.headers;
     try {
@@ -1470,13 +1486,13 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
         html = await options.transformDroplet(ctx.droplet, { ...event, html });
       }
       assets = await fragmentAssets({ ctx });
+      contextData = serializeBase64({ data: ctx.wire });
     } catch (error) {
       // `error()`, `redirect()`, props the schema refused, and failures the
       // droplet cannot show: answered as an endpoint does.
       return failure({ c, options, error, as: "text", where: "droplet" });
     }
 
-    const contextData = serializeBase64({ data: ctx.wire });
     const inlineContext = !ctx.noSSR && ctx.meta.ssr ? contextData : "";
     // Always an envelope, even around `undefined`: its presence tells the
     // client the server ran and `_data` is not needed. Client-only fragments
@@ -1562,7 +1578,9 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
       return failure({ c, options, error, as: "text", where: "actions" });
     }
     if (action === "none") return c.text("Method Not Allowed: this droplet has no form actions", 405, { allow: "GET" });
-    if (action === "missing") return c.text(`No action named ${JSON.stringify(name.slice(0, 100))}`, 404);
+    // The name is echoed only when it is one an action could have: anything else is not worth repeating.
+    if (action === "missing")
+      return c.text(ACTION_NAME.test(name) ? `No action named ${JSON.stringify(name.slice(0, 100))}` : "No such action", 404);
 
     // The request decides: one that accepts JSON (`enhanceDropletForm`, or
     // any script) gets the result; anything else is a native navigation.
@@ -1714,7 +1732,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
       }
       return isHead ? new Response(null, response) : response;
     } catch (error) {
-      return failure({ c, options, error, as: "json", where: match.route.id });
+      return failure({ c, options, error, as: "json", where: "endpoint" });
     }
   };
   app.all("/api", api);
