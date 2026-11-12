@@ -8,7 +8,7 @@ import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { cpSync, readFileSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { stopServer } from "@dropletsjs/shared/vitest";
+import { freePort, fromBuild, stopServer, waitForServer } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const exec = promisify(execFile);
@@ -39,7 +39,7 @@ const djs = (args: string[]) =>
   exec(bin("djs"), [...args, "--root", project], { cwd: project, env: { ...process.env, npm_config_user_agent: "pnpm/10" } });
 
 let server: ChildProcess | undefined;
-const PORT = 8251;
+let PORT = 0;
 const get = (path: string) => fetch(`http://localhost:${PORT}${path}`);
 
 /** A droplet's stylesheet with its `@import`s followed: the rules it serves. */
@@ -112,17 +112,14 @@ describe("djs add", () => {
 
   it("writes droplets that build and serve", async () => {
     await exec(bin("vite"), ["build"], { cwd: project });
+    PORT = await freePort();
     server = spawn(process.execPath, ["dist/server.js"], { cwd: project, env: { ...process.env, PORT: String(PORT) }, stdio: "ignore" });
-    for (let i = 0; i < 100; i++) {
-      if (
-        await get("/health").then(
-          (r) => r.ok,
-          () => false,
-        )
-      )
-        break;
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
+    await waitForServer({
+      url: `http://localhost:${PORT}/droplets/${FRAMEWORKS[0]}-full`,
+      child: server,
+      name: "dist/server.js",
+      isOurs: await fromBuild({ outDir: `${project}/dist` }),
+    });
     for (const framework of FRAMEWORKS) {
       const fragment = async (name: string, query = "") => {
         const response = await get(`/droplets/${framework}-${name}${query}`);

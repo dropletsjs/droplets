@@ -41,6 +41,7 @@ export default defineConfig({
 | `prerender.ts` | The renders of `prerender = true` droplets for their `entries`, run after the SSR build. |
 | `prerender-worker.ts` | The prerender pass's side that evaluates the SSR bundle, in a worker thread; `prerender.ts` drives it. |
 | `dev.ts` | The Hono app `vite dev` serves, the SSR module loader, and the classification of an edit (component, load or contract). |
+| `mid-save.ts` | Under `vite dev`, holds an edit that left its file empty until the save writes the content, before any plugin's hot update reads it. |
 | `assets.ts` | File URLs on the droplet location (`renderBuiltUrl`, `new URL(…, import.meta.url)`), and `public/` at `assets/public/`. |
 | `css.ts` | Scoping through PostCSS, Tailwind (`css.tailwind`, `twPreflight`). |
 | `server-only.ts` | Keeps server files out of the browser, in the build and in dev. |
@@ -125,6 +126,7 @@ restarts the server.
 - `hotUpdate`: an edit in a droplet folder rescans the flags; a changed registry sends `droplets:registry`. `plugin.ts:236`, `plugin.ts:243`
 - `droplets:update` goes to every affected droplet with `kind` `contract`, `component` or `load`. `plugin.ts:273`, `plugin.ts:279`
 - `droplets:update` takes `hydrate` from the discovered entry; `hotUpdate` never evaluates the SSR module, which would transform the edited component before its framework's HMR hook runs, from a file possibly still empty mid-save. `plugin.ts:276`
+- `droplets:mid-save` (`hotUpdate`, `order: "pre"`, client environment): an `update` that leaves its file empty waits, polling every 10 ms, until the file has content or a new mtime, for at most `MID_SAVE_WINDOW` (1 s); Vite's `read()` waits about 100 ms, and plugin-vue takes an empty file it reads for the component's new version, so the next write reloads the component and loses its state. `mid-save.ts:15`, `mid-save.ts:42`
 - `hotUpdate`: a contract change or a load edit invalidates the modules and hands Vite only the stylesheets that depend on the file. `plugin.ts:481`
 - `hotUpdate`: a component edit goes through Vite's own HMR, so the framework's runs. `plugin.ts:491`
 - `generateBundle` of the client build records every bare import left external, for `importmap`'s `externals`. `plugin.ts:495`

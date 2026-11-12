@@ -25,8 +25,8 @@ pnpm test:integration                             # every tests/* suite
   `dist/` (`pnpm build`, or `pnpm build:dist` to skip the unit tests).
 - Chromium for Playwright (`pnpm --filter @dropletsjs/tests-dev-mixed exec
   playwright install chromium`): `test/dev.test.ts` launches it.
-- Ports 5191 (the Vite dev server), 5192 (the host page) and 5193 (the
-  dev server of `test/dev-isolation.test.ts`) free on `localhost`.
+- No fixed port: each suite asks the OS for free ones, so parallel runs and
+  worktrees do not meet on one server.
 
 ### The fixture
 
@@ -67,7 +67,7 @@ set after load proves no edit reloaded the page. Under the default
 
 Copies the fixture's config and renderers to `.tmp/isolation` with two
 React droplets: `healthy`, the fixture's `react-hello`, and `broken`, whose
-component imports `$droplets/server`. On port 5193, with no browser:
+component imports `$droplets/server`. On a free port, with no browser:
 `broken` and its component's module answer 500 and the terminal names the
 import chain, while `healthy`, its `client.js`, its `_data` and `/index.js`
 answer 200 (the regression: the server registry imported every component
@@ -138,22 +138,22 @@ droplet lists of both tests.
 - The fixed builds add a prerendered React droplet `where` that writes `droplet.url()` and `host`. `test/production.test.ts:125`
 - Fixture adapter is Cloudflare when `DROPLETS_ADAPTER=cloudflare`, Node otherwise. `test/fixture/vite.config.ts:19`
 - Fixture registers every renderer and `dropletsDevtools()`. `test/fixture/vite.config.ts:23`
-- Fixture element is `djs-mixed`, `cors: true`, `trustedOrigins` holds the host page `http://localhost:5192`. `test/fixture/droplets.config.ts:2`
-- Fixture dev server port is 5191. `test/fixture/droplets.config.ts:6`
-- Dev test runs `vite --strictPort` in `.tmp/project`, a copy of the fixture, with `PORT=5555` in the environment: `vite dev` stays on `dev.server.port`. `test/dev.test.ts:147`
-- Dev test host page listens on `localhost:5192` and loads `/index.js` with the page's query. `test/dev.test.ts:78`, `test/dev.test.ts:142`
+- Fixture element is `djs-mixed`, `cors: true`; `trustedOrigins` holds `DEV_MIXED_HOST` (the host page's origin) and `dev.server.port` is `DEV_MIXED_PORT`, each only when set. `test/fixture/droplets.config.ts:3`
+- Dev test host page listens on `localhost` port 0 and loads `/index.js` with the page's query; the dev server's port comes from `freePort()` of `@dropletsjs/shared/vitest`. `test/dev.test.ts:154`
+- Dev test runs `vite --strictPort` in `.tmp/project`, a copy of the fixture, with `PORT=5555`, `DEV_MIXED_PORT` and `DEV_MIXED_HOST` in the environment: `vite dev` stays on `dev.server.port`. `test/dev.test.ts:160`
+- Dev and isolation tests start once Vite's own output names their port (`listensOn`) and the server answers: a server another run left on the port never passes for theirs. `test/dev.test.ts:75`, `test/dev-isolation.test.ts:42`
 - Dev test droplets: `react-hello`, `preact-hello`, `vue-hello`, `solid-hello`, `svelte-hello`, `lit-hello`, `hono-hello`, `hbs-hello`, `hbs-live`, `script-hello`, `contract`. `test/dev.test.ts:36`
 - Dev test waits for `hbs-live` (a hydrated Handlebars template, whose markup cannot say so) through the element's `_hydrated`. `test/dev.test.ts:119`
 - Dev test fragment requests send `x-droplet-location` set to the host page. `test/dev.test.ts:56`
 - Dev test no-reload check: a `window.loaded` marker set after load must survive every edit. `test/dev.test.ts:112`, `test/dev.test.ts:117`
 - Dev test uses Chromium through `@playwright/test`. `test/dev.test.ts:143`
-- Isolation test runs `vite --strictPort` on 5193 in `.tmp/isolation`: the fixture without its droplets, plus `healthy` (a copy of `react-hello`) and `broken` (a React component importing `$droplets/server`). `test/dev-isolation.test.ts:17`, `test/dev-isolation.test.ts:52`
+- Isolation test runs `vite --strictPort` on a `freePort()` in `.tmp/isolation`: the fixture without its droplets, plus `healthy` (a copy of `react-hello`) and `broken` (a React component importing `$droplets/server`). `test/dev-isolation.test.ts:17`, `test/dev-isolation.test.ts:52`
 - Isolation test: `broken` and `/src/droplets/broken/+droplet.tsx?droplets-renderer=react` answer 500 and the output names `$droplets/server … src/droplets/broken/+droplet.tsx`; `broken/client.js` (the registry's entry, which imports the refused component) and `healthy`, its `client.js`, `_data` and `/index.js` answer 200. `test/dev-isolation.test.ts:70`
 - Isolation test: with the import removed, `broken` answers 200 within 15 s, with no restart. `test/dev-isolation.test.ts:87`
 - Dev test warms up once so Vite's dependency optimization reload happens before the tests. `test/dev.test.ts:144`
 - `$RefreshSig$`/`$RefreshReg$` only in React modules, `__PREFRESH__` only in Preact modules under `vite dev`. `test/dev.test.ts:173`
 - React, Preact and Vue keep the count through a component edit. `test/dev.test.ts:216`
-- A Vue template edit saved in two writes (the file emptied, 150 ms, then written) keeps the count. `test/dev.test.ts:292`
+- A Vue template edit saved in two writes (the file emptied, 400 ms, then written) keeps the count. `test/dev.test.ts:305`
 - Svelte and Solid swap in place; their count starts over and no fragment is fetched again. `test/dev.test.ts:245`
 - Lit and Hono JSX remount and log `<id>: no HMR of its framework took this edit; remounted in place`. `test/dev.test.ts:291`, `test/dev.test.ts:319`
 - Handlebars edit fetches the fragment again for a template that does not hydrate (`POST /droplets/hbs-hello`); a hydrated one (`hbs-live`) remounts in place and logs `hbs-live: no HMR of its framework took this edit; remounted in place`. `test/dev.test.ts:339`, `test/dev.test.ts:350`

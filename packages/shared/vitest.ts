@@ -1,6 +1,7 @@
 import type { ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
-import { rm } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
+import { createServer, type AddressInfo } from "node:net";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createBuilder, type PluginOption } from "vite";
@@ -37,14 +38,58 @@ export async function buildFixtureApp({ outDir, plugins }: BuildFixtureAppInput)
   await builder.buildApp();
 }
 
-export type WaitForServerInput = { url: string; child: ChildProcess; name: string };
+/** A port the OS has free now, for a server that must be told its port before it starts. */
+export function freePort(): Promise<number> {
+  return new Promise((done, fail) => {
+    const probe = createServer();
+    probe.once("error", fail);
+    // Every interface, so the port is free on IPv4 and IPv6 alike.
+    probe.listen(0, () => {
+      const { port } = probe.address() as AddressInfo;
+      probe.close(() => done(port));
+    });
+  });
+}
 
-/** Polls `url` every 100 ms, up to ten seconds, until it answers ok; fails as soon as `child` (the `name` server) exits. */
-export async function waitForServer({ url, child, name }: WaitForServerInput): Promise<void> {
+export type ListensOnInput = { output: string; port: number };
+
+/**
+ * Whether a server's own output names `port` (Vite's `Local:` line, Bun's
+ * `Started server:`, `deno serve`'s `Listening on`): its word that it holds
+ * the port, where any process on the port could answer a fetch.
+ */
+export function listensOn({ output, port }: ListensOnInput): boolean {
+  // Without the colours a CI may force on.
+  return new RegExp(`:${port}(?![0-9])`).test(output.replace(/\u001b\[[0-9;]*m/g, ""));
+}
+
+export type FromBuildInput = { outDir: string };
+
+/**
+ * An `isOurs` for a built server, which says nothing when it starts: the
+ * answer names the build in `outDir` (`client/droplets.json`'s `__hash`), as
+ * every fragment does in `x-droplets-build`.
+ */
+export async function fromBuild({ outDir }: FromBuildInput): Promise<(response: Response) => boolean> {
+  const { __hash: hash } = JSON.parse(await readFile(resolve(outDir, "client/droplets.json"), "utf8")) as { __hash: string };
+  return (response) => response.headers.get("x-droplets-build") === hash;
+}
+
+export type WaitForServerInput = {
+  url: string;
+  child: ChildProcess;
+  name: string;
+  /** Whether the answer is the child's own (`listensOn` its output, `fromBuild`), not another server's on the port. */
+  isOurs?: (response: Response) => boolean;
+};
+
+/** Polls `url` every 100 ms, up to ten seconds, until it answers ok and `isOurs`; fails as soon as `child` (the `name` server) exits. */
+export async function waitForServer({ url, child, name, isOurs }: WaitForServerInput): Promise<void> {
   for (let i = 0; i < 100; i++) {
     if (child.exitCode !== null) throw new Error(`${name} exited with ${child.exitCode}`);
     try {
-      if ((await fetch(url)).ok) return;
+      const response = await fetch(url);
+      if (response.ok && (isOurs?.(response) ?? true)) return;
     } catch {
       // Not listening yet: try again.
     }

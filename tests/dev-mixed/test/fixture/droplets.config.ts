@@ -1,7 +1,11 @@
+// test/dev.test.ts picks free ports: its dev server's and its host page's,
+// on another origin.
+const port = Number(process.env["DEV_MIXED_PORT"]);
+const host = process.env["DEV_MIXED_HOST"];
+
 export default {
   element: "djs-mixed",
-  // The test's host page is on another port.
   cors: true,
-  trustedOrigins: ["http://localhost:5192"],
-  dev: { server: { port: 5191 } },
+  ...(host ? { trustedOrigins: [host] } : {}),
+  ...(port ? { dev: { server: { port } } } : {}),
 };

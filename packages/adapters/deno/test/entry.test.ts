@@ -1,13 +1,13 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
-import { waitForServer } from "@dropletsjs/shared/vitest";
+import { freePort, listensOn, waitForServer } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildFixture, FIXTURE_ROOT } from "./build-fixture.ts";
 
 const outDir = resolve(FIXTURE_ROOT, "dist-deno-entry");
-const port = 8241;
-const origin = `http://localhost:${port}`;
+let port = 0;
+let origin = "";
 
 // `DENO` (the environment, or .env.local) points at a binary off the PATH; CI
 // installs deno, so the suite runs there.
@@ -20,12 +20,14 @@ describe.skipIf(!hasDeno)("deno entry", () => {
 
   beforeAll(async () => {
     await buildFixture({ outDir });
+    port = await freePort();
+    origin = `http://localhost:${port}`;
     child = spawn(denoBin, ["serve", "-A", "--port", String(port), resolve(outDir, "server.js")], {
       env: { ...process.env, FIXTURE_SECRET: "from-deno" },
     });
     child.stdout?.on("data", (chunk) => (output += chunk));
     child.stderr?.on("data", (chunk) => (output += chunk));
-    await waitForServer({ url: `${origin}/health`, child, name: "deno" });
+    await waitForServer({ url: `${origin}/health`, child, name: "deno", isOurs: () => listensOn({ output, port }) });
   });
 
   afterAll(async () => {

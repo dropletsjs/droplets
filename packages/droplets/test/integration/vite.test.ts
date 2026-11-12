@@ -3,6 +3,7 @@ import { readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createBuilder, createServer, type ViteDevServer } from "vite";
+import { freePort } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { entryClientPath } from "../../src/core/paths.ts";
 import { locationScript } from "../../src/runtime/server-records.ts";
@@ -418,7 +419,7 @@ describe("vite dev", () => {
       logLevel: "silent",
       plugins: [droplets({ renderers: [fakeRenderer()], css: { tailwind: true } })],
       environments: clientExternal,
-      server: { port: 5901, strictPort: false, host: "127.0.0.1" },
+      server: { port: await freePort(), strictPort: true, host: "127.0.0.1" },
     });
     await server.listen();
     origin = server.resolvedUrls?.local[0]?.replace(/\/$/, "") ?? "";

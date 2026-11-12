@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { fakeRenderer } from "@dropletsjs/droplets/testing";
 import { droplets } from "@dropletsjs/droplets/vite";
 import { createLogger, createServer, type ConfigEnv, type ViteDevServer } from "vite";
+import { freePort } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { dropletsDevtools } from "../src/index.ts";
 
@@ -42,7 +43,7 @@ describe("in vite dev", () => {
       plugins: [droplets({ renderers: [fakeRenderer()] }), dropletsDevtools()],
       // The fixture has importmap.server.ts; an external turns the map on.
       environments: { client: { build: { rolldownOptions: { external: ["case-anything"] } } } },
-      server: { port: 5911, strictPort: false, host: "127.0.0.1" },
+      server: { port: await freePort(), strictPort: true, host: "127.0.0.1" },
     });
     await server.listen();
     origin = server.resolvedUrls?.local[0]?.replace(/\/$/, "") ?? "";

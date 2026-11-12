@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { stopServer } from "@dropletsjs/shared/vitest";
+import { freePort, fromBuild, stopServer, waitForServer } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const exec = promisify(execFile);
@@ -93,7 +93,7 @@ describe("git", () => {
   });
 });
 
-describe.each(CASES.map((c, i) => [c.name, c, 8300 + i] as const))("%s", (name, { frameworks, args }, port) => {
+describe.each(CASES.map((c) => [c.name, c] as const))("%s", (name, { frameworks, args }) => {
   const project = join(tmp, name);
   let server: ChildProcess | undefined;
   afterAll(() => stopServer({ child: server }));
@@ -121,18 +121,15 @@ describe.each(CASES.map((c, i) => [c.name, c, 8300 + i] as const))("%s", (name, 
   it("builds for Node and serves every starter droplet", async () => {
     await exec(bin("vite"), ["build"], { cwd: project, env });
     expect(existsSync(join(project, "dist/server.js"))).toBe(true);
+    const port = await freePort();
     server = spawn(process.execPath, ["dist/server.js"], { cwd: project, env: { ...env, PORT: String(port) }, stdio: "ignore" });
     const get = (path: string) => fetch(`http://localhost:${port}${path}`);
-    for (let i = 0; i < 100; i++) {
-      if (
-        await get("/health").then(
-          (r) => r.ok,
-          () => false,
-        )
-      )
-        break;
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
+    await waitForServer({
+      url: `http://localhost:${port}/droplets/${starter(frameworks[0] ?? expect.unreachable("a framework"))}?who=Ana`,
+      child: server,
+      name: "dist/server.js",
+      isOurs: await fromBuild({ outDir: join(project, "dist") }),
+    });
     for (const framework of frameworks) {
       const response = await get(`/droplets/${starter(framework)}?who=Ana`);
       expect(response.status, starter(framework)).toBe(200);

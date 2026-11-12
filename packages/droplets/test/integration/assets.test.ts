@@ -9,6 +9,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promis
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createBuilder, createServer, type ViteDevServer } from "vite";
+import { freePort } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { fakeRenderer } from "../../src/testing/index.ts";
 import { droplets, type DropletsAdapter } from "../../src/vite.ts";
@@ -267,7 +268,7 @@ describe("file URLs in vite dev", () => {
       configFile: false,
       logLevel: "silent",
       plugins: [droplets({ renderers: [fakeRenderer()] })],
-      server: { port: 5931, strictPort: false, host: "127.0.0.1" },
+      server: { port: await freePort(), strictPort: true, host: "127.0.0.1" },
     });
     await server.listen();
     origin = server.resolvedUrls?.local[0]?.replace(/\/$/, "") ?? "";

@@ -22,6 +22,7 @@ import type { DropletsApp } from "../runtime/app.ts";
 import { rendererScopeFilter, sharingRenderers, validateRenderers, type DropletRenderer, type HydrateMode } from "../renderer.ts";
 import { buildOrder, createBuildEnvironments, emptyOutDir, requireAdapter, SERVER_NO_EXTERNAL, writeManifest } from "./build.ts";
 import { loadIndexHtml } from "./index-html.ts";
+import { midSavePlugin } from "./mid-save.ts";
 import {
   classifyChange,
   createDevApp,
@@ -590,7 +591,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
     },
   };
 
-  const plugins: PluginOption[] = [virtualModulesPlugin(state), externalizePlugin(state), core, assetUrlsPlugin(state)];
+  const plugins: PluginOption[] = [virtualModulesPlugin(state), externalizePlugin(state), core, assetUrlsPlugin(state), midSavePlugin()];
   plugins.push(tailwindPlugins(state), serverOnlyPlugin(state), rendererGraphsPlugin(state));
   // Each renderer compiles its own component files; when another renderer
   // shares an extension, only the modules marked for it.

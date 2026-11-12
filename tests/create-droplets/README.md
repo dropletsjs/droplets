@@ -19,7 +19,7 @@ pnpm test:integration                                   # every tests/* suite
   `create-droplets`, `djs`, `tsc` and `vite` bins from its own
   `node_modules/.bin` (`pnpm build`, or `pnpm build:dist`).
 - `git` on the `PATH` for the git cases.
-- Ports 8300 to 8309 free on `localhost`, one per project.
+- No fixed port: each project's built server gets one from `freePort()`.
 
 ### Where the projects go
 
@@ -62,8 +62,8 @@ repository, and removes it afterwards.
 - `--inject-tool` writes `dev: { injectTool: true }` into `droplets.config.ts`. `test/create.test.ts:106`
 - `djs sync` writes `.droplets/tsconfig.json`; then `tsc -p tsconfig.json` runs. `test/create.test.ts:109`
 - Cloudflare build: `everything` with `DROPLETS_ADAPTER=cloudflare` writes `dist/worker.js`. `test/create.test.ts:116`
-- Node build writes `dist/server.js`, started with `PORT` set and polled on `/health`. `test/create.test.ts:122`
-- Ports: case `i` listens on `8300 + i`. `test/create.test.ts:95`
+- Node build writes `dist/server.js`, started with `PORT` set and waited for (`waitForServer`) on the first starter droplet until its `x-droplets-build` is this build's (`fromBuild`). `test/create.test.ts:127`
+- Ports come from `freePort()` of `@dropletsjs/shared/vitest`, one per case. `test/create.test.ts:124`
 - Starter droplet answers 200 with `<h1>Hello Ana!</h1>` for `?who=Ana`, HTML comments stripped. `test/create.test.ts:137`
 - Test and hook timeout 300 s. `vitest.config.ts:7`
 - Test script is `vitest run`. `package.json:9`

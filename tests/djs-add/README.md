@@ -18,7 +18,7 @@ pnpm test:integration                             # every tests/* suite
 
 - Every package built: the suite runs the `djs`, `tsc` and `vite` bins from
   its own `node_modules/.bin` (`pnpm build`, or `pnpm build:dist`).
-- Port 8251 free on `localhost`.
+- No fixed port: the built server gets one from `freePort()`.
 
 ### The fixture
 
@@ -68,8 +68,8 @@ Script droplets: `script-plain` and `script-loaded` (`--hydrate visible
 - Script droplet with `--hydrate visible --with css` gets `export const hydrate = "visible";` and `import "./style.css";`, no `ssr` export. `test/add.test.ts:93`
 - Script droplet refuses `--target ssr`, `--hydrate none`, `--hydrate interactive` and `--with error`. `test/add.test.ts:97`
 - Type check runs `tsc -p tsconfig.json` in the project. `test/add.test.ts:109`
-- Build runs `vite build`, then `node dist/server.js` with `PORT`, polled on `/health`. `test/add.test.ts:113`
-- Server port is 8251. `test/add.test.ts:41`
+- Build runs `vite build`, then `node dist/server.js` with `PORT`, waited for (`waitForServer`) on `svelte-full` until its `x-droplets-build` is this build's (`fromBuild`). `test/add.test.ts:117`
+- Server port comes from `freePort()` of `@dropletsjs/shared/vitest`. `test/add.test.ts:115`
 - `full` renders its name in an `<h1>` and serves `client.js`. `test/add.test.ts:134`
 - `loaded` renders `Hello Ana!` for `?who=Ana`; its styles are in `style.css`, Lit's in a `<style>` inside the markup. `test/add.test.ts:137`
 - `style.css` is read with its `@import url(...)` rules followed. `test/add.test.ts:45`

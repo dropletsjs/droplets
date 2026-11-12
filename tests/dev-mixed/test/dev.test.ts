@@ -24,17 +24,20 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { cpSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
 import { fileURLToPath } from "node:url";
 import { chromium, type Browser, type Page } from "@playwright/test";
-import { stopServer } from "@dropletsjs/shared/vitest";
+import { freePort, listensOn, stopServer } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const here = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 const project = here("../.tmp/project");
-const PORT = 5191;
-const ORIGIN = `http://localhost:${PORT}`;
+// Ports the OS hands out: another run of this suite (a worktree, a parallel
+// check) may hold any fixed one.
+let PORT = 0;
+let ORIGIN = "";
 /** The host's page, on another origin, as a host embeds droplets. */
-const HOST = "http://localhost:5192/";
+let HOST = "";
 const DROPLETS = [
   "react-hello",
   "preact-hello",
@@ -69,7 +72,7 @@ async function waitForServer() {
   while (Date.now() < deadline) {
     if (server?.exitCode != null) throw new Error(`vite exited:\n${output}`);
     try {
-      if ((await fetch(`${ORIGIN}/droplets/react-hello`)).status) return;
+      if (listensOn({ output, port: PORT }) && (await fetch(`${ORIGIN}/droplets/react-hello`)).status) return;
     } catch {
       // Not listening yet.
     }
@@ -144,20 +147,24 @@ async function clickTo(page: Page, name: string, to: number) {
 beforeAll(async () => {
   rmSync(project, { recursive: true, force: true });
   cpSync(here("fixture"), project, { recursive: true });
-  // `PORT` is the production server's: `vite dev` stays on `dev.server.port`.
-  server = spawn(here("../node_modules/.bin/vite"), ["--strictPort"], {
-    cwd: project,
-    stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, PORT: "5555" },
-  });
-  server.stdout?.on("data", (chunk) => (output += chunk));
-  server.stderr?.on("data", (chunk) => (output += chunk));
-  await waitForServer();
   host = createServer((request, response) => {
     const query = new URL(request.url ?? "/", HOST).search;
     void hostPage(query).then((html) => response.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(html));
   });
-  await new Promise<void>((done) => host!.listen(5192, "localhost", done));
+  await new Promise<void>((done) => host!.listen(0, "localhost", done));
+  HOST = `http://localhost:${(host.address() as AddressInfo).port}/`;
+  PORT = await freePort();
+  ORIGIN = `http://localhost:${PORT}`;
+  // `PORT` is the production server's: `vite dev` stays on `dev.server.port`,
+  // which the fixture's config takes from `DEV_MIXED_PORT`.
+  server = spawn(here("../node_modules/.bin/vite"), ["--strictPort"], {
+    cwd: project,
+    stdio: ["ignore", "pipe", "pipe"],
+    env: { ...process.env, PORT: "5555", DEV_MIXED_PORT: String(PORT), DEV_MIXED_HOST: new URL(HOST).origin },
+  });
+  server.stdout?.on("data", (chunk) => (output += chunk));
+  server.stderr?.on("data", (chunk) => (output += chunk));
+  await waitForServer();
   browser = await chromium.launch();
   // The first visit has Vite discover and optimize the dependencies, which
   // may reload the page once; the tests start on a settled server. A page
@@ -298,14 +305,14 @@ describe("every renderer under vite dev", () => {
   it("keeps Vue's count through a template edit saved in two writes: emptied, then written", async () => {
     const { page, errors, logs } = await open();
     await clickTo(page, "vue", 2);
-    // `writeFileSync`, like an editor's save, truncates first, and the
-    // watcher may report the empty file; a loaded machine stretches the
-    // gap. Vite's own `read()` waits for the content, a module evaluated in
-    // the hot update before the framework's hook does not.
+    // A save that truncates first, the watcher reporting the empty file. The
+    // gap outlasts the ~100 ms Vite's `read()` waits for content, as a
+    // loaded machine can: plugin-vue would take the empty file for the new
+    // version and reload the component on the next write.
     const path = file("src/droplets/vue-hello/+droplet.vue");
     const source = readFileSync(path, "utf8");
     writeFileSync(path, "");
-    await new Promise((done) => setTimeout(done, 150));
+    await new Promise((done) => setTimeout(done, 400));
     writeFileSync(path, source.replace(/<p data-label>[^<]*<\/p>/, "<p data-label>Vue says hey</p>"));
     await expect.poll(() => text(page, "vue", "[data-label]"), { timeout: 15_000 }).toBe("Vue says hey");
     expect(await count(page, "vue"), "vue kept its count").toBe("2");

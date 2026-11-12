@@ -10,13 +10,13 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { stopServer } from "@dropletsjs/shared/vitest";
+import { freePort, listensOn, stopServer } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const here = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 const project = here("../.tmp/isolation");
-const PORT = 5193;
-const ORIGIN = `http://localhost:${PORT}`;
+let PORT = 0;
+let ORIGIN = "";
 
 const BROKEN = "src/droplets/broken/+droplet.tsx";
 /** A React component that imports what only server files may. */
@@ -39,7 +39,7 @@ async function waitForServer() {
   while (Date.now() < deadline) {
     if (server?.exitCode != null) throw new Error(`vite exited:\n${output}`);
     try {
-      if ((await fetch(`${ORIGIN}/droplets/healthy`)).status) return;
+      if (listensOn({ output, port: PORT }) && (await fetch(`${ORIGIN}/droplets/healthy`)).status) return;
     } catch {
       // Not listening yet.
     }
@@ -50,6 +50,8 @@ async function waitForServer() {
 
 beforeAll(async () => {
   rmSync(project, { recursive: true, force: true });
+  PORT = await freePort();
+  ORIGIN = `http://localhost:${PORT}`;
   // The fixture's config and renderers, with two droplets of its React one.
   cpSync(here("fixture"), project, { recursive: true, filter: (source) => !source.includes("/src/droplets/") });
   mkdirSync(file("src/droplets/broken"), { recursive: true });

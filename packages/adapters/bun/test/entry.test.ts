@@ -1,13 +1,13 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
-import { waitForServer } from "@dropletsjs/shared/vitest";
+import { freePort, listensOn, waitForServer } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildFixture, FIXTURE_ROOT } from "./build-fixture.ts";
 
 const outDir = resolve(FIXTURE_ROOT, "dist-bun-entry");
-const port = 8231;
-const origin = `http://localhost:${port}`;
+let port = 0;
+let origin = "";
 
 // `BUN` (the environment, or .env.local) points at a binary off the PATH; CI
 // installs bun, so the suite runs there.
@@ -20,12 +20,14 @@ describe.skipIf(!hasBun)("bun entry", () => {
 
   beforeAll(async () => {
     await buildFixture({ outDir });
+    port = await freePort();
+    origin = `http://localhost:${port}`;
     child = spawn(bunBin, [resolve(outDir, "server.js")], {
       env: { ...process.env, PORT: String(port), FIXTURE_SECRET: "from-bun" },
     });
     child.stdout?.on("data", (chunk) => (output += chunk));
     child.stderr?.on("data", (chunk) => (output += chunk));
-    await waitForServer({ url: `${origin}/health`, child, name: "bun" });
+    await waitForServer({ url: `${origin}/health`, child, name: "bun", isOurs: () => listensOn({ output, port }) });
   });
 
   afterAll(async () => {
@@ -64,7 +66,7 @@ describe.skipIf(!hasBun)("bun entry", () => {
 
   it("does not listen when imported", async () => {
     const script = `const m = await import(${JSON.stringify(resolve(outDir, "server.js"))}); console.log(typeof m.default.fetch);`;
-    const run = spawnSync(bunBin, ["-e", script], { env: { ...process.env, PORT: String(port + 1) }, timeout: 10_000 });
+    const run = spawnSync(bunBin, ["-e", script], { env: { ...process.env, PORT: String(await freePort()) }, timeout: 10_000 });
     expect(run.stdout.toString().trim()).toBe("function");
     expect(run.status).toBe(0);
   });

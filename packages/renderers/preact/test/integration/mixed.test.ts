@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { node } from "@dropletsjs/adapter-node";
 import { droplets } from "@dropletsjs/droplets/vite";
 import { react } from "@dropletsjs/renderer-react";
+import { freePort, fromBuild, stopServer, waitForServer } from "@dropletsjs/shared/vitest";
 import { createBuilder } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { preact } from "../../src/index.ts";
@@ -28,7 +29,7 @@ type ClientManifest = { droplets: Record<string, { client?: string }> };
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../fixtures/mixed");
 const outDir = resolve(root, "dist-mixed");
-const PORT = 8261;
+let PORT = 0;
 const get = ({ path }: GetInput): Promise<Response> => fetch(`http://localhost:${PORT}${path}`);
 
 let server: ChildProcess | undefined;
@@ -65,21 +66,18 @@ beforeAll(async () => {
     plugins: [droplets({ adapter: node(), renderers: [react(), preact()] })],
   });
   await builder.buildApp();
+  PORT = await freePort();
   server = spawn(process.execPath, ["dist-mixed/server.js"], { cwd: root, env: { ...process.env, PORT: String(PORT) }, stdio: "ignore" });
-  for (let i = 0; i < 100; i++) {
-    if (
-      await get({ path: "/health" }).then(
-        (response) => response.ok,
-        () => false,
-      )
-    )
-      break;
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
+  await waitForServer({
+    url: `http://localhost:${PORT}/droplets/preact-card`,
+    child: server,
+    name: "dist-mixed/server.js",
+    isOurs: await fromBuild({ outDir }),
+  });
 }, 180_000);
 
 afterAll(async () => {
-  server?.kill();
+  await stopServer({ child: server });
   await rm(outDir, { recursive: true, force: true });
 });
 

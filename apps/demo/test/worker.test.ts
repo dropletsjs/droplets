@@ -1,8 +1,8 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { createServer } from "node:net";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { freePort, listensOn } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // The Worker build under `wrangler dev` (workerd, local, no account), with
@@ -26,16 +26,6 @@ const SERVER_ONLY = [
 let wrangler: ChildProcess | undefined;
 let base = "";
 let manifest: { __entryModule: string; __globalCss: string; droplets: Record<string, { css?: string[] }> };
-
-const freePort = () =>
-  new Promise<number>((resolve, reject) => {
-    const server = createServer();
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const { port } = server.address() as { port: number };
-      server.close(() => resolve(port));
-    });
-  });
 
 const call = (path: string, init: RequestInit = {}) =>
   fetch(`${base}${path}`, { redirect: "manual", ...init, headers: { origin: DOCS, ...(init.headers as Record<string, string>) } });
@@ -90,7 +80,7 @@ beforeAll(async () => {
   while (Date.now() < deadline) {
     if (wrangler.exitCode !== null) throw new Error(`wrangler dev exited:\n${log}`);
     try {
-      if ((await fetch(`${base}/health`)).ok) return;
+      if (listensOn({ output: log, port }) && (await fetch(`${base}/health`)).ok) return;
     } catch {
       // not up yet
     }
