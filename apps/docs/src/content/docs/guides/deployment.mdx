@@ -3,6 +3,8 @@ title: Deployment
 description: "What vite build produces and the ways to run it: Node, Bun, Deno, Cloudflare Workers, Docker, or inside another server."
 ---
 
+import BrowserLoads from "../../../components/BrowserLoads.astro";
+
 ## The build
 
 ```bash
@@ -336,6 +338,10 @@ When a reverse proxy fronts the droplets server:
   fragments and `_data` are `private, no-store` (`fragmentCacheControl`),
   `/assets/public/*` is `no-cache` (`publicCacheControl`) with an `ETag`,
   everything else it serves for the browser is immutable.
+
+What a page loads through the proxy, and what `handle` sees of it:
+
+<BrowserLoads />
 
 ### `/index.js` and CDNs
 

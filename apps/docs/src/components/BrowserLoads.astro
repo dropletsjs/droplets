@@ -1,0 +1,132 @@
+---
+/**
+ * What a page loads from the droplet location, and how each answer is
+ * cached: /index.css (no-store, only with a shared stylesheet) imports the
+ * hashed stylesheet, /index.js (no-store) imports /env.js and the hashed
+ * entry (vite/build.ts), all answered before `handle` (isStaticPath in
+ * runtime/app.ts); each element then asks the droplet's routes, which go
+ * through `handle`. Cache headers as runtime/app.ts and the Node adapter's
+ * static.ts set them.
+ */
+import Diagram from "./Diagram.astro";
+import { Draw, NARROW, WIDE, type Kind, type Scene } from "./diagram-kit.ts";
+
+type File = { title: string; sub: string };
+
+const indexCss: File = { title: "/index.css", sub: "no-store; only with a shared stylesheet, for a page that links it" };
+const sheet: File = { title: "/assets/droplets-css-<hash>.css", sub: "immutable; the stylesheet every droplet shares" };
+const indexJs: File = { title: "/index.js", sub: "no-store: it names this build's entry" };
+const env: File = { title: "/env.js", sub: "public, max-age=600; only with public variables read at runtime" };
+const entry: File = { title: "/assets/index.<hash>.js", sub: "immutable; defines the element" };
+const routes: File[] = [
+  { title: "style.css?c=<build>", sub: "immutable; when the droplet has styles" },
+  { title: "client.js?c=<build>", sub: "immutable; only when it hydrates" },
+  { title: "_data", sub: "POST, private, no-store; only when nothing came inline" },
+];
+
+/** Cards side by side (or stacked when `perRow` is 1), one height per row; returns the bottom. */
+function row(d: Draw, x: number, top: number, w: number, files: File[], perRow: number, kind: Kind, cls: string): { bottom: number; mids: number[] } {
+  const gap = 10;
+  const cw = (w - gap * (perRow - 1)) / perRow;
+  const mids: number[] = [];
+  let y = top;
+  for (let i = 0; i < files.length; i += perRow) {
+    const slice = files.slice(i, i + perRow);
+    const h = Math.max(...slice.map((f) => d.cardHeight(cw, f.title, kind, f.sub)));
+    slice.forEach((f, j) => {
+      const cx = x + j * (cw + gap);
+      d.card(cx, y, cw, cls, f.title, kind, f.sub, "small", "", h);
+      mids.push(cx + cw / 2);
+    });
+    y += h + gap;
+  }
+  return { bottom: y - gap, mids };
+}
+
+/** A file and what it imports, stacked in one column; returns the bottom. */
+function chain(d: Draw, x: number, top: number, w: number, file: File, imports: File[], verb: string, kind: Kind): number {
+  const mid = x + w / 2;
+  const bottom = d.card(x, top, w, "node", file.title, kind, file.sub, "small");
+  const importsTop = bottom + 34;
+  d.line(mid, bottom + 2, mid, importsTop - 2);
+  d.text(mid + 10, bottom + 22, verb, "small", "muted");
+  return row(d, x, importsTop, w, imports, 1, kind, "node").bottom;
+}
+
+function build(narrow: boolean): Scene {
+  const d = new Draw(narrow ? NARROW : WIDE);
+  const cx = d.w / 2;
+  const pageW = narrow ? d.w - 16 : 420;
+  const pageBottom = d.card(
+    cx - pageW / 2,
+    8,
+    pageW,
+    "host",
+    "The host page",
+    "label",
+    '<script type="module" src="<location>/index.js">\n<link rel="stylesheet" href="<location>/index.css">',
+    "codesm",
+    "acc2",
+  );
+
+  // Files of the build: answered before `handle`. Wide, the stylesheet's
+  // column sits left of the script's; narrow, it comes first and the script's
+  // request runs down a lane on its right, so the entry stays last.
+  const zoneA = pageBottom + 40;
+  const zoneMark = d.mark();
+  const cssW = narrow ? d.w - 60 : (d.w - 36 - 16) / 2;
+  const cssMid = 18 + cssW / 2;
+  const jsX = narrow ? 18 : 18 + cssW + 16;
+  const jsW = narrow ? d.w - 36 : cssW;
+  const jsMid = narrow ? d.w - 28 : jsX + jsW / 2;
+  let cardsTop: number;
+  if (narrow) {
+    d.text(18, zoneA + 20, "Files of the build:", "small", "muted");
+    d.text(18, zoneA + 20 + d.lh("small"), "no handle, no cookies", "small", "muted");
+    cardsTop = zoneA + 34 + d.lh("small");
+  } else {
+    d.text(cx, zoneA + 20, "Files of the build: no handle, no cookies", "small", "muted", "middle");
+    cardsTop = zoneA + 34;
+  }
+  const cssBottom = chain(d, 18, cardsTop, cssW, indexCss, [sheet], "@import", narrow ? "codesm" : "code");
+  const jsTop = narrow ? cssBottom + 24 : cardsTop;
+  const entryBottom = chain(d, jsX, jsTop, jsW, indexJs, [env, entry], "imports", narrow ? "codesm" : "code");
+  d.line(cssMid, pageBottom + 2, cssMid, cardsTop - 2);
+  d.tag(cssMid + 8, pageBottom + 6, "GET, when linked", "small", "muted");
+  d.line(jsMid, pageBottom + 2, jsMid, jsTop - 2);
+  if (narrow) d.tag(jsMid - 6, pageBottom + 6, "GET", "small", "muted", "end");
+  else d.tag(jsMid + 8, pageBottom + 6, "GET", "small", "muted");
+  const zoneABottom = Math.max(cssBottom, entryBottom) + 12;
+  d.rectUnder(zoneMark, 8, zoneA, d.w - 16, zoneABottom - zoneA, "zone", 8);
+
+  // The droplet's routes: through `handle`. Narrow, the arrow leaves the
+  // entry right of the zone's label.
+  const zoneB = zoneABottom + 48;
+  const from = narrow ? d.w - 60 : jsMid;
+  d.line(from, entryBottom + 2, from, zoneB + 32);
+  if (narrow) d.tag(from - 8, zoneABottom + 8, "each element", "small", "muted", "end");
+  else d.tag(from + 8, zoneABottom + 8, "each element", "small", "muted");
+  const zoneBMark = d.mark();
+  let routesTop: number;
+  if (narrow) {
+    d.text(18, zoneB + 20, "Routes of the droplet,", "small", "muted");
+    d.text(18, zoneB + 20 + d.lh("small"), "/droplets/<id>/…: through handle", "small", "muted");
+    routesTop = zoneB + 34 + d.lh("small");
+  } else {
+    d.text(18, zoneB + 20, "Routes of the droplet, /droplets/<id>/…: through handle", "small", "muted");
+    routesTop = zoneB + 34;
+  }
+  const routesRow = row(d, 18, routesTop, d.w - 36, routes, narrow ? 1 : 3, "codesm", "drop");
+  d.rectUnder(zoneBMark, 8, zoneB, d.w - 16, routesRow.bottom + 12 - zoneB, "zone", 8);
+  return d.scene(routesRow.bottom + 20);
+}
+---
+
+<Diagram
+  id="browser-loads"
+  title="What a page loads, and how it is cached"
+  desc="The host page has one module script, <location>/index.js, and, when it links the shared stylesheet itself, <location>/index.css. /index.css is no-store and exists only with a shared stylesheet: it @imports /assets/droplets-css-<hash>.css, immutable, the stylesheet every droplet shares. /index.js is no-store: it names this build's entry. It imports /env.js, public with max-age=600 and only there when public variables are read at runtime, and /assets/index.<hash>.js, immutable, which defines the element. These are files of the build: handle never runs for them, nor cookies. Then each element asks its droplet's routes, which go through handle: style.css?c=<build>, immutable, when the droplet has styles; client.js?c=<build>, immutable, only when it hydrates; and _data, a POST answered private, no-store, only when nothing came inline."
+  caption="Two no-store files name the build; everything they lead to is immutable or briefly cached, and only the droplet's routes reach handle."
+  wide={build(false)}
+  narrow={build(true)}
+/>

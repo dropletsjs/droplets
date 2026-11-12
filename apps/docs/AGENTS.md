@@ -13,6 +13,12 @@
   Checked by: `pnpm docs:check-csp`, after `pnpm docs:build`.
 - Scripts of `src/components/*.astro` are bundled to files, never inlined, so the CSP hashes cover Starlight's scripts only.
   Checked by: `pnpm docs:check-csp`.
+- A diagram shows one decision or one mechanism, ten nodes at most, top to bottom, next to the text it explains; a chart that would show more is split into several figures. Every node and arrow states what the code does, each arrow labelled with what moves (a route, a header, a fragment).
+  Checked by: `pnpm docs:build` (`src/components/Diagram.astro` fails on a scene with more than ten nodes); the code: review.
+- A diagram is a component of `src/components/` drawn with `diagram-kit.ts` and shown through `Diagram.astro`: a wide scene (620 px) and a narrow one (360 px), each shown at its own size or larger, type at 12.5 px or more, colors from the `--djs-*` tokens so it reads in the light and the dark theme, `role="img"` with a label and a description, and a caption that states the claim.
+  Checked by: `pnpm docs:build` (`Diagram.astro` fails on any other scene width; the sizes live in `diagram-kit.ts` only); screenshots at 1280 and 390 px, light and dark, on review.
+- Every diagram has the same full-screen viewer (wheel, pinch and drag; `+`, `-`, `0`, arrows, `Esc`; a close button) and SVG download, from `Diagram.astro` alone, in a bundled script; no figure has its own, and no external script or package draws them.
+  Checked by: `pnpm docs:check-csp`; review.
 - The WordPress tutorial is a story in steps: the shop, a plugin that brings in the droplets, then WordPress takes over the data and the login.
 - `pnpm docs:build` builds and starts `../demo` first (after `pnpm build` at the root) and fails without it.
   Checked by: `scripts/with-demo.mjs`, `src/components/live-droplet.ts`.

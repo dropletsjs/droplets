@@ -1,61 +1,38 @@
 ---
 /**
  * The WordPress host as a sequence: WordPress renders the page and asks
- * wp-shop for the fragments on its server; wp-shop's loads read the
- * catalogue back from WordPress's REST API; the browser reaches wp-shop
- * only through the plugin's proxy. The headers on each arrow are in the
- * prose (integrate/wordpress).
+ * wp-shop for the fragments on its server (shop.php
+ * droplets_shop_fragments, all at once); wp-shop's loads read the catalogue
+ * back from WordPress's REST API (examples/wp-shop src/lib/server/wp.ts);
+ * the browser reaches wp-shop only through the plugin's proxy
+ * (droplets_shop_route_proxy). The admin's signed header is in the prose.
  */
 import Diagram from "./Diagram.astro";
-import { Draw, textWidth, type Scene } from "./diagram-kit.ts";
+import { Draw, NARROW, WIDE, sequence, type SequenceStep } from "./diagram-kit.ts";
 
-type Lane = 0 | 1 | 2;
-type Step = { from: Lane; to: Lane; text: string; res?: boolean };
-
-const steps: Step[] = [
-  { from: 0, to: 1, text: "① GET /gallery" },
-  { from: 1, to: 2, text: "② fragments" },
-  { from: 2, to: 1, text: "③ REST reads" },
-  { from: 1, to: 2, res: true, text: "④ JSON" },
-  { from: 2, to: 1, res: true, text: "⑤ HTML" },
-  { from: 1, to: 0, res: true, text: "⑥ the page" },
-  { from: 0, to: 1, text: "⑦ /droplets, /api" },
-  { from: 1, to: 2, text: "⑧ proxied" },
+const heads = [
+  { name: "Browser", cls: "node", ink: "" },
+  { name: "WordPress", cls: "host", ink: "acc2" },
+  { name: "wp-shop", cls: "drop-solid", ink: "acc" },
 ];
 
-const heads = ["Browser", "WordPress", "wp-shop"];
-const headCls = ["node", "host", "drop-solid"];
-const headInk = ["", "acc2", "acc"];
-
-function build(narrow: boolean): Scene {
-  const W = narrow ? 360 : 640;
-  const d = new Draw(W, narrow ? 1.1 : 1);
-  const lanes = narrow ? [56, 180, 304] : [80, 320, 560];
-  const hw = narrow ? 100 : 150;
-  const lifelines = d.mark();
-  heads.forEach((h, i) => d.box(lanes[i]! - hw / 2, 10, hw, 32, headCls[i]!, h, narrow ? "small" : "label", headInk[i]));
-  let y = 62;
-  for (const step of steps) {
-    const x1 = lanes[step.from]!;
-    const x2 = lanes[step.to]!;
-    const left = Math.min(x1, x2);
-    const tw = textWidth(step.text, "small", d.scale);
-    d.rect(left + 7, y - 2, tw + 6, d.size("small") + 6, "mask", 2);
-    d.text(left + 10, y + d.size("small"), step.text, "small", "ink");
-    const ay = y + d.size("small") + 10;
-    d.line(x1, ay, x2 + (x2 > x1 ? -2 : 2), ay, step.res ? "arrow dashed" : "arrow");
-    y = ay + 22;
-  }
-  lanes.forEach((x) => d.items.splice(lifelines, 0, { t: "path", d: `M${x} 42 L${x} ${y - 10}`, c: "life", end: false, start: false }));
-  return d.scene(y - 6);
-}
+const steps: SequenceStep[] = [
+  { from: 0, to: 1, text: "① GET /gallery" },
+  { from: 1, to: 2, text: "② GET /droplets/<id>, all at once\nx-droplet-location, Cookie" },
+  { from: 2, to: 1, text: "③ GET /wp-json/wp/v2/products, media, comments" },
+  { from: 1, to: 2, res: true, text: "④ JSON" },
+  { from: 2, to: 1, res: true, text: "⑤ the fragments" },
+  { from: 1, to: 0, res: true, text: "⑥ the page, fragments pasted in" },
+  { from: 0, to: 1, text: "⑦ /index.js, /droplets/*, /assets/*, /api/*" },
+  { from: 1, to: 2, text: "⑧ proxied, x-droplet-location set" },
+];
 ---
 
 <Diagram
   id="wordpress-flow"
   title="WordPress renders, wp-shop reads WordPress"
-  desc="One, the browser asks WordPress for a page, /gallery. Two, the plugin fetches the page's fragments from wp-shop on the server, all at once, with x-droplet-location, the cart cookie and, for a logged-in admin, a signed x-wp-shop-user. Three, each droplet's load asks WordPress's REST API for its data: the products, their images, their comments. Four, WordPress answers JSON, which wp-shop checks field by field. Five, wp-shop answers the fragments. Six, WordPress sends the page with the fragments pasted in. Seven, the browser asks for /index.js, /droplets and /api on WordPress's own origin. Eight, the plugin's proxy passes them on to wp-shop."
+  desc="One, the browser asks WordPress for a page, /gallery. Two, the plugin fetches the page's fragments from wp-shop on the server, all at once, with x-droplet-location, the cart cookie and, for a logged-in admin, a signed x-wp-shop-user. Three, each droplet's load asks WordPress's REST API under /wp-json/wp/v2/ for its data: the products, their images, their comments. Four, WordPress answers JSON, which wp-shop checks field by field. Five, wp-shop answers the fragments. Six, WordPress sends the page with the fragments pasted in. Seven, the browser asks for /index.js, /droplets/*, /assets/* and /api/* on WordPress's own origin. Eight, the plugin's proxy passes them on to wp-shop, with x-droplet-location set."
   caption="WordPress renders the page and asks wp-shop for fragments; wp-shop reads its data back from WordPress."
-  wide={build(false)}
-  narrow={build(true)}
+  wide={sequence(new Draw(WIDE), heads, steps)}
+  narrow={sequence(new Draw(NARROW), heads, steps)}
 />

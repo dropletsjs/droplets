@@ -3,65 +3,35 @@
  * A form action posted without JavaScript, as a sequence: the post goes
  * to the droplets server, which answers 303 back to the host page with the
  * result signed in its query (__droplet_form_<droplet>_<build>), and the
- * next render shows it (integrate/http-contract#postredirectget). The
- * conditions (DROPLETS_SECRET, the enhanced path) are in the prose.
+ * next render shows it (runtime/app.ts, a native post with DROPLETS_SECRET
+ * set). The other cases are in the prose.
  */
 import Diagram from "./Diagram.astro";
-import { Draw, textWidth, type Scene } from "./diagram-kit.ts";
+import { Draw, NARROW, WIDE, sequence, type SequenceStep } from "./diagram-kit.ts";
 
-type Lane = 0 | 1 | 2;
-type Step = { from: Lane; to: Lane; text: string; res?: boolean } | { self: Lane; text: string };
-
-const steps: Step[] = [
-  { from: 0, to: 2, text: "① POST ?/add" },
-  { self: 2, text: "action runs" },
-  { from: 2, to: 0, res: true, text: "② 303 + signed result" },
-  { from: 0, to: 1, text: "③ GET page" },
-  { from: 1, to: 2, text: "④ render" },
-  { from: 2, to: 1, res: true, text: "⑤ with form" },
-  { from: 1, to: 0, res: true, text: "⑥ result shown" },
+const heads = [
+  { name: "Browser", cls: "node", ink: "" },
+  { name: "Host", cls: "host", ink: "acc2" },
+  { name: "Droplets server", cls: "drop-solid", ink: "acc" },
 ];
 
-const heads = ["Browser", "Host", "Droplets server"];
-const headCls = ["node", "host", "drop-solid"];
-const headInk = ["", "acc2", "acc"];
-
-function build(narrow: boolean): Scene {
-  const W = narrow ? 360 : 640;
-  const d = new Draw(W, narrow ? 1.1 : 1);
-  const lanes = narrow ? [56, 180, 304] : [80, 320, 560];
-  const hw = narrow ? 100 : 150;
-  const lifelines = d.mark();
-  heads.forEach((h, i) => d.box(lanes[i]! - hw / 2, 10, hw, 32, headCls[i]!, h, narrow ? "small" : "label", headInk[i]));
-  let y = 62;
-  for (const step of steps) {
-    if ("self" in step) {
-      if (narrow) continue;
-      const bw = 130;
-      d.box(lanes[step.self]! - bw / 2, y, bw, 26, "drop", step.text, "small", "ink", 5);
-      y += 44;
-      continue;
-    }
-    const x1 = lanes[step.from]!;
-    const x2 = lanes[step.to]!;
-    const left = Math.min(x1, x2);
-    const tw = textWidth(step.text, "small", d.scale);
-    d.rect(left + 7, y - 2, tw + 6, d.size("small") + 6, "mask", 2);
-    d.text(left + 10, y + d.size("small"), step.text, "small", "ink");
-    const ay = y + d.size("small") + 10;
-    d.line(x1, ay, x2 + (x2 > x1 ? -2 : 2), ay, step.res ? "arrow dashed" : "arrow");
-    y = ay + 22;
-  }
-  lanes.forEach((x) => d.items.splice(lifelines, 0, { t: "path", d: `M${x} 42 L${x} ${y - 10}`, c: "life", end: false, start: false }));
-  return d.scene(y - 6);
-}
+const steps: SequenceStep[] = [
+  { from: 0, to: 2, text: "① POST /droplets/cart?/add\n__droplet_return: the page" },
+  { self: 2, text: "Origin check, the action runs" },
+  { from: 2, to: 0, res: true, text: "② 303 to the page, the result signed in\n?__droplet_form_cart_<build>=…" },
+  { from: 0, to: 1, text: "③ GET the page, with that query" },
+  { from: 1, to: 2, text: "④ GET /droplets/cart\nhost: the page's URL" },
+  { self: 2, text: "verifies it, renders with form" },
+  { from: 2, to: 1, res: true, text: "⑤ the fragment" },
+  { from: 1, to: 0, res: true, text: "⑥ the page, result shown" },
+];
 ---
 
 <Diagram
   id="form-flow"
   title="A form action, Post/Redirect/Get"
-  desc="Without JavaScript: one, the browser posts the form to the droplets server at /droplets/cart?/add, with __droplet_return naming the page. The droplets server checks the Origin and runs the action. Two, it answers 303 back to the host page, the result signed with DROPLETS_SECRET in a __droplet_form_cart_<build> query key, valid five minutes. Three, the browser loads the page again. Four, the host renders the droplet with the page's URL and query as host. Five, the droplets server verifies the signature and renders live with the result as form. Six, the page shows the result; a reload never posts again."
+  desc="Without JavaScript: one, the browser posts the form to the droplets server at /droplets/cart?/add, with __droplet_return naming the page. The droplets server checks the Origin and runs the action. Two, it answers 303 back to the host page, the result signed with DROPLETS_SECRET in a __droplet_form_cart_<build> query key, valid five minutes. Three, the browser loads the page again, with that query. Four, the host fetches the droplet with the page's URL and query as host. The droplets server verifies the signature and renders with the result as form. Five, it answers the fragment. Six, the page shows the result; a reload never posts again."
   caption="Posted without JavaScript, the form lands back on the host page, its result signed in the URL."
-  wide={build(false)}
-  narrow={build(true)}
+  wide={sequence(new Draw(WIDE), heads, steps)}
+  narrow={sequence(new Draw(NARROW), heads, steps)}
 />

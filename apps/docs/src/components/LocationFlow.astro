@@ -1,0 +1,81 @@
+---
+/**
+ * How a request's droplet location is resolved, in the order of the
+ * middleware in runtime/app.ts: `location` of the config wins and no header
+ * is read; else the first header location (runtime/host.ts
+ * headerLocations) whose origin is trusted; else the request's own origin.
+ */
+import Diagram from "./Diagram.astro";
+import { Draw, NARROW, WIDE, type Scene } from "./diagram-kit.ts";
+
+function build(narrow: boolean): Scene {
+  const d = new Draw(narrow ? NARROW : WIDE);
+  const cx = narrow ? 98 : 190;
+  const dw = narrow ? 184 : 250;
+  const dh = narrow ? 76 : 70;
+  const rx = narrow ? 214 : 380;
+  const rw = d.w - rx - 8;
+  const step = narrow ? 104 : 96;
+
+  d.box(cx - (narrow ? 90 : 110), 8, narrow ? 180 : 220, 36, "node", "A request comes in", "label");
+  const ys = [0, 1, 2, 3].map((i) => 92 + i * step);
+  const questions = ["location in droplets.config.ts?", "x-droplet-location trusted?", "Forwarded trusted?", "X-Forwarded-Host trusted?"];
+  d.line(cx, 46, cx, ys[0]! - dh / 2 - 2);
+  questions.forEach((q, i) => {
+    const y = ys[i]!;
+    d.diamond(cx, y, dw, dh, i === 0 ? "drop-solid" : "node", q, narrow ? "body" : "label");
+    if (i < questions.length - 1) {
+      d.line(cx, y + dh / 2, cx, ys[i + 1]! - dh / 2 - 2);
+      d.tag(cx + 8, y + dh / 2 + 4, "no", "small", "muted");
+    }
+  });
+
+  // Yes: the config's value, or the header's.
+  const fixedY = ys[0]! - 30;
+  const fixedBottom = d.card(rx, fixedY, rw, "drop-solid", "location", "code", "no header is read or trusted", "small", "acc");
+  d.line(cx + dw / 2, ys[0]!, rx - 2, ys[0]!);
+  const yes = (y: number) =>
+    narrow ? d.text((cx + dw / 2 + rx) / 2, y - 7, "yes", "small", "muted", "middle") : d.tag(cx + dw / 2 + 6, y - 22, "yes", "small", "muted");
+  yes(ys[0]!);
+
+  const headerTop = Math.max(ys[1]! - 30, fixedBottom + 24);
+  const headerBottom = d.card(rx, headerTop, rw, "zone", "the header's location", "label", "origin and path prefix");
+  [1, 2, 3].forEach((i) => {
+    const y = ys[i]!;
+    const ty = Math.min(Math.max(y, headerTop + 10), headerBottom - 10);
+    d.path(`M${cx + dw / 2} ${y} L${rx - 22} ${y} L${rx - 22} ${ty} L${rx - 2} ${ty}`);
+    if (i === 1) yes(y);
+  });
+
+  // None trusted.
+  const lastY = ys[3]! + dh / 2;
+  const ownTop = lastY + 34;
+  d.line(cx, lastY, cx, ownTop - 2);
+  d.tag(cx + 8, lastY + 4, "no", "small", "muted");
+  const ownW = dw;
+  const ownBottom = d.card(cx - ownW / 2, ownTop, ownW, "node", "the request's own origin", "label", "");
+
+  // What "trusted" means, beside the last steps.
+  const noteX = narrow ? 8 : rx;
+  const noteTop = narrow ? ownBottom + 16 : headerBottom + 22;
+  const noteBottom = d.card(
+    noteX,
+    noteTop,
+    narrow ? d.w - 16 : rw,
+    "none",
+    "trusted",
+    "label",
+    "its origin is the request's own, or in trustedOrigins or DROPLETS_TRUSTED_ORIGINS; \"*\" trusts any",
+  );
+  return d.scene(Math.max(ownBottom, noteBottom) + 8);
+}
+---
+
+<Diagram
+  id="location"
+  title="Where the droplet location comes from"
+  desc="Each request: with location in droplets.config.ts, that value, and no header is read or trusted. Else the server tries x-droplet-location, then Forwarded, then X-Forwarded-Host with X-Forwarded-Proto and X-Forwarded-Port, the last two with X-Forwarded-Prefix as the path prefix. The first one that parses and is trusted gives the location, origin and prefix. Trusted means its origin is the request's own, or listed in trustedOrigins or DROPLETS_TRUSTED_ORIGINS; an asterisk trusts any. When none is, the location is the request's own origin."
+  caption="A fixed location ends the search at once; otherwise the first trusted header wins, and the request's own origin is the fallback."
+  wide={build(false)}
+  narrow={build(true)}
+/>

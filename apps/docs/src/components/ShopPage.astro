@@ -1,0 +1,80 @@
+---
+/**
+ * The shop's gallery page as every host in examples/hosts/ builds it: the
+ * host's own parts and the droplet that fills each slot. The flags are
+ * those of examples/shop/src/droplets/*; the other pages are a table in
+ * the prose.
+ */
+import Diagram from "./Diagram.astro";
+import { Draw, NARROW, WIDE, type Scene } from "./diagram-kit.ts";
+
+type Part = { title: string; sub: string; droplet: boolean };
+
+const header: Part = { title: "Header", sub: "the host's: logo, nav, routes", droplet: false };
+const cart: Part = { title: "shopping-cart · React", sub: "client-only: the badge, the cart drawer", droplet: true };
+const hero: Part = { title: "Hero", sub: "the host's heading and copy", droplet: false };
+const filter: Part = { title: "product-filter · Hono JSX", sub: "SSR, hydrates on the first interaction; without JavaScript a GET form", droplet: true };
+const library: Part = {
+  title: "product-library · Svelte",
+  sub: "SSR + hydrate: cards, sort, pager; Add to cart is a form action, enhanced once live",
+  droplet: true,
+};
+const footer: Part = { title: "Footer", sub: "the host's: names its stack", droplet: false };
+const toasts: Part = { title: "toast-center · Solid", sub: "client-only, first in <body>, fixed to a corner", droplet: true };
+
+function draw(d: Draw, x: number, y: number, w: number, p: Part, minH = 0): number {
+  return d.card(x, y, w, p.droplet ? "drop" : "host", p.title, "label", p.sub, "small", p.droplet ? "acc" : "acc2", minH);
+}
+
+function build(narrow: boolean): Scene {
+  const d = new Draw(narrow ? NARROW : WIDE);
+  // The browser window.
+  const frame = d.mark();
+  d.circle(24, 22, 4, "dot");
+  d.circle(38, 22, 4, "dot");
+  d.circle(52, 22, 4, "dot");
+  d.rect(66, 12, narrow ? 240 : 280, 20, "url", 10);
+  d.text(78, 26.5, "the host's origin /gallery", "codesm", "muted");
+  const x = 20;
+  const w = d.w - 40;
+  let y = 44;
+
+  if (narrow) {
+    for (const part of [header, cart, hero, filter, library, footer, toasts]) y = draw(d, x, y, w, part) + 10;
+    y -= 10;
+  } else {
+    // Header and footer: the host's part on the left, a droplet over its right end.
+    const band = (top: number, part: Part, inner: Part) => {
+      const innerW = 250;
+      const h = d.cardHeight(innerW, inner.title, "label", inner.sub) + 12;
+      d.node();
+      const mark = d.mark();
+      d.text(x + 14, top + 24, part.title, "label", "acc2");
+      d.para(x + 14, top + 32, w - innerW - 40, part.sub, "small");
+      d.rectUnder(mark, x, top, w, h, "host");
+      draw(d, x + w - innerW - 6, top + 6, innerW, inner);
+      return h;
+    };
+    const headerH = band(y, header, cart);
+    y += headerH + 10;
+    y = draw(d, x, y, w, hero) + 10;
+    const leftW = 220;
+    const rowH = Math.max(d.cardHeight(leftW, filter.title, "label", filter.sub), d.cardHeight(w - leftW - 10, library.title, "label", library.sub)) + 24;
+    draw(d, x, y, leftW, filter, rowH);
+    draw(d, x + leftW + 10, y, w - leftW - 10, library, rowH);
+    y += rowH + 10;
+    y += band(y, footer, toasts);
+  }
+  d.rectUnder(frame, 8, 4, d.w - 16, y + 12 - 4, "frame", 8);
+  return d.scene(y + 16);
+}
+---
+
+<Diagram
+  id="shop-page"
+  title="The gallery page: the host's parts and the shop's droplets"
+  desc="The gallery page as a host renders it. The header, the hero and the footer are the host's. The droplets: shopping-cart in the header, React, client-only, the badge and the cart drawer; product-filter, Hono JSX, server-rendered and hydrated on the first interaction, a GET form without JavaScript; product-library, Svelte, server-rendered and hydrated, its Add to cart a form action enhanced once live; toast-center, Solid, client-only, first in the body and fixed to a corner."
+  caption="Solid outline: the host renders it. Dashed: a shop droplet, pasted in as <djs-shop>."
+  wide={build(false)}
+  narrow={build(true)}
+/>

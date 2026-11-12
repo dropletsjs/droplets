@@ -1,86 +1,60 @@
 ---
 /**
- * One droplets server, the eleven hosts of examples/hosts/ around it. Nine
- * fetch the fragment on their server (solid arrows); the React SPA and the
- * htmx pages let the browser fetch it (dashed). The proxy every example runs is in the
- * prose under the diagram.
+ * The eleven hosts of examples/hosts/ by who fetches the fragment: nine on
+ * their server (a server include), the React SPA and the htmx page in the
+ * browser. One droplets server feeds both. The proxy every example runs is
+ * in the prose under the figure.
  */
 import Diagram from "./Diagram.astro";
-import { Draw, type Scene } from "./diagram-kit.ts";
+import { Draw, NARROW, WIDE, type Scene } from "./diagram-kit.ts";
 
-type Host = { name: string; browser?: boolean };
-const hosts: Host[] = [
-  { name: "Express" },
-  { name: "Next.js" },
-  { name: "SvelteKit" },
-  { name: "Astro" },
-  { name: "FastAPI" },
-  { name: "React SPA", browser: true },
-  { name: "Sinatra" },
-  { name: "PHP" },
-  { name: "WordPress" },
-  { name: "nginx SSI" },
-  { name: "htmx", browser: true },
-];
+const serverHosts = "Express, Next.js, SvelteKit, Astro, FastAPI, Sinatra, PHP, WordPress, nginx SSI";
+const browserHosts = "React SPA, htmx";
 
-type Box = { x: number; y: number; w: number; h: number };
+function build(narrow: boolean): Scene {
+  const d = new Draw(narrow ? NARROW : WIDE);
+  const colW = (d.w - 16 - 16) / 2;
+  const lx = 8;
+  const rx = 8 + colW + 16;
+  const arrowH = narrow ? 92 : 78;
 
-/** Where the segment from the box's center towards (tx, ty) leaves the box. */
-function edge(b: Box, tx: number, ty: number): [number, number] {
-  const cx = b.x + b.w / 2;
-  const cy = b.y + b.h / 2;
-  const dx = tx - cx;
-  const dy = ty - cy;
-  const s = Math.min(Math.abs(b.w / 2 / (dx || 1e-9)), Math.abs(b.h / 2 / (dy || 1e-9)));
-  return [Math.round((cx + dx * s) * 10) / 10, Math.round((cy + dy * s) * 10) / 10];
-}
+  d.text(lx + colW / 2, 22, "On the host's server", "title", "acc2", "middle");
+  d.text(rx + colW / 2, 22, "In the browser", "title", "", "middle");
 
-function wide(): Scene {
-  const d = new Draw(640);
-  const server: Box = { x: 230, y: 160, w: 180, h: 56 };
-  const cx = 320;
-  const cy = 188;
-  const cw = 112;
-  const ch = 32;
-  hosts.forEach((h, i) => {
-    const a = ((-90 + (i * 360) / hosts.length) * Math.PI) / 180;
-    const x = cx + 255 * Math.cos(a);
-    const y = cy + 160 * Math.sin(a);
-    const b = { x: Math.round(x - cw / 2), y: Math.round(y - ch / 2), w: cw, h: ch };
-    const [x1, y1] = edge(b, cx, cy);
-    const [x2, y2] = edge(server, x, y);
-    d.line(x1, y1, x2, y2, h.browser ? "arrow dashed" : "arrow");
-    d.box(b.x, b.y, b.w, b.h, h.browser ? "node" : "host", h.name, "label", h.browser ? "" : "acc2");
-  });
-  d.box(server.x, server.y, server.w, server.h, "drop-solid", "Droplets server", "title", "acc", 8);
-  return d.scene(cy + 160 + ch / 2 + 6);
-}
+  const browserL = d.card(lx, 36, colW, "node", "Browser", "label", "asks for a page");
+  const hostTop = browserL + arrowH;
+  const leftX = lx + 28;
+  d.line(leftX, browserL + 2, leftX, hostTop - 2);
+  d.para(leftX + 10, browserL + 12, colW - 46, "GET the page; back: the page, fragment pasted in", "small", "ink");
+  const hostBottom = d.card(lx, hostTop, colW, "host", "Host server", "label", serverHosts);
 
-function narrow(): Scene {
-  const d = new Draw(360, 1.1);
-  d.box(80, 10, 200, 50, "drop-solid", "Droplets server", "title", "acc", 8);
-  // The nine that fetch on their server, as one group of tiles.
-  d.rect(10, 110, 210, 120, "host", 8);
-  d.text(115, 132, "Server include", "label", "acc2", "middle");
-  for (let i = 0; i < 9; i++) {
-    const col = i % 3;
-    const row = Math.floor(i / 3);
-    d.rect(26 + col * 62, 146 + row * 26, 54, 18, "ghost", 3);
-  }
-  d.box(240, 120, 110, 36, "node", "React SPA");
-  d.box(240, 176, 110, 36, "node", "htmx");
-  d.line(115, 108, 140, 62);
-  d.line(295, 118, 250, 62, "arrow dashed");
-  d.line(238, 194, 228, 62, "arrow dashed");
-  return d.scene(236);
+  const browserR = d.card(rx, 36, colW, "node", "Browser", "label", browserHosts);
+
+  const serverTop = hostBottom + arrowH;
+  d.line(leftX, hostBottom + 2, leftX, serverTop - 2);
+  d.para(leftX + 10, hostBottom + 12, colW - 46, "GET /droplets/:id with x-droplet-location; back: the fragment", "small", "ink");
+
+  const rightX = rx + 28;
+  d.line(rightX, browserR + 2, rightX, serverTop - 2, "arrow dashed");
+  d.para(
+    rightX + 10,
+    browserR + 12,
+    colW - 46,
+    "GET /droplets/:id (hx-get, fetch), or the element written with data-params, which renders itself",
+    "small",
+    "ink",
+  );
+
+  const end = d.card(8, serverTop, d.w - 16, "drop-solid", "Droplets server", "title", "the same one for every host", "small", "acc");
+  return d.scene(end + 8);
 }
 ---
 
 <Diagram
   id="hosts"
-  title="One droplets server, many hosts"
-  desc="A droplets server in the middle, eleven hosts around it. Express, Next.js, SvelteKit, Astro, FastAPI, Sinatra, PHP, WordPress and nginx (with Server Side Includes) fetch GET /droplets/:id on their server and paste the fragment into their page: solid arrows. The React single-page app and the htmx pages let the browser fetch it (the React app can also write the element itself): dashed arrows. In every example but the htmx page that fetches across origins, the browser reaches /index.js, /droplets/*, /assets/* and /api/* through a proxy on the host's own origin."
+  title="One droplets server, two ways to fetch"
+  desc="Left: nine hosts fetch on their server: Express, Next.js, SvelteKit, Astro, FastAPI, Sinatra, PHP, WordPress and nginx with Server Side Includes. The browser asks the host for a page; the host's server sends GET /droplets/:id with x-droplet-location to the droplets server and pastes the fragment into the page. Right: the React single-page app and the htmx page let the browser do it: GET /droplets/:id with hx-get or fetch, or the element written with data-params, which renders itself. Both talk to the same droplets server."
   caption="Solid: the host's server fetches the fragment. Dashed: the browser does."
-  wide={wide()}
-  narrow={narrow()}
+  wide={build(false)}
+  narrow={build(true)}
 />

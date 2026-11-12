@@ -1,0 +1,59 @@
+---
+/**
+ * Who talks to whom in the shop demo, top to bottom: the browser asks the
+ * host for pages (left), the host's server fetches the fragments from the
+ * shop with the headers of examples/shop/CONTRACT.md, and everything else
+ * the browser needs goes through the host's proxy (right). The shop keeps
+ * its data in SQLite.
+ */
+import Diagram from "./Diagram.astro";
+import { Draw, NARROW, WIDE, type Scene } from "./diagram-kit.ts";
+
+function build(narrow: boolean): Scene {
+  const d = new Draw(narrow ? NARROW : WIDE);
+  const x = 8;
+  const w = d.w - 16;
+  const leftX = narrow ? 30 : 60;
+  const rightX = narrow ? 196 : 340;
+  const labelW = (narrow ? 158 : 266) - 10;
+
+  /** A hop down: a solid page flow on the left, a dashed proxy flow on the right; returns the next top. */
+  const hop = (top: number, left: string, right: string) => {
+    const h = Math.max(d.measure(left, labelW, "small"), d.measure(right, labelW, "small")) + 28;
+    d.line(leftX, top + 2, leftX, top + h - 2);
+    d.para(leftX + 10, top + 12, labelW, left, "small", "ink");
+    d.line(rightX, top + 2, rightX, top + h - 2, "arrow dashed");
+    d.para(rightX + 10, top + 12, labelW, right, "small", "ink");
+    return top + h;
+  };
+
+  let y = d.card(x, 8, w, "node", "Browser", "title", "one origin: the host's");
+  y = hop(
+    y,
+    "① GET /gallery, /product/…\nback: the page, fragments pasted in, the shop's Set-Cookie passed on",
+    "③ /index.js, /droplets/* (bundles, _data, form posts), /assets/*, /api/*: through the host's proxy",
+  );
+  y = d.card(x, y, w, "host", "Host server", "title", "Express, nginx, PHP, …: renders the page, proxies the rest", "small", "acc2");
+  y = hop(
+    y,
+    "② GET /droplets/<id>?props\nx-droplet-location: the host's public origin\nCookie: the browser's\nReferer: the page URL\nback: the fragment, Set-Cookie, Link",
+    "③ passed on with x-droplet-location set\nback: the answer, Set-Cookie included",
+  );
+  y = d.card(x, y, w, "drop-solid", "Shop: a droplets server", "title", "reached only by the host, on an internal address", "small", "acc");
+  const dbTop = y + (narrow ? 50 : 34);
+  d.line(d.w / 2, y + 2, d.w / 2, dbTop - 2);
+  d.para(d.w / 2 + 10, y + 8, d.w / 2 - 18, "④ products, stock, carts, comments", "small", "ink");
+  const dbW = narrow ? 160 : 200;
+  y = d.card(d.w / 2 - dbW / 2, dbTop, dbW, "db", "SQLite", "label", "shop.db");
+  return d.scene(y + 8);
+}
+---
+
+<Diagram
+  id="shop-flow"
+  title="Who talks to whom"
+  desc="One, the browser asks the host for a page, /gallery or /product/…, and gets it back with the fragments pasted in and the shop's Set-Cookie passed on. Two, the host's server fetches each fragment from the shop: GET /droplets/<id> with the props, x-droplet-location set to the host's public origin, the browser's Cookie and the page URL as Referer; the shop answers the fragment, Set-Cookie and Link. Three, everything else the browser needs, /index.js, the bundles, _data, form posts and /api/*, goes through the host's proxy on the same origin, passed on with x-droplet-location set. Four, the shop reads and writes products, stock, carts and comments in SQLite."
+  caption="The browser sees one origin, the host's; only the host reaches the shop."
+  wide={build(false)}
+  narrow={build(true)}
+/>

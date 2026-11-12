@@ -3,7 +3,8 @@ title: Shop demo
 description: "One demo shop, nine droplets in six frameworks, embedded by nine of the eleven host examples: how it fits together, and each host recorded end to end."
 ---
 
-import ShopDiagram from "../../../../components/ShopDiagram.astro";
+import ShopFlow from "../../../../components/ShopFlow.astro";
+import ShopPage from "../../../../components/ShopPage.astro";
 import HostDemo from "../../../../components/HostDemo.astro";
 
 The shop example (`examples/shop` in the repository) is one droplets server with nine droplets: a gallery with a filter, product
@@ -13,6 +14,23 @@ own. Each of the nine builds the same pages around the droplets in its own
 stack (`/gallery`, `/product/:slug`, `/login`, `/admin`), and the same
 end-to-end test runs on each one. The [tour on the home page](/) walks through the WordPress host's
 pages droplet by droplet.
+
+## The pages and their droplets
+
+The host renders the layout; each slot is a droplet pasted in as
+`<djs-shop>` (the shop's `element`). The gallery:
+
+<ShopPage />
+
+The other pages, in the same layout (header with the cart, toasts first in
+the body, footer):
+
+| Page | Droplets |
+| --- | --- |
+| `/product/:slug` | `product-page` (Handlebars): prerendered per product, stock and price filled in live on every request, no JavaScript. `product-comments` (Solid): server-rendered, hydrates when visible; full oldest-first pages prerendered, the rest live. The host's breadcrumb takes the name and category from `product-page`'s `_data`. |
+| `/login` | `login` (Hono JSX): server-rendered, no JavaScript; a post sets the session cookie and answers `303` to `next` (`/admin`). |
+| `/admin` | `product-admin` (Vue): server-rendered and hydrated; a login gate without a session; stock, products, the campaign. |
+| any page | `product-card` (Svelte): one product card, server-rendered, hydrates when visible, for a host's own pages; the library uses the same card. |
 
 ## How it fits together
 
@@ -28,7 +46,12 @@ the host's origin, so the browser sees one origin, the cart and the admin
 session are first-party cookies, and nothing is cross-origin. Each host's
 page in this section shows its own version of this, with the code.
 
-<ShopDiagram />
+<ShopFlow />
+
+The shop's cookies, `cart_id` and `shop_admin`, are set by form actions and
+`/api`; every host passes `Set-Cookie` on, so they are first-party on the
+host's origin: `HttpOnly`, `SameSite=Lax`, `Secure` except over plain HTTP
+to a loopback host.
 
 The single-page app (React + Vite) has no step ②: its pages render in the
 browser, which fetches each fragment through the same proxy (③).

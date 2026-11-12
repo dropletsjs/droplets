@@ -1,65 +1,88 @@
 ---
 /**
- * What runs where, as a flow: sources on the left, the two places they
- * run on the right, and the line between them. The build enforces it
- * (vite/server-only.ts): no server file reaches the browser; only what a
- * load returns crosses, as JSON in the fragment.
+ * What runs where, top to bottom: the droplets server, the line the build
+ * enforces (vite/server-only.ts), the browser. The component and
+ * +droplet.ts are in both bundles; server files never reach the browser,
+ * and only the props and what a load returns cross, as JSON in the fragment.
  */
 import Diagram from "./Diagram.astro";
-import { Draw, type Scene } from "./diagram-kit.ts";
+import { Draw, NARROW, WIDE, textWidth, type Scene } from "./diagram-kit.ts";
 
-/** The two crossings: code never (crossed out), data only. */
-function crossings(d: Draw, top: number, bottom: number, xNo: number, xData: number, wallY: number): void {
-  d.line(xNo, top, xNo, bottom, "arrow dashed");
-  d.path(`M${xNo - 7} ${wallY - 7} L${xNo + 7} ${wallY + 7} M${xNo + 7} ${wallY - 7} L${xNo - 7} ${wallY + 7}`, "wall", false);
-  d.text(xNo + 12, wallY - 12, "no code", "small", "danger");
-  d.line(xData, top, xData, bottom, "arrow accent");
-  d.text(xData + 10, wallY - 12, "data only", "small", "acc");
-}
+const serverOnly = ["+droplet.server.ts", "hooks.server.ts", "+server.ts", "*.server.*", "server/", "$droplets/env/private"];
+const both = ["+droplet.<ext>", "+droplet.ts", "$droplets/env/public"];
+const browserOnly = ["hooks.client.ts"];
 
-function wide(): Scene {
-  const d = new Draw(640);
-  const server = { x: 400, y: 20, w: 220, h: 64 };
-  const browser = { x: 400, y: 176, w: 220, h: 64 };
-  const wallY = 130;
-  d.line(250, wallY, 630, wallY, "wall", false);
-  // Each source and the heights where its arrows land on the right.
-  const src = [
-    { label: "*.server.*", kind: "code" as const, y: 14, to: [server.y + 16] },
-    { label: "private env", kind: "label" as const, y: 58, to: [server.y + 34] },
-    { label: "component", kind: "label" as const, y: 114, to: [server.y + 52, browser.y + 14] },
-    { label: "hooks.client.ts", kind: "code" as const, y: 192, to: [browser.y + 44] },
-  ];
-  for (const s of src) {
-    for (const ty of s.to) d.line(192, s.y + 16, server.x - 2, ty);
-    d.box(20, s.y, 170, 32, s.label === "component" ? "drop" : s.y > 150 ? "host" : "zone", s.label, s.kind);
+/** Chips left to right, wrapping at `right`; returns the bottom of the last row. */
+function chips(d: Draw, x: number, top: number, right: number, groups: { labels: string[]; cls: string }[]): number {
+  let cx = x;
+  let y = top;
+  const h = 26;
+  for (const { labels, cls } of groups) {
+    for (const label of labels) {
+      const w = Math.round(textWidth(label, "codesm") + 16);
+      if (cx + w > right) {
+        cx = x;
+        y += h + 8;
+      }
+      d.rect(cx, y, w, h, cls, 4);
+      d.text(cx + w / 2, y + 17.5, label, "codesm", "", "middle");
+      cx += w + 8;
+    }
   }
-  d.box(server.x, server.y, server.w, server.h, "drop-solid", "Server", "title", "acc", 8);
-  d.box(browser.x, browser.y, browser.w, browser.h, "host", "Browser", "title", "acc2", 8);
-  crossings(d, server.y + server.h + 2, browser.y - 2, 450, 570, wallY);
-  return d.scene(248);
+  return y + h;
 }
 
-function narrow(): Scene {
-  const d = new Draw(360, 1.1);
-  const wallY = 130;
-  d.rect(10, 10, 340, 80, "drop-solid", 8);
-  d.text(26, 40, "Server", "title", "acc");
-  d.box(26, 52, 150, 28, "zone", "*.server.*", "code");
-  d.line(10, wallY, 350, wallY, "wall", false);
-  d.rect(10, 170, 340, 80, "host", 8);
-  d.text(26, 200, "Browser", "title", "acc2");
-  d.box(26, 212, 150, 28, "drop", "component");
-  crossings(d, 92, 168, 170, 260, wallY);
-  return d.scene(256);
+function build(narrow: boolean): Scene {
+  const d = new Draw(narrow ? NARROW : WIDE);
+  const inner = d.w - 16;
+  // The server: its own files, then the ones both sides run.
+  d.node();
+  const serverMark = d.mark();
+  d.text(22, 32, "Droplets server", "title", "acc");
+  const serverBottom = chips(d, 22, 44, 8 + inner - 12, [
+    { labels: serverOnly, cls: "zone" },
+    { labels: both, cls: "drop" },
+  ]);
+  d.rectUnder(serverMark, 8, 8, inner, serverBottom - 8 + 14, "drop-solid", 8);
+
+  const gapTop = serverBottom + 14;
+  const gap = narrow ? 128 : 110;
+  const wallY = gapTop + gap - (narrow ? 38 : 34);
+  d.line(8, wallY, d.w - 8, wallY, "wall", false);
+
+  // Code: stopped at the line. Data: through it.
+  const xNo = narrow ? 56 : 120;
+  const xData = narrow ? 200 : 360;
+  d.line(xNo, gapTop + 2, xNo, gapTop + gap - 4, "arrow dashed");
+  d.path(`M${xNo - 8} ${wallY - 8} L${xNo + 8} ${wallY + 8} M${xNo + 8} ${wallY - 8} L${xNo - 8} ${wallY + 8}`, "wall", false);
+  d.node();
+  d.tag(xNo + 16, gapTop + 10, narrow ? "server code:\nthe build fails" : "server code: the build fails", "small", "danger");
+  d.line(xData, gapTop + 2, xData, gapTop + gap - 4, "arrow accent");
+  d.node();
+  d.tag(xData + 12, gapTop + 10, narrow ? "props and load\ndata, as JSON in\nthe fragment" : "props and load data,\nas JSON in the fragment", "small", "acc");
+
+  // The browser: the same component and +droplet.ts, and its own hook.
+  d.node();
+  const browserTop = gapTop + gap;
+  const browserMark = d.mark();
+  d.text(22, browserTop + 24, "Browser", "title", "acc2");
+  const browserBottom = chips(d, 22, browserTop + 36, 8 + inner - 12, [
+    { labels: both, cls: "drop" },
+    { labels: browserOnly, cls: "host" },
+  ]);
+  d.rectUnder(browserMark, 8, browserTop, inner, browserBottom - browserTop + 14, "host", 8);
+  const legendTop = browserBottom + 26;
+  d.rect(8, legendTop, 22, 14, "drop", 3);
+  const end = d.para(38, legendTop - 1, d.w - 46, "in both bundles: rendered on the server, run again in the browser", "small");
+  return d.scene(end + 6);
 }
 ---
 
 <Diagram
   id="runs-where"
   title="What runs where"
-  desc="Server only: +droplet.server.ts, +server.ts endpoints, hooks.server.ts and any *.server.* file or server/ folder, and the private env; they run on the droplets server. The component and +droplet.ts render on the server and run again in the browser. hooks.client.ts and the public env reach the browser. Between the server and the browser is a hard line: server-only code never reaches the client bundle, and importing it from browser code fails the build. Only data crosses: the load's result and the props, as JSON in the fragment."
-  caption="Server code never crosses the line; only what a load returns does, as JSON in the fragment."
-  wide={wide()}
-  narrow={narrow()}
+  desc="On the droplets server: +droplet.server.ts, hooks.server.ts, +server.ts endpoints, any *.server.* file or server/ folder, and $droplets/env/private, which only the server runs; and the component +droplet.<ext>, +droplet.ts and $droplets/env/public, which the server renders and the browser runs again. Between the server and the browser is a line the build enforces: server code that browser code reaches fails vite build and the vite dev import. What crosses is data: the props and the load's result, as JSON in the fragment. In the browser: the component, +droplet.ts, $droplets/env/public and hooks.client.ts."
+  caption="Server code never crosses the line; the props and what a load returns do, as JSON in the fragment."
+  wide={build(false)}
+  narrow={build(true)}
 />

@@ -5,8 +5,12 @@
  * that stays legible on a phone. The figure is a size container, so the
  * scene follows the column's width, not the window's. Colors come from the
  * --djs-* tokens only, so the diagram follows the theme.
+ *
+ * Every figure gets the same two buttons: a full-screen viewer with pan and
+ * zoom, and an SVG download of the scene on screen. They need the script
+ * below, so they stay hidden without JavaScript.
  */
-import type { Scene } from "./diagram-kit.ts";
+import { NARROW, SIZE, WIDE, type Scene } from "./diagram-kit.ts";
 
 interface Props {
   /** Unique on the page: the ids of the titles and the arrowheads derive from it. */
@@ -19,242 +23,561 @@ interface Props {
 }
 
 const { id, title, desc, caption, wide, narrow } = Astro.props;
+
+const MAX_NODES = 10;
+for (const [name, scene, width] of [
+  ["wide", wide, WIDE],
+  ["narrow", narrow, NARROW],
+] as const) {
+  if (scene.w !== width) throw new Error(`Diagram ${id}: the ${name} scene is ${scene.w} wide; it must be ${width}`);
+  if (scene.nodes > MAX_NODES) {
+    throw new Error(`Diagram ${id}: the ${name} scene has ${scene.nodes} nodes; split it, at most ${MAX_NODES} per figure`);
+  }
+}
+
 const scenes = [
   { scene: wide, key: `${id}-wide`, cls: "dg-wide" },
   { scene: narrow, key: `${id}-narrow`, cls: "dg-narrow" },
 ];
 ---
 
-<figure class="dg">
-  {
-    scenes.map(({ scene, key, cls }) => (
-      <svg
-        class={cls}
-        viewBox={`0 0 ${scene.w} ${scene.h}`}
-        role="img"
-        aria-labelledby={`${key}-title ${key}-desc`}
-      >
-        <title id={`${key}-title`}>{title}</title>
-        <desc id={`${key}-desc`}>{desc}</desc>
-        <defs>
-          <marker
-            id={`${key}-head`}
-            viewBox="0 0 10 10"
-            refX="9"
-            refY="5"
-            markerWidth="7"
-            markerHeight="7"
-            orient="auto-start-reverse"
-          >
-            <path class="dg-head" d="M0 0 L10 5 L0 10 z" />
-          </marker>
-        </defs>
-        {scene.items.map((item) =>
-          item.t === "rect" ? (
-            <rect class={item.c} x={item.x} y={item.y} width={item.w} height={item.h} rx={item.rx} />
-          ) : item.t === "circle" ? (
-            <circle class={item.c} cx={item.x} cy={item.y} r={item.r} />
-          ) : item.t === "path" ? (
-            <path
-              class={item.c}
-              d={item.d}
-              marker-end={item.end ? `url(#${key}-head)` : undefined}
-              marker-start={item.start ? `url(#${key}-head)` : undefined}
-            />
-          ) : (
-            <text class={item.c} x={item.x} y={item.y} text-anchor={item.a === "start" ? undefined : item.a}>
-              {item.s}
-            </text>
-          ),
-        )}
-      </svg>
-    ))
-  }
-  <figcaption>{caption}</figcaption>
+<figure class="dg" data-diagram={id}>
+  <div class="dg-stage">
+    {
+      scenes.map(({ scene, key, cls }) => (
+        <svg
+          class={`dg-svg ${cls}`}
+          viewBox={`0 0 ${scene.w} ${scene.h}`}
+          width={scene.w}
+          height={scene.h}
+          role="img"
+          aria-label={title}
+          aria-describedby={`${key}-desc`}
+        >
+          <title>{title}</title>
+          <desc id={`${key}-desc`}>{desc}</desc>
+          <defs>
+            <marker
+              id={`${key}-head`}
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path class="dg-head" d="M0 0 L10 5 L0 10 z" />
+            </marker>
+          </defs>
+          {scene.items.map((item) =>
+            item.t === "rect" ? (
+              <rect class={item.c} x={item.x} y={item.y} width={item.w} height={item.h} rx={item.rx} />
+            ) : item.t === "circle" ? (
+              <circle class={item.c} cx={item.x} cy={item.y} r={item.r} />
+            ) : item.t === "path" ? (
+              <path
+                class={item.c}
+                d={item.d}
+                marker-end={item.end ? `url(#${key}-head)` : undefined}
+                marker-start={item.start ? `url(#${key}-head)` : undefined}
+              />
+            ) : (
+              <text
+                class={item.c}
+                x={item.x}
+                y={item.y}
+                font-size={SIZE[item.kind]}
+                text-anchor={item.a === "start" ? undefined : item.a}
+              >
+                {item.s}
+              </text>
+            ),
+          )}
+        </svg>
+      ))
+    }
+  </div>
+  <figcaption class="not-content">
+    <span>{caption}</span>
+    <span class="dg-tools" hidden>
+      <button type="button" data-dg-open aria-label={`Full screen: ${title}`}>Full screen</button>
+      <button type="button" data-dg-svg aria-label={`Download as SVG: ${title}`}>SVG</button>
+    </span>
+  </figcaption>
 </figure>
+
+<script>
+  /**
+   * The full-screen viewer, one <dialog> for every figure on the page, and
+   * the SVG download. The viewer shows the scene that is on screen, so a
+   * phone gets the tall one.
+   */
+  const MIN = 0.2;
+  const MAX = 8;
+  // What a standalone file needs to look as it does here: the page's CSS does not travel with it.
+  const STYLED = ["fill", "stroke", "stroke-width", "stroke-dasharray", "opacity", "font-family", "font-size", "font-weight"];
+
+  function shownScene(figure: HTMLElement): SVGSVGElement | null {
+    const all = [...figure.querySelectorAll<SVGSVGElement>("svg.dg-svg")];
+    return all.find((svg) => svg.getClientRects().length > 0) ?? all[0] ?? null;
+  }
+
+  /** A copy whose ids cannot clash with the original's: a marker in a hidden scene does not render. */
+  function copyOf(svg: SVGSVGElement, suffix: string): SVGSVGElement {
+    const copy = svg.cloneNode(true) as SVGSVGElement;
+    for (const el of copy.querySelectorAll("[id]")) el.id = `${el.id}-${suffix}`;
+    for (const attr of ["marker-end", "marker-start"]) {
+      for (const el of copy.querySelectorAll(`[${attr}]`)) {
+        el.setAttribute(attr, (el.getAttribute(attr) ?? "").replace(/\)$/, `-${suffix})`));
+      }
+    }
+    const described = copy.getAttribute("aria-describedby");
+    if (described) copy.setAttribute("aria-describedby", `${described}-${suffix}`);
+    return copy;
+  }
+
+  function download(figure: HTMLElement): void {
+    const svg = shownScene(figure);
+    if (!svg) return;
+    const copy = copyOf(svg, "file");
+    const source = [svg, ...svg.querySelectorAll("*")];
+    const target = [copy, ...copy.querySelectorAll("*")];
+    source.forEach((el, i) => {
+      const style = getComputedStyle(el);
+      const out = target[i];
+      if (!out || el.tagName === "title" || el.tagName === "desc") return;
+      for (const name of STYLED) out.setAttribute(name, style.getPropertyValue(name));
+    });
+    copy.removeAttribute("class");
+    copy.removeAttribute("aria-describedby");
+    copy.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    const [, , w = "0", h = "0"] = (svg.getAttribute("viewBox") ?? "").split(" ");
+    const background = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    background.setAttribute("width", w);
+    background.setAttribute("height", h);
+    background.setAttribute("fill", getComputedStyle(document.body).getPropertyValue("--djs-surface-100") || "#fff");
+    copy.insertBefore(background, copy.querySelector("defs"));
+    const blob = new Blob([new XMLSerializer().serializeToString(copy)], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${figure.dataset["diagram"] ?? "diagram"}.svg`;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  type Viewer = { open(figure: HTMLElement): void };
+
+  function createViewer(): Viewer {
+    const dialog = document.createElement("dialog");
+    dialog.className = "dg-viewer";
+    dialog.innerHTML = `
+      <div class="dg-viewer-bar">
+        <p class="dg-viewer-title"></p>
+        <button type="button" data-act="out" aria-label="Zoom out">−</button>
+        <button type="button" data-act="in" aria-label="Zoom in">+</button>
+        <button type="button" data-act="fit">Fit</button>
+        <button type="button" data-act="svg">SVG</button>
+        <button type="button" data-act="close" aria-label="Close">✕</button>
+      </div>
+      <div class="dg-viewer-stage"><div class="dg-viewer-canvas"></div></div>
+      <p class="dg-viewer-hint">Wheel or pinch to zoom, drag to pan. Keys: + and − zoom, 0 fits, arrows pan, Esc closes.</p>`;
+    document.body.append(dialog);
+    const title = dialog.querySelector<HTMLElement>(".dg-viewer-title")!;
+    const stage = dialog.querySelector<HTMLElement>(".dg-viewer-stage")!;
+    const canvas = dialog.querySelector<HTMLElement>(".dg-viewer-canvas")!;
+    let figure: HTMLElement | null = null;
+    let size = { w: 1, h: 1 };
+    let view = { s: 1, x: 0, y: 0 };
+
+    const apply = () => {
+      canvas.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.s})`;
+    };
+    const fit = () => {
+      const box = stage.getBoundingClientRect();
+      const s = Math.min(Math.max(Math.min((box.width - 32) / size.w, (box.height - 32) / size.h), MIN), 3);
+      view = { s, x: (box.width - size.w * s) / 2, y: (box.height - size.h * s) / 2 };
+      apply();
+    };
+    /** Zooms by `factor` keeping the stage point (px, py) where it is. */
+    const zoom = (factor: number, px?: number, py?: number) => {
+      const box = stage.getBoundingClientRect();
+      const cx = px ?? box.width / 2;
+      const cy = py ?? box.height / 2;
+      const s = Math.min(Math.max(view.s * factor, MIN), MAX);
+      view = { s, x: cx - ((cx - view.x) * s) / view.s, y: cy - ((cy - view.y) * s) / view.s };
+      apply();
+    };
+    const pan = (dx: number, dy: number) => {
+      view = { ...view, x: view.x + dx, y: view.y + dy };
+      apply();
+    };
+
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog) return dialog.close();
+      const act = (event.target as HTMLElement).closest<HTMLElement>("[data-act]")?.dataset["act"];
+      if (act === "in") zoom(1.25);
+      else if (act === "out") zoom(0.8);
+      else if (act === "fit") fit();
+      else if (act === "svg" && figure) download(figure);
+      else if (act === "close") dialog.close();
+    });
+    dialog.addEventListener("keydown", (event) => {
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      const keys: Record<string, () => void> = {
+        "+": () => zoom(1.25),
+        "=": () => zoom(1.25),
+        "-": () => zoom(0.8),
+        _: () => zoom(0.8),
+        "0": fit,
+        ArrowLeft: () => pan(40, 0),
+        ArrowRight: () => pan(-40, 0),
+        ArrowUp: () => pan(0, 40),
+        ArrowDown: () => pan(0, -40),
+      };
+      const run = Object.hasOwn(keys, event.key) ? keys[event.key] : undefined;
+      if (!run) return;
+      event.preventDefault();
+      run();
+    });
+    dialog.addEventListener("close", () => {
+      canvas.replaceChildren();
+      figure = null;
+    });
+    stage.addEventListener(
+      "wheel",
+      (event) => {
+        event.preventDefault();
+        const box = stage.getBoundingClientRect();
+        zoom(Math.exp(-event.deltaY * (event.deltaMode === 1 ? 0.05 : 0.002)), event.clientX - box.left, event.clientY - box.top);
+      },
+      { passive: false },
+    );
+
+    // One pointer pans; two pinch, around their midpoint.
+    const pointers = new Map<number, { x: number; y: number }>();
+    let pinch = 0;
+    const spread = () => {
+      const [a, b] = [...pointers.values()];
+      return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+    };
+    stage.addEventListener("pointerdown", (event) => {
+      stage.setPointerCapture(event.pointerId);
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      pinch = spread();
+    });
+    stage.addEventListener("pointermove", (event) => {
+      const last = pointers.get(event.pointerId);
+      if (!last) return;
+      const next = { x: event.clientX, y: event.clientY };
+      if (pointers.size === 1) pan(next.x - last.x, next.y - last.y);
+      pointers.set(event.pointerId, next);
+      if (pointers.size === 2 && pinch > 0) {
+        const now = spread();
+        const [a, b] = [...pointers.values()];
+        const box = stage.getBoundingClientRect();
+        if (a && b) zoom(now / pinch, (a.x + b.x) / 2 - box.left, (a.y + b.y) / 2 - box.top);
+        pinch = now;
+      }
+    });
+    const lift = (event: PointerEvent) => {
+      pointers.delete(event.pointerId);
+      pinch = spread();
+    };
+    stage.addEventListener("pointerup", lift);
+    stage.addEventListener("pointercancel", lift);
+
+    return {
+      open(target) {
+        const svg = shownScene(target);
+        if (!svg) return;
+        figure = target;
+        const copy = copyOf(svg, "viewer");
+        const [, , w = "1", h = "1"] = (svg.getAttribute("viewBox") ?? "").split(" ");
+        size = { w: Number(w), h: Number(h) };
+        copy.setAttribute("width", w);
+        copy.setAttribute("height", h);
+        canvas.replaceChildren(copy);
+        title.textContent = svg.querySelector("title")?.textContent ?? "";
+        dialog.setAttribute("aria-label", title.textContent);
+        dialog.showModal();
+        fit();
+      },
+    };
+  }
+
+  let viewer: Viewer | null = null;
+  for (const figure of document.querySelectorAll<HTMLElement>("figure.dg")) {
+    const tools = figure.querySelector<HTMLElement>(".dg-tools");
+    if (!tools) continue;
+    tools.hidden = false;
+    figure.querySelector("[data-dg-open]")?.addEventListener("click", () => {
+      viewer ??= createViewer();
+      viewer.open(figure);
+    });
+    figure.querySelector("[data-dg-svg]")?.addEventListener("click", () => download(figure));
+  }
+</script>
 
 <style is:global>
   .dg {
     container-type: inline-size;
     margin: 1.5rem 0;
   }
-  .dg svg {
+  .dg-stage .dg-svg {
     display: block;
     width: 100%;
     height: auto;
-    font-family: var(--djs-font-sans, system-ui, sans-serif);
   }
-  .dg .dg-narrow {
+  .dg-stage .dg-narrow {
     display: none;
+    max-width: 30rem;
+    margin-inline: auto;
   }
-  @container (max-width: 34rem) {
-    .dg .dg-wide {
+  /* Below the wide scene's own width it would shrink its type: the narrow one takes over. */
+  @container (max-width: 619.98px) {
+    .dg-stage .dg-wide {
       display: none;
     }
-    .dg .dg-narrow {
+    .dg-stage .dg-narrow {
       display: block;
     }
   }
   .dg figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    justify-content: space-between;
+    align-items: baseline;
     margin-top: 0.5rem;
     font-size: var(--sl-text-sm);
     color: var(--djs-ink-muted);
   }
+  .dg-tools {
+    display: inline-flex;
+    gap: 0.4rem;
+    flex: none;
+  }
+  .dg-tools[hidden] {
+    display: none;
+  }
+  .dg-tools button,
+  .dg-viewer-bar button {
+    font: inherit;
+    font-size: var(--sl-text-xs, 0.8125rem);
+    line-height: 1;
+    padding: 0.35rem 0.6rem;
+    border: 1px solid var(--djs-line-strong);
+    border-radius: var(--djs-radius-sm, 4px);
+    background: var(--djs-surface-200);
+    color: var(--djs-ink);
+    cursor: pointer;
+  }
+  .dg-tools button:hover,
+  .dg-viewer-bar button:hover {
+    border-color: var(--djs-accent);
+  }
+  .dg-tools button:focus-visible,
+  .dg-viewer-bar button:focus-visible {
+    outline: 2px solid var(--djs-focus);
+    outline-offset: 2px;
+  }
+
+  .dg-viewer {
+    width: 100vw;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: var(--djs-surface-100);
+    color: var(--djs-ink);
+  }
+  .dg-viewer[open] {
+    display: flex;
+    flex-direction: column;
+  }
+  .dg-viewer::backdrop {
+    background: var(--djs-scrim);
+  }
+  .dg-viewer-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--djs-line);
+  }
+  .dg-viewer-bar button {
+    min-width: 2.25rem;
+    padding: 0.45rem 0.7rem;
+    font-size: var(--sl-text-sm, 0.875rem);
+  }
+  .dg-viewer-title {
+    flex: 1;
+    margin: 0;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dg-viewer-stage {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: grab;
+  }
+  .dg-viewer-stage:active {
+    cursor: grabbing;
+  }
+  .dg-viewer-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: 0 0;
+  }
+  .dg-viewer-canvas .dg-svg {
+    display: block;
+    max-width: none;
+  }
+  .dg-viewer-hint {
+    margin: 0;
+    padding: 0.4rem 1rem;
+    font-size: var(--sl-text-xs, 0.8125rem);
+    color: var(--djs-ink-muted);
+    border-top: 1px solid var(--djs-line);
+  }
+
+  .dg-svg {
+    font-family: var(--djs-font-sans, system-ui, sans-serif);
+  }
 
   /* Shapes */
-  .dg .node {
+  .dg-svg .node {
     fill: var(--djs-surface-300);
     stroke: var(--djs-line-strong);
   }
-  .dg .zone {
+  .dg-svg .zone {
     fill: var(--djs-surface-200);
     stroke: var(--djs-line);
   }
-  .dg .frame {
+  .dg-svg .frame {
     fill: var(--djs-surface-200);
     stroke: var(--djs-line-strong);
   }
-  .dg .url {
+  .dg-svg .url {
     fill: var(--djs-surface-300);
     stroke: var(--djs-line);
   }
-  .dg .dot {
+  .dg-svg .dot {
     fill: var(--djs-line-strong);
   }
-  .dg .host {
+  .dg-svg .host {
     fill: var(--djs-accent-2-low);
     stroke: var(--djs-accent-2);
     stroke-width: 1.5;
   }
-  .dg .drop {
+  .dg-svg .drop {
     fill: var(--djs-accent-soft);
     stroke: var(--djs-accent);
     stroke-width: 1.5;
     stroke-dasharray: 5 3;
   }
-  .dg .drop-solid {
+  .dg-svg .drop-solid {
     fill: var(--djs-accent-soft);
     stroke: var(--djs-accent);
     stroke-width: 1.5;
   }
-  .dg .ghost {
+  .dg-svg .ghost {
     fill: none;
     stroke: var(--djs-line-strong);
     opacity: 0.6;
   }
-  .dg .bar {
+  .dg-svg .bar {
     fill: var(--djs-line);
   }
-  .dg .bar-accent {
+  .dg-svg .bar-accent {
     fill: var(--djs-accent);
     opacity: 0.75;
   }
-  .dg .bar-host {
-    fill: var(--djs-accent-2);
-    opacity: 0.55;
-  }
-  .dg .none {
+  .dg-svg .none {
     fill: none;
     stroke: var(--djs-line-strong);
     stroke-dasharray: 3 3;
   }
-  .dg .wall {
+  .dg-svg .wall {
     fill: none;
     stroke: var(--djs-danger);
     stroke-width: 3;
   }
-  .dg .wall-fill {
-    fill: var(--djs-danger-low);
-    stroke: var(--djs-danger);
-  }
-  .dg .db {
+  .dg-svg .db {
     fill: var(--djs-surface-300);
     stroke: var(--djs-line-strong);
     stroke-width: 1.5;
   }
-  .dg .mask {
+  .dg-svg .mask {
     fill: var(--djs-surface-100);
   }
-  .dg .life {
+  .dg-svg .life {
     fill: none;
     stroke: var(--djs-line-strong);
-    stroke-dasharray: 4 4;
+    stroke-width: 1;
+    stroke-dasharray: 2 5;
+    opacity: 0.7;
   }
-  .dg .arrow {
+  .dg-svg .arrow {
     fill: none;
     stroke: var(--djs-ink-muted);
     stroke-width: 1.5;
   }
-  .dg .arrow.dashed {
+  .dg-svg .arrow.dashed {
     stroke-dasharray: 6 4;
   }
-  .dg .arrow.accent {
+  .dg-svg .arrow.accent {
     stroke: var(--djs-accent);
   }
-  .dg .dg-head {
+  .dg-svg .arrow.danger {
+    stroke: var(--djs-danger);
+  }
+  .dg-svg .dg-head {
     fill: var(--djs-ink-muted);
   }
 
-  /* Text */
-  .dg text {
+  /* Text: the sizes are attributes, from diagram-kit.ts. */
+  .dg-svg text {
     fill: var(--djs-ink-soft);
   }
-  .dg .k-title {
-    font-size: 13px;
+  .dg-svg .k-title {
     font-weight: 650;
     fill: var(--djs-ink);
   }
-  .dg .k-label {
-    font-size: 12px;
+  .dg-svg .k-label {
     font-weight: 550;
     fill: var(--djs-ink);
   }
-  .dg .k-body {
-    font-size: 11.5px;
-  }
-  .dg .k-small {
-    font-size: 10.5px;
-  }
-  .dg .k-code,
-  .dg .k-codesm {
+  .dg-svg .k-code,
+  .dg-svg .k-codesm {
     font-family: var(--djs-font-mono, ui-monospace, monospace);
-    font-size: 11px;
     fill: var(--djs-ink);
   }
-  .dg .k-codesm {
-    font-size: 10px;
-  }
-  .dg-narrow .k-title {
-    font-size: 14px;
-  }
-  .dg-narrow .k-label {
-    font-size: 13px;
-  }
-  .dg-narrow .k-body {
-    font-size: 12.5px;
-  }
-  .dg-narrow .k-small {
-    font-size: 11.5px;
-  }
-  .dg-narrow .k-code {
-    font-size: 12px;
-  }
-  .dg-narrow .k-codesm {
-    font-size: 11px;
-  }
-  .dg text.muted {
+  .dg-svg text.muted {
     fill: var(--djs-ink-muted);
   }
-  .dg text.ink {
+  .dg-svg text.ink {
     fill: var(--djs-ink);
   }
-  .dg text.acc {
+  .dg-svg text.acc {
     fill: var(--djs-accent-text);
   }
-  .dg text.acc2 {
+  .dg-svg text.acc2 {
     fill: var(--djs-accent-2);
   }
-  .dg text.danger {
+  .dg-svg text.danger {
     fill: var(--djs-danger);
   }
 </style>

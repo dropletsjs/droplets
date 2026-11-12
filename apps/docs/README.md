@@ -100,6 +100,41 @@ when the demo origin is missing from one of those four directives, or when
 any directive names another host. After a Starlight or Astro upgrade, paste
 the printed set into `_headers`. CI runs it after every docs build.
 
+### Diagrams
+
+Each explanatory figure is an `.astro` component in `src/components/` that
+lays its content out twice with `diagram-kit.ts`, a wide scene (620 px) for
+the content column and a narrow one (360 px) for phones, and passes both to
+`Diagram.astro`. The figure is a size container: below 620 px of column it
+shows the narrow scene, so a scene is never shrunk under its own size and
+its type stays at 12.5 px or more. Colors are the `--djs-*` tokens, so a
+figure follows Starlight's light and dark theme.
+
+`Diagram.astro` is the one place for what every figure has: `role="img"`
+with the title as its label and the description as `<desc>`, the caption,
+and two buttons, shown once its script runs. "Full screen" opens a
+`<dialog>` with the scene on screen: wheel, pinch or drag to zoom and pan,
+`+`, `-`, `0` and the arrows on the keyboard, `Esc` or the close button to
+leave. "SVG" downloads that scene as a file of its own, its computed colors
+and fonts written into it and the page's background behind it.
+
+| Figure | Page |
+| --- | --- |
+| `RenderModes` | Writing droplets, Flags |
+| `RunsWhere` | Writing droplets, Where code runs |
+| `FormFlow` | Form actions, Post/Redirect/Get |
+| `PrerenderLookup` | Prerendering, `host` at build |
+| `LocationFlow` | HTTP contract, Where it comes from |
+| `HostsHub` | Known hosts |
+| `ShopPage`, `ShopFlow` | Shop demo |
+| `WordPressFlow` | WordPress, step 3 |
+| `ElementLifecycle` | In the browser, What happens on connect |
+| `BrowserLoads` | Deployment, Behind a proxy |
+
+`DropletAnatomy` (an interactive explorer of the fragment) and
+`DropletTour` (the home page's video) are not diagrams and keep their own
+markup.
+
 ### Videos and the tour's poster
 
 `public/hosts/` holds each host's recorded video and screenshots
@@ -196,9 +231,9 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - `RendererDemo` file order: the component, `+droplet.ts`, `+droplet.server.ts`, the rest. `src/components/RendererDemo.astro:39`
 - `RendererDemo` throws when the droplet folder has no files. `src/components/RendererDemo.astro:50`
 - `AddRenderer` uses `djs add`'s catalog and `addRenderer` config edit. `src/components/AddRenderer.astro:9`, `src/components/AddRenderer.astro:10`
-- Renderer pages: each embeds `RendererDemo` with its `counter-<renderer>`. `src/content/docs/renderers/svelte.mdx:15`, `src/content/docs/renderers/vue.mdx:15`, `src/content/docs/renderers/react.mdx:15`, `src/content/docs/renderers/preact.mdx:16`, `src/content/docs/renderers/solid.mdx:15`, `src/content/docs/renderers/hono-jsx.mdx:16`, `src/content/docs/renderers/handlebars.mdx:17`, `src/content/docs/renderers/lit.mdx:16`, `src/content/docs/renderers/script.mdx:19`
-- Live droplets on guide pages: `hello`, `poll`, `crash` (with `toggle`), `counter`. `src/content/docs/start/what-is-a-droplet.mdx:38`, `src/content/docs/guides/actions.mdx:253`, `src/content/docs/guides/errors.mdx:93`, `src/content/docs/guides/in-the-browser.mdx:85`
-- WordPress tutorial steps: the starting point, a plugin that brings in the droplets, WordPress owns the data, the login is WordPress's, prerender at container start, run it, the result. `src/content/docs/integrate/wordpress.mdx:18`, `src/content/docs/integrate/wordpress.mdx:52`, `src/content/docs/integrate/wordpress.mdx:270`, `src/content/docs/integrate/wordpress.mdx:408`
+- Renderer pages: each embeds `RendererDemo` with its `counter-<renderer>`. `src/content/docs/renderers/svelte.mdx:15`, `src/content/docs/renderers/vue.mdx:16`, `src/content/docs/renderers/react.mdx:16`, `src/content/docs/renderers/preact.mdx:16`, `src/content/docs/renderers/solid.mdx:15`, `src/content/docs/renderers/hono-jsx.mdx:16`, `src/content/docs/renderers/handlebars.mdx:17`, `src/content/docs/renderers/lit.mdx:16`, `src/content/docs/renderers/script.mdx:19`
+- Live droplets on guide pages: `hello`, `poll`, `crash` (with `toggle`), `counter`. `src/content/docs/start/what-is-a-droplet.mdx:39`, `src/content/docs/guides/actions.mdx:263`, `src/content/docs/guides/errors.mdx:93`, `src/content/docs/guides/in-the-browser.mdx:87`
+- WordPress tutorial steps: the starting point, a plugin that brings in the droplets, WordPress owns the data, the login is WordPress's, prerender at container start, run it, the result. `src/content/docs/integrate/wordpress.mdx:18`, `src/content/docs/integrate/wordpress.mdx:55`, `src/content/docs/integrate/wordpress.mdx:288`, `src/content/docs/integrate/wordpress.mdx:428`, `src/content/docs/integrate/wordpress.mdx:597`, `src/content/docs/integrate/wordpress.mdx:660`, `src/content/docs/integrate/wordpress.mdx:732`
 - CSP check: every inline script the browser runs (no type, a JavaScript type or `module`) needs its sha256 in `script-src`. `scripts/csp-hashes.mjs:27`, `scripts/csp-hashes.mjs:38`
 - CSP check skips data payloads such as `<script type="application/text" data-droplet-data>`. `scripts/csp-hashes.mjs:29`
 - CSP check fails on a missing or stale hash. `scripts/csp-hashes.mjs:44`, `scripts/csp-hashes.mjs:45`, `scripts/csp-hashes.mjs:80`
@@ -208,6 +243,16 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - `_headers` caches `/_astro/*` and Pagefind's hashed chunks for a year, immutable. `public/_headers:29`, `public/_headers:34`, `public/_headers:36`
 - `_headers` revalidates `/hosts/*` on every request. `public/_headers:41`
 - CI runs `pnpm docs:build`, then `pnpm docs:check-csp`. `../../.github/workflows/ci.yml:55`, `../../.github/workflows/ci.yml:57`
+- Diagram scenes: wide 620 px, narrow 360 px. `src/components/diagram-kit.ts:23`, `src/components/diagram-kit.ts:24`
+- Diagram type sizes: title 15, label 14, body 13, small 12.5, code 13, code small 12.5 px, written as `font-size` attributes. `src/components/diagram-kit.ts:26`, `src/components/Diagram.astro:89`
+- `Diagram` fails the build when a scene's width is not 620 or 360 px, or a scene has more than 10 nodes. `src/components/Diagram.astro:27`, `src/components/Diagram.astro:32`, `src/components/Diagram.astro:34`
+- `Diagram` shows the narrow scene when its figure is under 620 px wide (a container query). `src/components/Diagram.astro:340`
+- `Diagram` buttons: "Full screen" (`data-dg-open`) and "SVG" (`data-dg-svg`), hidden until the script runs. `src/components/Diagram.astro:103`, `src/components/Diagram.astro:104`
+- Diagram viewer: one `<dialog>` per page, opened with `showModal()` on the scene that is on screen. `src/components/Diagram.astro:305`
+- Diagram viewer zoom: 0.2 to 8 times; wheel, two-pointer pinch, one-pointer drag; keys `+`/`=`, `-`/`_`, `0` (fit), arrows (pan), `Esc`. `src/components/Diagram.astro:115`, `src/components/Diagram.astro:230`, `src/components/Diagram.astro:250`, `src/components/Diagram.astro:266`
+- Diagram SVG download: `<id>.svg`, with `fill`, `stroke`, `stroke-width`, `stroke-dasharray`, `opacity` and the font properties computed and written in, on the page's `--djs-surface-100`. `src/components/Diagram.astro:118`, `src/components/Diagram.astro:164`
+- `sequence()` in `diagram-kit.ts` draws the sequence figures (`FormFlow`, `WordPressFlow`). `src/components/diagram-kit.ts:191`
+- Diagrams on pages: `RenderModes`, `RunsWhere`, `FormFlow`, `PrerenderLookup`, `LocationFlow`, `HostsHub`, `ShopPage`, `ShopFlow`, `WordPressFlow`, `ElementLifecycle`, `BrowserLoads`. `src/content/docs/guides/writing-droplets.mdx:74`, `src/content/docs/guides/writing-droplets.mdx:674`, `src/content/docs/guides/actions.mdx:158`, `src/content/docs/guides/prerendering.mdx:62`, `src/content/docs/integrate/http-contract.mdx:199`, `src/content/docs/integrate/hosts/overview.mdx:19`, `src/content/docs/integrate/hosts/shop-demo.mdx:23`, `src/content/docs/integrate/hosts/shop-demo.mdx:49`, `src/content/docs/integrate/wordpress.mdx:294`, `src/content/docs/guides/in-the-browser.mdx:65`, `src/content/docs/guides/deployment.mdx:344`
 - Tour poster: `gen.mjs` writes `scripts/poster/tour-poster.svg`; `render.mjs` writes `public/hosts/tour.webp` in Chromium. `scripts/poster/gen.mjs:111`, `scripts/poster/render.mjs:11`, `scripts/poster/render.mjs:33`
 - Tour video `public/hosts/tour.mp4` plays with `tour.webp` as its poster on the home page. `src/components/DropletTour.astro:15`, `src/content/docs/index.mdx:19`
 - Worker `dropletsjs-docs` serves `./dist` as assets only, on the custom domain `dropletsjs.dev`. `wrangler.jsonc:4`, `wrangler.jsonc:8`, `wrangler.jsonc:22`

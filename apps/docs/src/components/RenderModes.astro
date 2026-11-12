@@ -1,69 +1,72 @@
 ---
 /**
- * The render modes as four flows: what the server does, what the host
- * page receives (empty or server markup) and what the droplet's
- * JavaScript does. The flags are those of guides/writing-droplets#flags.
+ * The render modes as four columns, top to bottom: what the server does,
+ * what the fragment carries to the host page, what the browser does. The
+ * flags are those of guides/writing-droplets#flags; the fragment parts are
+ * runtime/app.ts's (no markup without SSR, no inline data without hydrate).
  */
 import Diagram from "./Diagram.astro";
-import { Draw, type Scene } from "./diagram-kit.ts";
+import { Draw, NARROW, WIDE, wrap, type Kind, type Scene } from "./diagram-kit.ts";
 
-type Mode = { name: string; server: string; markup: boolean; js: string | null };
+type Mode = { name: string; flags: string; server: string; carries: string; browser: string; js: boolean };
 
 const modes: Mode[] = [
-  { name: "Client-only", server: "load only", markup: false, js: "mount" },
-  { name: "SSR + hydrate", server: "render", markup: true, js: "hydrate" },
-  { name: "SSR only", server: "render", markup: true, js: null },
-  { name: "Prerendered", server: "build", markup: true, js: "per flag" },
+  { name: "Client-only", flags: "ssr = false", server: "runs the load only", carries: "data, no markup", browser: "mounts at once", js: true },
+  { name: "SSR + hydrate", flags: "the default", server: "renders per request", carries: "markup + data", browser: "hydrates: at once, when visible or on interaction", js: true },
+  { name: "SSR only", flags: "hydrate = false", server: "renders per request", carries: "markup only", browser: "no JavaScript, no bundle", js: false },
+  { name: "Prerendered", flags: "prerender = true", server: "rendered at build for entries; other props live", carries: "stored markup + data", browser: "as its hydrate flag says", js: true },
 ];
 
-/** The host page's copy of the droplet: server markup, or nothing yet. */
-function page(d: Draw, x: number, y: number, w: number, h: number, markup: boolean): void {
-  d.rect(x, y, w, h, "drop", 5);
-  if (markup) {
-    d.rect(x + 10, y + 9, w * 0.5, 7, "bar-accent", 2);
-    d.rect(x + 10, y + 21, w - 22, 5, "bar", 2);
-  } else d.rect(x + 8, y + 7, w - 16, h - 14, "none", 3);
+function lines(s: string, width: number, kind: Kind): number {
+  return wrap(s, width, kind).length;
 }
 
-function jsNode(d: Draw, x: number, y: number, w: number, h: number, js: string | null): void {
-  if (js) d.box(x, y, w, h, "drop-solid", js, "label", "acc");
-  else d.box(x, y, w, h, "none", "no JS", "label", "muted");
-}
+function build(narrow: boolean): Scene {
+  const d = new Draw(narrow ? NARROW : WIDE);
+  const perRow = narrow ? 2 : 4;
+  const gap = 8;
+  const cw = (d.w - 16 - gap * (perRow - 1)) / perRow;
+  const tw = cw - 16;
+  const lh = d.lh("body");
+  const boxH = (key: "server" | "browser") => Math.max(...modes.map((m) => lines(m[key], tw, "body"))) * lh + 18;
+  const serverH = boxH("server");
+  const browserH = boxH("browser");
+  const arrowH = 46;
+  const colH = 44 + serverH + arrowH + browserH;
 
-function wide(): Scene {
-  const d = new Draw(640);
-  const row = 48;
   modes.forEach((m, i) => {
-    const y = 10 + i * row;
-    d.text(10, y + 21, m.name, "title", i === 1 ? "acc" : "");
-    d.box(170, y, 120, 32, "zone", m.server);
-    d.line(292, y + 16, 336, y + 16);
-    page(d, 340, y, 120, 32, m.markup);
-    d.line(462, y + 16, 506, y + 16, m.js ? "arrow" : "arrow dashed");
-    jsNode(d, 510, y, 120, 32, m.js);
-  });
-  return d.scene(10 + modes.length * row - 8);
-}
+    const x = 8 + (i % perRow) * (cw + gap);
+    const top = 8 + Math.floor(i / perRow) * (colH + 24);
+    const mid = x + cw / 2;
+    d.text(mid, top + 15, m.name, "title", i === 1 ? "acc" : "", "middle");
+    d.text(mid, top + 33, m.flags, "codesm", "muted", "middle");
 
-function narrow(): Scene {
-  const d = new Draw(360, 1.1);
-  const row = 66;
-  modes.forEach((m, i) => {
-    const y = 10 + i * row;
-    d.text(10, y + 14, m.name, "label", i === 1 ? "acc" : "");
-    page(d, 10, y + 22, 150, 32, m.markup);
-    d.line(162, y + 38, 196, y + 38, m.js ? "arrow" : "arrow dashed");
-    jsNode(d, 200, y + 22, 150, 32, m.js);
+    const sy = top + 44;
+    d.node();
+    const sm = d.mark();
+    d.para(mid, sy + (serverH - d.measure(m.server, tw, "body")) / 2, tw, m.server, "body", "ink", "middle");
+    d.rectUnder(sm, x, sy, cw, serverH, "zone");
+
+    const ay = sy + serverH;
+    d.line(mid, ay + 2, mid, ay + arrowH - 2);
+    d.tag(mid, ay + arrowH / 2 - 11, m.carries, "small", "ink", "middle");
+
+    const by = ay + arrowH;
+    d.node();
+    const bm = d.mark();
+    d.para(mid, by + (browserH - d.measure(m.browser, tw, "body")) / 2, tw, m.browser, "body", m.js ? "acc" : "muted", "middle");
+    d.rectUnder(bm, x, by, cw, browserH, m.js ? "drop-solid" : "none");
   });
-  return d.scene(10 + modes.length * row - 6);
+  const rows = Math.ceil(modes.length / perRow);
+  return d.scene(8 + rows * colH + (rows - 1) * 24 + 6);
 }
 ---
 
 <Diagram
   id="render-modes"
   title="The render modes side by side"
-  desc="Client-only (ssr = false): the server runs the load only; the host page receives the element with its data and no markup; the bundle mounts the droplet at once. SSR + hydrate, the default: the server renders; the page gets the markup; the bundle hydrates it at once, when visible or on the first interaction. SSR only (hydrate = false): the server renders; the page gets the markup; no JavaScript ever. Prerendered (prerender = true): rendered at build for the props in entries, host tokens filled in per request, other props live; JavaScript as its hydrate flag says."
-  caption="What the server does, what the host page gets, and what the JavaScript does, per mode."
-  wide={wide()}
-  narrow={narrow()}
+  desc="Client-only (ssr = false): the server runs the load only; the fragment carries the data and no markup; the browser mounts the droplet at once. SSR + hydrate, the default: the server renders per request; the fragment carries the markup and the data; the browser hydrates it at once, when visible or on the first interaction. SSR only (hydrate = false): the server renders; the fragment carries the markup only; no JavaScript and no bundle. Prerendered (prerender = true): rendered at build for the props entries lists, other props live; the fragment carries the stored markup and data; the browser does as the hydrate flag says."
+  caption="What the server does, what the fragment brings the host page, and what the browser does, per mode."
+  wide={build(false)}
+  narrow={build(true)}
 />

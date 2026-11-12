@@ -1,64 +1,64 @@
 ---
 /**
- * The droplet element's life on a page, as a flow, in the order of
- * runtime/entry-client.ts: /index.js runs hooks.client init(), defines
- * the element; each element picks its hydrate mode, waits for a lazy one,
- * loads its bundle and hydrates the server markup or mounts fresh. The
- * element never fetches its own fragment. The early stops (unknown id,
- * another build) are in the prose.
+ * The droplet element's life on a page, top to bottom, in the order of
+ * runtime/entry-client.ts: /index.js runs hooks.client init() and defines
+ * the element; connectedCallback leaves an unknown droplet or another
+ * build's markup alone; _start picks the mode (data-hydrate over the flag),
+ * waits for a lazy one, imports the bundle, takes the data inline or from
+ * _data, and hydrates the markup or mounts fresh.
  */
 import Diagram from "./Diagram.astro";
-import { Draw, type Scene } from "./diagram-kit.ts";
+import { Draw, NARROW, WIDE, type Scene } from "./diagram-kit.ts";
 
-function wide(): Scene {
-  const d = new Draw(640);
-  // ① → ② → ③ along the top
-  d.box(10, 20, 110, 36, "node", "/index.js", "code");
-  d.line(122, 38, 146, 38);
-  d.box(150, 20, 100, 36, "node", "init()", "code");
-  d.line(252, 38, 276, 38);
-  d.box(280, 20, 130, 36, "drop", "<djs-droplet>", "code", "acc");
-  d.line(412, 38, 456, 38);
-  // The mode
-  d.diamond(500, 38, 84, 50, "node", "mode?");
-  d.line(542, 38, 558, 38);
-  d.text(560, 20, "false", "small", "muted");
-  d.box(560, 26, 70, 24, "none", "stays HTML", "small", "muted", 4);
-  d.line(500, 63, 500, 110);
-  d.text(508, 92, "now", "small", "muted");
-  d.path("M479 51 L380 92 L380 110", "arrow dashed");
-  d.text(434, 68, "lazy", "small", "muted", "end");
-  d.box(330, 112, 100, 32, "zone", "wait", "label");
-  d.line(432, 128, 446, 128);
-  d.box(450, 112, 100, 32, "node", "load bundle", "label");
-  d.line(500, 146, 500, 176);
-  d.box(420, 178, 160, 36, "drop-solid", "hydrate or mount", "label", "acc");
-  return d.scene(222);
-}
+function build(narrow: boolean): Scene {
+  const d = new Draw(narrow ? NARROW : WIDE);
+  const sw = narrow ? 196 : 300;
+  const cx = narrow ? 8 + sw / 2 : 210;
+  const left = cx - sw / 2;
+  const sx = narrow ? left + sw + 22 : 410;
+  const sideW = d.w - sx - 8;
+  const gap = 30;
 
-function narrow(): Scene {
-  const d = new Draw(360, 1.1);
-  d.box(90, 10, 180, 34, "node", "/index.js", "code");
-  d.line(180, 46, 180, 66);
-  d.box(90, 68, 180, 34, "drop", "<djs-droplet>", "code", "acc");
-  d.line(180, 104, 180, 120);
-  d.diamond(180, 148, 100, 52, "node", "mode?");
-  d.line(232, 148, 266, 148);
-  d.box(268, 134, 82, 28, "none", "stays HTML", "small", "muted", 4);
-  d.text(236, 140, "false", "small", "muted");
-  d.line(180, 176, 180, 200);
-  d.box(90, 202, 180, 34, "node", "load bundle", "label");
-  d.line(180, 238, 180, 258);
-  d.box(80, 260, 200, 36, "drop-solid", "hydrate or mount", "label", "acc");
-  return d.scene(302);
+  /** A spine step; returns its bottom. */
+  const step = (top: number, cls: string, title: string, kind: "label" | "code", sub: string, ink = "") =>
+    d.card(left, top, sw, cls, title, kind, sub, "small", ink);
+  const down = (from: number, label = "", len = gap) => {
+    d.line(cx, from, cx, from + len - 2);
+    if (label) d.tag(cx + 8, from + 4, label, "small", "muted");
+    return from + len;
+  };
+
+  let y = step(8, "node", "/index.js", "code", "runs init() of hooks.client.ts, then defines the element");
+  y = step(down(y), "drop", "<djs-droplet> connects", "code", "", "acc");
+
+  const d1 = down(y) + 38;
+  d.diamond(cx, d1, sw, 76, "node", "a droplet of this build?", "body");
+  d.line(cx + sw / 2, d1, sx - 2, d1);
+  d.text((cx + sw / 2 + sx) / 2, d1 - 7, "no", "small", "muted", "middle");
+  d.card(sx, d1 - 34, sideW, "none", "left as it is", "label", "another build: droplets:stale", "small");
+
+  const d2 = d1 + 38 + gap + 38;
+  d.line(cx, d1 + 38, cx, d2 - 40);
+  d.tag(cx + 8, d1 + 42, "yes", "small", "muted");
+  d.diamond(cx, d2, sw, 76, "node", "data-hydrate, else the flag", "body");
+  d.line(cx + sw / 2, d2, sx - 2, d2);
+  d.text((cx + sw / 2 + sx) / 2, d2 - 7, "false", "small", "muted", "middle");
+  d.card(sx, d2 - 30, sideW, "none", "stays server HTML", "label", "no bundle loads", "small");
+
+  y = d2 + 38;
+  y = step(down(y, narrow ? "true, visible,\ninteractive" : "true, visible, interactive", narrow ? 48 : gap), "zone", "waits, when lazy", "label", narrow ? "visible: near the viewport; interactive: the first interaction" : "visible: about to scroll into view; interactive: the first interaction");
+  y = step(down(y), "node", "/droplets/<id>/client.js", "code", "imported, runs +droplet.ts");
+  y = step(down(y), "node", "the data", "label", "inline in the fragment; else POST /droplets/<id>/_data");
+  y = step(down(y), "drop-solid", "hydrates, or mounts fresh", "label", "hydrates the server markup; mounts when there is none", "acc");
+  return d.scene(y + 8);
 }
 ---
 
 <Diagram
   id="lifecycle"
   title="A droplet element's life on the page"
-  desc="/index.js runs once per page: it calls init() of src/hooks.client.ts, then defines the djs-droplet element. Each element that connects reads its hydrate mode, data-hydrate or the droplet's flag. False: it stays as the server rendered it. Lazy, visible or interactive: it waits until it is about to scroll into view, or the first interaction. Otherwise at once: it loads its bundle and its data, then hydrates the server markup in place, or mounts fresh when there is none."
-  caption="From the script tag to a live droplet; a lazy mode waits for visibility or the first interaction."
-  wide={wide()}
-  narrow={narrow()}
+  desc="/index.js runs once per page: it calls init() of src/hooks.client.ts, then defines the djs-droplet element. Each element that connects checks its droplet: one this build does not know, or markup from another build, is left as it is (another build also dispatches droplets:stale). Then the mode: data-hydrate on the element, else the droplet's hydrate flag. False: it stays as the server rendered it and no bundle loads. Visible waits until it is about to scroll into view, interactive until the first interaction; true goes on at once. It imports /droplets/<id>/client.js, which runs +droplet.ts, takes its data from the fragment's inline payload, or else posts to /droplets/<id>/_data, and hydrates the server markup in place, or mounts fresh when there is none."
+  caption="From the script tag to a live droplet: a lazy mode waits, false never loads a bundle."
+  wide={build(false)}
+  narrow={build(true)}
 />

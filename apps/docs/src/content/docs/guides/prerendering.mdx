@@ -3,6 +3,8 @@ title: Prerendering
 description: "Rendering droplets at build time: prerender, entries, host at build, the stored renders and transform."
 ---
 
+import PrerenderLookup from "../../../components/PrerenderLookup.astro";
+
 `export const prerender = true` renders the droplet at build time, once for
 each event `entries` in `+droplet.server.ts` returns (`[{}]` without it). An
 event is what the loads run with: `props`, and optionally `host`.
@@ -56,6 +58,8 @@ serves every page of that origin.
 A request looks for the render made for its page, then the one for `host`
 of the config, then the host-agnostic one of the same props; with none, it
 renders live.
+
+<PrerenderLookup />
 
 With `location` set too ([Both fixed](/guides/configuration/#both-fixed)),
 a render holds no token: `host.pathname` is `/` and `host.href` is the

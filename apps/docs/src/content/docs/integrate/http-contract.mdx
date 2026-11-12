@@ -3,6 +3,8 @@ title: The HTTP contract
 description: "Every route a droplets server exposes, the fragment's markup and Link header, x-droplet-location and host, form actions, the Origin check and body limits."
 ---
 
+import LocationFlow from "../../../components/LocationFlow.astro";
+
 A droplets server is an ordinary HTTP server. These routes are the whole
 interface; anything that can make a request can host a droplet.
 
@@ -43,7 +45,7 @@ default tag name):
 
 ```html
 <djs-droplet data-droplet="hello" data-build="36a187" data-render-id="dfks2s">
-  <script type="application/text" data-droplet-context>eyJ1cmwiOi…</script>
+  <script type="application/text" data-droplet-context>eyJob3N0Ijoi…</script>
   <script type="application/text" data-droplet-data>eyJkYXRhIjp7…</script>
   <link rel="stylesheet" href="https://drops.example.com/droplets/hello/style.css?c=36a187" data-droplet-style>
   <div style="display: contents" data-droplet-entry>
@@ -193,6 +195,8 @@ and is trusted wins:
    `X-Forwarded-Port` when the host has no port of its own, the prefix from
    `X-Forwarded-Prefix`;
 4. the request's own origin.
+
+<LocationFlow />
 
 A host that fetches fragments on its server sends `x-droplet-location`. A
 reverse proxy needs nothing new: the forwarded headers it already sets are

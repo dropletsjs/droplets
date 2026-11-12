@@ -1,0 +1,74 @@
+---
+/**
+ * How a request finds a prerendered render (runtime/app.ts: by host key,
+ * then the origin-only key of `host` of the config, then the props key;
+ * else live, or 404 for ssr = false), then fills in the build's tokens
+ * (runtime/host-tokens.ts; none when location and host are both fixed)
+ * before `transform` runs, as it does for a live render.
+ */
+import Diagram from "./Diagram.astro";
+import { Draw, NARROW, WIDE, type Scene } from "./diagram-kit.ts";
+
+function build(narrow: boolean): Scene {
+  const d = new Draw(narrow ? NARROW : WIDE);
+  const cx = narrow ? 98 : 170;
+  const dw = narrow ? 184 : 250;
+  const dh = narrow ? 80 : 72;
+  const rx = narrow ? 214 : 370;
+  const rw = d.w - rx - 8;
+  const step = narrow ? 108 : 98;
+
+  const reqBottom = d.card(cx - dw / 2, 8, dw, "node", "A request for these props", "label", "after handle");
+  const ys = [0, 1, 2].map((i) => reqBottom + 34 + dh / 2 + i * step);
+  const questions = ["stored for this page?", "stored for host of the config?", "stored without a host?"];
+  d.line(cx, reqBottom + 2, cx, ys[0]! - dh / 2 - 2);
+  questions.forEach((q, i) => {
+    const y = ys[i]!;
+    d.diamond(cx, y, dw, dh, "node", q, "body");
+    if (i < questions.length - 1) {
+      d.line(cx, y + dh / 2, cx, ys[i + 1]! - dh / 2 - 2);
+      d.tag(cx + 8, y + dh / 2 + 4, "no", "small", "muted");
+    }
+  });
+
+  // Found: the stored render, its tokens filled in.
+  const storedTop = ys[0]! - 34;
+  const storedBottom = d.card(rx, storedTop, rw, "drop", "the stored render", "label", "HTML and data, as built");
+  ys.forEach((y, i) => {
+    const ty = Math.min(Math.max(y, storedTop + 10), storedBottom - 10);
+    d.path(`M${cx + dw / 2} ${y} L${rx - 18} ${y} L${rx - 18} ${ty} L${rx - 2} ${ty}`);
+    if (i === 0) d.text((cx + dw / 2 + rx - 18) / 2, y - 7, "yes", "small", "muted", "middle");
+  });
+  const tokensTop = storedBottom + 30;
+  d.line(rx + rw / 2, storedBottom + 2, rx + rw / 2, tokensTop - 2);
+  const tokensBottom = d.card(rx, tokensTop, rw, "zone", "tokens filled in", "label", "host, page path and location: this request's; none when both are fixed");
+
+  // Not found: live, then the same transform.
+  const lastY = ys[2]! + dh / 2;
+  const liveTop = lastY + 30;
+  d.line(cx, lastY, cx, liveTop - 2);
+  d.tag(cx + 8, lastY + 4, "no", "small", "muted");
+  const liveBottom = d.card(cx - dw / 2, liveTop, dw, "node", "renders live", "label", "404 when ssr = false");
+
+  const transformTop = Math.max(tokensBottom + 30, liveTop);
+  d.line(rx + rw / 2, tokensBottom + 2, rx + rw / 2, transformTop - 2);
+  const transformBottom = d.card(rx, transformTop, rw, "drop-solid", "transform", "code", "per request, stored or live", "small", "acc");
+  const liveMid = (liveTop + liveBottom) / 2;
+  const ty = Math.min(Math.max(liveMid, transformTop + 10), transformBottom - 10);
+  d.path(`M${cx + dw / 2} ${liveMid} L${rx - 18} ${liveMid} L${rx - 18} ${ty} L${rx - 2} ${ty}`);
+
+  const endTop = transformBottom + 30;
+  d.line(rx + rw / 2, transformBottom + 2, rx + rw / 2, endTop - 2);
+  const end = d.card(rx, endTop, rw, "node", "the fragment", "label", "");
+  return d.scene(Math.max(end, liveBottom) + 8);
+}
+---
+
+<Diagram
+  id="prerender-lookup"
+  title="Serving a prerendered droplet"
+  desc="After handle, a request for a prerendered droplet looks for a stored render: first the one made for its page, origin and path; then the one made for host of the config, by origin; then the host-agnostic one for the same props. A stored render has its tokens filled in with this request's host, page path and location; with location and host both fixed it holds none. With no stored render it renders live, or answers 404 when ssr is false. Either way transform runs per request, and the fragment goes out."
+  caption="The most specific stored render wins; its tokens are filled in per request, and transform runs on stored and live renders alike."
+  wide={build(false)}
+  narrow={build(true)}
+/>
