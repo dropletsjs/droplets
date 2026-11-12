@@ -15,11 +15,14 @@ const OWN = `${LOCATION}/droplets/guestbook`;
 /** A stand-in for the droplet element: where its actions are, and what it was asked to render. */
 class Host extends HTMLElement {
   forms: unknown[] = [];
+  /** The action URL each render was asked with. */
+  actions: Array<string | undefined> = [];
   actionTarget() {
     return { droplet: this.dataset["droplet"] ?? "", location: LOCATION, build: "b1" };
   }
-  async updateForm(form: unknown) {
+  async updateForm({ form, action }: { form: unknown; action?: string | undefined }) {
     this.forms.push(form);
+    this.actions.push(action);
   }
 }
 customElements.define("enhance-host", Host);
@@ -172,6 +175,8 @@ describe("enhanceDropletForm", () => {
     expect(posted[0]).toMatchObject({ url: `${OWN}?page=2`, accept: "application/json", redirect: "manual" });
     expect(String(posted[0]?.body)).toBe("name=Ana&go=1");
     expect(host.forms).toEqual([{ message: "Thanks, Ana" }]);
+    // The URL it posted to: a droplet that does not hydrate renders again with its props and page.
+    expect(host.actions).toEqual([`${OWN}?page=2`]);
     expect(events).toEqual([{ droplet: "guestbook", action: "default", type: "success", status: 200, data: { message: "Thanks, Ana" } }]);
   });
 

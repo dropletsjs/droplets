@@ -1592,13 +1592,16 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
       return failure({ c, options, error, as: "text", where: "droplet", base: ctx.event.host });
     }
 
-    // With server markup (rendered live, or stored at build whatever `ssr`
-    // says), the context rides in its script; without, on the attribute.
-    const inlineContext = html ? contextData : "";
     // Always an envelope, even around `undefined`: its presence tells the
     // client the server ran and `_data` is not needed. Client-only fragments
     // carry none, nor do components that never run in the browser.
     const hydrates = ctx.meta.hydrate !== false;
+    // With server markup (rendered live, or stored at build whatever `ssr`
+    // says), the context rides in its script; without, on the attribute.
+    // A droplet that never runs in the browser carries none: an enhanced
+    // form takes its props from its action URL.
+    const context = hydrates ? contextData : "";
+    const inlineContext = html ? context : "";
     // The action's result goes with the data, so hydration sees the `form` the server rendered with.
     const form = action?.form === undefined ? {} : { form: action.form };
     const envelope = liveData({ ctx, data: payload.failed ? { error: payload.error ?? null } : { data: payload.data, ...form } });
@@ -1619,7 +1622,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
         dropletData: hydrates && !ctx.clientOnly ? serializeBase64({ data: envelope }) : "",
         dropletContext: inlineContext,
         // Without an inline script the client reads the context off the attribute.
-        contextAttr: inlineContext ? undefined : contextData,
+        contextAttr: inlineContext ? undefined : context || undefined,
         // The client hydrates the error page instead of the droplet.
         error: payload.failed === true,
         stylesheet: assets.stylesheet,

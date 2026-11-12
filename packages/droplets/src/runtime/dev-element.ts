@@ -38,6 +38,7 @@ import type {
   ModeOfInput,
   Payload,
   StartInput,
+  UpdateFormInput,
   WaitForInput,
 } from "./entry-client.ts";
 import { withoutFormResults } from "./form.ts";
@@ -308,15 +309,18 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
 
   /**
    * How the element reached the page. A server fragment carries its context
-   * (`[data-droplet-payload="context"]` or `data-droplet-context`); a `clientOnly` one has
-   * neither markup nor data for a droplet that hydrates, as an element the
-   * host wrote itself.
+   * (`[data-droplet-payload="context"]` or `data-droplet-context`), or, for
+   * a droplet that does not hydrate, its markup and `data-droplet-build`; a
+   * `clientOnly` one has neither markup nor data for a droplet that
+   * hydrates, as an element the host wrote itself.
    */
   function arrival({ element, droplet }: ArrivalInput): "fragment" | "client" {
-    const fromServer =
-      element._readInline({ selector: '[data-droplet-payload="context"]' }).found || element.dataset["dropletContext"] !== undefined;
-    if (!fromServer) return "client";
     const markup = element.querySelector(":scope > [data-droplet-entry]")?.childNodes.length ?? 0;
+    const fromServer =
+      element._readInline({ selector: '[data-droplet-payload="context"]' }).found ||
+      element.dataset["dropletContext"] !== undefined ||
+      (element.dataset["dropletBuild"] !== undefined && markup > 0);
+    if (!fromServer) return "client";
     const clientOnly =
       env.hydration.has(droplet) && markup === 0 && !element._readInline({ selector: '[data-droplet-payload="data"]' }).found;
     return clientOnly ? "client" : "fragment";
@@ -427,9 +431,9 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
     };
   };
 
-  proto.updateForm = async function (this: DjsDropletElement, form: unknown): Promise<void> {
+  proto.updateForm = async function (this: DjsDropletElement, input: UpdateFormInput): Promise<void> {
     const hydrated = this.actionTarget() !== null && this._hydrated;
-    const done = original.updateForm.call(this, form);
+    const done = original.updateForm.call(this, input);
     const run = this._run;
     await done;
     if (hydrated && run === this._run) setState({ element: this, state: this._hydrated ? "mounted" : "empty" });

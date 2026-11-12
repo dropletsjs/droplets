@@ -543,12 +543,12 @@ describe("createDropletsApp: fragment", () => {
     expect((await app.request("/droplets/hello")).status).toBe(500);
   });
 
-  it("skips inlining data for droplets that never hydrate", async () => {
+  it("skips inlining data and context for droplets that never hydrate", async () => {
     const { app } = fakeApp();
     const html = await (await app.request("/droplets/static")).text();
     expect(html).toContain("<p>static:{}</p>");
     expect(html).not.toContain('data-droplet-payload="data"');
-    expect(html).toContain('data-droplet-payload="context"');
+    expect(html).not.toContain('data-droplet-payload="context"');
   });
 
   it("?noSSR runs the server load but renders nothing", async () => {
@@ -608,6 +608,33 @@ describe("createDropletsApp: fragment", () => {
     expect(payload({ html, payload: "data" })).toEqual({ error: { message: "Sorry" } });
     // With the droplet's props, for its action URLs.
     expect(renderError).toHaveBeenCalledWith("hello", { message: "Sorry" }, {});
+  });
+
+  it("writes no context into a fragment that does not hydrate, its error page and ?noSSR included", async () => {
+    const { app } = fakeApp();
+    for (const path of ["/droplets/static?id=7", "/droplets/static?id=7&noSSR"]) {
+      const html = await (await app.request(`http://drops.test${path}`)).text();
+      expect(html, path).not.toContain("data-droplet-payload");
+      expect(html, path).not.toContain("data-droplet-context");
+    }
+    const failed = fakeApp({
+      renderDroplet: async () => ({ failed: true as const, error: { message: "Sorry" } }),
+      renderError: async () => ({ html: "<p>error page</p>" }),
+    });
+    const page = await (await failed.app.request("http://drops.test/droplets/static?id=7")).text();
+    expect(page).toContain("<p>error page</p>");
+    expect(page).not.toContain("data-droplet-payload");
+    expect(page).not.toContain("data-droplet-context");
+  });
+
+  it("keeps the context of a droplet that hydrates: inline with markup, on the attribute without", async () => {
+    const { app } = fakeApp();
+    const hydrates = await (await app.request("http://drops.test/droplets/hello?id=7")).text();
+    expect(payload({ html: hydrates, payload: "context" })).toMatchObject({ props: { id: "7" } });
+    expect(hydrates).not.toContain("data-droplet-context=");
+    const spa = await (await app.request("http://drops.test/droplets/spa?id=7")).text();
+    expect(spa).not.toContain('data-droplet-payload="context"');
+    expect(spa).toMatch(/data-droplet-context="[^"]+"/);
   });
 
   it("renders and hydrates +error.svelte as the droplet would, by the droplet's flags", async () => {

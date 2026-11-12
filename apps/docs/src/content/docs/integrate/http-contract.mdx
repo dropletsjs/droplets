@@ -78,11 +78,15 @@ default tag name):
 | `data-droplet-build` | The build that rendered it; see [deploys while a page is open](/guides/errors/#deploys-while-a-page-is-open). |
 | `data-droplet-render` | The id of this server render, for engines that key hydration by it. |
 | `data-droplet-error` | Present when the markup is the error page. |
-| `data-droplet-context` | The context as an attribute, when there is no inline `data-droplet-payload="context"`: a fragment without server markup (`ssr = false`, `?noSSR`, `?clientOnly`). |
-| `data-droplet-payload="context"` | Base64 JSON `{ host, props }`, after the props schema: where it renders, and its props. Sent back when the browser needs `_data`. Present whenever the fragment has server markup, a prerendered render of an `ssr = false` droplet included. |
+| `data-droplet-context` | The context as an attribute, when there is no inline `data-droplet-payload="context"`: a fragment without server markup (`ssr = false`, `?noSSR`, `?clientOnly`). Absent for droplets that never hydrate. |
+| `data-droplet-payload="context"` | Base64 JSON `{ host, props }`, after the props schema: where it renders, and its props. Sent back when the browser needs `_data`. Present whenever the fragment has server markup, a prerendered render of an `ssr = false` droplet included; absent for droplets that never hydrate. |
 | `data-droplet-payload="data"` | Base64 JSON envelope, `{ "data": … }` or `{ "error": … }`. Its presence tells the browser the server load ran. Absent for droplets that never hydrate and for `clientOnly`. |
 | `link[data-droplet-style]` | The droplet's `style.css`, inside the element, ahead of its markup, so the markup never shows unstyled and nothing goes into the host's `<head>`. Absent when the droplet has no styles. |
 | `[data-droplet-entry]` | The server-rendered markup. The browser hydrates it in place. |
+
+A droplet with `hydrate = false` carries its markup alone: no
+`data-droplet-payload` and no `data-droplet-context`. An enhanced form in it
+renders again with the props and page of its action URL.
 
 A host adds its own content as one `<div data-droplet-slot>` before the closing
 tag; see [Host children](/guides/in-the-browser/#host-children). Hand-written

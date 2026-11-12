@@ -168,7 +168,9 @@ Then the route.
 - A prerendered fragment is looked up by host key (origin and path), then, with `host`, by the origin-only key, then by props key. `app.ts:1234`, `app.ts:1237`, `app.ts:1238`
 - `prerenderKey` is `<propsKey> <origin><path>`, `<propsKey> <origin>` for a render for `host` of the config, or `<propsKey>` for a host-agnostic one. `props.ts:103`
 - A prerendered lookup for a droplet with `ssr = false` and no entry for these props answers 404. `app.ts:1239`
-- The fragment's context script is written only when the answer has server markup, rendered live or stored at build whatever `ssr` says; without markup (`ssr = false`, `?noSSR`, `?clientOnly`) the context goes on `data-droplet-context`. `app.ts:1531`
+- The fragment's context script is written only when the answer has server markup, rendered live or stored at build whatever `ssr` says; without markup (`ssr = false`, `?noSSR`, `?clientOnly`) the context goes on `data-droplet-context`. `app.ts:1591`
+- A fragment of a droplet with `hydrate = false` carries no context, neither the script nor `data-droplet-context`, its error page included; only its markup (and its stylesheet link). `app.ts:1590`
+- Under `vite dev`, `withDevContext` in `vite/dev.ts` writes `data-droplet-context` onto a fragment that carries no context, from the host and props its `transform` ran with, for the dev remount; the runtime app knows nothing of it, so a production server bundles none of it. An `ssr = false`, `hydrate = false` fragment has no markup, so no `transform` runs and it stays bare. `../vite/dev.ts:52`
 - `data-droplet-payload="data"` is written only when the droplet hydrates and the request is not `clientOnly`. `app.ts:1498`
 - `data-droplet-render` is written only when there is server HTML. `app.ts:1497`
 - A failed render answers 500 with the error component, else the action's status, else 200. `app.ts:1506`
@@ -301,6 +303,9 @@ Then the route.
 ### The element (`entry-client.ts`)
 
 - The element reads props from the inline context script, then `data-droplet-context`, then `data-droplet-props` (plain JSON); a payload that does not parse is logged and the next one is read. `entry-client.ts:480`
+- `updateForm({ form, action })` on a droplet that is not hydrated asks for its fragment again with the props and page of `action`, the URL of the action that answered, as a form posted without JavaScript has them: the query's keys minus the reserved ones and `__proto__`, the first of a repeated key, as strings, in a null-prototype object; the page from `__droplet_return`, the browser's own URL (query kept) when it is that page. `entry-client.ts:1415`
+- An `action` that is not this droplet's own (`ownAction`: another origin or path, credentials, no URL) gives no props; the element's own context is used, as without an `action`. `entry-client.ts:1423`
+- `enhanceDropletForm` hands `updateForm` the action URL it posted to. `enhance.ts:381`
 - The element's server location is `serverLocation` for its element and build. `entry-client.ts:368`
 - `_data` is fetched with POST to `<location>/droplets/<id>/_data?__cb=<now>`, a JSON body and `redirect: "manual"`. `entry-client.ts:721`
 - `data-droplet-hydrate` takes `""`, `true`, `false`, `visible` and `interactive`, case-sensitive. `entry-client.ts:1097`
@@ -344,4 +349,5 @@ Then the route.
 - Dev toasts show at most 3, and a toast without a reload button closes after 10 s. `dev-notify.ts:94`
 - The dev tool is injected per `?injectTool=` (anything but `false` injects), else per the config. `dev-element.ts:738`
 - A second `/index.js` of one server from another build warns once in dev, naming the element and both builds (`serverBuilds`); in production it adopts the elements silently and the first build's code runs them. `dev-element.ts:183`, `entry-client.ts:1476`
+- The dev remount tells a server fragment by its context, or by `data-droplet-build` with server markup; anything else mounts in the browser. `dev-element.ts:317`
 - A dev toast carries `data-droplet-key`; a notification with the same key replaces the one shown. `dev-notify.ts:48`

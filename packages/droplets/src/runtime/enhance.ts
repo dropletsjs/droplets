@@ -99,9 +99,10 @@ export type DropletFormHost = Element & {
   /**
    * Renders the droplet again with `form`, its loads run again (as a
    * `_data` refresh); one that does not render in the browser gets its
-   * fragment rendered with `form` by the server, in place of its content.
+   * fragment rendered with `form` by the server, in place of its content,
+   * with the props and page of `action`, the URL of the action that answered.
    */
-  updateForm(form: unknown): Promise<void>;
+  updateForm(input: { form: unknown; action?: string | undefined }): Promise<void>;
 };
 
 /** A submit as the browser would send it: the submitter's `form*` attributes over the form's. */
@@ -377,7 +378,7 @@ async function send({ host, droplet, build, action, body, options }: SendInput):
   globalThis.dispatchEvent(new CustomEvent(ACTION_EVENT, { detail }));
 
   const update = async (): Promise<void> => {
-    if (settled.type !== "redirect") return host.updateForm(settled.data);
+    if (settled.type !== "redirect") return host.updateForm({ form: settled.data, action: action.url });
     const location = redirectTarget(settled.location);
     if (location) globalThis.location.assign(location);
     else console.error(`[droplets] ${droplet}: action ${action.name} redirected to a URL the server never answers; not followed`);

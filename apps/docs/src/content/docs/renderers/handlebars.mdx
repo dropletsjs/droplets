@@ -127,7 +127,8 @@ droplets: src/partials/footer.hbs: a partial has no <style>: put it in the dropl
   - a form: `{{action "add"}}` writes where it posts for an action in
     `+droplet.server.ts`, and `data-droplet-enhance` on the `<form>` makes
     `/index.js` post it by `fetch` and render the result in place, even with
-    `hydrate = false` (the server renders the fragment again). See
+    `hydrate = false`: the server renders the fragment again, with the props
+    and page that `{{action}}` wrote into the action URL. See
     [Actions](/guides/actions/);
   - or browser code next to it, in another droplet: a
     [plain script](/renderers/script/) builds its own UI from its data.

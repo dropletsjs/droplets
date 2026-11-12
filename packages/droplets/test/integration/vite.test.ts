@@ -195,6 +195,12 @@ describe("vite build", () => {
 
     const live = await (await post({ props: { page: 3 } })).text();
     expect(live).toContain("<h1>Page 3</h1>");
+
+    // A droplet that never hydrates: its markup alone, no context.
+    const note = await (await app.request("http://drops.test/droplets/static-note?id=7")).text();
+    expect(note).toContain("Rendered on the server only.");
+    expect(note).not.toContain("data-droplet-payload");
+    expect(note).not.toContain("data-droplet-context");
     expect(dataOf(live)).toEqual({ data: { page: 3, building: false, hooked: true, home: "https://host.test/home" } });
 
     // A render made for one host is served to that host (origin and path),
@@ -606,10 +612,23 @@ describe("vite dev", () => {
     expect(style).toBe('@import "/src/app.css";\n');
 
     // Component styles come with the JavaScript in dev: nothing to link or preload.
-    const fragment = await fetch(`${origin}/droplets/static-note`);
+    const fragment = await fetch(`${origin}/droplets/static-note?id=7`);
     expect(fragment.headers.get("link")).toBeNull();
     expect(await fragment.text()).not.toContain("data-droplet-style");
     expect((await fetch(`${origin}/droplets/static-note/style.css`)).status).toBe(404);
+  });
+
+  it("writes the context of a droplet that never hydrates on data-droplet-context, for the dev remount", async () => {
+    const html = await (await fetch(`${origin}/droplets/static-note?id=7&tag=%3Cb%3E`)).text();
+    const encoded = html.match(/^<[a-z-]+ data-droplet="static-note"[^>]* data-droplet-context="([^"]+)"/)?.[1];
+    const raw = Buffer.from(encoded ?? expect.unreachable("data-droplet-context"), "base64").toString();
+    expect(raw).not.toContain("<");
+    expect(JSON.parse(raw)).toMatchObject({ props: { id: "7", tag: "<b>" } });
+    expect(html).not.toContain("data-droplet-payload");
+    // A droplet that hydrates keeps its own inline context, nothing added.
+    const hello = await (await fetch(`${origin}/droplets/hello?who=Dev`)).text();
+    expect(hello).toContain('data-droplet-payload="context"');
+    expect(hello).not.toContain("data-droplet-context=");
   });
 
   it("answers /env.js with the public runtime variables from .env, as a build's server does", async () => {

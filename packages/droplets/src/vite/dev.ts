@@ -39,6 +39,33 @@ export function devHandleError({ handleError }: DevHandleErrorInput): HandleServ
   return (input) => (isActionDataError(input.error) ? { message: input.error.message } : handleError?.(input));
 }
 
+type DevContext = { host: string; props: Record<string, unknown> };
+
+type WithDevContextInput = { response: Response; context: DevContext };
+
+/**
+ * A fragment without context (a droplet with `hydrate = false`, which a
+ * production fragment leaves bare) gets it on `data-droplet-context` under
+ * `vite dev`, for the dev remount to ask for it again with the same props
+ * and host. Here, not in the runtime app: production servers bundle that.
+ */
+export async function withDevContext({ response, context }: WithDevContextInput): Promise<Response> {
+  if (!(response.headers.get("content-type") ?? "").includes("text/html")) return response;
+  const html = await response.text();
+  const open = /^<[a-z][\w-]*\s[^>]*\bdata-droplet="[^"]*"[^>]*>/.exec(html)?.[0];
+  const carries =
+    open === undefined ||
+    open.includes(" data-droplet-context=") ||
+    html.startsWith('<script type="application/text" data-droplet-payload="context">', open.length);
+  const json = JSON.stringify(context).replace(/</g, "\\u003c");
+  const body = carries
+    ? html
+    : `${open.slice(0, -1)} data-droplet-context="${Buffer.from(json, "utf8").toString("base64")}">${html.slice(open.length)}`;
+  const headers = new Headers(response.headers);
+  headers.delete("content-length");
+  return new Response(body, { status: response.status, statusText: response.statusText, headers });
+}
+
 export type TransformImportMapInput = { map: ImportMap; externals: string[] };
 
 type DevImportMapInput = {
@@ -350,6 +377,9 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
   // Printed once each, so an unchanged map does not repeat them.
   const warned = new Set<string>();
 
+  // What each render ran with, for `withDevContext`.
+  const devContexts = new WeakMap<Request, DevContext>();
+
   const app = createDropletsApp({
     devLog: createDevLog(),
     element: config.element,
@@ -382,6 +412,7 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
       return mod.validateDropletProps ? mod.validateDropletProps(name, props) : props;
     },
     transformDroplet: async (name, event) => {
+      devContexts.set(event.request, { host: String(event.host), props: event.props });
       const mod = await runtime.loadSsrModule();
       return mod.transformDroplet ? mod.transformDroplet(name, event) : event.html;
     },
@@ -429,5 +460,12 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
     limits: config.limits,
   });
   if (state.publicDir) app.get(`/${PUBLIC_PATH}/*`, publicFileHandler({ publicDir: state.publicDir }));
+  // `request()` goes through `fetch` too.
+  const appFetch = app.fetch;
+  app.fetch = async (request, ...rest) => {
+    const response = await appFetch(request, ...rest);
+    const context = devContexts.get(request);
+    return context ? withDevContext({ response, context }) : response;
+  };
   return app;
 }

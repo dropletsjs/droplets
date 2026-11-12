@@ -100,7 +100,7 @@ What happens on an edit depends on `dev.strategy`:
 | Strategy | On a change |
 | --- | --- |
 | `"hmr"` (default) | The framework's own HMR, which keeps component state where it can. Load edits arrive as new data, and render-contract changes arrive as a notice. See the table below. |
-| `"remount"` | The droplet loads again, by its flags as they are now, the way it reached the page. A server fragment is requested again with the same context and hydrates, or stays as the server rendered it when `hydrate = false`. An element the host wrote, or a `clientOnly` fragment, mounts in the browser. The host's children are carried over. State starts over. |
+| `"remount"` | The droplet loads again, by its flags as they are now, the way it reached the page. A server fragment is requested again with the same context and hydrates, or stays as the server rendered it when `hydrate = false` (under `vite dev` that fragment keeps its context for this; a production one has none). An element the host wrote, or a `clientOnly` fragment, mounts in the browser. The host's children are carried over. State starts over. |
 | `"reload"` | The page reloads, so a host that renders on the server renders again. |
 | `"manual"` | Nothing; the console says which droplet changed. |
 

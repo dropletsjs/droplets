@@ -556,17 +556,85 @@ describe("<djs-droplet>", () => {
     const listener = vi.fn();
     window.addEventListener("droplets:stale", listener);
     // clock never hydrates: a form result makes the element ask the server for the fragment again.
-    const el = mount(
-      `<djs-droplet data-droplet="clock"><script type="application/text" data-droplet-payload="context">${encode({ props: {} })}</script>` +
-        "<div data-droplet-entry><p>v1</p></div></djs-droplet>",
-    );
+    const el = mount('<djs-droplet data-droplet="clock" data-droplet-build="test01"><div data-droplet-entry><p>v1</p></div></djs-droplet>');
     await tick();
-    await el.updateForm({ ok: true });
+    await el.updateForm({ form: { ok: true }, action: "http://drops.test/droplets/clock?/add" });
     window.removeEventListener("droplets:stale", listener);
     expect(listener).toHaveBeenCalledOnce();
     expect(listener.mock.calls[0]?.[0].detail).toEqual({ element: "djs-droplet", droplet: "clock", loaded: "test01", served: "new999" });
     expect(el.querySelector("p")?.textContent).toBe("v1");
     expect(error).not.toHaveBeenCalled();
+  });
+
+  describe("updateForm on a droplet that does not hydrate", () => {
+    const ACTION = "http://drops.test/droplets/clock";
+    const answer = (markup: string) =>
+      new Response(`<djs-droplet data-droplet="clock" data-droplet-build="test01"><div data-droplet-entry>${markup}</div></djs-droplet>`, {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    const setup = (attributes = "") => {
+      const fetchSpy = vi.fn(async () => answer("<p>v2</p>"));
+      vi.stubGlobal("fetch", fetchSpy);
+      const el = mount(
+        `<djs-droplet data-droplet="clock" data-droplet-build="test01"${attributes}><div data-droplet-entry><p>v1</p></div></djs-droplet>`,
+      );
+      const body = () => JSON.parse(String((fetchSpy.mock.calls[0] as unknown as [string, RequestInit])[1].body));
+      return { el, fetchSpy, body };
+    };
+
+    it("renders again with the props and page of the action URL, as a form posted without JavaScript", async () => {
+      const { el, fetchSpy, body } = setup();
+      await tick();
+      const page = encodeURIComponent("https://shop.test/products");
+      await el.updateForm({ form: { ok: true }, action: `${ACTION}?/add&id=7&tag=a&id=8&__droplet_return=${page}` });
+      expect(fetchSpy).toHaveBeenCalledOnce();
+      expect((fetchSpy.mock.calls[0] as unknown as [string])[0]).toBe(ACTION);
+      expect(body()).toEqual({ host: "https://shop.test/products", props: { id: "7", tag: "a" }, form: { ok: true } });
+      expect(el.querySelector("p")?.textContent).toBe("v2");
+    });
+
+    it("keeps the page's own query when the browser is on the page the action URL names", async () => {
+      const { el, body } = setup();
+      await tick();
+      const before = globalThis.location.href;
+      const here = new URL(before);
+      here.search = "?sort=new";
+      here.hash = "";
+      history.replaceState(null, "", here.href);
+      await el.updateForm({ form: {}, action: `${ACTION}?__droplet_return=${encodeURIComponent(`${here.origin}${here.pathname}`)}` });
+      expect(body().host).toBe(here.href);
+      history.replaceState(null, "", before);
+    });
+
+    it("drops reserved keys and __proto__, and pollutes nothing", async () => {
+      const { el, body } = setup();
+      await tick();
+      const query = "/add&__proto__=x&__proto__[polluted]=1&constructor=c&c=1&t=2&noSSR&clientOnly&__cb=3&__droplet_form_clock_b1=z&id=7";
+      await el.updateForm({ form: {}, action: `${ACTION}?${query}` });
+      const sent = body();
+      expect(sent.props).toEqual({ "__proto__[polluted]": "1", constructor: "c", id: "7" });
+      expect(Object.hasOwn(sent.props, "__proto__")).toBe(false);
+      expect(({} as Record<string, unknown>)["polluted"]).toBeUndefined();
+      expect(Object.prototype).not.toHaveProperty("x");
+    });
+
+    it("takes no props from an action URL of another server or another droplet", async () => {
+      for (const action of [
+        "https://evil.test/droplets/clock?id=9",
+        "http://drops.test/droplets/hello?id=9",
+        "http://drops.test/droplets/clock/_data?id=9",
+        "http://user:pw@drops.test/droplets/clock?id=9",
+        "not a url",
+      ]) {
+        const { el, body } = setup(` data-droplet-props='{"id":"1"}'`);
+        await tick();
+        await el.updateForm({ form: {}, action });
+        // The element's own context, as without an action URL.
+        expect(body().props, action).toEqual({ id: "1" });
+        document.body.replaceChildren();
+        await tick();
+      }
+    });
   });
 
   it("hydrates with the load's promise fields settled, as the server rendered", async () => {
@@ -1814,6 +1882,35 @@ describe("dev remount", () => {
     expect(el.querySelector("h1")).toBeNull();
     expect(fake.default.mock.calls[1]?.[1]).toBeInstanceOf(Promise);
     expect(((await dataOf({ fake, n: 1 })) as unknown as { data: unknown }).data).toEqual({ v: 2 });
+  });
+
+  it("hydrates a droplet whose hydrate turned on, asked for again with the context vite dev keeps on it", async () => {
+    const fetchSpy = vi.fn(async () => html({ body: fragment({ droplet: "clock", markup: "<p>v2</p>", data: { data: { v: 2 } } }) }));
+    vi.stubGlobal("fetch", fetchSpy);
+    const fake = markerModule();
+    const el = mount(fragment({ droplet: "clock", markup: "<p>v1</p>" }));
+    await tick();
+    expect(fake.default).not.toHaveBeenCalled();
+
+    await el.update({ droplet: "clock", hydrate: true });
+    expect(JSON.parse(String((fetchSpy.mock.calls[0] as unknown as [string, RequestInit])[1].body))).toEqual(context);
+    expect(el.querySelector("p")?.textContent).toBe("v2");
+    expect(fake.default).toHaveBeenCalledOnce();
+    await el.update({ droplet: "clock", hydrate: false });
+  });
+
+  it("tells a server fragment without context by its markup and build, and asks for it again", async () => {
+    const fetchSpy = vi.fn(async () => html({ body: fragment({ droplet: "clock", markup: "<p>v2</p>", data: { data: {} } }) }));
+    vi.stubGlobal("fetch", fetchSpy);
+    const fake = markerModule();
+    const el = mount('<djs-droplet data-droplet="clock" data-droplet-build="test01"><div data-droplet-entry><p>v1</p></div></djs-droplet>');
+    await tick();
+
+    await el.update({ droplet: "clock", hydrate: true });
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    expect(el.querySelector("p")?.textContent).toBe("v2");
+    expect(fake.default).toHaveBeenCalledOnce();
+    await el.update({ droplet: "clock", hydrate: false });
   });
 
   it("swaps the markup of a droplet that does not hydrate", async () => {

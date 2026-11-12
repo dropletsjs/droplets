@@ -71,6 +71,10 @@ const DEV_MARKERS: (string | RegExp)[] = [
   "such as https://shop.example",
   "unknown droplet",
   "rendered droplet",
+  // `vite dev`'s context on a fragment that does not hydrate (`vite/dev.ts`).
+  "withDevContext",
+  "devContexts",
+  "keepContext",
 ];
 
 const hasMarker = (code: string, marker: string | RegExp) => (typeof marker === "string" ? code.includes(marker) : marker.test(code));

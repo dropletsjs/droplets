@@ -861,7 +861,7 @@ marker. Nothing goes into `<head>`.
 | Method | What it does |
 | --- | --- |
 | `actionTarget()` | `{ droplet, location, build }`: where this droplet's actions are, and the build of the loaded `index.js`; `null` while it renders no known droplet of this build. |
-| `updateForm(form)` | Renders the droplet again with `form`, its loads run again; a droplet that does not hydrate gets its fragment rendered by the server with `form`. What an enhanced form calls. |
+| `updateForm({ form, action })` | Renders the droplet again with `form`, its loads run again; a droplet that does not hydrate gets its fragment rendered by the server with `form`, and the props and page of `action`, the URL of the droplet's own action that answered (any other URL, or none: the element's own context). What an enhanced form calls. |
 
 A form with `data-droplet-enhance` in a droplet's own markup is enhanced
 by the element, for any renderer.

@@ -29,6 +29,18 @@ function pageUrl(): string {
   return url.href;
 }
 
+type SamePageInput = { a: string; b: string };
+
+/** Whether two URLs are one page: the same origin and path. */
+function samePage({ a, b }: SamePageInput): boolean {
+  try {
+    const [x, y] = [new URL(a), new URL(b)];
+    return x.origin === y.origin && x.pathname === y.pathname;
+  } catch {
+    return false;
+  }
+}
+
 type FormResultHostInput = { host: string; droplet: string };
 
 /** Whether `host` has a `__droplet_form_<droplet>_*` key: a result `_data` may answer with. */
@@ -133,8 +145,8 @@ function isObject(value: unknown): value is Record<string, unknown> {
 import { decodeBase64Json } from "./base64.ts";
 import { settle } from "./load.ts";
 import { propsKey } from "./props.ts";
-import { enhanceSubmit } from "./enhance.ts";
-import { FORM_RESULT_PREFIX, splitFormResults, withoutFormResults } from "./form.ts";
+import { enhanceSubmit, ownAction } from "./enhance.ts";
+import { FORM_RESULT_PREFIX, isReservedQueryKey, RETURN_KEY, splitFormResults, withoutFormResults } from "./form.ts";
 export { decodeBase64Json };
 
 /**
@@ -310,7 +322,10 @@ type OnSubmitInput = { event: Event };
 /** Where focus was in the droplet's own markup: its control's place among them, and its tag. */
 type FocusSpot = { index: number; tag: string };
 type RestoreFocusInput = { contentRoot: HTMLElement; spot: FocusSpot | null };
-type FetchFragmentInput = { droplet: string; action?: { form: unknown } };
+type FetchFragmentInput = { droplet: string; context?: WireContext; action?: { form: unknown } };
+/** An action's result, and the URL of the action that answered it, when a form was submitted. */
+export type UpdateFormInput = { form: unknown; action?: string | undefined };
+type ActionContextInput = { droplet: string; action: string | undefined };
 type AdoptInput = { fresh: Element; contentRoot: HTMLElement };
 
 /**
@@ -1277,7 +1292,7 @@ export class DjsDropletElement extends HTMLElement {
    * gets its fragment rendered again by the server with `form`, in place
    * of its content. Focus goes back to the control in the same place.
    */
-  async updateForm(form: unknown): Promise<void> {
+  async updateForm({ form, action }: UpdateFormInput): Promise<void> {
     const target = this.actionTarget();
     if (!target) return;
     const { droplet } = target;
@@ -1301,8 +1316,10 @@ export class DjsDropletElement extends HTMLElement {
       if (!rendered) this.#revealChildren({ contentRoot });
     } else {
       // Nothing in the browser renders it: the server does, with the
-      // context the droplet was rendered with and the action's result.
-      const fresh = await this._fetchFragment({ droplet, action: { form } });
+      // action's result and the props and page the action URL carries,
+      // as for a form posted without JavaScript.
+      const context = this.#actionContext({ droplet, action }) ?? this._context;
+      const fresh = await this._fetchFragment({ droplet, context, action: { form } });
       if (run !== this._run || !fresh) return;
       await this._swap({ droplet, contentRoot, fresh, run, cacheBust: false });
       if (run !== this._run) return;
@@ -1359,9 +1376,9 @@ export class DjsDropletElement extends HTMLElement {
    * as stale and not logged, when another build answered: whatever it
    * answered (a 404 for a droplet it no longer has) is that build's.
    */
-  async _fetchFragment({ droplet, action }: FetchFragmentInput): Promise<Element | null> {
+  async _fetchFragment({ droplet, context = this._context, action }: FetchFragmentInput): Promise<Element | null> {
     const base = this.#location().replace(/\/$/, "");
-    const { host, props } = this._context;
+    const { host, props } = context;
     try {
       const response = await fetch(`${base}/droplets/${encodeURIComponent(droplet)}`, {
         method: "POST",
@@ -1386,6 +1403,33 @@ export class DjsDropletElement extends HTMLElement {
       console.error(`[droplets] ${droplet}: could not fetch the fragment again`, error);
       return null;
     }
+  }
+
+  /**
+   * The context in the URL of this droplet's own action (`actionUrlFor`):
+   * the props from its query, reserved keys and `__proto__` left out, the first of a key
+   * that came twice (as the server reads a query); the page from
+   * `__droplet_return`, with the page's own query when the browser is on
+   * that page. `null` for no URL, or one of another server or droplet.
+   */
+  #actionContext({ droplet, action }: ActionContextInput): WireContext | null {
+    if (action === undefined) return null;
+    let url: URL;
+    try {
+      url = new URL(action);
+    } catch {
+      return null;
+    }
+    if (!ownAction(url, this.#location(), droplet)) return null;
+    const props: Record<string, unknown> = Object.create(null);
+    let page: string | undefined;
+    for (const [key, value] of url.searchParams) {
+      if (key === RETURN_KEY) page ??= value;
+      // `__proto__` is dropped, as the server's query object drops it.
+      else if (key !== "__proto__" && !isReservedQueryKey({ key }) && !Object.hasOwn(props, key)) props[key] = value;
+    }
+    const here = pageUrl();
+    return { host: page === undefined || samePage({ a: here, b: page }) ? here : page, props };
   }
 
   /** The server's new answer in place of the old one, the host's container kept. */
