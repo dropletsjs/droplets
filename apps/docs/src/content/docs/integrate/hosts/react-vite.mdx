@@ -54,6 +54,12 @@ target.replaceChildren(element);
 location ~ ^/(index\.js$|droplets/|assets/|api/) {
   proxy_pass http://shop:8300;
   proxy_set_header x-droplet-location ${SHOP_PUBLIC_URL};
+  proxy_set_header Forwarded "";
+  proxy_set_header X-Forwarded-Host "";
+  proxy_set_header X-Forwarded-Proto "";
+  proxy_set_header X-Forwarded-Prefix "";
+  proxy_set_header X-Forwarded-For "";
+  client_max_body_size 4m;
 }
 location / {
   try_files $uri /index.html;
@@ -93,9 +99,9 @@ The code is in `examples/hosts/react-vite`: `src/shop/` (the pages and
 
 | Service | Port | What it is |
 | --- | --- | --- |
-| `web` | 8004, public | nginx serving the built app (`index.html` for every route) and proxying the shop |
+| `web` | 8004, on `127.0.0.1` | `nginx:1.27-alpine` serving the built app (`index.html` for every route) and proxying the shop |
 | `shop` | 8300, internal only | the shop's droplets server (`examples/shop`) |
-| `droplets` | 8000, public | the Svelte example's droplets server, for `/` only (`VITE_DROPLETS_URL` at build) |
+| `droplets` | 8000, on `127.0.0.1` | the Svelte example's droplets server, for the basic page only, reached by the browser directly (`VITE_DROPLETS_URL` at build) |
 
 There is no server code. `nginx.conf` writes out the shop's internal address
 (`proxy_pass http://shop:8300`); it is a template (the nginx image's
@@ -128,10 +134,36 @@ before any droplet starts (the shop's `src/hooks.client.ts`):
 `/index.js`, `/droplets/*` (fragments, `_data`, form actions), `/assets/*`
 and `/api/*` to the shop with `x-droplet-location` written out and
 `Forwarded`/`X-Forwarded-*` cleared (the shop reads them only as a fallback
-for its location, and trusts them only against its allow-list). Every
-request the page makes is same-origin: no CORS, and the shop's cookies are
-the app's own. Login and the other forms are full-page posts through the
-proxy, so the shop's `303` and `Set-Cookie` reach the browser as they are.
+for its location, and trusts them only against its allow-list), and bodies
+up to 4 MB for the admin's image uploads. Every request the page makes is
+same-origin: no CORS, and the shop's cookies are the app's own. The
+enhanced forms (adding to the cart) post by `fetch`; the login form is a
+native post through the proxy, so the shop's `303` and `Set-Cookie` reach
+the browser as they are.
+
+Under `vite dev` and `vite preview`, `server.proxy` in `vite.config.ts`
+does the same:
+
+```ts
+// vite.config.ts (trimmed)
+const HOST_HEADERS = ["forwarded", "x-forwarded-host", "x-forwarded-proto", "x-forwarded-prefix", "x-forwarded-for"];
+
+const env = loadEnv(mode, ".", "SHOP_");
+const target = env["SHOP_INTERNAL_URL"] ?? "http://localhost:8300";
+const publicUrl = env["SHOP_PUBLIC_URL"] ?? "http://localhost:8004";
+
+const shop: ProxyOptions = {
+  target,
+  headers: { "x-droplet-location": publicUrl },
+  configure: (proxy) => {
+    const emitter = proxy as unknown as ProxyEvents;
+    emitter.on("proxyReq", (request) => {
+      for (const name of HOST_HEADERS) request.removeHeader(name);
+    });
+  },
+};
+const proxy = { "^/index\\.js$": shop, "/droplets/": shop, "/assets/": shop, "/api/": shop };
+```
 
 ### The shop's environment
 
@@ -139,16 +171,18 @@ proxy, so the shop's `303` and `Set-Cookie` reach the browser as they are.
   [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location) and
   [form posts](/integrate/http-contract/#form-posts-the-origin-check) the shop accepts.
 - `DROPLETS_SECRET`: signs a form's result on the redirect back to the page
-  when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget));
-  this host has no such path (below), the others do.
+  ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)). Here
+  it is the login's native post that uses it: the `303` lands back on the
+  app's page, whose fragments are fetched again with that URL as `Referer`.
 - `ADMIN_USER`, `ADMIN_PASSWORD`, `SHOP_SECRET`: the demo login
   (admin / droplets) and the key its cookie is signed with. Demo values only.
 
 ### Gotchas
 
-- **No server rendering, no no-JS path.** The pages render in the browser,
-  so nothing shows before the bundle runs, and a post without JavaScript has
-  no page to land back on: the end-to-end test skips that run here.
+- **No server rendering, no page without JavaScript.** The pages render in
+  the browser, so nothing shows before the app's bundle runs, and with
+  JavaScript off there is no form to post: the end-to-end test's
+  no-JavaScript run skips this host.
 - **The app's own files live under `/app/`** (`build.assetsDir: "app"`), so
   `/assets/*` stays the shop's.
 - **Redirects are opaque in the browser.** With `redirect: "manual"`, a
@@ -165,71 +199,110 @@ open http://localhost:8004/gallery   # log in as admin / droplets
 
 ## The Svelte example
 
-The app's `/` is the Svelte example: its three droplets, one per mode, from `examples/frameworks/svelte` (the `droplets` service, at `VITE_DROPLETS_URL`).
+Every path but the shop's (`/gallery`, `/login`, `/admin`,
+`/product/<slug>`) renders the Svelte example: its three droplets, one per
+mode, from `examples/frameworks/svelte` (the `droplets` service). Unlike
+the shop, they come straight from the droplets server's own origin, with
+no proxy: `VITE_DROPLETS_URL`, `http://localhost:8000` by default, a build
+argument of the image.
 
 A single-page app has no server of its own, so it cannot paste fragments in
-before the page ships. The example wraps a droplet in a React component with
-two modes.
+before the page ships. `src/droplets.tsx` wraps a droplet in a React
+component, `<Droplet>`, with two modes:
 
-**`fragment`** (default) fetches `GET /droplets/<id>` from the browser and inserts
-the server-rendered HTML. The droplet's own JavaScript then hydrates it. Good
-for content that should be visible as soon as possible.
-
-**`client`** renders the droplet element (the server's `element` setting,
-`djs-svelte` for the Svelte example) with `data-droplet` and the
-props directly. It loads from where `/index.js` came from. The element runs the droplet's
-loads in the browser, fetching `/droplets/<id>/_data` when it has a server
-load, and mounts the component. Nothing shows until the bundle loads.
+- **`fragment`** (the default) fetches `GET /droplets/<id>?<props>` from
+  the browser and inserts the server-rendered HTML through a `<template>`;
+  the droplet's own JavaScript then hydrates it.
+- **`client`** writes the droplet element itself (the server's `element`
+  setting, `djs-svelte` for the Svelte example, `VITE_DROPLETS_ELEMENT`)
+  with `data-droplet` and `data-context`, the props as base64 JSON
+  `{ props }`. The element runs the droplet in the browser, fetching
+  `/droplets/<id>/_data` when it has a server load. Nothing shows until its
+  bundle loads.
 
 ```tsx
-const DROPLETS_URL = import.meta.env.VITE_DROPLETS_URL ?? "http://localhost:8000";
-const DROPLETS_ELEMENT = import.meta.env.VITE_DROPLETS_ELEMENT ?? "djs-svelte";
+// src/droplets.tsx (trimmed)
+export const DROPLETS_URL: string =
+  import.meta.env.VITE_DROPLETS_URL ?? "http://localhost:8000";
 
-export function Droplet({ id, props = {}, mode = "fragment" }: DropletProps) {
+export const DROPLETS_ELEMENT: string =
+  import.meta.env.VITE_DROPLETS_ELEMENT ?? "djs-svelte";
+
+const encodeContext = (props: Record<string, unknown>) =>
+  btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify({ props }))));
+
+export function Droplet({ id, props = {}, mode = "fragment", origin = DROPLETS_URL }: DropletProps) {
   const host = useRef<HTMLDivElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  const propsKey = JSON.stringify(props);
 
   useEffect(() => {
-    ensureDropletsClient();                 // adds /index.js once per page
-    const target = host.current!;
+    ensureDropletsClient(origin); // <origin>/index.js, once per page
+    const target = host.current;
+    if (!target) return;
 
     if (mode === "client") {
       const element = document.createElement(DROPLETS_ELEMENT);
-      element.dataset.droplet = id;
-      element.dataset.context = encodeContext(props);   // base64 { props }; or data-params='{"who":"Ana"}'
+      element.dataset["droplet"] = id;
+      element.dataset["context"] = encodeContext(props);
       target.replaceChildren(element);
       return () => target.replaceChildren();
     }
 
-    const url = new URL(`/droplets/${id}`, DROPLETS_URL);
-    for (const [k, v] of Object.entries(props)) url.searchParams.set(k, String(v));
-    fetch(url, { redirect: "manual" }).then(async (response) => {
-      // Only an HTML answer is a fragment (a 500 carries the error page); a
-      // 400 or 404 is text that may echo the props: never insert it as HTML.
-      const isFragment = (response.ok || response.status === 500) &&
-        (response.headers.get("content-type") ?? "").startsWith("text/html");
-      if (!isFragment) return console.error(`${id}: ${response.status}`);
-      const template = document.createElement("template");
-      template.innerHTML = await response.text();
-      target.replaceChildren(template.content);   // the element upgrades on insert
-    });
-    return () => target.replaceChildren();
-  }, [id, mode, JSON.stringify(props)]);
+    const controller = new AbortController();
+    const url = new URL(`/droplets/${encodeURIComponent(id)}`, origin);
+    for (const [key, value] of Object.entries(props)) url.searchParams.set(key, String(value));
 
-  return <div ref={host} />;
+    fetch(url, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const template = document.createElement("template");
+        template.innerHTML = await response.text();
+        target.replaceChildren(template.content);
+        setError(null);
+      })
+      .catch((cause: unknown) => {
+        if (controller.signal.aborted) return;
+        setError(String(cause));
+      });
+
+    return () => {
+      controller.abort();
+      target.replaceChildren();
+    };
+  }, [id, mode, origin, propsKey]);
+
+  if (error) return <p className="error">droplet "{id}" unavailable: {error}</p>;
+  return <div ref={host} data-droplet-host={id} />;
 }
 ```
 
 ```tsx
-{["ssr-hydrate", "ssr-nohydrate"].map((id) => (
+// src/App.tsx (trimmed)
+const IDS = ["ssr-hydrate", "ssr-nohydrate"];
+
+const [who, setWho] = useState("React");
+…
+{IDS.map((id) => (
   <Droplet key={id} id={id} props={{ who }} />
 ))}
 <Droplet id="client" mode="client" />
 ```
 
-React owns the wrapper `<div>`; the custom element owns everything inside it.
-The effect's cleanup clears the wrapper, so React never tries to reconcile the
-droplet's DOM.
+Typing in the page's input changes `who`, and the two fragments are asked
+for again. React owns the wrapper `<div>`; the custom element owns
+everything inside it. The effect's cleanup clears the wrapper, so React
+never tries to reconcile the droplet's DOM.
 
-The full component, with error handling, is `examples/hosts/react-vite/src/droplets.tsx`.
-The page and the droplets server are different origins, so the droplets server
-runs with `cors: true`.
+This `<Droplet>` is simpler than the shop's `ShopFragment`: it inserts any
+`2xx` answer, without checking for `text/html`, and shows a 500 as an
+error note instead of the droplet's error page. Copy `ShopFragment`'s
+checks for a page that embeds droplets you do not control.
+
+The page and the droplets server are different origins, so the browser
+loads `/index.js`, the bundles and the fragments cross-origin: the Svelte
+example runs with `cors: true`. No `x-droplet-location` is needed, since
+the browser reaches the droplets server at the URL it is published on. Its
+`DROPLETS_TRUSTED_ORIGINS` lists that URL and the app's
+(`http://localhost:8004`), the `Origin` the browser sends, which becomes
+the droplet's `host`.

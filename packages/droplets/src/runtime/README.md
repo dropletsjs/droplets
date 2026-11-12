@@ -247,7 +247,7 @@ Then the route.
 
 ### Prerender host tokens
 
-- Prerender host tokens are `__$DROPLET_HOST<nonce>$__`, `__$DROPLET_PATH<nonce>$__` and `http://droplets.invalid/__$DROPLET_LOCATION<nonce>$__`. `host-tokens.ts:29`
+- Prerender host tokens are `__$DROPLET_HOST_<nonce>$__`, `__$DROPLET_PATH_<nonce>$__` and `http://droplets.invalid/__$DROPLET_LOCATION_<nonce>$__` (no `_<nonce>` without a nonce). `host-tokens.ts:26`
 - `tokenNonce` is 16 random hex characters. `host-tokens.ts:43`
 - At build, an entry without `host` under `host` of the config renders for a real URL of that origin, `pathname` and `href` the path token; it is stored under the origin-only key. `app.ts:991`, `host.ts:175`, `app.ts:1394`
 - Host tokens are replaced HTML-escaped in markup and JSON-escaped in data. `host-tokens.ts:137`

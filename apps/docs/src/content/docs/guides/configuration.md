@@ -5,10 +5,15 @@ description: "Every option in droplets.config.ts, the plugin options and the env
 
 ## `droplets.config.ts`
 
-Lives in the project root; `.mts`, `.js` and `.mjs` work too. It holds data
-only; request handling lives in [`src/hooks.server.ts`](/guides/server/). The
-plugin bundles it into the server build. The `config()` helper only adds
-types.
+Lives in the project root; `.mts`, `.js` and `.mjs` work too, looked up in
+that order (the plugin's `configFile` names another). It holds data only;
+request handling lives in [`src/hooks.server.ts`](/guides/server/). Vite
+loads it, so TypeScript and imports work, and a default export that is a
+function is called with Vite's `{ command, mode }`. The plugin bundles the
+exported object into the server build, where it is validated again at
+startup. The `config()` helper only adds types. An invalid value fails
+`vite dev` and `vite build` with a message naming the option; a key the
+framework does not know is ignored.
 
 ```ts
 import { config } from "@dropletsjs/droplets";
@@ -70,7 +75,7 @@ export default config({
 | `limits.multipart` | 10 MB | Largest multipart body, and body of any other type (uploads). A body without a `content-length` is held in memory while it is counted, up to the limit, so mind it times your concurrency. |
 | `limits.props` | 8 KB | Largest `x-droplet-props` header; bigger answers `431`. `Infinity` lifts any limit. |
 | `health` | `"/health"` | Path answering `ok`, before `handle` runs, so an auth hook cannot break it. `false` turns it off. |
-| `index` | `index.html` in the root, else a placeholder | What `/` serves in `vite preview` and production: an HTML file, served as written. `false` answers `404`. In `vite dev`, `/` belongs to the [devtools](/guides/development/#the-devtools-page). |
+| `index` | `index.html` in the root, else a placeholder | What `/` serves in `vite preview` and production: an HTML file, served as written. A path that does not exist fails `vite build`. `false` answers `404`. In `vite dev`, `/` belongs to the [devtools](/guides/development/#the-devtools-page). |
 | `importMap` | `"/importmap"`, when the client build has externals | Where the [import map](/guides/server/#import-maps) is served; `<path>.js` answers the inserting script. `false` turns both off. |
 | `warnImportMap` | `true` | In dev, warn about externals the map misses, keys that are not external, and version drift. |
 | `dev.server.port` | `5173` | Dev port, unless `vite.config.ts` sets `server.port`. |
@@ -215,8 +220,10 @@ export default defineConfig({
 - `adapter` decides what `vite build` emits as the server: `node()`, `bun()`
   and `deno()` give `dist/server.js`, `cloudflare()` a Worker. `vite dev` works without one. See
   [Adapters](/guides/deployment/#adapters).
-- `renderers` lists the [renderers](/renderers/). Without one, every
-  droplet folder is an error that names the package to install.
+- `renderers` lists the [renderers](/renderers/). A component whose
+  extension no renderer claims fails with a message that names the package
+  to install. [Script droplets](/renderers/script/) need none: their
+  renderer is built in.
 - `css` covers stylesheets: the one every droplet shares, scoping and
   Tailwind. See [`css`](#css).
 
@@ -235,7 +242,7 @@ droplets({
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `path` | `./src/app.css` if it exists | The stylesheet every droplet shares. It comes first in each droplet's `style.css`; `/index.css` serves it too. `false` for none. |
+| `path` | `./src/app.css` if it exists | The stylesheet every droplet shares. It comes first in each droplet's `style.css`; `/index.css` serves it too (`404` when it is empty or absent). A path that does not exist fails the build. `false` for none. |
 | `scoped` | `true` | Prefix every selector of every stylesheet with the element: the shared one, what droplets import, CSS modules, Svelte and Vue styles. See [Styles](/guides/writing-droplets/#styles). |
 | `tailwind` | `false` | Add `@tailwindcss/vite`, unless the Vite config already has it. Install `tailwindcss` and `@tailwindcss/vite` yourself. |
 | `twPreflight` | `true` | Keep Tailwind's preflight (its reset). `false` leaves it out, for host pages that bring their own. No effect without Tailwind. |
@@ -264,8 +271,11 @@ stylesheet Vite processes. An import Tailwind resolves inside one of them
 the build warns when a preflight gets through that way.
 
 The plugin sets `appType: "custom"`, adds what it needs to `server.fs.allow`,
-and in build mode defines the `client`, `ssr` and `server` environments.
-Anything else in `vite.config.ts` is yours; `build.outDir` is respected.
+sets `server.origin` under `vite dev` to the dev server's address (unless you
+set it), and in build mode defines the `client`, `ssr` and `server`
+environments and an `experimental.renderBuiltUrl` that puts every file URL
+on the droplet location (your own `renderBuiltUrl` answers first). Anything
+else in `vite.config.ts` is yours; `build.outDir` is respected.
 Client externals are declared in
 `environments.client.build.rolldownOptions.external`; see
 [Import maps](/guides/server/#import-maps).
@@ -285,6 +295,6 @@ Your own variables are declared in `src/env.ts`; see
 
 ## Config changes in dev
 
-Editing `droplets.config.ts`, or any file it imports, restarts the dev server:
-the config shapes routes, ports and the droplet registry, so a restart is the
-only safe reaction.
+Editing `droplets.config.ts`, `src/env.ts`, or any file either imports,
+restarts the dev server: the config shapes routes, ports and the droplet
+registry, so a restart is the only safe reaction.

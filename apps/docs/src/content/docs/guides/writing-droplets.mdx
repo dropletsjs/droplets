@@ -75,9 +75,12 @@ receives in each mode, and when the droplet's JavaScript loads.
 
 The flags must be literals. They are read from the component's exports
 before anything is compiled, because they decide *how* the droplet is built.
-Only a top-level `export const` counts: a commented-out
-`// export const ssr = false` is no flag. A value that is not a literal
-(`export const ssr = !dev`) logs a warning and is ignored.
+Only a top-level `export const` counts: the component is parsed, so a
+commented-out `// export const ssr = false` or a flag inside a string is no
+flag. `ssr` and `prerender` take `true` or `false`; `hydrate` takes `true`,
+`false`, `"visible"` or `"interactive"`. Any other value, or another form
+(`export const ssr = !dev`, `export let`, `export { x as ssr }`), warns
+under `vite dev` and `vite build` and keeps the default.
 
 Flags live only in the component and are read from there. An `ssr`,
 `hydrate` or `prerender` exported from `+droplet.ts` or `+droplet.server.ts`
@@ -238,15 +241,22 @@ Two parts of a droplet have pages of their own:
 
 ## Props
 
-Props are how a caller parameterises a droplet. They arrive, in precedence
-order, from:
+Props are how a caller parameterises a droplet. Where they come from
+depends on the request:
 
-1. **A POST body**: `{ "props": { … } }` as JSON, or `{ "host": "…", "props": { … } }`
-   to also say where the droplet renders.
-2. **The query string**: `/droplets/hello?who=Ana` gives `props.who === "Ana"`.
-   Every value is a string.
-3. **The `x-droplet-props` header**: base64-encoded JSON, for props too large
-   or too structured for a URL.
+- **A `GET`** (a fragment or `_data`): the query string when it has any key
+  that is not reserved (below), `/droplets/hello?who=Ana` giving
+  `props.who === "Ana"`; else the `x-droplet-props` header, base64-encoded
+  JSON, for props too large or too structured for a URL; else `{}`. Query
+  values are strings, and a repeated key gives its first value.
+- **A `POST` with a JSON body**: `props` of the body, `{ "props": { … } }`,
+  or `{ "host": "…", "props": { … } }` to also say where the droplet renders.
+  The query and `x-droplet-props` are not read.
+- **A form post to an [action](/guides/actions/)**: the action URL's query,
+  else `x-droplet-props`; never the form body.
+
+A malformed `x-droplet-props` is ignored (with a warning under `vite dev`),
+and one over 8 KB answers `431`.
 
 Props are client input, as `host` is: anyone can send any props. Check them
 (a [schema](#a-props-schema)) and never trust them for access; see
@@ -399,7 +409,7 @@ export const load = async ({ props }: LoadEvent) => ({ page: props.page, items: 
 Annotate a load's parameter (`({ props }: LoadEvent) => …`) or use
 `satisfies ServerLoad`, never `const load: ServerLoad`: an annotation would
 replace the return type the component's `Data` is read from. The same goes
-for `handleError` (`satisfies HandleDropletError`).
+for `handleError` (`satisfies HandleDropletError`, from `$droplets/server`).
 
 The files live in `.droplets/types/`, mirroring the droplet folders, and
 `.droplets/tsconfig.json` maps them next to the droplets with `rootDirs`:
@@ -488,7 +498,11 @@ is fine anywhere.
 `/droplets/<id>/style.css` imports both, the shared one first, and is linked
 inside the element, never in the host's `<head>` (see
 [the fragment](/integrate/http-contract/#the-fragment)). The browser downloads
-each file once, whatever the number of droplets that list it.
+each file once, whatever the number of droplets that list it. A droplet
+without any stylesheet (and no shared one) has no `style.css`: the URL
+answers `404` and the fragment links none. Under `vite dev` there is no
+`style.css` at all; Vite injects the styles (see
+[Known limitations](/guides/development/#known-limitations)).
 
 **Every stylesheet lands in pages you do not control.** To keep them from
 restyling the host, the framework confines them to the droplet element
@@ -633,15 +647,23 @@ import droplet from "$droplets/drop";
 export async function bumpCounter(by = 1): Promise<number> {
   const response = await fetch(droplet.url("/api/counter"), {
     method: "POST",
+    headers: { "content-type": "application/json" },
     body: JSON.stringify({ by }),
   });
   return (await response.json()).count;
 }
 ```
 
-Cross-origin calls need `cors` on the droplets server, as the bundles do. A
-host that proxies the droplets server under its own origin proxies `/api/*`
-too. See [`$droplets/drop`](/reference/api/#dropletsdrop).
+`droplet.url()` joins the path to `droplet.origin`, the droplets server's
+location with its path prefix: in the browser the URL `/index.js` was
+loaded from, on the server the request's location. Cross-origin calls need
+`cors` on the droplets server, as the bundles do. Send JSON with its
+content type: a cross-site `POST` with a string body and no content type
+goes out as `text/plain`, which the
+[`Origin` check](/guides/security/#csrf-the-origin-check) answers `403`
+unless the page's origin is trusted. A host that proxies the droplets
+server under its own origin proxies `/api/*` too. See
+[`$droplets/drop`](/reference/api/#dropletsdrop).
 
 ## Where code runs
 
@@ -662,7 +684,10 @@ returned, never the code that produced it:
 Server-only modules (`$droplets/server`, `$droplets/env/private`) can only be
 imported by server files: names with `.server.` in them, any extension
 (`+droplet.server.ts`, `hooks.server.ts`, `db.server.tsx`…), `+server.*`
-routes, or files under a folder named `server/`. Any other file that imports them fails the
-build, and server files themselves never reach a browser bundle. See
+routes, or files under a folder named `server/`, in any case (`Server/`,
+`db.SERVER.ts`). Any other file that imports them fails `vite build` and
+the `vite dev` import, and server files themselves never reach a browser
+bundle: one that client code reaches fails the same way, naming the import
+chain. See
 [Environment variables](/guides/server/#environment-variables) and
 [Server-only code](/guides/security/#server-only-code).

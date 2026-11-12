@@ -47,16 +47,19 @@ async def fragment(request: Request, droplet: str, params: list[tuple[str, str]]
 
 - `fragment()` sends `GET /droplets/<id>?<params>` to `SHOP_INTERNAL_URL`
   with `accept: text/html`, `x-droplet-location` set to this host's public origin
-  (`SHOP_ORIGIN`, from `SHOP_PUBLIC_URL`), the browser's `Cookie` as it came,
-  and the page's path and query as `referer`.
+  (`SHOP_ORIGIN`, the scheme and host of `SHOP_PUBLIC_URL`), the browser's
+  `Cookie` as it came, and the page's URL as `referer`: `SHOP_ORIGIN` plus
+  the path and query as the browser sent them (`_raw_target()` reads
+  `raw_path` and `query_string` from the ASGI scope).
 - The shared client never follows a redirect (`follow_redirects=False`), so
   a droplet's 3xx is answered as it is, and never keeps a cookie (a
   `CookieJar` that accepts no domain). `render` sends the fragments'
-  `Set-Cookie` with the page.
+  `Set-Cookie` with the page; a fragment's redirect answers the whole page
+  with that status and `location`.
 - Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
   page) becomes `Markup`, which Jinja prints unescaped.
-- `templates/shop/layout.html` loads `/index.js` once. One handler passes
-  `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` on to the shop.
+- `templates/shop/layout.html` loads `/index.js` once. One handler, `proxy`,
+  passes `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` on to the shop.
 
 ## The shop demo, recorded
 
@@ -92,8 +95,10 @@ A server fetch with `httpx`, all of a page's fragments at once
 and the template is `templates/shop/gallery.html`, both shown in the pattern
 above; the fragments' `Link` preloads go into `<head>`.
 
-`referer` is the page's path and query as the browser sent it: the
-droplet's [`host`](/integrate/http-contract/#host-where-the-droplet-renders).
+`referer` is the page's URL, query included. The shop's `handle` reads it
+with `hostFrom`, so it is the droplet's
+[`host`](/integrate/http-contract/#host-where-the-droplet-renders), and after
+a form posted without JavaScript its query carries the form's result.
 `templates/shop/layout.html` loads `<script type="module" src="/index.js">`
 once, through the proxy, and each droplet hydrates itself. `render` fetches
 the toasts and the header's cart badge with every page's fragments
@@ -102,20 +107,52 @@ the toasts and the header's cart badge with every page's fragments
 shop's `src/hooks.client.ts`):
 
 ```jinja
+{# templates/shop/layout.html #}
 <body class="shop">
 {{ toasts }}
 <header class="shop-header">…<div class="shop-cart">{{ cart }}</div>…</header>
 ```
 
+The product page first reads the product from the shop's public
+`GET /droplets/product-page/_data?slug=<slug>`; an unknown slug answers the
+`not-found` template with `404`. The pages pass on only the query keys
+each droplet takes: the whole query to `product-filter` and
+`product-library`, `order`, `page` and `showing` (plus `productId`) to
+`product-comments`, `slug` and `v` to `product-page`, `next` to `login`,
+`view` and `id` to `product-admin`.
+
 ### What it proxies
 
-One handler on `/index.js`, `/droplets/{rest:path}` (fragments, `_data`,
-form actions), `/assets/{rest:path}` and `/api/{rest:path}`, for every
-method, passes the request to the shop with `x-droplet-location` written out and passes
-the answer back: status, `Set-Cookie` and redirects untouched. The shop's
-cookies (`cart_id`, `shop_admin`) are first-party, and nothing is
-cross-origin; the shop sets them only from form actions and `/api`, which
-come through here.
+```python
+# shop.py
+METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+
+@router.api_route("/index.js", methods=METHODS, include_in_schema=False)
+@router.api_route("/droplets/{rest:path}", methods=METHODS, include_in_schema=False)
+@router.api_route("/assets/{rest:path}", methods=METHODS, include_in_schema=False)
+@router.api_route("/api/{rest:path}", methods=METHODS, include_in_schema=False)
+async def proxy(request: Request) -> Response:
+    headers = {"x-droplet-location": SHOP_ORIGIN}
+    …
+```
+
+`proxy` covers `/index.js`, `/droplets/*` (fragments, `_data`, form
+actions), `/assets/*` and `/api/*`. It sends the shop `x-droplet-location`
+written out and only these of the browser's headers: `accept`,
+`accept-language`, `content-type`, `cookie`, `if-none-match`, `origin`,
+`referer`, `user-agent`, `x-droplet-props` and `x-droplets-build`. The
+target is the raw path and query concatenated onto `SHOP_INTERNAL_URL`, never
+resolved, so `//elsewhere` stays a path on the shop. The request body and the
+answer are streamed (`client.send(…, stream=True)` into a
+`StreamingResponse`); the answer keeps its status, every `Set-Cookie` and
+any redirect, without `connection`, `keep-alive`, `transfer-encoding`,
+`content-encoding` and `content-length`, which no longer hold once httpx has
+decoded the body. A shop that cannot be reached answers `502`
+`The shop is unreachable.`
+
+The shop's cookies (`cart_id`, `shop_admin`) are first-party, and nothing
+is cross-origin; the shop sets them only from form actions and `/api`,
+which come through here.
 
 ### The shop's environment
 
@@ -137,6 +174,8 @@ come through here.
 - **`Markup` only for the shop's HTML.** Jinja escapes everything else; the
   "unavailable" note is built with `Markup.format`, so the droplet's id is
   escaped. See [For hosts](/guides/security/#for-hosts).
+- **The page is `private, no-store`.** `render` sets it on every shop page
+  and redirect: their fragments were rendered with the visitor's cookies.
 
 ### Run it
 
@@ -148,32 +187,36 @@ open http://localhost:8001/gallery   # log in as admin / droplets
 
 ## The Svelte example
 
-The same app serves the Svelte example at `/`: its three droplets, one per mode, from `examples/frameworks/svelte` (the `droplets` service).
-
-No JavaScript on the host: Python fetches the fragments and a template prints
-them.
+The same app serves the Svelte example at `/`: its three droplets, one per
+mode, from `examples/frameworks/svelte` (the `droplets` service). No
+JavaScript runs on the host: Python fetches the fragments and a template
+prints them.
 
 ```python
+# main.py
 DROPLETS_INTERNAL_URL = os.environ.get("DROPLETS_INTERNAL_URL", "http://localhost:8000")
 DROPLETS_PUBLIC_URL = os.environ.get("DROPLETS_PUBLIC_URL", "http://localhost:8000")
 
+IDS = ["client", "ssr-hydrate", "ssr-nohydrate"]
+
 async def fetch_droplet(client: httpx.AsyncClient, droplet: str, **props: str) -> Markup:
     query = f"?{urlencode(props)}" if props else ""
-    response = await client.get(
-        f"{DROPLETS_INTERNAL_URL}/droplets/{droplet}{query}",
-        headers={"x-droplet-location": DROPLETS_PUBLIC_URL},
-        timeout=5.0,
-    )
-    response.raise_for_status()
-    return Markup(response.text)   # trusted markup from our own server; do not escape
-
-FRAMEWORKS = ["svelte", "vue", "react", "solid", "handlebars"]
+    try:
+        response = await client.get(
+            f"{DROPLETS_INTERNAL_URL}/droplets/{droplet}{query}",
+            headers={"x-droplet-location": DROPLETS_PUBLIC_URL},
+            timeout=5.0,
+        )
+        response.raise_for_status()
+        return Markup(response.text)
+    except httpx.HTTPError as error:
+        return Markup(f'<p class="error">droplet "{droplet}" unavailable: {error}</p>')
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request, who: str = "FastAPI"):
+async def index(request: Request, who: str = "FastAPI") -> HTMLResponse:
     async with httpx.AsyncClient() as client:
         fragments = await asyncio.gather(
-            *(fetch_droplet(client, f"{framework}-ssr-hydrate", who=who) for framework in FRAMEWORKS)
+            *(fetch_droplet(client, droplet, who=who) for droplet in IDS)
         )
     return templates.TemplateResponse(request, "index.html", {
         "droplets_public_url": DROPLETS_PUBLIC_URL,
@@ -181,17 +224,20 @@ async def index(request: Request, who: str = "FastAPI"):
     })
 ```
 
-```html
+```jinja
+{# templates/index.html #}
 <script type="module" src="{{ droplets_public_url }}/index.js"></script>
-...
+…
 {% for fragment in fragments %}
   {{ fragment }}
 {% endfor %}
 ```
 
-`Markup` marks the fragment as safe so Jinja does not escape it. The same
-pattern works with Flask, Django or anything else that can make an HTTP
-request and print a string.
-
-The example lives in `examples/hosts/fastapi`. The page and the droplets
-server are different origins, so the droplets server runs with `cors: true`.
+`Markup` marks the fragment as safe, so Jinja does not escape it. A non-2xx
+answer or a failed request (`raise_for_status()`, `httpx.HTTPError`) prints
+an error paragraph instead. Here the page loads `/index.js` from the droplets
+server's public URL, another origin than the page, so the Svelte example
+runs with `cors: true` and `DROPLETS_TRUSTED_ORIGINS` lists both
+`DROPLETS_URL` and this host's `WEB_URL`. The same fetch works from Flask,
+Django or any other Python server that can make an HTTP request and print a
+string.

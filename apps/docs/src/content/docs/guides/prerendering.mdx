@@ -31,7 +31,8 @@ export const entries = (() => [
 - A prop set whose load fails is stored as its error page, served with a
   `500`. One that answers `error()` or `redirect()` warns at build and renders
   live.
-- In `vite dev`, everything renders live.
+- In `vite dev`, everything renders live, and `host` of the config is
+  ignored: an entry without its own `host` is host-agnostic there.
 
 ## `host` at build
 
@@ -76,7 +77,8 @@ Use them in text and attribute positions: inside an inline `<script>` or
 Logic on the value cannot be computed at build, so any other field
 (`host.searchParams`, `host.hostname`, …) throws
 `HostUrlPropsErrorInPrerender` and **stops the build**, even when the
-droplet's code catches it. Give that entry a `host`, set `host` in
+droplet's code catches it: the build's render answers `500` with
+`x-droplets-prerender-error: host`, and `vite build` fails with its message. Give that entry a `host`, set `host` in
 `droplets.config.ts`, or render it live. [`cookies`](/guides/server/#cookies) stop the build the same
 way: there is no request at build.
 

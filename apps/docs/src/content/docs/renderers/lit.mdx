@@ -39,9 +39,10 @@ directives render their first value.
 | `+droplet.ts`, `+droplet.server.ts` | The loads, as for every framework: [Writing droplets](/guides/writing-droplets/#the-load-chain). |
 
 `.lit.ts` is Lit's alone: any `+droplet.lit.ts` is a Lit droplet, and a plain
-`+droplet.ts` next to it stays the universal load. The other modules a
-droplet imports that import `lit`, `lit-html`, `lit-element` or
-`@lit/reactive-element` are Lit's own, so only Lit droplets may import them.
+`+droplet.ts` next to it stays the universal load. The packages `lit`,
+`lit-html`, `lit-element`, `@lit/reactive-element`, `@lit-labs/ssr-client`
+and `@dropletsjs/renderer-lit` are Lit's own: a droplet of another framework
+that reaches them, through any chain of imports, fails the build.
 
 ```ts
 // src/droplets/hello/+droplet.lit.ts
@@ -96,12 +97,17 @@ export default class HelloError extends DropletErrorElement<DropletErrorProps> {
 | Forms | `enhance()` of `@dropletsjs/renderer-lit/form`, a Lit directive |
 | Runtimes | Node, Bun, Deno and Cloudflare Workers render alike |
 
-What it does not do fails the build and says why, importing another
-framework above all, even through a neutral file:
+Importing another framework, even through a neutral file, stops
+`vite build`, and the `vite dev` server reports it too:
 
 ```
 droplets: a lit droplet imports vue code: src/droplets/counter/+droplet.lit.ts -> vue/dist/vue.runtime.esm-bundler.js. A droplet uses its own framework's modules and neutral code only.
 ```
+
+Flags are read from `+droplet.lit.ts` alone. A flag that is not a literal
+(`export const hydrate = isMobile`) is ignored, with a warning under
+`vite dev` and `vite build`; a flag exported from `+droplet.ts` or
+`+droplet.server.ts` is ignored.
 
 One mistake is caught when the droplet renders, not at build: a default
 export that is no `LitElement` class answers `500`, with

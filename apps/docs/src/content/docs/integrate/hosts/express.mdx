@@ -22,19 +22,25 @@ const fragmentHeaders = (req) => {
 async function fragment(req, id, params = new URLSearchParams()) {
   const url = `${internal}/droplets/${encodeURIComponent(id)}?${params}`;
   const result = { html: "", status: 502, location: null, cookies: [], link: null };
-  const response = await fetch(url, { headers: fragmentHeaders(req), redirect: "manual" });
-  result.status = response.status;
-  result.cookies = response.headers.getSetCookie();
-  if (response.status >= 300 && response.status < 400) {
-    result.location = response.headers.get("location");
-  } else if (
-    (response.ok || response.status === 500) &&
-    (response.headers.get("content-type") ?? "").startsWith("text/html")
-  ) {
-    result.html = await response.text();
-    return result;
+  try {
+    const response = await fetch(url, { headers: fragmentHeaders(req), redirect: "manual" });
+    result.status = response.status;
+    result.cookies = response.headers.getSetCookie();
+    result.link = response.headers.get("link");
+    if (response.status >= 300 && response.status < 400) {
+      result.location = response.headers.get("location");
+    } else if (
+      (response.ok || response.status === 500) &&
+      (response.headers.get("content-type") ?? "").startsWith("text/html")
+    ) {
+      result.html = await response.text();
+      return result;
+    }
+    await response.body?.cancel();
+  } catch (error) {
+    console.error(`[shop] ${id}:`, error);
   }
-  // … anything else: result.html becomes a "droplet is unavailable" note
+  result.html = `<p class="shop-unavailable">The ${escapeHtml(id)} droplet is unavailable (…).</p>`;
   return result;
 }
 ```
@@ -47,16 +53,20 @@ async function fragment(req, id, params = new URLSearchParams()) {
 ```
 
 - `fragment()` asks the shop for `GET /droplets/<id>?<params>` on its
-  internal address (`SHOP_INTERNAL_URL`), with `accept: text/html`, `x-droplet-location`
-  set to this host's public origin (`SHOP_PUBLIC_URL`), the browser's
-  `Cookie` as it came, and the page's URL as `referer`. `redirect: "manual"`
-  keeps a droplet's 3xx, which `render()` answers as it is.
+  internal address (`SHOP_INTERNAL_URL`), with `accept: text/html`,
+  `x-droplet-location` set to this host's public origin (the origin of
+  `SHOP_PUBLIC_URL`), the browser's `Cookie` as it came, and the page's URL
+  as `referer`. `redirect: "manual"` keeps a droplet's 3xx, which `render()`
+  answers as it is.
 - Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
-  page) is pasted. `render()` sends every fragment's `Set-Cookie` with the page.
+  page) is pasted; anything else becomes a "droplet is unavailable" note
+  with the id escaped. `render()` sends every fragment's `Set-Cookie` with
+  the page.
 - `layout()` loads `/index.js` once; each droplet element on the page then
   hydrates itself.
 - `router.use(path, proxy)` passes `/index.js`, `/droplets/*`, `/assets/*`
-  and `/api/*` on to the shop, so the browser only talks to this origin.
+  and `/api/*` on to the shop, every method, so the browser only talks to
+  this origin.
 
 ## The shop demo, recorded
 
@@ -66,17 +76,19 @@ has the diagram.
 
 <HostDemo id="express" stack="Express 5" />
 
-The code is `examples/hosts/express/src/shop.js`, mounted by `src/server.js`.
+The code is `examples/hosts/express/src/shop.js`, mounted by `src/server.js`
+before the basic page.
 
 ### Pieces and ports
 
-`docker-compose.yml` starts three services:
+`docker-compose.yml` starts three services, each published on `127.0.0.1`
+only:
 
 | Service | Port | What it is |
 | --- | --- | --- |
-| `web` | 8003, public | Express: the shop's pages, the proxy, and the basic page at `/` |
+| `web` | 8003 | Express: the shop's pages, the proxy, and the basic page at `/` |
 | `shop` | 8300, internal only | the shop's droplets server (`examples/shop`) |
-| `droplets` | 8000, public | the Svelte example's droplets server, for `/` only |
+| `droplets` | 8000 | the Svelte example's droplets server, for `/` only |
 
 | On `web` | Value | Used for |
 | --- | --- | --- |
@@ -87,40 +99,56 @@ The code is `examples/hosts/express/src/shop.js`, mounted by `src/server.js`.
 ### How a page gets a droplet
 
 A server fetch. Each route fetches its fragments in parallel (`Promise.all`,
-with the toasts and the header's cart badge) and pastes them into one
-template-string layout. The fetch is `fragment()`, shown in the pattern above;
-its `Link` preloads go into `<head>`.
+with the `toast-center` droplet and the header's `shopping-cart` badge) and
+pastes them into one template-string layout. The fetch is `fragment()`,
+shown in the pattern above. The fragments' `Link` preloads that name a file
+on this origin go into `<head>` as `<link rel="preload">` and
+`<link rel="modulepreload">` tags.
 
-`referer` is the page's own URL, query included: that is the droplet's
-[`host`](/integrate/http-contract/#host-where-the-droplet-renders), and after a
-post without JavaScript it carries the form's result. The layout loads
+`referer` is the page's own URL, query included: the shop's `handle` reads
+it as the droplet's
+[`host`](/integrate/http-contract/#host-where-the-droplet-renders), and after
+a post without JavaScript it carries the form's result. The layout loads
 `<script type="module" src="/index.js">` once, through the proxy, and each
-droplet hydrates itself. The `toast-center` fragment comes first in the body;
-`/index.js` installs `window.shopMessageQueue` before any droplet starts (the
-shop's `src/hooks.client.ts`):
+droplet hydrates itself. The `toast-center` fragment comes first in the
+body; `/index.js` runs the shop's `src/hooks.client.ts`, which installs
+`window.shopMessageQueue` before any droplet starts:
 
 ```js
 // src/shop.js, layout()
 <body class="shop">
 ${toasts}
-<header class="shop-header">…<div class="shop-cart">${cart}</div>…</header>
+<header class="shop-header"><div class="shop-wrap">
+…
+<div class="shop-cart">${cart}</div>
+</div></header>
 ```
+
+The product page first reads the product from the shop's public
+`GET /droplets/product-page/_data?slug=<slug>` and answers `404` when there
+is none; the props each page passes are in `examples/shop/CONTRACT.md`.
 
 ### What it proxies
 
 `/index.js`, `/droplets/*` (fragments, `_data`, form actions), `/assets/*`
 and `/api/*` go to the shop through one router (`router.use(path, proxy)`):
-bodies streamed, `x-droplet-location` written out, redirects not followed, and
-`Set-Cookie` passed back untouched. The browser only ever talks to
-`localhost:8003`, so there is no CORS, and the shop's cookies (`cart_id`,
-`shop_admin`) are first-party. The shop sets them only from form actions and
-`/api`, which always come through here.
+bodies streamed, `x-droplet-location` written out, redirects not followed,
+and `Set-Cookie` passed back untouched. Of the browser's headers it forwards
+only `accept`, `accept-language`, `content-type`, `cookie`, `if-none-match`,
+`origin`, `referer`, `user-agent`, `x-droplet-props` and `x-droplets-build`,
+so a `Forwarded` or `X-Forwarded-*` header a client sends never reaches the
+shop. When the shop is down it answers `502` `The shop is unreachable.`
+
+The browser only ever talks to `localhost:8003`, so there is no CORS, and
+the shop's cookies (`cart_id`, `shop_admin`) are first-party. The shop sets
+them only from form actions and `/api`, which always come through here.
 
 ### The shop's environment
 
 - `DROPLETS_TRUSTED_ORIGINS: http://localhost:8003`: the only origin whose
   [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location) and
-  [form posts](/integrate/http-contract/#form-posts-the-origin-check) the shop accepts.
+  [form posts](/integrate/http-contract/#form-posts-the-origin-check) the shop accepts
+  besides its own.
 - `DROPLETS_SECRET`: signs a form's result on the redirect back to the page
   when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)).
 - `ADMIN_USER`, `ADMIN_PASSWORD`, `SHOP_SECRET`: the demo login
@@ -128,13 +156,18 @@ bodies streamed, `x-droplet-location` written out, redirects not followed, and
 
 ### Gotchas
 
-- **The proxy drops `content-encoding` and `content-length`.** `fetch` has
+- **The proxy drops `content-encoding` and `content-length`** (and the
+  per-hop `connection`, `keep-alive`, `transfer-encoding`). `fetch` has
   already decoded the body, so passing them on would lie to the browser.
+- **The proxy URL is concatenated, not resolved.** `internal + req.originalUrl`
+  keeps a path like `//elsewhere` a path on the shop; `new URL()` would turn
+  it into another host.
 - **Off localhost, use https.** The shop's cookies are `Secure` everywhere
-  except plain HTTP to `localhost`. `docker-compose.https.yml` puts Caddy in
-  front on `https://127-0-0-1.sslip.io:8443` (see
-  `examples/hosts/express/README.md`), and `pnpm test:hosts express --https`
-  checks the cookies arrive `Secure`.
+  except plain HTTP to `localhost` or a loopback address.
+  `docker-compose.https.yml` puts Caddy in front on
+  `https://127-0-0-1.sslip.io:8443` (see `examples/hosts/express/README.md`),
+  and `pnpm test:hosts express --https` checks that the cookies arrive
+  `Secure`.
 - The page is `private, no-store`: its fragments were rendered with the
   visitor's cookies. See [For hosts](/guides/security/#for-hosts).
 
@@ -148,80 +181,130 @@ open http://localhost:8003/gallery   # log in as admin / droplets
 
 ## The Svelte example
 
-The same app serves the Svelte example at `/`: its three droplets, one per mode, from `examples/frameworks/svelte` (the `droplets` service).
-
-Two ways to combine Express with droplets.
+The same app serves the Svelte example at `/`: its three droplets, one per
+mode (`client`, `ssr-hydrate`, `ssr-nohydrate`), from
+`examples/frameworks/svelte` (the `droplets` service). There are two ways to
+combine Express with droplets.
 
 ### 1. Express as a host
 
-The droplets server runs as its own process. Express fetches `GET /droplets/<id>`
-for each droplet, with `x-droplet-location` set to the browser-facing origin, and renders
-the fragments into its page.
+The droplets server runs as its own process. `src/droplets.js` fetches
+`GET /droplets/<id>` for each droplet, with `x-droplet-location` set to the
+URL the browser reaches the droplets server on, and `src/server.js` renders
+the fragments into its page:
 
 ```js
+// src/droplets.js
 export function createDropletClient({ internalUrl, publicUrl }) {
   async function fragment(droplet, props = {}) {
     const url = new URL(`/droplets/${encodeURIComponent(droplet)}`, internalUrl);
     for (const [key, value] of Object.entries(props)) url.searchParams.set(key, String(value));
-    const response = await fetch(url, { headers: { "x-droplet-location": publicUrl } });
-    if (!response.ok) return `<p class="error">droplet "${droplet}" unavailable</p>`;
-    return response.text();
+
+    try {
+      const response = await fetch(url, { headers: { "x-droplet-location": publicUrl } });
+      if (!response.ok) {
+        return `<p class="error">droplet "${droplet}" unavailable: HTTP ${response.status}</p>`;
+      }
+      return await response.text();
+    } catch (error) {
+      return `<p class="error">droplet "${droplet}" unavailable: ${String(error)}</p>`;
+    }
   }
+
+  /** The one script tag a page needs. */
   const clientScript = `<script type="module" src="${publicUrl}/index.js"></script>`;
+
   return { fragment, clientScript };
 }
 ```
 
 ```js
+// src/server.js (trimmed)
 const droplets = createDropletClient({
   internalUrl: process.env.DROPLETS_INTERNAL_URL ?? "http://localhost:8000",
   publicUrl: process.env.DROPLETS_PUBLIC_URL ?? "http://localhost:8000",
 });
 
-const FRAMEWORKS = ["svelte", "vue", "react", "solid", "handlebars"];
+// The Svelte example's droplets (examples/frameworks/svelte), one per mode.
+const IDS = ["client", "ssr-hydrate", "ssr-nohydrate"];
 
 app.get("/", async (req, res) => {
-  const who = req.query.who ?? "Express";
+  const who = typeof req.query.who === "string" ? req.query.who : "Express";
   const fragments = await Promise.all(
-    FRAMEWORKS.map((framework) => droplets.fragment(`${framework}-ssr-hydrate`, { who })),
+    IDS.map((id) => droplets.fragment(id, { who })),
   );
-  res.type("html").send(layout({ body: fragments.join(""), clientScript: droplets.clientScript }));
+
+  res.type("html").send(
+    layout({
+      title: "Express page, three Svelte droplets",
+      intro: "…",
+      body: fragments.join(""),
+      clientScript: droplets.clientScript,
+    }),
+  );
 });
 ```
 
-Browsers load each droplet's JavaScript from the droplets origin, so it runs
-with `cors: true`.
+This page loads `/index.js` from the droplets server's public URL
+(`http://localhost:8000`), so the browser fetches each droplet's JavaScript
+across origins: the Svelte example's `droplets.config.ts` sets `cors: true`,
+and the compose file lists both public URLs in the `droplets` service's
+`DROPLETS_TRUSTED_ORIGINS`.
 
 ### 2. One process
 
-`vite build` emits `dist/server.js`, which exports `{ fetch }` and does not
-listen on its own when imported. Express mounts it as a request listener, so
-droplet routes and Express routes share one origin: no CORS, no `x-droplet-location`, and
-the page can even call `fetch()` in-process to render fragments without an
-HTTP round trip.
+`vite build` writes `dist/server.js`, whose default export is `{ fetch }`
+and which does not listen when it is imported. `src/embedded.js` mounts it
+with `getRequestListener` from `@hono/node-server`, so the droplets routes
+and the Express routes share one origin: no CORS and no
+`x-droplet-location`. The page renders its fragments by calling
+`droplets.fetch()` in-process, without an HTTP round trip:
 
 ```js
+// src/embedded.js (trimmed)
 import express from "express";
 import { getRequestListener } from "@hono/node-server";
 
-const droplets = (await import("../../frameworks/svelte/dist/server.js")).default;
+const distDir = resolve(process.env.DROPLETS_DIST ?? "../../frameworks/svelte/dist");
+
+// The droplets server as a module: `{ fetch(request) }`, nothing listening.
+const droplets = (await import(pathToFileURL(resolve(distDir, "server.js")).href)).default;
+
+const IDS = ["client", "ssr-hydrate", "ssr-nohydrate"];
 const app = express();
 
+// Express renders its page by calling the handler in-process: no HTTP hop.
 app.get("/", async (req, res) => {
+  const who = typeof req.query.who === "string" ? req.query.who : "Express";
   const origin = `${req.protocol}://${req.get("host")}`;
-  const fragment = async (id) =>
-    (await droplets.fetch(new Request(new URL(`/droplets/${id}`, origin)))).text();
+  const fragment = async (id, props = {}) => {
+    const url = new URL(`/droplets/${id}`, origin);
+    for (const [key, value] of Object.entries(props)) url.searchParams.set(key, value);
+    return (await droplets.fetch(new Request(url))).text();
+  };
 
-  res.type("html").send(layout({
-    body: (await fragment("ssr-hydrate")) + (await fragment("ssr-nohydrate")),
-    clientScript: '<script type="module" src="/index.js"></script>',
-  }));
+  res.type("html").send(
+    layout({
+      title: "Express and droplets, one process",
+      intro: "…",
+      body: (await Promise.all(IDS.map((id) => fragment(id, { who })))).join(""),
+      clientScript: '<script type="module" src="/index.js"></script>',
+    }),
+  );
 });
 
 // Everything else is a droplets route: /droplets/*, /droplets/<id>/client.js, /assets/*, /api/* ...
 app.use(getRequestListener(droplets.fetch));
-app.listen(8003);
 ```
 
-Both variants are in `examples/hosts/express` in the repository: `docker compose
-up --build` for the first, `node src/embedded.js` for the second.
+The fragment requests carry the page request's own origin, so the droplets
+server's location is that origin and every URL it writes points back at
+this server.
+
+Both are in `examples/hosts/express`. `docker compose up --build` runs the
+first (`node src/server.js`, the Dockerfile's command). The second runs from
+that folder after a build of `examples/frameworks/svelte`:
+
+```bash
+DROPLETS_DIST=../../frameworks/svelte/dist node src/embedded.js   # npm run start:embedded
+```

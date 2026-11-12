@@ -5,15 +5,45 @@ description: "vite dev, the devtools page, framework HMR on any host page (dev.s
 
 ## The dev server
 
-`vite dev` runs the droplet routes as middleware inside Vite's own server.
-Modules are transformed on demand and the SSR module is re-evaluated per
-request, so edits appear without a restart, including adding or deleting a
-droplet folder. Changing `droplets.config.ts`, or anything it imports,
-restarts the server.
+`vite dev` runs the droplet routes as middleware inside Vite's own server,
+after Vite's own, and needs no adapter. Modules are transformed on demand;
+`handle`, `+server.ts` routes and `handleError` are read again per request,
+so edits appear without a restart, including adding or deleting a droplet
+folder or an API route. Changing `droplets.config.ts`, `src/env.ts`, or
+anything they import, restarts the server. Runtime variables come from the
+`.env` files, as in Vite.
 
-`vite preview` serves the production build through the adapter's preview, with
-the routes `node dist/server.js` would expose. Use it to check a build before
-deploying.
+What differs from a build:
+
+- `location` and `host` of the config are ignored: the location comes from
+  each request (a trusted header, else the dev server's own origin), and
+  `event.host` from the request too. A prerender entry without its own
+  `host` is host-agnostic.
+- Nothing is prerendered: listed `entries` props render live.
+- Droplets have no `style.css` of their own (it answers `404`, fragments
+  link none) and fragments send no `Link` header: Vite injects the styles
+  (see [Known limitations](#known-limitations)).
+- `/index.js` is generated per request, with the
+  [hot-update](#hot-updates) client in it.
+
+`vite preview` serves the production build through the adapter's preview:
+Node, Bun and Deno run the Node adapter's app over `dist/`, with the routes
+`node dist/server.js` would expose. Cloudflare has no preview (`vite preview`
+warns and serves nothing): run `wrangler dev` after `vite build`. A build
+with [`location`](/guides/configuration/#a-fixed-location) set writes its
+URLs on that location under preview too, so a page under preview loads its
+files from there.
+
+### The dev log
+
+`vite dev` and `vite build` print what the framework notices, prefixed
+`[droplets:framework]`: a droplet folder that is not lowercase kebab-case, a
+flag that is not a literal, flags an error page declares (in dev), an untrusted
+location header, `"*"` in `trustedOrigins`, a missing `DROPLETS_SECRET`, a
+malformed `x-droplet-props`. `DEV_DROPLETS_LOG` sets the level: `error`,
+`warn`, `info` (the default) or `debug`. None of it reaches a production
+bundle; a production server logs errors only
+([Logging](/guides/deployment/#logging)).
 
 ## The devtools page
 
@@ -166,7 +196,7 @@ pnpm install
 pnpm build          # compile every package
 pnpm dev            # the Svelte example on :5173
 pnpm dev:lib        # in a second terminal: rebuild dist/ on save
-pnpm check          # build, typecheck, test, build the example
+pnpm check          # biome, build, typecheck, integration tests, the examples, the demo
 ```
 
 ## Known limitations
@@ -203,8 +233,8 @@ styles reach the browser through the droplet's client module. A droplet with
 styles in dev, and with them in a build. The shared stylesheet, Tailwind
 included, is unaffected: Vite injects it with `/index.js`.
 
-**Flags are read textually.** They must be literals; see
-[Flags](/guides/writing-droplets/#flags).
+**Flags are read before compiling.** They must be literals in the
+component; see [Flags](/guides/writing-droplets/#flags).
 
 **State across a component edit.** Under `hmr`, React and Preact keep hook
 state, and Vue keeps it for a template edit. Svelte 5, Solid, Lit and Hono JSX

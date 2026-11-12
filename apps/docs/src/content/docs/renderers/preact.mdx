@@ -7,8 +7,8 @@ tableOfContents: false
 import AddRenderer from "../../../components/AddRenderer.astro";
 import RendererDemo from "../../../components/RendererDemo.astro";
 
-Preact components, rendered on the server with `preact-render-to-string` and
-hydrated with Preact's `hydrate`, which adopts the server's nodes. The
+Preact 11 components, rendered on the server with `preact-render-to-string`
+and hydrated with Preact's `hydrate`, which adopts the server's nodes. The
 droplet below is a Preact component served by the demo server: its load sets
 the start, Preact renders it to HTML, and the button works once the bundle
 hydrates it.
@@ -23,27 +23,31 @@ hydrates it.
 
 | File | What it is |
 | --- | --- |
-| `+droplet.tsx`, `+droplet.jsx` | The component, the file's default export. Its flags are named exports. |
-| `+error.tsx`, `+error.jsx` | The error page, optional. |
+| `+droplet.tsx`, `+droplet.jsx` | The component, the file's default export. Its flags are named exports of this file. |
+| `+error.tsx`, `+error.jsx` | The error page, optional. It follows the droplet's flags. |
 | `+droplet.ts`, `+droplet.server.ts` | The loads, as for every framework: [Writing droplets](/guides/writing-droplets/#the-load-chain). |
+
+The flags are literal `export const` declarations of the component file. A
+flag exported from `+droplet.ts` or `+droplet.server.ts` is ignored.
 
 ### Which `.tsx` files are Preact's
 
 Preact has no extension of its own: it shares `.tsx` and `.jsx` with React,
 Solid and Hono JSX. With Preact the only one of them in `renderers`, every
 `.tsx` droplet is Preact's. With two or more, each droplet file says which
-it is:
+it is, by what it names:
 
-1. **An import** of `preact`, `preact-render-to-string` or
-   `@dropletsjs/renderer-preact`, a subpath included (`preact/hooks`): the
-   file is Preact's. The demo's counter imports `preact/hooks`.
-2. **Otherwise a comment**, `/** @jsxImportSource preact */`, decides. `djs add`
-   writes it at the top of every Preact component, and it is also what types
-   the file's JSX for Preact when `tsconfig.json` names another
-   `jsxImportSource`, as apps/demo's (`react`) does.
+- **an import** of `preact`, `preact-render-to-string` or
+  `@dropletsjs/renderer-preact`, a subpath included (`preact/hooks`);
+- **or a comment**, `/** @jsxImportSource preact */`. `djs add` writes it at
+  the top of every Preact component, and it is also what types the file's
+  JSX for Preact when `tsconfig.json` names another `jsxImportSource`, as
+  apps/demo's (`react`) does. The demo's counter has both.
 
-A name such as `+droplet.preact.tsx` would not help: it still ends in
-`.tsx`, which the other three claim as well.
+A droplet file that names no framework, or names two, fails the build. An
+`+error.tsx` that names none is the droplet's framework. A name such as
+`+droplet.preact.tsx` would not help: it still ends in `.tsx`, which the
+other three claim as well.
 
 ```tsx
 // src/droplets/hello/+droplet.tsx
@@ -81,67 +85,96 @@ export default function HelloError({ error, children }: DropletErrorProps) {
 }
 ```
 
+`error` is what `handleError` in `+droplet.server.ts` (or `+droplet.ts`)
+returned; see [Errors](/guides/errors/).
+
 ## What it supports
 
 | | |
 | --- | --- |
 | Server rendering | yes: `ssr = true`, the default; `ssr = false` mounts it in the browser only (`render`) |
 | `hydrate` | `true` (the default), `"visible"`, `"interactive"`, `false` |
-| Prerendering | yes: `prerender = true` with `entries` |
+| Prerendering | yes: `prerender = true`, once per event `entries` returns: [Prerendering](/guides/prerendering/) |
 | Forms | `useEnhanceDropletForm(formRef, options?)` of `@dropletsjs/renderer-preact/form` |
 
-What it does not do fails the build and says why:
+Two mistakes fail `vite build`, and `vite dev` as well, with a message that
+names the fix:
 
 - a `.tsx` droplet that names no framework, or two, when several share the
-  extension:
+  extension. With `react()` and `preact()` in `renderers`:
 
   ```
-  droplets: counter/+droplet.tsx: react, solid, preact and hono-jsx all handle this file and it imports none of them; import from react, solid-js, preact or hono/jsx, or add a /** @jsxImportSource <package> */ comment
+  droplets: counter/+droplet.tsx: react and preact both handle this file and it imports neither; import from react or preact, or add a /** @jsxImportSource <package> */ comment
   ```
+
+  The message lists every renderer that shares the extension, in the order
+  of `renderers`.
 
 - importing React, which nothing aliases to `preact/compat`, or any other
-  framework, even through a neutral file:
+  configured framework, even through a neutral file:
 
   ```
-  droplets: a preact droplet imports react code: src/droplets/counter/+droplet.tsx -> src/droplets/counter/lib.ts -> react/index.js. A droplet uses its own framework's modules and neutral code only.
+  droplets: a preact droplet imports react code: src/droplets/counter/+droplet.tsx -> src/lib/react-label.ts -> react/index.js. A droplet uses its own framework's modules and neutral code only.
   ```
 
-A flag that is not a literal (`export const hydrate = isMobile`) is ignored,
-with a warning.
+Other mistakes are ignored, with a warning:
+
+- a flag that is not a literal, such as `export const hydrate = isMobile`,
+  warns under `vite dev` and `vite build`, and the flag keeps its default:
+
+  ```
+  [droplets:framework] `export const hydrate` must be true, false, "visible" or "interactive"; ignoring it { droplet: 'counter', found: 'isMobile' }
+  ```
+
+- an `+error.tsx` that names another framework is not used; under
+  `vite dev` it warns
+  `counter/+error.tsx is not a preact component like the droplet; ignored, the error page is written in the droplet's framework`.
 
 ## Specifics
 
 - **Data is always the value.** Preact has no `use(promise)`: when the
-  element mounts a droplet from scratch (client-only, refreshed in dev), the
-  renderer awaits its `data` first, then renders. A rejection shows
-  `+error.tsx`, and a render error later on reaches the renderer's error
-  boundary, which shows it too.
-- **Hydration is synchronous.** `hydrate` and `render` both return with the
-  droplet live.
+  element mounts a droplet from scratch (client-only, remounted in dev), the
+  renderer awaits its `data` first, then renders. When the data rejects,
+  `+error.tsx` renders in its place with what `handleError` returned, and
+  nothing renders when `handleError` rejects too. A droplet mounted this way
+  with an error page also renders inside the renderer's error boundary,
+  which shows `+error.tsx` for a render error later on.
+- **Rendering is synchronous.** `hydrate` returns with the droplet live;
+  `mount` does too once the data is there.
 - **JSX:** the renderer compiles its modules with Preact's automatic runtime
-  (`preact/jsx-runtime`) itself, without `@preact/preset-vite`. Nothing
-  aliases `react` to `preact/compat`, so React droplets in the same project
-  keep React. Attributes are HTML's: `class`, `for`.
-- **Children:** `children` renders the host's content.
-- **Styles:** imported CSS goes to the droplet's stylesheet.
+  (`preact/jsx-runtime`) itself, without `@preact/preset-vite`. Next to
+  another `.tsx` framework it compiles only the modules Preact droplets
+  reach. Nothing aliases `react` to `preact/compat`, so React droplets in the
+  same project keep React. Attributes are HTML's: `class`, `for`.
+- **Children:** `children` renders the host's content, in `+droplet.tsx`
+  and in `+error.tsx`.
+- **Styles:** imported CSS goes to the droplet's stylesheet, the error
+  page's included: Preact components carry no inline styles, and the element
+  links that stylesheet whenever the droplet is on the page.
 - **Forms:** keep the action's URL from the first render,
   `const [add] = useState(() => actionUrl("add"))` with `actionUrl` of
   `$droplets/form`, then `<form method="post" action={add}>`.
+  `useEnhanceDropletForm(formRef, { action: "add" })` sends it with `fetch`
+  and shows the result in place; without `onResult`, it calls
+  `result.update()`. See [Actions](/guides/actions/).
 - **Hot updates:** Prefresh, under `vite dev` with `dev.strategy: "hmr"`
   (the default), on any page that loads `index.js` from the dev server. An
   edit to a component keeps its hook state. The renderer compiles Prefresh
   into Preact's modules only, in its own transform, so nothing of it reaches
-  a React or Solid module next to it. An edit to the load brings new `data`
-  to the live component, its state kept. See [Hot updates](/guides/development/#hot-updates).
+  a React or Solid module next to it. When Prefresh's runtime does not
+  resolve, the renderer warns and Preact droplets remount on an edit. An
+  edit to the load brings new `data` to the live component, its state kept.
+  See [Hot updates](/guides/development/#hot-updates).
 - **Options:** `preact({ plugin: false })` leaves compiling to you: both
   builds then need Preact's automatic runtime, `jsxImportSource: "preact"`.
 
 ## The example
 
 [`examples/frameworks/preact`](https://github.com/dropletsjs/droplets/tree/main/examples/frameworks/preact)
-has one droplet per mode (`client`, `ssr-hydrate` with an error page,
-`ssr-nohydrate`), with loads, a props schema, `/api` endpoints, env variables
-and a `handle` hook. From a clone of the repository:
+has one droplet per mode, `client` (`ssr = false`), `ssr-hydrate` (with
+`+error.tsx`) and `ssr-nohydrate` (`hydrate = false`), with loads, a props
+schema, `/api` endpoints, env variables and a `handle` hook. Its droplets
+render in `<djs-preact>`. From a clone of the repository:
 
 ```bash
 pnpm install && pnpm build

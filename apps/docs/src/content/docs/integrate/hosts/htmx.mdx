@@ -13,11 +13,14 @@ from the browser, and `/index.js` makes it live.
 ```html
 <!-- html/shop.html (trimmed) -->
 <head>
+  <meta name="htmx-config" content='{"selfRequestsOnly": false}'>
   <script src="/vendor/htmx.min.js"></script>
+  <script type="module" src="http://localhost:8000/index.js"></script>
   <script type="module" src="/index.js"></script>
 </head>
-<body>
-  <section id="product"
+<body hx-boost="true">
+  …
+  <section id="product" hx-boost="false"
            hx-get="/droplets/product-page?slug=clay-cylinder-mug"
            hx-trigger="load">
     <p>Loading the product…</p>
@@ -42,16 +45,16 @@ location ~ ^/(index\.js|droplets/|assets/|api/) {
   puts the answer inside the `<section>`, in place of its placeholder.
 - The request is same-origin, through nginx: the browser sends the shop's
   cookies and the page's URL as `Referer` itself, and nginx adds
-  `x-droplet-location`.
+  `x-droplet-location` (and clears `Forwarded` and `X-Forwarded-*`).
   `nginx.conf` is a template; the nginx image fills in `${SHOP_PUBLIC_URL}`
   (`http://localhost:8010`) when it starts.
-- `/index.js`, loaded once, defines the shop's droplet element, so each
-  fragment htmx swaps in upgrades and hydrates as it lands. nginx passes
-  `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` on to the shop.
-- The example's `<body>` has `hx-boost="true"`, so each droplet's section
-  also has `hx-boost="false"` ([With `hx-boost`](#with-hx-boost)). A page on
-  another origin than the droplets server needs two settings more
-  ([Cross-origin](#cross-origin)).
+- `/index.js`, loaded once, defines the shop's droplet element (`djs-shop`),
+  so each fragment htmx swaps in upgrades and hydrates as it lands. nginx
+  passes `/index.js`, `/droplets/*`, `/assets/*` and `/api/*` on to the shop.
+- The `<body>` has `hx-boost="true"`, so each droplet's section has
+  `hx-boost="false"` ([With `hx-boost`](#with-hx-boost)). The second
+  `/index.js` and the `htmx-config` meta are for the Svelte example's
+  droplets, which come from another origin ([Cross-origin](#cross-origin)).
 
 ## The htmx pages, recorded
 
@@ -80,15 +83,33 @@ The code is in `examples/hosts/htmx`: two static pages (`html/index.html`,
 
 | Service | Port | What it is |
 | --- | --- | --- |
-| `web` | 8010, public | nginx serving the two pages and htmx, and proxying the shop under its own origin |
-| `droplets` | 8000, public | the Svelte example's droplets server: the browser asks it for fragments directly, cross-origin |
+| `web` | 8010, on `127.0.0.1` | `nginx:1.27-alpine` serving the two pages and htmx, and proxying the shop under its own origin |
+| `droplets` | 8000, on `127.0.0.1` | the Svelte example's droplets server: the browser asks it for fragments directly, cross-origin |
 | `shop` | 8300, internal only | the shop's droplets server (`examples/shop`), behind `web` |
 
 `/` embeds the Svelte example from its own origin, to show what a
 cross-origin page needs. `/shop` embeds the shop through the proxy, so its
-forms and cookies are the page's own. htmx is the npm package `htmx.org`,
-pinned in `package.json` and `package-lock.json`: the image installs it and
-copies `dist/htmx.min.js` to `/vendor/`. No CDN is involved.
+forms and cookies are the page's own; its cart badge is an element the page
+writes itself, `<djs-shop data-droplet="shopping-cart" data-params='{"variant":"badge"}'>`,
+which renders in the browser and fetches its own data.
+
+htmx is the npm package `htmx.org` 2.0.11, pinned in `package.json` and
+`package-lock.json`: the `Dockerfile` installs it with `npm ci --ignore-scripts`
+and copies `dist/htmx.min.js` into the nginx image as `/vendor/htmx.min.js`.
+No CDN is involved.
+
+`nginx.conf` is a template (the nginx image's `/etc/nginx/templates/`):
+`SHOP_PUBLIC_URL` (`http://localhost:8010`) and `DROPLETS_PUBLIC_URL`
+(`http://localhost:8000`) are filled in at start. The pages are written for
+the default ports; when the droplets server is published elsewhere
+(`DROPLETS_PORT`, `DROPLETS_URL`), `sub_filter` rewrites
+`http://localhost:8000` in them to `DROPLETS_PUBLIC_URL`.
+
+Both droplets servers list `http://localhost:8010` in
+`DROPLETS_TRUSTED_ORIGINS`. For the shop, it is the origin of the
+`x-droplet-location` nginx sends and of the pages' form posts. For the
+Svelte example, it is the page's `Origin`, which htmx's cross-origin
+requests carry: the droplet's `host` is that origin, within the list.
 
 ### Run it
 
@@ -98,7 +119,10 @@ docker compose up --build
 open http://localhost:8010        # the Svelte droplets; /shop has the forms
 ```
 
-`pnpm test:hosts htmx` runs it end to end (`tests/hosts/e2e/htmx.spec.ts`).
+`pnpm test:hosts htmx` runs it end to end (`tests/hosts/e2e/htmx.spec.ts`),
+from the repository root; htmx runs only by name, not in the default set.
+The test also checks that the Svelte example answers htmx's preflight with
+`204`, `access-control-allow-origin: *` and the `HX-*` headers echoed.
 
 ## Swapping a droplet in
 
@@ -201,6 +225,7 @@ export default config({
 });
 ```
 
+This is not in the example, which keeps the Svelte example's `cors: true`.
 `Link` and `x-droplets-build` stay exposed either way.
 
 The cross-origin requests carry no cookies (htmx's `withCredentials` is off),
@@ -214,14 +239,19 @@ proxy.
 The shop's droplets, swapped into `/shop` through the proxy, keep both
 ways a droplet form works.
 
-**Enhanced.** The product page's form has `data-droplets-enhance`
-([enhancing a form](/guides/actions/#enhancing-a-form), bound by
-`/index.js` for a droplet with no bundle):
-the submit goes by `fetch`, as JSON, and the droplet renders again in place
-with the result. One request, no page load; the cart badge hears of it
-(`droplets:action`) and counts the product.
+**Enhanced.** The product page is a Handlebars droplet with no JavaScript
+of its own (`hydrate = false`), and its form has `data-droplets-enhance`
+([enhancing a form](/guides/actions/#enhancing-a-form)), which the element
+`/index.js` defined handles. The submit goes by `fetch` to `?/add` with
+`accept: application/json`, without htmx's `HX-*` headers, and is answered
+with the action's result as JSON. The element then asks for its fragment
+again with that result as `form` and swaps it in place: no page load. The
+cart badge hears of it (`droplets:action`) and counts the product. The
+product card further down, swapped in on `revealed`, hydrates once visible
+and enhances its form too.
 
-**Plain (Post/Redirect/Get).** The login form is a native form. A wrong
+**Plain (Post/Redirect/Get).** The login droplet ships no JavaScript and
+never enhances its form: it is a native form. A wrong
 password answers `303` back to `/shop` with the signed result in the query
 (`__droplet_form_login_<build>=…`). The page loads again, htmx asks for the
 login fragment on load, and the request's `Referer` is that URL, query
@@ -267,7 +297,8 @@ example's two pages load both:
 
 Back and forward work: htmx restores the page from its history and asks
 for the fragments on `load` again, and each droplet renders and hydrates
-once, as it did the first time.
+once, as it did the first time. The end-to-end test goes back to `/shop`
+this way and checks the product page is there once.
 
 ## Limits
 

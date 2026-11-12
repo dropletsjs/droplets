@@ -16,11 +16,18 @@ dist/
     index.js               # /index.js: imports env.js (with runtime public variables) and assets/index.<hash>.js
     droplets/<id>/client.js  # one bundle per droplet that hydrates
     droplets/<id>/style.css  # what /droplets/<id>/style.css answers, for a droplet with stylesheets
-    assets/                # entry client (index.<hash>.js), stylesheets, shared chunks
+    assets/                # entry client (index.<hash>.js), stylesheets, shared chunks, imported files
+    assets/public/         # a copy of public/, served at /assets/public/*
   server/entry-server.js   # the SSR renderer
   server/_prerendered/     # build-time renders, for droplets with prerender = true; never served
   server.js                # the HTTP server, with droplets.config.ts baked in
 ```
+
+That is the layout of `node()`, `bun()` and `deno()`; ship the whole `dist/`
+folder. `cloudflare()` writes `dist/worker.js` instead of `dist/server.js`
+and `dist/server/`, and keeps the prerendered renders in `dist/client`
+([Cloudflare Workers](#cloudflare-workers)). `/env.js` is not a file: the
+server answers it.
 
 `dist/server.js` bundles the framework's own dependencies (Hono, your
 renderers' server runtimes). What stays external is whatever your droplets and your config
@@ -85,7 +92,7 @@ export default defineConfig({ plugins: [droplets({ adapter: cloudflare(), render
   "name": "my-droplets",
   "main": "dist/worker.js",
   "compatibility_date": "2025-10-01",
-  // Server renderers (Svelte's among them) use AsyncLocalStorage from node:async_hooks.
+  // AsyncLocalStorage, which keeps overlapping requests apart.
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "dist/client",
@@ -99,6 +106,14 @@ vite build
 wrangler dev        # local, in workerd
 wrangler deploy
 ```
+
+`cloudflare({ assetsBinding })` names the assets binding when it is not
+`ASSETS`; the name is fixed in `dist/worker.js` at build. Without
+`nodejs_compat` the Worker has no `AsyncLocalStorage`, and requests that
+overlap share one request store. There is no `vite preview` for Workers
+(it warns and serves nothing): `wrangler dev` is the preview. With
+[`location`](/guides/configuration/#a-fixed-location) set, the URLs the
+Worker writes under `wrangler dev` point at that location.
 
 ### Static files and `_headers`
 
@@ -184,10 +199,14 @@ Prerendered droplets are read through the assets binding, from
 Worker's inlined manifest holds, so no assets config makes them reachable at
 a URL one could guess. `public/` is in `dist/client/assets/public/`, served at
 `/assets/public/*` with `publicCacheControl` and the static assets' `ETag`. A
-file that is missing answers `404` with `no-store`. `vite build` also writes `dist/client/.assetsignore`,
-which keeps `droplets.json` and `.vite/` out of the upload. Set `cors` in `droplets.config.ts` if
-pages on other origins embed your droplets. On the free plan this is enough
-to host a droplets server for a documentation site or a demo.
+file under `/assets/` that is missing answers `404` with `no-store`; nothing
+else of `dist/client` is a route (`/robots.txt` is a `404`). `vite build`
+also writes `dist/client/.assetsignore`, which keeps `droplets.json` and
+`.vite/` out of the upload. Set `cors` in `droplets.config.ts` if pages on
+other origins embed your droplets: it applies to what the Worker answers
+(fragments, `_data`, `/env.js`, `/api/*`). With no wrangler config at all,
+the build logs what to set: `main`, `assets.directory` and
+`assets.binding`.
 
 ## Plain Node
 
@@ -195,11 +214,18 @@ to host a droplets server for a documentation site or a demo.
 PORT=8000 node dist/server.js
 ```
 
-`PORT` overrides `server.port` from the config. It logs errors only, to
-stderr; see [Logging](#logging).
+`PORT` overrides `server.port` from the config (default `8000`), read once
+at startup. It listens on every interface and logs nothing on start: it logs
+errors only, to stderr; see [Logging](#logging). The server finds `client/`
+and `server/` next to its own file, whatever the working directory, and
+reads `dist/client/droplets.json` once: a build made after it started needs
+a restart.
 
 Importing `dist/server.js` instead of running it does **not** start listening.
-It exports `{ fetch }`, a standard `Request => Promise<Response>` handler.
+Its default export is `{ fetch }`, a standard `Request => Promise<Response>`
+handler, and `runServer()` starts listening on demand. Only
+`node dist/server.js` itself listens: not a symlink to it, not
+`node dist/server` without the extension.
 
 ## Bun
 
@@ -207,9 +233,12 @@ It exports `{ fetch }`, a standard `Request => Promise<Response>` handler.
 PORT=8000 bun dist/server.js
 ```
 
-The default export is `{ port, fetch }`, and Bun serves it when the file is
-the entry point; `PORT` overrides `server.port`, as on Node. Imported, it
-hands over `fetch` and does not listen.
+The default export is `{ port, development: false, fetch }`, and Bun serves
+it when the file is the entry point, logging
+`Started server: http://localhost:<port>`. `port` is `server.port`, with
+`PORT` over it, as on Node. `development: false` keeps Bun's debug page
+away: an error answers with the droplet's error page. Imported, it hands
+over `fetch` and does not listen. Bun 1.2 or newer.
 
 ## Deno
 
@@ -222,7 +251,7 @@ deno serve -A --port 8000 dist/server.js
 worker per CPU core. `-A` grants what the server needs: reading `dist/`, the
 environment for `$droplets/env/private`, and the network. Packages your
 droplets import come from `node_modules`, as with Node: `deno install` puts
-them there for a project with a `package.json`.
+them there for a project with a `package.json`. Deno 2 or newer.
 
 ## Docker
 
@@ -282,8 +311,8 @@ separate-process setup.
 
 When a reverse proxy fronts the droplets server:
 
-- forward `/index.js`, `/index.css`, `/droplets/*` and `/assets/*` to it (and
-  `/api/*` and `/importmap` if you use them);
+- forward `/index.js`, `/env.js`, `/index.css`, `/droplets/*` and
+  `/assets/*` to it (and `/api/*` and `/importmap` if you use them);
 - set `x-droplet-location` to the public URL, written out in the proxy's
   configuration (never built from the request's `Host`, and overwriting any
   `x-droplet-location` a client sent), so fragments point at the proxy. Under
@@ -298,8 +327,9 @@ When a reverse proxy fronts the droplets server:
   a proxy under another origin or prefix gets URLs that point elsewhere. Keep
   the droplets server unreachable except through the proxy;
 - keep the `cache-control` headers it sends; they are safe to honour: `/index.js`
-  is `no-store`, fragments and `_data` are `private, no-store`
-  (`fragmentCacheControl`), `/assets/public/*` is `no-cache` (`publicCacheControl`) with an `ETag`,
+  is `no-store`, `/env.js` is `public, max-age=600` (`DROPLETS_ENV_MAX_AGE`),
+  fragments and `_data` are `private, no-store` (`fragmentCacheControl`),
+  `/assets/public/*` is `no-cache` (`publicCacheControl`) with an `ETag`,
   everything else it serves for the browser is immutable.
 
 ### `/index.js` and CDNs
@@ -319,8 +349,8 @@ server then writes every fragment's URLs there.
 `DROPLETS_TRUSTED_ORIGINS` (comma-separated origins) adds to `trustedOrigins`
 from the config, read at runtime on every adapter (a Worker's binding, the
 process environment on Node, Bun and Deno). One build can then trust
-different hosts per deployment. An entry that is not an origin is skipped,
-with a warning.
+different hosts per deployment. An entry that is not an origin is skipped
+(with a warning under `vite dev`).
 
 ### `DROPLETS_SECRET`
 

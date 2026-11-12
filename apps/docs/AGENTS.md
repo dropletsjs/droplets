@@ -5,7 +5,7 @@
 - The docs state what the code does, per stack: concrete steps and real code excerpts.
 - Every framework and every host has its own page, written for that stack on its own terms.
 - Pages live in `src/content/docs/`, the only folder Starlight reads; `README.md`, `AGENTS.md` and `CLAUDE.md` stay outside it.
-- Every page is in the `sidebar` of `astro.config.mjs`, in reading order: Start here, Writing droplets, Renderers (Overview, one page per renderer, each with a live `RendererDemo`), Integrating (any stack, HTTP contract, Known hosts, WordPress), In the browser, Deployment, Security, Reference.
+- Every page is in the `sidebar` of `astro.config.mjs`, in reading order: Start here, Writing droplets, Renderers (Overview, one page per renderer, each with a live `RendererDemo`), Integrating (any stack, client-only page, HTTP contract, Known hosts, WordPress), In the browser, Deployment, Security, Reference.
 - A live droplet is a real one in `../demo/src/droplets/`, embedded with `LiveDroplet` or `RendererDemo`; a page that embeds one fails the build unless the demo renders it.
   Checked by: `pnpm docs:build` (`src/components/live-droplet.ts`, `src/components/RendererDemo.astro`).
 - Pages link to each other with root-relative paths (`/guides/configuration/`); `src/plugins/base-links.mjs` adds the base path.

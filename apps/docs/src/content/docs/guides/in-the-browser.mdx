@@ -9,9 +9,11 @@ import LiveDroplet from "../../../components/LiveDroplet.astro";
 `/index.js` defines one custom element, `<djs-droplet>` by default (the
 `element` option renames it). Everything below is that element's work; setup
 of your own that must come first goes in
-[`src/hooks.client.ts`](#srchooksclientts). `/index.js` itself is a few
-lines, never cached, that import the element under a name unique to the
-build, which is cached for good.
+[`src/hooks.client.ts`](#srchooksclientts). `/index.js` itself is a file of
+the build, a few lines sent `no-store`: it imports `/env.js` (only when
+[public variables are read at runtime](/guides/server/#environment-variables))
+and the element under a name unique to the build, which is cached for good,
+then records the URL it was loaded from.
 
 ## `src/hooks.client.ts`
 
@@ -224,8 +226,9 @@ the element directly. Without server markup, the droplet mounts in the browser:
 The element loads from where the `<script src>` points: load `/index.js` from
 the droplets server itself, under its prefix if it has one
 (`https://shop.example/mfe/index.js`), or from a CDN that pulls it from the
-server at the same URL. There is no setting that bakes a location into the
-build.
+server at the same URL. [`location`](/guides/configuration/#a-fixed-location)
+in the config fixes the URLs the server writes, not this: the browser
+bundles always take the location from the URL of `/index.js`.
 
 The element runs the props schema and `+droplet.ts` in the browser, requests
 `_data` when the droplet has a server load, links the droplet's stylesheet

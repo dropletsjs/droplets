@@ -85,7 +85,8 @@ export default function HelloError(props: DropletErrorProps) {
 | Prerendering | yes: `prerender = true` with `entries` |
 | Forms | the directive `use:enhanceDropletForm` of `@dropletsjs/renderer-solid/form` |
 
-What it does not do fails the build and says why:
+Two mistakes stop `vite build`, and the `vite dev` server reports them
+too, each with a message that says what to change:
 
 - a `.tsx` droplet that names no framework, or two, when several share the
   extension:
@@ -100,8 +101,10 @@ What it does not do fails the build and says why:
   droplets: a solid droplet imports preact code: src/droplets/counter/+droplet.tsx -> src/droplets/counter/lib.ts -> preact/hooks/dist/hooks.mjs. A droplet uses its own framework's modules and neutral code only.
   ```
 
-A flag that is not a literal (`export const hydrate = isMobile`) is ignored,
-with a warning.
+Flags are read from `+droplet.tsx` alone. A flag that is not a literal
+(`export const hydrate = isMobile`) is ignored, with a warning under
+`vite dev` and `vite build`; a flag exported from `+droplet.ts` or
+`+droplet.server.ts` is ignored.
 
 ## Specifics
 

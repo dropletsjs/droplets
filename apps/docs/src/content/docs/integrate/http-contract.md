@@ -16,7 +16,7 @@ interface; anything that can make a request can host a droplet.
 | `GET /droplets/:id/client.js` | That droplet's bundle; `404` when it never hydrates |
 | `GET /droplets/:id/style.css` | That droplet's stylesheets, the shared one first, as `@import`s; `404` when it has none (nothing links to it then) |
 | `GET /index.js` | A small file of the build, `no-store`, that imports the entry client, which defines the droplet element, and `/env.js` when there are dynamic public variables |
-| `GET /env.js` | The [public variables read at runtime](/guides/server/#environment-variables), as a script `/index.js` imports; `public, max-age=600` (`DROPLETS_ENV_MAX_AGE`); `404` when `src/env.ts` declares none |
+| `GET /env.js` | The [public variables read at runtime](/guides/server/#environment-variables), as a script `/index.js` imports; `public, max-age=600` (`DROPLETS_ENV_MAX_AGE`); `404` when `src/env.ts` declares no public variable read at runtime (`public: true` without `static`) |
 | `GET /index.css` | The shared stylesheet, for pages that want to link it themselves; `404` when there is none or it is empty |
 | `GET /assets/*` | The entry client, shared chunks, stylesheets and imported files, cached for good |
 | `GET /assets/public/*` | The project's `public/` folder, `no-cache` (`publicCacheControl`) with an `ETag` (`304` when `If-None-Match` matches) |
@@ -98,7 +98,7 @@ Link: <https://drops.example.com/droplets/hello/style.css?c=36a187>; rel=preload
 A host that passes the header on with its own page (or sends it as `103 Early
 Hints`) lets the browser start these downloads before it reaches the element.
 Several fragments on one page: join their headers with `, `. Nothing breaks
-when the header is dropped; the downloads just start later. `vite dev` sends
+when the header is dropped; the downloads start later. `vite dev` sends
 no `Link` header: there, component styles come with the JavaScript.
 
 ## `style.css`
@@ -115,11 +115,12 @@ or path prefix the server is reached through:
 
 `vite build` also writes it as a file, `dist/client/droplets/<id>/style.css`,
 so a host that serves the build's files first (Workers Static Assets)
-answers it without the server. A droplet without stylesheets has no file.
+answers it without the server.
 
-It is served for droplets that never hydrate as well, and is empty for a
-droplet without styles (and in `vite dev`, where styles come with the
-JavaScript).
+It is served for droplets that never hydrate as well. A droplet without
+stylesheets has no file, and the route answers it `404`; nothing links to
+it then. `vite dev` answers `404` for every droplet: there, component styles
+come with the JavaScript.
 
 ## `_data`
 
@@ -212,7 +213,9 @@ export default config({ trustedOrigins: ["https://drops.example.com"] });
 With [`location`](/guides/configuration/#a-fixed-location) in
 `droplets.config.ts`, none of this runs: every request's location is
 `location`, no header is read or trusted, and fragments vary on `origin`
-alone. One build serves one location.
+alone. One build serves one location. `vite dev` ignores `location` and
+works the location out per request; `vite preview` and `wrangler dev` serve
+the build, so the URLs they write point at the real location.
 
 ### Trust
 
@@ -274,7 +277,9 @@ neither in the list nor the server's own falls back to the location's origin.
 
 With [`host`](/guides/configuration/#a-fixed-host) in `droplets.config.ts`,
 `host` is that origin, with the body's path and query when the body names a
-page on it, else the origin alone; `Origin` is not read.
+page on it, else the origin alone; `Origin` is not read, and `trustedOrigins`
+does not bound it. `handle` may still set `host`, from `Referer` for
+instance. `vite dev` ignores `host` of the config.
 
 `host`, the location headers and the props come from the request: any client can send
 any value. Use them to render, never to decide who may see what; that is the
@@ -326,7 +331,7 @@ answered:
 | data, or nothing | `200` `{ "type": "success", "status": 200, "data": … }` | `303` back to the page, the result in its query | `200`, the fragment rendered again with `form` |
 | `fail(status, data)` | `status` `{ "type": "failure", "status": …, "data": … }` | `303` back to the page, the result in its query | `status`, the fragment with `form` |
 | `redirect(status, location)` | `200` `{ "type": "redirect", "status": …, "location": "…" }`, `location` absolute | `303`, `location` | `303`, `location` |
-| `redirect()` off the server's own origins and `trustedOrigins` | `400` `{ "message": … }` | `400`, plain text | `400`, plain text |
+| `redirect()` to an origin that is not the server's own, its location's, a `trustedOrigins` entry or [`host`](/guides/configuration/#a-fixed-host)'s | `400` `{ "message": … }` | `400`, plain text | `400`, plain text |
 | `error(status)` | `status`, `{ "message": … }` | `status`, the message | `status`, the message |
 | data that is not plain JSON | `500` | `500` | `500` |
 
@@ -334,10 +339,18 @@ Action URLs (`actionUrl()` of `$droplets/form`, `{{action}}` in Handlebars)
 are `<location>/droplets/<id>?/<name>&<props>&__droplet_return=<page>`, the
 same on the server, in the browser and in a prerender, on the
 [public location](#x-droplet-location-the-public-location), never an
-untrusted header's, and a per-request token in a prerendered render. `<page>` is
-the page the form is on, its origin and path, encoded: `host` on the server
-(the host tokens in a prerender, filled per request), `window.location` in
-the browser.
+untrusted header's. `<page>` is the page the form is on, its origin and
+path, encoded: `host` on the server, `window.location` in the browser.
+
+In a prerendered render, the location and `<page>` are tokens filled in per
+request, from the request's location and its `host`. With
+[`location`](/guides/configuration/#a-fixed-location) set, the location is
+written in at build. With [`host`](/guides/configuration/#a-fixed-host) set,
+the page's origin is `host` and its path is filled in per request; its query
+never is. With both set, nothing is filled in: `<page>` is `host` itself,
+so a form posted without JavaScript from such a render goes back to `host`
+(path `/`), not to the page it was on. Do not prerender a droplet with such
+a form, or name the page in its entry.
 
 `location` is absolute, resolved against `host`. A fragment rendered with
 an action's result is rendered live, never from the prerendered renders,
@@ -354,7 +367,7 @@ A native post goes back to the host page, so a reload never posts again:
 | --- | --- |
 | success or `fail()` | `303`, `location`: the page (below) without its `#hash`, its `?/name`, `__droplet_return` and `__droplet_form_*` keys, plus `__droplet_form_<droplet>_<build>=<result>` |
 | `redirect()` | `303`, `location`: its target |
-| no page that passes: neither `__droplet_return` (once, 2 KB at most) nor `Referer` names one whose origin is this server's (its location's included) or in `trustedOrigins`, outside `<location>/droplets/` | `400`, plain text; the action does not run |
+| no page that passes: neither `__droplet_return` (once, 2 KB at most) nor `Referer` names one whose origin is this server's (its location's included), in `trustedOrigins` or `host`'s, outside `<location>/droplets/` | `400`, plain text; the action does not run |
 | a `redirect()` to such an origin, `javascript:` or anything but `http(s)` | `400`, plain text (`400` `{ "message": … }` to a request that accepts JSON: the same check) |
 | no `DROPLETS_SECRET` (or under 32 bytes) | the fragment rendered with `form`, as the table above; a warning under `vite dev`, once |
 

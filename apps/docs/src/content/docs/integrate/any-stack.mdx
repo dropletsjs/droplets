@@ -27,7 +27,7 @@ browser then talks to one origin, and the droplets' cookies are first-party.
 | Header | On | Value | Why |
 | --- | --- | --- | --- |
 | `accept: text/html` | your request | exactly that | What every example sends. A `GET` fragment is HTML whatever `accept` says; on an action `POST` (the proxy), `accept: application/json` is what makes the answer JSON, so the proxy passes the browser's `accept` on unchanged. |
-| `x-droplet-location` | your request | your public origin, written out in your config: `https://www.example.com` | The URLs the fragment writes (its stylesheet, its `Link` preloads, its form actions) point there. Honoured only when its origin is trusted: the droplets server's own, or listed in `DROPLETS_TRUSTED_ORIGINS`. See [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location). |
+| `x-droplet-location` | your request | your public origin, written out in your config: `https://www.example.com` | The URLs the fragment writes (its stylesheet, its `Link` preloads, its form actions) point there. Honoured only when its origin is trusted: the droplets server's own, or listed in `trustedOrigins` or `DROPLETS_TRUSTED_ORIGINS`. A droplets server built with [`location`](/guides/configuration/#a-fixed-location) in its config reads no location header: send it anyway, it costs nothing. See [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location). |
 | `Cookie` | your request | the browser's `Cookie` header, as it came | The droplet's `handle` and loads see the visitor's session, cart and login. |
 | `Referer` | your request | the page's own URL, query included: `https://www.example.com/product/mug?v=3` | A `handle` that reads it with [`hostFrom`](/guides/writing-droplets/#host) gets the page as the droplet's `host`. After a form posted without JavaScript, the query carries the form's result ([Post/Redirect/Get](/guides/actions/#without-javascript-postredirectget)). |
 | redirects | your HTTP client | not followed: `redirect: "manual"` | A `3xx` is the droplet's answer (a moved product, a login). Answer the browser with the same status and `Location`. Following it would make your server request a URL someone else chose. |
@@ -94,7 +94,7 @@ page that links it itself) and `/importmap.js` (with
 On each proxied request, set `x-droplet-location` to your public origin,
 clear `Forwarded`, `X-Forwarded-Host`, `X-Forwarded-Proto` and
 `X-Forwarded-Prefix` (a client could set them; the droplets server reads
-them only as a fallback for its location, and trusts them only against its
+them after `x-droplet-location`, and trusts them only against its
 allow-list), do not follow redirects, and pass `Set-Cookie` back untouched.
 If your HTTP client decodes the body, drop
 `content-encoding` and `content-length` from the answer. In nginx, from
@@ -126,7 +126,11 @@ On the droplets server:
 | `DROPLETS_TRUSTED_ORIGINS` | `https://www.example.com`, comma-separated for several | The origins whose `x-droplet-location` it honours, and the origins whose form posts pass the [`Origin` check](/integrate/http-contract/#form-posts-the-origin-check). Added to `trustedOrigins` in `droplets.config.ts`, read at runtime. |
 | `DROPLETS_ENV_MAX_AGE` | `600` by default | Seconds a browser or CDN may keep `/env.js`, the public variables read at runtime; `0` sends `no-store`. Read at runtime; an invalid value keeps `600`. |
 | `DROPLETS_SECRET` | 32 or more random bytes | Signs a form's result on the `303` back to your page when JavaScript is off. Without it, such a post answers the droplet's fragment instead. |
-| `PORT` | `8000` by default | Where `node dist/server.js` (and Bun's) listens. |
+| `PORT` | `server.port` of the config, `8000` by default | Where `node dist/server.js` (and Bun's) listens; `deno serve` picks its own port. |
+
+These four and `DEV_DROPLETS_LOG` (the level of the `vite dev` and
+`vite build` log) are all the framework reads. A production server logs
+errors only, with `console.error`.
 
 On your server, two values the known hosts read from their environment
 (Droplets does not read them, name them as you like):

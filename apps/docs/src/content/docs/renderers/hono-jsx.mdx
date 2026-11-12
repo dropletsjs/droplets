@@ -89,7 +89,8 @@ export default function HelloError({ error, children }: DropletErrorProps) {
 | Prerendering | yes: `prerender = true` with `entries` |
 | Forms | `useEnhanceDropletForm(formRef, options?)` of `@dropletsjs/renderer-hono-jsx/form` |
 
-What it does not do fails the build and says why:
+Two mistakes stop `vite build`, and the `vite dev` server reports them
+too, each with a message that says what to change:
 
 - a `.tsx` droplet that names no framework, or two, when several share the
   extension:
@@ -104,16 +105,19 @@ What it does not do fails the build and says why:
   droplets: a hono-jsx droplet imports react code: src/droplets/counter/+droplet.tsx -> src/droplets/counter/lib.ts -> react/index.js. A droplet uses its own framework's modules and neutral code only.
   ```
 
-A flag that is not a literal (`export const hydrate = isMobile`) is ignored,
-with a warning.
+Flags are read from `+droplet.tsx` alone. A flag that is not a literal
+(`export const hydrate = isMobile`) is ignored, with a warning under
+`vite dev` and `vite build`; a flag exported from `+droplet.ts` or
+`+droplet.server.ts` is ignored.
 
 ## Specifics
 
 - **Hydration renders again.** `hono/jsx/dom` cannot adopt server markup, so
   `hydrate` replaces the server's HTML with a fresh render, in the same task.
   The page never shows a gap, and the host's children are carried over, but
-  what the visitor did before the bundle loaded (a typed value, focus) is
-  lost. In the demo, the count the server rendered is the one the browser
+  what the visitor did before the bundle loaded (a typed value, focus, a
+  click) is lost: core holds a click on server markup to replay it after
+  hydration, and here the node it hit is gone. In the demo, the count the server rendered is the one the browser
   renders again, so nothing visible changes.
 - **One import path.** Hooks, `use`, `Suspense` and `ErrorBoundary` are
   imported from `hono/jsx` on both sides. The renderer compiles each module
@@ -125,9 +129,10 @@ with a warning.
   on the server only: in the browser, read `data` with `use`.
 - **Children:** `children` renders the host's content.
 - **Styles:** imported CSS goes to the droplet's stylesheet.
-- **Forms:** keep the action's URL from the first render,
-  `const [add] = useState(() => actionUrl("add"))` with `actionUrl` of
-  `$droplets/form`, then `<form method="post" action={add}>`.
+- **Forms:** `actionUrl` of `$droplets/form` knows the droplet only while
+  the component first renders, so keep its URL in state,
+  `const [add] = useState(() => actionUrl("add"))`, then
+  `<form method="post" action={add}>`.
 - **Hot updates:** Hono JSX has no HMR of its own. Under `vite dev` with
   `dev.strategy: "hmr"` (the default), an edit to a component remounts the
   droplet in place, without a page reload, and its state starts over. An

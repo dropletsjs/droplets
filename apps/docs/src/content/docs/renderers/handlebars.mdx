@@ -81,21 +81,35 @@ export const upper = (value: unknown) => String(value).toUpperCase();
 | Prerendering | yes: `prerender = true` with `entries` |
 | Forms | `<form method="post" action="{{action "add"}}">`, posted natively; `data-droplets-enhance` posts it by `fetch` |
 
-What it does not do fails the build and says why. The flags comment is
-checked strictly:
+The flags comment is Droplets' own syntax inside a Handlebars comment, so
+nothing else would catch a mistake in it: every mistake stops `vite build`,
+and the `vite dev` server reports it too. A flag line in any other comment:
 
 ```
 droplets: counter/+droplet.hbs: flags go in the comment the template starts with, before anything else
 ```
 
+A misspelled flag, one declared twice, a value that is not a literal, and a
+line in the flags comment that is no flag:
+
 ```
+droplets: counter/+droplet.hbs: unknown flag "hydrat" (expected ssr, hydrate, prerender)
+droplets: counter/+droplet.hbs: flag "hydrate" is declared twice
 droplets: counter/+droplet.hbs: flag "hydrate" must be true, false, "visible" or "interactive", found "maybe"
+droplets: counter/+droplet.hbs: flag "ssr" must be true or false, found "yes"
+droplets: counter/+droplet.hbs: expected `export <flag> = true|false` in the flags comment, found "keep it simple"
 ```
 
-and so is a `<style>` block, which is static CSS:
+A leading comment with no `export` line in it is an ordinary comment: it
+declares no flags, and the defaults apply.
+
+A `<style>` block is static CSS, and the build refuses one it cannot take
+out of the template:
 
 ```
 droplets: src/droplets/counter/+droplet.hbs:1: a <style> block cannot contain {{…}}: CSS is static
+droplets: src/droplets/counter/+droplet.hbs:4: a <style> block goes at the top of the template, outside {{#…}} blocks
+droplets: src/partials/footer.hbs: a partial has no <style>: put it in the droplet templates that use it
 ```
 
 ## Specifics
@@ -107,7 +121,7 @@ droplets: src/droplets/counter/+droplet.hbs:1: a <style> block cannot contain {{
   page shown there, a remount in dev), after awaiting a load's promise. For
   a droplet without children or a browser `load`, `hydrate = false` is the
   lean choice, as in the demo: no JavaScript at all for it. With
-  `hydrate = true` the same counter loads 6.9 kB (gzip) for the runtime and
+  `hydrate = true` the same counter loads 7.3 kB (gzip) for the runtime and
   the template, and still shows no button.
 - **A button that does something** needs one of two things:
   - a form: `{{action "add"}}` writes where it posts for an action in
@@ -117,8 +131,9 @@ droplets: src/droplets/counter/+droplet.hbs:1: a <style> block cannot contain {{
     [Actions](/guides/actions/);
   - or browser code next to it, in another droplet: a
     [plain script](/renderers/script/) builds its own UI from its data.
-- **Templates** are precompiled at build; only `handlebars/runtime` ships,
-  on the server and, for a droplet that hydrates, in the browser.
+- **Templates** are precompiled by the renderer's Vite plugin, in `vite dev`
+  and `vite build`; only `handlebars/runtime` ships, bundled into the server
+  build and, for a droplet that hydrates, sent to the browser.
 - **Partials and helpers** go into the renderer's own Handlebars
   environment, never the global one. `action` and `children` are the
   renderer's helpers; a project helper by those names is ignored.
@@ -127,27 +142,33 @@ droplets: src/droplets/counter/+droplet.hbs:1: a <style> block cannot contain {{
   template at build, in order, and become the droplet's stylesheet like a
   component's CSS elsewhere: through Vite (PostCSS, Tailwind, `lang="scss"`),
   scoped to the element, nothing left in the HTML. A block is static: at the
-  top of the template, outside `{{#…}}` blocks, with no `{{…}}` inside.
-  Partials have none, since every droplet registers them.
-- **Flags** are `export <flag> = <value>` lines in the opening comment, one
-  per line or all on one line (`{{!-- export hydrate = false; export prerender = true --}}`),
-  and nowhere else: one exported from `+droplet.ts` or `+droplet.server.ts`
-  is ignored. `+error.hbs` follows the droplet's flags.
+  template's top level, outside `{{#…}}` blocks, with no `{{…}}` inside, and
+  a `src` block stays empty. Partials have none, since every droplet
+  registers them.
+- **Flags** are `export <flag> = <value>` lines (`export const` works too)
+  in the comment the template opens with, one per line or all on one line
+  (`{{!-- export hydrate = false; export prerender = true --}}`). `ssr` and
+  `prerender` take `true` or `false`; `hydrate` also takes `"visible"` or
+  `"interactive"`, in quotes. A flag exported from `+droplet.ts` or
+  `+droplet.server.ts` is ignored. `+error.hbs` follows the droplet's flags:
+  flags it declares are ignored, with a warning under `vite dev`.
 - **Options:** `handlebars({ partials, helpers, compile })` moves the
   partials folder (`false` for none) or the helpers module (`false` for
   none), and passes options to `Handlebars.precompile` (`strict`,
   `noEscape`, …).
-- **Hot updates:** under `vite dev`, an edited template asks for the fragment
-  again and swaps the droplet's markup in place,
-  without a page reload
-  ([`dev.strategy`](/guides/development/#hot-updates)).
+- **Hot updates:** under `vite dev` with `dev.strategy: "hmr"` (the
+  default), an edit to a template that does not hydrate asks the server for
+  the fragment again and swaps the droplet's markup in place, without a page
+  reload. An edit to a load brings a hydrated template new `data`: it renders
+  again in place. See [Hot updates](/guides/development/#hot-updates).
 
 ## The example
 
 [`examples/frameworks/handlebars`](https://github.com/dropletsjs/droplets/tree/main/examples/frameworks/handlebars)
 has one droplet per mode (`client`, `ssr-hydrate` with an error page,
-`ssr-nohydrate`), with loads, a props schema, `/api` endpoints, env variables
-and a `handle` hook. From a clone of the repository:
+`ssr-nohydrate`), each rendering the `card` partial of `src/partials/`,
+with loads, a props schema, `/api` endpoints, env variables and a `handle`
+hook. From a clone of the repository:
 
 ```bash
 pnpm install && pnpm build

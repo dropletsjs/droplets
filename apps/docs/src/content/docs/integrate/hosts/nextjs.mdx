@@ -20,6 +20,7 @@ async function fragment(page: PageRequest, id: string, params = new URLSearchPar
   const response = await fetch(url, { headers, redirect: "manual", cache: "no-store" });
   result.status = response.status;
   result.cookies = response.headers.getSetCookie();
+  result.link = response.headers.get("link");
   if (response.status >= 300 && response.status < 400) {
     result.location = response.headers.get("location");
   } else if (
@@ -50,7 +51,7 @@ async function fragment(page: PageRequest, id: string, params = new URLSearchPar
   (`SHOP_PUBLIC_URL`), that `Cookie`, and the page's URL as `referer`.
   `cache: "no-store"` keeps Next from caching it.
 - `redirect: "manual"` keeps a droplet's 3xx, which `shopPage()` answers with
-  Next's `redirect()`.
+  Next's `redirect(location, RedirectType.replace)`.
 - Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
   page) is pasted; `Fragment` writes it with `dangerouslySetInnerHTML`.
 - Route handlers (`app/index.js/route.ts`, `app/droplets/[[...path]]`,
@@ -103,12 +104,18 @@ export function Fragment({ html }: { html: string }) {
 }
 ```
 
-`shopPage` fetches the fragments (and the toasts and the header's cart badge) in parallel
-with `x-droplet-location`, the browser's `Cookie` (from `headers()`) and the page's path
-and query as `Referer`: the droplet's
+`shopPage` fetches the page's fragments, plus `toast-center` and
+`shopping-cart` with `variant=badge` for the header, in parallel
+(`Promise.all`) with `x-droplet-location`, the browser's `Cookie` (from
+`headers()`) and the page's path and query as `Referer`: the droplet's
 [`host`](/integrate/http-contract/#host-where-the-droplet-renders). It never
-follows redirects and pastes only `text/html` answers. The `Link` preloads
-render as `<link>` elements, which React hoists into the head, and the
+follows redirects and pastes only `text/html` answers; anything else becomes
+a "droplet is unavailable" note. The product page first reads
+`GET /droplets/product-page/_data?slug=…` through `findProduct`, wrapped in
+React's `cache()` so the page and its `generateMetadata` share one lookup,
+and calls `notFound()` when there is none. The `Link` preloads (only
+`preload` and `modulepreload`, only on this host's origin) render as
+`<link>` elements, which React hoists into the head, and the
 `(shop)` root layout loads `<script type="module" src="/index.js">` once,
 through the proxy. `ShopShell` puts the `toast-center` fragment first in the
 body; `/index.js` installs `window.shopMessageQueue` before any droplet starts
@@ -123,11 +130,28 @@ body; `/index.js` installs `window.shopMessageQueue` before any droplet starts
 ### What it proxies
 
 Route handlers (`app/index.js/route.ts`, `app/droplets/[[...path]]`,
-`app/assets/[...path]`, `app/api/[...path]`, all `force-dynamic`) export
-one `proxy` for every method. They pass `/index.js`, `/droplets/*`
-(fragments, `_data`, form actions), `/assets/*` and `/api/*` to the shop:
-bodies streamed, `x-droplet-location` written out, `Set-Cookie` and redirects passed back
-untouched. The shop's cookies are first-party, and nothing is cross-origin.
+`app/assets/[...path]`, `app/api/[...path]`, all `force-dynamic`) pass
+`/index.js`, `/droplets/*` (fragments, `_data`, form actions), `/assets/*`
+and `/api/*` to the shop. Each is the same file:
+
+```ts
+// app/droplets/[[...path]]/route.ts
+export const dynamic = "force-dynamic";
+
+const proxy = (request: Request) => shop.proxy(request);
+
+export { proxy as GET, proxy as HEAD, proxy as POST, proxy as PUT, proxy as PATCH, proxy as DELETE, proxy as OPTIONS };
+```
+
+`shop.proxy` in `lib/shop.ts` sends `x-droplet-location` (the origin of
+`SHOP_PUBLIC_URL`) and passes on only `accept`, `accept-language`,
+`content-type`, `cookie`, `if-none-match`, `origin`, `referer`,
+`user-agent`, `x-droplet-props` and `x-droplets-build`: nothing that names a
+host. The body streams through (`duplex: "half"`), redirects are not
+followed, and the answer comes back with its `Set-Cookie` untouched, minus
+`content-encoding`, `content-length` and the hop-by-hop headers. When the
+shop is down it answers `502`. The shop's cookies are first-party, and
+nothing is cross-origin.
 
 ### The shop's environment
 
@@ -151,6 +175,12 @@ untouched. The shop's cookies are first-party, and nothing is cross-origin.
 - **A droplet's redirect goes out as Next's 307**: `redirect()` takes no status.
 - `suppressHydrationWarning` on the wrapper: the droplets hydrate themselves
   and may change their markup before React compares it.
+- **A fragment that is not pasted is read, not cancelled.** Next's `fetch`
+  hands back a tee of the body, and cancelling one branch waits for the
+  other forever, so `fragment()` reads the small body with
+  `response.arrayBuffer()` instead.
+- `lib/droplets.ts`, `lib/shop.ts` and `lib/shop-page.tsx` import
+  `server-only`, so none of them can end up in a client component.
 
 ### Run it
 
@@ -171,27 +201,46 @@ browser.
 ```tsx
 // lib/droplets.ts
 import "server-only";
-
-export async function fragment(droplet: string, props: Record<string, string> = {}) {
+…
+export async function fragment(
+  droplet: string,
+  props: Record<string, string> = {},
+): Promise<string> {
   const url = new URL(`/droplets/${encodeURIComponent(droplet)}`, DROPLETS_INTERNAL_URL);
   for (const [key, value] of Object.entries(props)) url.searchParams.set(key, value);
-  const response = await fetch(url, {
-    headers: { "x-droplet-location": DROPLETS_PUBLIC_URL },
-    cache: "no-store",        // fragments are per-request content
-  });
-  return response.ok ? response.text() : `<p class="error">droplet "${droplet}" unavailable</p>`;
+  try {
+    // Fragments are per-request content; never let Next cache them.
+    const response = await fetch(url, {
+      headers: { "x-droplet-location": DROPLETS_PUBLIC_URL },
+      cache: "no-store",
+    });
+    if (!response.ok) return `<p class="error">droplet "${droplet}" unavailable: HTTP ${response.status}</p>`;
+    return await response.text();
+  } catch (error) {
+    return `<p class="error">droplet "${droplet}" unavailable: ${String(error)}</p>`;
+  }
 }
 ```
 
 ```tsx
 // app/(basic)/page.tsx
-export default async function Page({ searchParams }) {
-  const { who = "Next.js" } = await searchParams;
+// The Svelte example's droplets (examples/frameworks/svelte), one per mode.
+const IDS = ["client", "ssr-hydrate", "ssr-nohydrate"];
+
+export default async function Page({ searchParams }: { searchParams: SearchParams }) {
+  const params = await searchParams;
+  const who = typeof params.who === "string" ? params.who : "Next.js";
+
   const fragments = await Promise.all(
-    ["svelte", "vue", "react", "solid", "handlebars"].map((framework) => fragment(`${framework}-ssr-hydrate`, { who })),
+    IDS.map((id) => fragment(id, { who })),
   );
-  // The droplets hydrate themselves and may change their markup before React compares it.
-  return <div suppressHydrationWarning dangerouslySetInnerHTML={{ __html: fragments.join("") }} />;
+
+  return (
+    <main style={{ maxWidth: "48rem", margin: "0 auto" }}>
+      …
+      <div suppressHydrationWarning dangerouslySetInnerHTML={{ __html: fragments.join("") }} />
+    </main>
+  );
 }
 ```
 
@@ -202,10 +251,13 @@ export default async function Page({ searchParams }) {
 </head>
 ```
 
-`cache: "no-store"` matters: Next caches `fetch()` results by default in some
-configurations, and a cached fragment would show stale data and a stale build
-hash.
+`cache: "no-store"` keeps the fragment out of Next's data cache: a cached
+fragment would show stale data and a stale build hash.
 
-The example lives in `examples/hosts/nextjs`, with `output: "standalone"` for the
-Docker image. The page and the droplets server are different origins, so the
-droplets server runs with `cors: true`.
+The example lives in `examples/hosts/nextjs`, with `output: "standalone"`
+(and `outputFileTracingRoot` set to the folder) for the Docker image, which
+runs `node server.js`. Here the page loads `/index.js` from the droplets
+server's own origin (`http://localhost:8000`), so the browser fetches
+bundles and data across origins: the Svelte example runs with `cors: true`,
+and the `droplets` service lists both `DROPLETS_URL` and `WEB_URL` in
+`DROPLETS_TRUSTED_ORIGINS`.

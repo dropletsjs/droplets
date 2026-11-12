@@ -31,8 +31,10 @@ the end-to-end test recorded it:
 
 **Server include.** The host's server fetches the fragment and renders it into
 its template. Express, Astro, SvelteKit, Next.js, FastAPI, Sinatra, plain
-PHP and the WordPress plugin all do this. It is the default choice: server-rendered,
-cacheable, works without JavaScript for non-hydrating droplets.
+PHP and the WordPress plugin all do this. It is the default choice: the page
+arrives rendered, and droplets that never hydrate, and forms through
+[Post/Redirect/Get](/guides/actions/#without-javascript-postredirectget),
+work without JavaScript.
 
 **Reverse proxy.** The host proxies the droplets routes under its own origin
 and, if it can, includes fragments itself. nginx does both with Server Side

@@ -7,10 +7,11 @@ tableOfContents: false
 import AddRenderer from "../../../components/AddRenderer.astro";
 import RendererDemo from "../../../components/RendererDemo.astro";
 
-Vue 3 single-file components, rendered on the server with
-`vue/server-renderer` and hydrated with `createSSRApp`. The droplet below is
-a Vue component served by the demo server: its load sets the start, Vue
-renders it to HTML, and the button works once the bundle hydrates it.
+Vue 3 single-file components (3.5 or later), compiled by `@vitejs/plugin-vue`,
+rendered on the server with `vue/server-renderer` and hydrated with
+`createSSRApp`. The droplet below is a Vue component served by the demo
+server: its load sets the start, Vue renders it to HTML, and the button works
+once the bundle hydrates it.
 
 <RendererDemo id="counter-vue" />
 
@@ -23,12 +24,17 @@ renders it to HTML, and the button works once the bundle hydrates it.
 | File | What it is |
 | --- | --- |
 | `+droplet.vue` | The component. Its flags go in a plain `<script>` next to `<script setup>`. |
-| `+error.vue` | The error page, optional. Compiled in custom-element mode, so its styles travel with its markup. |
+| `+error.vue` | The error page, optional. It follows the droplet's flags, and compiles in custom-element mode, so its styles travel with its markup. |
 | `+droplet.ts`, `+droplet.server.ts` | The loads, as for every framework: [Writing droplets](/guides/writing-droplets/#the-load-chain). |
 
 `.vue` is Vue's alone: any `+droplet.vue` is a Vue droplet. Other `.vue`
 files a droplet imports are Vue's own too, so only Vue droplets may import
 them.
+
+The flags are read from the plain `<script>` block alone, the one block that
+can export, as literal `export const` declarations. Vue wants both blocks in
+the same `lang`. A flag in a comment, the template, `+droplet.ts` or
+`+droplet.server.ts` is ignored.
 
 The props are `data` (what the loads returned) and `form` after a form
 action. The host's content goes where `<DropletChildren />` is:
@@ -75,21 +81,27 @@ defineProps<DropletErrorProps>();
 </style>
 ```
 
+`error` is what `handleError` in `+droplet.server.ts` (or `+droplet.ts`)
+returned; see [Errors](/guides/errors/).
+
 ## What it supports
 
 | | |
 | --- | --- |
-| Server rendering | yes: `ssr = true`, the default; `ssr = false` mounts it in the browser only |
+| Server rendering | yes: `ssr = true`, the default; `ssr = false` mounts it in the browser only (`createApp`) |
 | `hydrate` | `true` (the default), `"visible"`, `"interactive"`, `false` |
-| Prerendering | yes: `prerender = true` with `entries` |
+| Prerendering | yes: `prerender = true`, once per event `entries` returns: [Prerendering](/guides/prerendering/) |
 | Forms | `useEnhanceDropletForm(formRef, options?)` of `@dropletsjs/renderer-vue/form` |
 
-What it does not do fails the build and says why:
+Two mistakes fail `vite build`, and `vite dev` as well, with a message that
+names the fix:
 
-- importing another framework, even through a neutral file:
+- a Vue droplet that reaches another configured framework, even through a
+  neutral file (the component shows twice in the chain: once for the file,
+  once for its `<script setup>` block):
 
   ```
-  droplets: a vue droplet imports react code: src/droplets/counter/+droplet.vue -> react/index.js. A droplet uses its own framework's modules and neutral code only.
+  droplets: a vue droplet imports react code: src/droplets/counter/+droplet.vue -> src/droplets/counter/+droplet.vue -> src/lib/react-label.ts -> react/index.js. A droplet uses its own framework's modules and neutral code only.
   ```
 
 - a second component in the folder:
@@ -98,31 +110,46 @@ What it does not do fails the build and says why:
   droplets: counter/ has 2 droplet components (+droplet.svelte, +droplet.vue); keep one
   ```
 
-A flag that is not a literal (`export const hydrate = isMobile`) is ignored,
-with a warning, and an error page in another framework is ignored, with a
-warning in dev.
+Other mistakes are ignored, with a warning:
+
+- a flag that is not a literal, such as `export const hydrate = isMobile`,
+  warns under `vite dev` and `vite build`, and the flag keeps its default:
+
+  ```
+  [droplets:framework] `export const hydrate` must be true, false, "visible" or "interactive"; ignoring it { droplet: 'counter', found: 'isMobile' }
+  ```
+
+- an error page in another framework next to a Vue droplet (an
+  `+error.svelte`, say) is not used; under `vite dev` it warns
+  `counter/+error.svelte is not a vue component like the droplet; ignored, the error page is written in the droplet's framework`.
 
 ## Specifics
 
 - **`await props.data` works.** The component renders under `<Suspense>`:
   when hydrating, the value is there at once and Suspense adds nothing to the
   server's markup; when the droplet mounts from scratch (client-only,
-  refreshed in dev), `await` waits for it. A droplet mounted that way also
-  gets an error boundary (`onErrorCaptured`): `+error.vue` shows in place of
-  whatever throws while rendering, a rejected `await props.data` included.
+  remounted in dev), `await` waits for it. A droplet mounted that way with an
+  `+error.vue` also gets an error boundary (`onErrorCaptured`): `+error.vue`
+  shows in place of whatever throws while rendering, a rejected
+  `await props.data` included, with what `handleError` returned.
 - **Children:** `<DropletChildren />` of `@dropletsjs/renderer-vue/children`,
-  since `<slot>` in a Vue template is Vue's own slot.
+  since `<slot>` in a Vue template is Vue's own slot. `DropletProps` has no
+  `children`.
 - **Styles:** SFC `<style>` blocks, scoped included, go to the droplet's
   stylesheet. `+error.vue` compiles in custom-element mode, so its styles are
-  inlined and travel with the markup.
-- **Forms:** `actionUrl("add")` of `$droplets/form` in `<script setup>`, before
-  the first `await`, then `<form method="post" :action="add">`. The poll on
-  [Writing droplets](/guides/actions/) is a Vue droplet with
-  an enhanced form.
-- **Options:** `vue({ vitePlugin })` passes options to `@vitejs/plugin-vue`;
-  `features.customElement` is combined with the error page pattern. With
-  `vue({ plugin: false })` you register `@vitejs/plugin-vue` yourself, and
-  give `+error.vue` files `features.customElement`.
+  inlined: on the server they come before its markup, and in the browser they
+  are added to the document head, once per text.
+- **Forms:** `actionUrl("add")` of `$droplets/form` in `<script setup>`,
+  before the first `await`, then `<form method="post" :action="add">`.
+  `useEnhanceDropletForm(formRef, { action: "add" })` sends it with `fetch`
+  and shows the result in place; without `onResult`, it calls
+  `result.update()`. The poll on [Actions](/guides/actions/#enhancing-a-form)
+  is a Vue droplet with an enhanced form.
+- **Options:** `vue({ vitePlugin })` passes options to `@vitejs/plugin-vue`
+  as given, except `features.customElement`, which is combined with the error
+  page pattern (`customElement: true` keeps every component in custom-element
+  mode). With `vue({ plugin: false })` you register `@vitejs/plugin-vue`
+  yourself, and give `+error.vue` files `features.customElement`.
 - **Hot updates.** Under `vite dev`, with `dev.strategy: "hmr"` (the
   default), an edit to a component goes through `@vitejs/plugin-vue`'s HMR.
   A template edit re-renders and keeps the component's state; a `<script>`
@@ -135,9 +162,10 @@ warning in dev.
 ## The example
 
 [`examples/frameworks/vue`](https://github.com/dropletsjs/droplets/tree/main/examples/frameworks/vue)
-has one droplet per mode (`client`, `ssr-hydrate` with an error page,
-`ssr-nohydrate`), with loads, a props schema, `/api` endpoints, env variables
-and a `handle` hook. From a clone of the repository:
+has one droplet per mode, `client` (`ssr = false`), `ssr-hydrate` (with
+`+error.vue`) and `ssr-nohydrate` (`hydrate = false`), with loads, a props
+schema, `/api` endpoints, env variables and a `handle` hook. Its droplets
+render in `<djs-vue>`. From a clone of the repository:
 
 ```bash
 pnpm install && pnpm build

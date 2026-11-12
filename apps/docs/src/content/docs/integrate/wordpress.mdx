@@ -41,13 +41,16 @@ frameworks, with the data layer swapped for WordPress's REST API.
 
 | Droplet | Framework | Its data |
 | --- | --- | --- |
-| `product-filter` | Hono JSX | the categories, counted over the products |
+| `product-filter` | Hono JSX | the categories, counted over the products; hydrates on the first interaction |
 | `product-library`, `product-card` | Svelte | the products, their meta, their featured images |
-| `product-page` | Handlebars | a product and its related products; prerendered, stock and price filled in per request |
-| `product-comments` | Solid | the product post's approved comments |
-| `shopping-cart` | React | wp-shop's SQLite, checked against WordPress's stock and prices |
-| `toast-center` | Solid | none |
+| `product-page` | Handlebars | a product and its related products; prerendered, never hydrated, stock and price filled in per request |
+| `product-comments` | Solid | the product post's approved comments; the full oldest-first pages prerendered, hydrated when visible |
+| `shopping-cart` | React | wp-shop's SQLite, checked against WordPress's stock and prices; rendered in the browser |
+| `toast-center` | Solid | none; rendered in the browser |
 | `product-admin` | Vue | stock and prices, for the WordPress admin |
+
+There is no `login` droplet: the login is WordPress's
+([step 4](#4-the-login-is-wordpresss)).
 
 ## 2. A plugin that brings in the droplets
 
@@ -113,9 +116,12 @@ per mode, from the `droplets` service (`examples/frameworks/svelte`):
 [droplet id="ssr-nohydrate" who="WordPress"]
 ```
 
-That page loads `/index.js` from the droplets server's own origin, so that
-server runs with `cors: true`. The shop's droplets come from the site's own
-origin instead, through the plugin's proxy.
+That page loads `/index.js` from the droplets server's own public URL
+(`DROPLETS_PUBLIC_URL`), so that server runs with `cors: true` and lists
+that URL in `DROPLETS_TRUSTED_ORIGINS`: the `x-droplet-location` the
+shortcode sends is not the address WordPress reaches it at. Only a `200` is
+pasted; the shortcode passes no cookie on. The shop's droplets come from
+the site's own origin instead, through the plugin's proxy.
 
 ### The shop's shortcodes
 
@@ -128,17 +134,20 @@ origin instead, through the plugin's proxy.
 `[shop_droplet]` takes the droplet's `id`, `query` (the page's query keys to
 pass on, comma-separated, `*` for all of them) and any other attribute as a
 fixed prop. `[shop_product]` is the product page of `/product/<slug>`: the
-breadcrumbs, the `product-page` droplet and its `product-comments`.
-`/product/<slug>` is a rewrite rule to the Product page, with the slug as a
-query variable; the product's id and category come from the product page's
-public `_data` read.
+breadcrumbs, the `product-page` droplet (props `slug`, and `v` when the
+link has one) and its `product-comments` (`order`, `page` and `showing`
+from the page's query, plus `productId`). `/product/<slug>` is a rewrite
+rule to the Product page, with the slug as the `shop_product` query
+variable; the product's id and category come from the product page's
+public `_data` read. Without a slug the page redirects to `/gallery`; an
+unknown slug answers `404` with a "Not found" notice.
 
 ### Fetching the fragments, all at once
 
-On `template_redirect`, before the theme renders and while headers can
-still be sent, the plugin finds the shop shortcodes in the page and in the header and
-footer template parts and fetches all their fragments at once with
-`Requests::request_multiple`:
+On `template_redirect` (priority 20), before the theme renders and while
+headers can still be sent, the plugin finds the shop shortcodes in the page
+and in the header and footer template parts and fetches all their fragments
+at once with `Requests::request_multiple`:
 
 ```php
 // shop.php, droplets_shop_fragments()
@@ -168,8 +177,10 @@ $responses = WpOrg\Requests\Requests::request_multiple($requests);
 
 - `x-droplet-location` is this site's origin, from `SHOP_PUBLIC_URL`, never the
   client's `Host`.
-- `referer` is the page's path and query: the droplet's
-  [`host`](/integrate/http-contract/#host-where-the-droplet-renders).
+- `referer` is the page's URL, path and query: wp-shop's `handle` makes it
+  the droplet's [`host`](/integrate/http-contract/#host-where-the-droplet-renders)
+  ([below](#the-assertion-to-wp-shop)).
+- No redirect is followed, and each fetch times out after 5 seconds.
 - Only `text/html` answers are pasted (a 2xx, or a 500 with the droplet's
   error); anything else becomes a short notice.
 - Their `Set-Cookie` goes back to the browser untouched, their `Link`
@@ -179,7 +190,8 @@ $responses = WpOrg\Requests\Requests::request_multiple($requests);
 
 On every shop page the plugin fetches the `toast-center` droplet with the
 others and prints it first in the body, before the theme's header, once
-(`wp_body_open`). The toasts listen on `window.shopMessageQueue`, which
+(`wp_body_open`). The plugin also enqueues its `shop.css` on every
+front-end page. The toasts listen on `window.shopMessageQueue`, which
 `/index.js` installs before any droplet starts (the shop's
 `src/hooks.client.ts`).
 
@@ -214,9 +226,13 @@ if (preg_match('#^/(?:index\.js$|droplets/|assets/|api/)#', (string) strtok($req
 It writes `x-droplet-location` out, forwards a short list of request headers and, of
 the cookies, only `cart_id`; it never passes on an `x-wp-shop-user` the
 browser sends, and adds its own for a logged-in admin on `/droplets/*` and
-`/api/*` ([step 4](#4-the-login-is-wordpresss)). It follows no redirect and
-sends the answer back with `Set-Cookie` and redirects untouched. wp-shop's
-cookie is the site's own, and nothing is cross-origin.
+`/api/*` ([step 4](#4-the-login-is-wordpresss)). The path is appended to
+`SHOP_INTERNAL_URL` as it came, never resolved, so `//elsewhere` stays a
+path on wp-shop. It follows no redirect, waits 15 seconds at most, drops
+the hop-by-hop headers and sends the rest of the answer back, `Set-Cookie`
+and redirects untouched; when wp-shop does not answer, it is `502 The shop
+is unreachable.` wp-shop's cookie is the site's own, and nothing is
+cross-origin.
 
 PHP leaves `php://input` empty for multipart posts, so the proxy writes a
 multipart post (the admin's image upload) out again from `$_POST` and
@@ -224,10 +240,11 @@ multipart post (the admin's image upload) out again from `$_POST` and
 
 ### The pages
 
-`wordpress-init` runs `site/init.sh` with WP-CLI once, on an empty
-database: WordPress with the stock Twenty Twenty-Five theme, the catalogue
-([step 3](#3-wordpress-owns-the-data)), then ordinary pages with the
-shortcodes in `wp:shortcode` blocks:
+`wordpress-init` runs `site/init.sh` with WP-CLI on every start. On an
+empty database (`wp core is-installed` fails) it builds the site: WordPress
+with the stock Twenty Twenty-Five theme and the demo login admin /
+droplets, the catalogue ([step 3](#3-wordpress-owns-the-data)), then
+ordinary pages with the shortcodes in `wp:shortcode` blocks:
 
 | Page | Template | Content |
 | --- | --- | --- |
@@ -254,6 +271,7 @@ header and footer template parts the way the Site Editor does
 `[shop_droplet id="shopping-cart" variant="badge"]`. The front page is the
 `[droplet]` page above. There is no login page and no admin page: the
 admin is a wp-admin screen ([step 4](#4-the-login-is-wordpresss)).
+Comments need no name or email, and are not held for a previous approval.
 
 Three things WordPress would get in the way of:
 
@@ -264,8 +282,8 @@ Three things WordPress would get in the way of:
 - **No trailing slash**: the permalinks are `/%postname%`, so the shop's
   own links (`/gallery`, `/product/<slug>`) are the pages' URLs.
 - **The proxy needs the plugin active**, which `wordpress-init` does last,
-  about a minute after start; every start activates it and flushes the
-  rewrite rules again.
+  about a minute after the first start; every run activates it and flushes
+  the rewrite rules again, so `/product/<slug>` resolves.
 
 ## 3. WordPress owns the data
 
@@ -323,9 +341,10 @@ add_filter('rest_allow_anonymous_comments', static function (bool $allowed, WP_R
 
 `init.sh` imports the demo data once with `wp eval-file /site/import.php`,
 before it activates the plugin: examples/shop's generated mock data (20
-products, their images, 278 comments) as `product` posts with meta, Media
-Library attachments set as featured images, and approved comments with
-their dates. It does nothing when products are there already.
+products, their images, 278 comments) as `product` posts with meta (a 20
+percent sale on every fourth product), Media Library attachments set as
+featured images, and approved comments with their dates. It does nothing
+when products are there already.
 
 ```php
 // site/import.php
@@ -348,9 +367,9 @@ set_post_thumbnail($id, $media);
 
 `src/lib/server/wp.ts` is wp-shop's whole data layer. It reads
 
-- `GET /wp-json/wp/v2/products?per_page=100&page=…&orderby=date&order=desc&_fields=id,slug,status,date_gmt,title,content,featured_media,meta`, every page (`X-WP-TotalPages`);
+- `GET /wp-json/wp/v2/products?per_page=100&page=…&orderby=date&order=desc&_fields=id,slug,status,date_gmt,title,content,featured_media,meta`, page after page as `X-WP-TotalPages` says, ten pages at most;
 - `GET /wp-json/wp/v2/media?include=…&per_page=100&_fields=id,source_url` for the featured images;
-- `GET /wp-json/wp/v2/comments?post=…&orderby=date_gmt&order=asc|desc&per_page=…&page=…`, and the count from `X-WP-Total`;
+- `GET /wp-json/wp/v2/comments?post=…&orderby=date_gmt&order=asc|desc&per_page=…&page=…&_fields=id,post,author_name,date_gmt,content,status`, and the count from `X-WP-Total`;
 
 and writes `POST /wp-json/wp/v2/products/<id>` (stock and price,
 [step 4](#writes-back-to-wordpress)) and `POST /wp-json/wp/v2/comments` (a
@@ -358,9 +377,9 @@ visitor's comment).
 
 Every answer is untrusted input, as a request body would be:
 
-- no redirect is followed, a request times out after 5 seconds, and only a
-  JSON answer of at most 2 MB is read (`Content-Length`, then counted as it
-  streams);
+- only paths under `/wp-json/` are called, no redirect is followed, a
+  request times out after 5 seconds, and only a JSON answer of at most 2 MB
+  is read (`Content-Length`, then counted as it streams);
 - plain `JSON.parse`, then every item through a schema that names each field
   it keeps, with its type, range and length; the schema builds a new object
   of those fields only, so nothing else of the answer (a `__proto__` key
@@ -372,7 +391,8 @@ Every answer is untrusted input, as a request body would be:
   entities decoded), which the templates escape again; the HTML is never
   pasted;
 - an image counts only as a Media Library URL on WordPress's public origin
-  (`WP_PUBLIC_URL`, under `/wp-content/uploads/`).
+  (`WP_PUBLIC_URL`, under `/wp-content/uploads/`, a `.webp`, `.png` or
+  `.jpg`, without credentials, query or hash).
 
 ```ts
 // src/lib/server/wp.ts
@@ -472,19 +492,36 @@ secret is missing or short.
 // src/hooks.server.ts
 export const handle: Handle = async ({ event, resolve }) => {
   event.locals.admin = building ? null : await hostAdmin(event.request, event.url);
-  // …
+  event.locals.cartId = building ? null : cartIdFrom(event.cookies.get(CART_COOKIE));
+
+  // WordPress sends its page's URL as Referer: `host` gets the path, so a
+  // relative redirect after an action lands where it should.
+  if (!building) event.host = hostFrom(event.request.headers.get("referer")) ?? event.host;
+
+  const response = await resolve(event);
+  if (event.locals.admin || PRIVATE_API.test(event.url.pathname)) response.headers.set("cache-control", "private, no-store");
+  return response;
 };
 ```
+
+The same `handle` makes the `Referer` the plugin sends the droplet's
+`host`. [`hostFrom`](/guides/writing-droplets/#host) takes it only when it
+is a web URL on an origin in `trustedOrigins` (here
+`DROPLETS_TRUSTED_ORIGINS`, the site's origin) or wp-shop's own; anything
+else keeps the default `host`. An answer to an admin, and every
+`/api/cart*` and `/api/auth*` answer, is `private, no-store`.
 
 ### The Shop screen in wp-admin
 
 The `product-admin` droplet (stock and prices) is a top-level wp-admin
-page, **Shop**, for users who can `manage_options`
-(`shop-admin.php`). On `load-<hook>`, before wp-admin prints anything, the
-plugin fetches the fragment the way the public pages do: the admin's
-assertion for that one `GET`, the screen's URL as `Referer`, the fixed
-`x-droplet-location`. The menu page's callback prints it. `/index.js` and the screen's
-stylesheet are enqueued on that screen only:
+page, **Shop** (`admin.php?page=droplets-shop`), for users who can
+`manage_options` (`shop-admin.php`); anyone else gets `403`. On
+`load-<hook>`, before wp-admin prints anything, the plugin fetches the
+fragment the way the public pages do: the admin's assertion for that one
+`GET`, the screen's URL as `Referer`, the fixed `x-droplet-location`. The
+menu page's callback prints it, and its `Link` preloads go into
+`admin_head`. `/index.js` and the screen's stylesheet are enqueued on that
+screen only:
 
 ```php
 // shop-admin.php
@@ -508,17 +545,19 @@ inputs), some more specifically than the droplet's scoped rules;
 back.
 
 No public page has it: `[shop_droplet id="product-admin"]` renders a
-notice instead, and `/admin` redirects to the Shop screen, which sends a
-visitor to `wp-login.php`. The plugin does that redirect on
-`template_redirect` at priority 1, before WordPress's own guess
+notice instead, and `/admin`, which no page answers, redirects (`302`) to
+the Shop screen, which sends a visitor to `wp-login.php`. The plugin does
+that redirect on `template_redirect` at priority 1, before WordPress's own guess
 (`wp_redirect_admin_locations`, the dashboard); `/login` is WordPress's own
 redirect to `wp-login.php`. None of the public droplets (gallery, cart,
 toasts) are in wp-admin.
 
 Rendered without an admin anyway (a host that puts it on a public page, a
 missing secret), the droplet shows a link to
-`/wp-login.php?redirect_to=<the page>`; WordPress logs the visitor in and
-sends them back, and the next fragment fetch carries the assertion.
+`/wp-login.php?redirect_to=<the page>`, the path and query of its `host`,
+never a redirect; WordPress logs the visitor in and sends them back, and
+the next fragment fetch carries the assertion. Each of its actions checks
+again on its own and answers `fail(401)` without an admin.
 
 ### Writes back to WordPress
 
@@ -565,45 +604,58 @@ builds:
 
 ```sh
 # examples/wp-shop/scripts/start.sh
-node scripts/wait-for-wordpress.mjs   # until wp/v2/products answers 200 with products
+node scripts/wait-for-wordpress.mjs
 node node_modules/vite/bin/vite.js build
 exec node dist/server.js
 ```
+
+`wait-for-wordpress.mjs` asks `wp/v2/products?per_page=1` every 3 seconds
+until it answers `200`, JSON, with an `X-WP-Total` above 0, for 10 minutes
+at most (`WP_WAIT_MINUTES`).
 
 `wordpress-init` activates the plugin last, after the import: the product
 route exists only then, so wp-shop never builds from half a catalogue. A
 restart builds again from what WordPress has then.
 
-`v` is a short hash of what the page shows (name, text, details, image,
-category, related products), never of stock or prices. A post's
+`v` is a short hash (the first 10 hex characters of a SHA-256) of what the
+page's load returns (name, text, details, image, category, related
+products), never of stock or prices. A post's
 `modified` would do as well, but it moves with every stock edit and the
 stored page would be passed over for nothing. An edit in wp-admin to the
 title or the text gives a new `v`: the shop's links carry it, the page
 renders live, and an old link redirects to the page without `v`, as in
 [the shop](/integrate/hosts/shop-demo/).
 
-The template writes placeholders where stock and prices go, and
-`transform` fills them from WordPress on every request, over the stored
-page and a live one alike:
+The template writes placeholders where stock and prices go
+(`%live:stock-label%`, `%live:price%`, …), and
+[`transform`](/guides/prerendering/#transform) fills them from WordPress on
+every request, HTML-escaped, over the stored page and a live one alike:
 
 ```ts
 // src/droplets/product-page/+droplet.server.ts
 export const transform = async ({ html, props, host }: TransformEvent) => {
   const slug = String(props["slug"]);
   const [live, versions] = await Promise.all([liveValues(slug), pageVersions()]);
-  if (!live) return `<p class="gone">This product is no longer available. …</p>`;
+  if (!live) return `<p class="gone">This product is no longer available. <a href="/gallery">Back to the gallery</a></p>`;
+
   if (props["v"] !== undefined && props["v"] !== versions.get(slug)) {
+    // …
     const canonical = new URL(host);
     canonical.searchParams.delete("v");
     redirect(302, canonical.href);
   }
-  // %live:stock-label% → Out of stock, from the post's shop_stock now
+
   return fillVersions(fillLive(html, live), versions);
 };
 ```
 
+`host` is the WordPress page, from the `Referer` the plugin sends, so the
+redirect goes to the same page without `v`. `fillVersions` gives the
+related products' links their pages' current `v`.
+
 Set a product's stock to 0 in wp-admin and its prerendered page says "Out
-of stock" on the next request, its render id unchanged.
+of stock" within a second (the catalogue read is kept that long), its
+render id unchanged.
 
 ## 6. Run it
 

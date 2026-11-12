@@ -36,10 +36,17 @@ pick, then its `./$types`. To answer up front:
 npx djs add counter --framework script --with server,css --yes
 ```
 
-- `--target` and `--hydrate` do not apply: it is always client only, so it
-  renders nothing on the server and runs at once in the browser;
+- `--target` and `--hydrate` are refused with an error: a script droplet is
+  always client only, so it renders nothing on the server and runs at once
+  in the browser;
 - `--with` takes `server`, `universal` and `css` (a `style.css` the script
-  imports), never `error`: a script droplet has no error page.
+  imports); `--with error` is refused too, since a script droplet has no
+  error page. An `+error.*` file in its folder is ignored, with a warning
+  under `vite dev`:
+
+  ```
+  [droplets:framework] counter/+error.script.ts is ignored: a script droplet has no error page
+  ```
 
 ## The files
 
@@ -64,7 +71,8 @@ export default function (data: Data, el: HTMLElement): void | (() => void);
   `display: contents` box, so append your own element when the script needs
   something with a size, as the demo appends its `<section>`.
 - The returned function, if any, is the cleanup: it runs when the element
-  leaves the page, and `el` is emptied after it. Under `vite dev`, an edit to
+  leaves the page, and `el` is emptied after it. An `async` function works
+  too: the cleanup its promise resolves to is kept. Under `vite dev`, an edit to
   the script runs the cleanup, then the new function on the same `el`,
   without a page reload ([Hot updates](/guides/development/#hot-updates)).
 
@@ -89,9 +97,10 @@ export default track;
 | Prerendering | no |
 | Imports | any package, whatever the project's other droplets are written in |
 
-A script droplet has no flags. One it exports never fails the build: in
-`vite build` and `vite dev` it warns once per file and is ignored, and the
-droplet stays client only. `hydrate = true` is what it already is:
+A script droplet has no flags: it is `ssr` false, hydrated at once and never
+prerendered, whatever the file exports. An exported flag never fails the
+build: in `vite build` and `vite dev` each one warns once per file and is
+ignored. `hydrate = true` is what it already is:
 
 ```
 [droplets:framework] counter/+droplet.script.ts exports hydrate = true; a script droplet is always hydrated (locked to true)
@@ -106,9 +115,17 @@ with `false`, `"visible"` or `"interactive"`):
 
 Other named exports are the script's own business and say nothing.
 
-A host's `data-hydrate="false"` is ignored on a script droplet's element,
-with a warning in `vite dev`: a script droplet only runs in the browser, so
-there is nothing to keep. `data-hydrate="visible"` still defers it.
+A host's `data-hydrate="false"` is ignored on a script droplet's element: a
+script droplet only runs in the browser, so there is nothing to keep. Under
+`vite dev` the browser console says so:
+
+```
+[droplets] data-hydrate="false" on the script droplet "counter" is ignored: a script droplet only runs in the browser
+```
+
+`data-hydrate="visible"` still defers it until the element nears the
+viewport. `data-hydrate="interactive"` runs it at once: there is no server
+markup to interact with.
 
 ## Specifics
 
@@ -129,14 +146,17 @@ there is nothing to keep. `data-hydrate="visible"` still defers it.
 - **In the browser it always runs:** the element imports its bundle and
   calls the default export once per element, each with its own `el`. A
   script that throws is logged (`[droplets] <id> failed`), whatever it added
-  to `el` goes, and the other droplets on the page are not affected.
+  to `el` goes, and the other droplets on the page are not affected. A file
+  whose default export is no function fails the same way, with
+  `<id>: +droplet.script.ts must export a default function (data, el)`.
 - **Styles.** `el` is inside the element, in the light DOM: the shared
   stylesheet (`src/app.css`, scoped to the element) and a CSS file the script
   imports apply to what it adds. The demo's card uses apps/demo's
   `.demo-card` classes.
 - **Server files stay out.** As for any droplet, `+droplet.server.ts` and
   every other server file stay out of the browser bundle: a script that
-  imports one fails the build. Unlike a component, it may import any
+  imports one fails `vite build`, and `vite dev` refuses the import, each
+  naming the chain. Unlike a component, it may import any
   framework's packages: the cross-framework check leaves it alone.
 - **Size.** The demo's script is 1.6 kB (gzip) on top of the droplets
   runtime: no framework comes with it.

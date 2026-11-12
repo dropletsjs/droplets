@@ -1,6 +1,7 @@
 import { readdirSync } from "node:fs";
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
+import starlightLlmsTxt from "starlight-llms-txt";
 import { baseLinks } from "./src/plugins/base-links.mjs";
 
 // Where the site is served: https://dropletsjs.dev by default. Both come
@@ -17,6 +18,76 @@ const ownScripts = readdirSync(new URL("./src/components/", import.meta.url))
   .filter((file) => file.endsWith(".astro"))
   .map((file) => `_astro/${file}_astro_type_script_`);
 const assetsInlineLimit = (file) => (ownScripts.some((prefix) => file.startsWith(prefix)) ? false : undefined);
+
+// In reading order: the pages' "Next" links follow it, and so does llms-full.txt.
+const sidebar = [
+  {
+    label: "Start here",
+    items: ["start/what-is-a-droplet", "start/ways-to-use", "start/getting-started", "start/manual-setup"],
+  },
+  {
+    label: "Writing droplets",
+    items: [
+      "guides/writing-droplets",
+      "guides/actions",
+      "guides/prerendering",
+      "guides/errors",
+      "guides/server",
+      "guides/development",
+      "guides/configuration",
+    ],
+  },
+  {
+    label: "Renderers",
+    collapsed: true,
+    items: [
+      { label: "Overview", slug: "renderers" },
+      "renderers/svelte",
+      "renderers/vue",
+      "renderers/react",
+      "renderers/preact",
+      "renderers/solid",
+      "renderers/hono-jsx",
+      "renderers/handlebars",
+      "renderers/lit",
+      "renderers/script",
+    ],
+  },
+  {
+    label: "Integrating",
+    items: [
+      "integrate/any-stack",
+      "integrate/client-only",
+      "integrate/http-contract",
+      {
+        label: "Known hosts",
+        collapsed: true,
+        items: [
+          { label: "Overview", slug: "integrate/hosts/overview" },
+          "integrate/hosts/nginx",
+          "integrate/hosts/express",
+          "integrate/hosts/react-vite",
+          "integrate/hosts/astro",
+          "integrate/hosts/sveltekit",
+          "integrate/hosts/nextjs",
+          "integrate/hosts/fastapi",
+          "integrate/hosts/sinatra",
+          "integrate/hosts/php",
+          "integrate/hosts/htmx",
+          "integrate/hosts/shop-demo",
+        ],
+      },
+      "integrate/wordpress",
+    ],
+  },
+  { label: "In the browser", items: ["guides/in-the-browser"] },
+  { label: "Deployment", items: ["guides/deployment"] },
+  { label: "Security", items: ["guides/security"] },
+  { label: "Reference", items: ["reference/api", "reference/contributing"] },
+];
+
+/** Every page's slug, in the sidebar's order. */
+const slugs = (items) => items.flatMap((item) => (typeof item === "string" ? [item] : item.slug ? [item.slug] : slugs(item.items)));
 
 export default defineConfig({
   site,
@@ -40,70 +111,13 @@ export default defineConfig({
         "@fontsource-variable/jetbrains-mono/wght.css",
         "./src/styles/custom.css",
       ],
-      // In reading order: the pages' "Next" links follow it.
-      sidebar: [
-        {
-          label: "Start here",
-          items: ["start/what-is-a-droplet", "start/getting-started", "start/manual-setup"],
-        },
-        {
-          label: "Writing droplets",
-          items: [
-            "guides/writing-droplets",
-            "guides/actions",
-            "guides/prerendering",
-            "guides/errors",
-            "guides/server",
-            "guides/development",
-            "guides/configuration",
-          ],
-        },
-        {
-          label: "Renderers",
-          collapsed: true,
-          items: [
-            { label: "Overview", slug: "renderers" },
-            "renderers/svelte",
-            "renderers/vue",
-            "renderers/react",
-            "renderers/preact",
-            "renderers/solid",
-            "renderers/hono-jsx",
-            "renderers/handlebars",
-            "renderers/lit",
-            "renderers/script",
-          ],
-        },
-        {
-          label: "Integrating",
-          items: [
-            "integrate/any-stack",
-            "integrate/http-contract",
-            {
-              label: "Known hosts",
-              collapsed: true,
-              items: [
-                { label: "Overview", slug: "integrate/hosts/overview" },
-                "integrate/hosts/nginx",
-                "integrate/hosts/express",
-                "integrate/hosts/react-vite",
-                "integrate/hosts/astro",
-                "integrate/hosts/sveltekit",
-                "integrate/hosts/nextjs",
-                "integrate/hosts/fastapi",
-                "integrate/hosts/sinatra",
-                "integrate/hosts/php",
-                "integrate/hosts/htmx",
-                "integrate/hosts/shop-demo",
-              ],
-            },
-            "integrate/wordpress",
-          ],
-        },
-        { label: "In the browser", items: ["guides/in-the-browser"] },
-        { label: "Deployment", items: ["guides/deployment"] },
-        { label: "Security", items: ["guides/security"] },
-        { label: "Reference", items: ["reference/api", "reference/contributing"] },
+      sidebar,
+      plugins: [
+        starlightLlmsTxt({
+          promote: ["index", ...slugs(sidebar)],
+          // The live droplets are the demo's markup, the anchors "Section titled …" links.
+          customSelectors: { all: [".live-droplet", ".sl-anchor-link"] },
+        }),
       ],
       lastUpdated: false,
       pagination: true,

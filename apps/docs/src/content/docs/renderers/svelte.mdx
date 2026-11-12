@@ -1,16 +1,16 @@
 ---
 title: Svelte
-description: "Svelte droplets: djs add, +droplet.svelte, flags in <script module>, children, error pages, data as a promise, with a live droplet."
+description: "Svelte droplets: djs add, +droplet.svelte, flags in <script module>, children, error pages, data with and without experimental.async, with a live droplet."
 tableOfContents: false
 ---
 
 import AddRenderer from "../../../components/AddRenderer.astro";
 import RendererDemo from "../../../components/RendererDemo.astro";
 
-Svelte 5 components, in runes mode, rendered on the server and hydrated in
-place. The droplet below is a Svelte component served by the demo server:
-its load sets the start, Svelte renders it to HTML, and the button works once
-the bundle hydrates it.
+Svelte 5 components (5.5 or later), compiled in runes mode, rendered on the
+server and hydrated in place. The droplet below is a Svelte component served
+by the demo server: its load sets the start, Svelte renders it to HTML, and
+the button works once the bundle hydrates it.
 
 <RendererDemo id="counter-svelte" />
 
@@ -22,16 +22,20 @@ the bundle hydrates it.
 
 | File | What it is |
 | --- | --- |
-| `+droplet.svelte` | The component. Its flags go in `<script module>`. |
-| `+error.svelte` | The error page, optional. Its styles travel with its markup. |
-| `*.svelte.ts`, `*.svelte.js` | Svelte modules with runes, anywhere in `src/`: Svelte's own, so only Svelte droplets may import them. |
+| `+droplet.svelte` | The component. Its flags go in `<script module>` (or `<script context="module">`). |
+| `+error.svelte` | The error page, optional. It follows the droplet's flags, and its styles travel with its markup. |
+| `*.svelte.ts`, `*.svelte.js` | Svelte modules with runes, anywhere in `src/`. They are Svelte's own: only Svelte droplets may import them. |
 | `+droplet.ts`, `+droplet.server.ts` | The loads, as for every framework: [Writing droplets](/guides/writing-droplets/#the-load-chain). |
 
 `.svelte` is Svelte's alone, so nothing decides between renderers here: any
 `+droplet.svelte` is a Svelte droplet.
 
+The flags are read from the `<script module>` block alone, as literal
+`export const` declarations. A flag in the instance `<script>`, the markup,
+a comment, `+droplet.ts` or `+droplet.server.ts` is ignored.
+
 The props are `data` (what the loads returned), `form` after a form action,
-and `children`, a snippet for the host's content:
+and `children`, a snippet that renders the host's content:
 
 ```svelte
 <!-- src/droplets/hello/+droplet.svelte -->
@@ -68,21 +72,26 @@ and `children`, a snippet for the host's content:
 </style>
 ```
 
+`error` is what `handleError` in `+droplet.server.ts` (or `+droplet.ts`)
+returned; see [Errors](/guides/errors/).
+
 ## What it supports
 
 | | |
 | --- | --- |
 | Server rendering | yes: `ssr = true`, the default; `ssr = false` mounts it in the browser only |
 | `hydrate` | `true` (the default), `"visible"`, `"interactive"`, `false` |
-| Prerendering | yes: `prerender = true` with `entries` |
+| Prerendering | yes: `prerender = true`, once per event `entries` returns: [Prerendering](/guides/prerendering/) |
 | Forms | `use:enhanceDropletForm` of `@dropletsjs/renderer-svelte/form` |
 
-What it does not do fails the build and says why:
+Two mistakes fail `vite build`, and `vite dev` as well, with a message that
+names the fix:
 
-- importing another framework, even through a neutral file:
+- a Svelte droplet that reaches another configured framework, even through a
+  neutral file:
 
   ```
-  droplets: a svelte droplet imports vue code: src/droplets/counter/+droplet.svelte -> vue/dist/vue.runtime.esm-bundler.js. A droplet uses its own framework's modules and neutral code only.
+  droplets: a svelte droplet imports vue code: src/droplets/counter/+droplet.svelte -> src/lib/format.ts -> vue/dist/vue.runtime.esm-bundler.js. A droplet uses its own framework's modules and neutral code only.
   ```
 
 - a second component in the folder:
@@ -91,46 +100,73 @@ What it does not do fails the build and says why:
   droplets: counter/ has 2 droplet components (+droplet.svelte, +droplet.vue); keep one
   ```
 
-Two mistakes only warn: a flag that is not a literal
-(`export const hydrate = isMobile`) is ignored, and an `+error.vue` next to a
-Svelte droplet is ignored, with a warning in dev.
+Other mistakes are ignored, with a warning:
+
+- a flag that is not a literal, such as `export const hydrate = isMobile`,
+  warns under `vite dev` and `vite build`, and the flag keeps its default:
+
+  ```
+  [droplets:framework] `export const hydrate` must be true, false, "visible" or "interactive"; ignoring it { droplet: 'counter', found: 'isMobile' }
+  ```
+
+- an `+error.vue` (or any error page in another framework) next to a Svelte
+  droplet is not used; under `vite dev` it warns
+  `counter/+error.vue is not a svelte component like the droplet; ignored, the error page is written in the droplet's framework`.
 
 ## Specifics
 
 - **Compiler options.** Runes mode and `vitePreprocess()` are on, and
   `svelte.config.js` is read as usual. `svelte({ vitePlugin })` passes options
-  to `@sveltejs/vite-plugin-svelte`: its `compilerOptions` and `preprocess`
-  are merged with the renderer's, the rest replaces them. With
-  `svelte({ plugin: false })` you register the plugin yourself; it then needs
-  runes mode, `vitePreprocess()`, and `css: "injected"` for `+error.svelte`
-  through `dynamicCompileOptions`.
-- **Data is a value**, unless you turn on Svelte's `experimental.async`. The
-  renderer never turns it on; it reads whether you did. Without it, a
-  droplet mounted in the browser from scratch (client-only, refreshed in dev)
-  waits for its data before mounting, so `data.greeting` works everywhere.
-  With it, such a droplet gets `data` as a promise: read it with
-  `{(await data).greeting}`, and a rejection reaches the renderer's boundary
-  (or your own `<svelte:boundary>`). `{#await data}` works in both modes, as
-  in the demo, but without `{:catch}` it does not report a rejection.
+  to `@sveltejs/vite-plugin-svelte`: `compilerOptions` is spread over
+  `{ runes: true }`, your `preprocess` runs after `vitePreprocess()`, your
+  `dynamicCompileOptions` result is applied after the renderer's, and any
+  other key replaces the default. With `svelte({ plugin: false })` you
+  register the plugin yourself; it then needs runes mode, `vitePreprocess()`,
+  and `css: "injected"` for `+error.svelte` through `dynamicCompileOptions`.
+- **Data with and without `experimental.async`.** The renderer never turns
+  Svelte's `experimental.async` on; it reads whether you did, in
+  `svelte.config.js` or `vitePlugin`. A hydrated droplet always gets the
+  value. A droplet mounted from scratch (client-only, remounted in dev):
+  - without async mode, the renderer waits for its data before it mounts, so
+    `data` is the value there too. When the data rejects, `+error.svelte`
+    mounts in its place with what `handleError` returned.
+  - with async mode, it gets `data` as a promise: read it with
+    `{(await data).greeting}`. With an error page, the droplet renders under
+    the renderer's `<svelte:boundary>`, and a rejection (or any render error)
+    shows `+error.svelte`.
+
+  `DropletProps` types `data` as the value or a promise in both modes, so
+  `{#await data then …}`, as in the demo, is what type-checks either way.
+  Without `{:catch}` it does not report a rejection itself.
 - **Children.** `{@render children?.()}` renders the host's content. It may
   sit under an `{#if}`: the content is moved out and back, never destroyed.
 - **The error page** compiles with injected CSS, so its `<style>` travels
-  with the markup wherever it renders, even where the droplet's stylesheet
-  never loaded.
+  with the markup wherever it renders: on the server in the fragment's head,
+  in the browser when it mounts, even where the droplet's stylesheet never
+  loaded.
+- **Forms.** `actionUrl("add")` of `$droplets/form`, called in `<script>`,
+  gives the URL the form posts to, then `<form method="post" action={add}>`.
+  `use:enhanceDropletForm={{ action: "add" }}` of
+  `@dropletsjs/renderer-svelte/form` sends it with `fetch` and shows the
+  result in place; without `onResult`, it calls `result.update()`. See
+  [Actions](/guides/actions/).
 - **Hot updates.** Under `vite dev`, with `dev.strategy: "hmr"` (the
   default), an edit to a component goes through `@sveltejs/vite-plugin-svelte`'s
   HMR on any page that loads `index.js` from the dev server. Svelte 5's HMR
   swaps the component in place but creates it again, so its `$state` starts
-  over. An edit to the load brings new `data` to the live component, its
-  state kept. See [Hot updates](/guides/development/#hot-updates).
+  over. An edit to the load brings new `data` and `form` to the live
+  component, its state kept; a showing error page is remounted instead. See
+  [Hot updates](/guides/development/#hot-updates).
 
 ## The example
 
 [`examples/frameworks/svelte`](https://github.com/dropletsjs/droplets/tree/main/examples/frameworks/svelte)
-has one droplet per mode (`client`, `ssr-hydrate` with an error page,
-`ssr-nohydrate`) and a script droplet, `page-views`, with loads, a props
-schema, `/api` endpoints, env variables and a `handle` hook. From a clone of
-the repository:
+has one droplet per mode, `client` (`ssr = false`), `ssr-hydrate` (with
+`+error.svelte`) and `ssr-nohydrate` (`hydrate = false`), with loads, a props
+schema, `/api` endpoints, env variables and a `handle` hook. It also has a
+[script droplet](/renderers/script/), `page-views`, which gets a count from
+its server load and posts each view to `src/api/page-views`. Its droplets
+render in `<djs-svelte>`. From a clone of the repository:
 
 ```bash
 pnpm install && pnpm build

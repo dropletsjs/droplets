@@ -85,7 +85,7 @@ elements load JavaScript, CSS and data from the URL the page loaded
 
 `"*"` in `trustedOrigins` (or `DROPLETS_TRUSTED_ORIGINS`) trusts any
 location a request's headers name. The server allows it; under `vite dev`
-it warns once when it starts (a production server logs errors only):
+and `vite build` it warns (a production server logs errors only):
 
 ```
 trustedOrigins: "*" trusts any forwarded location; see https://dropletsjs.dev/guides/security/#trusting-any-location
@@ -113,7 +113,8 @@ checked for a web URL and a clean prefix, nothing more.
 
 ## Caching
 
-Droplet bundles, stylesheets and everything under `/assets/` are sent with
+Droplet bundles, stylesheets and everything under `/assets/` but
+`/assets/public/` are sent with
 `cache-control: public, max-age=2592000, immutable`. Files under `/assets/`
 are content-addressed; for the routes, every build gets a short hash, appended
 to their URLs as `?c=<hash>`, so a deploy invalidates them.
@@ -202,8 +203,10 @@ A page on another site can make a browser post a form to your server with
 the user's cookies. A `POST`, `PUT`, `PATCH` or `DELETE` to `/droplets/*`
 or `/api/*` whose body is form-urlencoded, multipart or `text/plain`, or
 that has no content type, answers `403` before `handle` runs unless its
-`Origin` is the server's own (or its location's) or in
-`trustedOrigins`:
+`Origin` is the server's own (or its location's), in `trustedOrigins`, or
+[`host`](/guides/configuration/#a-fixed-host) of the config (the import map
+paths are checked the same way); `"*"` in `trustedOrigins` lets every
+request through:
 
 - a form post without an `Origin`, or with `Origin: null` (a page with
   `Referrer-Policy: no-referrer`), is refused;
@@ -218,9 +221,13 @@ that has no content type, answers `403` before `handle` runs unless its
 ## CORS
 
 When the host page and the droplets server are on different origins, the
-browser needs permission to import `/droplets/<id>/client.js` as a module and
-to `POST` to `/droplets/<id>/_data` with a JSON body. Set `cors` in
-`droplets.config.ts`: `true`, or an origin list. Stylesheets need no CORS.
+browser needs permission to load `/index.js` and `/droplets/<id>/client.js`
+as modules, to `POST` to `/droplets/<id>/_data` with a JSON body, and to
+load fonts. Set `cors` in `droplets.config.ts`: `true`, or an origin list.
+Stylesheets and images need no CORS. On Cloudflare the build's files
+(`/index.js`, `/assets/*`, `client.js`, `style.css`) are answered by the
+static assets with `Access-Control-Allow-Origin: *` from the generated
+`_headers`, whatever `cors` says; `cors` covers what the Worker answers.
 With CORS on, `Access-Control-Expose-Headers` always includes `Link` and
 `x-droplets-build`, on top of any `exposeHeaders` you pass. A host that
 proxies the droplets routes under its own origin
@@ -321,9 +328,10 @@ What that token is, and is not:
   result to someone else for five minutes, and a reload shows it again.
   Never decide access from `form`, and do what must happen once in the
   action.
-- **Back only to trusted pages.** The page, and any `redirect()` target,
-  must be on the server's own origin or in `trustedOrigins`, by exact
-  origin, `http:` or `https:` only. `"*"` never counts: it lets every origin
+- **Back only to trusted pages.** The page, and any `redirect()` target
+  (for an enhanced form's JSON answer too), must be on the server's own
+  origin, in `trustedOrigins` or `host` of the config, by exact origin,
+  `http:` or `https:` only. `"*"` never counts: it lets every origin
   post, never sends the browser anywhere. A post with no page that passes
   answers `400` before its action runs.
 

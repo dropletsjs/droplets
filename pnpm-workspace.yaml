@@ -19,6 +19,7 @@ catalog:
   "@types/node": ^24.9.0
   "@types/react": ^19.3.0
   "@types/react-dom": ^19.3.0
+  starlight-llms-txt: ^0.12.0
   svelte-check: ^4.7.8
   tailwindcss: ^4.3.4
   # Builds the published packages (packages/shared).

@@ -25,11 +25,11 @@ Pages live in `src/content/docs/`, the only folder Starlight reads
 is listed in `astro.config.mjs`; a new page goes there too, since the pages'
 "Next" links follow it:
 
-1. Start here
+1. Start here (what a droplet is, the ways to use Droplets, setup)
 2. Writing droplets
 3. Renderers (Overview, then one page per renderer, plain script included)
-4. Integrating (any stack, the HTTP contract, Known hosts with one page per
-   host, WordPress)
+4. Integrating (any stack, a client-only page, the HTTP contract, Known
+   hosts with one page per host, WordPress)
 5. In the browser
 6. Deployment
 7. Security
@@ -155,14 +155,17 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - Docs `typecheck` is `astro check`. `package.json:12`
 - Node version: the repository requires Node 22 or newer. `../../package.json:9`
 - Content collection: Starlight's `docsLoader()`, which reads `src/content/docs/` only. `src/content.config.ts:6`
-- Sidebar order is the `sidebar` array of the Starlight config; the "Next" links follow it. `astro.config.mjs:44`
-- Sidebar groups, in order: Start here, Writing droplets, Renderers, Integrating, In the browser, Deployment, Security, Reference. `astro.config.mjs:46`, `astro.config.mjs:50`, `astro.config.mjs:62`, `astro.config.mjs:78`, `astro.config.mjs:103`, `astro.config.mjs:104`, `astro.config.mjs:105`, `astro.config.mjs:106`
-- Sidebar Renderers group: Overview, Svelte, Vue, React, Preact, Solid, Hono JSX, Handlebars, Lit, plain script; collapsed. `astro.config.mjs:63`
-- Sidebar Integrating group: any stack, HTTP contract, Known hosts (collapsed, one page per host plus the shop demo), WordPress. `astro.config.mjs:80`, `astro.config.mjs:83`, `astro.config.mjs:100`
-- `DOCS_SITE` defaults to `https://dropletsjs.dev`, `DOCS_BASE` to `/`. `astro.config.mjs:9`, `astro.config.mjs:10`
-- `trailingSlash` is `"always"`. `astro.config.mjs:24`
-- Component scripts of `src/components/*.astro` are never inlined (`assetsInlineLimit` returns `false` for them). `astro.config.mjs:16`, `astro.config.mjs:19`
-- `vite` stays external at prerender time, for `AddRenderer`'s `parseAst`. `astro.config.mjs:29`
+- Sidebar order is the `sidebar` constant, passed to Starlight; the "Next" links and the page order of `llms-full.txt` follow it. `astro.config.mjs:23`, `astro.config.mjs:114`, `astro.config.mjs:117`
+- Sidebar groups, in order: Start here, Writing droplets, Renderers, Integrating, In the browser, Deployment, Security, Reference. `astro.config.mjs:25`, `astro.config.mjs:29`, `astro.config.mjs:41`, `astro.config.mjs:57`, `astro.config.mjs:83`, `astro.config.mjs:84`, `astro.config.mjs:85`, `astro.config.mjs:86`
+- Sidebar Renderers group: Overview, Svelte, Vue, React, Preact, Solid, Hono JSX, Handlebars, Lit, plain script; collapsed. `astro.config.mjs:42`
+- Sidebar Integrating group: any stack, a client-only page, HTTP contract, Known hosts (collapsed, one page per host plus the shop demo), WordPress. `astro.config.mjs:59`, `astro.config.mjs:60`, `astro.config.mjs:63`, `astro.config.mjs:80`
+- `DOCS_SITE` defaults to `https://dropletsjs.dev`, `DOCS_BASE` to `/`. `astro.config.mjs:10`, `astro.config.mjs:11`
+- `trailingSlash` is `"always"`. `astro.config.mjs:95`
+- Component scripts of `src/components/*.astro` are never inlined (`assetsInlineLimit` returns `false` for them). `astro.config.mjs:17`, `astro.config.mjs:20`
+- `vite` stays external at prerender time, for `AddRenderer`'s `parseAst`. `astro.config.mjs:100`
+- Sidebar Start here group: what is a droplet, ways to use Droplets, getting started, manual setup. `astro.config.mjs:26`
+- `starlight-llms-txt` writes `/llms.txt`, `/llms-full.txt` and `/llms-small.txt` at build, pages in sidebar order (`promote`). `astro.config.mjs:116`, `astro.config.mjs:117`
+- `llms-*.txt` leave out the live droplets (`.live-droplet`) and the heading anchor links (`.sl-anchor-link`). `astro.config.mjs:119`
 - Base links: after the build, root-relative `<a href>` get the `base` prefix; nothing changes when `base` is `/`. `src/plugins/base-links.mjs:23`, `src/plugins/base-links.mjs:24`
 - Expressive Code options live in `ec.config.mjs` (themes `github-dark`, `github-light`). `ec.config.mjs:12`
 - `docs:dev` starts the demo's dev server (`pnpm run dev` in `../demo`) with `DOCS_PORT`. `scripts/dev.mjs:37`

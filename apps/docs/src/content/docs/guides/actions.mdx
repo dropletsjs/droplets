@@ -116,12 +116,16 @@ Preact and Hono JSX (a React re-render, or a mount after an `await`, is no longe
 inside the render), or pass `{ droplet, props }`.
 
 The location is where the droplets server is reached, as for
-[`$droplets/drop`](/guides/writing-droplets/#calling-your-api): the request's public location on the
-server (a [trusted `x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location)
-or forwarded headers, else the configured `origin`, else the request's origin;
-an untrusted location never reaches an action URL), and the URL the page
-loaded `/index.js` from in the browser. A prerendered droplet holds a token there (`http://droplets.invalid/__$DROPLET_LOCATION_<nonce>$__`), replaced per
-request with the location it is served from, before `transform`.
+[`$droplets/drop`](/guides/writing-droplets/#calling-your-api). On the
+server it is [`location`](/guides/configuration/#a-fixed-location) when the
+config sets it; else a
+[trusted `x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location)
+or forwarded header, else the request's own origin (an untrusted location
+never reaches an action URL). In the browser it is the URL the page loaded
+`/index.js` from. A prerendered droplet without `location` in the config
+holds a token there (`http://droplets.invalid/__$DROPLET_LOCATION_<nonce>$__`),
+replaced per request with the location it is served from, before
+`transform`.
 
 The page is `event.host` on the server (its `origin` and `pathname`; at
 prerender the host tokens, filled per request like the location) and
@@ -164,9 +168,9 @@ loses any `?/name` key (the `GET` that follows never lands on an action
 URL), `__droplet_return`, older `__droplet_form_*` keys and its hash.
 
 Every target must be on the droplets server's own origin (its location's
-included) or an origin in [`trustedOrigins`](/guides/configuration/)
-(or `DROPLETS_TRUSTED_ORIGINS`), compared by exact origin, `http:` or
-`https:` only. `"*"` never counts here: it trusts every origin to post,
+included), an origin in [`trustedOrigins`](/guides/configuration/)
+(or `DROPLETS_TRUSTED_ORIGINS`), or [`host`](/guides/configuration/#a-fixed-host)
+of the config, compared by exact origin, `http:` or `https:` only. `"*"` never counts here: it trusts every origin to post,
 never as a place to send the browser (an open redirect). A page to go back
 to is never one of the droplets server's own, under
 `<location>/droplets/` (a fragment or an action URL). A post with no page
@@ -207,6 +211,11 @@ For the droplet to see the result, `host` must be the page's URL with its
 query: the browser sends it with `_data`, and a host fetching fragments on
 its server passes it in a render request's body (`{ "host": … }`) or as
 `Referer`, read by a `handle` with [`hostFrom`](/guides/writing-droplets/#host).
+
+A form in a droplet [prerendered](/guides/prerendering/#host-at-build) for
+`host` of the config returns to the page the render was made for, not the
+visitor's: the path is filled in per request, the query is not (see
+[A fixed host](/guides/configuration/#a-fixed-host)).
 
 What to know:
 

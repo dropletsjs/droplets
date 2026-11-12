@@ -22,9 +22,11 @@ response.
 `/index.js`, `/env.js` and every path under `/assets/` (the bundles' chunks,
 stylesheets, imported files and `public/` at `/assets/public/`) are answered
 without calling `handle`, on every adapter and in `vite dev`, as SvelteKit
-serves its static files. Fragments, `_data`, actions, `/droplets/<id>/client.js`
-and `style.css`, and `/api/*` all run through it. So `handle` cannot guard a
-file: everything under `/assets/` is public to whoever has its URL. A file
+serves its static files. Fragments, `_data`, actions and `/api/*` all run
+through it. `/droplets/<id>/client.js` and `style.css` do on Node, Bun and
+Deno; on Cloudflare they are files of the build that the static assets
+answer before the Worker runs. So `handle` cannot guard a file: everything
+under `/assets/` is public to whoever has its URL. A file
 only some users may see belongs behind an endpoint that checks who asks, in
 `src/api/`, or on a storage service that hands out signed URLs, and the
 droplet links to that.
@@ -178,8 +180,20 @@ export const GET: RequestHandler<{ name: string }> = ({ params, locals }) => {
 ```
 
 Export one function per method (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`,
-`OPTIONS`), or `fallback` for the rest. A missing method answers `405` with
-`Allow`; `HEAD` is derived from `GET`.
+`OPTIONS`, `HEAD`), or `fallback` for the others of those seven. A missing
+method answers `405` with `Allow`; `HEAD` without its own export runs `GET`
+and drops the body. Any other method never reaches a handler, `fallback`
+included: `405`. A path no route matches answers `404`
+`{ "message": "Not Found" }`, and a handler that returns no `Response` a
+`500`.
+
+A folder in brackets is a parameter (`[name]`) or the rest of the path
+(`[...path]`), and one in parentheses (`(admin)`) adds nothing to the URL.
+Any other bracket form (`[[optional]]`, matchers), a repeated parameter
+name, a segment after `[...rest]`, or two routes of the same shape
+(`a/[id]` and `a/[slug]`) fail `vite dev` and `vite build`. Routes are
+matched most specific first. `+server.ts` and `+server.js` are the only
+names read.
 
 `$droplets/server` provides `json()`, `text()`, `error()`, `redirect()`,
 `sequence()` and the event types.
@@ -222,9 +236,11 @@ Like SvelteKit, a variable is private and dynamic unless it says otherwise:
 | `{ public: true }` | server and browser | the server's environment at runtime |
 | `{ public: true, static: true }` | server and browser | the build, inlined into every bundle |
 
-- Runtime values come from `.env` files in dev, the process environment on
-  Node and the bindings on Workers.
-- A static variable without a value fails the build.
+- Runtime values come from `.env` files in dev and while prerendering, the
+  process environment on Node, Bun and Deno, and the bindings on Workers
+  (`.env` files are a build input only there).
+- A static variable without a value fails `vite build`, and only warns under
+  `vite dev`.
 - A dynamic public variable changes with a restart, not a rebuild. The server
   answers `/env.js` with the current values, keyed by element name and build,
   and `/index.js` imports it before the entry, so the browser has them before

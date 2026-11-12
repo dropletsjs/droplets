@@ -20,6 +20,7 @@ async function fragment(page: PageRequest, id: string, params = new URLSearchPar
   const response = await fetch(url, { headers, redirect: "manual", cache: "no-store" });
   result.status = response.status;
   result.cookies = response.headers.getSetCookie();
+  result.link = response.headers.get("link");
   if (response.status >= 300 && response.status < 400) {
     result.location = response.headers.get("location");
   } else if (
@@ -47,8 +48,8 @@ async function fragment(page: PageRequest, id: string, params = new URLSearchPar
   `accept: text/html`, `x-droplet-location` set to this host's public origin
   (`SHOP_PUBLIC_URL`), that `Cookie`, and the page's URL as `referer`.
 - `redirect: "manual"` keeps a droplet's 3xx: `finish()` returns it as the
-  page's `Response`, and otherwise appends the fragments' `Set-Cookie` to
-  `Astro.response.headers`.
+  page's `Response`, with the fragments' `Set-Cookie`, and otherwise appends
+  them to `Astro.response.headers`. Both answers are `private, no-store`.
 - Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
   page) is pasted; `set:html` writes it unescaped.
 - `is:inline` keeps Astro from bundling the `/index.js` script. Endpoints that
@@ -102,13 +103,18 @@ const [filter, library] = page.fragments;
 <div><Fragment set:html={library} /></div>
 ```
 
-`shopPage` fetches each fragment (and the toasts and the header's cart badge) in parallel
-from `SHOP_INTERNAL_URL` with `x-droplet-location`, the browser's `Cookie`, the page's
-URL as `Referer` (the droplet's
+`shopPage` fetches each fragment, plus `toast-center` and `shopping-cart`
+with `variant=badge` for the header, in parallel (`Promise.all`) from
+`SHOP_INTERNAL_URL` with `x-droplet-location`, the browser's `Cookie`, the
+page's URL as `Referer` (the droplet's
 [`host`](/integrate/http-contract/#host-where-the-droplet-renders), query
-included) and `redirect: "manual"`, and pastes only `text/html` answers.
+included), `redirect: "manual"` and `cache: "no-store"`. Only `text/html`
+answers are pasted; anything else becomes a "droplet is unavailable" note.
+The product page first reads `GET /droplets/product-page/_data?slug=…` for
+the product's id and name, and answers `404` when there is none.
 `src/layouts/Shop.astro` writes the fragments' `Link` preloads into the head
-and loads `<script type="module" src="/index.js">` once, through the proxy.
+as `<link>` tags (only `preload` and `modulepreload`, only on this host's
+origin) and loads `<script type="module" src="/index.js">` once, through the proxy.
 The `toast-center` fragment comes first in its body; `/index.js` installs
 `window.shopMessageQueue` before any droplet starts (the shop's
 `src/hooks.client.ts`):
@@ -123,10 +129,23 @@ The `toast-center` fragment comes first in its body; `/index.js` installs
 
 Endpoints that export `ALL` forward `/index.js` (`src/pages/index.js.ts`),
 `/droplets/*` (fragments, `_data`, form actions), `/assets/*` and `/api/*`
-(`src/pages/{droplets,assets,api}/[...path].ts`) to `shop.proxy(request)`:
-bodies streamed, `x-droplet-location` written out, `Set-Cookie` and redirects passed back
-untouched. The shop's cookies are first-party, and nothing is cross-origin;
-the shop sets them only from form actions and `/api`, which come through here.
+(`src/pages/{droplets,assets,api}/[...path].ts`) to `shop.proxy(request)`
+in `src/lib/shop.ts`:
+
+```ts
+// src/pages/droplets/[...path].ts
+export const ALL: APIRoute = ({ request }) => shop.proxy(request);
+```
+
+The proxy sends `x-droplet-location` (the origin of `SHOP_PUBLIC_URL`) and
+passes on only `accept`, `accept-language`, `content-type`, `cookie`,
+`if-none-match`, `origin`, `referer`, `user-agent`, `x-droplet-props` and
+`x-droplets-build`: nothing that names a host. The body streams through
+(`duplex: "half"`), redirects are not followed, and the answer comes back
+with its `Set-Cookie` untouched, minus `content-encoding`, `content-length`
+and the hop-by-hop headers. When the shop is down it answers `502`. The
+shop's cookies are first-party, and nothing is cross-origin; the shop sets
+them only from form actions and `/api`, which come through here.
 
 ### The shop's environment
 
@@ -145,9 +164,13 @@ the shop sets them only from form actions and `/api`, which come through here.
   `security.allowedDomains` lists it, and that list is compiled in at build.
   So `astro.config.mjs` turns it off and `src/middleware.ts` runs the same
   check against `SHOP_PUBLIC_URL` from the environment: one image runs under
-  any origin. The shop checks `Origin` again on its side.
+  any origin. A `POST`, `PUT`, `PATCH` or `DELETE` that is form-urlencoded,
+  multipart, `text/plain` or has no content type answers `403` unless its
+  `Origin` is that origin. The shop checks `Origin` again on its side.
 - **Cookies go through `Astro.response.headers`**, appended as the shop sent
   them; a droplet's redirect is returned as a `Response` with its own status.
+- **`is:inline` on every script.** Without it Astro would bundle
+  `/index.js` and the speculation rules into its own assets.
 
 ### Run it
 
@@ -184,17 +207,30 @@ const fragments = await Promise.all(ids.map((id) => fragment(id, { who })));
 ```
 
 `is:inline` tells Astro to leave the external module script alone instead of
-bundling it. `fragment()` is the usual helper: `GET /droplets/<id>` on the
-internal address with `x-droplet-location` set to the public one.
+bundling it. `fragment()` in `src/lib/droplets.ts` asks for
+`GET /droplets/<id>` on `DROPLETS_INTERNAL_URL` with `x-droplet-location`
+set to `DROPLETS_PUBLIC_URL`:
 
 ```ts
-export async function fragment(droplet: string, props: Record<string, string> = {}) {
+// src/lib/droplets.ts
+export async function fragment(
+  droplet: string,
+  props: Record<string, string> = {},
+): Promise<string> {
   const url = new URL(`/droplets/${encodeURIComponent(droplet)}`, DROPLETS_INTERNAL_URL);
   for (const [key, value] of Object.entries(props)) url.searchParams.set(key, value);
-  const response = await fetch(url, { headers: { "x-droplet-location": DROPLETS_PUBLIC_URL } });
-  return response.ok ? response.text() : `<p class="error">droplet "${droplet}" unavailable</p>`;
+  try {
+    const response = await fetch(url, { headers: { "x-droplet-location": DROPLETS_PUBLIC_URL } });
+    if (!response.ok) return `<p class="error">droplet "${droplet}" unavailable: HTTP ${response.status}</p>`;
+    return await response.text();
+  } catch (error) {
+    return `<p class="error">droplet "${droplet}" unavailable: ${String(error)}</p>`;
+  }
 }
 ```
 
-The example lives in `examples/hosts/astro`. The page and the droplets server are
-different origins, so the droplets server runs with `cors: true`.
+Here the page loads `/index.js` from the droplets server's own origin
+(`http://localhost:8000`), so the browser fetches bundles and data across
+origins: the Svelte example runs with `cors: true`, and the `droplets`
+service lists both `DROPLETS_URL` and `WEB_URL` in
+`DROPLETS_TRUSTED_ORIGINS`.

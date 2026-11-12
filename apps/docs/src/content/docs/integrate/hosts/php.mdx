@@ -54,9 +54,10 @@ function shop_fragments(array $wanted): array
 
 - `shop_fragments()` sends `GET /droplets/<id>?<params>` for every fragment
   at once to `SHOP_INTERNAL_URL`, with `accept: text/html`, `x-droplet-location` set to
-  this host's public origin (`shop_origin()`, from `SHOP_PUBLIC_URL`), the
-  browser's `Cookie` as it came, and the page's path and query as `referer`
-  (`shop_raw_target()` is `$_SERVER['REQUEST_URI']`).
+  this host's public origin (`shop_origin()`, the origin of
+  `SHOP_PUBLIC_URL`), the browser's `Cookie` as it came, and the page's URL
+  as `referer`: `shop_origin()` plus `shop_raw_target()`, which is
+  `$_SERVER['REQUEST_URI']`, the path and query as the browser sent them.
 - curl never follows a redirect, so a droplet's 3xx is kept: `shop_render()`
   answers it with a `Location` header, and sends the fragments'
   `Set-Cookie` with the page.
@@ -112,9 +113,10 @@ its two:
 shop_render('gallery', 'Gallery', '/gallery', [['product-filter', $query], ['product-library', $query]]);
 ```
 
-`referer` is the page's path and query as the browser sent it
-(`REQUEST_URI`): the droplet's
-[`host`](/integrate/http-contract/#host-where-the-droplet-renders).
+`referer` is the page's URL, query included. The shop's `handle` reads it
+with `hostFrom`, so it is the droplet's
+[`host`](/integrate/http-contract/#host-where-the-droplet-renders), and after
+a form posted without JavaScript its query carries the form's result.
 `app/views/shop/layout.php` loads `<script type="module" src="/index.js">`
 once, through the proxy, and each droplet hydrates itself. The `toast-center`
 fragment comes first in its body; `/index.js` installs
@@ -122,21 +124,42 @@ fragment comes first in its body; `/index.js` installs
 `src/hooks.client.ts`):
 
 ```php
+<!-- app/views/shop/layout.php -->
 <body class="shop">
 <?= $toasts ?>
 <header class="shop-header">…<div class="shop-cart"><?= $cart ?></div>…</header>
 ```
 
-The pages are `/gallery`, `/product/<slug>` (with `v` passed on when the
-link has it), `/cart` (the cart as `variant=inline`), `/login` and `/admin`.
+The pages, `GET` and `HEAD` only, are `/gallery` (the whole query to
+`product-filter` and `product-library`), `/product/<slug>` (`slug` and `v` to
+`product-page`; `order`, `page`, `showing` and `productId` to
+`product-comments`), `/cart` (the cart as `variant=inline`), `/login`
+(`next`) and `/admin` (`view` and `id`). The product page first reads the
+product from the shop's public `GET /droplets/product-page/_data?slug=<slug>`;
+an unknown slug renders `not-found` with `404`. Every page and redirect is
+sent `Cache-Control: private, no-store`: its fragments were rendered with
+the visitor's cookies.
 
 ### What it proxies
 
-`shop_is_proxied()` matches `/index.js`, `/droplets/*` (fragments, `_data`,
-form actions), `/assets/*` and `/api/*`, for every method, before any page
-route. `shop_proxy()` passes the request on with an allowlist of the
-browser's headers and `x-droplet-location` written out, and the body from
-`php://input` as it came. The answer comes back with its status, every
+```php
+// app/shop.php
+function shop_is_proxied(string $path): bool
+{
+    return preg_match('#^/(?:index\.js$|(?:droplets|assets|api)/)#', $path) === 1;
+}
+```
+
+`shop_route()` checks it first, for every method, before any page route:
+`/index.js`, `/droplets/*` (fragments, `_data`, form actions), `/assets/*`
+and `/api/*` go to `shop_proxy()`. It passes the request on with
+`x-droplet-location` written out and only these of the browser's headers:
+`accept`, `accept-language`, `content-type`, `cookie`, `if-none-match`,
+`origin`, `referer`, `user-agent`, `x-droplet-props` and `x-droplets-build`.
+The body is `php://input` as it came, and the target is `REQUEST_URI`
+concatenated onto `SHOP_INTERNAL_URL`, never resolved, so `//elsewhere`
+stays a path on the shop. A shop that does not answer within 15 seconds is
+`502` `The shop is unreachable.` The answer comes back with its status, every
 `Set-Cookie` and any redirect untouched, and without the per-hop headers
 (`Connection` and what it names, `Keep-Alive`, `Transfer-Encoding`,
 `Upgrade` and the rest), nor `Content-Length` and `Content-Encoding`, which
@@ -172,7 +195,8 @@ actions and `/api`, which come through here.
   templates escape everything else with `h()`. See [For hosts](/guides/security/#for-hosts).
 - **`public/` is the document root**, so `app/` is never served, and
   `FallbackResource` routes any method to `index.php` with `REQUEST_URI`
-  as the browser sent it.
+  as the browser sent it. `AllowEncodedSlashes NoDecode` lets a `%2F` in a
+  path reach PHP instead of a `404` from Apache.
 
 ### Run it
 
@@ -184,32 +208,45 @@ open http://localhost:8009/gallery   # log in as admin / droplets
 
 ## The Svelte example
 
-The same app serves the Svelte example at `/`: its three droplets, one per mode, from `examples/frameworks/svelte` (the `droplets` service), all three fetched at once.
+The same app serves the Svelte example at `/` (`GET` and `HEAD`): its three
+droplets, one per mode, from `examples/frameworks/svelte` (the `droplets`
+service), all three fetched at once.
 
 ```php
 // public/index.php
 $droplets_internal = rtrim(getenv('DROPLETS_INTERNAL_URL') ?: 'http://localhost:8000', '/');
 $droplets_public = rtrim(getenv('DROPLETS_PUBLIC_URL') ?: 'http://localhost:8000', '/');
-
-$ids = array_map(fn($framework) => "{$framework}-ssr-hydrate", ['svelte', 'vue', 'react', 'solid', 'handlebars']);
-$responses = http_all(array_map(fn($id) => [
-    'url' => $droplets_internal . '/droplets/' . rawurlencode($id) . '?' . http_build_query(['who' => $who]),
-    'headers' => ['x-droplet-location' => $droplets_public],
-], $ids), 5);
+…
+    $who = isset($_GET['who']) && is_string($_GET['who']) ? $_GET['who'] : 'PHP';
+    $ids = ['client', 'ssr-hydrate', 'ssr-nohydrate'];
+    $responses = http_all(array_map(static fn(string $id) => [
+        'url' => $droplets_internal . '/droplets/' . rawurlencode($id) . '?' . http_build_query(['who' => $who]),
+        'headers' => ['x-droplet-location' => $droplets_public],
+    ], $ids), 5);
+    $fragments = [];
+    foreach ($ids as $index => $id) {
+        $response = $responses[$index];
+        $fragments[] = $response['status'] === 200
+            ? $response['body'] // trusted markup from the droplets server; never escaped
+            : sprintf('<p class="error">droplet "%s" unavailable: %s</p>', h($id), $response['status'] ? 'HTTP ' . $response['status'] : 'unreachable');
+    }
 ```
 
 ```php
+<!-- app/views/index.php -->
 <script type="module" src="<?= h($droplets_public) ?>/index.js"></script>
-...
+…
 <?php foreach ($fragments as $fragment): ?>
     <?= $fragment ?>
 <?php endforeach; ?>
 ```
 
+Here the page loads `/index.js` from the droplets server's public URL,
+another origin than the page, so the Svelte example runs with `cors: true`
+and `DROPLETS_TRUSTED_ORIGINS` lists both `DROPLETS_URL` and this host's
+`WEB_URL`.
+
 Laravel, Symfony or any other PHP framework works the same way: fetch in
 the controller (Guzzle's `Pool` or Symfony's HttpClient run several at
 once), print the body unescaped (`{!! $fragment !!}` in Blade, `|raw` in
 Twig).
-
-The example lives in `examples/hosts/php`. The page and the droplets server are
-different origins, so the droplets server runs with `cors: true`.

@@ -56,9 +56,9 @@ window.shopMessageQueue?.emit("toast", { type: "success", label: "Added to cart"
 The product card sends its add's result itself; the product page ships no
 JavaScript, so `init` relays its enhanced add from `droplets:action`. A
 toast is checked before it shows (`success`, `error` or `info`, a label of
-at most 140 characters); the stack keeps three, goes
-after 3.5 seconds unless hovered, and folds the same toast twice in a row
-into one with a counter. Without JavaScript there is no toast: the page
+at most 140 characters); the stack keeps three and drops the oldest, each
+toast goes after 3.5 seconds unless the pointer or the focus is on it, and
+the same toast twice in a row folds into one with a counter. Without JavaScript there is no toast: the page
 comes back with the button saying "✓ Added".
 
 ## How each host embeds the droplets
@@ -115,21 +115,25 @@ export const entries = (async () =>
 export const transform = async ({ html, props, host }: TransformEvent) => {
   const slug = String(props["slug"]);
   const [live, versions] = await Promise.all([liveValues(slug), pageVersions()]);
-  if (!live) return `<p class="gone">This product is no longer available.</p>`;
+  if (!live) return `<p class="gone">This product is no longer available. <a href="/gallery">Back to the gallery</a></p>`;
 
-  // An old link: the host's page without `v` (`host` is that page, from its Referer).
   if (props["v"] !== undefined && props["v"] !== versions.get(slug)) {
+    // `host` is the host page, from the Referer its server sends (a trusted
+    // origin only, see hooks.server.ts): the same page, without `v`.
     const canonical = new URL(host);
     canonical.searchParams.delete("v");
     redirect(302, canonical.href);
   }
 
-  // %live:stock-label% → Out of stock; /product/linen-notebook%v:linen-notebook% → …?v=3f9a01c2d4
   return fillVersions(fillLive(html, live), versions);
 };
 ```
 
-`transform` runs over the stored page and the live one alike, so the
+The template writes `%live:stock-label%`, `%live:price%` and the like where
+the live values go, and `%v:<slug>%` after each related product's link;
+`fillLive` and `fillVersions` replace them with the database's values and
+the current `?v=`. `transform` runs over the stored page and the live one
+alike, so the
 redirect and the replacements need no special case. A host forwards `v`
 from its page's query to the product page and answers the fragment's
 redirect as it is, as it does for any droplet. Two hosts cannot pass a
@@ -143,11 +147,19 @@ The test (`tests/hosts` in the repository) starts each host's
 `docker compose` stack and, in Chromium: opens the gallery, adds a product
 to the cart and checks the badge counts it, logs in to the admin and sets
 that product's stock to 0, goes back to the gallery, and opens the
-product's page, which says "Out of stock". A second run with JavaScript
-off adds a product from its page and lands back on the host's page with
-the result. Another renames a product in the admin and checks that the
-gallery links its new version, that its page shows the new name, and that
-the old link redirects to the page without `v`.
+product's page, which says "Out of stock". The other tests in
+`tests/hosts/e2e/shop.spec.ts`, on the same stack:
+
+- the product page's add to cart shows a toast, and the button says
+  "✓ Added";
+- with JavaScript off, an add from the product page lands back on the
+  host's page, `__droplet_form_product-page_<build>` in its query, with the
+  result on the button (skipped for the single-page app);
+- a new visitor gets an empty cart and no admin session: a host that kept
+  the shop's cookies in one server-side jar would fail it;
+- a product renamed in the admin gets a new version in the gallery's link,
+  its page shows the new name, and the old link redirects to the page
+  without `v`.
 
 ```bash
 pnpm test:hosts                    # the nine shop flows, one at a time

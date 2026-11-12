@@ -1,12 +1,13 @@
 ---
 title: nginx
-description: "nginx and IIS: Server Side Includes plus a reverse proxy, with zero application code."
+description: "nginx: Server Side Includes plus a reverse proxy, with no application code. An IIS sketch for the proxy half."
 ---
 
 import HostDemo from "../../../../components/HostDemo.astro";
 
-How nginx embeds droplets with no application code: an SSI include fetches
-each fragment while nginx serves the page, and a reverse proxy carries the rest.
+How nginx embeds droplets with no application code: a Server Side Include
+fetches each fragment while nginx serves the page, and a reverse proxy
+carries everything else the browser asks the droplets server for.
 
 ## The pattern in nginx
 
@@ -20,11 +21,12 @@ location = /gallery {
 # What the browser asks the shop for.
 location ~ ^/(index\.js|droplets/|assets/|api/) {
   proxy_pass http://shop;
-  proxy_set_header x-droplet-location "";
+  proxy_set_header x-droplet-location ${SHOP_PUBLIC_URL};
   proxy_set_header Forwarded "";
   proxy_set_header X-Forwarded-Host "";
   proxy_set_header X-Forwarded-Proto "";
   proxy_set_header X-Forwarded-Prefix "";
+  client_max_body_size 4m;
 }
 
 # The fragments the pages include.
@@ -34,8 +36,18 @@ location ^~ /_fragment/ {
   proxy_pass http://shop;
   proxy_set_header Referer ${SHOP_PUBLIC_URL}$request_uri;
   proxy_set_header Accept text/html;
+  proxy_set_header Accept-Encoding "";
+  proxy_set_header x-droplet-location ${SHOP_PUBLIC_URL};
+  proxy_set_header Forwarded "";
+  proxy_set_header X-Forwarded-Host "";
+  proxy_set_header X-Forwarded-Proto "";
+  proxy_set_header X-Forwarded-Prefix "";
   proxy_intercept_errors on;
   error_page 400 401 403 404 405 413 431 502 503 504 = @unavailable;
+}
+location @unavailable {
+  default_type text/html;
+  return 200 '<p class="shop-unavailable">This droplet is unavailable.</p>';
 }
 ```
 
@@ -46,26 +58,30 @@ location ^~ /_fragment/ {
 <aside><!--# include virtual="/_fragment/droplets/product-filter?$args" --></aside>
 ```
 
-- `ssi on` makes nginx run the page's `include virtual` while it serves
-  `/gallery`. The include is a subrequest to `/_fragment/droplets/product-filter`,
-  which `/_fragment/` rewrites to `GET /droplets/product-filter?<the page's query>`
-  on the shop, with `Accept: text/html`, the page's URL as `Referer`, and the browser's `Cookie`, which a
-  subrequest carries. nginx does not follow the answer's redirect.
+- `ssi on` makes nginx run the page's `include virtual` directives while it
+  serves `/gallery` (the file `gallery.html`). Each include is a subrequest
+  to `/_fragment/droplets/<id>`, which the `/_fragment/` location rewrites
+  to `GET /droplets/<id>?<query>` on the shop. `$args` is the page's own
+  query, passed whole: the shop drops what a droplet does not take.
+- The subrequest carries the browser's `Cookie`. nginx adds
+  `Accept: text/html`, the page's URL as `Referer` (`$request_uri` is the
+  page's in a subrequest) and `x-droplet-location`, and clears
+  `Accept-Encoding`, so the body it pastes is plain HTML.
 - The answer's body goes into the page where the include was. The error
-  statuses listed in `error_page` become a fixed note
-  (`<p class="shop-unavailable">This droplet is unavailable.</p>`), so only a
-  2xx, or a 500 with the droplet's error page, is pasted.
-- `nginx.conf` is a template: the nginx image fills in `${SHOP_PUBLIC_URL}`
-  (`http://localhost:8081`) when it starts.
+  statuses listed in `error_page` become a fixed note instead, since their
+  text may echo the query; a 500 is pasted, because it carries the droplet's
+  error page.
 - The `location ~` block passes `/index.js`, `/droplets/*`, `/assets/*` and
   `/api/*` to the shop, so the browser only talks to nginx.
-- nginx sends `x-droplet-location: ${SHOP_PUBLIC_URL}` in place of any a
-  client sent, and the shop writes every fragment's URLs on it. `Forwarded`
-  and `X-Forwarded-*` are cleared, so nothing a browser sends names another
+- `nginx.conf` is a template (the nginx image's `/etc/nginx/templates/`):
+  `${SHOP_PUBLIC_URL}` is filled in when the container starts
+  (`http://localhost:8081` by default). nginx sends it as
+  `x-droplet-location` in place of any a client sent, and clears
+  `Forwarded` and `X-Forwarded-*`, so nothing a browser sends names another
   location.
-- `DROPLETS_TRUSTED_ORIGINS=http://localhost:8081` is where the host pages
-  are. It is why the shop honours that header (its origin is listed), and it
-  bounds `event.host`, so a page anywhere else renders as the shop's own.
+- The shop honours that header because its `DROPLETS_TRUSTED_ORIGINS`
+  lists the origin, and writes every fragment's URLs (its stylesheet, its
+  form actions) on it.
 
 ## The shop demo, recorded
 
@@ -84,58 +100,81 @@ SSI pages in `examples/hosts/nginx/shop/`.
 
 | Service | Port | What it is |
 | --- | --- | --- |
-| `web` | 8081 (the shop) and 8080 (the basic page), public | `nginx:1.27-alpine` with `nginx.conf`, `shop/` and `html/` copied in (its `Dockerfile`) |
+| `web` | 8081 (the shop) and 8080 (the Svelte example), on `127.0.0.1` | `nginx:1.27-alpine` with `nginx.conf` as a template and `html/` and `shop/` copied in (its `Dockerfile`) |
 | `shop` | 8300, internal only | the shop's droplets server (`examples/shop`) |
 | `droplets` | 8000, internal only | the Svelte example's droplets server, behind port 8080 |
 
-The internal addresses are `upstream` blocks (`server shop:8300;`). The
-public ones are in two places: each droplets server's
-`DROPLETS_TRUSTED_ORIGINS` (`http://localhost:8081` for `shop`,
-`http://localhost:8080` for `droplets`),
-and `web`'s `DROPLETS_PUBLIC_URL` and `SHOP_PUBLIC_URL`, which fill in the
-`x-droplet-location` nginx sends and the `Referer` of
-`/_fragment/` (`nginx.conf` is a template, the nginx image's
-`/etc/nginx/templates/`). The shop has its own
-port because its `/index.js` and `/droplets/*` would collide with the basic
-server's on 8080.
+The internal addresses are `upstream` blocks in `nginx.conf`
+(`server shop:8300;`, `server droplets:8000;`). The public ones are in
+`docker-compose.yml`: `web`'s `SHOP_PUBLIC_URL` (`http://localhost:8081`)
+and `DROPLETS_PUBLIC_URL` (`http://localhost:8080`), which nginx sends as
+`x-droplet-location`, and each droplets server's `DROPLETS_TRUSTED_ORIGINS`,
+the same URL. `WEB_PORT`/`WEB_URL` and `DROPLETS_PORT`/`DROPLETS_URL` move
+them. The shop has a port of its own because its `/index.js` and
+`/droplets/*` would collide with the Svelte example's on 8080.
 
 ### How a page gets a droplet
 
-Server Side Includes. Each page is an `.html` file of SSI directives; every
-include goes through one internal location that sets the headers: the
-`/_fragment/` block in the pattern above.
+Server Side Includes. Each page is an `.html` file of SSI directives,
+rewritten from its path (`/gallery`, `/login`, `/admin`, `/product/<slug>`);
+`/` answers a 302 to `/gallery`, and any other path a 404. Every include goes
+through the internal `/_fragment/` location in the pattern above.
 
-A subrequest carries the browser's `Cookie`, so the cart badge and the admin
-render for the visitor. `Referer` is the page's URL: the droplet's
-[`host`](/integrate/http-contract/#host-where-the-droplet-renders). The shared
-`<head>` (`shop/_layout/head.html`) loads `<script type="module" src="/index.js">`
-once, through the proxy, and each droplet hydrates itself. The shared header
-(`shop/_layout/header.html`, included right after `<body>` on every page)
-starts with the toasts; `/index.js` installs `window.shopMessageQueue` before
-any droplet starts (the shop's `src/hooks.client.ts`):
+The subrequest carries the browser's `Cookie`, so the cart badge and the
+admin render for the visitor. `Referer` is the page's URL: the shop's
+`handle` takes the droplet's
+[`host`](/integrate/http-contract/#host-where-the-droplet-renders) from it.
+The shared `<head>` (`shop/_layout/head.html`) loads
+`<script type="module" src="/index.js">` once, through the proxy, and each
+droplet hydrates itself. The shared header (`shop/_layout/header.html`,
+included right after `<body>` on every page) starts with the toasts;
+`/index.js` installs `window.shopMessageQueue` before any droplet starts
+(the shop's `src/hooks.client.ts`):
 
 ```html
 <!--# include virtual="/_fragment/droplets/toast-center" -->
-<header class="shop-header">…<!--# include virtual="/_fragment/droplets/shopping-cart?variant=badge" -->…</header>
+<header class="shop-header"><div class="shop-wrap">
+…
+<div class="shop-cart"><!--# include virtual="/_fragment/droplets/shopping-cart?variant=badge" --></div>
+</div></header>
 ```
+
+The product page needs the product's id, name and category before it can
+include anything. `shop/product.html` reads the product page's public
+`_data` into an SSI variable (room for it: `subrequest_output_buffer_size 64k`)
+and picks them out with named captures:
+
+```html
+<!--# include virtual="/_fragment/droplets/product-page/_data?slug=$slug" set="product" -->
+<!--# if expr='$product = /"product":\{"id":"(?<pid>p_[a-z0-9]{4,32})",…/' -->
+…
+<!--# include virtual="/_fragment/droplets/product-page?slug=$slug$page_v" -->
+<section class="shop-comments"><!--# include virtual="/_fragment/droplets/product-comments?productId=$pid&$args" --></section>
+```
+
+The name and category are echoed with `encoding="entity"` (or `"url"` in
+the breadcrumb link). A slug the captures do not match renders the
+not-found layout.
 
 ### What it proxies
 
 `location ~ ^/(index\.js|droplets/|assets/|api/)` passes `/index.js`,
 `/droplets/*` (fragments, `_data`, form actions), `/assets/*` and `/api/*`
 to the shop with `x-droplet-location` set to `${SHOP_PUBLIC_URL}` and
-`Forwarded` and `X-Forwarded-*` cleared. Bodies, `Set-Cookie` and `303`s pass through as they are, so the
-cart and the login cookies are first-party, and nothing is cross-origin.
-`client_max_body_size 4m` lets the admin's image uploads through.
+`Forwarded` and `X-Forwarded-*` cleared. Bodies, `Set-Cookie` and `303`s
+pass through as they are, so the cart and the login cookies are
+first-party, and nothing is cross-origin. `client_max_body_size 4m` lets
+the admin's image uploads through.
 
 ### The shop's environment
 
 - `DROPLETS_TRUSTED_ORIGINS: http://localhost:8081`: where the host pages
   are. The shop honours the
   [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location)
-  nginx sends because its origin is listed, writes its URLs there, and
-  accepts [form posts](/integrate/http-contract/#form-posts-the-origin-check)
-  from it. It bounds `event.host`: a host outside it becomes the shop's origin.
+  nginx sends because its origin is listed, and accepts
+  [form posts](/integrate/http-contract/#form-posts-the-origin-check) from
+  it. It also bounds `event.host`: a host page outside it renders as the
+  shop's own origin.
 - `DROPLETS_SECRET`: signs a form's result on the redirect back to the page
   when JavaScript is off ([Post/Redirect/Get](/integrate/http-contract/#postredirectget)).
 - `ADMIN_USER`, `ADMIN_PASSWORD`, `SHOP_SECRET`: the demo login
@@ -144,17 +183,36 @@ cart and the login cookies are first-party, and nothing is cross-origin.
 ### Gotchas
 
 - **SSI drops a fragment's headers.** An `include virtual` is a subrequest:
-  nginx copies its body into the page and discards its `Set-Cookie`, its
-  `Link` preloads and its redirect. The shop is fine with that, since it sets
+  nginx copies its body into the page and discards its response headers,
+  and no directive copies them to the main response. A fragment's
+  `Set-Cookie` and its `Link` preloads never reach the browser, and its
+  redirect is not passed on. The shop is fine with that, since it sets
   cookies only from form actions and `/api`, which go through the proxy. A
   droplet that sets a cookie or redirects on a plain `GET` cannot be
   composed with SSI: render that page in code (njs, OpenResty, or another
   host on this list).
-- **The product page asks first.** An `auth_request` to the product
-  fragment turns an unknown slug into a 404 and an old `v` into a 302 from
-  nginx, since SSI could not pass the fragment's redirect on. The product's
-  name and id come from its `_data` read into an SSI variable
-  (`subrequest_output_buffer_size 64k`).
+- **The product page asks first.** The shop answers the product fragment
+  with a 404 for an unknown slug and a redirect for an old `v`, which SSI
+  could not pass on. So the product location runs
+  `auth_request /_product-check`, a request for the same fragment (no
+  `Cookie`, no body) before the page: a 404 becomes the not-found page with
+  status 404, a redirect becomes nginx's own 302 to the URL without `v`.
+
+```nginx
+location ~ "^/product/(?<slug>[a-z0-9]+(?:-[a-z0-9]+)*)$" {
+  ssi on;
+  set $page_v $shop_page_v;
+  set $page_without_v /product/$slug$shop_query_without_v;
+  auth_request /_product-check;
+  error_page 401 =404 /not-found.html;
+  error_page 403 = @old-version;
+  rewrite ^ /product.html break;
+}
+```
+
+`/_product-check` turns the fragment's 404 into a 401 and any 3xx into a
+403 (`auth_request` only passes those on); the `map` blocks at the top of
+the file split `v` off the page's query.
 
 ### Run it
 
@@ -164,38 +222,48 @@ docker compose up --build
 open http://localhost:8081/gallery   # log in as admin / droplets
 ```
 
+`pnpm test:hosts nginx` runs the shop flow against this stack, from the
+repository root.
+
 ## The Svelte example
 
-Port 8080 serves the Svelte example: its three droplets, one per mode, from `examples/frameworks/svelte` (the `droplets` service), with the same two tools.
+Port 8080 serves the Svelte example: its three droplets, one per mode,
+from `examples/frameworks/svelte` (the `droplets` service), with the same
+two tools.
 
-The host is a static `index.html`. nginx does two things:
+The host is a static `html/index.html`. nginx does two things:
 
 - **Server Side Includes.** `<!--# include virtual="/droplets/ssr-hydrate?who=nginx" -->`
   makes nginx fetch the fragment while serving the page, so the browser
   receives server-rendered markup.
-- **Reverse proxy.** The droplets routes are proxied under nginx's own origin.
-  The browser only ever talks to nginx, so the droplets server needs no CORS,
-  and the `x-droplet-location` nginx sends tells it to write the fragments' URLs on nginx's origin. Droplets build
-  their API calls from that origin ([`$droplets/drop`](/reference/api/#dropletsdrop)),
-  so `/api/*` goes through the proxy too.
+- **Reverse proxy.** The droplets routes are proxied under nginx's own
+  origin. The browser only ever talks to nginx, so no CORS is involved, and
+  the `x-droplet-location` nginx sends has the droplets server write the
+  fragments' URLs on nginx's origin. A droplet calls the droplets server's
+  `/api` on the origin its page loaded `/index.js` from
+  ([`$droplets/drop`](/reference/api/#dropletsdrop)), so `/api/*` goes
+  through the proxy too.
 
 ### The page
 
 ```html
-<!doctype html>
-<html lang="en">
+<!-- html/index.html (trimmed) -->
 <head>
   <meta charset="utf-8">
   <title>Droplets in nginx</title>
+  <!-- One script per page, served through the proxy from the droplets server. -->
   <script type="module" src="/index.js"></script>
 </head>
 <body>
+  …
   <!--# include virtual="/droplets/client?who=nginx" -->
   <!--# include virtual="/droplets/ssr-hydrate?who=nginx" -->
   <!--# include virtual="/droplets/ssr-nohydrate?who=nginx" -->
 </body>
-</html>
 ```
+
+`client` renders in the browser, `ssr-hydrate` is server-rendered and
+hydrated, `ssr-nohydrate` is server-rendered and loads no JavaScript.
 
 ### The configuration
 
@@ -206,7 +274,10 @@ upstream droplets {
 
 server {
   listen 80;
+  server_name _;
+
   root /usr/share/nginx/html;
+  index index.html;
 
   # Static pages with <!--# include virtual="/droplets/<id>" --> directives.
   location / {
@@ -228,33 +299,42 @@ server {
 }
 ```
 
-nginx tells the droplets server where it is: `DROPLETS_PUBLIC_URL`
-(`http://localhost:8080`) is written into the config when the container
-starts, so the header is never built from the request. The droplets server
-honours it because its origin is listed:
+The includes here go to `/droplets/<id>` directly, through the same
+proxy location, so they get the same `x-droplet-location`. nginx tells the
+droplets server where it is: `DROPLETS_PUBLIC_URL` (`http://localhost:8080`)
+is written into the config when the container starts, so the header is
+never built from the request. The droplets server honours it because its
+origin is listed:
 
 ```yaml
 # docker-compose.yml
 droplets:
   environment:
-    DROPLETS_TRUSTED_ORIGINS: http://localhost:8080
+    DROPLETS_TRUSTED_ORIGINS: ${DROPLETS_URL:-http://localhost:8080}
 web:
   environment:
-    DROPLETS_PUBLIC_URL: http://localhost:8080
+    DROPLETS_PUBLIC_URL: ${DROPLETS_URL:-http://localhost:8080}
 ```
 
-`DROPLETS_TRUSTED_ORIGINS` is where the host pages are: it makes that
-location header count and keeps `event.host` within them.
+`DROPLETS_TRUSTED_ORIGINS` is also where the host page is, so it keeps
+`event.host` on it.
 
-`proxy_set_header x-droplet-location` replaces a client's own header, and
-the other lines clear the forwarded ones, so nothing a browser sends names
-another location.
+### Behind a path or several public URLs
 
-Behind a path (`location /mfe/`), put the path in the URL:
-`proxy_set_header x-droplet-location https://shop.example/mfe;`. With
-several public URLs (one server for `shop.example` and `www.shop.example`),
-list them all and let nginx say which one the request came through, with
-the path:
+Not part of the example, the same proxy behind a path prefix: put the path
+in the URL, `proxy_set_header x-droplet-location https://shop.example/mfe;`,
+and the droplets server writes every URL under `https://shop.example/mfe`.
+
+With several public URLs (one server for `shop.example` and
+`www.shop.example`), give each `server` block its own written-out
+`x-droplet-location`, and list every origin in `DROPLETS_TRUSTED_ORIGINS`:
+
+```bash
+DROPLETS_TRUSTED_ORIGINS=https://shop.example,https://www.shop.example
+```
+
+A proxy can instead pass the forwarded headers it already knows, with the
+prefix:
 
 ```nginx
 location /mfe/ {
@@ -265,28 +345,38 @@ location /mfe/ {
 }
 ```
 
-```bash
-DROPLETS_TRUSTED_ORIGINS=https://shop.example,https://www.shop.example
-```
-
-`$host` comes from the client's `Host` header, so it is only used when it
-is one of the listed origins; any other falls back to the request's own
-origin (with a warning under `vite dev`).
-
-Run it from the repository: `cd examples/hosts/nginx && docker compose up --build`,
-then open `http://localhost:8080`.
+`$host` comes from the client's `Host` header, so the droplets server uses
+that location only when its origin is in `DROPLETS_TRUSTED_ORIGINS`; any
+other falls back to the request's own origin (with a warning under
+`vite dev`). See [`x-droplet-location`](/integrate/http-contract/#x-droplet-location-the-public-location)
+for the order the headers are read in.
 
 ## IIS
 
-`examples/hosts/nginx/iis/web.config` is the equivalent URL Rewrite + Application
-Request Routing (ARR) reverse-proxy configuration. It has **not** been run on
-a Windows host; treat it as a starting point. Two notes:
+`examples/hosts/nginx/iis/web.config` is a URL Rewrite and Application
+Request Routing (ARR) sketch of the proxy half. It has not been run on a
+Windows host. It rewrites `index.js`, `droplets/*`, `assets/*` and `api/*`
+to `http://localhost:8000`:
 
-- Enable "proxy" in ARR's server settings, and allow the `HTTP_X_HOST` server
-  variable in `applicationHost.config` so the rewrite rule can set it. Set it
-  to the site's public URL, written out, never to a value built from the
-  request's `Host`.
-- IIS cannot include arbitrary URLs server-side. Pair it with a page that
-  fetches fragments itself (an ASP.NET page following the
-  [Express](/integrate/hosts/express/) pattern) or with the client-only pattern from
-  the [React example](/integrate/hosts/react-vite/).
+```xml
+<rule name="droplets" stopProcessing="true">
+  <match url="^(index\.js|droplets/.*|assets/.*|api/.*)$" />
+  <action type="Rewrite" url="http://localhost:8000/{R:0}" />
+  <serverVariables>
+    <set name="HTTP_X_HOST" value="https://www.example.com" />
+  </serverVariables>
+</rule>
+```
+
+As written, the rule sets an `X-Host` request header, which the droplets
+server does not read: the header it reads is `x-droplet-location`. To use
+the sketch, set the server variable `HTTP_X_DROPLET_LOCATION` to the site's
+public URL, written out, never built from the request's `Host`; allow that
+variable in `applicationHost.config`; enable "proxy" in ARR's server
+settings; and list the URL's origin in the droplets server's
+`DROPLETS_TRUSTED_ORIGINS`.
+
+IIS cannot include arbitrary URLs server-side. Pair it with a page that
+fetches fragments itself (an ASP.NET page following the
+[Express](/integrate/hosts/express/) pattern) or with the client-only
+pattern from the [React example](/integrate/hosts/react-vite/).

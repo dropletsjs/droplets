@@ -134,7 +134,7 @@ templates import `dist/runtime.js` by path.
 - Flags in any comment but the leading one (a known flag name after `export`) fail the build. `src/index.ts:113`
 - Flags: a template Handlebars cannot parse declares none; the compiler reports it. `src/index.ts:108`
 - Flags exported from `+droplet.ts` or `+droplet.server.ts` are ignored, in a build and in `vite dev`. `test/index.test.ts:188`
-- Flags `+error.hbs` declares are ignored with a warning: it follows the droplet's flags. `../../droplets/src/core/discover.ts:155`
+- Flags `+error.hbs` declares are ignored, with a warning under `vite dev` only: it follows the droplet's flags. `../../droplets/src/core/discover.ts:183`
 - `readTemplateFlags(source, where)` and `readFlags` are exported from the package. `src/index.ts:102`, `src/index.ts:157`
 - Plugin is named `droplets:handlebars` and runs with `enforce: "pre"`. `src/plugin.ts:178`, `src/plugin.ts:181`
 - Plugin bundles `handlebars` and `handlebars/*` into the `ssr` and `server` builds (`noExternal`). `src/plugin.ts:189`, `src/plugin.ts:192`

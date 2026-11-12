@@ -37,14 +37,14 @@ like for like.
 
 | Renderer | Droplet file | Server-rendered | `hydrate` | Client JS | Notes |
 | --- | --- | --- | --- | --- | --- |
-| [Svelte](/renderers/svelte/) | `+droplet.svelte` | yes | all four | 16.0 kB | Svelte 5 in runes mode; flags in `<script module>` |
-| [Vue](/renderers/vue/) | `+droplet.vue` | yes | all four | 30.1 kB | wrapped in `<Suspense>`: `await props.data` works |
-| [React](/renderers/react/) | `+droplet.tsx`, `.jsx` | yes | all four | 68.5 kB | React 19; Fast Refresh on any host page |
-| [Preact](/renderers/preact/) | `+droplet.tsx`, `.jsx` | yes | all four | 7.6 kB | `data` is always the value; no React alias |
-| [Solid](/renderers/solid/) | `+droplet.tsx`, `.jsx` | yes | all four | 8.5 kB | hydration keyed per render |
-| [Hono JSX](/renderers/hono-jsx/) | `+droplet.tsx`, `.jsx` | yes | all four | 8.4 kB | `hono/jsx`; hydration renders again |
-| [Handlebars](/renderers/handlebars/) | `+droplet.hbs` | yes | all four | 0 with `hydrate = false`, 6.9 kB with `true` | no behaviour in the browser; flags in a comment |
-| [Lit](/renderers/lit/) | `+droplet.lit.ts`, `.lit.js` | yes (Lit Labs) | all four | 10.9 kB | declarative shadow DOM; styles live in the shadow root |
+| [Svelte](/renderers/svelte/) | `+droplet.svelte` | yes | all four | 17.1 kB | Svelte 5 in runes mode; flags in `<script module>` |
+| [Vue](/renderers/vue/) | `+droplet.vue` | yes | all four | 30.3 kB | wrapped in `<Suspense>`: `await props.data` works |
+| [React](/renderers/react/) | `+droplet.tsx`, `.jsx` | yes | all four | 69.9 kB | React 19; Fast Refresh on any host page |
+| [Preact](/renderers/preact/) | `+droplet.tsx`, `.jsx` | yes | all four | 7.9 kB | `data` is always the value; no React alias |
+| [Solid](/renderers/solid/) | `+droplet.tsx`, `.jsx` | yes | all four | 8.9 kB | hydration keyed per render |
+| [Hono JSX](/renderers/hono-jsx/) | `+droplet.tsx`, `.jsx` | yes | all four | 8.7 kB | `hono/jsx`; hydration renders again |
+| [Handlebars](/renderers/handlebars/) | `+droplet.hbs` | yes | all four | 0 with `hydrate = false`, 7.3 kB with `true` | no behaviour in the browser; flags in a comment |
+| [Lit](/renderers/lit/) | `+droplet.lit.ts`, `.lit.js` | yes (Lit Labs) | all four | 11.3 kB | declarative shadow DOM; styles live in the shadow root |
 | [Plain script](/renderers/script/) | `+droplet.script.ts`, `.script.js` | no: an empty element | always `true` (client only) | 1.6 kB | built in, no package; `(data, el)` |
 
 </div>
@@ -57,9 +57,10 @@ like for like.
 - **Client JS** is measured, not estimated: the JavaScript a page loads for
   that renderer's counter in apps/demo's build (`pnpm --filter
   @dropletsjs/demo build`), gzipped: the droplet's bundle and every chunk it
-  imports, the framework included. On top of it, every page loads the
-  droplets runtime once, from `/index.js` (9.6 kB in that build), whatever
-  the frameworks. Svelte 5.57, Vue 3.5, React 19.3, Preact 11.2, Solid 1.9,
+  imports that `/index.js` does not already load, the framework included.
+  On top of it, every page loads the
+  droplets runtime once, from `/index.js` (10.2 kB in that build), whatever
+  the frameworks. Svelte 5.57, Vue 3.5, React 19.3, Preact 11.1, Solid 1.9,
   Hono 4.13, Handlebars 4.7 and Lit 3.3; a second droplet in the same
   framework shares the framework's chunk.
 - **`.tsx` and `.jsx`** belong to four renderers: a droplet file goes to the
@@ -126,9 +127,9 @@ src/
 
   A package entry may be a subpath: Hono JSX owns `hono/jsx`, not `hono`, so
   a droplet that imports `hono/client` or `hono/cookie` stays neutral.
-- **Compiled once per framework.** Every module a droplet reaches is compiled
-  for that droplet's framework (the plugin tags it
-  `?droplets-renderer=<name>`), so a neutral `lib/format.tsx` imported by a
+- **Compiled once per framework.** When two listed renderers share an
+  extension, every module a droplet reaches is compiled for that droplet's
+  framework (the plugin tags it `?droplets-renderer=<name>`), so a neutral `lib/format.tsx` imported by a
   React droplet and a Solid droplet is compiled twice, once by each, and
   bundled with each. Each compiles for its own JSX runtime whatever
   `jsxImportSource` tsconfig.json names; that setting only types the files,
@@ -153,7 +154,7 @@ src/
 
 `examples/shop` puts six frameworks in one project: nine droplets, each in
 the framework that suits it. `examples/frameworks/<name>` has one example per
-framework instead, one droplet per mode, and apps/demo, which serves the live
+framework instead, one droplet per mode plus a script droplet, and apps/demo, which serves the live
 droplets of these pages, all nine.
 
 ## Writing a renderer
@@ -166,7 +167,8 @@ is one), a client module with `mount`,
 `hydrate` and `unmount`, optional flag reading (`readFlags`, from the
 component's source only; `readExportedFlags` of `@dropletsjs/droplets/vite`
 reads a module's exports), a once-per-page client
-setup, and an optional `clientDev` module for `vite dev` alone. Its
+setup (`clientSetup`), the package `./$types` takes `DropletProps` and
+`DropletErrorProps` from (`componentTypes`), and an optional `clientDev` module for `vite dev` alone. Its
 `update(instance, props)` gives a live instance a load edit's new data
 without a remount; a production build leaves the module out.
 
