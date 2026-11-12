@@ -1,31 +1,36 @@
 name: Release
 
-# Changesets flow, in two jobs so that only the publish step can publish:
+# Changesets flow, in two jobs so that only the publish job can publish:
 #
 #   1. `version` (every push to main): while .changeset/*.md files exist it
 #      opens or updates the "Version Packages" PR. It has no id-token and no
 #      environment, so it cannot publish anything.
-#   2. `publish`: runs only when no changesets are pending AND at least one of
-#      the public packages has a version that is not on npm yet (i.e. right
-#      after the Version PR merged). It runs in the `npm-release` environment,
-#      which requires a reviewer's approval, and publishes through npm trusted
-#      publishing (OIDC): there is no NPM_TOKEN anywhere. Provenance is
-#      generated automatically for a public repo + public package.
+#   2. `publish`: runs only when no changesets are pending AND npm answers
+#      E404 for at least one public package's version (right after the
+#      Version PR merged). It publishes through npm trusted publishing (OIDC):
+#      there is no NPM_TOKEN anywhere.
+#
+# While the repository is private on GitHub's Free plan, environments have no
+# protection rules: `npm-release` only labels the OIDC token, which the npm
+# trusted publisher is bound to. Required reviewers and `main` as the only
+# deployment branch get switched on when the repository becomes public.
+# Until then nothing can be published from here: NPM_CONFIG_PROVENANCE=true
+# makes npm refuse to publish, since provenance needs a public repository.
+# 1.0.0 is published by hand; until it is, every package is an E404, so the
+# publish job runs on each push to main and fails without publishing.
 #
 # There is no pre mode: `changeset publish` publishes under the `latest`
 # dist-tag. The guard step below refuses to publish if a .changeset/pre.json
 # appears, so nothing goes out under a pre-release tag by accident.
 #
 # GitHub-hosted runners only: npm trusted publishing doesn't accept
-# self-hosted runners, and a self-hosted runner must never serve this public
-# repo anyway (see ci.yml).
-#
-# Never add `pull_request_target` or `workflow_run` triggers here.
+# self-hosted runners. Triggers and runners: AGENTS.md rule 22, checked by
+# tests/packages/test/workflows.test.ts. A failed run is re-run from the
+# Actions page.
 
 on:
   push:
     branches: [main]
-  workflow_dispatch:
 
 # Read-only by default; each job asks for what it needs.
 permissions:
@@ -57,7 +62,9 @@ jobs:
         with:
           node-version: 22
           package-manager-cache: false
-      - run: pnpm install --frozen-lockfile
+      # This job builds nothing (`changeset version` is plain JavaScript), so
+      # no dependency gets to run an install script here.
+      - run: pnpm install --frozen-lockfile --ignore-scripts
       # No publish-script: this job only versions. changesets/action v2 pushes
       # through the GitHub API with the job token, so checkout needn't keep it.
       - id: changesets
@@ -69,15 +76,24 @@ jobs:
       - id: pending
         name: Any public package version not on npm yet?
         if: steps.changesets.outputs.has-changesets == 'false'
+        # Only npm's E404 means "not published"; any other failure (the
+        # network, the registry, auth) stops the job instead of guessing.
         run: |
           pnpm ls -r --depth -1 --json \
             | node -e 'for (const p of JSON.parse(require("fs").readFileSync(0, "utf8"))) if (!p.private && p.name && p.version) console.log(`${p.name}@${p.version}`)' \
             > "$RUNNER_TEMP/public-packages.txt"
           unpublished=false
           while read -r spec; do
-            if ! npm view "$spec" version >/dev/null 2>&1; then
+            if out=$(npm view "$spec" version --json 2>/dev/null); then
+              continue
+            fi
+            code=$(node -e 'try { console.log(JSON.parse(process.argv[1]).error?.code ?? "") } catch { console.log("") }' "$out")
+            if [ "$code" = E404 ]; then
               echo "Not on npm yet: $spec"
               unpublished=true
+            else
+              echo "::error::npm view $spec failed with ${code:-no error code}, not E404: cannot tell whether it is published"
+              exit 1
             fi
           done < "$RUNNER_TEMP/public-packages.txt"
           echo "unpublished=$unpublished" >> "$GITHUB_OUTPUT"
@@ -88,9 +104,6 @@ jobs:
     if: needs.version.outputs.has-changesets == 'false' && needs.version.outputs.unpublished == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # Required reviewers + "main only" deployment branches are set on the
-    # environment in the repository settings. The npm trusted publisher is bound to this
-    # environment name, so the OIDC token is only accepted from here.
     environment: npm-release
     permissions:
       contents: write # git tags + GitHub releases
@@ -109,6 +122,11 @@ jobs:
       # Trusted publishing needs npm >= 11.5.1 (dist-tag handling >= 11.21.0);
       # Node 22 ships npm 10. `pnpm publish` hands the tarball to this npm.
       - run: npm install -g npm@11.21.2
+      - name: Refuse to publish with an npm older than 11.5.1
+        run: |
+          version=$(npm --version)
+          node -e 'const [major, minor, patch] = process.argv[1].split(/[.-]/).map(Number); process.exit(major > 11 || (major === 11 && (minor > 5 || (minor === 5 && patch >= 1))) ? 0 : 1)' "$version" \
+            || { echo "::error::npm $version is older than 11.5.1, the first with trusted publishing"; exit 1; }
       - name: Refuse to publish in pre mode
         run: |
           test ! -f .changeset/pre.json || { echo "::error::.changeset/pre.json exists: pre mode is on, and releases publish under latest only"; exit 1; }

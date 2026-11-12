@@ -1,4 +1,4 @@
-`tests/packages`: the published packages as `npm pack` writes them, checked against each package's `tsdown.config.ts`, and the ranges the examples ask for them at.
+`tests/packages`: the published packages as `npm pack` writes them, checked against each package's `tsdown.config.ts`, the ranges the examples ask for them at, and the triggers and runners of the workflows.
 
 ## Rules
 
@@ -17,6 +17,8 @@
 - Every published package built by tsdown is in `PACKAGES`.
 - Every example under `examples/` declares the published ranges: `@dropletsjs/*` at `^<the packages' version>`, the pnpm catalog's tools at the catalog's literal range (the workspace examples; the hosts bring their own toolchains), and no `workspace:` or `catalog:` range anywhere.
   Checked by: `test/examples.test.ts`.
+- Every workflow in `.github/workflows/` runs on a GitHub-hosted runner, from `pull_request` and `push` events only.
+  Checked by: `test/workflows.test.ts`.
 - The suite packs the packages' `dist/`: `pnpm build` first, then `pnpm test:integration`.
 - A behaviour change comes with a test; a fix with a test that failed before it.
 

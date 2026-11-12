@@ -1,13 +1,14 @@
 name: CI
 
-# Hardening notes (public repo):
-# - Triggers are `pull_request` and `push` to main only. Never add
-#   `pull_request_target` or `workflow_run`: both run with the base repo's
-#   token and secrets in the context of fork-controlled code.
+# Hardening notes:
+# - Triggers are `pull_request` and `push` to main only (AGENTS.md rule 22,
+#   checked by tests/packages/test/workflows.test.ts). `pull_request_target`
+#   and `workflow_run` run with the base repo's token and secrets in the
+#   context of fork-controlled code.
 # - RUNNERS: GitHub-hosted only (`ubuntu-latest`). A self-hosted runner must
-#   NEVER be attached to this public repository (or to an org runner group it
-#   can use): any fork PR could then run arbitrary code on that machine. Do
-#   not change `runs-on` to `self-hosted` or a custom label.
+#   NEVER be attached to this repository (or to an org runner group it can
+#   use): once it is public, any fork PR could run arbitrary code on that
+#   machine.
 # - The token is read-only, checkout does not persist it, and no secrets are
 #   referenced anywhere in this file.
 # - Every action is pinned to a full commit SHA; Dependabot bumps them.

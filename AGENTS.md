@@ -17,7 +17,7 @@ Every folder of interest has its own `AGENTS.md` with that folder's rules and a 
 - `examples/shop`, `examples/wp-shop`: the shop demo, on SQLite and on WordPress.
 - `examples/hosts/*`: host stacks, outside the pnpm workspace (own toolchains, Docker Compose).
 - `tests/*`: end-to-end tests across packages. A package's own tests live in its `test/`.
-  `examples` (Playwright), `hosts` (Docker; `test/` static checks over `examples/` without it), `create-droplets`, `djs-add`, `dev-mixed` (`vite dev` + HMR, and the production build), `packages` (the packed tarballs).
+  `examples` (Playwright), `hosts` (Docker; `test/` static checks over `examples/` without it), `create-droplets`, `djs-add`, `dev-mixed` (`vite dev` + HMR, and the production build), `packages` (the packed tarballs, the workflows' triggers and runners).
 
 ## Where things go
 
@@ -119,5 +119,5 @@ Each rule states what holds, then what checks it. A rule that one folder alone c
     Checked by: `pnpm docs:build`, `pnpm docs:check-csp`.
 21. **The public packages version together.** They are one `fixed` changeset group, with no pre mode; a user-facing change after 1.0.0 carries a changeset (`pnpm changeset`); every `CHANGELOG.md` starts at `## 1.0.0` and every later entry is generated.
     Checked by: `.changeset/config.json`.
-22. **CI runs on GitHub-hosted runners with `pull_request` and `push` triggers only.**
-    Checked by: `.github/workflows/ci.yml`.
+22. **Every workflow runs on GitHub-hosted runners, from `pull_request` and `push` events only.** No `workflow_dispatch`, `workflow_run`, `pull_request_target` or `schedule`; a failed run is re-run, never dispatched; a release is a commit on `main`.
+    Checked by: `tests/packages/test/workflows.test.ts`.

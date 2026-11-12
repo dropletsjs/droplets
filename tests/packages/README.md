@@ -64,6 +64,14 @@ string, a template, a JSX attribute, a `dataset` access) must be
 `data-droplet` or `data-droplet-*`. `SCANNED` lists the folders, `KEY_FILES`
 the files the scan must reach.
 
+### The workflows
+
+`test/workflows.test.ts` reads every `.github/workflows/*.yml` line by line
+(no YAML parser in the suite's dependencies): the top-level `on` names only
+`pull_request` and `push`, and every `runs-on` is a GitHub-hosted label
+(`ubuntu-*`, `macos-*`, `windows-*`). A form of `on` it cannot read fails
+the suite, and a `runs-on` list or expression fails the label check.
+
 ### Changing it
 
 A new published package built by tsdown goes into `PACKAGES`. A new entry
@@ -101,3 +109,6 @@ suite reads it from there.
 - Examples' ranges: in the workspace examples every tool of the pnpm catalog is at the catalog's literal range; the hosts' toolchains are their own. `test/examples.test.ts:84`
 - `test/attributes.test.ts` scans the sources under `SCANNED` (the runtime, every renderer's `src/`, the devtools' `src/`) for `data-*` names in strings, templates, JSX attributes and `dataset` accesses, and fails on any that is not `data-droplet` or `data-droplet-*`. `test/attributes.test.ts:21`, `test/attributes.test.ts:58`
 - `KEY_FILES` names the files the attribute scan must reach, so a moved folder fails the suite. `test/attributes.test.ts:37`
+- Workflows: every `.github/workflows/*.yml` has a top-level `on` naming only `pull_request` and `push`. `test/workflows.test.ts:17`, `test/workflows.test.ts:26`
+- Workflows: every `runs-on` matches `ubuntu-*`, `macos-*` or `windows-*`; a list or an expression fails. `test/workflows.test.ts:18`, `test/workflows.test.ts:59`
+- Workflows are read line by line; an `on` form the reader does not know throws. `test/workflows.test.ts:26`
