@@ -73,4 +73,5 @@ end-to-end recordings ([`tests/hosts`](../tests/hosts)).
 | [`sinatra`](./hosts/sinatra) | Ruby | Fragment fetch with `Net::HTTP`, pasted into ERB |
 | [`nginx`](./hosts/nginx) | No backend code | Server Side Includes and a reverse proxy, same origin |
 | [`htmx`](./hosts/htmx) | No backend code | `hx-get` swaps the fragments in, proxied or cross-origin; `hx-boost` swaps `<main>` alone |
+| [`static`](./hosts/static) | No backend code | The page fetches the fragments from the shop's own origin, cross-origin; no cookies, so no cart or admin |
 <!-- /hosts:table -->

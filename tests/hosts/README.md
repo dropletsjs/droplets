@@ -4,7 +4,8 @@ The host examples in [`examples/hosts`](../../examples/hosts), end to end:
 each host's compose stack started, a flow run against it in Chromium,
 recorded, and the stack taken down. The hosts and how each runs come from
 [`examples/hosts/hosts.json`](../../examples/hosts/hosts.json): most run the
-shared shop flow; WordPress and htmx (whose shop moves as one page) have flows of their own and
+shared shop flow; WordPress, htmx (whose shop moves as one page) and the
+static page (cross-origin, no proxy) have flows of their own, the first two
 run only by name. `typecheck.mjs`
 type-checks every Node host without Docker, and `test/` holds the static
 checks over `examples/` (vitest, no Docker): the shop's `shop.css` copies
@@ -18,6 +19,7 @@ pnpm test:hosts                     # every host not run by name, one at a time
 pnpm test:hosts express nginx       # some, by id (the folder's name)
 pnpm test:hosts wordpress           # the WordPress showcase, with wp-shop
 pnpm test:hosts htmx                # the htmx shop and the Svelte page
+pnpm test:hosts static              # the static page, cross-origin
 pnpm --filter @dropletsjs/tests-hosts readme   # rewrite the READMEs' host lists from hosts.json
 pnpm typecheck:hosts [host…]        # npm ci + npm run typecheck per Node host, no Docker
 pnpm --filter @dropletsjs/tests-hosts test   # the static checks in test/, no Docker (pnpm test:integration runs them)
@@ -106,6 +108,11 @@ Recordings land in `recordings/<host>.mp4` and screenshots in
   directly with its URL's props, a page without JavaScript; the Svelte
   example's droplets swapped in from another origin, the refused third
   origin, and the preflight.
+- `e2e/static.spec.ts`: the static page, cross-origin with no proxy: the
+  gallery fetched from the shop's origin (nothing asked of the page's own),
+  a product and its comments, a category from the page's query; a page
+  loaded directly, an unknown product, an old `v` dropped from the URL, the
+  shop's CORS answer without credentials, and the page without JavaScript.
 - `e2e/tour.spec.ts`: the droplet tour, run alone with `TOUR=1` by `--tour`.
 
 ### Static checks (`test/`)
@@ -128,7 +135,7 @@ so by `pnpm check`, with no Docker:
   page per built host, each named spec, and the READMEs' generated parts
   current.
 - `test/location.test.ts`: every host example is listed, as sending the
-  header or sending none; per host, the files that send
+  header or (`static`) sending none; per host, the files that send
   `x-droplet-location`, the value each such line may give it (an origin
   from `SHOP_PUBLIC_URL` or `DROPLETS_PUBLIC_URL`, or nginx's `${…}`), the
   line that reads it from the environment, and no read of the request's
@@ -152,10 +159,11 @@ its own install. The hosts are outside the pnpm workspace, so
 
 ## Facts
 
-- `HOSTS` is built from `examples/hosts/hosts.json` (the built hosts with a `runner`): each id's URL is `http://localhost:` 8000 plus its offset: express 8003, nginx 8081, fastapi 8001, sinatra 8002, php 8009, wordpress 8008, react-vite 8004, astro 8005, sveltekit 8006, nextjs 8007, htmx 8010. `run.mjs:68`, `../../examples/hosts/hosts.json`
+- `HOSTS` is built from `examples/hosts/hosts.json` (the built hosts with a `runner`): each id's URL is `http://localhost:` 8000 plus its offset: express 8003, nginx 8081, fastapi 8001, sinatra 8002, php 8009, wordpress 8008, react-vite 8004, astro 8005, sveltekit 8006, nextjs 8007, htmx 8010, static 8011. `run.mjs:68`, `../../examples/hosts/hosts.json`
 - Hosts run only by name (`byName`): wordpress and htmx. `../../examples/hosts/hosts.json`
 - No host named, or `all`: every host without `byName`. `run.mjs:89`
 - htmx runs `e2e/htmx.spec.ts` only, waits on `/`, reaches the Svelte example on `http://localhost:8000` (`direct: "svelte"`). `../../examples/hosts/hosts.json`
+- static runs `e2e/static.spec.ts` only and reaches the shop itself on `http://localhost:8000` (`direct: "shop"`): its ready check asks the shop for `/droplets/product-filter` directly. `../../examples/hosts/hosts.json`, `run.mjs:146`
 - `--https` is set up for express only, on `https://127-0-0-1.sslip.io:8443`. `run.mjs:79`, `run.mjs:122`
 - Flags: `--https`, `--docs`, `--human`, `--tour`, `--keep`; any other flag or host exits 2. `run.mjs:86`
 - `HOSTS_PORT_BASE` must be an integer from 1024 to 65435. `run.mjs:98`
@@ -189,6 +197,7 @@ its own install. The hosts are outside the pnpm workspace, so
 - `shop-wordpress.spec.ts` and `wordpress-service.spec.ts` run only for wordpress. `e2e/shop-wordpress.spec.ts:13`, `e2e/wordpress-service.spec.ts:16`
 - WordPress Shop screen is `/wp-admin/admin.php?page=droplets-shop`. `e2e/wordpress.ts:8`
 - `wordpress-service.spec.ts` signs with the run's `WP_SHOP_SERVICE_SECRET` and `WP_SHOP_HOST_SECRET` from the environment, after checking `examples/hosts/wordpress/docker-compose.yml` requires each from that one variable on both services. `e2e/wordpress-service.spec.ts:20`
+- `static.spec.ts` runs only for static; the shop from `DROPLETS_URL`, default `http://localhost:8000`. `e2e/static.spec.ts:13`, `e2e/static.spec.ts:16`
 - `htmx.spec.ts` runs only for htmx; droplets server from `DROPLETS_URL`, default `http://localhost:8000`. `e2e/htmx.spec.ts:13`, `e2e/htmx.spec.ts:16`
 - `htmx.spec.ts` checks an `hx-get` to a third origin is refused with `htmx:invalidPath` and sends nothing. `e2e/htmx.spec.ts:290`, `e2e/htmx.spec.ts:301`
 - `htmx.spec.ts` flow: a card's link and the header's links swap `<main>` alone, the header element and the window kept, `/index.js` requested once. `e2e/htmx.spec.ts:43`, `e2e/htmx.spec.ts:61`

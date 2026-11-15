@@ -14,10 +14,10 @@ The element's tag name is the server's `element` setting: `djs-droplet` by
 default, `djs-svelte` for the Svelte example these hosts embed.
 
 <!-- hosts:count -->
-Eleven host examples, by language; nine run the shared shop flow, and WordPress and htmx have flows of their own.
+Twelve host examples, by language; nine run the shared shop flow, and WordPress, htmx and Static HTML have flows of their own.
 <!-- /hosts:count -->
 
-Every example in this folder does the same two things, in its
+Most examples in this folder do the same two things, in their
 own language ([Any other stack](https://dropletsjs.dev/integrate/any-stack/)
 has the exact headers, for a stack that is not here):
 
@@ -83,9 +83,10 @@ docker compose up --build
 | Ruby | [`sinatra`](./sinatra) | Ruby, Sinatra, Net::HTTP, ERB | Fragment fetch with `Net::HTTP`, pasted into ERB |
 | No backend code | [`nginx`](./nginx) | nginx, zero application code; an IIS web.config | Server Side Includes and a reverse proxy, same origin |
 | No backend code | [`htmx`](./htmx) | htmx 2 on static pages, nginx | `hx-get` swaps the fragments in, proxied or cross-origin; `hx-boost` swaps `<main>` alone |
+| No backend code | [`static`](./static) | One HTML page and a script on nginx, no proxy | The page fetches the fragments from the shop's own origin, cross-origin; no cookies, so no cart or admin |
 <!-- /hosts:examples -->
 
-All of them render the Svelte example's three droplets on `/`, one per
+All of them but `static` render the Svelte example's three droplets on `/`, one per
 mode, greeting `?who=`: `client` (rendered in the browser), `ssr-hydrate`
 (server-rendered, then hydrated) and `ssr-nohydrate` (server-rendered, no
 JavaScript). The other framework examples in
@@ -109,7 +110,7 @@ props each takes from the page's URL. htmx's pages are static files: its
 product page has a link back to the gallery in place of the breadcrumb, and
 a product card asked for once revealed under the gallery.
 
-Each host proxies `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and `/api/*` to the
+Each host but `static` proxies `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and `/api/*` to the
 shop under its own origin, so the cart and admin cookies are first-party and
 nothing is cross-origin, with a fixed `x-droplet-location` (the host's public
 origin, never the request's Host). Hosts that render on the server fetch the
@@ -118,6 +119,8 @@ fragments there: they forward the browser's `Cookie`, send the page as
 fragments' `Set-Cookie` on with the page and their `Link` preloads into its
 `<head>`. The SPA (`react-vite`) mounts the droplets in the browser through
 the same proxy, and htmx asks for them from the browser through it.
+`static` asks the shop on its own origin, cross-origin: no cookies, so no
+cart or admin there ([its README](./static/README.md)).
 
 Two hosts cannot pass a fragment's `Set-Cookie` on: nginx, because an SSI
 include is a subrequest whose headers nginx discards, and Next.js, because a
@@ -146,6 +149,7 @@ host, the same file everywhere.
 | `sinatra` | http://localhost:8002/gallery |
 | `nginx` | http://localhost:8081/gallery |
 | `htmx` | http://localhost:8010/ |
+| `static` | http://localhost:8011/gallery |
 <!-- /hosts:shop-at -->
 
 nginx's shop is on a second `server` block (8081): its basic server owns
@@ -209,6 +213,7 @@ The `--https` run checks that the `cart_id` and `shop_admin` cookies arrive
 | `sinatra` | [sinatra.mp4](../../apps/docs/public/hosts/sinatra.mp4) | ![The shop on Sinatra](../../apps/docs/public/hosts/sinatra/2-cart.webp) |
 | `nginx` | [nginx.mp4](../../apps/docs/public/hosts/nginx.mp4) | ![The shop on nginx](../../apps/docs/public/hosts/nginx/2-cart.webp) |
 | `htmx` | [htmx.mp4](../../apps/docs/public/hosts/htmx.mp4) | ![The shop on htmx](../../apps/docs/public/hosts/htmx/4-lazy.webp) |
+| `static` | [static.mp4](../../apps/docs/public/hosts/static.mp4) | ![The shop on Static HTML](../../apps/docs/public/hosts/static/4-category.webp) |
 <!-- /hosts:recordings -->
 
 ### Ports

@@ -233,7 +233,7 @@
       "name": "Static HTML",
       "language": "none",
       "pattern": "browser",
-      "status": "planned",
+      "status": "built",
       "docs": "integrate/hosts/static",
       "stack": "One HTML page and a script on nginx, no proxy",
       "how": "The page fetches the fragments from the shop's own origin, cross-origin; no cookies, so no cart or admin",

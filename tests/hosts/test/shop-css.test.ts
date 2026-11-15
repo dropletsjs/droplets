@@ -30,6 +30,7 @@ describe("the shop's layout CSS across the hosts", () => {
       "php",
       "react-vite",
       "sinatra",
+      "static",
       "sveltekit",
       "wordpress",
     ]);

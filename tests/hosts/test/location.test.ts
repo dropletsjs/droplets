@@ -6,7 +6,7 @@
  * that set the header, the value each line may give it and the line that
  * reads it from the environment; none of those files reads a host header.
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { EXAMPLES } from "@dropletsjs/shared/hosts";
 import { describe, expect, it } from "vitest";
@@ -93,12 +93,21 @@ const HOSTS: Record<string, Host> = {
 };
 
 /** Hosts whose browser asks the droplets server itself, with no proxy and no fragment fetched on a server: nothing sends the header. */
-const NONE: string[] = [];
+const NONE = ["static"];
 
 describe("every host example", () => {
   it("is listed here, with the files that send the header or as sending none", () => {
     const listed = [...Object.keys(HOSTS), ...NONE].sort();
     expect(listed).toEqual(EXAMPLES.map((host) => host.id).sort());
+  });
+
+  it.each(NONE)("%s sends no x-droplet-location", (host) => {
+    // Its docs say it sends none; only the files that run are read.
+    const files = readdirSync(join(hosts, host), { recursive: true, withFileTypes: true }).filter(
+      (entry) => entry.isFile() && !entry.name.endsWith(".md"),
+    );
+    const sending = files.filter((entry) => /x-droplet-location/i.test(readFileSync(join(entry.parentPath, entry.name), "utf8")));
+    expect(sending.map((entry) => entry.name)).toEqual([]);
   });
 });
 
