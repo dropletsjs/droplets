@@ -1,0 +1,78 @@
+---
+/**
+ * "Find your stack": every host of examples/hosts/hosts.json under its
+ * language, with its pattern and how `pnpm test:hosts` runs it, and a last
+ * row for a stack that is not listed.
+ */
+import { type HostRunner, hostsByLanguage, PATTERNS } from "@dropletsjs/shared/hosts";
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
+const groups = hostsByLanguage();
+
+function tested(runner: HostRunner | null): string {
+  if (!runner) return "Not run: a guide, no example";
+  return runner.flow === "shop" ? "The shared shop flow" : "A flow of its own";
+}
+---
+
+<table class="host-table">
+  <thead>
+    <tr>
+      <th scope="col">Host</th>
+      <th scope="col">Pattern</th>
+      <th scope="col">Tested end to end</th>
+    </tr>
+  </thead>
+  {
+    groups.map(({ language, hosts }) => (
+      <tbody>
+        <tr>
+          <th scope="rowgroup" colspan="3">
+            {language.label}
+          </th>
+        </tr>
+        {hosts.map((host) => (
+          <tr>
+            <td>
+              <a href={`${base}${host.docs}/`}>{host.name}</a>
+              <br />
+              <small>{host.stack}</small>
+            </td>
+            <td>{PATTERNS[host.pattern]}</td>
+            <td>
+              {tested(host.runner)}
+              {host.runner && (
+                <>
+                  <br />
+                  <small>
+                    <code>pnpm test:hosts {host.id}</code>
+                  </small>
+                </>
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    ))
+  }
+  <tbody>
+    <tr>
+      <th scope="rowgroup" colspan="3">Anything else</th>
+    </tr>
+    <tr>
+      <td><a href={`${base}integrate/any-stack/`}>Not here?</a></td>
+      <td>Server include, or the browser</td>
+      <td>The recipe, with the exact headers</td>
+    </tr>
+  </tbody>
+</table>
+
+<style>
+  .host-table th[scope="rowgroup"] {
+    padding-top: 1rem;
+    text-align: start;
+  }
+  .host-table code {
+    overflow-wrap: anywhere;
+  }
+</style>

@@ -3,11 +3,12 @@ title: Any other stack
 description: "Embed droplets from any server: the two steps, the exact headers in and out, a fetch to copy, the paths to proxy, the environment and a security checklist."
 ---
 
+import HostWall from "../../../components/HostWall.astro";
+
 A host needs nothing from Droplets but HTTP. If your stack can make a
 request on the server and send HTML back, it can host droplets. This page is
-the whole recipe; the [known hosts](/integrate/hosts/overview/) are the same
-recipe written out in nginx, Express, React, Astro, SvelteKit, Next.js,
-FastAPI, Sinatra, PHP, WordPress and htmx.
+the whole recipe; the [host examples](/integrate/hosts/overview/) are the
+same recipe written out stack by stack.
 
 ## The two steps
 
@@ -134,7 +135,7 @@ These four and `DEV_DROPLETS_LOG` (the level of the `vite dev` and
 `vite build` log) are all the framework reads. A production server logs
 errors only, with `console.error`.
 
-On your server, two values the known hosts read from their environment
+On your server, two values the host examples read from their environment
 (Droplets does not read them, name them as you like):
 
 | Variable | Example | What for |
@@ -160,14 +161,10 @@ learns about the pages that embed it.
 
 ## Worked versions
 
-The [known hosts](/integrate/hosts/overview/) run this recipe in eleven
-stacks, each a Docker Compose project in `examples/hosts/` with an
+The [host examples](/integrate/hosts/overview/) run this recipe stack by
+stack, each a Docker Compose project in `examples/hosts/` with an
 end-to-end test. Start from the one closest to yours:
-[nginx](/integrate/hosts/nginx/) (no application code),
-[Express](/integrate/hosts/express/), [PHP](/integrate/hosts/php/),
-[FastAPI](/integrate/hosts/fastapi/), [Sinatra](/integrate/hosts/sinatra/),
-[Astro](/integrate/hosts/astro/), [SvelteKit](/integrate/hosts/sveltekit/),
-[Next.js](/integrate/hosts/nextjs/), [React + Vite](/integrate/hosts/react-vite/)
-(a single-page app, no server), [htmx](/integrate/hosts/htmx/) (static pages)
-and the [WordPress tutorial](/integrate/wordpress/).
+
+<HostWall />
+
 [The HTTP contract](/integrate/http-contract/) has every route and status.

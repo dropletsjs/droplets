@@ -1,0 +1,37 @@
+---
+/**
+ * The hosts of examples/hosts/hosts.json as one line per language, each
+ * name linking to its page: the short form of HostTable.
+ */
+import { hostsByLanguage } from "@dropletsjs/shared/hosts";
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
+const groups = hostsByLanguage();
+---
+
+<ul class="host-wall">
+  {
+    groups.map(({ language, hosts }) => (
+      <li>
+        <strong>{language.label}:</strong>{" "}
+        {hosts.map((host, index) => (
+          <>
+            {index > 0 && ", "}
+            <a href={`${base}${host.docs}/`}>{host.name}</a>
+          </>
+        ))}
+      </li>
+    ))
+  }
+</ul>
+
+<style>
+  .host-wall {
+    margin: 0.5rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .host-wall li {
+    margin: 0.15rem 0;
+  }
+</style>

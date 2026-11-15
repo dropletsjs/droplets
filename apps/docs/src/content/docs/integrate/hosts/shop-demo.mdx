@@ -1,19 +1,21 @@
 ---
 title: Shop demo
-description: "One demo shop, nine droplets in six frameworks, embedded by ten of the eleven host examples: how it fits together, and each host recorded end to end."
+description: "One demo shop, nine droplets in six frameworks, embedded by every host example: how it fits together, and each host recorded end to end."
 ---
 
 import ShopFlow from "../../../../components/ShopFlow.astro";
 import ShopPage from "../../../../components/ShopPage.astro";
 import HostDemo from "../../../../components/HostDemo.astro";
+import { capitalize, EXAMPLES, inWords, SHOP_FLOW_HOSTS } from "@dropletsjs/shared/hosts";
 
 The shop example (`examples/shop` in the repository) is one droplets server with nine droplets: a gallery with a filter, product
-pages with comments, a cart, toasts, a login and an admin. There are eleven
-host examples; ten serve the shop demo, and WordPress has its own flow.
-Each of the ten builds the same pages around the droplets in its own
-stack (`/gallery`, `/product/:slug`, `/login`, `/admin`); the same
-end-to-end test runs on nine of them, and htmx, whose static pages move as
-one, has a flow of its own. The [tour on the home page](/) walks through the WordPress host's
+pages with comments, a cart, toasts, a login and an admin.
+{capitalize(inWords(EXAMPLES.length))} host examples serve it, each building the
+same pages around the droplets in its own stack (`/gallery`,
+`/product/:slug`, `/login`, `/admin`); the same end-to-end test runs on
+{inWords(SHOP_FLOW_HOSTS.length)} of them. The others have flows of their own:
+WordPress, with WordPress holding the data, and htmx, whose static pages move
+as one. The [tour on the home page](/) walks through the WordPress host's
 pages droplet by droplet.
 
 ## The pages and their droplets
@@ -216,7 +218,7 @@ product's page, which says "Out of stock". The other tests in
   without `v`.
 
 ```bash
-pnpm test:hosts                    # the nine shop flows, one at a time
+pnpm test:hosts                    # every host not run by name, one at a time
 pnpm test:hosts express sveltekit  # some
 pnpm test:hosts express --https    # Express behind Caddy, on https://127-0-0-1.sslip.io:8443
 pnpm test:hosts --docs             # refresh the videos and screenshots in these docs
@@ -224,7 +226,7 @@ pnpm test:hosts wordpress          # the WordPress showcase, by name only
 pnpm test:hosts htmx               # the htmx shop and Svelte page, by name only
 ```
 
-The two with flows of their own: WordPress has [a tutorial](/integrate/wordpress/),
+The ones with flows of their own: WordPress has [a tutorial](/integrate/wordpress/),
 the shop in a real WordPress site with WordPress holding the data, and
 [htmx](/integrate/hosts/htmx/) swaps droplets into static pages and moves
 between them by swapping `<main>` alone.

@@ -1,6 +1,7 @@
 import { readdirSync } from "node:fs";
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
+import { HOSTS, hostsByLanguage } from "@dropletsjs/shared/hosts";
 import starlightLlmsTxt from "starlight-llms-txt";
 import { description, ogImage, title } from "./site.mjs";
 import { baseLinks } from "./src/plugins/base-links.mjs";
@@ -24,6 +25,17 @@ const ownScripts = readdirSync(new URL("./src/components/", import.meta.url))
   .filter((file) => file.endsWith(".astro"))
   .map((file) => `_astro/${file}_astro_type_script_`);
 const assetsInlineLimit = (file) => (ownScripts.some((prefix) => file.startsWith(prefix)) ? false : undefined);
+
+// The host pages by language, from examples/hosts/hosts.json. A host whose
+// page lives elsewhere in the sidebar (WordPress's tutorial) is a link to it.
+const hostGroups = hostsByLanguage().map(({ language, hosts }) => ({
+  label: language.label,
+  items: hosts.map((host) =>
+    host.docs.startsWith("integrate/hosts/")
+      ? { label: host.name, slug: host.docs }
+      : { label: host.name, link: `${base.replace(/\/?$/, "/")}${host.docs}/` },
+  ),
+}));
 
 // In reading order: the pages' "Next" links follow it, and so does llms-full.txt.
 const sidebar = [
@@ -68,22 +80,9 @@ const sidebar = [
       "integrate/client-only",
       "integrate/http-contract",
       {
-        label: "Known hosts",
+        label: "Hosts",
         collapsed: true,
-        items: [
-          { label: "Overview", slug: "integrate/hosts/overview" },
-          "integrate/hosts/nginx",
-          "integrate/hosts/express",
-          "integrate/hosts/react-vite",
-          "integrate/hosts/astro",
-          "integrate/hosts/sveltekit",
-          "integrate/hosts/nextjs",
-          "integrate/hosts/fastapi",
-          "integrate/hosts/sinatra",
-          "integrate/hosts/php",
-          "integrate/hosts/htmx",
-          "integrate/hosts/shop-demo",
-        ],
+        items: [{ label: "Overview", slug: "integrate/hosts/overview" }, ...hostGroups, "integrate/hosts/shop-demo"],
       },
       "integrate/wordpress",
     ],
@@ -94,8 +93,9 @@ const sidebar = [
   { label: "Reference", items: ["reference/api", "reference/contributing"] },
 ];
 
-/** Every page's slug, in the sidebar's order. */
-const slugs = (items) => items.flatMap((item) => (typeof item === "string" ? [item] : item.slug ? [item.slug] : slugs(item.items)));
+/** Every page's slug, in the sidebar's order; a link item's page is listed where its slug is. */
+const slugs = (items) =>
+  items.flatMap((item) => (typeof item === "string" ? [item] : item.slug ? [item.slug] : item.link ? [] : slugs(item.items)));
 
 export default defineConfig({
   site,
@@ -154,10 +154,11 @@ export default defineConfig({
                 "the overview and one page per renderer: Svelte, Vue, React, Preact, Solid, Hono JSX, Handlebars, Lit and plain scripts",
             },
             {
-              label: "Known hosts",
+              label: "Hosts",
               paths: ["integrate/hosts/**", "integrate/wordpress"],
-              description:
-                "each host example's page (nginx, Express, React + Vite, Astro, SvelteKit, Next.js, FastAPI, Sinatra, PHP, htmx), the shop demo they embed and the WordPress tutorial",
+              description: `each host's page, by language (${HOSTS.filter((host) => host.docs.startsWith("integrate/hosts/"))
+                .map((host) => host.name)
+                .join(", ")}), the shop demo they embed and the WordPress tutorial`,
             },
           ],
           optionalLinks: [

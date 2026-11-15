@@ -120,7 +120,7 @@ location in `x-droplet-location`, so the URLs a fragment writes agree with
 it; the droplets server honours it only when its origin is trusted: its own,
 `origin`, or `trustedOrigins`. See the
 [HTTP contract](https://dropletsjs.dev/integrate/http-contract/) and
-[Known hosts](https://dropletsjs.dev/integrate/hosts/overview/): nginx,
+[Hosts](https://dropletsjs.dev/integrate/hosts/overview/): nginx,
 Express, React, Astro, SvelteKit, Next.js, FastAPI, Sinatra, PHP, WordPress
 and htmx, each a working example in [`examples/hosts`](./examples/hosts).
 [Any other stack](https://dropletsjs.dev/integrate/any-stack/) has the two

@@ -46,7 +46,7 @@ What the host does:
 
 [Any other stack](/integrate/any-stack/) has the exact headers and the
 security checklist, the [HTTP contract](/integrate/http-contract/) every
-route, and [Known hosts](/integrate/hosts/overview/) one worked example per
+route, and [Hosts](/integrate/hosts/overview/) one worked example per
 stack.
 
 ## Loaded from the browser

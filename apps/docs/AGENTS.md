@@ -5,7 +5,7 @@
 - The docs state what the code does, per stack: concrete steps and real code excerpts.
 - Every framework and every host has its own page, written for that stack on its own terms.
 - Pages live in `src/content/docs/`, the only folder Starlight reads; `README.md`, `AGENTS.md` and `CLAUDE.md` stay outside it.
-- Every page is in the `sidebar` of `astro.config.mjs`, in reading order: Start here, Writing droplets, Renderers (Overview, one page per renderer, each with a live `RendererDemo`), Integrating (any stack, client-only page, HTTP contract, Known hosts, WordPress), In the browser, Deployment, Security, Reference.
+- Every page is in the `sidebar` of `astro.config.mjs`, in reading order: Start here, Writing droplets, Renderers (Overview, one page per renderer, each with a live `RendererDemo`), Integrating (any stack, client-only page, HTTP contract, Hosts, WordPress), In the browser, Deployment, Security, Reference.
 - A live droplet is a real one in `../demo/src/droplets/`, embedded with `LiveDroplet` or `RendererDemo`; a page that embeds one fails the build unless the demo renders it.
   Checked by: `pnpm docs:build` (`src/components/live-droplet.ts`, `src/components/RendererDemo.astro`).
 - Pages link to each other with root-relative paths (`/guides/configuration/`); `src/plugins/base-links.mjs` adds the base path.
@@ -21,6 +21,8 @@
   Checked by: `pnpm docs:check-csp`; review.
 - The pages are for people, `llms.txt`, `llms-full.txt`, `llms-small.txt` and the sets under `/_llms-txt/` for AI: `llms.txt` indexes every sidebar page with its absolute URL and description; the others carry the pages as text, with absolute links and no images, media, live droplets or button labels, and each diagram as its description. A page needs no change for them: what is a screen, not text, is left out by a selector in `astro.config.mjs`.
   Checked by: `pnpm docs:build` (`src/plugins/llms-txt.mjs`).
+- The Hosts section is built from `../../examples/hosts/hosts.json` (through `@dropletsjs/shared/hosts`): the sidebar's language groups, `HostTable`, `HostGrid`, `HostWall` and `HostsHub`, and any count of hosts on a page. A page never writes a host count or a list of hosts by hand.
+  Checked by: `../../tests/hosts/test/manifest.test.ts` (a docs page per built host); review.
 - The WordPress tutorial is a story in steps: the shop, a plugin that brings in the droplets, then WordPress takes over the data and the login.
 - `pnpm docs:build` builds and starts `../demo` first (after `pnpm build` at the root) and fails without it.
   Checked by: `scripts/with-demo.mjs`, `src/components/live-droplet.ts`.
