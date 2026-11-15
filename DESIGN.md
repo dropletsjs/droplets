@@ -1,6 +1,6 @@
 # Design notes
 
-**This is a log of decisions, not a spec: what ships is what the guides describe, and an item marked pending is not a promise for 1.0.**
+**This is a log of decisions, not a spec: what ships is what the guides describe, and an item marked pending is not a promise for any release.**
 
 How to read this: each section is one design decision, recorded as it was taken, with its reasons and how much of it is built.
 What ships is described by the guides at https://dropletsjs.dev; where the two differ, the guides are right.
@@ -347,9 +347,11 @@ The RSC Server Actions endpoint deserialised a rich, client-supplied payload
 (module references, special types) and let it decide what ran. Steps 2–5
 must satisfy each rule below, and test it:
 
-- [ ] **Data only from the client.** `FormData`, or plain `JSON.parse`. No
+- [x] **Data only from the client.** `FormData`, or plain `JSON.parse`. No
   `devalue`, superjson or Flight, no `$` references, no revivers that build
   objects. Responses are plain JSON.
+  Checked by: `apps/demo/test/server.test.ts` ("plain data only"); the
+  plain data rule in the root `AGENTS.md`.
 - [x] **The client never chooses code.** (step 2: `findAction` in entry-server.) An action is found with
   `Object.hasOwn(actions, name)` and `typeof actions[name] === "function"`,
   and `name` must match `^[A-Za-z_][\w-]*$`. `__proto__`, `constructor`,
@@ -361,11 +363,20 @@ must satisfy each rule below, and test it:
   deep merge). Input arrives as an argument and the action validates it.
 - [x] **`__droplet_form_*` is verified before it is parsed.** (step 5) The HMAC is
   checked, in constant time, before `JSON.parse` sees the payload.
-- [ ] **The context the client sends back, `{ host, props }`, is data.**
+- [x] **The context the client sends back, `{ host, props }`, is data.**
   `host` goes through `new URL`, props through the schema.
-- [ ] **Size limits** (in place since step 1). Errors leave only through
+  Checked by: `parseHost` in `packages/droplets/src/runtime/host.ts`
+  (`webUrl` in `runtime/web-url.ts`: `new URL`, `http:`/`https:` only),
+  `validateProps` (the `props` schema) in `runtime/app.ts`;
+  `packages/droplets/test/runtime/security.test.ts` ("leaves
+  Object.prototype alone for __proto__ in the body, the query and
+  x-droplet-props", "never lets a host that is not a web URL through").
+- [x] **Size limits** (in place since step 1). Errors leave only through
   `handleError`, never with a stack.
-- [ ] **Negative tests:**
+  Checked by: `packages/droplets/test/runtime/security.test.ts` ("body
+  limits"), `packages/droplets/test/runtime/app.test.ts`
+  ("createDropletsApp: handleError").
+- [x] **Negative tests:**
   - the `?/__proto__` family;
   - `{"__proto__":{"polluted":1}}` through the body, the query and
     `x-droplet-props` leaves `({}).polluted` undefined (props today: covered
@@ -377,6 +388,12 @@ must satisfy each rule below, and test it:
   keys, a non-plain `actions`, and `405` with the body unread
   (`test/runtime/actions.test.ts`, the conformance kit); step 5 the token
   tests (`test/runtime/form-token.test.ts`, `actions.test.ts`, the kit).
+  Checked by: `packages/droplets/test/runtime/actions.test.ts` ("404s
+  __proto__, constructor and other names the pattern refuses, end to end":
+  `__proto__`, `constructor`, `prototype`, `toString`, `hasOwnProperty`;
+  "lets __proto__ form fields and query keys pollute nothing"; "runs the
+  action ?/name names, from a multipart body too"),
+  `packages/droplets/test/runtime/form-token.test.ts`.
 - [x] **The PRG token.** (step 5; the action is inside the MACed payload,
   checked against the droplet's exports after verifying; `exp` may run 60 s
   past the 5 minutes for clock skew between instances) The MAC covers droplet + build + page
@@ -399,10 +416,15 @@ must satisfy each rule below, and test it:
   `Sec-Fetch-Mode: navigate` when it chooses PRG for the rest.
 - [x] **Cookies are set** (step 2) only in actions, `handle` or `+server.ts`; loads
   and `transform` keep `ReadonlyCookies`.
-- [ ] **Docs for hosts:** cookies need same-origin (a proxy) or a host that
+- [x] **Docs for hosts:** cookies need same-origin (a proxy) or a host that
   forwards `Set-Cookie` and `Cookie`; a host never forwards `Domain`. A host
   fetching fragments or posting actions server-side uses
   `redirect: "manual"`: following a redirect is an SSRF.
+  Checked by: `apps/docs/src/content/docs/guides/security.md` ("Cookies":
+  no `Domain`, `redirect: "manual"`), `integrate/any-stack.mdx` ("The
+  headers, in and out", "Security checklist"), `integrate/client-only.md`
+  ("4. Or insert the fragment", "Same origin through a proxy"),
+  `integrate/hosts/astro.mdx` ("The pattern in Astro").
 - [x] **`"*"` never counts for the PRG redirect.** (step 5) `trustedOrigins: ["*"]`
   trusts every origin for the `Origin` check, never as a redirect target
   (that would be an open redirect). For the redirect an empty list means the
@@ -591,7 +613,8 @@ must satisfy each rule below, and test it:
 
 ### Positioning note
 
-"Server islands on Svelte, with an HTTP contract." Differences from RSC worth
+"Server islands for any of eight frameworks (Svelte, Vue, React, Preact,
+Solid, Hono JSX, Handlebars, Lit), with an HTTP contract." Differences from RSC worth
 stating in docs: the product is HTML, cacheable and host-independent, not a
 payload that needs a runtime; hydration is opt-in per droplet
 (`hydrate = false` ships zero JavaScript); data has a public contract
