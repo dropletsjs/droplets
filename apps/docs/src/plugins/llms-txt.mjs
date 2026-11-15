@@ -221,7 +221,11 @@ function squeezeBlankLines(lines) {
   return lines.filter((line, i) => line.trim() !== "" || (lines[i - 1] ?? "").trim() !== "");
 }
 
-/** The sidebar as llms.txt sections: one per top-level group, a nested list for a nested group. */
+/**
+ * The sidebar as llms.txt sections: one per top-level group, a nested list
+ * for a nested group. A link item points at a page listed elsewhere in the
+ * sidebar, so it adds no entry.
+ */
 function sidebarSections({ sidebar, bySlug, urlOf }) {
   const entry = (slug, indent) => {
     const page = bySlug.get(slug);
@@ -232,9 +236,11 @@ function sidebarSections({ sidebar, bySlug, urlOf }) {
     list.flatMap((item) =>
       typeof item === "string"
         ? [entry(item, indent)]
-        : item.slug
-          ? [entry(item.slug, indent)]
-          : [`${indent}- ${item.label}:`, ...items(item.items, `${indent}  `)],
+        : item.link
+          ? []
+          : item.slug
+            ? [entry(item.slug, indent)]
+            : [`${indent}- ${item.label}:`, ...items(item.items, `${indent}  `)],
     );
   return sidebar.map((group) => `## ${group.label}\n\n${items(group.items, "").join("\n")}`);
 }

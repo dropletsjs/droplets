@@ -1,37 +1,46 @@
 ---
-title: Known hosts
-description: "Eleven host examples, each a working Docker Compose project: which stack does what, and how to run them."
+title: Hosts
+description: "The same shop and the same end-to-end test on every stack: the host examples by language, the pattern each one uses, and how to run them."
 ---
 
+import { capitalize, EXAMPLES, inWords, RUN_HOSTS, SHOP_FLOW_HOSTS } from "@dropletsjs/shared/hosts";
 import HostGrid from "../../../../components/HostGrid.astro";
+import HostTable from "../../../../components/HostTable.astro";
 import HostsHub from "../../../../components/HostsHub.astro";
 
-Eleven host examples; ten serve the shop demo, nine of them with the shared
-shop flow; WordPress and htmx have flows of their own. Each is a folder in `examples/hosts/` with a
-`docker-compose.yml` and an end-to-end test, and each page in this section
-starts with the pattern in that stack: the fetch, the paste and the script
-tag, taken from the example's code. [Any other stack](/integrate/any-stack/)
-has the recipe they all follow, with the exact headers.
+Droplets embeds anywhere a page can make an HTTP request or run a script, and
+these pages prove it stack by stack. {capitalize(inWords(EXAMPLES.length))} host
+examples serve the same [shop demo](/integrate/hosts/shop-demo/), and
+{inWords(SHOP_FLOW_HOSTS.length)} of them pass the same end-to-end test,
+`tests/hosts/e2e/shop.spec.ts`; the others have flows of their own, for what
+their pattern allows. Each is a folder in `examples/hosts/` with a
+`docker-compose.yml`, and each page in this section starts with the pattern in
+that stack: the fetch, the paste and the script tag, taken from the
+example's code. [Any other stack](/integrate/any-stack/) has the recipe they
+all follow, with the exact headers.
+
+## Find your stack
+
+<HostTable />
 
 One droplets server can feed every host at once. They differ only in who
 fetches the fragment, the host's server or the browser:
 
 <HostsHub />
 
-Every example also proxies `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and
-`/api/*` under its own origin, so the browser talks to one origin
-([the paths](/integrate/any-stack/#the-paths-to-proxy)).
+Every example also proxies `/index.js`, `/env.js`, `/index.css`, `/droplets/*`,
+`/assets/*` and `/api/*` under its own origin, so the browser talks to one
+origin ([the paths](/integrate/any-stack/#the-paths-to-proxy)).
 
-The ten that serve the [shop demo](/integrate/hosts/shop-demo/), each as
-the end-to-end test recorded it:
+Each host as the end-to-end test recorded it, by language:
 
 <HostGrid />
 
 ## Three variations
 
 **Server include.** The host's server fetches the fragment and renders it into
-its template. Express, Astro, SvelteKit, Next.js, FastAPI, Sinatra, plain
-PHP and the WordPress plugin all do this. It is the default choice: the page
+its template; most hosts in the table do this, the WordPress plugin
+included. It is the default choice: the page
 arrives rendered, and droplets that never hydrate, and forms through
 [Post/Redirect/Get](/guides/actions/#without-javascript-postredirectget),
 work without JavaScript.
@@ -82,28 +91,16 @@ the droplets server: cookies, caching, CORS and who sees what.
 
 ## The examples
 
-| Page | Folder | Stack | Pattern |
-| --- | --- | --- | --- |
-| [nginx](/integrate/hosts/nginx/) | `nginx` | nginx, zero application code; an IIS `web.config` | Server Side Includes + reverse proxy, same origin |
-| [Express](/integrate/hosts/express/) | `express` | Node, Express 5 | Server include, or the droplets server mounted in-process |
-| [React + Vite](/integrate/hosts/react-vite/) | `react-vite` | React 19, Vite | Client-only `<Droplet>` component |
-| [Astro](/integrate/hosts/astro/) | `astro` | Astro, Node adapter | Server include in frontmatter, `set:html` |
-| [SvelteKit](/integrate/hosts/sveltekit/) | `sveltekit` | SvelteKit, adapter-node | Server include in `+page.server.ts`, `{@html}` |
-| [Next.js](/integrate/hosts/nextjs/) | `nextjs` | Next.js App Router | Server include in a server component |
-| [FastAPI](/integrate/hosts/fastapi/) | `fastapi` | Python, FastAPI, httpx, Jinja2 | Server include |
-| [Sinatra](/integrate/hosts/sinatra/) | `sinatra` | Ruby, Sinatra, Net::HTTP, ERB | Server include |
-| [PHP](/integrate/hosts/php/) | `php` | PHP 8.3 on Apache, curl, no framework | Server include |
-| [WordPress](/integrate/wordpress/) | `wordpress` | WordPress 6, a plugin; WordPress owns the data | Server include via shortcodes ([a tutorial](/integrate/wordpress/)) |
-| [htmx](/integrate/hosts/htmx/) | `htmx` | htmx 2 on static pages, nginx | Client-only: `hx-get` swaps the fragment in, proxied or cross-origin; `hx-boost` swaps `<main>` alone |
-
 The folder name is the host's id everywhere: its docs page, its recordings
-and `pnpm test:hosts <id>`.
+and `pnpm test:hosts <id>`. `examples/hosts/hosts.json` lists them, with the
+language, the pattern and the port each one uses; this section, the sidebar
+and the table above are built from it.
 
 ## Running the examples
 
 Each example folder in the repository is standalone, with its own dependencies
-and a `docker-compose.yml` that starts it next to a droplets server built from
-the Svelte example, `examples/frameworks/svelte`, and the shop:
+and a `docker-compose.yml` that starts it next to the shop and, for most, a
+droplets server built from the Svelte example, `examples/frameworks/svelte`:
 
 ```bash
 cd examples/hosts/<id>
@@ -116,13 +113,19 @@ each, `openssl rand -hex 32`; WordPress takes `WP_SHOP_HOST_SECRET` and
 file beside `docker-compose.yml`: compose refuses to start without them.
 `pnpm test:hosts` generates its own for a run.
 
-All of them render the same three droplets on `/`, one per mode: `client`
+All of them render the Svelte example's three droplets on `/`, one per mode: `client`
 (rendered in the browser), `ssr-hydrate` (server-rendered, then hydrated) and
 `ssr-nohydrate` (server-rendered, no JavaScript). The interactive ones call the droplets server's `/api` endpoints
 through [`$droplets/drop`](/reference/api/#dropletsdrop), on the origin the
 page loaded `/index.js` from, so a host that proxies the droplets server
 under its own origin proxies `/api/*` too.
 
-`pnpm test:hosts` runs the nine shop flows one after the other;
-`pnpm test:hosts wordpress` and `pnpm test:hosts htmx` run the other two
-([tests/hosts](/integrate/hosts/shop-demo/#each-host-recorded)).
+`pnpm test:hosts` runs {inWords(RUN_HOSTS.filter((host) => !host.runner.byName).length)} of the
+{inWords(RUN_HOSTS.length)} flows one after the other;{" "}
+{RUN_HOSTS.filter((host) => host.runner.byName).map((host, index) => (
+  <>
+    {index > 0 && " and "}
+    <code>pnpm test:hosts {host.id}</code>
+  </>
+))}{" "}
+run only by name ([tests/hosts](/integrate/hosts/shop-demo/#each-host-recorded)).

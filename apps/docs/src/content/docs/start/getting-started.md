@@ -227,8 +227,8 @@ instead, so the markup is there before any JavaScript runs:
 <my-widgets data-droplet="hello-svelte" data-droplet-build="…" data-droplet-render="…">…</my-widgets>
 ```
 
-[Known hosts](/integrate/hosts/overview/) does the same in eleven host
-examples, [Any other stack](/integrate/any-stack/) has the exact headers, and
+[Hosts](/integrate/hosts/overview/) does the same in every host example,
+by language, [Any other stack](/integrate/any-stack/) has the exact headers, and
 [Security model](/guides/security/) says what a droplets server learns
 about the pages that embed it.
 

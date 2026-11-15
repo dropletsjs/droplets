@@ -150,7 +150,7 @@ and fonts written into it and the page's background behind it.
 | `FormFlow` | Form actions, Post/Redirect/Get |
 | `PrerenderLookup` | Prerendering, `host` at build |
 | `LocationFlow` | HTTP contract, Where it comes from |
-| `HostsHub` | Known hosts |
+| `HostsHub` | Hosts |
 | `ShopPage`, `ShopFlow` | Shop demo |
 | `WordPressFlow` | WordPress, step 3 |
 | `ElementLifecycle` | In the browser, What happens on connect |
@@ -252,7 +252,7 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - Sidebar order is the `sidebar` constant, passed to Starlight; the "Next" links, the sections of `llms.txt` and the page order of `llms-full.txt` follow it. `astro.config.mjs:29`, `astro.config.mjs:134`, `astro.config.mjs:113`, `astro.config.mjs:139`
 - Sidebar groups, in order: Start here, Writing droplets, Renderers, Integrating, In the browser, Deployment, Security, Reference. `astro.config.mjs:31`, `astro.config.mjs:35`, `astro.config.mjs:49`, `astro.config.mjs:65`, `astro.config.mjs:91`, `astro.config.mjs:92`, `astro.config.mjs:93`, `astro.config.mjs:94`
 - Sidebar Renderers group: Overview, Svelte, Vue, React, Preact, Solid, Hono JSX, Handlebars, Lit, plain script; collapsed. `astro.config.mjs:49`, `astro.config.mjs:50`
-- Sidebar Integrating group: any stack, a client-only page, HTTP contract, Known hosts (collapsed, one page per host plus the shop demo), WordPress. `astro.config.mjs:65`, `astro.config.mjs:67`, `astro.config.mjs:71`, `astro.config.mjs:72`, `astro.config.mjs:88`
+- Sidebar Integrating group: any stack, a client-only page, HTTP contract, Hosts (collapsed: Overview, one group per language from `examples/hosts/hosts.json` with a page per built host, WordPress a link to its tutorial, then the shop demo), WordPress. `astro.config.mjs:31`, `astro.config.mjs:77`, `astro.config.mjs:83`, `astro.config.mjs:87`
 - `DOCS_SITE` defaults to `https://dropletsjs.dev`, `DOCS_BASE` to `/`. `astro.config.mjs:12`, `astro.config.mjs:13`
 - `trailingSlash` is `"always"`. `astro.config.mjs:103`
 - Component scripts of `src/components/*.astro` are never inlined (`assetsInlineLimit` returns `false` for them). `astro.config.mjs:23`, `astro.config.mjs:26`
