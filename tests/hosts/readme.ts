@@ -15,7 +15,7 @@ import { capitalize, EXAMPLES, HOSTS, hostsByLanguage, inWords, languageOf, RUN_
 const ROOT = join(import.meta.dirname, "..", "..");
 const SITE = "https://dropletsjs.dev";
 
-/** The hosts that run a flow of their own, by name: "WordPress and htmx". */
+/** The hosts that run a flow of their own, by name: "WordPress, htmx and Static HTML". */
 function listed(names: string[]): string {
   return names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
 }

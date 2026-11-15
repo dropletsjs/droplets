@@ -9,6 +9,7 @@
  *   pnpm test:hosts express --human  # paced as a person, without the docs' copies
  *   pnpm test:hosts express --tour   # also the droplet tour (e2e/tour.spec.ts), before the flow
  *   pnpm test:hosts htmx             # the htmx pages (e2e/htmx.spec.ts), not the shop flow
+ *   pnpm test:hosts static           # the static page (e2e/static.spec.ts), not the shop flow
  *   pnpm test:hosts --keep           # leave the last stack running
  *
  * For each host: `docker compose up --build -d` in its folder, as the

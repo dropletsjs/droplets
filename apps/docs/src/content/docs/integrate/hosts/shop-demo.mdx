@@ -14,8 +14,9 @@ pages with comments, a cart, toasts, a login and an admin.
 same pages around the droplets in its own stack (`/gallery`,
 `/product/:slug`, `/login`, `/admin`); the same end-to-end test runs on
 {inWords(SHOP_FLOW_HOSTS.length)} of them. The others have flows of their own:
-WordPress, with WordPress holding the data, and htmx, whose static pages move
-as one. The [tour on the home page](/) walks through the WordPress host's
+WordPress, with WordPress holding the data; htmx, whose static pages move as
+one; and Static HTML, one cross-origin page with no proxy, which shows the
+gallery and the product pages but no cart or admin. The [tour on the home page](/) walks through the WordPress host's
 pages droplet by droplet.
 
 ## The pages and their droplets
@@ -100,6 +101,7 @@ comes back with the button saying "✓ Added".
 | [Astro 5](/integrate/hosts/astro/) | `.astro` pages, `set:html` | `fetch` in the frontmatter; cookies through `Astro.response` | endpoints (`ALL`) |
 | [SvelteKit](/integrate/hosts/sveltekit/) | `+page.svelte`, `{@html}` | `fetch` in `+page.server.ts`; cookies from `handle` | `hooks.server.ts` |
 | [Next.js 16](/integrate/hosts/nextjs/) | server components | `fetch` in the component, `dangerouslySetInnerHTML` | route handlers |
+| [Static HTML](/integrate/hosts/static/) | one static `.html` file | client-only: fetched by the browser from the shop's own origin | none: cross-origin, so no cart or admin |
 
 nginx and Next.js cannot pass on a `Set-Cookie` that a fragment sends on a
 plain `GET`: an SSI include is a subrequest whose headers nginx discards,
@@ -224,12 +226,14 @@ pnpm test:hosts express --https    # Express behind Caddy, on https://127-0-0-1.
 pnpm test:hosts --docs             # refresh the videos and screenshots in these docs
 pnpm test:hosts wordpress          # the WordPress showcase, by name only
 pnpm test:hosts htmx               # the htmx shop and Svelte page, by name only
+pnpm test:hosts static             # the static page, its own flow
 ```
 
 The ones with flows of their own: WordPress has [a tutorial](/integrate/wordpress/),
-the shop in a real WordPress site with WordPress holding the data, and
+the shop in a real WordPress site with WordPress holding the data;
 [htmx](/integrate/hosts/htmx/) swaps droplets into static pages and moves
-between them by swapping `<main>` alone.
+between them by swapping `<main>` alone; and [Static HTML](/integrate/hosts/static/)
+asks the shop for its fragments cross-origin, with no proxy.
 
 ### nginx
 
@@ -278,5 +282,19 @@ between them by swapping `<main>` alone.
     ["2-added", "A product page, its form posted in place"],
     ["3-login", "A plain form, back by Post/Redirect/Get"],
     ["4-lazy", "A card asked for once revealed"],
+  ]}
+/>
+
+### Static HTML
+
+<HostDemo
+  id="static"
+  stack="Static HTML"
+  flow="The static page's flow"
+  shots={[
+    ["1-gallery", "The gallery, fetched from the shop's own origin"],
+    ["2-product", "A product page, the same HTML file"],
+    ["3-comments", "Its comments, asked for with the product's id"],
+    ["4-category", "A category, from the page's query"],
   ]}
 />

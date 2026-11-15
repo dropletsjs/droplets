@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Droplets Shop on a static page</title>
+  <link rel="stylesheet" href="/shop.css">
+  <link rel="stylesheet" href="/site.css">
+  <!-- The shop's droplets server, on its own origin: no proxy in between.
+       Every droplet loads its bundle, styles and data from where this
+       script came from. -->
+  <script type="module" src="http://localhost:8000/index.js"></script>
+  <script type="module" src="/shop.js"></script>
+</head>
+<body class="shop">
+  <!-- Written by the page, rendered in the browser; first, since /index.js
+       installs its message queue. -->
+  <djs-shop data-droplet="toast-center"></djs-shop>
+  <header class="shop-header"><div class="shop-wrap">
+    <a class="shop-logo" href="/gallery"><span aria-hidden="true">◆</span> Droplets Shop</a>
+    <nav class="shop-nav" aria-label="Shop">
+      <a href="/gallery">Gallery</a>
+    </nav>
+  </div></header>
+  <main class="shop-main shop-wrap" id="page">
+    <noscript><p class="shop-unavailable">This page asks the droplets server for its droplets from the browser, which needs JavaScript.</p></noscript>
+  </main>
+  <footer class="shop-footer"><div class="shop-wrap">
+    <p class="shop-stack">Static HTML</p>
+    <p>Droplets demo shop · host: one static HTML page on nginx · droplets: &lt;djs-shop&gt;, cross-origin</p>
+    <p><a href="/gallery">Gallery</a></p>
+  </div></footer>
+</body>
+</html>
