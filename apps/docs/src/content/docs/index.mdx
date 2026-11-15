@@ -17,13 +17,14 @@ hero:
     - text: Get started
       link: start/getting-started/
       icon: right-arrow
-    - text: See the eleven host examples
+    - text: See the host examples
       link: integrate/hosts/overview/
       variant: minimal
 ---
 
 import { Card, CardGrid } from "@astrojs/starlight/components";
 import DropletTour from "../../components/DropletTour.astro";
+import HostWall from "../../components/HostWall.astro";
 
 <div class="landing-install">
 
@@ -75,8 +76,8 @@ framework's own meta-framework does the job better.
     Droplets in different frameworks share a project and a page.
   </Card>
   <Card title="Host it from anything" icon="external">
-    nginx, Express, React, Astro, SvelteKit, Next.js, FastAPI, Sinatra, PHP, WordPress, htmx: fetch the
-    fragment, paste it in, load one script.
+    Fetch the fragment, paste it in, load one script. The same shop runs on each of these:
+    <HostWall />
   </Card>
   <Card title="Plain Vite" icon="setting">
     `vite dev` with hot updates on any host page, `vite build` for the browser and the server,

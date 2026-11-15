@@ -10,7 +10,17 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { capitalize, EXAMPLES, HOSTS, hostsByLanguage, inWords, languageOf, RUN_HOSTS, SHOP_FLOW_HOSTS } from "@dropletsjs/shared/hosts";
+import {
+  capitalize,
+  EXAMPLES,
+  type Host,
+  HOSTS,
+  hostsByLanguage,
+  inWords,
+  languageOf,
+  RUN_HOSTS,
+  SHOP_FLOW_HOSTS,
+} from "@dropletsjs/shared/hosts";
 
 const ROOT = join(import.meta.dirname, "..", "..");
 const SITE = "https://dropletsjs.dev";
@@ -57,6 +67,17 @@ function recordings(): string {
   return ["| Host | Video | A screenshot from its flow |", "| ---- | ----- | -------------------------- |", ...rows].join("\n");
 }
 
+function docsUrl(host: Host): string {
+  return `${SITE}/${host.docs}/`;
+}
+
+/** The root README's line per language, each name linking to its docs page. */
+function wall(): string {
+  return hostsByLanguage()
+    .map(({ language, hosts }) => `- **${language.label}**: ${hosts.map((host) => `[${host.name}](${docsUrl(host)})`).join(", ")}`)
+    .join("\n");
+}
+
 function rootTable(): string {
   const rows = EXAMPLES.map((host) => `| [${host.id}](./examples/hosts/${host.id}) | ${languageOf(host)} | ${host.stack} | ${host.how} |`);
   return ["| Host | Language | Stack | Pattern |", "| ---- | -------- | ----- | ------- |", ...rows].join("\n");
@@ -79,6 +100,7 @@ export const PARTS: Record<string, Record<string, string>> = {
     table: examplesReadmeTable(),
   },
   "README.md": {
+    wall: wall(),
     count: [COUNT, ...GUIDES].join(" "),
     table: rootTable(),
   },
