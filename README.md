@@ -192,27 +192,32 @@ They all share one version.
   [`CONTRACT.md`](./examples/shop/CONTRACT.md) says what a host passes each.
 - **[`examples/wp-shop`](./examples/wp-shop)**: the shop's droplets backed by
   WordPress: products and reviews over the REST API, the WordPress login.
-- **[`examples/hosts/<stack>`](./examples/hosts)**: eleven host examples,
-  each a Docker Compose project; ten serve the shop demo (on `/gallery`, the
-  Svelte example on `/`), nine with the shared flow; WordPress and htmx have
-  flows of their own:
+- **[`examples/hosts/<stack>`](./examples/hosts)**: the host examples, each
+  a Docker Compose project serving the shop demo (on `/gallery`, the Svelte
+  example on `/` where there is one):
 
-| Host | Stack | Pattern |
-| ---- | ----- | ------- |
-| [nginx](./examples/hosts/nginx) | nginx, no application code | Server Side Includes + reverse proxy; an IIS `web.config` as reference |
-| [express](./examples/hosts/express) | Node, Express 5 | Fetch in a route, or mount the droplets server inside Express |
-| [react-vite](./examples/hosts/react-vite) | React 19, Vite | A `<Droplet>` component for single-page apps |
-| [astro](./examples/hosts/astro) | Astro | Fetch in the frontmatter, `set:html` |
-| [sveltekit](./examples/hosts/sveltekit) | SvelteKit | Fetch in `+page.server.ts`, `{@html}` |
-| [nextjs](./examples/hosts/nextjs) | Next.js App Router | Fetch in a server component |
-| [fastapi](./examples/hosts/fastapi) | Python, FastAPI, Jinja2 | Fetch with `httpx` |
-| [sinatra](./examples/hosts/sinatra) | Ruby, Sinatra, ERB | Fetch with `Net::HTTP` |
-| [php](./examples/hosts/php) | PHP 8.3, Apache | `curl_multi`, no framework, no Composer |
-| [wordpress](./examples/hosts/wordpress) | WordPress 6 | A `[droplet]` shortcode plugin; serves wp-shop |
-| [htmx](./examples/hosts/htmx) | htmx 2, static pages on nginx | `hx-get` swaps the fragments into static pages, `hx-boost` swaps `<main>` alone |
+<!-- hosts:count -->
+Eleven host examples, by language; nine run the shared shop flow, and WordPress and htmx have flows of their own.
+<!-- /hosts:count -->
+
+<!-- hosts:table -->
+| Host | Language | Stack | Pattern |
+| ---- | -------- | ----- | ------- |
+| [express](./examples/hosts/express) | JavaScript / TypeScript | Node, Express 5 | Fragment fetch in a route handler, or the droplets server mounted inside Express |
+| [nextjs](./examples/hosts/nextjs) | JavaScript / TypeScript | Next.js App Router | Fragment fetch in a server component |
+| [sveltekit](./examples/hosts/sveltekit) | JavaScript / TypeScript | SvelteKit, adapter-node | Fragment fetch in `+page.server.ts`, `{@html}` in the page |
+| [astro](./examples/hosts/astro) | JavaScript / TypeScript | Astro, Node adapter | Fragment fetch in the frontmatter, `set:html` |
+| [react-vite](./examples/hosts/react-vite) | JavaScript / TypeScript | React 19, Vite | A client-side `<Droplet>` component, the shop through a same-origin proxy |
+| [fastapi](./examples/hosts/fastapi) | Python | Python, FastAPI, httpx, Jinja2 | Fragment fetch with `httpx`, pasted into a Jinja2 template |
+| [php](./examples/hosts/php) | PHP | PHP 8.3 on Apache, curl, no framework | Fragment fetch with `curl_multi`, pasted into plain PHP templates |
+| [wordpress](./examples/hosts/wordpress) | PHP | WordPress 6, a plugin; WordPress owns the data | A `[droplet]` shortcode plugin serving `examples/wp-shop` |
+| [sinatra](./examples/hosts/sinatra) | Ruby | Ruby, Sinatra, Net::HTTP, ERB | Fragment fetch with `Net::HTTP`, pasted into ERB |
+| [nginx](./examples/hosts/nginx) | No backend code | nginx, zero application code; an IIS web.config | Server Side Includes and a reverse proxy, same origin |
+| [htmx](./examples/hosts/htmx) | No backend code | htmx 2 on static pages, nginx | `hx-get` swaps the fragments in, proxied or cross-origin; `hx-boost` swaps `<main>` alone |
+<!-- /hosts:table -->
 
 The [shop demo](https://dropletsjs.dev/integrate/hosts/shop-demo/) page shows
-the nine that run it, each recorded end to end.
+each one recorded end to end.
 
 ## Repository map
 
@@ -225,7 +230,7 @@ packages/create-droplets/ npm create droplets
 examples/frameworks/*/    one example per framework (+ the Dockerfile the hosts build)
 examples/shop/            the shop, in six frameworks
 examples/wp-shop/         the shop's droplets on WordPress
-examples/hosts/*/         eleven host examples (not in the pnpm workspace)
+examples/hosts/*/         the host examples (not in the pnpm workspace), listed in hosts.json
 tests/                    end-to-end tests across packages (tests/README.md); each package's own are in its test/
 tests/examples/           the eight framework examples in a browser (Playwright)
 tests/hosts/              the shop flow on every host's compose stack, recorded

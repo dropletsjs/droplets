@@ -7,7 +7,10 @@
 - The runner is plain local Docker plus the Docker CLI's own `DOCKER_CONTEXT`: nothing remote-specific lives in this folder or any committed file.
 - Every stack is the compose project `droplets-<host>` and is removed with `down -v` after its run, however the run ends.
   Checked by: `run.mjs`.
-- Every host in `examples/hosts` is in `HOSTS`, with a flow that runs against it.
+- `examples/hosts/hosts.json` is the one list of hosts: `run.mjs`, the docs and the READMEs' generated parts read it (through `@dropletsjs/shared/hosts`). Every folder in `examples/hosts` has a built entry there, with a port offset of its own and a flow that runs against it; a planned host is reserved there without a folder and shown nowhere.
+  Checked by: `test/manifest.test.ts`.
+- A count or a list of hosts in a README is a generated part (`<!-- hosts:<name> -->`), rewritten by `pnpm --filter @dropletsjs/tests-hosts readme`.
+  Checked by: `test/manifest.test.ts`.
 - The shop's `shop.css` is one file in every host that runs the shop; WordPress's is its own, for the theme's presets.
   Checked by: `test/shop-css.test.ts`.
 - htmx's shop pages share their head, header and footer and swap `<main>` alone, every droplet asked for from inside it.

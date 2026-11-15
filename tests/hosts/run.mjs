@@ -2,7 +2,7 @@
 /**
  * The shop demo on every host in examples/hosts/, end to end:
  *
- *   pnpm test:hosts                  # the nine shop flows, one at a time
+ *   pnpm test:hosts                  # every host not run by name, one at a time
  *   pnpm test:hosts express nginx    # some
  *   pnpm test:hosts express --https  # express behind Caddy on https://127-0-0-1.sslip.io:8443
  *   pnpm test:hosts --docs           # also refresh the docs' copies (apps/docs/public/hosts/), paced as a person
@@ -17,7 +17,7 @@
  * `docker compose down -v`. Compose runs on whatever Docker the environment
  * points at. HOSTS_PORT_BASE moves every published port into one block of
  * a hundred: the droplets server on the base, each host on the base plus its
- * default port's last two digits (express, 8003: base + 3).
+ * offset in examples/hosts/hosts.json (express, offset 3: 8003, or base + 3).
  *
  * The repository's .env.local, when there is one, is read first; variables
  * already set in the environment win. The stacks' secrets (SHOP_SECRET,
@@ -42,6 +42,7 @@ import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { loadEnvLocal } from "@dropletsjs/shared/env";
+import { RUN_HOSTS } from "@dropletsjs/shared/hosts";
 
 const here = import.meta.dirname;
 const root = join(here, "..", "..");
@@ -53,34 +54,30 @@ const SECRETS = ["SHOP_SECRET", "DROPLETS_SECRET", "WP_SHOP_HOST_SECRET", "WP_SH
 for (const name of SECRETS) process.env[name] ||= randomBytes(32).toString("hex");
 
 /**
- * Host id → the shop's URL on it. The id names everything about a host:
- * its folder in examples/hosts/, its docs page, its recordings and its
- * compose project (`droplets-<id>`). A host with `byName` runs only when
- * named (the WordPress showcase, examples/wp-shop).
- * A host with `spec` runs that flow instead of the shop's: `page` is the
- * page to wait for, `shots` its screenshots, and `droplets` says the
- * browser reaches the droplets server directly, on DROPLETS_URL.
+ * Host id → how the runner runs it, from examples/hosts/hosts.json (only the
+ * built hosts with a `runner`). The id names everything about a host: its
+ * folder in examples/hosts/, its docs page, its recordings and its compose
+ * project (`droplets-<id>`). `url` is the host's default public URL (8000
+ * plus its offset). A host with `byName` runs only when named. A host with
+ * `spec` runs that spec alone, its flow instead of the shop's: `page` is
+ * the page to wait for, `shots` its screenshots. `direct` says the browser reaches a
+ * droplets server itself, on DROPLETS_URL: the Svelte example (`svelte`),
+ * or the shop with no proxy in between (`shop`).
  */
-const HOSTS = {
-  express: { url: "http://localhost:8003" },
-  nginx: { url: "http://localhost:8081" },
-  fastapi: { url: "http://localhost:8001" },
-  sinatra: { url: "http://localhost:8002" },
-  php: { url: "http://localhost:8009" },
-  wordpress: { url: "http://localhost:8008", byName: true },
-  "react-vite": { url: "http://localhost:8004" },
-  astro: { url: "http://localhost:8005" },
-  sveltekit: { url: "http://localhost:8006" },
-  nextjs: { url: "http://localhost:8007" },
-  htmx: {
-    url: "http://localhost:8010",
-    byName: true,
-    spec: "e2e/htmx.spec.ts",
-    page: "/",
-    shots: ["1-gallery", "2-added", "3-login", "4-lazy"],
-    droplets: "http://localhost:8000",
-  },
-};
+const HOSTS = Object.fromEntries(
+  RUN_HOSTS.map(({ id, runner }) => [
+    id,
+    {
+      url: `http://localhost:${8000 + runner.offset}`,
+      offset: runner.offset,
+      byName: runner.byName === true,
+      spec: runner.spec,
+      page: runner.page,
+      shots: runner.shots,
+      direct: runner.direct,
+    },
+  ]),
+);
 
 /** The https variant: a compose override with Caddy in front (examples/hosts/<id>/docker-compose.https.yml). */
 const HTTPS = { express: "https://127-0-0-1.sslip.io:8443" };
@@ -111,9 +108,9 @@ if (portBase !== undefined && !(Number.isInteger(portBase) && portBase >= 1024 &
 /** A host's published ports and public URLs, as its compose file reads them. */
 function portsOf(name) {
   if (portBase === undefined) {
-    return { url: HOSTS[name].url, env: HOSTS[name].droplets ? { DROPLETS_URL: HOSTS[name].droplets } : {} };
+    return { url: HOSTS[name].url, env: HOSTS[name].direct ? { DROPLETS_URL: "http://localhost:8000" } : {} };
   }
-  const web = portBase + (Number(new URL(HOSTS[name].url).port) % 100);
+  const web = portBase + HOSTS[name].offset;
   const url = `http://localhost:${web}`;
   return {
     url,
@@ -139,23 +136,25 @@ const run = (command, argv, options = {}) => spawnSync(command, argv, { stdio: "
 /**
  * Until the host's /gallery (or its `page`) answers 200 and a shop fragment
  * comes through its proxy (the SPA's /gallery is its index.html; WordPress
- * redirects to its installer until wordpress-init is done), and, for a host
- * whose browser reaches the droplets server itself, a fragment from there.
+ * redirects to its installer until wordpress-init is done), or straight
+ * from the shop for a host with no proxy, and, for a host whose browser
+ * reaches the Svelte example itself, a fragment from there.
  */
 async function waitFor(name, url, minutes) {
   const until = Date.now() + minutes * 60_000;
-  const direct = HOSTS[name].droplets && portsOf(name).env.DROPLETS_URL;
+  const direct = HOSTS[name].direct && portsOf(name).env.DROPLETS_URL;
+  const shop = HOSTS[name].direct === "shop" ? direct : url;
   let last = "";
   while (Date.now() < until) {
     try {
-      if (direct) {
+      if (HOSTS[name].direct === "svelte") {
         const droplet = await fetch(`${direct}/droplets/ssr-hydrate`, { signal: AbortSignal.timeout(5000) });
         await droplet.body?.cancel();
         if (droplet.status !== 200) throw new Error(`${direct}: HTTP ${droplet.status}`);
       }
       const page = await fetch(`${url}${HOSTS[name].page ?? "/gallery"}`, { redirect: "manual", signal: AbortSignal.timeout(5000) });
       await page.body?.cancel();
-      const fragment = await fetch(`${url}/droplets/product-filter`, {
+      const fragment = await fetch(`${shop}/droplets/product-filter`, {
         headers: { accept: "text/html" },
         redirect: "manual",
         signal: AbortSignal.timeout(5000),

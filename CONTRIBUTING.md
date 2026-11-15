@@ -21,7 +21,7 @@ examples/frameworks/*/         one example per framework, the same three droplet
 examples/frameworks/Dockerfile the image of one of them (EXAMPLE=svelte for the hosts)
 examples/shop/                 the shop demo, in six frameworks, on SQLite
 examples/wp-shop/              the shop's droplets backed by WordPress
-examples/hosts/*/              the eleven host examples, each named by its id (folder = docs page = test:hosts key)
+examples/hosts/*/              the host examples, each named by its id (folder = docs page = test:hosts key), listed in hosts.json
 tests/                         end-to-end tests across packages; a package's own tests are in its test/
 tests/examples/                the framework examples in a browser (Playwright)
 tests/hosts/                   the shop flow on every host's compose stack, recorded

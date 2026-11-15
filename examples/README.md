@@ -50,25 +50,27 @@ in to WordPress. It runs next to the WordPress host
 
 ## [`hosts/`](./hosts)
 
-Eleven host examples; nine run the shop demo; WordPress and htmx have flows
-of their own. Each is a Docker Compose project that starts the Svelte
-example's server and the shop next to the host: the Svelte example's three
-droplets on `/`, the shop's pages on `/gallery` (htmx: its own two pages).
+The host examples, listed in [`hosts/hosts.json`](./hosts/hosts.json) by
+language. Each is a Docker Compose project that starts the shop (and, for
+most, the Svelte example's server) next to the host: the shop's pages on
+`/gallery`, the Svelte example's three droplets on `/` where there is one.
 Not in the pnpm workspace. The folder name is the host's id everywhere: its
 docs page, its recordings and `pnpm test:hosts <id>`.
 [`hosts/README.md`](./hosts/README.md) has the patterns, the ports and the
 end-to-end recordings ([`tests/hosts`](../tests/hosts)).
 
-| Host | Pattern |
-| ---- | ------- |
-| [`nginx`](./hosts/nginx) | Server Side Includes + reverse proxy, no application code |
-| [`express`](./hosts/express) | Fetch in a route, or the droplets server mounted in Express |
-| [`react-vite`](./hosts/react-vite) | A `<Droplet>` component for a single-page app |
-| [`astro`](./hosts/astro) | Fetch in the frontmatter, `set:html` |
-| [`sveltekit`](./hosts/sveltekit) | Fetch in `+page.server.ts`, `{@html}` |
-| [`nextjs`](./hosts/nextjs) | Fetch in a server component |
-| [`fastapi`](./hosts/fastapi) | `httpx` and Jinja2 |
-| [`sinatra`](./hosts/sinatra) | `Net::HTTP` and ERB |
-| [`php`](./hosts/php) | `curl_multi`, plain PHP on Apache |
-| [`wordpress`](./hosts/wordpress) | A `[droplet]` shortcode plugin; serves wp-shop |
-| [`htmx`](./hosts/htmx) | `hx-get` swaps the fragments into static pages, cross-origin or proxied |
+<!-- hosts:table -->
+| Host | Language | Pattern |
+| ---- | -------- | ------- |
+| [`express`](./hosts/express) | JavaScript / TypeScript | Fragment fetch in a route handler, or the droplets server mounted inside Express |
+| [`nextjs`](./hosts/nextjs) | JavaScript / TypeScript | Fragment fetch in a server component |
+| [`sveltekit`](./hosts/sveltekit) | JavaScript / TypeScript | Fragment fetch in `+page.server.ts`, `{@html}` in the page |
+| [`astro`](./hosts/astro) | JavaScript / TypeScript | Fragment fetch in the frontmatter, `set:html` |
+| [`react-vite`](./hosts/react-vite) | JavaScript / TypeScript | A client-side `<Droplet>` component, the shop through a same-origin proxy |
+| [`fastapi`](./hosts/fastapi) | Python | Fragment fetch with `httpx`, pasted into a Jinja2 template |
+| [`php`](./hosts/php) | PHP | Fragment fetch with `curl_multi`, pasted into plain PHP templates |
+| [`wordpress`](./hosts/wordpress) | PHP | A `[droplet]` shortcode plugin serving `examples/wp-shop` |
+| [`sinatra`](./hosts/sinatra) | Ruby | Fragment fetch with `Net::HTTP`, pasted into ERB |
+| [`nginx`](./hosts/nginx) | No backend code | Server Side Includes and a reverse proxy, same origin |
+| [`htmx`](./hosts/htmx) | No backend code | `hx-get` swaps the fragments in, proxied or cross-origin; `hx-boost` swaps `<main>` alone |
+<!-- /hosts:table -->

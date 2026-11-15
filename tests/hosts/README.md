@@ -2,19 +2,23 @@
 
 The host examples in [`examples/hosts`](../../examples/hosts), end to end:
 each host's compose stack started, a flow run against it in Chromium,
-recorded, and the stack taken down. Nine hosts run the shop flow; WordPress
-and htmx (whose shop moves as one page) have flows of their own and run only
-by name. `typecheck.mjs`
+recorded, and the stack taken down. The hosts and how each runs come from
+[`examples/hosts/hosts.json`](../../examples/hosts/hosts.json): most run the
+shared shop flow; WordPress and htmx (whose shop moves as one page) have flows of their own and
+run only by name. `typecheck.mjs`
 type-checks every Node host without Docker, and `test/` holds the static
 checks over `examples/` (vitest, no Docker): the shop's `shop.css` copies
 the same, every host's `x-droplet-location` from its environment, every
-example standing on its own, htmx's shop pages sharing their frame.
+example standing on its own, htmx's shop pages sharing their frame, and
+the manifest against the folders, the compose ports, the docs pages and the
+READMEs' generated parts (`readme.ts`).
 
 ```bash
-pnpm test:hosts                     # the nine shop flows, one at a time
+pnpm test:hosts                     # every host not run by name, one at a time
 pnpm test:hosts express nginx       # some, by id (the folder's name)
 pnpm test:hosts wordpress           # the WordPress showcase, with wp-shop
 pnpm test:hosts htmx                # the htmx shop and the Svelte page
+pnpm --filter @dropletsjs/tests-hosts readme   # rewrite the READMEs' host lists from hosts.json
 pnpm typecheck:hosts [host…]        # npm ci + npm run typecheck per Node host, no Docker
 pnpm --filter @dropletsjs/tests-hosts test   # the static checks in test/, no Docker (pnpm test:integration runs them)
 ```
@@ -51,8 +55,8 @@ environment points at: the Docker CLI reads its own `DOCKER_HOST` or
 nothing of its own.
 
 `HOSTS_PORT_BASE` moves every published port into one block of a hundred:
-the droplets server on the base, each host on the base plus its default
-port's last two digits (express, 8003: base + 3).
+the droplets server on the base, each host on the base plus its offset in
+`hosts.json` (express, offset 3: 8003, or base + 3).
 
 ### Flags
 
@@ -81,7 +85,7 @@ Recordings land in `recordings/<host>.mp4` and screenshots in
 
 ### The flows
 
-- `e2e/shop.spec.ts` (every host but WordPress and htmx): products into the
+- `e2e/shop.spec.ts` (every host without a `spec` in `hosts.json`; its main flow skips WordPress): products into the
   cart, a product page, the admin login, that product's stock set to 0, the
   cart and the product page saying "Out of stock"; plus a toast on add to
   cart, a post without JavaScript (not on react-vite, an SPA), no shared
@@ -118,7 +122,13 @@ so by `pnpm check`, with no Docker:
   on their own origin and write the cart badge and the toasts outside it;
   nginx gives each its path; the Svelte page loads its server's `/index.js`
   alone and boosts nothing.
-- `test/location.test.ts`: per host, the files that send
+- `test/manifest.test.ts`: `examples/hosts/hosts.json` has a built entry
+  for every host folder and none for a planned host, unique ids and port
+  offsets, each compose file's default port at 8000 plus the offset, a docs
+  page per built host, each named spec, and the READMEs' generated parts
+  current.
+- `test/location.test.ts`: every host example is listed, as sending the
+  header or sending none; per host, the files that send
   `x-droplet-location`, the value each such line may give it (an origin
   from `SHOP_PUBLIC_URL` or `DROPLETS_PUBLIC_URL`, or nginx's `${…}`), the
   line that reads it from the environment, and no read of the request's
@@ -142,14 +152,14 @@ its own install. The hosts are outside the pnpm workspace, so
 
 ## Facts
 
-- `HOSTS` maps each host id to its URL: express 8003, nginx 8081, fastapi 8001, sinatra 8002, php 8009, wordpress 8008, react-vite 8004, astro 8005, sveltekit 8006, nextjs 8007, htmx 8010. `run.mjs:57`
-- Hosts run only by name (`byName`): wordpress and htmx. `run.mjs:63`, `run.mjs:70`
+- `HOSTS` is built from `examples/hosts/hosts.json` (the built hosts with a `runner`): each id's URL is `http://localhost:` 8000 plus its offset: express 8003, nginx 8081, fastapi 8001, sinatra 8002, php 8009, wordpress 8008, react-vite 8004, astro 8005, sveltekit 8006, nextjs 8007, htmx 8010. `run.mjs:68`, `../../examples/hosts/hosts.json`
+- Hosts run only by name (`byName`): wordpress and htmx. `../../examples/hosts/hosts.json`
 - No host named, or `all`: every host without `byName`. `run.mjs:89`
-- htmx runs `e2e/htmx.spec.ts` only, waits on `/`, reaches the droplets server on `http://localhost:8000`. `run.mjs:68`
+- htmx runs `e2e/htmx.spec.ts` only, waits on `/`, reaches the Svelte example on `http://localhost:8000` (`direct: "svelte"`). `../../examples/hosts/hosts.json`
 - `--https` is set up for express only, on `https://127-0-0-1.sslip.io:8443`. `run.mjs:79`, `run.mjs:122`
 - Flags: `--https`, `--docs`, `--human`, `--tour`, `--keep`; any other flag or host exits 2. `run.mjs:86`
 - `HOSTS_PORT_BASE` must be an integer from 1024 to 65435. `run.mjs:98`
-- `HOSTS_PORT_BASE` sets `WEB_PORT`, `WEB_URL`, `DROPLETS_PORT`, `DROPLETS_URL` for compose: host on base plus its default port mod 100, droplets on the base. `run.mjs:105`
+- `HOSTS_PORT_BASE` sets `WEB_PORT`, `WEB_URL`, `DROPLETS_PORT`, `DROPLETS_URL` for compose: host on base plus its offset, droplets on the base. `run.mjs:114`
 - `.env.local` at the repository root is loaded first; set variables win. `run.mjs:49`, `../../packages/shared/env.ts:4`
 - `SHOP_SECRET`, `DROPLETS_SECRET`, `WP_SHOP_HOST_SECRET` and `WP_SHOP_SERVICE_SECRET` get 32 random bytes (hex) for the run when unset or empty; set ones win. `run.mjs:53`
 - Ready check: the host page answers 200 and `/droplets/product-filter` through the host returns `<djs-shop`, polled every 2 s for up to 10 minutes. `run.mjs:138`, `run.mjs:263`
