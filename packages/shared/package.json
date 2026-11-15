@@ -8,6 +8,7 @@
   "exports": {
     "./catalog": "./catalog.ts",
     "./env": "./env.ts",
+    "./hosts": "./hosts.ts",
     "./tsconfig": "./tsconfig.base.json",
     "./tsconfig.base.json": "./tsconfig.base.json",
     "./tsdown": "./tsdown.ts",

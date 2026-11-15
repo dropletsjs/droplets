@@ -1,0 +1,262 @@
+{
+  "languages": [
+    { "id": "javascript", "label": "JavaScript / TypeScript" },
+    { "id": "python", "label": "Python" },
+    { "id": "php", "label": "PHP" },
+    { "id": "ruby", "label": "Ruby" },
+    { "id": "dotnet", "label": "C# / .NET" },
+    { "id": "java", "label": "Java" },
+    { "id": "go", "label": "Go" },
+    { "id": "none", "label": "No backend code" }
+  ],
+  "patterns": {
+    "server-include": "Server include",
+    "proxy": "Reverse proxy at the edge",
+    "browser": "In the browser",
+    "cms": "CMS plugin"
+  },
+  "hosts": [
+    {
+      "id": "express",
+      "name": "Express",
+      "language": "javascript",
+      "pattern": "server-include",
+      "status": "built",
+      "docs": "integrate/hosts/express",
+      "stack": "Node, Express 5",
+      "how": "Fragment fetch in a route handler, or the droplets server mounted inside Express",
+      "example": true,
+      "runner": { "offset": 3, "flow": "shop" }
+    },
+    {
+      "id": "nextjs",
+      "name": "Next.js",
+      "language": "javascript",
+      "pattern": "server-include",
+      "status": "built",
+      "docs": "integrate/hosts/nextjs",
+      "stack": "Next.js App Router",
+      "how": "Fragment fetch in a server component",
+      "example": true,
+      "runner": { "offset": 7, "flow": "shop" }
+    },
+    {
+      "id": "sveltekit",
+      "name": "SvelteKit",
+      "language": "javascript",
+      "pattern": "server-include",
+      "status": "built",
+      "docs": "integrate/hosts/sveltekit",
+      "stack": "SvelteKit, adapter-node",
+      "how": "Fragment fetch in `+page.server.ts`, `{@html}` in the page",
+      "example": true,
+      "runner": { "offset": 6, "flow": "shop" }
+    },
+    {
+      "id": "astro",
+      "name": "Astro",
+      "language": "javascript",
+      "pattern": "server-include",
+      "status": "built",
+      "docs": "integrate/hosts/astro",
+      "stack": "Astro, Node adapter",
+      "how": "Fragment fetch in the frontmatter, `set:html`",
+      "example": true,
+      "runner": { "offset": 5, "flow": "shop" }
+    },
+    {
+      "id": "react-vite",
+      "name": "React + Vite",
+      "language": "javascript",
+      "pattern": "browser",
+      "status": "built",
+      "docs": "integrate/hosts/react-vite",
+      "stack": "React 19, Vite",
+      "how": "A client-side `<Droplet>` component, the shop through a same-origin proxy",
+      "example": true,
+      "runner": { "offset": 4, "flow": "shop" }
+    },
+    {
+      "id": "fastapi",
+      "name": "FastAPI",
+      "language": "python",
+      "pattern": "server-include",
+      "status": "built",
+      "docs": "integrate/hosts/fastapi",
+      "stack": "Python, FastAPI, httpx, Jinja2",
+      "how": "Fragment fetch with `httpx`, pasted into a Jinja2 template",
+      "example": true,
+      "runner": { "offset": 1, "flow": "shop" }
+    },
+    {
+      "id": "django",
+      "name": "Django",
+      "language": "python",
+      "pattern": "server-include",
+      "status": "planned",
+      "docs": "integrate/hosts/django",
+      "stack": "Python, Django",
+      "how": "Fragment fetch in a view, pasted into a template",
+      "example": true,
+      "runner": { "offset": 12, "flow": "shop" }
+    },
+    {
+      "id": "php",
+      "name": "PHP",
+      "language": "php",
+      "pattern": "server-include",
+      "status": "built",
+      "docs": "integrate/hosts/php",
+      "stack": "PHP 8.3 on Apache, curl, no framework",
+      "how": "Fragment fetch with `curl_multi`, pasted into plain PHP templates",
+      "example": true,
+      "runner": { "offset": 9, "flow": "shop" }
+    },
+    {
+      "id": "wordpress",
+      "name": "WordPress",
+      "language": "php",
+      "pattern": "cms",
+      "status": "built",
+      "docs": "integrate/wordpress",
+      "stack": "WordPress 6, a plugin; WordPress owns the data",
+      "how": "A `[droplet]` shortcode plugin serving `examples/wp-shop`",
+      "example": true,
+      "runner": { "offset": 8, "flow": "own", "byName": true }
+    },
+    {
+      "id": "laravel",
+      "name": "Laravel",
+      "language": "php",
+      "pattern": "server-include",
+      "status": "planned",
+      "docs": "integrate/hosts/laravel",
+      "stack": "PHP, Laravel",
+      "how": "Fragment fetch in a controller, pasted into a Blade view",
+      "example": true,
+      "runner": { "offset": 13, "flow": "shop" }
+    },
+    {
+      "id": "sinatra",
+      "name": "Sinatra",
+      "language": "ruby",
+      "pattern": "server-include",
+      "status": "built",
+      "docs": "integrate/hosts/sinatra",
+      "stack": "Ruby, Sinatra, Net::HTTP, ERB",
+      "how": "Fragment fetch with `Net::HTTP`, pasted into ERB",
+      "example": true,
+      "runner": { "offset": 2, "flow": "shop" }
+    },
+    {
+      "id": "rails",
+      "name": "Rails",
+      "language": "ruby",
+      "pattern": "server-include",
+      "status": "planned",
+      "docs": "integrate/hosts/rails",
+      "stack": "Ruby, Rails",
+      "how": "Fragment fetch in a controller, pasted into an ERB view",
+      "example": true,
+      "runner": { "offset": 15, "flow": "shop" }
+    },
+    {
+      "id": "aspnet",
+      "name": "ASP.NET Core",
+      "language": "dotnet",
+      "pattern": "server-include",
+      "status": "planned",
+      "docs": "integrate/hosts/aspnet",
+      "stack": "C#, ASP.NET Core Razor Pages",
+      "how": "Fragment fetch in a page model, pasted into a Razor page",
+      "example": true,
+      "runner": { "offset": 14, "flow": "shop" }
+    },
+    {
+      "id": "spring",
+      "name": "Spring Boot",
+      "language": "java",
+      "pattern": "server-include",
+      "status": "planned",
+      "docs": "integrate/hosts/spring",
+      "stack": "Java, Spring Boot, Thymeleaf",
+      "how": "Fragment fetch in a controller, pasted into a Thymeleaf template",
+      "example": true,
+      "runner": { "offset": 16, "flow": "shop" }
+    },
+    {
+      "id": "go",
+      "name": "Go",
+      "language": "go",
+      "pattern": "server-include",
+      "status": "planned",
+      "docs": "integrate/hosts/go",
+      "stack": "Go, net/http, html/template",
+      "how": "Fragment fetch in a handler, pasted into an `html/template`",
+      "example": true,
+      "runner": { "offset": 17, "flow": "shop" }
+    },
+    {
+      "id": "nginx",
+      "name": "nginx",
+      "language": "none",
+      "pattern": "proxy",
+      "status": "built",
+      "docs": "integrate/hosts/nginx",
+      "stack": "nginx, zero application code; an IIS web.config",
+      "how": "Server Side Includes and a reverse proxy, same origin",
+      "example": true,
+      "runner": { "offset": 81, "flow": "shop" }
+    },
+    {
+      "id": "htmx",
+      "name": "htmx",
+      "language": "none",
+      "pattern": "browser",
+      "status": "built",
+      "docs": "integrate/hosts/htmx",
+      "stack": "htmx 2 on static pages, nginx",
+      "how": "`hx-get` swaps the fragments in, proxied or cross-origin; `hx-boost` swaps `<main>` alone",
+      "example": true,
+      "runner": {
+        "offset": 10,
+        "flow": "own",
+        "spec": "e2e/htmx.spec.ts",
+        "byName": true,
+        "page": "/",
+        "shots": ["1-gallery", "2-added", "3-login", "4-lazy"],
+        "direct": "svelte"
+      }
+    },
+    {
+      "id": "static",
+      "name": "Static HTML",
+      "language": "none",
+      "pattern": "browser",
+      "status": "planned",
+      "docs": "integrate/hosts/static",
+      "stack": "One HTML page and a script on nginx, no proxy",
+      "how": "The page fetches the fragments from the shop's own origin, cross-origin; no cookies, so no cart or admin",
+      "example": true,
+      "runner": {
+        "offset": 11,
+        "flow": "own",
+        "spec": "e2e/static.spec.ts",
+        "shots": ["1-gallery", "2-product", "3-comments", "4-category"],
+        "direct": "shop"
+      }
+    },
+    {
+      "id": "site-builders",
+      "name": "Site builders",
+      "language": "none",
+      "pattern": "browser",
+      "status": "planned",
+      "docs": "integrate/hosts/site-builders",
+      "stack": "Webflow, Wix, Squarespace, Shopify",
+      "how": "The script and the element pasted into the builder's custom code block",
+      "example": false,
+      "runner": null
+    }
+  ]
+}

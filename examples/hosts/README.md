@@ -13,8 +13,11 @@ URLs on that server:
 The element's tag name is the server's `element` setting: `djs-droplet` by
 default, `djs-svelte` for the Svelte example these hosts embed.
 
-Eleven host examples; ten serve the shop demo, nine of them with the shared
-shop flow; WordPress and htmx have flows of their own. Every example in this folder does the same two things, in its
+<!-- hosts:count -->
+Eleven host examples, by language; nine run the shared shop flow, and WordPress and htmx have flows of their own.
+<!-- /hosts:count -->
+
+Every example in this folder does the same two things, in its
 own language ([Any other stack](https://dropletsjs.dev/integrate/any-stack/)
 has the exact headers, for a stack that is not here):
 
@@ -48,8 +51,16 @@ CORS altogether by proxying the droplets routes under the host's own origin.
 
 ## The examples
 
+`hosts.json` in this folder lists every host: its id (the folder, the docs
+page's name, `pnpm test:hosts <id>` and the compose project
+`droplets-<id>`), its language, its pattern, its port and its docs page. The
+docs' sidebar and tables, `tests/hosts/run.mjs` and the generated parts of
+this file and the root README are built from it
+(`pnpm --filter @dropletsjs/tests-hosts readme`). A host marked `planned` is
+reserved there and shown nowhere.
+
 Each folder is standalone, with its own dependencies and a `docker-compose.yml`
-that starts it next to a droplets server built from the Svelte example,
+that starts it next to the shop and, for most, a droplets server built from the Svelte example,
 [`examples/frameworks/svelte`](../frameworks/svelte) (with
 [`examples/frameworks/Dockerfile`](../frameworks/Dockerfile)):
 
@@ -58,19 +69,21 @@ cd examples/hosts/<example>
 docker compose up --build
 ```
 
-| Folder | Stack | Pattern |
-| ------ | ----- | ------- |
-| [`nginx`](./nginx) | nginx, zero application code | Server Side Includes + reverse proxy (same origin, no CORS). Includes an IIS `web.config` equivalent. |
-| [`express`](./express) | Node, Express 5 | Fragment fetch in a route handler, plus mounting the droplets server itself inside Express. |
-| [`react-vite`](./react-vite) | React 19, Vite | Client-side `<Droplet>` component for SPAs, with and without server-rendered markup. |
-| [`astro`](./astro) | Astro | Fragment fetch in a `.astro` page with `set:html`. |
-| [`sveltekit`](./sveltekit) | SvelteKit | Fragment fetch in `+page.server.ts`, `{@html}` in the page. |
-| [`nextjs`](./nextjs) | Next.js App Router | Fragment fetch in a server component. |
-| [`fastapi`](./fastapi) | Python, FastAPI, Jinja2 | Fragment fetch with `httpx`, injected into a template. |
-| [`sinatra`](./sinatra) | Ruby, Sinatra | Fragment fetch with `Net::HTTP`, injected into ERB. |
-| [`php`](./php) | PHP 8.3, Apache, no framework | Fragment fetch with `curl_multi`, injected into plain PHP templates. |
-| [`wordpress`](./wordpress) | WordPress 6 | The WordPress showcase: a plugin with a `[droplet]` shortcode and [`examples/wp-shop`](../wp-shop) with WordPress holding the shop's data. |
-| [`htmx`](./htmx) | htmx 2, static pages on nginx | `hx-get` swaps the fragments in from the browser: the shop through a proxy, its static pages moving as one (`hx-boost` swaps `<main>` alone), and the Svelte example cross-origin. A flow of its own. |
+<!-- hosts:examples -->
+| Language | Folder | Stack | Pattern |
+| -------- | ------ | ----- | ------- |
+| JavaScript / TypeScript | [`express`](./express) | Node, Express 5 | Fragment fetch in a route handler, or the droplets server mounted inside Express |
+| JavaScript / TypeScript | [`nextjs`](./nextjs) | Next.js App Router | Fragment fetch in a server component |
+| JavaScript / TypeScript | [`sveltekit`](./sveltekit) | SvelteKit, adapter-node | Fragment fetch in `+page.server.ts`, `{@html}` in the page |
+| JavaScript / TypeScript | [`astro`](./astro) | Astro, Node adapter | Fragment fetch in the frontmatter, `set:html` |
+| JavaScript / TypeScript | [`react-vite`](./react-vite) | React 19, Vite | A client-side `<Droplet>` component, the shop through a same-origin proxy |
+| Python | [`fastapi`](./fastapi) | Python, FastAPI, httpx, Jinja2 | Fragment fetch with `httpx`, pasted into a Jinja2 template |
+| PHP | [`php`](./php) | PHP 8.3 on Apache, curl, no framework | Fragment fetch with `curl_multi`, pasted into plain PHP templates |
+| PHP | [`wordpress`](./wordpress) | WordPress 6, a plugin; WordPress owns the data | A `[droplet]` shortcode plugin serving `examples/wp-shop` |
+| Ruby | [`sinatra`](./sinatra) | Ruby, Sinatra, Net::HTTP, ERB | Fragment fetch with `Net::HTTP`, pasted into ERB |
+| No backend code | [`nginx`](./nginx) | nginx, zero application code; an IIS web.config | Server Side Includes and a reverse proxy, same origin |
+| No backend code | [`htmx`](./htmx) | htmx 2 on static pages, nginx | `hx-get` swaps the fragments in, proxied or cross-origin; `hx-boost` swaps `<main>` alone |
+<!-- /hosts:examples -->
 
 All of them render the Svelte example's three droplets on `/`, one per
 mode, greeting `?who=`: `client` (rendered in the browser), `ssr-hydrate`
@@ -119,19 +132,26 @@ too.
 in `DROPLETS_TRUSTED_ORIGINS`. The shop's layout CSS is one `shop.css` per
 host, the same file everywhere.
 
-| Folder | Shop at |
-| ------ | ------- |
-| `nginx` | http://localhost:8081/gallery (a second `server` block: the basic server owns `/index.js` on 8080) |
+<!-- hosts:shop-at -->
+| Folder | Opens at |
+| ------ | -------- |
 | `express` | http://localhost:8003/gallery |
-| `react-vite` | http://localhost:8004/gallery |
-| `astro` | http://localhost:8005/gallery |
-| `sveltekit` | http://localhost:8006/gallery |
 | `nextjs` | http://localhost:8007/gallery |
+| `sveltekit` | http://localhost:8006/gallery |
+| `astro` | http://localhost:8005/gallery |
+| `react-vite` | http://localhost:8004/gallery |
 | `fastapi` | http://localhost:8001/gallery |
-| `sinatra` | http://localhost:8002/gallery |
 | `php` | http://localhost:8009/gallery |
-| `htmx` | http://localhost:8010/gallery (the Svelte example's droplets on `/`) |
-| `wordpress` | http://localhost:8008/gallery (once `wordpress-init` has installed WordPress and activated the plugin, about a minute) |
+| `wordpress` | http://localhost:8008/gallery |
+| `sinatra` | http://localhost:8002/gallery |
+| `nginx` | http://localhost:8081/gallery |
+| `htmx` | http://localhost:8010/ |
+<!-- /hosts:shop-at -->
+
+nginx's shop is on a second `server` block (8081): its basic server owns
+`/index.js` on 8080. htmx opens on the Svelte example's droplets (`/`), its
+shop on `/gallery`. WordPress answers once `wordpress-init` has installed it
+and activated the plugin, about a minute.
 
 ### Type-checked
 
@@ -153,7 +173,7 @@ after. Its `test/` folder holds static checks that need neither and run in
 own, htmx's shop pages sharing their head, header and footer.
 
 ```bash
-pnpm test:hosts                     # the nine shop flows (wordpress and htmx only by name)
+pnpm test:hosts                     # every host but wordpress and htmx (those only by name)
 pnpm test:hosts express sveltekit   # some
 pnpm test:hosts wordpress           # the WordPress showcase
 pnpm test:hosts htmx                # the htmx shop and Svelte page, their own flow (e2e/htmx.spec.ts)
@@ -175,19 +195,21 @@ adds a product from its page: the post answers `303` back to the host page
 The `--https` run checks that the `cart_id` and `shop_admin` cookies arrive
 `Secure` off localhost (see [express](./express/README.md#over-https-off-localhost)).
 
-| Host | Video | The gallery, after an add to cart |
-| ---- | ----- | --------------------------------- |
-| `nginx` | [nginx.mp4](../../apps/docs/public/hosts/nginx.mp4) | ![The shop on nginx](../../apps/docs/public/hosts/nginx/2-cart.webp) |
+<!-- hosts:recordings -->
+| Host | Video | A screenshot from its flow |
+| ---- | ----- | -------------------------- |
 | `express` | [express.mp4](../../apps/docs/public/hosts/express.mp4) | ![The shop on Express](../../apps/docs/public/hosts/express/2-cart.webp) |
+| `nextjs` | [nextjs.mp4](../../apps/docs/public/hosts/nextjs.mp4) | ![The shop on Next.js](../../apps/docs/public/hosts/nextjs/2-cart.webp) |
+| `sveltekit` | [sveltekit.mp4](../../apps/docs/public/hosts/sveltekit.mp4) | ![The shop on SvelteKit](../../apps/docs/public/hosts/sveltekit/2-cart.webp) |
+| `astro` | [astro.mp4](../../apps/docs/public/hosts/astro.mp4) | ![The shop on Astro](../../apps/docs/public/hosts/astro/2-cart.webp) |
+| `react-vite` | [react-vite.mp4](../../apps/docs/public/hosts/react-vite.mp4) | ![The shop on React + Vite](../../apps/docs/public/hosts/react-vite/2-cart.webp) |
 | `fastapi` | [fastapi.mp4](../../apps/docs/public/hosts/fastapi.mp4) | ![The shop on FastAPI](../../apps/docs/public/hosts/fastapi/2-cart.webp) |
-| `sinatra` | [sinatra.mp4](../../apps/docs/public/hosts/sinatra.mp4) | ![The shop on Sinatra](../../apps/docs/public/hosts/sinatra/2-cart.webp) |
 | `php` | [php.mp4](../../apps/docs/public/hosts/php.mp4) | ![The shop on PHP](../../apps/docs/public/hosts/php/2-cart.webp) |
 | `wordpress` | [wordpress.mp4](../../apps/docs/public/hosts/wordpress.mp4) | ![The shop on WordPress](../../apps/docs/public/hosts/wordpress/2-cart.webp) |
-| `react-vite` | [react-vite.mp4](../../apps/docs/public/hosts/react-vite.mp4) | ![The shop on React and Vite](../../apps/docs/public/hosts/react-vite/2-cart.webp) |
-| `astro` | [astro.mp4](../../apps/docs/public/hosts/astro.mp4) | ![The shop on Astro](../../apps/docs/public/hosts/astro/2-cart.webp) |
-| `sveltekit` | [sveltekit.mp4](../../apps/docs/public/hosts/sveltekit.mp4) | ![The shop on SvelteKit](../../apps/docs/public/hosts/sveltekit/2-cart.webp) |
-| `nextjs` | [nextjs.mp4](../../apps/docs/public/hosts/nextjs.mp4) | ![The shop on Next.js](../../apps/docs/public/hosts/nextjs/2-cart.webp) |
+| `sinatra` | [sinatra.mp4](../../apps/docs/public/hosts/sinatra.mp4) | ![The shop on Sinatra](../../apps/docs/public/hosts/sinatra/2-cart.webp) |
+| `nginx` | [nginx.mp4](../../apps/docs/public/hosts/nginx.mp4) | ![The shop on nginx](../../apps/docs/public/hosts/nginx/2-cart.webp) |
 | `htmx` | [htmx.mp4](../../apps/docs/public/hosts/htmx.mp4) | ![The shop on htmx](../../apps/docs/public/hosts/htmx/4-lazy.webp) |
+<!-- /hosts:recordings -->
 
 ### Ports
 
@@ -196,7 +218,7 @@ them and its public URLs from the environment, with the values above as
 defaults: `WEB_PORT` and `WEB_URL` for the host, `DROPLETS_PORT` and
 `DROPLETS_URL` for the droplets server. `HOSTS_PORT_BASE` has
 `pnpm test:hosts` set them from one block of a hundred ports: the droplets
-server on the base, each host on the base plus its default port's last two
-digits (`HOSTS_PORT_BASE=18000`: express on 18003, nginx on 18081). Each stack
+server on the base, each host on the base plus its offset in `hosts.json`
+(`HOSTS_PORT_BASE=18000`: express on 18003, nginx on 18081). Each stack
 runs as the compose project `droplets-<host>`, on whatever Docker the
 environment points at.

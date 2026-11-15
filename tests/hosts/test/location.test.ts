@@ -8,6 +8,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { EXAMPLES } from "@dropletsjs/shared/hosts";
 import { describe, expect, it } from "vitest";
 
 const hosts = resolve(import.meta.dirname, "../../../examples/hosts");
@@ -90,6 +91,16 @@ const HOSTS: Record<string, Host> = {
     source: [/\$\{SHOP_PUBLIC_URL\}/],
   },
 };
+
+/** Hosts whose browser asks the droplets server itself, with no proxy and no fragment fetched on a server: nothing sends the header. */
+const NONE: string[] = [];
+
+describe("every host example", () => {
+  it("is listed here, with the files that send the header or as sending none", () => {
+    const listed = [...Object.keys(HOSTS), ...NONE].sort();
+    expect(listed).toEqual(EXAMPLES.map((host) => host.id).sort());
+  });
+});
 
 /** A read of the request's own host, in any of the hosts' languages. */
 const HOST_HEADER =
