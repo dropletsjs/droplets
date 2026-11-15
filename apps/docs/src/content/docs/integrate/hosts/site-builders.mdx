@@ -1,0 +1,125 @@
+---
+title: Site builders
+description: "Webflow, Wix, Squarespace and Shopify: the droplets script and element pasted into the builder's custom code block, what the droplets server needs, and what a page built this way gives up."
+---
+
+A site builder renders its pages on its own servers, and none of them lets
+a page fetch a fragment from your server before it ships. What every
+builder does allow is code of your own in the page: a custom code, embed or
+code injection block. That is enough for the
+[client-only pattern](/integrate/client-only/): the page loads the droplets
+server's `/index.js` and writes the droplet element, and the element renders
+itself in the browser.
+
+This page is a guide, not an example: no builder runs in `pnpm test:hosts`.
+What it relies on is what [React + Vite](/integrate/hosts/react-vite/) runs
+end to end: a page on one origin, the droplets server on another.
+
+## What you paste
+
+```html
+<script type="module" src="https://drops.example.com/index.js"></script>
+
+<acme-widgets data-droplet="newsletter" data-droplet-props='{"list":"spring"}'></acme-widgets>
+```
+
+- **The script** once per page, from the droplets server's public URL. It
+  defines the element, and every droplet loads its bundle, stylesheet and
+  data from where the script came from, path prefix included.
+- **The element** where the droplet goes: its tag is the server's
+  `element` setting (`djs-droplet` by default), `data-droplet` the droplet's
+  id, `data-droplet-props` its props as plain JSON. With no server markup to
+  adopt, it runs the droplet's universal load in the browser, asks the
+  server for the server load's data (`POST /droplets/<id>/_data`), adds the
+  stylesheet and mounts. [Write the element](/integrate/client-only/#3-write-the-element)
+  has the attributes and the order of events.
+
+Put the script where the builder adds code to every page (often called
+custom code, head code or code injection), or in the same block as the
+element. A block that puts your code inside an iframe of its own renders
+the droplet inside that frame, sized by the frame: prefer a block that adds
+the code to the page itself.
+
+A droplet with `hydrate = false` ships no browser bundle, so its element
+renders nothing: fetch its fragment from the browser and insert it instead
+([Or insert the fragment](/integrate/client-only/#4-or-insert-the-fragment)),
+which is a few lines of script in the same block.
+
+## What the droplets server needs
+
+- **A public location over HTTPS.** The builder serves its pages over HTTPS,
+  so the browser loads the script, the bundles and the data only from an
+  HTTPS URL it can reach: the droplets server deployed where the public can
+  reach it ([Deployment](/guides/deployment/)), not an address inside your
+  network.
+- **CORS.** The page and the droplets server are on different origins, so
+  the browser needs permission to import `/index.js` and the bundles and to
+  post to `_data`. Set `cors` in `droplets.config.ts`, with the site's
+  origin rather than `true` for anything that is not public:
+
+  ```ts
+  // droplets.config.ts
+  export default config({
+    element: "acme-widgets",
+    cors: { origin: ["https://www.example.com"] },
+  });
+  ```
+
+- **The site's origin among the trusted origins**, for droplets with forms:
+  a form posted to the droplets server is refused unless its `Origin` is
+  trusted ([the `Origin` check](/guides/security/#csrf-the-origin-check)).
+  List it in `trustedOrigins` or `DROPLETS_TRUSTED_ORIGINS`.
+
+## What it gives up
+
+- **The first paint.** The page's HTML holds an empty element; the droplet
+  appears once the script has run. Without JavaScript nothing shows, and a
+  search engine that does not run scripts sees nothing either.
+- **Cookies.** The element's requests and a cross-origin `fetch` go out
+  without credentials: the droplets server never sees the visitor's cookies,
+  and a `Set-Cookie` it answers is dropped. A droplet that needs a login or
+  a cart of its own cannot keep one this way.
+- **Post/Redirect/Get.** A form without JavaScript posts to the droplets
+  server and comes back to the page by a redirect, which needs a page that
+  renders the result; here the page renders nothing without JavaScript.
+  Forms work as enhanced forms, posted by the droplet from the browser.
+
+The [client-only page](/integrate/client-only/#what-a-client-only-page-gives-up)
+has the same list; a page that needs these renders on a server and pastes
+the fragments in (every server host in [Hosts](/integrate/hosts/overview/)).
+
+## Per builder
+
+The steps are the same everywhere: find the block that takes your own code,
+paste the script and the element, publish. Builders rename and move these
+blocks between plans and versions, so check your builder's help for where
+its custom code goes on your plan.
+
+### Webflow
+
+Webflow has custom code for the whole site, for one page, and an embed
+element placed in the page. Put the script in the site's or the page's
+custom code, and the element in an embed where the droplet goes.
+
+### Wix
+
+Wix adds custom code to the site's pages from its settings, and has an
+element that embeds HTML. Prefer the site's custom code for the script;
+check whether the embed element you use renders inside a frame of its own
+(see [What you paste](#what-you-paste)).
+
+### Squarespace
+
+Squarespace has code injection for the site or a page and a code block in
+the page. Put the script in code injection, and the element in a code block
+where the droplet goes.
+
+### Shopify
+
+A Shopify theme is Liquid, rendered on Shopify's servers, and Liquid has no
+way to fetch your droplets server's fragment while it renders the page. So
+the droplet comes in the client-only way: the script and the element in a
+section or block of the theme that takes your own HTML, or in the theme's
+code. The other way round is an app proxy, a Shopify app that answers a path
+on the store's own domain from your server; that is building a Shopify
+app, and not covered here.

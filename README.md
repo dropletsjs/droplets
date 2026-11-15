@@ -197,7 +197,7 @@ They all share one version.
   example on `/` where there is one):
 
 <!-- hosts:count -->
-Eleven host examples, by language; nine run the shared shop flow, and WordPress and htmx have flows of their own.
+Eleven host examples, by language; nine run the shared shop flow, and WordPress and htmx have flows of their own. [Site builders](https://dropletsjs.dev/integrate/hosts/site-builders/) is a guide, with no example: Webflow, Wix, Squarespace, Shopify.
 <!-- /hosts:count -->
 
 <!-- hosts:table -->

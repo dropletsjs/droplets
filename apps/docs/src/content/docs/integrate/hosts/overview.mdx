@@ -30,7 +30,9 @@ fetches the fragment, the host's server or the browser:
 
 Every example also proxies `/index.js`, `/env.js`, `/index.css`, `/droplets/*`,
 `/assets/*` and `/api/*` under its own origin, so the browser talks to one
-origin ([the paths](/integrate/any-stack/#the-paths-to-proxy)).
+origin ([the paths](/integrate/any-stack/#the-paths-to-proxy)). The
+[site builders](/integrate/hosts/site-builders/) do not: the page asks the
+droplets server on its own origin, and gets no cookies there.
 
 Each host as the end-to-end test recorded it, by language:
 
@@ -57,7 +59,8 @@ fragment from the browser, and lets the element do the rest. The React
 example shows both. [htmx](/integrate/hosts/htmx/) does the second with no code
 at all: `hx-get` asks for the fragment and swaps it into a static page, and
 `hx-boost` moves between the shop's static pages by swapping `<main>`
-alone.
+alone. The [site builders](/integrate/hosts/site-builders/) paste the
+droplets script and element into a builder's custom code block.
 
 ## Passing content in
 

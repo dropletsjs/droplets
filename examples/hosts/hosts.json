@@ -251,7 +251,7 @@
       "name": "Site builders",
       "language": "none",
       "pattern": "browser",
-      "status": "planned",
+      "status": "built",
       "docs": "integrate/hosts/site-builders",
       "stack": "Webflow, Wix, Squarespace, Shopify",
       "how": "The script and the element pasted into the builder's custom code block",
