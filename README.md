@@ -120,10 +120,18 @@ location in `x-droplet-location`, so the URLs a fragment writes agree with
 it; the droplets server honours it only when its origin is trusted: its own,
 `origin`, or `trustedOrigins`. See the
 [HTTP contract](https://dropletsjs.dev/integrate/http-contract/) and
-[Hosts](https://dropletsjs.dev/integrate/hosts/overview/): nginx,
-Express, React, Astro, SvelteKit, Next.js, FastAPI, Sinatra, PHP, WordPress,
-htmx and a static HTML page, each a working example in
-[`examples/hosts`](./examples/hosts).
+[Hosts](https://dropletsjs.dev/integrate/hosts/overview/), by language:
+
+<!-- hosts:wall -->
+- **JavaScript / TypeScript**: [Express](https://dropletsjs.dev/integrate/hosts/express/), [Next.js](https://dropletsjs.dev/integrate/hosts/nextjs/), [SvelteKit](https://dropletsjs.dev/integrate/hosts/sveltekit/), [Astro](https://dropletsjs.dev/integrate/hosts/astro/), [React + Vite](https://dropletsjs.dev/integrate/hosts/react-vite/)
+- **Python**: [FastAPI](https://dropletsjs.dev/integrate/hosts/fastapi/)
+- **PHP**: [PHP](https://dropletsjs.dev/integrate/hosts/php/), [WordPress](https://dropletsjs.dev/integrate/wordpress/)
+- **Ruby**: [Sinatra](https://dropletsjs.dev/integrate/hosts/sinatra/)
+- **No backend code**: [nginx](https://dropletsjs.dev/integrate/hosts/nginx/), [htmx](https://dropletsjs.dev/integrate/hosts/htmx/), [Static HTML](https://dropletsjs.dev/integrate/hosts/static/), [Site builders](https://dropletsjs.dev/integrate/hosts/site-builders/)
+<!-- /hosts:wall -->
+
+Each is a working example in [`examples/hosts`](./examples/hosts) running the
+same shop, the site builders excepted (a guide).
 [Any other stack](https://dropletsjs.dev/integrate/any-stack/) has the two
 steps and the exact headers for a stack that is not listed. The
 [WordPress tutorial](https://dropletsjs.dev/integrate/wordpress/) puts the
