@@ -206,7 +206,7 @@ They all share one version.
   example on `/` where there is one):
 
 <!-- hosts:count -->
-Twelve host examples, by language; nine run the shared shop flow, and WordPress, htmx and Static HTML have flows of their own. [Site builders](https://dropletsjs.dev/integrate/hosts/site-builders/) is a guide, with no example: Webflow, Wix, Squarespace, Shopify.
+Twelve host examples, by language; ten run the shared shop flow, and WordPress and htmx have flows of their own. [Site builders](https://dropletsjs.dev/integrate/hosts/site-builders/) is a guide, with no example: Webflow, Wix, Squarespace, Shopify.
 <!-- /hosts:count -->
 
 <!-- hosts:table -->
@@ -223,7 +223,7 @@ Twelve host examples, by language; nine run the shared shop flow, and WordPress,
 | [sinatra](./examples/hosts/sinatra) | Ruby | Ruby, Sinatra, Net::HTTP, ERB | Fragment fetch with `Net::HTTP`, pasted into ERB |
 | [nginx](./examples/hosts/nginx) | No backend code | nginx, zero application code; an IIS web.config | Server Side Includes and a reverse proxy, same origin |
 | [htmx](./examples/hosts/htmx) | No backend code | htmx 2 on static pages, nginx | `hx-get` swaps the fragments in, proxied or cross-origin; `hx-boost` swaps `<main>` alone |
-| [static](./examples/hosts/static) | No backend code | One HTML page and a script on nginx, no proxy | The page fetches the fragments from the shop's own origin, cross-origin; no cookies, so no cart or admin |
+| [static](./examples/hosts/static) | No backend code | One HTML page and a script on nginx, no proxy | The page fetches the fragments from the shop's own origin, cross-origin, with the shop's cookies |
 <!-- /hosts:table -->
 
 The [shop demo](https://dropletsjs.dev/integrate/hosts/shop-demo/) page shows

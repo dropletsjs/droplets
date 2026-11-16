@@ -1,6 +1,10 @@
 // The shop's pages, composed in the browser from fragments the shop's
 // droplets server answers on its own origin. nginx gives every shop path
 // this one page; the path says which droplets it asks for.
+//
+// Every request to the shop carries its cookies (the cart, the admin
+// session): the shop answers this page's origin with credentials, and
+// the element's own requests include them too.
 
 // The droplets server is wherever the page loads /index.js from: one URL to
 // change when it moves.
@@ -24,6 +28,10 @@ async function fragment({ id, params, target, onRedirect }) {
     const response = await fetch(new URL(`droplets/${encodeURIComponent(id)}?${params}`, DROPLETS), {
       redirect: "manual",
       headers: { accept: "text/html" },
+      credentials: "include",
+      // The page's whole URL, not only its origin: the shop takes the host
+      // page from Referer, where a form's result comes back to.
+      referrerPolicy: "no-referrer-when-downgrade",
     });
     if (response.type === "opaqueredirect" && onRedirect) return onRedirect();
     const isFragment =
@@ -59,18 +67,19 @@ function pick(query, names) {
   return picked;
 }
 
+function current(href) {
+  document.querySelector(`.shop-nav a[href="${href}"]`).setAttribute("aria-current", "page");
+}
+
 function gallery(query) {
   document.title = `Gallery · Droplets Shop on ${STACK}`;
-  document.querySelector('.shop-nav a[href="/gallery"]').setAttribute("aria-current", "page");
+  current("/gallery");
   const filter = element("aside");
   const library = element("div");
   main.append(
     element("section", { class: "shop-hero" }, [
       element("h1", {}, ["Everything a demo shop needs."]),
       element("p", {}, ["Rendered by six frameworks, embedded by one static HTML page."]),
-      element("p", { class: "shop-aside" }, [
-        "The page and the droplets server are two origins, so the shop gets none of this site's cookies: no cart is kept and there is no admin here.",
-      ]),
     ]),
     element("div", { class: "shop-gallery" }, [filter, library]),
   );
@@ -84,6 +93,7 @@ async function productOf(slug) {
   const response = await fetch(new URL(`droplets/product-page/_data?${new URLSearchParams({ slug })}`, DROPLETS), {
     redirect: "manual",
     headers: { accept: "application/json" },
+    credentials: "include",
   });
   if (!response.ok) return null;
   const product = (await response.json())?.data?.product;
@@ -139,7 +149,26 @@ async function product(slug, query) {
   fragment({ id: "product-comments", params: commentProps, target: comments });
 }
 
+/** The admin: its `view` and `id`; the gate and its login link without a session. */
+function admin(query) {
+  document.title = `Admin · Droplets Shop on ${STACK}`;
+  current("/admin");
+  const target = element("div");
+  main.append(target);
+  fragment({ id: "product-admin", params: pick(query, ["view", "id"]), target });
+}
+
+/** The shop's login: `next`, where its redirect goes once logged in. */
+function login(query) {
+  document.title = `Log in · Droplets Shop on ${STACK}`;
+  const target = element("div", { class: "shop-narrow" });
+  main.append(target);
+  fragment({ id: "login", params: pick(query, ["next"]), target });
+}
+
 const query = new URLSearchParams(location.search);
 const slug = /^\/product\/([a-z0-9]+(?:-[a-z0-9]+)*)$/.exec(location.pathname)?.[1];
 if (location.pathname === "/gallery") gallery(query);
+else if (location.pathname === "/admin") admin(query);
+else if (location.pathname === "/login") login(query);
 else if (slug) product(slug, query);
