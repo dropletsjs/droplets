@@ -8,6 +8,7 @@ import {
   redirectTarget,
   submission,
 } from "../../src/runtime/enhance.ts";
+import { serverKey, serverRecord } from "../../src/runtime/server-records.ts";
 
 const LOCATION = "https://drops.test/mfe";
 const OWN = `${LOCATION}/droplets/guestbook`;
@@ -118,7 +119,13 @@ describe("actionAnswer and redirectTarget", () => {
 });
 
 describe("enhanceDropletForm", () => {
-  let posted: { url: string; accept: string | null; body: unknown; redirect: string | undefined }[];
+  let posted: {
+    url: string;
+    accept: string | null;
+    body: unknown;
+    redirect: string | undefined;
+    credentials: RequestCredentials | undefined;
+  }[];
   let answer: () => Response;
   let events: DropletActionDetail[];
   const realFetch = globalThis.fetch;
@@ -141,6 +148,7 @@ describe("enhanceDropletForm", () => {
         accept: new Headers(init?.headers).get("accept"),
         body: init?.body,
         redirect: init?.redirect,
+        credentials: init?.credentials,
       });
       return answer();
     }) as typeof fetch;
@@ -178,6 +186,22 @@ describe("enhanceDropletForm", () => {
     // The URL it posted to: a droplet that does not hydrate renders again with its props and page.
     expect(host.actions).toEqual([`${OWN}?page=2`]);
     expect(events).toEqual([{ droplet: "guestbook", action: "default", type: "success", status: 200, data: { message: "Thanks, Ana" } }]);
+  });
+
+  it("sends cookies cross-origin only when the server's record says include (cors.credentials)", async () => {
+    const record = serverRecord(serverKey("enhance-host", "b1"));
+    mount(`<form data-testid="sign" method="post" action="${OWN}"><input name="name" value="Ana"></form>`);
+    enhanceDropletForm(form("sign"));
+    try {
+      form("sign").requestSubmit();
+      await flush();
+      record.credentials = "include";
+      form("sign").requestSubmit();
+      await flush();
+    } finally {
+      delete record.credentials;
+    }
+    expect(posted.map((post) => post.credentials)).toEqual(["same-origin", "include"]);
   });
 
   it("sends multipart as FormData, and follows a redirect to http(s) only", async () => {
@@ -237,7 +261,7 @@ describe("enhanceDropletForm", () => {
     enhanceDropletForm(form("sign"));
     const respond = answer;
     globalThis.fetch = (async (input: RequestInfo | URL) => {
-      posted.push({ url: String(input), accept: null, body: null, redirect: undefined });
+      posted.push({ url: String(input), accept: null, body: null, redirect: undefined, credentials: undefined });
       await held;
       return respond();
     }) as typeof fetch;

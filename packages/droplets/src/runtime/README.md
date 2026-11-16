@@ -295,6 +295,8 @@ Then the route.
 
 - `serverKey` is `<element>:<build>`, shared by `/index.js`, `$droplets/drop` and `$droplets/form`. `server-records.ts:27`
 - `serverLocation` is the record's origin, else the build root `__DROPLETS_BUILD_ROOT__` from `import.meta.url`. `server-records.ts:48`
+- `serverCredentials` is the record's `credentials` (`"include"`), else `"same-origin"`, the browser's default. `server-records.ts:43`
+- The element's module writes `credentials: "include"` into its server's record when the client build's `corsCredentials` is true, before any element runs. `entry-client.ts:16`
 - The runtime env falls back to `process.env` where `process` exists. `env-store.ts:26`
 - Request info uses `AsyncLocalStorage` through `process.getBuiltinModule`, never a Node import. `request-store.ts:39`
 - A production server logs errors only, with `console.error`: a plain message, then the error as it is. `app.ts:707`, `app.ts:715`, `app.ts:738`, `app.ts:1606`, `app.ts:1618`, `entry-server.ts:227`
@@ -309,6 +311,7 @@ Then the route.
 - `enhanceDropletForm` hands `updateForm` the action URL it posted to. `enhance.ts:381`
 - The element's server location is `serverLocation` for its element and build. `entry-client.ts:368`
 - `_data` is fetched with POST to `<location>/droplets/<id>/_data?__cb=<now>`, a JSON body and `redirect: "manual"`. `entry-client.ts:721`
+- `_data` and a fragment rendered again after a post are fetched with `serverCredentials` for the element's server. `entry-client.ts:807`, `entry-client.ts:1393`
 - `data-droplet-hydrate` takes `""`, `true`, `false`, `visible` and `interactive`, case-sensitive. `entry-client.ts:1097`
 - `data-droplet-hydrate="false"` never stops a script droplet. `entry-client.ts:1106`
 - `interactive` without server markup hydrates at once. `entry-client.ts:1114`
@@ -333,6 +336,7 @@ Then the route.
 - `enhanceDropletForm` intercepts only POST forms, form-urlencoded or multipart, with target `""` or `_self`. `enhance.ts:155`
 - `enhanceDropletForm` intercepts only forms posting to exactly `<location>/droplets/<id>`. `enhance.ts:167`
 - `enhanceDropletForm` posts with `accept: application/json` and `redirect: "manual"`. `enhance.ts:340`
+- `enhanceDropletForm` posts with `serverCredentials` for its element's server (`<element>:<build>`). `enhance.ts:358`
 - `enhanceDropletForm` dispatches `droplets:action` on `globalThis`. `enhance.ts:361`
 - `enhanceDropletForm` reads the answer through `Object.hasOwn`. `enhance.ts:213`
 - `enhanceDropletForm` reads `x-droplets-build` before the answer's body, as the element does; an answer from another build dispatches `droplets:stale` on the droplet's element (`reportStale`, `stale.ts`) and applies nothing: no `updateForm`, no `onResult`, no `droplets:action`. `enhance.ts:357`

@@ -16,6 +16,7 @@
  * @module
  */
 
+import { serverCredentials, serverKey } from "./server-records.ts";
 import { reportStale } from "./stale.ts";
 
 /** The encodings an action takes; a `text/plain` form is left to the browser (the server answers `415`). */
@@ -353,7 +354,8 @@ async function send({ host, droplet, build, action, body, options }: SendInput):
       body,
       // A redirect is the action's answer, for the page: never followed here.
       redirect: "manual",
-      // Credentials as the `_data` fetch sends them: the default, same-origin.
+      // As the element's `_data` fetch: `include` when the server's `cors` allows credentials.
+      credentials: serverCredentials({ key: serverKey(host.localName, build) }),
     });
     const served = response.headers.get("x-droplets-build");
     if (build && served && served !== build) {
