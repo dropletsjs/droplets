@@ -117,8 +117,8 @@ server (or let the element fetch it in the browser), paste it in, load
 The browser loads every droplet from where the page loaded `/index.js`. A
 host that fetches fragments through an internal address sends the public
 location in `x-droplet-location`, so the URLs a fragment writes agree with
-it; the droplets server honours it only when its origin is trusted: its own,
-`origin`, or `trustedOrigins`. See the
+it; the droplets server honours it only when its origin is trusted: its own
+or one in `trustedOrigins` / `DROPLETS_TRUSTED_ORIGINS`. See the
 [HTTP contract](https://dropletsjs.dev/integrate/http-contract/) and
 [Hosts](https://dropletsjs.dev/integrate/hosts/overview/), by language:
 
@@ -274,8 +274,8 @@ layout, the checks and what a good pull request looks like;
 ## Security
 
 A droplets server renders inside pages it does not own: it trusts
-`x-droplet-location` only for its own origin or one in `origin` or
-`trustedOrigins`, runs a droplet's props schema before
+`x-droplet-location` only for its own origin or one in `trustedOrigins` /
+`DROPLETS_TRUSTED_ORIGINS`, runs a droplet's props schema before
 any of its loads, keeps `*.server.*` files and `server/` folders out of every
 client bundle, and signs form results it sends back through the host page.
 The [Security model](https://dropletsjs.dev/guides/security/) has the rules
