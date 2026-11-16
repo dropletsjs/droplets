@@ -2214,3 +2214,38 @@ describe("two builds on one element name", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 });
+
+describe("the credentials of the element's requests", () => {
+  const withCredentials = () => {
+    servers[SERVERS] = { "djs-droplet:test01": { origin: "http://drops.test", credentials: "include" } as { origin?: string } };
+  };
+  const credentialsOf = (fetchSpy: ReturnType<typeof vi.fn>) =>
+    fetchSpy.mock.calls.map((call) => (call as unknown as [string, RequestInit])[1].credentials);
+  const fragment = () =>
+    new Response('<djs-droplet data-droplet="clock" data-droplet-build="test01"><div data-droplet-entry><p>v2</p></div></djs-droplet>', {
+      headers: { "content-type": "text/html; charset=utf-8" },
+    });
+
+  async function requests() {
+    const fetchSpy = vi.fn(async (url: string) => (url.includes("/_data") ? json({ body: { data: {} } }) : fragment()));
+    vi.stubGlobal("fetch", fetchSpy);
+    fakeModule();
+    mount(`<djs-droplet data-droplet="hello" data-droplet-props='{"who":"Ana"}'></djs-droplet>`);
+    const clock = mount(
+      `<djs-droplet data-droplet="clock" data-droplet-build="test01"><div data-droplet-entry><p>v1</p></div></djs-droplet>`,
+    );
+    await tick();
+    await tick();
+    await clock.updateForm({ form: {}, action: "http://drops.test/droplets/clock" });
+    return fetchSpy;
+  }
+
+  it("keeps the browser's default, same-origin, for _data and a fragment rendered again", async () => {
+    expect(credentialsOf(await requests())).toEqual(["same-origin", "same-origin"]);
+  });
+
+  it("includes cookies when the server's record says include (cors.credentials)", async () => {
+    withCredentials();
+    expect(credentialsOf(await requests())).toEqual(["include", "include"]);
+  });
+});

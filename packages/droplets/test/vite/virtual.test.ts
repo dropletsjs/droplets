@@ -5,6 +5,7 @@ import { locationScript, serverKey } from "../../src/runtime/server-records.ts";
 import { createInitialState, type PluginState } from "../../src/vite/state.ts";
 import {
   buildClientCode,
+  corsCredentials,
   buildClientDevCode,
   buildConfigCode,
   clientInitCode,
@@ -235,12 +236,31 @@ describe("buildClientCode", () => {
     expect(code).not.toContain("clientHooks");
   });
 
+  it("includes credentials for cors.credentials with an explicit origin only, never for *", () => {
+    const only = (origin: string) => (origin === "https://host.example" ? origin : null);
+    expect(corsCredentials({ cors: { origin: only, credentials: true } })).toBe(true);
+    expect(corsCredentials({ cors: { origin: ["https://host.example"], credentials: true } })).toBe(true);
+    expect(corsCredentials({ cors: { origin: "https://host.example", credentials: true } })).toBe(true);
+    // `cors: true` resolves to `{ origin: "*" }`; Hono's default origin is `*` too.
+    expect(corsCredentials({ cors: { origin: "*" } })).toBe(false);
+    expect(corsCredentials({ cors: { origin: "*", credentials: true } })).toBe(false);
+    expect(corsCredentials({ cors: { credentials: true } })).toBe(false);
+    expect(corsCredentials({ cors: { origin: only } })).toBe(false);
+    expect(corsCredentials({ cors: undefined })).toBe(false);
+  });
+
+  it("says whether the runtime's requests include credentials, as a boolean only", () => {
+    expect(buildClientCode({ entries: [], buildHash: "h" })).toContain("export const corsCredentials = false;");
+    expect(buildClientCode({ entries: [], buildHash: "h", hasCredentials: true })).toContain("export const corsCredentials = true;");
+  });
+
   it("is the same module as ever without src/hooks.client.ts", () => {
     const built = [
       "const droplets = {};",
       "export default droplets;",
       'export const buildHash = "h";',
       'export const elementName = "djs-droplet";',
+      "export const corsCredentials = false;",
       "export const dropletsById = {",
       '  "a": true,',
       "};",

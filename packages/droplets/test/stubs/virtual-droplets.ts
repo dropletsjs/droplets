@@ -1,6 +1,7 @@
 /** Test stand-in for the generated `virtual:droplets` module. */
 export const buildHash = "test01";
 export const elementName = "djs-droplet";
+export const corsCredentials: boolean = false;
 export const dropletsById: Record<string, boolean> = { hello: true, clock: true, plain: true, beacon: true };
 export const dropletsHydrateById: Record<string, boolean> = { hello: true, plain: true, beacon: true };
 export const dropletsServerLoadById: Record<string, boolean> = { hello: true };

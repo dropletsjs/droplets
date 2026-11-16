@@ -51,6 +51,11 @@ export type DropletsConfig = {
    * Cross-origin access to every route. Pages served by another process
    * need this to import `/droplets/<id>/client.js` and to call `/droplets/<id>/_data`.
    * `true` allows any origin; pass Hono `cors()` options to restrict it.
+   * With `credentials: true` and an `origin` other than `"*"`, the browser
+   * runtime's own requests (an enhanced form's post, `_data`, a fragment
+   * rendered again after a post) send `credentials: "include"`, so they
+   * carry this server's cookies from a page on another origin; the client
+   * build learns only that boolean.
    */
   cors?: boolean | DropletsCorsOptions;
   /**

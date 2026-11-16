@@ -243,6 +243,67 @@ server. The same goes for `server.cors` in `vite dev`, which otherwise lets
 any site you visit read the dev server's sources. See
 [`cors`](/guides/configuration/#options).
 
+### Cookies across origins
+
+The browser runtime's own requests to the droplets server (an enhanced
+form's post, `_data`, a fragment rendered again after a post) go out with
+the browser's default, `credentials: "same-origin"`: from a page on
+another origin they carry none of the droplets server's cookies, and a
+`Set-Cookie` in their answer is not stored. For a cart or a session on the
+droplets server, list the host pages' origins and allow credentials:
+
+```ts
+// droplets.config.ts
+export default config({
+  cors: { origin: ["https://www.example.com"], credentials: true },
+});
+```
+
+- The server answers those origins by name, with
+  `Access-Control-Allow-Credentials: true`; any other origin gets no CORS
+  headers. `origin` may be a function, read per request.
+- Those three requests send `credentials: "include"`. The client build
+  learns only that one boolean, never the origin list or a function.
+- Your own `fetch` calls choose for themselves:
+  `fetch(droplet.url("/api/cart"), { credentials: "include" })`, and so
+  does a page that fetches fragments from the browser.
+- With `origin: "*"`, or no `origin` (Hono's default is `*`), the requests
+  stay same-origin: a browser blocks a credentialed answer that allows `*`,
+  and stores no cookie from it
+  ([MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS#requests_with_credentials)).
+
+Which cookies the browser then sends depends on whether the page and the
+droplets server are one site: the same scheme and registrable domain,
+whatever the port or subdomain
+([web.dev](https://web.dev/articles/same-site-same-origin),
+[MDN](https://developer.mozilla.org/en-US/docs/Glossary/Site)).
+
+- **One site** (`https://shop.example.com` and `https://drops.example.com`):
+  the cookies are first-party to the page's site, and the default
+  `sameSite: "lax"` is enough. This works in every browser.
+- **Two sites** (a page on a site builder's domain): the droplets server's
+  cookies are third-party. They need `sameSite: "none"` and `secure`
+  ([MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie)),
+  and browsers limit them even then:
+  - Safari blocks cookies for cross-site resources by default, since
+    Safari 13.1 and iOS 13.4 in 2020
+    ([WebKit](https://webkit.org/blog/10218/full-third-party-cookie-blocking-and-more/),
+    [Tracking Prevention](https://webkit.org/tracking-prevention/)).
+  - Firefox partitions them by default (Total Cookie Protection, State
+    Partitioning since Firefox 103): it keys a third party's state by the
+    top-level site as well, so the cookies the droplets server gets inside
+    the host page are not the ones it has when visited directly
+    ([Mozilla](https://blog.mozilla.org/en/products/firefox/firefox-rolls-out-total-cookie-protection-by-default-to-all-users-worldwide/),
+    [MDN](https://developer.mozilla.org/en-US/docs/Web/Privacy/Guides/State_Partitioning)).
+  - Chrome keeps third-party cookies as the user's choice (Google, October
+    2025): a visitor may block them, and Incognito blocks them by default
+    ([Privacy Sandbox](https://privacysandbox.google.com/blog/update-on-plans-for-privacy-sandbox-technologies),
+    [Chrome Help](https://support.google.com/chrome/answer/95647)).
+
+  A login or a cart across two sites is therefore not reliable: put the
+  droplets server on a subdomain of the page's site, or proxy it under the
+  page's origin.
+
 ## Cookies
 
 - Defaults: `httpOnly: true`, `sameSite: "lax"`, `secure: true` except over
@@ -258,11 +319,15 @@ any site you visit read the dev server's sources. See
 - Using cookies while prerendering throws `CookiesInPrerenderError` and
   stops the build.
 
-Cookies reach the browser in one of two ways:
+Cookies reach the browser in one of three ways:
 
 - **same origin**: the host page's server proxies the droplets routes under its own
   origin ([the paths](/integrate/any-stack/#the-paths-to-proxy)); the
   browser sends and receives them directly, as first-party cookies;
+- **cross-origin with credentials**: the page calls the droplets server on
+  its own origin, and `cors` allows the page's origin with `credentials`
+  ([Cookies across origins](#cookies-across-origins)); reliable when both
+  are one site;
 - **forwarded by the host page's server**: a fragment it fetches
   delivers its `Set-Cookie` to that server, not to the browser. That server
   passes it on with its page, and forwards the browser's `Cookie` header

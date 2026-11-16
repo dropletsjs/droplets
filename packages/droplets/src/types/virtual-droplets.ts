@@ -47,6 +47,8 @@ export const tokenNonce = "";
 /** Client build: build identity + which droplets exist / hydrate. */
 export const buildHash = "";
 export const elementName = "djs-droplet";
+/** Client build: `cors.credentials` with an explicit origin, so the runtime's requests send `credentials: "include"`. */
+export const corsCredentials: boolean = false;
 export const dropletsById: Record<string, boolean> = {};
 /** Client build: the droplets that hydrate, and when (`true`, `"visible"`, `"interactive"`). */
 export const dropletsHydrateById: Record<string, true | "visible" | "interactive"> = {};

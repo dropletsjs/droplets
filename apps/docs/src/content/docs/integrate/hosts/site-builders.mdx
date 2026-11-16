@@ -56,7 +56,8 @@ which is a few lines of script in the same block.
 - **CORS.** The page and the droplets server are on different origins, so
   the browser needs permission to import `/index.js` and the bundles and to
   post to `_data`. Set `cors` in `droplets.config.ts`, with the site's
-  origin rather than `true` for anything that is not public:
+  origin rather than `true` for anything that is not public (add
+  `credentials: true` for cookies, [Cookies across sites](#cookies-across-sites)):
 
   ```ts
   // droplets.config.ts
@@ -76,10 +77,9 @@ which is a few lines of script in the same block.
 - **The first paint.** The page's HTML holds an empty element; the droplet
   appears once the script has run. Without JavaScript nothing shows, and a
   search engine that does not run scripts sees nothing either.
-- **Cookies.** The element's requests and a cross-origin `fetch` go out
-  without credentials: the droplets server never sees the visitor's cookies,
-  and a `Set-Cookie` it answers is dropped. A droplet that needs a login or
-  a cart of its own cannot keep one this way.
+- **Cookies, mostly.** A builder's page is on the builder's site or your
+  own domain, and the droplets server's cookies only go along reliably
+  when both are one site ([Cookies across sites](#cookies-across-sites)).
 - **Post/Redirect/Get.** A form without JavaScript posts to the droplets
   server and comes back to the page by a redirect, which needs a page that
   renders the result; here the page renders nothing without JavaScript.
@@ -88,6 +88,27 @@ which is a few lines of script in the same block.
 The [client-only page](/integrate/client-only/#what-a-client-only-page-gives-up)
 has the same list; a page that needs these renders on a server and pastes
 the fragments in (every server host in [Hosts](/integrate/hosts/overview/)).
+
+## Cookies across sites
+
+Without `credentials` in `cors`, the element's requests go out with the
+browser's default, `credentials: "same-origin"`: the droplets server never
+sees the visitor's cookies, and a `Set-Cookie` it answers is not stored.
+With `cors: { origin: ["https://www.example.com"], credentials: true }`
+they include them ([Cookies across origins](/guides/security/#cookies-across-origins)),
+and then it depends on the two sites, the scheme and registrable domain
+whatever the subdomain:
+
+- **One site.** The builder serves your page on your own domain
+  (`www.example.com`) and the droplets server runs on a subdomain of it
+  (`drops.example.com`): the cookies are first-party to your site and
+  `SameSite=Lax` is enough, in every browser. A login or a cart works.
+- **Two sites.** The page is on the builder's own domain, or the droplets
+  server on another domain: the cookies are third-party. They need
+  `SameSite=None; Secure`, and Safari blocks them by default, Firefox keys
+  them by the top-level site (a separate jar inside the builder's page),
+  and Chrome lets the visitor block them (Incognito does by default). Keep
+  droplets there free of logins and carts, or use a domain of your own.
 
 ## Per builder
 

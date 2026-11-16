@@ -190,10 +190,15 @@ new props mounts again.
 
 ## Same origin through a proxy
 
-A droplets server on another origin gets no cookies from these requests: the
-element's `_data` request and a cross-origin `fetch` go out without
-credentials. When droplets need the visitor's cookies (a cart, a login),
-serve the droplets routes under the page's own origin instead. The shop pages
+A droplets server on another origin gets no cookies from these requests by
+default: the element's `_data` request and a cross-origin `fetch` go out
+without credentials. With `credentials: true` in `cors` and the page's
+origin listed, the element's requests include them; your own `fetch` sets
+`credentials: "include"`. That is reliable when the page and the droplets
+server are one site, such as two subdomains
+([Cookies across origins](/guides/security/#cookies-across-origins)). Across
+two sites, or for every browser, serve the droplets routes under the
+page's own origin instead. The shop pages
 of the React example do that: `vite dev`, `vite preview` and the image's
 nginx proxy `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and `/api/*` to the shop,
 with a fixed `x-droplet-location`, and the app loads `/index.js` from its own
