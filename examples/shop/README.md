@@ -87,11 +87,11 @@ rewrites their text with an LLM, a development tool run once: it needs
 
 ## Facts
 
-- Shop element is `djs-shop`. `droplets.config.ts:7`
-- Shop `cors` is on, for a host that embeds cross-origin; such a host gets no cookies. `droplets.config.ts:14`
-- Shop `trustedOrigins` is empty in the config; host origins come from `DROPLETS_TRUSTED_ORIGINS` at runtime. `droplets.config.ts:22`
-- Multipart body limit is 3 MB; an uploaded image is at most 2 MB. `droplets.config.ts:25`, `src/lib/server/images.ts:15`
-- Dev server port 5174, production server port 8300. `droplets.config.ts:27`, `droplets.config.ts:28`
+- Shop element is `djs-shop`. `droplets.config.ts:14`
+- Shop `cors` answers an origin listed in `DROPLETS_TRUSTED_ORIGINS` (read per request, `*` skipped) by name, with credentials, and any other origin with no CORS headers. `droplets.config.ts:3`, `droplets.config.ts:25`
+- Shop `trustedOrigins` is empty in the config; host origins come from `DROPLETS_TRUSTED_ORIGINS` at runtime. `droplets.config.ts:35`
+- Multipart body limit is 3 MB; an uploaded image is at most 2 MB. `droplets.config.ts:38`, `src/lib/server/images.ts:15`
+- Dev server port 5174, production server port 8300. `droplets.config.ts:40`, `droplets.config.ts:41`
 - Shop builds for Node only (SQLite through better-sqlite3, images on disk). `vite.config.ts:18`
 - Renderers: Svelte, Vue, React, Solid, Hono JSX, Handlebars. `vite.config.ts:19`
 - Tailwind is off: `src/app.css` is plain CSS. `vite.config.ts:21`
