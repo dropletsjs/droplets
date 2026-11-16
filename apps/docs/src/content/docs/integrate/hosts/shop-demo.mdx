@@ -14,9 +14,9 @@ pages with comments, a cart, toasts, a login and an admin.
 same pages around the droplets in its own stack (`/gallery`,
 `/product/:slug`, `/login`, `/admin`); the same end-to-end test runs on
 {inWords(SHOP_FLOW_HOSTS.length)} of them. The others have flows of their own:
-WordPress, with WordPress holding the data; htmx, whose static pages move as
-one; and Static HTML, one cross-origin page with no proxy, which shows the
-gallery and the product pages but no cart or admin. The [tour on the home page](/) walks through the WordPress host's
+WordPress, with WordPress holding the data, and htmx, whose static pages
+move as one. Static HTML runs the shared flow from one cross-origin page
+with no proxy. The [tour on the home page](/) walks through the WordPress host's
 pages droplet by droplet.
 
 ## The pages and their droplets
@@ -101,7 +101,7 @@ comes back with the button saying "✓ Added".
 | [Astro 5](/integrate/hosts/astro/) | `.astro` pages, `set:html` | `fetch` in the frontmatter; cookies through `Astro.response` | endpoints (`ALL`) |
 | [SvelteKit](/integrate/hosts/sveltekit/) | `+page.svelte`, `{@html}` | `fetch` in `+page.server.ts`; cookies from `handle` | `hooks.server.ts` |
 | [Next.js 16](/integrate/hosts/nextjs/) | server components | `fetch` in the component, `dangerouslySetInnerHTML` | route handlers |
-| [Static HTML](/integrate/hosts/static/) | one static `.html` file | client-only: fetched by the browser from the shop's own origin | none: cross-origin, so no cart or admin |
+| [Static HTML](/integrate/hosts/static/) | one static `.html` file | client-only: fetched by the browser from the shop's own origin | none: cross-origin, the shop's `cors` allows the page's origin with credentials |
 
 nginx and Next.js cannot pass on a `Set-Cookie` that a fragment sends on a
 plain `GET`: an SSI include is a subrequest whose headers nginx discards,
