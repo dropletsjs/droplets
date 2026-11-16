@@ -23,7 +23,10 @@ on any static host (an object store, a CDN, GitHub Pages) does.
 </head>
 <body class="shop">
   <djs-shop data-droplet="toast-center"></djs-shop>
-  <header class="shop-header">…</header>
+  <header class="shop-header">
+    …
+    <div class="shop-cart"><djs-shop data-droplet="shopping-cart" data-droplet-props='{"variant":"badge"}'></djs-shop></div>
+  </header>
   <main class="shop-main shop-wrap" id="page">…</main>
 </body>
 ```
@@ -39,6 +42,8 @@ async function fragment({ id, params, target, onRedirect }) {
   const response = await fetch(new URL(`droplets/${encodeURIComponent(id)}?${params}`, DROPLETS), {
     redirect: "manual",
     headers: { accept: "text/html" },
+    credentials: "include",
+    referrerPolicy: "no-referrer-when-downgrade",
   });
   if (response.type === "opaqueredirect" && onRedirect) return onRedirect();
   const isFragment =
@@ -59,33 +64,28 @@ async function fragment({ id, params, target, onRedirect }) {
   hydrates as its droplet says. It inserts an HTML answer only (a `2xx`, or
   a `500` carrying the droplet's error page); anything else shows a fixed
   note, since its text may echo the props.
-- The toasts are an element the page writes itself: `toast-center` is
-  client only and renders in the browser.
+- `credentials: "include"` sends the shop's cookies (the cart, the admin
+  session) and keeps the ones it sets; the referrer policy sends the
+  page's whole URL as `Referer`, where the shop takes the host page from
+  (a form's result comes back to it).
+- The toasts and the cart badge are elements the page writes itself:
+  `toast-center` and `shopping-cart` are client only and render in the
+  browser.
 - The request goes from the browser straight to the droplets server, so the
   fragment's URLs are on that server's own origin and no
   `x-droplet-location` is involved.
 
 ## The static page, recorded
 
-The shop's pages on this host, recorded by the end-to-end test
-(`tests/hosts/e2e/static.spec.ts`): the gallery, a product opened from its
-card, its comments, and a category by its link. The droplets are the
-[shop demo](/integrate/hosts/shop-demo/)'s.
+The [shop demo](/integrate/hosts/shop-demo/)'s flow on this host, recorded
+by the end-to-end test (`tests/hosts/e2e/shop.spec.ts`, as on every shop
+host): products into the cart, a product page, the admin's login, a stock
+set to 0, and the cart and the product page saying so.
 
-<HostDemo
-  id="static"
-  stack="Static HTML"
-  flow="The static page's flow"
-  shots={[
-    ["1-gallery", "The gallery, fetched from the shop's own origin"],
-    ["2-product", "A product page, the same HTML file"],
-    ["3-comments", "Its comments, asked for with the product's id"],
-    ["4-category", "A category, from the page's query"],
-  ]}
-/>
+<HostDemo id="static" stack="Static HTML" />
 
 The code is in `examples/hosts/static`: `html/index.html`, `html/shop.js`,
-the shared `html/shop.css`, `html/site.css` (the placeholder and a note),
+the shared `html/shop.css`, `html/site.css` (the placeholder),
 `nginx.conf` and the `Dockerfile`.
 
 ### Pieces and ports
@@ -101,8 +101,10 @@ the shared `html/shop.css`, `html/site.css` (the placeholder and a note),
 | --- | --- |
 | `/gallery` | `product-filter` and `product-library`, with the page's whole query (the shop drops what a droplet does not take) |
 | `/product/<slug>` | the product's id, name and category from `GET /droplets/product-page/_data?slug=`, then `product-page` (`slug`, and `v` when the link has one) and `product-comments` (the id; `order`, `page`, `showing`) |
+| `/admin` | `product-admin` (`view`, `id`) |
+| `/login` | `login` (`next`) |
 
-nginx answers both paths with the same `index.html`, and only a slug of the
+nginx answers these paths with the same `index.html`, and only a slug of the
 shop's shape (`[a-z0-9]+(?:-[a-z0-9]+)*`) gets it; `/` redirects to
 `/gallery`. The page names its droplets server as `http://localhost:8000`;
 when it is published elsewhere, `sub_filter` in `nginx.conf` rewrites that
@@ -115,13 +117,41 @@ page's URL and asks again, and the product renders live.
 
 ### The droplets server's side
 
-The shop's `droplets.config.ts` has `cors: true`, so a page on any origin
-may import `/index.js` and the bundles and fetch fragments and `_data`. A
-`GET` with only an `Accept` header needs no preflight.
-`DROPLETS_TRUSTED_ORIGINS` lists this page's origin (`http://localhost:8011`).
-To allow only your site, give `cors` an origin list
-(`cors: { origin: ["https://www.example.com"] }`; see
-[CORS](/guides/security/#cors)).
+The shop's `droplets.config.ts` answers the origins listed in
+`DROPLETS_TRUSTED_ORIGINS` by name, with credentials, and any other origin
+with no CORS headers:
+
+```ts
+// examples/shop/droplets.config.ts (trimmed)
+function trustedHostOrigins(): string[] {
+  return (process.env.DROPLETS_TRUSTED_ORIGINS ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== "" && entry !== "*");
+}
+
+export default config({
+  cors: {
+    origin: (origin) => (trustedHostOrigins().includes(origin) ? origin : null),
+    credentials: true,
+  },
+});
+```
+
+- `DROPLETS_TRUSTED_ORIGINS` lists this page's origin
+  (`http://localhost:8011`), so the same list trusts its form posts and
+  redirects and lets it read the answers with cookies. It is read per
+  request: a new page needs no rebuild. `*` is skipped: a credentialed
+  answer never allows any origin.
+- With `credentials` in `cors`, the element's own requests (the enhanced
+  form posts, `_data`, a fragment rendered again after a post) include the
+  cookies too ([Cookies across origins](/guides/security/#cookies-across-origins)),
+  and the shop's own `/api` calls already do. So the cart, the admin, the
+  filter's refresh in place and the comments work as on the proxied hosts.
+- The login is a plain form post to the shop, a navigation: its cookie is
+  set there, and its 303 lands on this page's `/admin`.
+- A `GET` with only an `Accept` header needs no preflight; a JSON `POST`
+  (`_data`, the cart's stock check) does, and `cors` answers it.
 
 ### Run it
 
@@ -136,28 +166,29 @@ each, `openssl rand -hex 32`), in the environment or a `.env` file beside
 `docker-compose.yml`: compose refuses to start without them. `pnpm test:hosts`
 generates its own for a run.
 
-`pnpm test:hosts static` runs it end to end, from the repository root. The
-test also loads a page with a query directly, an unknown product, an old
-`v`, and the page without JavaScript, and checks that the shop answers the
-page's origin with `access-control-allow-origin: *` and no credentials.
+`pnpm test:hosts static` runs it end to end, from the repository root: the
+shop flow, as on every shop host, and this page's own checks
+(`tests/hosts/e2e/static.spec.ts`): a page loaded with a query directly, an
+unknown product, an old `v`, the page without JavaScript, and the shop's
+CORS answer, this page's origin with credentials and no other origin.
 
-## What a cross-origin page gives up
+## Cookies across sites
 
-- **Cookies.** A cross-origin `fetch` and the element's own requests go out
-  without credentials, so the droplets server never sees the visitor's
-  cookies, and a `Set-Cookie` it answers is dropped. The shop's cart and its
-  admin depend on them, so this page shows neither. Serve the droplets
-  routes under the page's origin instead (the
-  [React + Vite](/integrate/hosts/react-vite/) and [htmx](/integrate/hosts/htmx/)
-  hosts proxy them), or render the page on a server.
-- **The shop's own `/api` calls.** The shop's browser code calls its `/api/*`
-  with `credentials: "include"` (`examples/shop/src/lib/api.ts`), which a
-  browser refuses against `access-control-allow-origin: *`. On this page a
-  change in the filter does not refresh the library (its request fails),
-  and the comments' own requests fail. A query in the page's URL
-  (`/gallery?category=mugs`, the breadcrumb's category link) still narrows
-  the library, since the page passes it on.
-- **The first paint.** Nothing is in the HTML until the script has run: no
-  droplet shows without JavaScript, and search engines see the empty page.
-  Where that matters, paste the fragments in on a server
-  ([Ways to use Droplets](/start/ways-to-use/)).
+The page (`localhost:8011`) and the shop (`localhost:8000`) differ only by
+port: two origins, one site, so the shop's `SameSite=Lax` cookies go along.
+The same holds for a page on `www.example.com` and droplets on
+`drops.example.com`. A page on another site (a site builder's domain)
+makes them third-party cookies: they need `SameSite=None; Secure`, which
+the shop does not set, and Safari blocks them, Firefox partitions them and
+Chrome lets the visitor block them
+([Cookies across origins](/guides/security/#cookies-across-origins)).
+There, serve the droplets routes under the page's origin instead (the
+[React + Vite](/integrate/hosts/react-vite/) and [htmx](/integrate/hosts/htmx/)
+hosts proxy them), or render the page on a server.
+
+## What a page rendered in the browser gives up
+
+Nothing is in the HTML until the script has run: no droplet shows without
+JavaScript, a form has no page to come back to without it, and search
+engines see the empty page. Where that matters, paste the fragments in on
+a server ([Ways to use Droplets](/start/ways-to-use/)).
