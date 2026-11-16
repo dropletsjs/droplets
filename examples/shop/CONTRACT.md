@@ -195,6 +195,14 @@ For each proxied request and each server-side fragment fetch:
   (`__droplet_form_<droplet>_<build>`), and the droplet reads it from there.
 - Cookies are `HttpOnly`, `SameSite=Lax` and `Secure`, except over plain
   HTTP to `localhost`. A host on plain HTTP under another name loses them.
+- A page that calls the shop cross-origin instead (no proxy) lists its
+  origin in `DROPLETS_TRUSTED_ORIGINS`: the shop answers that origin by name
+  with `Access-Control-Allow-Credentials: true` (never `*`), and the
+  elements' own requests then include the cookies. The page's own fetches
+  use `credentials: "include"` and send its whole URL as `Referer`
+  (`referrerPolicy: "no-referrer-when-downgrade"`). The cookies are
+  `SameSite=Lax`: they go along when the page and the shop are on one site
+  (`shop.example.com` and `drops.example.com`), not from another site.
 - Fragments with a cart or a session in them are `private, no-store`; the
   filter, comments and `GET _data` reads are publicly cacheable for seconds.
 

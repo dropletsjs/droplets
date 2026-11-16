@@ -261,7 +261,9 @@ export default config({
 
 - The server answers those origins by name, with
   `Access-Control-Allow-Credentials: true`; any other origin gets no CORS
-  headers. `origin` may be a function, read per request.
+  headers. `origin` may be a function, read per request: the
+  [shop demo](/integrate/hosts/static/#the-droplets-servers-side) answers
+  the origins of `DROPLETS_TRUSTED_ORIGINS` this way.
 - Those three requests send `credentials: "include"`. The client build
   learns only that one boolean, never the origin list or a function.
 - Your own `fetch` calls choose for themselves:

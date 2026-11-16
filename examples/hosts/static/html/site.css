@@ -1,7 +1,6 @@
 /*
  * This page's own styles, beside the shop's shop.css (the file every shop
- * host shares): the placeholder until a droplet arrives, and the note on
- * what a cross-origin page leaves out.
+ * host shares): the placeholder until a droplet arrives.
  */
 .shop-loading {
   margin: 0;
@@ -10,10 +9,4 @@
   border-radius: var(--shop-radius);
   color: var(--shop-muted);
   text-align: center;
-}
-
-.shop-hero .shop-aside {
-  margin-top: 8px;
-  font-size: 0.95rem;
-  opacity: 0.8;
 }

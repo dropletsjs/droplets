@@ -18,6 +18,13 @@ const PRODUCT_LINK = /^\/product\/([a-z0-9-]+)\?v=([0-9a-f]{10})$/;
 const WORDPRESS = HOST.startsWith("wordpress");
 
 /**
+ * The static page proxies nothing: the browser calls the shop's droplets
+ * server on its own origin (DROPLETS_URL, set by run.mjs), so its `/api`
+ * is there rather than on the page's origin.
+ */
+const STATIC = HOST.startsWith("static");
+
+/**
  * Logs in as the shop's admin from the admin's gate (its "Log in" link) and
  * lands back on /admin, at the shop's login droplet (admin / droplets, the
  * `shop_admin` cookie).
@@ -245,6 +252,7 @@ test("the product page's add to cart shows a toast", async ({ browser, baseURL }
  */
 test("without JavaScript, add to cart lands back on the host page", async ({ browser, baseURL }) => {
   test.skip(HOST.startsWith("react"), "the SPA renders its pages in the browser: nothing to show without JavaScript");
+  test.skip(STATIC, "the static page renders its droplets in the browser: nothing to show without JavaScript");
   const context = await browser.newContext({
     baseURL,
     javaScriptEnabled: false,
@@ -280,9 +288,10 @@ test("without JavaScript, add to cart lands back on the host page", async ({ bro
 test("a new visitor gets nobody else's cart or session", async ({ browser, baseURL }) => {
   const context = await browser.newContext({ baseURL, ignoreHTTPSErrors: true });
   const page = await context.newPage();
-  const cart = (await (await page.request.get("/api/cart")).json()) as { cart?: { count?: number } };
+  const api = STATIC ? (process.env["DROPLETS_URL"] ?? "http://localhost:8000") : "";
+  const cart = (await (await page.request.get(`${api}/api/cart`)).json()) as { cart?: { count?: number } };
   expect(cart.cart?.count ?? 0).toBe(0);
-  const me = (await (await page.request.get("/api/auth/me")).json()) as { admin?: unknown };
+  const me = (await (await page.request.get(`${api}/api/auth/me`)).json()) as { admin?: unknown };
   expect(me.admin ?? null).toBeNull();
   await page.goto("/admin");
   if (WORDPRESS) {

@@ -620,3 +620,35 @@ describe("/api/images", () => {
     }
   });
 });
+
+describe("CORS: a page that calls the shop cross-origin", () => {
+  const HOST = "https://static.example";
+
+  it("echoes an origin of DROPLETS_TRUSTED_ORIGINS with credentials, read per request, and never answers *", async () => {
+    const ask = (origin: string) => call("/api/cart", { headers: { origin } });
+    const untrusted = await ask(HOST);
+    expect(untrusted.headers.get("access-control-allow-origin")).toBeNull();
+
+    process.env.DROPLETS_TRUSTED_ORIGINS = `https://other.example, ${HOST}`;
+    try {
+      const trusted = await ask(HOST);
+      expect(trusted.headers.get("access-control-allow-origin")).toBe(HOST);
+      expect(trusted.headers.get("access-control-allow-credentials")).toBe("true");
+      expect(trusted.headers.get("vary")?.toLowerCase()).toContain("origin");
+      expect((await ask("https://evil.example")).headers.get("access-control-allow-origin")).toBeNull();
+
+      const preflight = await call("/droplets/product-library/_data", {
+        method: "OPTIONS",
+        headers: { origin: HOST, "access-control-request-method": "POST", "access-control-request-headers": "content-type" },
+      });
+      expect(preflight.status).toBe(204);
+      expect(preflight.headers.get("access-control-allow-origin")).toBe(HOST);
+      expect(preflight.headers.get("access-control-allow-credentials")).toBe("true");
+
+      process.env.DROPLETS_TRUSTED_ORIGINS = "*";
+      expect((await ask(HOST)).headers.get("access-control-allow-origin")).toBeNull();
+    } finally {
+      delete process.env.DROPLETS_TRUSTED_ORIGINS;
+    }
+  });
+});

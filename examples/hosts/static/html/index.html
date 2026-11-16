@@ -20,7 +20,10 @@
     <a class="shop-logo" href="/gallery"><span aria-hidden="true">◆</span> Droplets Shop</a>
     <nav class="shop-nav" aria-label="Shop">
       <a href="/gallery">Gallery</a>
+      <a href="/admin">Admin</a>
     </nav>
+    <!-- Client only: the badge asks the shop for the cart, with the shop's cookie. -->
+    <div class="shop-cart"><djs-shop data-droplet="shopping-cart" data-droplet-props='{"variant":"badge"}'></djs-shop></div>
   </div></header>
   <main class="shop-main shop-wrap" id="page">
     <noscript><p class="shop-unavailable">This page asks the droplets server for its droplets from the browser, which needs JavaScript.</p></noscript>
@@ -28,7 +31,7 @@
   <footer class="shop-footer"><div class="shop-wrap">
     <p class="shop-stack">Static HTML</p>
     <p>Droplets demo shop · host: one static HTML page on nginx · droplets: &lt;djs-shop&gt;, cross-origin</p>
-    <p><a href="/gallery">Gallery</a></p>
+    <p><a href="/gallery">Gallery</a> · <a href="/admin">Admin</a></p>
   </div></footer>
 </body>
 </html>

@@ -5,7 +5,8 @@
 # ports are published on 127.0.0.1 only.
 services:
   # The shop demo, on an origin of its own: the page asks it for fragments
-  # cross-origin. Its droplets.config.ts sets `cors: true`.
+  # cross-origin. Its droplets.config.ts answers the origins listed in
+  # DROPLETS_TRUSTED_ORIGINS by name, with credentials.
   shop:
     build:
       context: ../../..
@@ -18,7 +19,8 @@ services:
       ADMIN_PASSWORD: droplets
       SHOP_SECRET: ${SHOP_SECRET:?set SHOP_SECRET (32+ random characters) in the environment or a .env file}
       DROPLETS_SECRET: ${DROPLETS_SECRET:?set DROPLETS_SECRET (32+ random bytes) in the environment or a .env file}
-      # The page that embeds it: the `host` it accepts from the page's Origin.
+      # The page that embeds it: trusted for its posts and redirects, and
+      # answered by CORS with credentials (the cart and admin cookies).
       DROPLETS_TRUSTED_ORIGINS: ${WEB_URL:-http://localhost:8011}
 
   # nginx.conf and html/ baked in (Dockerfile).

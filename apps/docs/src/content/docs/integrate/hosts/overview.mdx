@@ -33,7 +33,8 @@ Most examples also proxy `/index.js`, `/env.js`, `/index.css`, `/droplets/*`,
 origin ([the paths](/integrate/any-stack/#the-paths-to-proxy)).
 [Static HTML](/integrate/hosts/static/) and the
 [site builders](/integrate/hosts/site-builders/) do not: the page asks the
-droplets server on its own origin, and gets no cookies there.
+droplets server on its own origin; the static page gets the shop's cookies
+because the shop's `cors` allows its origin with credentials.
 
 Each host as the end-to-end test recorded it, by language:
 
