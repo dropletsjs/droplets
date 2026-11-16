@@ -236,15 +236,9 @@
       "status": "built",
       "docs": "integrate/hosts/static",
       "stack": "One HTML page and a script on nginx, no proxy",
-      "how": "The page fetches the fragments from the shop's own origin, cross-origin; no cookies, so no cart or admin",
+      "how": "The page fetches the fragments from the shop's own origin, cross-origin, with the shop's cookies",
       "example": true,
-      "runner": {
-        "offset": 11,
-        "flow": "own",
-        "spec": "e2e/static.spec.ts",
-        "shots": ["1-gallery", "2-product", "3-comments", "4-category"],
-        "direct": "shop"
-      }
+      "runner": { "offset": 11, "flow": "shop", "direct": "shop" }
     },
     {
       "id": "site-builders",

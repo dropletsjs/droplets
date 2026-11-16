@@ -4,9 +4,9 @@ The host examples in [`examples/hosts`](../../examples/hosts), end to end:
 each host's compose stack started, a flow run against it in Chromium,
 recorded, and the stack taken down. The hosts and how each runs come from
 [`examples/hosts/hosts.json`](../../examples/hosts/hosts.json): most run the
-shared shop flow; WordPress, htmx (whose shop moves as one page) and the
-static page (cross-origin, no proxy) have flows of their own, the first two
-run only by name. `typecheck.mjs`
+shared shop flow, the static page (cross-origin, no proxy) included;
+WordPress and htmx (whose shop moves as one page) have flows of their own
+and run only by name. `typecheck.mjs`
 type-checks every Node host without Docker, and `test/` holds the static
 checks over `examples/` (vitest, no Docker): the shop's `shop.css` copies
 the same, every host's `x-droplet-location` from its environment, every
@@ -19,7 +19,7 @@ pnpm test:hosts                     # every host not run by name, one at a time
 pnpm test:hosts express nginx       # some, by id (the folder's name)
 pnpm test:hosts wordpress           # the WordPress showcase, with wp-shop
 pnpm test:hosts htmx                # the htmx shop and the Svelte page
-pnpm test:hosts static              # the static page, cross-origin
+pnpm test:hosts static              # the static page, cross-origin: the shop flow and static.spec.ts
 pnpm --filter @dropletsjs/tests-hosts readme   # rewrite the READMEs' host lists from hosts.json
 pnpm typecheck:hosts [host…]        # npm ci + npm run typecheck per Node host, no Docker
 pnpm --filter @dropletsjs/tests-hosts test   # the static checks in test/, no Docker (pnpm test:integration runs them)
@@ -90,7 +90,7 @@ Recordings land in `recordings/<host>.mp4` and screenshots in
 - `e2e/shop.spec.ts` (every host without a `spec` in `hosts.json`; its main flow skips WordPress): products into the
   cart, a product page, the admin login, that product's stock set to 0, the
   cart and the product page saying "Out of stock"; plus a toast on add to
-  cart, a post without JavaScript (not on react-vite, an SPA), no shared
+  cart, a post without JavaScript (not on react-vite, an SPA, nor static), no shared
   cart or session between visitors, and a product page never stale after
   an edit.
 - `e2e/nginx-basic.spec.ts` (nginx only): the basic page on the droplets
@@ -108,11 +108,11 @@ Recordings land in `recordings/<host>.mp4` and screenshots in
   directly with its URL's props, a page without JavaScript; the Svelte
   example's droplets swapped in from another origin, the refused third
   origin, and the preflight.
-- `e2e/static.spec.ts`: the static page, cross-origin with no proxy: the
-  gallery fetched from the shop's origin (nothing asked of the page's own),
-  a product and its comments, a category from the page's query; a page
-  loaded directly, an unknown product, an old `v` dropped from the URL, the
-  shop's CORS answer without credentials, and the page without JavaScript.
+- `e2e/static.spec.ts`: what only the static page does, beside the shop
+  flow it runs like every shop host: a page loaded directly with its URL's
+  props, an unknown product, an old `v` dropped from the URL, the shop's
+  CORS answer (this page's origin with credentials, no other origin), and
+  the page without JavaScript. Not recorded.
 - `e2e/tour.spec.ts`: the droplet tour, run alone with `TOUR=1` by `--tour`.
 
 ### Static checks (`test/`)
@@ -163,7 +163,7 @@ its own install. The hosts are outside the pnpm workspace, so
 - Hosts run only by name (`byName`): wordpress and htmx. `../../examples/hosts/hosts.json`
 - No host named, or `all`: every host without `byName`. `run.mjs:89`
 - htmx runs `e2e/htmx.spec.ts` only, waits on `/`, reaches the Svelte example on `http://localhost:8000` (`direct: "svelte"`). `../../examples/hosts/hosts.json`
-- static runs `e2e/static.spec.ts` only and reaches the shop itself on `http://localhost:8000` (`direct: "shop"`): its ready check asks the shop for `/droplets/product-filter` directly. `../../examples/hosts/hosts.json`, `run.mjs:146`
+- static runs the shop flow and `e2e/static.spec.ts`, and reaches the shop itself on `http://localhost:8000` (`direct: "shop"`): its ready check asks the shop for `/droplets/product-filter` directly, and `shop.spec.ts` asks the shop's `/api` there (`DROPLETS_URL`). `../../examples/hosts/hosts.json`, `run.mjs:145`, `e2e/shop.spec.ts:25`
 - `--https` is set up for express only, on `https://127-0-0-1.sslip.io:8443`. `run.mjs:79`, `run.mjs:122`
 - Flags: `--https`, `--docs`, `--human`, `--tour`, `--keep`; any other flag or host exits 2. `run.mjs:86`
 - `HOSTS_PORT_BASE` must be an integer from 1024 to 65435. `run.mjs:98`
@@ -190,14 +190,15 @@ its own install. The hosts are outside the pnpm workspace, so
 - Recordings directory is `recordings/`, gitignored. `e2e/record.ts:8`, `../../.gitignore:53`
 - `HOST_NAME` defaults to `host`; `RECORD_PACE=human` paces as a person. `e2e/record.ts:11`, `e2e/record.ts:18`
 - Recordings convert WebM to MP4 with ffmpeg; without it the WebM is kept with a warning. `e2e/record.ts:66`
-- `shop.spec.ts` main flow is skipped on WordPress. `e2e/shop.spec.ts:76`
-- `shop.spec.ts` no-JavaScript post is skipped on react-vite. `e2e/shop.spec.ts:247`
-- Shop admin login is `admin` / `droplets`, session cookie `shop_admin`, `httpOnly`. `e2e/shop.spec.ts:29`, `e2e/shop.spec.ts:35`
+- `shop.spec.ts` main flow is skipped on WordPress. `e2e/shop.spec.ts:83`
+- `shop.spec.ts` no-JavaScript post is skipped on react-vite and static. `e2e/shop.spec.ts:254`, `e2e/shop.spec.ts:255`
+- `shop.spec.ts` new-visitor check asks `/api/cart` and `/api/auth/me` on the host's origin, on static on `DROPLETS_URL`. `e2e/shop.spec.ts:291`
+- Shop admin login is `admin` / `droplets`, session cookie `shop_admin`, `httpOnly`. `e2e/shop.spec.ts:36`, `e2e/shop.spec.ts:42`
 - `nginx-basic.spec.ts` runs only for nginx, against `DROPLETS_URL` (default `http://localhost:8080`): `/env.js` and `/index.css` answer 200 through the proxy and the three droplets hydrate as their mode says. `e2e/nginx-basic.spec.ts:9`, `e2e/nginx-basic.spec.ts:12`, `e2e/nginx-basic.spec.ts:22`, `e2e/nginx-basic.spec.ts:30`
 - `shop-wordpress.spec.ts` and `wordpress-service.spec.ts` run only for wordpress. `e2e/shop-wordpress.spec.ts:13`, `e2e/wordpress-service.spec.ts:16`
 - WordPress Shop screen is `/wp-admin/admin.php?page=droplets-shop`. `e2e/wordpress.ts:8`
 - `wordpress-service.spec.ts` signs with the run's `WP_SHOP_SERVICE_SECRET` and `WP_SHOP_HOST_SECRET` from the environment, after checking `examples/hosts/wordpress/docker-compose.yml` requires each from that one variable on both services. `e2e/wordpress-service.spec.ts:20`
-- `static.spec.ts` runs only for static; the shop from `DROPLETS_URL`, default `http://localhost:8000`. `e2e/static.spec.ts:13`, `e2e/static.spec.ts:16`
+- `static.spec.ts` runs only for static; the shop from `DROPLETS_URL`, default `http://localhost:8000`. `e2e/static.spec.ts:11`, `e2e/static.spec.ts:14`
 - `htmx.spec.ts` runs only for htmx; droplets server from `DROPLETS_URL`, default `http://localhost:8000`. `e2e/htmx.spec.ts:13`, `e2e/htmx.spec.ts:16`
 - `htmx.spec.ts` checks an `hx-get` to a third origin is refused with `htmx:invalidPath` and sends nothing. `e2e/htmx.spec.ts:290`, `e2e/htmx.spec.ts:301`
 - `htmx.spec.ts` flow: a card's link and the header's links swap `<main>` alone, the header element and the window kept, `/index.js` requested once. `e2e/htmx.spec.ts:43`, `e2e/htmx.spec.ts:61`

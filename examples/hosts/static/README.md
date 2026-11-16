@@ -25,18 +25,23 @@ on http://localhost:8000, which the browser reaches directly) and `web`
 
 ### The page
 
-`html/index.html` is the only page: nginx answers `/gallery` and
-`/product/<slug>` with it, and `html/shop.js` reads the path.
+`html/index.html` is the only page: nginx answers `/gallery`,
+`/product/<slug>`, `/admin` and `/login` with it, and `html/shop.js` reads
+the path.
 
 | Path | What `shop.js` asks the shop for |
 | ---- | -------------------------------- |
 | `/gallery` | `product-filter` and `product-library`, with the page's whole query |
 | `/product/<slug>` | the product's id, name and category (`GET /droplets/product-page/_data?slug=`), then `product-page` (`slug`, `v` when the link has one) and `product-comments` (the id; `order`, `page`, `showing`) |
+| `/admin` | `product-admin` (`view`, `id`) |
+| `/login` | `login` (`next`) |
 
-The toasts are an element the page writes itself
-(`<djs-shop data-droplet="toast-center">`), rendered in the browser. The
-layout is every shop host's: the same `shop.css`, the footer with the
-stack. `site.css` adds the placeholder and the note under the hero.
+The toasts and the cart badge are elements the page writes itself
+(`<djs-shop data-droplet="toast-center">`, `shopping-cart` with
+`{"variant":"badge"}`), rendered in the browser. The layout is every shop
+host's: the same `shop.css`, the header with Gallery, Admin and the cart,
+the footer with the stack. `site.css` adds the placeholder. Without
+JavaScript the page shows its header, footer and a note.
 
 ### Cross-origin, no proxy
 
@@ -44,25 +49,35 @@ stack. `site.css` adds the placeholder and the note under the hero.
   its bundle, stylesheet and data from there. `shop.js` reads that URL from
   the tag, so it is written once.
 - Each fragment is a `fetch` with only an `Accept` header (no preflight),
-  `redirect: "manual"`, inserted through a `<template>` when it is HTML (a
-  2xx, or a 500 with the droplet's error page); anything else shows "This
-  droplet is unavailable.", since its text may echo the props.
+  `credentials: "include"`, the page's whole URL as `Referer` (the shop
+  takes the host page from it) and `redirect: "manual"`, inserted through a
+  `<template>` when it is HTML (a 2xx, or a 500 with the droplet's error
+  page); anything else shows "This droplet is unavailable.", since its text
+  may echo the props.
 - An old `v` answers a redirect, opaque here: `shop.js` drops `v` from the
   page's URL and asks again.
-- The shop has `cors: true` (its own `droplets.config.ts`), and its
-  `DROPLETS_TRUSTED_ORIGINS` is this page's origin.
+- The shop's `cors` (its own `droplets.config.ts`) answers an origin listed
+  in `DROPLETS_TRUSTED_ORIGINS` by name, with
+  `Access-Control-Allow-Credentials: true`, and any other origin with no
+  CORS headers; it never answers `*`. Compose lists this page's origin
+  there.
+- With `credentials` in the shop's `cors`, the element's own requests (the
+  enhanced form posts, `_data`, a fragment rendered again after a post)
+  include the shop's cookies as well, and the shop's own `/api` calls
+  already do (`examples/shop/src/lib/api.ts`). So the cart, the admin and
+  the comments work here as on the proxied hosts.
+- The login is a plain form post to the shop, a top-level navigation: its
+  `Set-Cookie` is first-party there, and its 303 lands on this page's
+  `/admin`.
 
-### What it leaves out
+### Cookies across sites
 
-A cross-origin request carries no cookies, and a `Set-Cookie` in its answer
-is dropped: the shop's cart and admin need them, so the page has neither.
-The shop's own browser code calls its `/api/*` with
-`credentials: "include"` (`examples/shop/src/lib/api.ts`), which the browser
-refuses against `access-control-allow-origin: *`: a change in the filter does
-not refresh the library here, and the comments' own requests fail. A query
-in the page's URL still narrows the library. Without JavaScript the page
-shows its header, footer and a note. [React + Vite](../react-vite) and
-[htmx](../htmx) proxy the shop under their own origin for the rest.
+The page (`localhost:8011`) and the shop (`localhost:8000`) differ only by
+port: two origins, one site, so the shop's `SameSite=Lax` cookies go along.
+The same holds for `shop.example.com` and `drops.example.com`. A page on
+another site (a site builder's domain) makes them third-party cookies:
+they need `SameSite=None; Secure`, which the shop does not set, and
+browsers block or partition them ([Site builders](https://dropletsjs.dev/integrate/hosts/site-builders/#cookies-across-sites)).
 
 ### Environment
 
@@ -74,25 +89,28 @@ droplets server as `http://localhost:8000`; `nginx.conf` is a template whose
 ### Changing this example
 
 No code to compile and no `package.json`: `pnpm typecheck:hosts` skips it.
-From the repository root, `pnpm test:hosts static` runs its flow
+From the repository root, `pnpm test:hosts static` runs the shop flow
+(`tests/hosts/e2e/shop.spec.ts`) and this page's own checks
 (`tests/hosts/e2e/static.spec.ts`) against the compose stack (needs Docker).
 
 ## Facts
 
 - Dockerfile is `nginx:1.27-alpine` with `nginx.conf` as a template and `html/` baked in. `Dockerfile:4`, `Dockerfile:5`, `Dockerfile:6`
-- Compose shop service builds `examples/shop/Dockerfile` from the repository root and publishes `127.0.0.1:${DROPLETS_PORT:-8000}:8300`. `docker-compose.yml:12`, `docker-compose.yml:14`
-- Compose shop `DROPLETS_TRUSTED_ORIGINS` is the page's origin, default `http://localhost:8011`. `docker-compose.yml:22`
-- Compose web service publishes `127.0.0.1:${WEB_PORT:-8011}:80`; `DROPLETS_PUBLIC_URL` defaults to `http://localhost:8000`. `docker-compose.yml:28`, `docker-compose.yml:30`
+- Compose shop service builds `examples/shop/Dockerfile` from the repository root and publishes `127.0.0.1:${DROPLETS_PORT:-8000}:8300`. `docker-compose.yml:13`, `docker-compose.yml:15`
+- Compose shop `DROPLETS_TRUSTED_ORIGINS` is the page's origin, default `http://localhost:8011`: trusted, and answered by CORS with credentials. `docker-compose.yml:24`, `../../shop/droplets.config.ts:25`
+- Compose web service publishes `127.0.0.1:${WEB_PORT:-8011}:80`; `DROPLETS_PUBLIC_URL` defaults to `http://localhost:8000`. `docker-compose.yml:30`, `docker-compose.yml:32`
 - nginx proxies nothing; `/` answers 302 to `/gallery`. `nginx.conf:22`
-- nginx answers `/gallery` and `/product/<slug>` (slug `[a-z0-9]+(?:-[a-z0-9]+)*`) with `index.html`; any other path is a file or 404. `nginx.conf:27`, `nginx.conf:30`, `nginx.conf:34`
+- nginx answers `/gallery`, `/admin`, `/login` and `/product/<slug>` (slug `[a-z0-9]+(?:-[a-z0-9]+)*`) with `index.html`; any other path is a file or 404. `nginx.conf:27`, `nginx.conf:30`, `nginx.conf:33`, `nginx.conf:36`, `nginx.conf:40`
 - `sub_filter` rewrites `http://localhost:8000` in HTML to `DROPLETS_PUBLIC_URL`. `nginx.conf:19`
 - The page loads `http://localhost:8000/index.js` and `/shop.js` as modules. `html/index.html:12`, `html/index.html:13`
-- The page writes `toast-center` first in `<body>`. `html/index.html:18`
-- Footer stack label is `Static HTML`. `html/index.html:29`
-- `shop.js` takes the droplets server's URL from the page's `/index.js` module script. `html/shop.js:7`, `html/shop.js:10`
-- `shop.js` inserts a 2xx or 500 `text/html` answer only, else shows "This droplet is unavailable."; a redirect goes to `onRedirect`. `html/shop.js:28`, `html/shop.js:29`, `html/shop.js:37`
-- `shop.js` passes the gallery's whole query to `product-filter` and `product-library`. `html/shop.js:62`
-- `shop.js` reads the product from `/droplets/product-page/_data?slug=`; unknown, it shows "Not found". `html/shop.js:83`, `html/shop.js:94`
-- `shop.js` drops `v` from the URL on a redirect and asks for `product-page` again. `html/shop.js:133`
-- `pnpm test:hosts static` runs `e2e/static.spec.ts` alone, offset 11 in `hosts.json`. `../hosts.json`, `../../../tests/hosts/run.mjs`
+- The page writes `toast-center` first in `<body>`, and the `shopping-cart` badge in the header. `html/index.html:18`, `html/index.html:26`
+- Footer stack label is `Static HTML`. `html/index.html:32`
+- `shop.js` takes the droplets server's URL from the page's `/index.js` module script. `html/shop.js:11`, `html/shop.js:14`
+- `shop.js` fetches every fragment with `credentials: "include"` and `referrerPolicy: "no-referrer-when-downgrade"`. `html/shop.js:31`, `html/shop.js:34`
+- `shop.js` inserts a 2xx or 500 `text/html` answer only, else shows "This droplet is unavailable."; a redirect goes to `onRedirect`. `html/shop.js:36`, `html/shop.js:38`, `html/shop.js:39`
+- `shop.js` passes the gallery's whole query to `product-filter` and `product-library`. `html/shop.js:87`
+- `shop.js` reads the product from `/droplets/product-page/_data?slug=`; unknown, it shows "Not found". `html/shop.js:93`, `html/shop.js:109`
+- `shop.js` drops `v` from the URL on a redirect and asks for `product-page` again. `html/shop.js:142`
+- `shop.js` gives `/admin` `product-admin` with `view` and `id`, and `/login` `login` with `next`. `html/shop.js:153`, `html/shop.js:162`
+- `pnpm test:hosts static` runs the shop flow and `e2e/static.spec.ts`, offset 11 in `hosts.json`. `../hosts.json`, `../../../tests/hosts/run.mjs`
 - `examples/hosts/*` is outside the pnpm workspace. `../../../pnpm-workspace.yaml:5`
