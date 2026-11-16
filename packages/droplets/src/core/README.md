@@ -46,7 +46,7 @@ production server never carries it.
 | `importMap` | `/importmap`, only when the client build has externals | same path rules; `health` may not equal it or `<importMap>.js` |
 | `index` | absent: root `index.html` or a placeholder | kept as given |
 | `element` | `djs-droplet` | `^[a-z][a-z0-9._]*-[a-z0-9._-]*$` |
-| `cors` | off | `true` becomes `{ origin: "*" }`, an object passes through |
+| `cors` | off | `true` becomes `{ origin: "*" }`, an object passes through; `credentials: true` with an origin other than `"*"` makes the browser runtime's requests include credentials |
 | `location` | absent: computed per request | one `http(s)` location with an optional path prefix; never `"*"` |
 | `host` | absent: computed per request | one bare origin, no path; never `"*"` |
 | `trustedOrigins` | `[]` | an array; each `"*"` or a bare origin, no path |

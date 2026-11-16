@@ -1,5 +1,6 @@
 import {
   buildHash,
+  corsCredentials,
   dropletsById,
   dropletsHydrateById,
   dropletsScriptById,
@@ -7,9 +8,12 @@ import {
   dropletsStylesById,
   elementName,
 } from "virtual:droplets";
-import { serverKey, serverLocation } from "./server-records.ts";
+import { serverCredentials, serverKey, serverLocation, serverRecord } from "./server-records.ts";
 import { reportStale } from "./stale.ts";
 import { installDevElement } from "./dev-element.ts";
+
+// In the record, for `enhanceDropletForm` too: it is bundled apart from this loader.
+if (corsCredentials) serverRecord(serverKey(elementName, buildHash)).credentials = "include";
 
 /** Droplets that exist in this build. */
 const dropletRegistry = new Set(Object.keys(dropletsById));
@@ -800,6 +804,7 @@ export class DjsDropletElement extends HTMLElement {
       body: JSON.stringify(context),
       // A redirect is an answer for the page, not data: never follow it.
       redirect: "manual",
+      credentials: serverCredentials({ key: serverKey(elementName, buildHash) }),
     });
     const served = response.headers.get("x-droplets-build");
     if (buildHash && served && served !== buildHash) {
@@ -1385,6 +1390,7 @@ export class DjsDropletElement extends HTMLElement {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(action ? { host, props, form: action.form } : { host, props }),
         redirect: "manual",
+        credentials: serverCredentials({ key: serverKey(elementName, buildHash) }),
       });
       const served = response.headers.get("x-droplets-build");
       if (buildHash && served && served !== buildHash) {

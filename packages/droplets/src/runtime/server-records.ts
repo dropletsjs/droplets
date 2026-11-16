@@ -15,6 +15,8 @@ export type ServerRecord = {
   origin?: string;
   /** Public variables read at runtime, as the server sent them with `/index.js`. */
   env?: Record<string, string>;
+  /** `"include"` when the server's `cors` allows credentials: the runtime's requests carry cookies cross-origin. */
+  credentials?: "include";
 };
 
 const SERVERS = Symbol.for("droplets.servers");
@@ -33,6 +35,13 @@ export function serverRecord(key: string): ServerRecord {
   const global = globalThis as { [SERVERS]?: Record<string, ServerRecord> };
   global[SERVERS] ??= {};
   return (global[SERVERS][key] ??= {});
+}
+
+export type ServerCredentialsInput = { key: string };
+
+/** The `credentials` of the runtime's requests to the server under `key`: `"include"`, else the browser's default. */
+export function serverCredentials({ key }: ServerCredentialsInput): RequestCredentials {
+  return serverRecord(key).credentials ?? "same-origin";
 }
 
 export type ServerBuildsInput = { element: string };

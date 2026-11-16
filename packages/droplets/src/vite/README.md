@@ -194,7 +194,8 @@ restarts the server.
 - `/index.js` under `vite dev` is a virtual module: the location record, the public runtime variables, then a dynamic import of the entry client. `virtual.ts:764`, `virtual.ts:868`
 - The dev app's `/index.js` is the location record, the public runtime variables, then the transformed entry client. `dev.ts:324`, `dev.ts:329`
 - `virtual:droplets` is the client registry in client environments and the server registry in server environments. `virtual.ts:772`
-- Client registry exports `buildHash`, `elementName`, `dropletsById`, `dropletsHydrateById`, `dropletsServerLoadById`, `dropletsScriptById` and `dropletsStylesById`. `virtual.ts:485`
+- Client registry exports `buildHash`, `elementName`, `corsCredentials`, `dropletsById`, `dropletsHydrateById`, `dropletsServerLoadById`, `dropletsScriptById` and `dropletsStylesById`. `virtual.ts:485`
+- `corsCredentials` is true for `cors.credentials` with an `origin` other than `"*"` (Hono's default included), and reaches the client build as that boolean alone. `virtual.ts:457`, `virtual.ts:501`
 - Client registry under `vite dev` imports the shared CSS; a build fills `dropletsStylesById` from the placeholder instead. `virtual.ts:482`, `virtual.ts:502`
 - Client registry with `src/hooks.client.*` imports it and calls `runClientInit`, never awaited. `virtual.ts:504`, `virtual.ts:445`
 - Server registry wraps every component, error page, `+droplet.ts` and `+droplet.server.ts` in a thunk: in a build a static import, so the bundler sees the whole graph; under `vite dev` an `import()`, so a droplet whose file throws as it is imported fails its own requests alone. `virtual.ts:217`, `virtual.ts:218`

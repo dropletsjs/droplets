@@ -18,7 +18,7 @@ import {
   serverRecordsModulePath,
   toViteFsPath,
 } from "../core/paths.ts";
-import type { DevStrategy } from "../core/config.ts";
+import type { DevStrategy, DropletsCorsOptions } from "../core/config.ts";
 import { sharingRenderers, type DropletRenderer } from "../renderer.ts";
 import { isScriptDroplet } from "../script/index.ts";
 import { tailwindActive } from "./css.ts";
@@ -447,6 +447,17 @@ export function clientInitCode({ clientHooksFile, initModule = clientInitModuleP
   ].join("\n");
 }
 
+export type CorsCredentialsInput = { cors: DropletsCorsOptions | undefined };
+
+/**
+ * `cors.credentials` with an `origin` other than `*` (Hono's default): a
+ * browser refuses a credentialed answer that allows `*`, so the requests
+ * stay same-origin there.
+ */
+export function corsCredentials({ cors }: CorsCredentialsInput): boolean {
+  return cors?.credentials === true && cors.origin !== undefined && cors.origin !== "*";
+}
+
 /**
  * The client registry: ids and flags only. Components are never imported
  * here — each droplet is its own bundle, fetched on demand. With
@@ -459,6 +470,8 @@ export type BuildClientCodeInput = {
   /** `vite build`: the stylesheets come from the build, not the dev server. */
   isBuilding?: boolean;
   clientHooksFile?: string | null;
+  /** The runtime's requests carry cookies cross-origin (`credentials: "include"`); see `corsCredentials()`. */
+  hasCredentials?: boolean;
 };
 
 export function buildClientCode({
@@ -467,6 +480,7 @@ export function buildClientCode({
   elementName = "djs-droplet",
   isBuilding = false,
   clientHooksFile = null,
+  hasCredentials = false,
 }: BuildClientCodeInput): string {
   const flag = (e: DropletEntry) => `  ${JSON.stringify(e.id)}: true,`;
   const ids = entries.map(flag);
@@ -484,6 +498,7 @@ export function buildClientCode({
     "export default droplets;",
     `export const buildHash = ${JSON.stringify(buildHash)};`,
     `export const elementName = ${JSON.stringify(elementName)};`,
+    `export const corsCredentials = ${hasCredentials};`,
     "export const dropletsById = {",
     ...ids,
     "};",
@@ -783,6 +798,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
             elementName: state.config.element,
             isBuilding: command === "build",
             clientHooksFile: await findFile(CLIENT_HOOKS_FILES),
+            hasCredentials: corsCredentials({ cors: state.config.cors }),
           });
         }
         return buildServerCode({
