@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:fragment="page(main)">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title th:text="|${title} · Droplets Shop on ${stack}|">Droplets Shop</title>
+<link rel="stylesheet" href="/shop.css">
+<link th:each="link : ${links}" th:rel="${link['rel']}" th:href="${link['href']}" th:attr="as=${link['as']}">
+<script type="speculationrules">{"prefetch":[{"where":{"href_matches":"/product/*"},"eagerness":"moderate"}]}</script>
+<script type="module" src="/index.js"></script>
+</head>
+<body class="shop">
+<th:block th:utext="${toasts}"></th:block>
+<header class="shop-header"><div class="shop-wrap">
+<a class="shop-logo" href="/gallery"><span aria-hidden="true">◆</span> Droplets Shop</a>
+<nav class="shop-nav" aria-label="Shop"><a href="/gallery" th:attr="aria-current=${current == '/gallery'} ? 'page' : null">Gallery</a><a href="/admin" th:attr="aria-current=${current == '/admin'} ? 'page' : null">Admin</a></nav>
+<div class="shop-cart" th:utext="${cart}"></div>
+</div></header>
+<main th:replace="${main}"></main>
+<footer class="shop-footer"><div class="shop-wrap">
+<p class="shop-stack" th:text="${stack}">Spring Boot</p>
+<p th:text="|Droplets demo shop · host: ${stack} · droplets: <djs-shop>|"></p>
+<p><a href="/gallery">Gallery</a> · <a href="/admin">Admin</a> · <a href="/">The Svelte example</a></p>
+</div></footer>
+</body>
+</html>

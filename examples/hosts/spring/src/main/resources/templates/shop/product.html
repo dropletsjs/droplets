@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:replace="~{shop/layout :: page(~{::main})}">
+<main class="shop-main shop-wrap">
+<nav class="shop-crumbs" aria-label="Breadcrumb">
+<a href="/gallery">Gallery</a> ›
+<a th:href="|/gallery?category=${#uris.escapeQueryParam(category['slug'] ?: '')}|" th:text="${category['name'] ?: ''}"></a> ›
+<span aria-current="page" th:text="${product['name']}"></span>
+</nav>
+<th:block th:utext="${fragments[0]}"></th:block>
+<section class="shop-comments" th:utext="${fragments[1]}"></section>
+</main>
+</html>

@@ -1,0 +1,288 @@
+---
+title: Spring Boot
+description: "Java: fetch fragments with RestClient in a Spring MVC controller and print them in a Thymeleaf template."
+---
+
+import HostDemo from "../../../../components/HostDemo.astro";
+
+How a Spring Boot app embeds droplets: a Spring MVC controller fetches each
+fragment with `RestClient` and a Thymeleaf template prints it into the page
+with `th:utext`.
+
+## The pattern in Spring Boot
+
+```java
+// Application.java: one client for every visitor
+HttpClient http = HttpClient.newBuilder()
+    .version(HttpClient.Version.HTTP_1_1)
+    .followRedirects(HttpClient.Redirect.NEVER)
+    .connectTimeout(Duration.ofSeconds(5))
+    .build();
+JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(http);
+factory.setReadTimeout(timeout);
+return RestClient.builder().requestFactory(factory).build();
+```
+
+```java
+// Shop.java (trimmed)
+Fragment fragment(String target, String cookie, String droplet, List<Param> params) {
+  URI uri = URI.create(internalUrl + "/droplets/" + UriUtils.encodePathSegment(droplet, UTF_8) + "?" + encodeQuery(params));
+  return client.get().uri(uri)
+      .headers(headers -> {
+        headers.set("accept", "text/html");
+        headers.set("x-droplet-location", origin);
+        headers.set("referer", origin + target);
+        if (cookie != null) headers.set("cookie", cookie);
+      })
+      .exchange((req, res) -> {
+        int status = res.getStatusCode().value();
+        List<String> cookies = List.copyOf(res.getHeaders().getOrEmpty("set-cookie"));
+        String link = res.getHeaders().getFirst("link");
+        String type = res.getHeaders().getFirst("content-type");
+        if (status >= 300 && status < 400) {
+          return new Fragment(unavailable(droplet, "HTTP " + status), status, res.getHeaders().getFirst("location"), cookies, link);
+        }
+        if (((status >= 200 && status < 300) || status == 500) && type != null && type.startsWith("text/html")) {
+          return new Fragment(new String(res.getBody().readAllBytes(), UTF_8), status, null, cookies, link);
+        }
+        // … anything else: a "droplet is unavailable" note, the id escaped
+      });
+}
+```
+
+```html
+<!-- templates/shop/layout.html, in <head>: once per page -->
+<script type="module" src="/index.js"></script>
+<!-- templates/shop/gallery.html: the fragment's HTML, as it came -->
+<aside th:utext="${fragments[0]}"></aside>
+```
+
+- `fragment()` sends `GET /droplets/<id>?<params>` to `SHOP_INTERNAL_URL`
+  with `accept: text/html` and `x-droplet-location` set to `origin`, the
+  origin of `SHOP_PUBLIC_URL` (read with `@Value`). It passes on the
+  browser's `Cookie` cut down to the shop's own `cart_id` and `shop_admin`,
+  and the page's URL as `referer`: `origin` plus the path and query as the
+  browser sent them (`getRequestURI()` and `getQueryString()`, which Tomcat
+  leaves undecoded).
+- The shared `RestClient` runs on the JDK's `HttpClient` with
+  `Redirect.NEVER`, so a droplet's 3xx is answered as it is, and no cookie
+  handler, so it never keeps a cookie. `exchange()` reads every answer as it
+  is, without `RestClient`'s error handling for 4xx and 5xx. `ShopPages`
+  sends the fragments' `Set-Cookie` with the page; a fragment's redirect
+  answers the whole page with that status and `location`.
+- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+  page) is printed with `th:utext`, which Thymeleaf leaves unescaped; every
+  other value goes through `th:text`.
+- `templates/shop/layout.html` loads `/index.js` once. One handler,
+  `ShopProxy`, passes `/index.js`, `/env.js`, `/index.css`, `/droplets/**`,
+  `/assets/**` and `/api/**` on to the shop.
+
+## The shop demo, recorded
+
+The [shop demo](/integrate/hosts/shop-demo/) on Spring Boot, recorded by the
+end-to-end test. [How the pieces fit](/integrate/hosts/shop-demo/#how-it-fits-together)
+has the diagram.
+
+<HostDemo id="spring" stack="Spring Boot" />
+
+The code is in `examples/hosts/spring/src/main/java/com/example/droplets/`:
+`Shop.java` (the fragments and the helpers), `ShopPages.java` (the pages),
+`ShopProxy.java` (the proxy), and the Thymeleaf templates in
+`src/main/resources/templates/shop/`.
+
+### Pieces and ports
+
+`docker-compose.yml` starts three services:
+
+| Service | Port | What it is |
+| --- | --- | --- |
+| `web` | 8016, public | Spring Boot: the shop's pages, the proxy, and the basic page at `/` |
+| `shop` | 8300, internal only | the shop's droplets server (`examples/shop`) |
+| `droplets` | 8000, public | the Svelte example's droplets server, for `/` only |
+
+| On `web` | Value | Used for |
+| --- | --- | --- |
+| `SHOP_INTERNAL_URL` | `http://shop:8300` | internal: fragment fetches and the proxy |
+| `SHOP_PUBLIC_URL` | `http://localhost:8016` | public: this host's own origin, sent as `x-droplet-location` |
+| `DROPLETS_INTERNAL_URL`, `DROPLETS_PUBLIC_URL` | `http://droplets:8000`, `http://localhost:8000` | the same pair, for the basic page |
+
+The image is a multi-stage build: Maven on JDK 25 runs the tests and
+packages the jar (`mvn package`), and a JRE 25 image runs it. Tomcat runs
+on virtual threads (`spring.threads.virtual.enabled`).
+
+### How a page gets a droplet
+
+A server fetch with `RestClient`, all of a page's fragments at once (a
+virtual thread each, `CompletableFuture.supplyAsync`), printed by a
+Thymeleaf template. The fetch is `fragment()` and the template is
+`templates/shop/gallery.html`, both shown in the pattern above; the
+fragments' `Link` preloads on this host's origin go into `<head>`.
+
+`referer` is the page's URL, query included. The shop's `handle` reads it
+with `hostFrom`, so it is the droplet's
+[`host`](/integrate/http-contract/#host-where-the-droplet-renders), and after
+a form posted without JavaScript its query carries the form's result.
+`templates/shop/layout.html` loads `<script type="module" src="/index.js">`
+once, through the proxy, and each droplet hydrates itself. `render` fetches
+the toasts and the header's cart badge with every page's fragments; the
+`toast-center` fragment comes first in the body, and `/index.js` installs
+`window.shopMessageQueue` before any droplet starts (the shop's
+`src/hooks.client.ts`). Each page template replaces its `<html>` with the
+layout and hands it its `<main>`:
+
+```html
+<!-- templates/shop/gallery.html -->
+<html lang="en" th:replace="~{shop/layout :: page(~{::main})}">
+<main class="shop-main shop-wrap">…</main>
+</html>
+
+<!-- templates/shop/layout.html -->
+<html lang="en" th:fragment="page(main)">
+…
+<body class="shop">
+<th:block th:utext="${toasts}"></th:block>
+<header class="shop-header">…<div class="shop-cart" th:utext="${cart}"></div>…</header>
+<main th:replace="${main}"></main>
+```
+
+The product page first reads the product from the shop's public
+`GET /droplets/product-page/_data?slug=<slug>`; an unknown slug answers the
+`not-found` template with `404`. The pages pass on only the query keys
+each droplet takes: the whole query to `product-filter` and
+`product-library`, `order`, `page` and `showing` (plus `productId`) to
+`product-comments`, `slug` and `v` to `product-page`, `next` to `login`,
+`view` and `id` to `product-admin`. The query is read from the raw query
+string, repeated keys kept, never through `getParameter`.
+
+### What it proxies
+
+```java
+// ShopProxy.java (trimmed)
+@RequestMapping(
+    path = {"/index.js", "/env.js", "/index.css", "/droplets/**", "/assets/**", "/api/**"},
+    method = {GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS})
+void proxy(HttpServletRequest request, HttpServletResponse response) throws IOException {
+  if (Shop.hasDotSegment(request.getRequestURI())) {
+    plain(response, 400, "Bad request.");
+    return;
+  }
+  // Concatenated, not resolved: a path like `//elsewhere` stays a path on the shop.
+  URI target = new URI(internalUrl + Shop.rawTarget(request));
+  …
+}
+```
+
+`ShopProxy` covers `/index.js`, `/env.js`, `/index.css`, `/droplets/**`
+(fragments, `_data`, form actions), `/assets/**` and `/api/**`. It sends
+the shop `x-droplet-location` written out and only these of the browser's
+headers: `accept`, `accept-language`, `content-type`, `if-none-match`,
+`origin`, `referer`, `user-agent`, `x-droplet-props` and
+`x-droplets-build`, plus `cookie` cut down to the shop's own `cart_id` and
+`shop_admin`, so another app's cookie on this origin stays here. The target
+is the raw path and query concatenated onto `SHOP_INTERNAL_URL`, never
+resolved, so `//elsewhere` stays a path on the shop; a path with a `.` or
+`..` segment, once decoded, is refused with `400`.
+
+The request body is read whole, up to 4 MB, before anything goes to the
+shop (above the shop's own 3 MB limit for the admin's image form); a larger
+one is refused with `413` `Payload too large.` Nothing in Spring reads it
+first: `spring.servlet.multipart.enabled=false` and
+`spring.mvc.formcontent.filter.enabled=false`, so a multipart post (the
+admin's image upload) and a form body reach the shop as the browser sent
+them. The answer is streamed back with its status, every `Set-Cookie` and
+any redirect, without the per-hop headers and `content-length`, which
+Tomcat counts again. A shop that cannot be reached answers `502`
+`The shop is unreachable.`
+
+The shop's cookies (`cart_id`, `shop_admin`) are first-party, and nothing
+is cross-origin; the shop sets them only from form actions and `/api`,
+which come through here.
+
+### Gotchas
+
+- **The shared client must not keep cookies.** A cookie handler on the
+  `HttpClient` (`CookieManager`) would store the first visitor's `cart_id`
+  (or admin session) from a proxied answer and send it with everyone
+  else's requests. The client has none; what goes out is the browser's own
+  `Cookie`, cut down to `cart_id` and `shop_admin`.
+- **Nothing may read the body before the proxy.** Spring Boot parses a
+  multipart request before the controller runs, and its `FormContentFilter`
+  reads the form body of a `PUT`, `PATCH` or `DELETE`; either would leave the
+  proxy an empty stream. Both are off in `application.properties`.
+- **`th:utext` only for the shop's HTML.** Thymeleaf escapes `th:text`; the
+  "unavailable" note is built with `HtmlUtils.htmlEscape`, so the droplet's
+  id is escaped. See [For hosts](/guides/security/#for-hosts).
+- **The page is `private, no-store`.** `render` sets it on every shop page
+  and redirect: their fragments were rendered with the visitor's cookies.
+
+### Run it
+
+```bash
+cd examples/hosts/spring
+docker compose up --build
+open http://localhost:8016/gallery   # log in as admin / droplets
+```
+
+Set `SHOP_SECRET` and `DROPLETS_SECRET` first; compose refuses to start
+without them. The shop trusts one origin besides its own,
+`DROPLETS_TRUSTED_ORIGINS: http://localhost:8016`, this host's; the rest of
+its environment is the same on every host: see
+[Running a host](/integrate/hosts/shop-demo/#running-a-host).
+
+## The Svelte example
+
+The same app serves the Svelte example at `/`: its three droplets, one per
+mode, from `examples/frameworks/svelte` (the `droplets` service). No
+JavaScript runs on the host: Java fetches the fragments and a template
+prints them.
+
+```java
+// IndexController.java (trimmed)
+IndexController(
+    ExecutorService executor,
+    @Value("${DROPLETS_INTERNAL_URL:http://localhost:8000}") String internalUrl,
+    @Value("${DROPLETS_PUBLIC_URL:http://localhost:8000}") String dropletsPublicUrl) { … }
+
+@GetMapping("/")
+String index(@RequestParam(defaultValue = "Spring Boot") String who, Model model) {
+  List<CompletableFuture<String>> pending =
+      IDS.stream().map(id -> CompletableFuture.supplyAsync(() -> fetchDroplet(id, who), executor)).toList();
+  model.addAttribute("dropletsPublicUrl", dropletsPublicUrl);
+  model.addAttribute("fragments", pending.stream().map(CompletableFuture::join).toList());
+  return "index";
+}
+
+private String fetchDroplet(String droplet, String who) {
+  …
+  return client.get().uri(uri)
+      .header("accept", "text/html")
+      .header("x-droplet-location", dropletsPublicUrl)
+      .exchange((req, res) -> {
+        int status = res.getStatusCode().value();
+        String type = res.getHeaders().getFirst("content-type");
+        // Only an HTML answer is a fragment (a 500 carries the droplet's error
+        // page); anything else may echo the props, so it is never pasted.
+        if ((res.getStatusCode().is2xxSuccessful() || status == 500) && type != null && type.startsWith("text/html")) {
+          return new String(res.getBody().readAllBytes(), UTF_8);
+        }
+        return "<p class=\"error\">droplet \"" + HtmlUtils.htmlEscape(droplet) + "\" unavailable: HTTP " + status + "</p>";
+      });
+}
+```
+
+```html
+<!-- templates/index.html -->
+<script type="module" th:src="${dropletsPublicUrl} + '/index.js'"></script>
+…
+<th:block th:each="fragment : ${fragments}" th:utext="${fragment}"></th:block>
+```
+
+`th:utext` prints the fragment unescaped. Only a `text/html` answer is
+pasted (a 2xx, or a 500 carrying the droplet's error page); any other answer
+prints an error paragraph with its status, the id escaped. A failed request
+prints a fixed one and logs the error, since its message names the internal
+URL. Here the page loads `/index.js` from the droplets server's public URL,
+another origin than the page, so the Svelte example runs with `cors: true`
+and `DROPLETS_TRUSTED_ORIGINS` lists both `DROPLETS_URL` and this host's
+`WEB_URL`. The same fetch works from Quarkus, Micronaut or any other JVM
+server that can make an HTTP request and print a string.

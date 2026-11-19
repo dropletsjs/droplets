@@ -100,6 +100,7 @@ comes back with the button saying "✓ Added".
 | [Rails 8](/integrate/hosts/rails/) | ERB views, a controller | `Net::HTTP`, a thread per fragment | a Rack endpoint in the routes |
 | [PHP](/integrate/hosts/php/) | PHP templates, no framework | `curl_multi`, all at once | a front controller (`index.php`) |
 | [ASP.NET Core](/integrate/hosts/aspnet/) | Razor Pages, `Html.Raw` | `HttpClient` from `IHttpClientFactory`, `Task.WhenAll` | minimal API endpoints (`MapMethods`) |
+| [Spring Boot](/integrate/hosts/spring/) | Thymeleaf templates, `th:utext` | `RestClient` in a controller, a virtual thread per fragment | a `@RequestMapping` over the shop's paths |
 | [React + Vite](/integrate/hosts/react-vite/) | a single-page app | client-only: fetched by the browser, the cart as `data-droplet` | nginx in the image |
 | [Astro 5](/integrate/hosts/astro/) | `.astro` pages, `set:html` | `fetch` in the frontmatter; cookies through `Astro.response` | endpoints (`ALL`) |
 | [SvelteKit](/integrate/hosts/sveltekit/) | `+page.svelte`, `{@html}` | `fetch` in `+page.server.ts`; cookies from `handle` | `hooks.server.ts` |
@@ -268,6 +269,10 @@ asks the shop for its fragments cross-origin, with no proxy.
 ### ASP.NET Core
 
 <HostDemo id="aspnet" stack="ASP.NET Core 10" />
+
+### Spring Boot
+
+<HostDemo id="spring" stack="Spring Boot" />
 
 ### React + Vite
 

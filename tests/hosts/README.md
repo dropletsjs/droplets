@@ -159,7 +159,7 @@ its own install. The hosts are outside the pnpm workspace, so
 
 ## Facts
 
-- `HOSTS` is built from `examples/hosts/hosts.json` (the built hosts with a `runner`): each id's URL is `http://localhost:` 8000 plus its offset: express 8003, nginx 8081, fastapi 8001, django 8012, sinatra 8002, php 8009, wordpress 8008, react-vite 8004, astro 8005, sveltekit 8006, nextjs 8007, htmx 8010, static 8011, aspnet 8014, rails 8015. `run.mjs:68`, `../../examples/hosts/hosts.json`
+- `HOSTS` is built from `examples/hosts/hosts.json` (the built hosts with a `runner`): each id's URL is `http://localhost:` 8000 plus its offset: express 8003, nginx 8081, fastapi 8001, django 8012, sinatra 8002, php 8009, wordpress 8008, react-vite 8004, astro 8005, sveltekit 8006, nextjs 8007, htmx 8010, static 8011, aspnet 8014, rails 8015, spring 8016. `run.mjs:68`, `../../examples/hosts/hosts.json`
 - Hosts run only by name (`byName`): wordpress and htmx. `../../examples/hosts/hosts.json`
 - No host named, or `all`: every host without `byName`. `run.mjs:89`
 - htmx runs `e2e/htmx.spec.ts` only, waits on `/`, reaches the Svelte example on `http://localhost:8000` (`direct: "svelte"`). `../../examples/hosts/hosts.json`

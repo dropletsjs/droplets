@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Droplets in Spring Boot</title>
+  <script type="module" th:src="${dropletsPublicUrl} + '/index.js'"></script>
+</head>
+<body style="font-family: system-ui, sans-serif; background: #f8fafc; margin: 0; padding: 2rem;">
+  <main style="max-width: 48rem; margin: 0 auto;">
+    <h1>Spring Boot page, three Svelte droplets</h1>
+    <p>Each fragment below was fetched by the Java process and rendered on the server.
+       Try <a href="/?who=Java">?who=Java</a>, or the <a href="/gallery">shop demo</a>.</p>
+    <th:block th:each="fragment : ${fragments}" th:utext="${fragment}"></th:block>
+  </main>
+</body>
+</html>
