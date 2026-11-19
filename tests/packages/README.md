@@ -8,6 +8,7 @@ Vite build.
 ```bash
 pnpm build                                        # the packages' dist/ first
 pnpm --filter @dropletsjs/tests-packages test     # this suite
+pnpm --filter @dropletsjs/tests-packages test:tree  # the suites that read the tree only, no dist/ needed
 pnpm test:integration                             # every tests/* suite
 ```
 
@@ -120,3 +121,5 @@ suite reads it from there.
 - Workflows are read line by line; an `on` form the reader does not know throws. `test/workflows.test.ts:29`
 - Workflows: `ci.yml`'s `deploy-demo` and `deploy-docs` have the job-level `if` `DEPLOY_CONDITION` (push, `refs/heads/main`, `dropletsjs/droplets`). `test/workflows.test.ts:129`
 - Workflows: a job id under `jobs:` it cannot read throws, and so does a block-list `needs`. `test/workflows.test.ts:80`, `test/workflows.test.ts:121`
+- Areas: `test/areas.test.ts` pins each rule of `.github/scripts/areas.ts` to its outputs and puts every `git ls-files` path under a rule or the fallback, whose top-level names are listed (`.env.example`, `.gitignore`). `test/areas.test.ts:213`, `../../.github/scripts/areas.ts:74`
+- Workflows: the four required jobs of `ci.yml` keep their names (`REQUIRED_JOBS`), fetch depth 2, run `node .github/scripts/areas.ts` once and ungated, and gate every later step on `steps.areas.outputs.<name> != 'false'` (`AREAS_IF`). `test/workflows.test.ts:213`, `test/workflows.test.ts:318`

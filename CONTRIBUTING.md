@@ -113,6 +113,37 @@ renderers), before it when they need none (the adapters, create-droplets).
 `@dropletsjs/droplets/testing` on a fixture app in its `test/fixtures/app`: a
 change to the renderer contract shows up there for all of them.
 
+### What CI runs for a pull request
+
+A pull request runs only what its changed files need; a push to `main` runs
+everything, then deploys. `.github/scripts/areas.ts` reads the files the
+pull request changes (its merge commit against the base) and picks the
+steps; the job summary shows the choice and the rule behind it. Every run
+has `biome ci`, the `tests/hosts` static tests and the tree suites of
+`tests/packages` (`test:tree`: the workflows, the examples' ranges, the
+attribute names, the areas). The four jobs always report, so the required
+checks pass with their skipped steps. Each file takes the first rule it
+matches, and the run is the union:
+
+| Changed path | Runs |
+|---|---|
+| `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `package.json`, `.github/**`, `packages/shared/**`, `biome.jsonc`, any `tsconfig*.json`, `.dockerignore`, `.changeset/config.json` | everything |
+| `apps/docs/**` | `docs:build` and `docs:check-csp`, the docs' typecheck |
+| `README.md`, `AGENTS.md`, `CLAUDE.md` anywhere else, root `*.md`, `LICENSE`, `docs/**`, `.vscode/**`, `.changeset/*.md` | nothing more |
+| `packages/**` | everything |
+| `apps/demo/**` | the demo's build and tests, the docs, the demo's typecheck |
+| `examples/shop/**`, `examples/wp-shop/**` | both shops' build and tests and typecheck |
+| `examples/frameworks/**` | `build:examples` (Node and Cloudflare), the Browser job, the eight examples' typecheck; `svelte/**` and the `Dockerfile` also the Docker job |
+| `examples/hosts/hosts.json` | the Hosts job, the docs |
+| `examples/hosts/**` | the Hosts job |
+| `tests/examples/**` | the Browser job, its typecheck |
+| `tests/hosts/**` | the Hosts job, its typecheck |
+| `tests/{create-droplets,djs-add,dev-mixed,packages}/**` | `pnpm test:integration`, that project's typecheck |
+| anything else | everything |
+
+Whatever needs the packages' `dist/` gets `pnpm build:dist` when `pnpm build`
+does not run. Locally, `pnpm check` is still the full run.
+
 ## Making changes
 
 - Keep the framework free of application concerns. Anything that only one
