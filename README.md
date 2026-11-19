@@ -124,7 +124,7 @@ or one in `trustedOrigins` / `DROPLETS_TRUSTED_ORIGINS`. See the
 
 <!-- hosts:wall -->
 - **JavaScript / TypeScript**: [Express](https://dropletsjs.dev/integrate/hosts/express/), [Next.js](https://dropletsjs.dev/integrate/hosts/nextjs/), [SvelteKit](https://dropletsjs.dev/integrate/hosts/sveltekit/), [Astro](https://dropletsjs.dev/integrate/hosts/astro/), [React + Vite](https://dropletsjs.dev/integrate/hosts/react-vite/)
-- **Python**: [FastAPI](https://dropletsjs.dev/integrate/hosts/fastapi/)
+- **Python**: [FastAPI](https://dropletsjs.dev/integrate/hosts/fastapi/), [Django](https://dropletsjs.dev/integrate/hosts/django/)
 - **PHP**: [PHP](https://dropletsjs.dev/integrate/hosts/php/), [WordPress](https://dropletsjs.dev/integrate/wordpress/)
 - **Ruby**: [Sinatra](https://dropletsjs.dev/integrate/hosts/sinatra/)
 - **No backend code**: [nginx](https://dropletsjs.dev/integrate/hosts/nginx/), [htmx](https://dropletsjs.dev/integrate/hosts/htmx/), [Static HTML](https://dropletsjs.dev/integrate/hosts/static/), [Site builders](https://dropletsjs.dev/integrate/hosts/site-builders/)
@@ -206,7 +206,7 @@ They all share one version.
   example on `/` where there is one):
 
 <!-- hosts:count -->
-Twelve host examples, by language; ten run the shared shop flow, and WordPress and htmx have flows of their own. [Site builders](https://dropletsjs.dev/integrate/hosts/site-builders/) is a guide, with no example: Webflow, Wix, Squarespace, Shopify.
+Thirteen host examples, by language; eleven run the shared shop flow, and WordPress and htmx have flows of their own. [Site builders](https://dropletsjs.dev/integrate/hosts/site-builders/) is a guide, with no example: Webflow, Wix, Squarespace, Shopify.
 <!-- /hosts:count -->
 
 <!-- hosts:table -->
@@ -218,6 +218,7 @@ Twelve host examples, by language; ten run the shared shop flow, and WordPress a
 | [astro](./examples/hosts/astro) | JavaScript / TypeScript | Astro, Node adapter | Fragment fetch in the frontmatter, `set:html` |
 | [react-vite](./examples/hosts/react-vite) | JavaScript / TypeScript | React 19, Vite | A client-side `<Droplet>` component, the shop through a same-origin proxy |
 | [fastapi](./examples/hosts/fastapi) | Python | Python, FastAPI, httpx, Jinja2 | Fragment fetch with `httpx`, pasted into a Jinja2 template |
+| [django](./examples/hosts/django) | Python | Python, Django 6.1, httpx, Django templates | Fragment fetch with `httpx` in a view, pasted into a Django template |
 | [php](./examples/hosts/php) | PHP | PHP 8.3 on Apache, curl, no framework | Fragment fetch with `curl_multi`, pasted into plain PHP templates |
 | [wordpress](./examples/hosts/wordpress) | PHP | WordPress 6, a plugin; WordPress owns the data | A `[droplet]` shortcode plugin serving `examples/wp-shop` |
 | [sinatra](./examples/hosts/sinatra) | Ruby | Ruby, Sinatra, Net::HTTP, ERB | Fragment fetch with `Net::HTTP`, pasted into ERB |

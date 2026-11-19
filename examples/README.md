@@ -68,6 +68,7 @@ end-to-end recordings ([`tests/hosts`](../tests/hosts)).
 | [`astro`](./hosts/astro) | JavaScript / TypeScript | Fragment fetch in the frontmatter, `set:html` |
 | [`react-vite`](./hosts/react-vite) | JavaScript / TypeScript | A client-side `<Droplet>` component, the shop through a same-origin proxy |
 | [`fastapi`](./hosts/fastapi) | Python | Fragment fetch with `httpx`, pasted into a Jinja2 template |
+| [`django`](./hosts/django) | Python | Fragment fetch with `httpx` in a view, pasted into a Django template |
 | [`php`](./hosts/php) | PHP | Fragment fetch with `curl_multi`, pasted into plain PHP templates |
 | [`wordpress`](./hosts/wordpress) | PHP | A `[droplet]` shortcode plugin serving `examples/wp-shop` |
 | [`sinatra`](./hosts/sinatra) | Ruby | Fragment fetch with `Net::HTTP`, pasted into ERB |

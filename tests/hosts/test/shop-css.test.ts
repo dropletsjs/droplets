@@ -22,6 +22,7 @@ describe("the shop's layout CSS across the hosts", () => {
   it("is in every host that runs the shop", () => {
     expect(copies.map((path) => path.split("/")[0])).toEqual([
       "astro",
+      "django",
       "express",
       "fastapi",
       "htmx",
