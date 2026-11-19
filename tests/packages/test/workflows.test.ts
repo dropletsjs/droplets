@@ -3,7 +3,9 @@
  * `push` events only (AGENTS.md rule 22), the release workflow's publish
  * job runs only from a public repository, and the Cloudflare deploys run
  * only on a push to main, after every other CI job, in the `cloudflare`
- * environment, the only jobs that name its secrets. The workflows are read line by
+ * environment, the only jobs that name its secrets. The release workflow's
+ * version job opens no PR and writes nothing, and Dependabot's npm updates
+ * wait as long as pnpm's minimumReleaseAge. The workflows are read line by
  * line, with no YAML parser: a form of `on` or `runs-on` the reader does not
  * know fails the suite, so a workflow never passes because it went unread.
  */
@@ -13,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const workflowsDir = fileURLToPath(new URL("../../../.github/workflows/", import.meta.url));
+const dependabotFile = fileURLToPath(new URL("../../../.github/dependabot.yml", import.meta.url));
 const workflows = readdirSync(workflowsDir)
   .filter((name) => /\.ya?ml$/.test(name))
   .sort();
@@ -125,6 +128,39 @@ function jobNeeds({ source, job }: JobInput): string[] {
     .map((name) => unquote(name.trim()));
 }
 
+type UpdateInput = { source: string; ecosystem: string };
+
+/** The lines of the `updates` entry for `ecosystem` in dependabot.yml, its `- package-ecosystem` line excluded. */
+function updateLines({ source, ecosystem }: UpdateInput): string[] {
+  const lines = source.split("\n");
+  const start = lines.findIndex((line) => indentOf(line) === 2 && withoutComment(line) === `- package-ecosystem: ${ecosystem}`);
+  if (start === -1) throw new Error(`no \`${ecosystem}\` entry`);
+  const body: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    if (isContent(line) && indentOf(line) <= 2) break;
+    body.push(line);
+  }
+  return body;
+}
+
+/** The top-level `permissions` block's lines, or the inline value as one line. */
+function topPermissions(source: string): string[] {
+  const lines = source.split("\n");
+  const start = lines.findIndex((line) => /^permissions\s*:/.test(line));
+  if (start === -1) return [];
+  const inline = withoutComment((lines[start] ?? "").replace(/^permissions\s*:/, ""));
+  if (inline) return [inline];
+  const block: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    if (!isContent(line)) continue;
+    if (indentOf(line) === 0) break;
+    block.push(withoutComment(line));
+  }
+  return block;
+}
+
+const grantsWrite = (line: string) => /\bwrite(-all)?$/.test(line);
+
 const DEPLOY_JOBS = ["deploy-demo", "deploy-docs"];
 const DEPLOY_CONDITION = "github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'dropletsjs/droplets'";
 
@@ -155,6 +191,15 @@ describe("the workflows", () => {
     const condition = jobCondition({ source: readFileSync(join(workflowsDir, "release.yml"), "utf8"), job: "publish" });
     expect(condition).toMatch(/^github\.event\.repository\.private == false && /);
     expect(condition).not.toMatch(/\|\|/);
+  });
+
+  it("release.yml's version job opens no PR and writes nothing: no changesets/action, no write permission", () => {
+    const source = readFileSync(join(workflowsDir, "release.yml"), "utf8");
+    const version = jobLines({ source, job: "version" }).filter(isContent).map(withoutComment);
+    expect(version.join("\n")).not.toMatch(/changesets\/action/);
+    expect(version.filter(grantsWrite)).toEqual([]);
+    // The job inherits the workflow's permissions.
+    expect(topPermissions(source).filter(grantsWrite)).toEqual([]);
   });
 
   describe("ci.yml's Cloudflare deploys", () => {
@@ -208,6 +253,21 @@ describe("the workflows", () => {
       }
       for (const job of others) expect(jobLines({ source, job }).join("\n"), job).not.toMatch(/secrets\./);
     });
+  });
+});
+
+describe("dependabot.yml", () => {
+  it("holds npm updates for at least 7 days, as pnpm's minimumReleaseAge does", () => {
+    const npm = updateLines({ source: readFileSync(dependabotFile, "utf8"), ecosystem: "npm" })
+      .filter(isContent)
+      .map(withoutComment);
+    const cooldown = npm.indexOf("cooldown:");
+    expect(cooldown).toBeGreaterThan(-1);
+    const days = npm
+      .slice(cooldown + 1)
+      .map((line) => /^default-days:\s*(\d+)$/.exec(line)?.[1])
+      .find((value) => value !== undefined);
+    expect(Number(days)).toBeGreaterThanOrEqual(7);
   });
 });
 
