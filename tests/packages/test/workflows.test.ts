@@ -4,8 +4,9 @@
  * job runs only from a public repository, and the Cloudflare deploys run
  * only on a push to main, after every other CI job, in the `cloudflare`
  * environment, the only jobs that name its secrets. The four required CI jobs
- * keep their names, and every step after the areas step runs by one of its
- * outputs (.github/scripts/areas.ts). The release workflow's
+ * keep their names, every step after the areas step runs by one of its
+ * outputs (.github/scripts/areas.ts), and the Playwright browsers are cached
+ * by the lockfile's version. The release workflow's
  * version job opens no PR and writes nothing, and Dependabot's npm updates
  * wait as long as pnpm's minimumReleaseAge. The workflows are read line by
  * line, with no YAML parser: a form of `on` or `runs-on` the reader does not
@@ -369,6 +370,25 @@ describe("the workflows", () => {
       const after = stepsOf(job).slice(areasIndex(job) + 1);
       expect(after.length).toBeGreaterThan(0);
       expect(after.map((step) => step.get("if"))).toEqual(after.map(() => `steps.areas.outputs.${output} != 'false'`));
+    });
+
+    it.each([
+      ["check", "integration"],
+      ["e2e", "e2e"],
+    ])("%s caches the Playwright browsers by the lockfile's @playwright/test version, gated as the install (%s)", (job, output) => {
+      const steps = stepsOf(job);
+      const gate = `steps.areas.outputs.${output} != 'false'`;
+      const install = steps.findIndex((step) => /exec playwright install --with-deps chromium$/.test(step.get("run") ?? ""));
+      const version = steps.findIndex((step) => step.get("id") === "playwright");
+      const cache = steps.findIndex((step) => step.get("uses")?.startsWith("actions/cache@"));
+      expect(install).toBeGreaterThan(-1);
+      expect([version, cache].every((index) => index > -1 && index < install)).toBe(true);
+      expect(steps[version]?.get("run")).toMatch(/'@playwright\\\/test@.*pnpm-lock\.yaml/);
+      expect(steps[cache]?.get("uses")).toMatch(/^actions\/cache@[0-9a-f]{40}$/);
+      expect(steps[cache]?.get("with.path")).toBe("~/.cache/ms-playwright");
+      expect(steps[cache]?.get("with.key")).toBe("playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}");
+      expect([version, cache, install].map((index) => steps[index]?.get("if"))).toEqual([gate, gate, gate]);
+      expect(source).toMatch(/uses: actions\/cache@[0-9a-f]{40} # v\d+\.\d+\.\d+\n/);
     });
 
     it("runs every command of the root check script, the lint and the tree suites on every run", () => {

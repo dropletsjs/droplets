@@ -80,6 +80,19 @@ jobs:
         run: |
           set -f
           pnpm -r $TYPECHECK_FILTER typecheck
+      # The browsers of the lockfile's @playwright/test, cached by its version;
+      # the install below then only adds the system packages.
+      - if: steps.areas.outputs.integration != 'false'
+        id: playwright
+        run: |
+          version=$(sed -nE "s/^  '@playwright\/test@([0-9][^']*)':$/\1/p" pnpm-lock.yaml | head -n 1)
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - if: steps.areas.outputs.integration != 'false'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
       # tests/dev-mixed drives vite dev in Chromium.
       - if: steps.areas.outputs.integration != 'false'
         run: pnpm --filter @dropletsjs/tests-dev-mixed exec playwright install --with-deps chromium
@@ -139,6 +152,19 @@ jobs:
       # The unit tests run in the check job's build.
       - if: steps.areas.outputs.e2e != 'false'
         run: pnpm build:dist
+      # The browsers of the lockfile's @playwright/test, cached by its version;
+      # the install below then only adds the system packages.
+      - if: steps.areas.outputs.e2e != 'false'
+        id: playwright
+        run: |
+          version=$(sed -nE "s/^  '@playwright\/test@([0-9][^']*)':$/\1/p" pnpm-lock.yaml | head -n 1)
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - if: steps.areas.outputs.e2e != 'false'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
       - if: steps.areas.outputs.e2e != 'false'
         run: pnpm --filter @dropletsjs/tests-examples exec playwright install --with-deps chromium
       # Builds the eight framework examples, then runs one project per example.
