@@ -2,12 +2,14 @@ name: Release
 
 # Changesets flow, in two jobs so that only the publish job can publish:
 #
-#   1. `version` (every push to main): while .changeset/*.md files exist it
-#      opens or updates the "Version Packages" PR. It has no id-token and no
-#      environment, so it cannot publish anything.
+#   1. `version` (every push to main): it only reports whether .changeset/*.md
+#      files are pending, with a notice; the version commit (`pnpm
+#      version-packages`) goes through a regular PR, so this job opens and
+#      pushes nothing. It has no id-token and no environment, so it cannot
+#      publish anything.
 #   2. `publish`: runs only when the repository is public, no changesets are
 #      pending AND npm answers E404 for at least one public package's version
-#      (right after the Version PR merged). It publishes through npm trusted
+#      (right after the version commit merged). It publishes through npm trusted
 #      publishing (OIDC): there is no NPM_TOKEN anywhere. It pushes the git
 #      tags and creates no GitHub Release: the maintainer writes one per
 #      version by hand.
@@ -43,13 +45,10 @@ concurrency:
 
 jobs:
   version:
-    name: Version PR / detect pending release
+    name: Detect pending release
     if: github.repository == 'dropletsjs/droplets'
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    permissions:
-      contents: write # push the changeset-release/main branch
-      pull-requests: write # open/update the Version Packages PR
     outputs:
       has-changesets: ${{ steps.changesets.outputs.has-changesets }}
       unpublished: ${{ steps.pending.outputs.unpublished }}
@@ -63,17 +62,18 @@ jobs:
         with:
           node-version: 22
           package-manager-cache: false
-      # This job builds nothing (`changeset version` is plain JavaScript), so
-      # no dependency gets to run an install script here.
+      # This job builds nothing, so no dependency gets to run an install
+      # script here.
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      # No publish-script: this job only versions. changesets/action v2 pushes
-      # through the GitHub API with the job token, so checkout needn't keep it.
       - id: changesets
-        uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
-        with:
-          version-script: pnpm version-packages
-          commit-message: "Version Packages"
-          pr-title: "Version Packages"
+        name: Any changesets pending?
+        run: |
+          if [ -n "$(find .changeset -maxdepth 1 -name '*.md' ! -name README.md)" ]; then
+            echo "::notice::Changesets are pending: run pnpm version-packages in a pull request to release them"
+            echo "has-changesets=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-changesets=false" >> "$GITHUB_OUTPUT"
+          fi
       - id: pending
         name: Any public package version not on npm yet?
         if: steps.changesets.outputs.has-changesets == 'false'
