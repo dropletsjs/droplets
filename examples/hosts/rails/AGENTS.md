@@ -15,7 +15,7 @@
   Checked by: `test/integration/shop_test.rb`, `pnpm test:hosts rails`.
 - Nothing reads a request body before the route is chosen: `Rack::MethodOverride` stays out of the middleware.
   Checked by: `test/integration/shop_test.rb` ("passes the body on").
-- A page inserts only a 2xx or 500 `text/html` fragment, the one string marked `html_safe`; a fragment's redirect is answered, never followed.
+- A page inserts only a 2xx, 500 or 504 `text/html` fragment, the one string marked `html_safe`; a fragment's redirect is answered, never followed.
   Checked by: `test/integration/shop_test.rb`, `pnpm test:hosts rails`.
 - The host flow is the shop flow against this compose stack.
   Checked by: `pnpm test:hosts rails` (`tests/hosts/run.mjs`, `tests/hosts/e2e/shop.spec.ts`); needs Docker.

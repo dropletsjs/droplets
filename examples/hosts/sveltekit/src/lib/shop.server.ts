@@ -139,7 +139,7 @@ export function createShop({ internalUrl, publicUrl }: ShopConfig) {
 
   /**
    * `GET /droplets/<id>?<params>`, with the browser's cookies and this page
-   * as the host. Only an HTML answer is a fragment (a 500 carries the
+   * as the host. Only an HTML answer is a fragment (a 500 or 504 carries the
    * droplet's error page); anything else may echo the props, so it is
    * never inserted.
    */
@@ -157,7 +157,7 @@ export function createShop({ internalUrl, publicUrl }: ShopConfig) {
       if (response.status >= 300 && response.status < 400) {
         result.location = response.headers.get("location");
       } else if (
-        (response.ok || response.status === 500) &&
+        (response.ok || [500, 504].includes(response.status)) &&
         (response.headers.get("content-type") ?? "").startsWith("text/html")
       ) {
         result.html = await response.text();
@@ -180,7 +180,7 @@ export function createShop({ internalUrl, publicUrl }: ShopConfig) {
         headers: { "x-droplet-location": origin, accept: "application/json" },
         redirect: "manual",
         cache: "no-store",
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(10_000),
       });
       if (!response.ok) return null;
       const body = (await response.json()) as { data?: { product?: Partial<Product> } } | null;

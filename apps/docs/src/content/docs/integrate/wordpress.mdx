@@ -89,11 +89,11 @@ function droplets_shortcode(array|string $atts): string
     }
 
     $response = wp_remote_get($url, [
-        'timeout' => 5,
+        'timeout' => 10,
         'redirection' => 0,
         'headers' => ['accept' => 'text/html', 'x-droplet-location' => droplets_public_url()],
     ]);
-    // a WP_Error, or anything but a text/html 2xx or 500: an error paragraph instead
+    // a WP_Error, or anything but a text/html 2xx, 500 or 504: an error paragraph instead
 
     droplets_enqueue_client();                 // /index.js, once, as a module
     return wp_remote_retrieve_body($response); // trusted markup; must not be escaped
@@ -122,7 +122,7 @@ That page loads `/index.js` from the droplets server's own public URL
 that URL, and the site's own origin, in `DROPLETS_TRUSTED_ORIGINS`: the
 `x-droplet-location` the shortcode sends is not the address WordPress
 reaches it at. Only a
-`text/html` answer is pasted (a 2xx, or a 500 carrying the droplet's error
+`text/html` answer is pasted (a 2xx, or a 500 or 504 carrying the droplet's error
 page), a redirect is never followed, and the shortcode passes no cookie on. The shop's droplets come from
 the site's own origin instead, through the plugin's proxy.
 
@@ -172,7 +172,7 @@ foreach ($wanted as $key => [$id, $pairs]) {
         'url' => droplets_shop_internal_url() . $path,
         'headers' => $assertion === null ? $headers : $headers + [DROPLETS_SHOP_USER_HEADER => $assertion],
         'type' => 'GET',
-        'options' => ['follow_redirects' => false, 'timeout' => 5],
+        'options' => ['follow_redirects' => false, 'timeout' => 10],
     ];
 }
 $responses = WpOrg\Requests\Requests::request_multiple($requests);
@@ -183,8 +183,8 @@ $responses = WpOrg\Requests\Requests::request_multiple($requests);
 - `referer` is the page's URL, path and query: wp-shop's `handle` makes it
   the droplet's [`host`](/integrate/http-contract/#host-where-the-droplet-renders)
   ([below](#the-assertion-to-wp-shop)).
-- No redirect is followed, and each fetch times out after 5 seconds.
-- Only `text/html` answers are pasted (a 2xx, or a 500 with the droplet's
+- No redirect is followed, and each fetch times out after 10 seconds.
+- Only `text/html` answers are pasted (a 2xx, or a 500 or 504 with the droplet's
   error); anything else becomes a short notice.
 - Their `Set-Cookie` goes back to the browser untouched, their `Link`
   preloads on this origin go into the head, and a redirect is passed on.

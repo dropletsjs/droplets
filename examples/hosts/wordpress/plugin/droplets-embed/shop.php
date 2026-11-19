@@ -293,8 +293,8 @@ add_action('init', 'droplets_shop_route_proxy', 0);
  * in parallel, as the browser's request: its cookies, this page as the host.
  * Each answer: `html`, `status`,
  * `location`, `cookies`, `link`. Only an HTML answer is a fragment (a 500
- * carries the droplet's error page); anything else may echo the props, so
- * it is never inserted.
+ * or 504 carries the droplet's error page); anything else may echo the
+ * props, so it is never inserted.
  */
 function droplets_shop_fragments(array $wanted): array
 {
@@ -320,7 +320,7 @@ function droplets_shop_fragments(array $wanted): array
             'url' => droplets_shop_internal_url() . $path,
             'headers' => $assertion === null ? $headers : $headers + [DROPLETS_SHOP_USER_HEADER => $assertion],
             'type' => 'GET',
-            'options' => ['follow_redirects' => false, 'timeout' => 5],
+            'options' => ['follow_redirects' => false, 'timeout' => 10],
         ];
     }
     $responses = $requests === [] ? [] : WpOrg\Requests\Requests::request_multiple($requests);
@@ -336,7 +336,7 @@ function droplets_shop_fragments(array $wanted): array
             $is_html = str_starts_with((string) $response->headers['content-type'], 'text/html');
             if ($result['status'] >= 300 && $result['status'] < 400) {
                 $result['location'] = $response->headers['location'];
-            } elseif ((($result['status'] >= 200 && $result['status'] < 300) || $result['status'] === 500) && $is_html) {
+            } elseif ((($result['status'] >= 200 && $result['status'] < 300) || in_array($result['status'], [500, 504], true)) && $is_html) {
                 // Trusted markup from our own shop server; it must not be escaped.
                 $result['html'] = $response->body;
                 $results[$key] = $result;
@@ -354,7 +354,7 @@ function droplets_shop_fragments(array $wanted): array
 function droplets_shop_product(string $slug): ?array
 {
     $response = wp_remote_get(droplets_shop_internal_url() . '/droplets/product-page/_data?' . droplets_shop_build_query([['slug', $slug]]), [
-        'timeout' => 5,
+        'timeout' => 10,
         'redirection' => 0,
         'headers' => ['x-droplet-location' => droplets_shop_public_origin(), 'accept' => 'application/json'],
     ]);

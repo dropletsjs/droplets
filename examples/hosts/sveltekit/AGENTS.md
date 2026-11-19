@@ -17,7 +17,7 @@
   Checked by: `pnpm test:hosts sveltekit`.
 - The shop's browser requests (`/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`, `/api/*`) go through the proxy in `handle`, which forwards only its listed request headers and passes `Set-Cookie` back untouched.
   Checked by: `pnpm test:hosts sveltekit`.
-- A page inserts only a 2xx or 500 `text/html` fragment; a fragment's redirect is answered, never followed.
+- A page inserts only a 2xx, 500 or 504 `text/html` fragment; a fragment's redirect is answered, never followed.
   Checked by: `pnpm test:hosts sveltekit`.
 - `src/lib/shop.server.ts` stays framework-free (Web `Request` and `Response` only); SvelteKit code lives in `shop-page.server.ts`, `hooks.server.ts` and the routes.
 - The host flow is the shop flow against this compose stack.

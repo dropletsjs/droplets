@@ -48,7 +48,7 @@ server runs with `cors: true` (`examples/frameworks/svelte/droplets.config.ts`).
   cut down to the shop's own `cart_id` and `shop_admin` (so does the proxy,
   which also refuses a path with a `.` or `..` segment once decoded),
   the page URL as `Referer`, and never follow redirects. Only an HTML answer
-  (2xx or 500) is inserted, into the Jinja templates under
+  (2xx, 500 or 504) is inserted, into the Jinja templates under
   `templates/shop/`. Their `Set-Cookie` goes back with the page, a droplet's
   redirect is answered as it is, and their `Link` preloads go into its
   `<head>`.
@@ -114,9 +114,9 @@ Node hosts only. The guide's page:
 - Basic page `DROPLETS_INTERNAL_URL` and `DROPLETS_PUBLIC_URL` default to `http://localhost:8000`. `main.py:23`, `main.py:25`
 - Basic page droplets are `client`, `ssr-hydrate`, `ssr-nohydrate`. `main.py:28`
 - Basic page includes the shop router. `main.py:34`
-- Basic page fragment fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`, timeout 5 s, no redirect followed. `main.py:44`, `main.py:45`
+- Basic page fragment fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`, timeout 10 s, no redirect followed. `main.py:44`, `main.py:45`
 - Basic page fragment failure (`httpx.HTTPError`) is logged and renders a fixed inline `<p class="error">`: the error names the internal URL. `main.py:47`, `main.py:49`, `main.py:50`
-- Basic page pastes only a 2xx or 500 `text/html` answer; anything else renders `<p class="error">` with the status, the id escaped by `Markup.format`. `main.py:53`, `main.py:54`, `main.py:56`
+- Basic page pastes only a 2xx, 500 or 504 `text/html` answer; anything else renders `<p class="error">` with the status, the id escaped by `Markup.format`. `main.py:53`, `main.py:54`, `main.py:56`
 - Basic page `who` defaults to `FastAPI`. `main.py:60`
 - Basic page opens one `httpx.AsyncClient` per request and fetches the three fragments with `asyncio.gather`. `main.py:61`, `main.py:62`
 - Basic page template loads `{{ droplets_public_url }}/index.js`. `templates/index.html:7`
@@ -138,7 +138,7 @@ Node hosts only. The guide's page:
 - Shop proxy sends no body for `HEAD`. `shop.py:139`
 - Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page as `referer` and the browser's `cookie` cut down to the shop's. `shop.py:161`, `shop.py:162`
 - Shop fragment 3xx keeps its `location`. `shop.py:173`
-- Shop fragment inserted only when 2xx or 500 and `text/html`. `shop.py:174`
+- Shop fragment inserted only when 2xx, 500 or 504 and `text/html`. `shop.py:174`
 - Shop fragment otherwise renders `<p class="shop-unavailable">` with the id escaped (`Markup.format`). `shop.py:181`
 - Shop product lookup reads `/droplets/product-page/_data?slug=` and needs string `id` and `name`. `shop.py:189`, `shop.py:197`
 - Shop `Link` preloads kept only for `preload`/`modulepreload` on the public origin. `shop.py:219`, `shop.py:222`

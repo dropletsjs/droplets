@@ -190,8 +190,8 @@ product write only) and the WordPress cases of
 - `DROPLETS_PUBLIC_URL` defaults to `http://localhost:8000`, read with `getenv()`. `plugin/droplets-embed/droplets-embed.php:40`
 - `[droplet]` without an `id` renders `[droplet] needs an id attribute`. `plugin/droplets-embed/droplets-embed.php:55`
 - `[droplet]` `id` goes through `sanitize_key`; every other attribute is a prop in the query. `plugin/droplets-embed/droplets-embed.php:53`, `plugin/droplets-embed/droplets-embed.php:61`
-- `[droplet]` fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`, 5 second timeout, no redirect followed. `plugin/droplets-embed/droplets-embed.php:65`, `plugin/droplets-embed/droplets-embed.php:66`, `plugin/droplets-embed/droplets-embed.php:67`
-- `[droplet]` pastes only a 2xx or 500 `text/html` answer; a failure or anything else renders `<p class="error">`. `plugin/droplets-embed/droplets-embed.php:70`, `plugin/droplets-embed/droplets-embed.php:81`, `plugin/droplets-embed/droplets-embed.php:82`
+- `[droplet]` fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`, 10 second timeout, no redirect followed. `plugin/droplets-embed/droplets-embed.php:65`, `plugin/droplets-embed/droplets-embed.php:66`, `plugin/droplets-embed/droplets-embed.php:67`
+- `[droplet]` pastes only a 2xx, 500 or 504 `text/html` answer; a failure or anything else renders `<p class="error">`. `plugin/droplets-embed/droplets-embed.php:70`, `plugin/droplets-embed/droplets-embed.php:81`, `plugin/droplets-embed/droplets-embed.php:82`
 - `[droplet]` enqueues `<DROPLETS_PUBLIC_URL>/index.js` once, with `wp_enqueue_script_module` (WordPress 6.5+, the plugin's minimum). `plugin/droplets-embed/droplets-embed.php:6`, `plugin/droplets-embed/droplets-embed.php:100`
 - `SHOP_INTERNAL_URL` defaults to `http://localhost:8310`, wp-shop's port; compose sets `http://wp-shop:8310`. `plugin/droplets-embed/shop.php:68`, `docker-compose.yml:65`
 - `SHOP_PUBLIC_URL` defaults to `http://localhost:8008` and is reduced to its origin. `plugin/droplets-embed/shop.php:78`
@@ -203,12 +203,12 @@ product write only) and the WordPress cases of
 - Shop proxy refuses a path with a `.` or `..` segment, once decoded, with 400. `plugin/droplets-embed/shop.php:259`, `plugin/droplets-embed/shop.php:278`
 - Shop proxy adds `x-wp-shop-user` on `/droplets/*` and `/api/*` only. `plugin/droplets-embed/shop.php:204`
 - Shop proxy rebuilds a multipart body from `$_POST` and `$_FILES` when `php://input` is empty. `plugin/droplets-embed/shop.php:216`, `plugin/droplets-embed/shop.php:147`
-- Shop proxy concatenates the path onto `SHOP_INTERNAL_URL`, never follows redirects, 15 second timeout. `plugin/droplets-embed/shop.php:223`, `plugin/droplets-embed/shop.php:227`
+- Shop proxy concatenates the path onto `SHOP_INTERNAL_URL`, never follows redirects, 110 second timeout. `plugin/droplets-embed/shop.php:223`, `plugin/droplets-embed/shop.php:227`
 - Shop proxy answers 502 `The shop is unreachable.` when wp-shop fails. `plugin/droplets-embed/shop.php:232`
-- Shop fragments are fetched in parallel with `Requests::request_multiple`, no redirects followed, 5 second timeout. `plugin/droplets-embed/shop.php:323`, `plugin/droplets-embed/shop.php:326`
+- Shop fragments are fetched in parallel with `Requests::request_multiple`, no redirects followed, 10 second timeout. `plugin/droplets-embed/shop.php:323`, `plugin/droplets-embed/shop.php:326`
 - Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page URL as `referer` and the visitor's `cookie` filtered to `cart_id`. `plugin/droplets-embed/shop.php:302`, `plugin/droplets-embed/shop.php:307`
 - Shop fragment fetch carries its own `x-wp-shop-user` for its path and query. `plugin/droplets-embed/shop.php:318`
-- Shop fragment is inserted only for 2xx or 500 with `text/html`; otherwise `<p class="shop-unavailable">`. `plugin/droplets-embed/shop.php:339`, `plugin/droplets-embed/shop.php:347`
+- Shop fragment is inserted only for 2xx, 500 or 504 with `text/html`; otherwise `<p class="shop-unavailable">`. `plugin/droplets-embed/shop.php:339`, `plugin/droplets-embed/shop.php:347`
 - Shop product lookup reads `/droplets/product-page/_data?slug=<slug>`. `plugin/droplets-embed/shop.php:356`
 - Shop `Link` preloads keep only `preload` and `modulepreload` on this site's origin. `plugin/droplets-embed/shop.php:388`
 - `[shop_droplet]` `query` names the page's query keys to forward, `*` for all; other attributes are fixed props. `plugin/droplets-embed/shop.php:416`, `plugin/droplets-embed/shop.php:430`

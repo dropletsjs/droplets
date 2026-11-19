@@ -25,7 +25,7 @@ async function fragment(page: PageRequest, id: string, params = new URLSearchPar
   if (response.status >= 300 && response.status < 400) {
     result.location = response.headers.get("location");
   } else if (
-    (response.ok || response.status === 500) &&
+    (response.ok || [500, 504].includes(response.status)) &&
     (response.headers.get("content-type") ?? "").startsWith("text/html")
   ) {
     result.html = await response.text();
@@ -52,7 +52,7 @@ async function fragment(page: PageRequest, id: string, params = new URLSearchPar
 - `redirect: "manual"` keeps a droplet's 3xx: `finish()` returns it as the
   page's `Response`, with the fragments' `Set-Cookie`, and otherwise appends
   them to `Astro.response.headers`. Both answers are `private, no-store`.
-- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+- Only a `text/html` answer (a 2xx, or a 500 or 504 carrying the droplet's error
   page) is pasted; `set:html` writes it unescaped.
 - `is:inline` keeps Astro from bundling the `/index.js` script. Endpoints that
   export `ALL` (`src/pages/{index.js,env.js,index.css}.ts`, `src/pages/{droplets,assets,api}/[...path].ts`)
@@ -146,8 +146,8 @@ passes on only `accept`, `accept-language`, `content-type`,
 `x-droplets-build`, plus `cookie` cut down to the shop's own `cart_id` and
 `shop_admin`: nothing that names a host, and no other app's cookie on this
 origin. The body streams through (`duplex: "half"`), redirects are not
-followed, each request times out (15 seconds; fragments 10, the product
-lookup 5), and the answer comes back
+followed, each request times out (15 seconds; fragments and the
+product lookup 10), and the answer comes back
 with its `Set-Cookie` untouched, minus `content-encoding`, `content-length`
 and the hop-by-hop headers. When the shop is down it answers `502`. The
 shop's cookies are first-party, and nothing is cross-origin; the shop sets
@@ -225,12 +225,12 @@ export async function fragment(
     const response = await fetch(url, {
       headers: { accept: "text/html", "x-droplet-location": DROPLETS_PUBLIC_URL },
       redirect: "manual",
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(10_000),
     });
-    // Only an HTML answer is a fragment (a 500 carries the droplet's error
-    // page); anything else may echo the props, so it is never pasted.
+    // Only an HTML answer is a fragment (a 500 or 504 carries the droplet's
+    // error page); anything else may echo the props, so it is never pasted.
     const isFragment =
-      (response.ok || response.status === 500) && (response.headers.get("content-type") ?? "").startsWith("text/html");
+      (response.ok || [500, 504].includes(response.status)) && (response.headers.get("content-type") ?? "").startsWith("text/html");
     if (isFragment) return await response.text();
     await response.body?.cancel();
     return `<p class="error">droplet "${escapeHtml(droplet)}" unavailable: HTTP ${response.status}</p>`;

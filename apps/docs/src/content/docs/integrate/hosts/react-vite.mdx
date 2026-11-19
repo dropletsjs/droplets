@@ -32,7 +32,7 @@ useEffect(() => {
         throw new Error("redirected");
       }
       const isFragment =
-        (response.ok || response.status === 500) &&
+        (response.ok || [500, 504].includes(response.status)) &&
         (response.headers.get("content-type") ?? "").startsWith("text/html");
       if (!isFragment) throw new Error(`HTTP ${response.status}`);
       const template = document.createElement("template");
@@ -72,7 +72,7 @@ location / {
   shop's cookies and the page's URL as `Referer` itself, and nginx adds
   `x-droplet-location` on the way to the shop. `redirect: "manual"` turns a
   3xx into an `opaqueredirect`, which the page handles (`onRedirect`).
-- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+- Only a `text/html` answer (a 2xx, or a 500 or 504 carrying the droplet's error
   page) is inserted, through a `<template>`; anything else shows as unavailable.
 - `ShopClientDroplet` writes `<djs-shop data-droplet="…" data-droplet-props="…">`
   instead: nothing server-rendered, the element fetches its data once its
@@ -260,7 +260,7 @@ export function Droplet({ id, props = {}, mode = "fragment", origin = DROPLETS_U
       .then(async (response) => {
         if (response.type === "opaqueredirect") throw new Error("redirected");
         const isFragment =
-          (response.ok || response.status === 500) && (response.headers.get("content-type") ?? "").startsWith("text/html");
+          (response.ok || [500, 504].includes(response.status)) && (response.headers.get("content-type") ?? "").startsWith("text/html");
         if (!isFragment) throw new Error(`HTTP ${response.status}`);
         const template = document.createElement("template");
         template.innerHTML = await response.text();
@@ -301,8 +301,8 @@ everything inside it. The effect's cleanup clears the wrapper, so React
 never tries to reconcile the droplet's DOM.
 
 This `<Droplet>` checks the answer the way the shop's `ShopFragment` does:
-only a `text/html` answer is inserted, a `2xx` or a `500` (which carries
-the droplet's error page), `redirect: "manual"` keeps a redirect from being
+only a `text/html` answer is inserted, a `2xx`, a `500` or a `504`
+(which carries the droplet's error page), `redirect: "manual"` keeps a redirect from being
 followed, and anything else becomes an error note. What it lacks is the
 shop's `onRedirect`, since the basic droplets never redirect.
 

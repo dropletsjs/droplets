@@ -14,7 +14,8 @@
   Checked by: `tests/hosts/e2e/shop.spec.ts` ("without JavaScript, add to cart lands back on the host page").
 - Each fragment subrequest carries only the visitor's own `Cookie`.
   Checked by: `tests/hosts/e2e/shop.spec.ts` ("a new visitor gets nobody else's cart or session").
-- Only a fragment (2xx or a 500) is pasted into a page; every other error becomes a fixed note.
+- Only a fragment (a 2xx, a 500 or a 504) is pasted into a page; every other error becomes a fixed note, and so does a fragment nginx gets no answer for (the `shop_fragments` backup), never nginx's own error page.
+  Checked by: `tests/hosts/test/fragment-answers.test.ts`.
 - Values from the shop's JSON are echoed with `encoding="entity"` (text) or `encoding="url"` (query).
 - An unknown product is a 404 and an old `v` a 302, decided by the `auth_request` before the page renders.
   Checked by: `tests/hosts/e2e/shop.spec.ts` ("an edited product's page is never stale").

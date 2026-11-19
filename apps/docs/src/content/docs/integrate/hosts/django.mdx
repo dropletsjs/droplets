@@ -39,7 +39,7 @@ def fragment(droplet: str, params: list[tuple[str, str]], headers: dict[str, str
     content_type = response.headers.get("content-type", "")
     if 300 <= response.status_code < 400:
         result["location"] = response.headers.get("location")
-    elif (response.is_success or response.status_code == 500) and content_type.startswith("text/html"):
+    elif (response.is_success or response.status_code in (500, 504)) and content_type.startswith("text/html"):
         result["html"] = mark_safe(response.text)
         return result
     # … anything else: result["html"] becomes a "droplet is unavailable" note
@@ -65,7 +65,7 @@ def fragment(droplet: str, params: list[tuple[str, str]], headers: dict[str, str
   `CookieJar` that accepts no domain). `shop_page` sends the fragments'
   `Set-Cookie` with the page; a fragment's redirect answers the whole page
   with that status and `location`.
-- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+- Only a `text/html` answer (a 2xx, or a 500 or 504 carrying the droplet's error
   page) is marked safe with `mark_safe`, which the template prints
   unescaped. Everything else is escaped, by the template or by
   `format_html`.
@@ -277,14 +277,14 @@ def fetch_droplet(client: httpx.Client, droplet: str, **props: str) -> SafeStrin
         logger.error("[droplets] %s: %r", droplet, error)
         return format_html('<p class="error">droplet "{}" unavailable</p>', droplet)
     is_html = response.headers.get("content-type", "").startswith("text/html")
-    if (response.is_success or response.status_code == 500) and is_html:
+    if (response.is_success or response.status_code in (500, 504)) and is_html:
         return mark_safe(response.text)
     return format_html('<p class="error">droplet "{}" unavailable: HTTP {}</p>', droplet, response.status_code)
 
 @require_safe
 def index(request):
     who = request.GET.get("who", "Django")
-    with httpx.Client(timeout=5.0) as client, ThreadPoolExecutor(max_workers=len(IDS)) as pool:
+    with httpx.Client(timeout=10.0) as client, ThreadPoolExecutor(max_workers=len(IDS)) as pool:
         fragments = list(pool.map(lambda droplet: fetch_droplet(client, droplet, who=who), IDS))
     return render(request, "basic/index.html", {"droplets_public_url": DROPLETS_PUBLIC_URL, "fragments": fragments})
 ```
@@ -299,7 +299,7 @@ def index(request):
 ```
 
 `mark_safe` marks the fragment as safe, so the template does not escape
-it. Only a `text/html` answer is pasted (a 2xx, or a 500 carrying the
+it. Only a `text/html` answer is pasted (a 2xx, or a 500 or 504 carrying the
 droplet's error page); any other answer prints an error paragraph with its
 status, built with `format_html` so the id is escaped. A failed request
 (`httpx.HTTPError`) prints a fixed one and logs the error, since its

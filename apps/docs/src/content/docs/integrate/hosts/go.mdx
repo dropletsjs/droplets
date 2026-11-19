@@ -38,7 +38,7 @@ func (s *shop) fetchInto(result *fragment, r *http.Request, id string, params []
 		result.location = resp.Header.Get("Location")
 		return false, nil
 	}
-	if !isFragment(resp) { // a 2xx or a 500, text/html
+	if !isFragment(resp) { // a 2xx, 500 or 504, text/html
 		return false, nil
 	}
 	body, err := io.ReadAll(resp.Body)
@@ -69,7 +69,7 @@ func (s *shop) fetchInto(result *fragment, r *http.Request, id string, params []
   so a droplet's 3xx is answered as it is. `render` sends the fragments'
   `Set-Cookie` with the page; a fragment's redirect answers the whole page
   with that status and `Location`.
-- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+- Only a `text/html` answer (a 2xx, or a 500 or 504 carrying the droplet's error
   page) becomes `template.HTML`, which `html/template` prints unescaped.
 - `templates/shop/layout.html` loads `/index.js` once. One handler, `proxy`,
   passes `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`
@@ -259,7 +259,7 @@ func (b *basicPage) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (b *basicPage) fetch(ctx context.Context, id, who string) template.HTML {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	target := b.internalURL + "/droplets/" + url.PathEscape(id) + "?" + url.Values{"who": {who}}.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
@@ -294,7 +294,7 @@ func (b *basicPage) fetch(ctx context.Context, id, who string) template.HTML {
 ```
 
 `template.HTML` marks the fragment as safe, so `html/template` does not
-escape it. Only a `text/html` answer is pasted (a 2xx, or a 500 carrying the
+escape it. Only a `text/html` answer is pasted (a 2xx, or a 500 or 504 carrying the
 droplet's error page); any other answer prints an error paragraph with its
 status, the id escaped. A failed request prints a fixed one and logs the
 error, since its message names the internal URL. Here the page loads

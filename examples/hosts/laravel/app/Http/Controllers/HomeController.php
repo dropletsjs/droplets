@@ -26,7 +26,7 @@ final class HomeController
             fn (string $id) => $pool->as($id)
                 ->withHeaders(['accept' => 'text/html', 'x-droplet-location' => $publicUrl])
                 ->withoutRedirecting()
-                ->timeout(5)
+                ->timeout(10)
                 ->get($internalUrl.'/droplets/'.rawurlencode($id).'?'.http_build_query(['who' => $who])),
             self::IDS,
         ));
@@ -35,10 +35,10 @@ final class HomeController
         foreach (self::IDS as $id) {
             $answer = $answers[$id] ?? null;
             $status = $answer instanceof DropletResponse ? $answer->status() : 0;
-            // Only an HTML answer is a fragment (a 500 carries the droplet's error
-            // page); anything else may echo the props, so it is never pasted.
+            // Only an HTML answer is a fragment (a 500 or 504 carries the droplet's
+            // error page); anything else may echo the props, so it is never pasted.
             $isHtml = $answer instanceof DropletResponse && str_starts_with((string) $answer->header('content-type'), 'text/html');
-            $fragments[] = (($status >= 200 && $status < 300) || $status === 500) && $isHtml
+            $fragments[] = (($status >= 200 && $status < 300) || in_array($status, [500, 504], true)) && $isHtml
                 ? $answer->body()
                 : sprintf('<p class="error">droplet "%s" unavailable: %s</p>', e($id), $status ? 'HTTP '.$status : 'unreachable');
         }

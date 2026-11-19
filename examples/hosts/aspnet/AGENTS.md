@@ -17,7 +17,7 @@
   Checked by: `test/ProxyTests.cs`, `tests/hosts/e2e/shop.spec.ts`.
 - The clients' handler keeps no cookies and follows no redirects: each visitor's `Cookie` is forwarded as it came.
   Checked by: `test/ProxyTests.cs`, `tests/hosts/e2e/shop.spec.ts` ("a new visitor gets nobody else's cart or session").
-- A shop page inserts a fragment only when it is a 2xx or 500 `text/html` answer, with `Html.Raw`; everything else goes through Razor's encoding.
+- A shop page inserts a fragment only when it is a 2xx, 500 or 504 `text/html` answer, with `Html.Raw`; everything else goes through Razor's encoding.
   Checked by: `test/PageTests.cs`.
 - Published ports bind to `127.0.0.1` only.
 - `src/wwwroot/shop.css` is the same file as the other hosts' `shop.css` (all but WordPress); a change goes to all of them.

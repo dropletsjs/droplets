@@ -136,8 +136,8 @@ export function shop({ internalUrl, publicUrl }) {
 
   /**
    * `GET /droplets/<id>?<params>` → `{ html, status, location, cookies, link }`.
-   * Only an HTML answer is a fragment (a 500 carries the droplet's error
-   * page); anything else may echo the props, so it is never inserted.
+   * Only an HTML answer is a fragment (a 500 or 504 carries the droplet's
+   * error page); anything else may echo the props, so it is never inserted.
    */
   async function fragment(req, id, params = new URLSearchParams()) {
     const url = `${internal}/droplets/${encodeURIComponent(id)}?${params}`;
@@ -151,7 +151,7 @@ export function shop({ internalUrl, publicUrl }) {
       if (response.status >= 300 && response.status < 400) {
         result.location = response.headers.get("location");
       } else if (
-        (response.ok || response.status === 500) &&
+        (response.ok || [500, 504].includes(response.status)) &&
         (response.headers.get("content-type") ?? "").startsWith("text/html")
       ) {
         result.html = await response.text();
@@ -172,7 +172,7 @@ export function shop({ internalUrl, publicUrl }) {
       const response = await fetch(url, {
         headers: { "x-droplet-location": origin, accept: "application/json" },
         redirect: "manual",
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(10_000),
       });
       if (!response.ok) return null;
       const body = /** @type {any} */ (await response.json());

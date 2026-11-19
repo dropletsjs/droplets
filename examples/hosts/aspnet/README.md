@@ -72,7 +72,7 @@ origin than the page, so the droplets server runs with `cors: true`
   cut down to the shop's own `cart_id` and `shop_admin` (so does the proxy,
   which also refuses a request target that is not a path, or has a `.` or
   `..` segment once decoded), the page URL as `Referer`, and never follow
-  redirects. Only an HTML answer (2xx or 500) is inserted. Their
+  redirects. Only an HTML answer (2xx, 500 or 504) is inserted. Their
   `Set-Cookie` goes back with the page, a droplet's redirect is answered as
   it is, and their `Link` preloads go into its `<head>`.
 - Every visitor's requests go through the same pooled handler, so it keeps
@@ -141,7 +141,7 @@ first). `pnpm typecheck:hosts` covers the Node hosts only. The guide's page:
 - Settings shop origin is scheme, host and port of `SHOP_PUBLIC_URL`, default `http://localhost:8014`. `src/HostSettings.cs:15`, `src/HostSettings.cs:21`
 - Settings `DROPLETS_INTERNAL_URL` and `DROPLETS_PUBLIC_URL` default to `http://localhost:8000`. `src/HostSettings.cs:17`, `src/HostSettings.cs:18`
 - Settings are read from configuration when first resolved, as a singleton. `src/HostApp.cs:32`
-- Clients `shop` (timeout 10 s) and `droplets` (timeout 5 s) come from `IHttpClientFactory`. `src/HostApp.cs:33`, `src/HostApp.cs:35`
+- Clients `shop` (timeout 10 s) and `droplets` (timeout 10 s) come from `IHttpClientFactory`. `src/HostApp.cs:33`, `src/HostApp.cs:35`
 - Clients' handler keeps no cookies, follows no redirects and decompresses nothing. `src/HostApp.cs:23`
 - Razor output encodes no Unicode range as entities (`UnicodeRanges.All`). `src/HostApp.cs:40`
 - App serves `wwwroot/` (`/shop.css`) as static files. `src/HostApp.cs:45`
@@ -149,7 +149,7 @@ first). `pnpm typecheck:hosts` covers the Node hosts only. The guide's page:
 - Basic page `who` defaults to `ASP.NET Core`. `src/Pages/Index.cshtml.cs:19`
 - Basic page fetches the three fragments with `Task.WhenAll`. `src/Pages/Index.cshtml.cs:21`
 - Basic page fragment fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`. `src/Pages/Index.cshtml.cs:28`, `src/Pages/Index.cshtml.cs:29`
-- Basic page pastes only a 2xx or 500 `text/html` answer; anything else renders `<p class="error">` with the status, the id HTML-encoded. `src/Pages/Index.cshtml.cs:36`, `src/Pages/Index.cshtml.cs:40`
+- Basic page pastes only a 2xx, 500 or 504 `text/html` answer; anything else renders `<p class="error">` with the status, the id HTML-encoded. `src/Pages/Index.cshtml.cs:36`, `src/Pages/Index.cshtml.cs:40`
 - Basic page fragment failure is logged and renders a fixed `<p class="error">`: the error names the internal URL. `src/Pages/Index.cshtml.cs:45`, `src/Pages/Index.cshtml.cs:46`
 - Basic page loads `DROPLETS_PUBLIC_URL` + `/index.js`. `src/Pages/Index.cshtml:9`
 - Shop footer stack name is `ASP.NET Core`. `src/Pages/ShopPage.cs:14`
@@ -166,9 +166,9 @@ first). `pnpm typecheck:hosts` covers the Node hosts only. The guide's page:
 - Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page (shop origin plus raw target) as `referer` and the browser's `cookie` cut down to the shop's. `src/Shop/ShopFragments.cs:31`, `src/Shop/ShopFragments.cs:33`, `src/Shop/ShopFragments.cs:34`
 - Shop fragments of a page are fetched concurrently (`Task.WhenAll`). `src/Shop/ShopFragments.cs:20`
 - Shop fragment 3xx keeps its `location`. `src/Shop/ShopFragments.cs:50`
-- Shop fragment inserted only when 2xx or 500 and `text/html`. `src/Shop/ShopFragments.cs:52`
+- Shop fragment inserted only when 2xx, 500 or 504 and `text/html`. `src/Shop/ShopFragments.cs:52`
 - Shop fragment otherwise renders `<p class="shop-unavailable">` with the id HTML-encoded. `src/Shop/ShopFragments.cs:64`
-- Shop product lookup reads `/droplets/product-page/_data?slug=` (timeout 5 s) and needs string `id` and `name`. `src/Shop/ShopFragments.cs:71`, `src/Shop/ShopFragments.cs:76`, `src/Shop/ShopFragments.cs:83`
+- Shop product lookup reads `/droplets/product-page/_data?slug=` (timeout 10 s) and needs string `id` and `name`. `src/Shop/ShopFragments.cs:71`, `src/Shop/ShopFragments.cs:76`, `src/Shop/ShopFragments.cs:83`
 - Shop query is parsed in order with repeated keys kept (`+` as a space). `src/Shop/ShopRequest.cs:48`, `src/Shop/ShopRequest.cs:60`
 - Shop `Link` preloads kept only for `preload`/`modulepreload` on the shop origin. `src/Shop/ShopRequest.cs:93`, `src/Shop/ShopRequest.cs:95`
 - Shop pages always fetch `toast-center` and `shopping-cart` with `variant=badge`. `src/Pages/ShopPage.cs:37`

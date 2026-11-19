@@ -31,7 +31,7 @@ async def fragment(request: Request, droplet: str, params: list[tuple[str, str]]
     content_type = response.headers.get("content-type", "")
     if 300 <= response.status_code < 400:
         result["location"] = response.headers.get("location")
-    elif (response.is_success or response.status_code == 500) and content_type.startswith("text/html"):
+    elif (response.is_success or response.status_code in (500, 504)) and content_type.startswith("text/html"):
         result["html"] = Markup(response.text)
         return result
     # … anything else: result["html"] becomes a "droplet is unavailable" note
@@ -56,7 +56,7 @@ async def fragment(request: Request, droplet: str, params: list[tuple[str, str]]
   `CookieJar` that accepts no domain). `render` sends the fragments'
   `Set-Cookie` with the page; a fragment's redirect answers the whole page
   with that status and `location`.
-- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+- Only a `text/html` answer (a 2xx, or a 500 or 504 carrying the droplet's error
   page) becomes `Markup`, which Jinja prints unescaped.
 - `templates/shop/layout.html` loads `/index.js` once. One handler, `proxy`,
   passes `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and `/api/*` on to the shop.
@@ -207,16 +207,16 @@ async def fetch_droplet(client: httpx.AsyncClient, droplet: str, **props: str) -
         response = await client.get(
             f"{DROPLETS_INTERNAL_URL}/droplets/{quote(droplet, safe='')}{query}",
             headers={"accept": "text/html", "x-droplet-location": DROPLETS_PUBLIC_URL},
-            timeout=5.0,
+            timeout=10.0,
         )
     except httpx.HTTPError as error:
         # The error names the internal URL: it goes to the log, not the page.
         print(f"[droplets] {droplet}: {error!r}")
         return Markup('<p class="error">droplet "{}" unavailable</p>').format(droplet)
-    # Only an HTML answer is a fragment (a 500 carries the droplet's error
-    # page); anything else may echo the props, so it is never pasted.
+    # Only an HTML answer is a fragment (a 500 or 504 carries the droplet's
+    # error page); anything else may echo the props, so it is never pasted.
     is_html = response.headers.get("content-type", "").startswith("text/html")
-    if (response.is_success or response.status_code == 500) and is_html:
+    if (response.is_success or response.status_code in (500, 504)) and is_html:
         return Markup(response.text)
     return Markup('<p class="error">droplet "{}" unavailable: HTTP {}</p>').format(droplet, response.status_code)
 
@@ -242,7 +242,7 @@ async def index(request: Request, who: str = "FastAPI") -> HTMLResponse:
 ```
 
 `Markup` marks the fragment as safe, so Jinja does not escape it. Only a
-`text/html` answer is pasted (a 2xx, or a 500 carrying the droplet's error
+`text/html` answer is pasted (a 2xx, or a 500 or 504 carrying the droplet's error
 page); any other answer prints an error paragraph with its status, built
 with `Markup.format` so the id is escaped. A failed request
 (`httpx.HTTPError`) prints a fixed one and logs the error, since its message

@@ -21,8 +21,8 @@ public sealed class ShopFragments(IHttpClientFactory clients, HostSettings setti
 
     /// <summary>
     /// <c>GET /droplets/&lt;id&gt;?&lt;props&gt;</c>. Only an HTML answer is a
-    /// fragment (a 500 carries the droplet's error page); anything else may
-    /// echo the props, so it is never inserted.
+    /// fragment (a 500 or 504 carries the droplet's error page); anything else
+    /// may echo the props, so it is never inserted.
     /// </summary>
     public async Task<Fragment> Get(HttpContext context, Wanted wanted)
     {
@@ -49,7 +49,7 @@ public sealed class ShopFragments(IHttpClientFactory clients, HostSettings setti
             {
                 location = response.Headers.Location?.OriginalString;
             }
-            else if ((response.IsSuccessStatusCode || status == 500) && isHtml)
+            else if ((response.IsSuccessStatusCode || status is 500 or 504) && isHtml)
             {
                 // Trusted markup from the shop: inserted as it is.
                 return new Fragment(await response.Content.ReadAsStringAsync(context.RequestAborted), status, null, cookies, link);
@@ -73,7 +73,7 @@ public sealed class ShopFragments(IHttpClientFactory clients, HostSettings setti
         request.Headers.TryAddWithoutValidation("accept", "application/json");
         request.Headers.TryAddWithoutValidation("x-droplet-location", settings.ShopOrigin);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancel);
-        timeout.CancelAfter(TimeSpan.FromSeconds(5));
+        timeout.CancelAfter(TimeSpan.FromSeconds(10));
         try
         {
             using var response = await clients.CreateClient(HostApp.ShopClient).SendAsync(request, timeout.Token);

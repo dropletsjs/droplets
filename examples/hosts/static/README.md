@@ -51,7 +51,7 @@ JavaScript the page shows its header, footer and a note.
 - Each fragment is a `fetch` with only an `Accept` header (no preflight),
   `credentials: "include"`, the page's whole URL as `Referer` (the shop
   takes the host page from it) and `redirect: "manual"`, inserted through a
-  `<template>` when it is HTML (a 2xx, or a 500 with the droplet's error
+  `<template>` when it is HTML (a 2xx, or a 500 or 504 with the droplet's error
   page); anything else shows "This droplet is unavailable.", since its text
   may echo the props.
 - An old `v` answers a redirect, opaque here: `shop.js` drops `v` from the
@@ -107,7 +107,7 @@ From the repository root, `pnpm test:hosts static` runs the shop flow
 - Footer stack label is `Static HTML`. `html/index.html:32`
 - `shop.js` takes the droplets server's URL from the page's `/index.js` module script. `html/shop.js:11`, `html/shop.js:14`
 - `shop.js` fetches every fragment with `credentials: "include"` and `referrerPolicy: "no-referrer-when-downgrade"`. `html/shop.js:31`, `html/shop.js:34`
-- `shop.js` inserts a 2xx or 500 `text/html` answer only, else shows "This droplet is unavailable."; a redirect goes to `onRedirect`. `html/shop.js:36`, `html/shop.js:38`, `html/shop.js:39`
+- `shop.js` inserts a 2xx, 500 or 504 `text/html` answer only, else shows "This droplet is unavailable."; a redirect goes to `onRedirect`. `html/shop.js:36`, `html/shop.js:38`, `html/shop.js:39`
 - `shop.js` passes the gallery's whole query to `product-filter` and `product-library`. `html/shop.js:87`
 - `shop.js` reads the product from `/droplets/product-page/_data?slug=`; unknown, it shows "Not found". `html/shop.js:93`, `html/shop.js:109`
 - `shop.js` drops `v` from the URL on a redirect and asks for `product-page` again. `html/shop.js:142`
