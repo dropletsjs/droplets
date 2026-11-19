@@ -99,6 +99,16 @@ const HOSTS: Record<string, Host> = {
     value: /'x-droplet-location' => (?:shop_origin\(\)|\$droplets_public)/,
     source: [/getenv\('SHOP_PUBLIC_URL'\)/, /\$droplets_public = rtrim\(getenv\('DROPLETS_PUBLIC_URL'\)/],
   },
+  laravel: {
+    files: ["app/Shop.php", "app/Http/Controllers/HomeController.php", "config/services.php"],
+    value: /'x-droplet-location' => \$(?:this->origin|publicUrl)\b/,
+    source: [
+      /'public_url' => env\('SHOP_PUBLIC_URL'/,
+      /'public_url' => env\('DROPLETS_PUBLIC_URL'/,
+      /config\('services\.shop\.public_url'\)/,
+      /\$publicUrl = rtrim\(\(string\) config\('services\.droplets\.public_url'\)/,
+    ],
+  },
   wordpress: {
     files: ["plugin/droplets-embed/shop.php", "plugin/droplets-embed/droplets-embed.php", "plugin/droplets-embed/shop-admin.php"],
     value: /'x-droplet-location'\]? (?:=>|=) (?:droplets_shop_public_origin\(\)|\$origin|droplets_public_url\(\))/,

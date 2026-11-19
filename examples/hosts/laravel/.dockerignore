@@ -1,0 +1,9 @@
+docker-compose.yml
+Dockerfile
+README.md
+AGENTS.md
+CLAUDE.md
+.dockerignore
+.env
+vendor
+.phpunit.cache

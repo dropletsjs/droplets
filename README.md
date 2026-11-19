@@ -125,7 +125,7 @@ or one in `trustedOrigins` / `DROPLETS_TRUSTED_ORIGINS`. See the
 <!-- hosts:wall -->
 - **JavaScript / TypeScript**: [Express](https://dropletsjs.dev/integrate/hosts/express/), [Next.js](https://dropletsjs.dev/integrate/hosts/nextjs/), [SvelteKit](https://dropletsjs.dev/integrate/hosts/sveltekit/), [Astro](https://dropletsjs.dev/integrate/hosts/astro/), [React + Vite](https://dropletsjs.dev/integrate/hosts/react-vite/)
 - **Python**: [FastAPI](https://dropletsjs.dev/integrate/hosts/fastapi/), [Django](https://dropletsjs.dev/integrate/hosts/django/)
-- **PHP**: [PHP](https://dropletsjs.dev/integrate/hosts/php/), [WordPress](https://dropletsjs.dev/integrate/wordpress/)
+- **PHP**: [PHP](https://dropletsjs.dev/integrate/hosts/php/), [WordPress](https://dropletsjs.dev/integrate/wordpress/), [Laravel](https://dropletsjs.dev/integrate/hosts/laravel/)
 - **Ruby**: [Sinatra](https://dropletsjs.dev/integrate/hosts/sinatra/), [Rails](https://dropletsjs.dev/integrate/hosts/rails/)
 - **C# / .NET**: [ASP.NET Core](https://dropletsjs.dev/integrate/hosts/aspnet/)
 - **Java**: [Spring Boot](https://dropletsjs.dev/integrate/hosts/spring/)
@@ -209,7 +209,7 @@ They all share one version.
   example on `/` where there is one):
 
 <!-- hosts:count -->
-Seventeen host examples, by language; fifteen run the shared shop flow, and WordPress and htmx have flows of their own. [Site builders](https://dropletsjs.dev/integrate/hosts/site-builders/) is a guide, with no example: Webflow, Wix, Squarespace, Shopify.
+Eighteen host examples, by language; sixteen run the shared shop flow, and WordPress and htmx have flows of their own. [Site builders](https://dropletsjs.dev/integrate/hosts/site-builders/) is a guide, with no example: Webflow, Wix, Squarespace, Shopify.
 <!-- /hosts:count -->
 
 <!-- hosts:table -->
@@ -224,6 +224,7 @@ Seventeen host examples, by language; fifteen run the shared shop flow, and Word
 | [django](./examples/hosts/django) | Python | Python, Django 6.1, httpx, Django templates | Fragment fetch with `httpx` in a view, pasted into a Django template |
 | [php](./examples/hosts/php) | PHP | PHP 8.3 on Apache, curl, no framework | Fragment fetch with `curl_multi`, pasted into plain PHP templates |
 | [wordpress](./examples/hosts/wordpress) | PHP | WordPress 6, a plugin; WordPress owns the data | A `[droplet]` shortcode plugin serving `examples/wp-shop` |
+| [laravel](./examples/hosts/laravel) | PHP | Laravel 13 on PHP 8.5, Apache, Blade | Fragment fetch with `Http::pool` in a controller, pasted into Blade with `{!! !!}` |
 | [sinatra](./examples/hosts/sinatra) | Ruby | Ruby, Sinatra, Net::HTTP, ERB | Fragment fetch with `Net::HTTP`, pasted into ERB |
 | [rails](./examples/hosts/rails) | Ruby | Ruby, Rails 8, Net::HTTP, ERB | Fragment fetch with `Net::HTTP` in a controller, pasted into ERB views |
 | [aspnet](./examples/hosts/aspnet) | C# / .NET | C# on .NET 10, ASP.NET Core Razor Pages, `IHttpClientFactory` | Fragment fetch with `HttpClient` in a page model, pasted into a Razor page with `Html.Raw` |
