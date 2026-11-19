@@ -33,6 +33,7 @@ describe("the shop's layout CSS across the hosts", () => {
       "rails",
       "react-vite",
       "sinatra",
+      "spring",
       "static",
       "sveltekit",
       "wordpress",

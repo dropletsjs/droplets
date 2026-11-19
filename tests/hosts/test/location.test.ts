@@ -85,6 +85,15 @@ const HOSTS: Record<string, Host> = {
     value: /"x-droplet-location", settings\.(?:ShopOrigin|DropletsPublicUrl)\)/,
     source: [/ShopOrigin: OriginOf\(configuration\["SHOP_PUBLIC_URL"\]/, /DropletsPublicUrl: \(configuration\["DROPLETS_PUBLIC_URL"\]/],
   },
+  spring: {
+    files: [
+      "src/main/java/com/example/droplets/Shop.java",
+      "src/main/java/com/example/droplets/ShopProxy.java",
+      "src/main/java/com/example/droplets/IndexController.java",
+    ],
+    value: /"x-droplet-location", (?:origin|dropletsPublicUrl)\)/,
+    source: [/@Value\("\$\{SHOP_PUBLIC_URL:/, /@Value\("\$\{DROPLETS_PUBLIC_URL:/, /this\.origin = shop\.origin;/],
+  },
   php: {
     files: ["app/shop.php", "public/index.php"],
     value: /'x-droplet-location' => (?:shop_origin\(\)|\$droplets_public)/,

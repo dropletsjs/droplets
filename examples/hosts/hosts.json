@@ -177,10 +177,10 @@
       "name": "Spring Boot",
       "language": "java",
       "pattern": "server-include",
-      "status": "planned",
+      "status": "built",
       "docs": "integrate/hosts/spring",
-      "stack": "Java, Spring Boot, Thymeleaf",
-      "how": "Fragment fetch in a controller, pasted into a Thymeleaf template",
+      "stack": "Java 25, Spring Boot 4, RestClient, Thymeleaf",
+      "how": "Fragment fetch with `RestClient` in a controller, pasted into a Thymeleaf template",
       "example": true,
       "runner": { "offset": 16, "flow": "shop" }
     },

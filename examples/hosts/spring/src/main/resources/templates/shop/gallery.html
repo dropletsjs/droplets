@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:replace="~{shop/layout :: page(~{::main})}">
+<main class="shop-main shop-wrap">
+<section class="shop-hero">
+<h1>Everything a demo shop needs.</h1>
+<p th:text="|Rendered by six frameworks, embedded by ${stack}.|"></p>
+</section>
+<div class="shop-gallery">
+<aside th:utext="${fragments[0]}"></aside>
+<div th:utext="${fragments[1]}"></div>
+</div>
+</main>
+</html>
