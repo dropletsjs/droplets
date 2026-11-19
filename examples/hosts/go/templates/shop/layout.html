@@ -1,0 +1,34 @@
+{{define "layout" -}}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} · Droplets Shop on {{.Stack}}</title>
+<link rel="stylesheet" href="/shop.css">
+{{range .Links -}}
+<link rel="{{.Rel}}" href="{{.Href}}"{{with .As}} as="{{.}}"{{end}}>
+{{end -}}
+<script type="speculationrules">{"prefetch":[{"where":{"href_matches":"/product/*"},"eagerness":"moderate"}]}</script>
+<script type="module" src="/index.js"></script>
+</head>
+<body class="shop">
+{{.Toasts}}
+<header class="shop-header"><div class="shop-wrap">
+<a class="shop-logo" href="/gallery"><span aria-hidden="true">◆</span> Droplets Shop</a>
+<nav class="shop-nav" aria-label="Shop">
+<a href="/gallery"{{if eq .Current "/gallery"}} aria-current="page"{{end}}>Gallery</a><a href="/admin"{{if eq .Current "/admin"}} aria-current="page"{{end}}>Admin</a>
+</nav>
+<div class="shop-cart">{{.Cart}}</div>
+</div></header>
+<main class="shop-main shop-wrap">
+{{template "main" .}}
+</main>
+<footer class="shop-footer"><div class="shop-wrap">
+<p class="shop-stack">{{.Stack}}</p>
+<p>Droplets demo shop · host: {{.Stack}} · droplets: &lt;djs-shop&gt;</p>
+<p><a href="/gallery">Gallery</a> · <a href="/admin">Admin</a> · <a href="/">The Svelte example</a></p>
+</div></footer>
+</body>
+</html>
+{{end}}

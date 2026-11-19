@@ -1,0 +1,305 @@
+---
+title: Go
+description: "Go: fetch fragments with net/http and paste them into an html/template as template.HTML, standard library only."
+---
+
+import HostDemo from "../../../../components/HostDemo.astro";
+
+How a Go server embeds droplets with the standard library alone: a handler
+fetches each fragment with `net/http`, one goroutine each, and an
+`html/template` prints it into the page as `template.HTML`. `go.mod` has no
+`require`.
+
+## The pattern in Go
+
+```go
+// shop.go (trimmed)
+func (s *shop) fetchInto(result *fragment, r *http.Request, id string, params []pair) (bool, error) {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.internal+"/droplets/"+url.PathEscape(id)+"?"+encode(params), nil)
+	if err != nil {
+		return false, err
+	}
+	req.Header.Set("accept", "text/html")
+	req.Header.Set("x-droplet-location", s.origin)
+	req.Header.Set("referer", s.origin+r.URL.RequestURI())
+	if cookie := shopCookie(r); cookie != "" {
+		req.Header.Set("cookie", cookie)
+	}
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+	result.status = resp.StatusCode
+	result.cookies = resp.Header.Values("Set-Cookie")
+	if resp.StatusCode/100 == 3 {
+		result.location = resp.Header.Get("Location")
+		return false, nil
+	}
+	if !isFragment(resp) { // a 2xx or a 500, text/html
+		return false, nil
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, err
+	}
+	// Trusted markup from the shop: inserted as it is.
+	result.html = template.HTML(body)
+	return true, nil
+}
+```
+
+```html
+{{/* templates/shop/layout.html, in <head>: once per page */}}
+<script type="module" src="/index.js"></script>
+{{/* templates/shop/gallery.html: the fragment's HTML, as it came */}}
+<aside>{{index .Fragments 0}}</aside>
+```
+
+- `fetchInto` sends `GET /droplets/<id>?<params>` to `SHOP_INTERNAL_URL`
+  with `accept: text/html` and `x-droplet-location` set to `s.origin`, the
+  origin of `SHOP_PUBLIC_URL`. It passes on the browser's `Cookie` cut down
+  to the shop's own `cart_id` and `shop_admin`, and the page's URL as
+  `referer`: `s.origin` plus `r.URL.RequestURI()`, the path and query as the
+  browser sent them.
+- One `http.Client` serves every visitor. It has no cookie jar, so it never
+  keeps a cookie, and its `CheckRedirect` answers `http.ErrUseLastResponse`,
+  so a droplet's 3xx is answered as it is. `render` sends the fragments'
+  `Set-Cookie` with the page; a fragment's redirect answers the whole page
+  with that status and `Location`.
+- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+  page) becomes `template.HTML`, which `html/template` prints unescaped.
+- `templates/shop/layout.html` loads `/index.js` once. One handler, `proxy`,
+  passes `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`
+  and `/api/*` on to the shop.
+
+## The shop demo, recorded
+
+The [shop demo](/integrate/hosts/shop-demo/) on Go, recorded by the
+end-to-end test. [How the pieces fit](/integrate/hosts/shop-demo/#how-it-fits-together)
+has the diagram.
+
+<HostDemo id="go" stack="Go" />
+
+The code is `examples/hosts/go/shop.go` (the pages and the proxy, which
+`main.go` mounts) and the templates in `templates/shop/`, embedded in the
+binary with `//go:embed`.
+
+### Pieces and ports
+
+`docker-compose.yml` starts three services:
+
+| Service | Port | What it is |
+| --- | --- | --- |
+| `web` | 8017, public | Go: the shop's pages, the proxy, and the basic page at `/` |
+| `shop` | 8300, internal only | the shop's droplets server (`examples/shop`) |
+| `droplets` | 8000, public | the Svelte example's droplets server, for `/` only |
+
+| On `web` | Value | Used for |
+| --- | --- | --- |
+| `SHOP_INTERNAL_URL` | `http://shop:8300` | internal: fragment fetches and the proxy |
+| `SHOP_PUBLIC_URL` | `http://localhost:8017` | public: this host's own origin, sent as `x-droplet-location` |
+| `DROPLETS_INTERNAL_URL`, `DROPLETS_PUBLIC_URL` | `http://droplets:8000`, `http://localhost:8000` | the same pair, for the basic page |
+
+The image is two stages: `golang:1.27-alpine` runs `go vet`, `go test` and
+builds a static binary, and `gcr.io/distroless/static-debian13:nonroot`
+runs it, with nothing else in the image.
+
+### How a page gets a droplet
+
+A server fetch with `net/http`, all of a page's fragments at once (a
+goroutine each, `sync.WaitGroup.Go`), printed by an `html/template`. The
+fetch is `fetchInto` and the template is `templates/shop/gallery.html`, both
+shown in the pattern above; the fragments' `Link` preloads go into `<head>`.
+
+`referer` is the page's URL, query included. The shop's `handle` reads it
+with `hostFrom`, so it is the droplet's
+[`host`](/integrate/http-contract/#host-where-the-droplet-renders), and after
+a form posted without JavaScript its query carries the form's result.
+`templates/shop/layout.html` loads `<script type="module" src="/index.js">`
+once, through the proxy, and each droplet hydrates itself. `render` fetches
+the toasts and the header's cart badge with every page's fragments; the
+`toast-center` fragment comes first in the body, and `/index.js` installs
+`window.shopMessageQueue` before any droplet starts (the shop's
+`src/hooks.client.ts`):
+
+```html
+{{/* templates/shop/layout.html */}}
+<body class="shop">
+{{.Toasts}}
+<header class="shop-header">…<div class="shop-cart">{{.Cart}}</div>…</header>
+```
+
+The product page first reads the product from the shop's public
+`GET /droplets/product-page/_data?slug=<slug>`, decoded into a struct; an
+unknown slug, or an `id` or `name` that is not a string, answers the
+`not-found` template with `404`. The pages pass on only the query keys each
+droplet takes: the whole query to `product-filter` and `product-library`,
+`order`, `page` and `showing` (plus `productId`) to `product-comments`,
+`slug` and `v` to `product-page`, `next` to `login`, `view` and `id` to
+`product-admin`.
+
+### What it proxies
+
+```go
+// shop.go
+var proxyMethods = []string{"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
+
+func isProxied(path string) bool {
+	switch path {
+	case "/index.js", "/env.js", "/index.css":
+		return true
+	}
+	return strings.HasPrefix(path, "/droplets/") || strings.HasPrefix(path, "/assets/") || strings.HasPrefix(path, "/api/")
+}
+
+func (s *shop) handler(pages http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if isProxied(r.URL.Path) {
+			s.proxy(w, r)
+			return
+		}
+		pages.ServeHTTP(w, r)
+	})
+}
+```
+
+`proxy` covers `/index.js`, `/env.js`, `/index.css`, `/droplets/*`
+(fragments, `_data`, form actions), `/assets/*` and `/api/*`. It answers
+them before the pages' `ServeMux`, which would redirect a path with a `.` or
+`..` segment instead of refusing it. It sends the shop `x-droplet-location`
+written out and only these of the browser's headers: `Accept`,
+`Accept-Language`, `Content-Type`, `If-None-Match`, `Origin`, `Referer`,
+`User-Agent`, `X-Droplet-Props` and `X-Droplets-Build`, plus `Cookie` cut
+down to the shop's own `cart_id` and `shop_admin`, so another app's cookie
+on this origin stays here. The target is `r.URL.RequestURI()` concatenated
+onto `SHOP_INTERNAL_URL`, never resolved, so `//elsewhere` stays a path on
+the shop.
+
+It refuses what it has no use for before anything reaches the shop: a path
+with a `.` or `..` segment, once decoded, with `400`; a method off its list
+with `405`; a body over 4 MiB with `413`, by its `Content-Length` or, sent
+chunked, once `http.MaxBytesReader` has read past it. The request body and
+the answer are streamed; the answer keeps its status, every `Set-Cookie`
+and any redirect, without the per-hop headers and without
+`Content-Encoding` and `Content-Length`, which no longer hold once the
+client has decoded the body. A shop that cannot be reached answers `502`
+`The shop is unreachable.`
+
+The shop's cookies (`cart_id`, `shop_admin`) are first-party, and nothing
+is cross-origin; the shop sets them only from form actions and `/api`,
+which come through here.
+
+### Gotchas
+
+- **The shared `http.Client` must not keep cookies.** Go's default client
+  has no jar, and this one adds none: a jar would store the first visitor's
+  `cart_id` (or admin session) from a proxied answer and send it with
+  everyone else's requests. What goes out is the browser's own `Cookie`, cut
+  down to `cart_id` and `shop_admin`.
+- **It must not follow redirects.** Go's client follows up to ten by
+  default; `CheckRedirect` returning `http.ErrUseLastResponse` hands the 3xx
+  back, so the login's `303` and a stale product link's `302` reach the
+  browser.
+- **`template.HTML` only for the shop's HTML.** `html/template` escapes
+  everything else by context; the "unavailable" note escapes the droplet's
+  id with `template.HTMLEscapeString`. See
+  [For hosts](/guides/security/#for-hosts).
+- **The page is `private, no-store`.** `render` sets it on every shop page
+  and redirect: their fragments were rendered with the visitor's cookies.
+
+`shop_test.go` checks the host's own logic against a stand-in shop
+(`net/http/httptest`): the refused dot segments, methods and bodies, the
+headers the proxy forwards and drops, a visitor's cookie never reaching the
+next, a fragment that is not HTML never inserted, a fragment's redirect,
+a product out of shape and the `Link` preloads. It runs in the image's build
+stage, so a failing test stops `docker compose up --build`.
+
+### Run it
+
+```bash
+cd examples/hosts/go
+docker compose up --build
+open http://localhost:8017/gallery   # log in as admin / droplets
+```
+
+Set `SHOP_SECRET` and `DROPLETS_SECRET` first; compose refuses to start
+without them. The shop trusts one origin besides its own,
+`DROPLETS_TRUSTED_ORIGINS: http://localhost:8017`, this host's; the rest of
+its environment is the same on every host: see
+[Running a host](/integrate/hosts/shop-demo/#running-a-host). Without
+Docker, with Go 1.27 or later and the two droplets servers running,
+`go run .` in the folder starts it.
+
+## The Svelte example
+
+The same server serves the Svelte example at `/`: its three droplets, one
+per mode, from `examples/frameworks/svelte` (the `droplets` service). No
+JavaScript runs on the host: Go fetches the fragments and a template prints
+them.
+
+```go
+// main.go (trimmed)
+var basicIDs = []string{"client", "ssr-hydrate", "ssr-nohydrate"}
+
+func (b *basicPage) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	who := "Go"
+	if query := r.URL.Query(); query.Has("who") {
+		who = query.Get("who")
+	}
+	fragments := make([]template.HTML, len(basicIDs))
+	var wg sync.WaitGroup
+	for i, id := range basicIDs {
+		wg.Go(func() { fragments[i] = b.fetch(r.Context(), id, who) })
+	}
+	wg.Wait()
+	render(w, b.page, "index.html", http.StatusOK, map[string]any{"PublicURL": b.publicURL, "Fragments": fragments})
+}
+
+func (b *basicPage) fetch(ctx context.Context, id, who string) template.HTML {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	target := b.internalURL + "/droplets/" + url.PathEscape(id) + "?" + url.Values{"who": {who}}.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	if err != nil {
+		return unavailable(id, "")
+	}
+	req.Header.Set("accept", "text/html")
+	req.Header.Set("x-droplet-location", b.publicURL)
+	resp, err := b.client.Do(req)
+	if err != nil {
+		// The error names the internal URL: it goes to the log, not the page.
+		log.Printf("[droplets] %s: %v", id, err)
+		return unavailable(id, "")
+	}
+	defer resp.Body.Close()
+	if isFragment(resp) {
+		if body, err := io.ReadAll(resp.Body); err == nil {
+			return template.HTML(body)
+		}
+	}
+	return unavailable(id, fmt.Sprintf(": HTTP %d", resp.StatusCode))
+}
+```
+
+```html
+{{/* templates/index.html */}}
+<script type="module" src="{{.PublicURL}}/index.js"></script>
+…
+{{range .Fragments}}
+  {{.}}
+{{end}}
+```
+
+`template.HTML` marks the fragment as safe, so `html/template` does not
+escape it. Only a `text/html` answer is pasted (a 2xx, or a 500 carrying the
+droplet's error page); any other answer prints an error paragraph with its
+status, the id escaped. A failed request prints a fixed one and logs the
+error, since its message names the internal URL. Here the page loads
+`/index.js` from the droplets server's public URL, another origin than the
+page, so the Svelte example runs with `cors: true` and
+`DROPLETS_TRUSTED_ORIGINS` lists both `DROPLETS_URL` and this host's
+`WEB_URL`. The same fetch works from any Go router (chi, Echo, Gin): it is a
+`net/http` request and a string the template trusts.
