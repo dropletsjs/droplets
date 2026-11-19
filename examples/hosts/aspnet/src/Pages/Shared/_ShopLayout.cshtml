@@ -1,0 +1,33 @@
+@model ShopPage
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>@Model.Title · Droplets Shop on @ShopPage.Stack</title>
+<link rel="stylesheet" href="/shop.css">
+@foreach (var link in Model.Links)
+{
+<link rel="@link.Rel" href="@link.Href" as="@link.As">
+}
+<script type="speculationrules">{"prefetch":[{"where":{"href_matches":"/product/*"},"eagerness":"moderate"}]}</script>
+<script type="module" src="/index.js"></script>
+</head>
+<body class="shop">
+@Html.Raw(Model.Toasts)
+<header class="shop-header"><div class="shop-wrap">
+<a class="shop-logo" href="/gallery"><span aria-hidden="true">◆</span> Droplets Shop</a>
+<nav class="shop-nav" aria-label="Shop">@foreach (var (href, label) in new[] { ("/gallery", "Gallery"), ("/admin", "Admin") })
+{<a href="@href" aria-current="@(href == Model.Current ? "page" : null)">@label</a>}</nav>
+<div class="shop-cart">@Html.Raw(Model.Cart)</div>
+</div></header>
+<main class="shop-main shop-wrap">
+@RenderBody()
+</main>
+<footer class="shop-footer"><div class="shop-wrap">
+<p class="shop-stack">@ShopPage.Stack</p>
+<p>Droplets demo shop · host: @ShopPage.Stack · droplets: &lt;djs-shop&gt;</p>
+<p><a href="/gallery">Gallery</a> · <a href="/admin">Admin</a> · <a href="/">The Svelte example</a></p>
+</div></footer>
+</body>
+</html>

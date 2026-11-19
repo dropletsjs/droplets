@@ -165,10 +165,10 @@
       "name": "ASP.NET Core",
       "language": "dotnet",
       "pattern": "server-include",
-      "status": "planned",
+      "status": "built",
       "docs": "integrate/hosts/aspnet",
-      "stack": "C#, ASP.NET Core Razor Pages",
-      "how": "Fragment fetch in a page model, pasted into a Razor page",
+      "stack": "C# on .NET 10, ASP.NET Core Razor Pages, `IHttpClientFactory`",
+      "how": "Fragment fetch with `HttpClient` in a page model, pasted into a Razor page with `Html.Raw`",
       "example": true,
       "runner": { "offset": 14, "flow": "shop" }
     },

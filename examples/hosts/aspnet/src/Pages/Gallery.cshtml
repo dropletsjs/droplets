@@ -1,0 +1,11 @@
+@page "/gallery"
+@model GalleryModel
+@{ Layout = "_ShopLayout"; }
+<section class="shop-hero">
+<h1>Everything a demo shop needs.</h1>
+<p>Rendered by six frameworks, embedded by @ShopPage.Stack.</p>
+</section>
+<div class="shop-gallery">
+<aside>@Html.Raw(Model.Fragments[0])</aside>
+<div>@Html.Raw(Model.Fragments[1])</div>
+</div>
