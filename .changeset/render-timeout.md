@@ -1,0 +1,5 @@
+---
+"@dropletsjs/droplets": patch
+---
+
+A droplet's loads and render on the server now have a deadline: `render: { timeout }` in `droplets.config.ts`, in milliseconds, `5000` by default. A fragment or `_data` request whose loads and component render have not finished by then answers `504`: the fragment with the droplet's `+error.*` page, `_data` with `{ error }`, where `error` is `{ status: 504, message: "Gateway Timeout" }`; the browser renders the error page for both. Loads that take longer than 5 seconds, which answered before, now answer `504` unless you raise `render.timeout`; `Infinity` keeps the previous behaviour. The server load sees the deadline in `event.request.signal` (a copy of the request with that signal; on Node, Bun and Deno it still aborts when the client goes away too): pass it to `fetch` and your database client so their work stops. Renders prerendered by `vite build` have no deadline. A production server logs nothing for a timeout; `vite dev` warns. A host that pastes fragments should accept a `504` `text/html` answer like a `500` one, and wait longer than `render.timeout`.

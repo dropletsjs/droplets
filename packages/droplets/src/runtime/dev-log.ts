@@ -28,6 +28,8 @@ export type DevLog = {
   badEnvMaxAge(input: { value: string; fallback: string }): void;
   /** An action's result that does not fit a URL value. */
   resultTooLarge(input: { droplet: string; action: string }): void;
+  /** A fragment or `_data` that answered 504: every time. */
+  renderTimeout(input: { droplet: string; timeout: number }): void;
 };
 
 /** A dev log of its own: each "once" counts per app. */
@@ -81,6 +83,12 @@ export function createDevLog(): DevLog {
       logger.warn(
         "framework",
         `${droplet}: the result of action ${action} is over 2 KB as a URL value; it goes back to the page without its data (status and action only). Return less: field names and messages.`,
+      );
+    },
+    renderTimeout({ droplet, timeout }) {
+      logger.warn(
+        "framework",
+        `${droplet}: answered 504 after render.timeout (${timeout} ms), its loads or render still running; pass event.request.signal to what the load waits on, make it faster, or raise render.timeout in droplets.config.ts`,
       );
     },
   };

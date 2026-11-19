@@ -71,6 +71,7 @@ describe("resolveConfig", () => {
       publicCacheControl: "no-cache",
       csrf: { checkOrigin: true },
       limits: DEFAULTS.limits,
+      render: { timeout: 5000 },
       server: { port: DEFAULTS.serverPort },
     });
     // `dev` apart, for the Vite plugin: a production server never resolves it.
@@ -138,6 +139,33 @@ describe("resolveConfig", () => {
       expect(() => resolveConfig({ publicCacheControl: bad as never }), String(bad)).toThrow(
         /publicCacheControl must be a Cache-Control value such as "no-cache", or false/,
       );
+    }
+  });
+
+  it("takes render.timeout from 0 to the longest timer, or Infinity; render: {} is the default", () => {
+    for (const timeout of [0, 2147483647, Number.POSITIVE_INFINITY]) {
+      expect(resolveConfig({ render: { timeout } }).render, String(timeout)).toEqual({ timeout });
+    }
+    expect(resolveConfig({ render: {} }).render).toEqual({ timeout: 5000 });
+  });
+
+  it("refuses any other render or render.timeout, naming the range", () => {
+    const range = "use 0 (wait for no promise) up to 2147483647 ms, or Infinity (wait forever)";
+    expect(() => resolveConfig({ render: 5000 as never })).toThrow(
+      new Error("droplets: render must be an object such as { timeout: 10000 }, got 5000"),
+    );
+    const cases: Array<[unknown, string]> = [
+      ["5s", `droplets: render.timeout must be a number of milliseconds; ${range}, got "5s"`],
+      [Number.NaN, `droplets: render.timeout must be a number of milliseconds; ${range}, got NaN`],
+      [null, `droplets: render.timeout must be a number of milliseconds; ${range}, got null`],
+      [true, `droplets: render.timeout must be a number of milliseconds; ${range}, got true`],
+      [-5, `droplets: render.timeout cannot be negative; ${range}, got -5`],
+      [Number.NEGATIVE_INFINITY, `droplets: render.timeout cannot be negative; ${range}, got -Infinity`],
+      [2.5, `droplets: render.timeout must be a whole number of milliseconds; ${range}, got 2.5`],
+      [2147483648, `droplets: render.timeout is longer than a timer can wait; ${range}, got 2147483648`],
+    ];
+    for (const [timeout, message] of cases) {
+      expect(() => resolveConfig({ render: { timeout: timeout as never } }), String(timeout)).toThrow(new Error(message));
     }
   });
 

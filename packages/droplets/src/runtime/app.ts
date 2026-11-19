@@ -18,6 +18,7 @@ import { requestInfo, withRequestInfo } from "./request-store.ts";
 import { createLoadHeaders, storedHeaders } from "./load-headers.ts";
 import { publicEnvScript, serverKey } from "./server-records.ts";
 import { plainJson } from "./plain-json.ts";
+import { createDeadline, isRenderTimeout, whenTimedOut, withSignal } from "./render-timeout.ts";
 import { isJsonType, mediaType, originCheck, sizeLimits, trustedOriginsWith, wantsJson } from "./security.ts";
 import { allowedMethods, API_METHODS, type ApiMatch, type ApiMethod } from "./routes.ts";
 import {
@@ -203,6 +204,8 @@ export type DropletsAppOptions = {
   csrf?: { checkOrigin: boolean } | undefined;
   /** See `DropletsConfig.limits`. */
   limits?: BodyLimits | undefined;
+  /** See `DropletsConfig.render`. Default `{ timeout: 5000 }`. Ignored while building. */
+  render?: { timeout: number } | undefined;
   /** Short per-build token appended to asset URLs as `?c=`. */
   buildHash?: string;
   /**
@@ -948,6 +951,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     !options.building && tokens && options.tokenNonce !== undefined ? tokens.hostTokens({ nonce: options.tokenNonce }) : undefined;
   const importMapPaths = options.importMap ? [options.importMap.path, `${options.importMap.path}.js`] : [];
   const cacheControl = options.fragmentCacheControl === undefined ? DEFAULTS.fragmentCacheControl : options.fragmentCacheControl;
+  const renderTimeout = options.building ? Number.POSITIVE_INFINITY : (options.render?.timeout ?? DEFAULTS.render.timeout);
 
   type BoundedHostInput = { c: Context; host: URL };
 
@@ -1392,11 +1396,53 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
       : data;
   }
 
-  type LoadPayloadInput = { ctx: DropletContext };
+  type LoadPayloadInput = { ctx: DropletContext; event: LoadEvent };
 
   /** The server load alone, or a payload without load: `{ data: undefined }`. */
-  async function loadPayload({ ctx }: LoadPayloadInput): Promise<DropletPayload> {
-    return options.loadDropletData ? await options.loadDropletData(ctx.droplet, ctx.event) : { data: undefined };
+  async function loadPayload({ ctx, event }: LoadPayloadInput): Promise<DropletPayload> {
+    return options.loadDropletData ? await options.loadDropletData(ctx.droplet, event) : { data: undefined };
+  }
+
+  type WithinDeadlineInput<T> = { ctx: DropletContext; work: (event: LoadEvent) => MaybePromise<T> };
+
+  type Deadlined<T> = { timedOut: true } | { timedOut: false; value: T };
+
+  /**
+   * `work` over the load event, raced against `render.timeout`. Only the
+   * loads' event gets the request with the deadline's signal: `handle`, an
+   * action and `transform` keep the original. A result or a failure that
+   * comes after the deadline is dropped.
+   */
+  async function withinDeadline<T>({ ctx, work }: WithinDeadlineInput<T>): Promise<Deadlined<T>> {
+    if (renderTimeout === Number.POSITIVE_INFINITY) return { timedOut: false, value: await work(ctx.event) };
+    const deadline = createDeadline({ timeout: renderTimeout });
+    try {
+      const signal = AbortSignal.any([ctx.event.request.signal, deadline.signal]);
+      const event = { ...ctx.event, request: withSignal({ request: ctx.event.request, signal }) };
+      // Settled either way, so a late rejection always has a handler.
+      const running = Promise.resolve()
+        .then(() => work(event))
+        .then(
+          (value) => ({ value }),
+          (error: unknown) => ({ error }),
+        );
+      const settled = await Promise.race([running, whenTimedOut({ signal })]);
+      // A failure the deadline caused (a fetch it aborted) is a timeout too.
+      if (settled === undefined || isRenderTimeout(signal.reason)) {
+        options.devLog?.renderTimeout({ droplet: ctx.droplet, timeout: renderTimeout });
+        return { timedOut: true };
+      }
+      if ("error" in settled) throw settled.error;
+      return { timedOut: false, value: settled.value };
+    } finally {
+      deadline.clear();
+    }
+  }
+
+  /** What the error page and `_data` get past `render.timeout`: `error(504)`'s status and message. */
+  function timeoutError(): { status: number; message: string } {
+    const { status, body } = new HttpError(504);
+    return { status, message: body.message };
   }
 
   /**
@@ -1424,11 +1470,14 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
       // A no-JavaScript action's result for this droplet: live, never stored.
       const carried = await formFromHost({ c, ctx });
       const found = carried ? null : await prerendered({ ctx });
-      const payload: DropletPayload = found
-        ? found.failed
-          ? { failed: true, error: found.error }
-          : { data: found.data }
-        : await loadPayload({ ctx });
+      let payload: DropletPayload;
+      if (found) {
+        payload = found.failed ? { failed: true, error: found.error } : { data: found.data };
+      } else {
+        const outcome = await withinDeadline({ ctx, work: (event) => loadPayload({ ctx, event }) });
+        if (outcome.timedOut) return c.json(liveData({ ctx, data: { error: timeoutError() } }), 504);
+        payload = outcome.value;
+      }
       if (payload.failed) return c.json(liveData({ ctx, data: { error: payload.error ?? null } }), 500);
       applyHeaders({ c, headers: found ? storedHeaders({ value: found.headers }) : ctx.headers });
       if (!carried) return c.json(liveData({ ctx, data: { data: payload.data } }));
@@ -1499,6 +1548,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     let contextData: string;
     // What the load set, or what a build-time render kept.
     let answerHeaders: Iterable<[string, string]> = ctx.headers;
+    let isTimedOut = false;
     try {
       await prepare({ ctx });
 
@@ -1567,10 +1617,14 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
           renderId = found.renderId;
           rendered = true;
         } else if (ctx.meta.ssr && !ctx.noSSR) {
-          const result =
-            action?.form === undefined
-              ? await options.renderDroplet(ctx.droplet, ctx.event)
-              : await options.renderDroplet(ctx.droplet, ctx.event, { form: action.form });
+          const form = action?.form;
+          const outcome = await withinDeadline({
+            ctx,
+            work: (event) =>
+              form === undefined ? options.renderDroplet(ctx.droplet, event) : options.renderDroplet(ctx.droplet, event, { form }),
+          });
+          const result = outcome.timedOut ? { failed: true as const, error: timeoutError() } : outcome.value;
+          isTimedOut = outcome.timedOut;
           if (!result) return c.text("Not Found", 404);
           if (result.failed) {
             payload = { failed: true, error: result.error };
@@ -1582,7 +1636,9 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
           }
         } else {
           // No markup, but the server load still runs so data arrives inline.
-          payload = await loadPayload({ ctx });
+          const outcome = await withinDeadline({ ctx, work: (event) => loadPayload({ ctx, event }) });
+          payload = outcome.timedOut ? { failed: true, error: timeoutError() } : outcome.value;
+          isTimedOut = outcome.timedOut;
         }
       }
       if (payload.failed && !rendered && !ctx.noSSR && ctx.meta.ssr) {
@@ -1640,7 +1696,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
         error: payload.failed === true,
         stylesheet: assets.stylesheet,
       }),
-      payload.failed ? 500 : ((action?.status ?? 200) as 200),
+      payload.failed ? (isTimedOut ? 504 : 500) : ((action?.status ?? 200) as 200),
     );
   }
 

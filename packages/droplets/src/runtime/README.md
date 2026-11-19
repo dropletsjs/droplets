@@ -45,6 +45,7 @@ Public pieces: `$droplets/server` (`./server`, `server.ts`) and `./enhance`
 | `security.ts` | The origin (CSRF) check, the body size limits, `DROPLETS_TRUSTED_ORIGINS`. |
 | `event-fetch.ts` | `event.fetch`: a URL on this server dispatched into the app in-process, any other to the global `fetch`. |
 | `dev-log.ts` | The runtime's warnings, for `vite dev` and the build's prerender; a production server has none. |
+| `render-timeout.ts` | `render.timeout`: the deadline's signal and its branded reason, the request copy with that signal. Server only. |
 | `cookies.ts` | `event.cookies`: parse, serialize, defaults, read-only and prerender jars. |
 | `form.ts`, `form-token.server.ts`, `enhance.ts` | Form actions: action URLs, reserved query keys, the signed no-JavaScript result, `enhanceDropletForm`. |
 | `element.ts` | The fragment markup the server writes. |
@@ -174,6 +175,13 @@ Then the route.
 - `data-droplet-payload="data"` is written only when the droplet hydrates and the request is not `clientOnly`. `app.ts:1498`
 - `data-droplet-render` is written only when there is server HTML. `app.ts:1497`
 - A failed render answers 500 with the error component, else the action's status, else 200. `app.ts:1506`
+- Past `render.timeout` the fragment answers 504: the payload is `{ failed, error }` with `error` `{ status: 504, message: "Gateway Timeout" }`, the error page renders as for a failed load (none for `ssr = false` or `?noSSR`), and `setHeaders` is not applied. `app.ts:1443`, `app.ts:1699`
+- The deadline covers only the live call: `renderDroplet` (server load, `+droplet.ts` load, the component) or, without server markup, the server load; it starts after `handle`, the props schema, a form action, the carried form result and the prerendered lookup, and covers neither `transform` nor the error page. `app.ts:1416`
+- With a deadline, the loads' event gets a copy of `event.request` with `AbortSignal.any([request.signal, deadline])`; an unread body goes to the copy as a clone (`request.clone()`), so the original stays readable, an already read one (after a form action) is left out. `handle`, the action and `transform` keep the original. `app.ts:1416`, `render-timeout.ts:44`
+- The deadline aborts with a `TimeoutError` `DOMException` that carries `Symbol.for("droplets.render-timeout")`; only that brand ends the race, so a client that went away or an author's own `AbortSignal.timeout` stays the load's own failure (500). The timer is cleared at the answer. `render-timeout.ts:10`, `render-timeout.ts:27`
+- A result or a failure that comes after the deadline is dropped, and always has a handler; `entry-server.ts` rethrows whatever a load throws once the request's signal carries the brand, with no `console.error` and no `handleError` of `+droplet.server.ts`. `app.ts:1416`, `entry-server.ts:119`
+- `render.timeout` `Infinity` sets no timer and no request copy; `building` has no deadline whatever the option says. `app.ts:954`
+- A timeout warns through `devLog.renderTimeout` every time (`vite dev`); a production server logs nothing for it. `dev-log.ts:88`
 - A response carrying a form result gets `cache-control: private, no-store`. `app.ts:1489`
 - `fragmentCacheControl` defaults to `private, no-store, no-transform` and is set only on a 2xx answer that has none; an error, a 404, a 405 and a redirect carry no default (`perRequest`). `../core/config.ts:210`, `app.ts:1050`
 - `perRequest` adds `no-transform` to the `Cache-Control` of every fragment and `_data` answer but a redirect and a form action's JSON (`isAction`), and gzips them through `gzipAnswer` (`compress.ts`), never at build. `app.ts:1056`, `app.ts:1064`, `app.ts:1686`, `compress.ts:100`
@@ -188,6 +196,7 @@ Then the route.
 
 - `_data` answers `{ data }`, plus `form` when a result is carried. `app.ts:1303`
 - `_data` answers a failed load with 500 `{ error }`. `app.ts:1301`
+- `_data` answers 504 `{ error }` past `render.timeout`, `error` `{ status: 504, message: "Gateway Timeout" }`. `app.ts:1478`
 - `_data` answers PUT, PATCH and DELETE with 405 and `allow: GET, POST`, as the fragment does (`renderMethods`). `app.ts:1321`
 - `_data` carrying a form result gets `cache-control: private, no-store`. `app.ts:1305`
 
@@ -311,6 +320,7 @@ Then the route.
 - `enhanceDropletForm` hands `updateForm` the action URL it posted to. `enhance.ts:381`
 - The element's server location is `serverLocation` for its element and build. `entry-client.ts:368`
 - `_data` is fetched with POST to `<location>/droplets/<id>/_data?__cb=<now>`, a JSON body and `redirect: "manual"`. `entry-client.ts:721`
+- The element shows the error page for `{ error }` from `_data` on a 500 or a 504 (`render.timeout`); any other answer without `data` renders nothing (`NothingToRender`). `entry-client.ts:819`
 - `_data` and a fragment rendered again after a post are fetched with `serverCredentials` for the element's server. `entry-client.ts:807`, `entry-client.ts:1393`
 - `data-droplet-hydrate` takes `""`, `true`, `false`, `visible` and `interactive`, case-sensitive. `entry-client.ts:1097`
 - `data-droplet-hydrate="false"` never stops a script droplet. `entry-client.ts:1106`

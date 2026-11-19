@@ -67,6 +67,7 @@ const DEV_MARKERS: (string | RegExp)[] = [
   "DROPLETS_SECRET is not set",
   "DROPLETS_SECRET is shorter than",
   "is over 2 KB as a URL value",
+  "answered 504 after render.timeout",
   "not a whole number of seconds",
   "such as https://shop.example",
   "unknown droplet",

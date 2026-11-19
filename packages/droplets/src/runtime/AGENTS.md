@@ -46,6 +46,8 @@
   Checked by: `../../test/runtime/app.test.ts` ("createDropletsApp: file URLs of the server bundle"), `../../test/integration/assets.test.ts`.
 - The element, `$droplets/drop` and `$droplets/form` take the server location from `serverLocation` (`server-records.ts`), keyed `<element>:<build>`.
   Checked by: `../../test/runtime/entry-client.test.ts`.
+- `render.timeout`'s deadline is told from any other abort only by the brand on its reason (`isRenderTimeout`, `render-timeout.ts`, server only), never by a reason's name or message; the prerender has none.
+  Checked by: `../../test/runtime/app.test.ts` ("createDropletsApp: render.timeout"), `../../test/runtime/render-timeout.test.ts`.
 - Request headers are `x-droplet-*` and response headers `x-droplets-*`.
 - Every markup attribute this folder reads or writes is `data-droplet` (the id) or `data-droplet-*`: the fragment's `data-droplet-build`, `data-droplet-render`, `data-droplet-context`, `data-droplet-error`, `data-droplet-payload="context"|"data"`, `data-droplet-style` and `data-droplet-entry`; the host's `data-droplet-props`, `data-droplet-context`, `data-droplet-hydrate` and `data-droplet-enhance`; the dev toasts' `data-droplet-key`.
   Checked by: `../../test/runtime/element.test.ts` ("writes data-droplet and data-droplet-* attributes, nothing else"), `../../../../tests/packages/test/attributes.test.ts`.
