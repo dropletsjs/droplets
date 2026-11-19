@@ -3,18 +3,17 @@
  * runs the shop (`examples/hosts/README.md`, "The shop demo"); a change
  * goes to all of them. WordPress's is a file of its own: its pages sit
  * inside the Twenty Twenty-Five theme and take its presets, as its header
- * says.
+ * says. Only the committed copies count: a local build leaves gitignored
+ * ones behind (Spring's `target/`).
  */
-import { readdirSync, readFileSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const hosts = resolve(import.meta.dirname, "../../../examples/hosts");
 
-const copies = readdirSync(hosts, { withFileTypes: true, recursive: true })
-  .filter((entry) => entry.isFile() && entry.name === "shop.css" && !entry.parentPath.includes("node_modules"))
-  .map((entry) => relative(hosts, join(entry.parentPath, entry.name)))
-  .sort();
+const copies = execFileSync("git", ["ls-files", "--", "*/shop.css"], { cwd: hosts, encoding: "utf8" }).split("\n").filter(Boolean).sort();
 
 const read = (path: string) => readFileSync(join(hosts, path), "utf8");
 

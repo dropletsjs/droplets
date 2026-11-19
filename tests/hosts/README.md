@@ -218,8 +218,8 @@ its own install. The hosts are outside the pnpm workspace, so
 - CI runs the typecheck in its own job, no Docker. `../../.github/workflows/ci.yml:100`
 - Scripts: `e2e` is `node run.mjs`, `test` is `vitest run`, `typecheck:hosts` is `node typecheck.mjs`. `package.json:8`
 - vitest runs `test/**/*.test.ts` in the Node environment. `vitest.config.ts:5`
-- `shop-css.test.ts` finds every `shop.css` under `examples/hosts` outside `node_modules`, expects one per shop host and WordPress, and all but WordPress's byte-equal to express's. `test/shop-css.test.ts:14`, `test/shop-css.test.ts:22`, `test/shop-css.test.ts:38`
-- `shop-css.test.ts` expects WordPress's `shop.css` to name the theme (Twenty Twenty-Five) and use `--wp--preset--` values. `test/shop-css.test.ts:44`
+- `shop-css.test.ts` lists the committed copies of `shop.css` under `examples/hosts` (`git ls-files`), expects one per shop host and WordPress, and all but WordPress's byte-equal to express's. `test/shop-css.test.ts:16`, `test/shop-css.test.ts:21`, `test/shop-css.test.ts:46`
+- `shop-css.test.ts` expects WordPress's `shop.css` to name the theme (Twenty Twenty-Five) and use `--wp--preset--` values. `test/shop-css.test.ts:50`
 - `location.test.ts` lists per host the files that send `x-droplet-location`, the value a line may give it and the environment read it comes from. `test/location.test.ts:24`
 - `location.test.ts` fails on a host-header read (`.headers.host`, `req.hostname`, `request.host`, `HTTP_HOST`, `$host`, `$http_host`, `{HTTP_HOST}` and the like) in those files, comments left out. `test/location.test.ts:95`, `test/location.test.ts:123`
 - `standalone.test.ts` takes `examples/shop`, `examples/wp-shop`, every `examples/frameworks/*` and every `examples/hosts/*` as a root, skipping `node_modules`, `dist`, `build`, `.next`, `.svelte-kit`, `.astro`, `.venv`, `.droplets`, `.tmp` and `__pycache__`. `test/standalone.test.ts:16`, `test/standalone.test.ts:27`
