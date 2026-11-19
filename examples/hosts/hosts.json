@@ -129,10 +129,10 @@
       "name": "Laravel",
       "language": "php",
       "pattern": "server-include",
-      "status": "planned",
+      "status": "built",
       "docs": "integrate/hosts/laravel",
-      "stack": "PHP, Laravel",
-      "how": "Fragment fetch in a controller, pasted into a Blade view",
+      "stack": "Laravel 13 on PHP 8.5, Apache, Blade",
+      "how": "Fragment fetch with `Http::pool` in a controller, pasted into Blade with `{!! !!}`",
       "example": true,
       "runner": { "offset": 13, "flow": "shop" }
     },

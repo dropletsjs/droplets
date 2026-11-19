@@ -14,7 +14,7 @@ The element's tag name is the server's `element` setting: `djs-droplet` by
 default, `djs-svelte` for the Svelte example these hosts embed.
 
 <!-- hosts:count -->
-Seventeen host examples, by language; fifteen run the shared shop flow, and WordPress and htmx have flows of their own.
+Eighteen host examples, by language; sixteen run the shared shop flow, and WordPress and htmx have flows of their own.
 <!-- /hosts:count -->
 
 Most examples in this folder do the same two things, in their
@@ -83,6 +83,7 @@ docker compose up --build
 | Python | [`django`](./django) | Python, Django 6.1, httpx, Django templates | Fragment fetch with `httpx` in a view, pasted into a Django template |
 | PHP | [`php`](./php) | PHP 8.3 on Apache, curl, no framework | Fragment fetch with `curl_multi`, pasted into plain PHP templates |
 | PHP | [`wordpress`](./wordpress) | WordPress 6, a plugin; WordPress owns the data | A `[droplet]` shortcode plugin serving `examples/wp-shop` |
+| PHP | [`laravel`](./laravel) | Laravel 13 on PHP 8.5, Apache, Blade | Fragment fetch with `Http::pool` in a controller, pasted into Blade with `{!! !!}` |
 | Ruby | [`sinatra`](./sinatra) | Ruby, Sinatra, Net::HTTP, ERB | Fragment fetch with `Net::HTTP`, pasted into ERB |
 | Ruby | [`rails`](./rails) | Ruby, Rails 8, Net::HTTP, ERB | Fragment fetch with `Net::HTTP` in a controller, pasted into ERB views |
 | C# / .NET | [`aspnet`](./aspnet) | C# on .NET 10, ASP.NET Core Razor Pages, `IHttpClientFactory` | Fragment fetch with `HttpClient` in a page model, pasted into a Razor page with `Html.Raw` |
@@ -155,6 +156,7 @@ host, the same file everywhere.
 | `django` | http://localhost:8012/gallery |
 | `php` | http://localhost:8009/gallery |
 | `wordpress` | http://localhost:8008/gallery |
+| `laravel` | http://localhost:8013/gallery |
 | `sinatra` | http://localhost:8002/gallery |
 | `rails` | http://localhost:8015/gallery |
 | `aspnet` | http://localhost:8014/gallery |
@@ -224,6 +226,7 @@ The `--https` run checks that the `cart_id` and `shop_admin` cookies arrive
 | `django` | [django.mp4](../../apps/docs/public/hosts/django.mp4) | ![The shop on Django](../../apps/docs/public/hosts/django/2-cart.webp) |
 | `php` | [php.mp4](../../apps/docs/public/hosts/php.mp4) | ![The shop on PHP](../../apps/docs/public/hosts/php/2-cart.webp) |
 | `wordpress` | [wordpress.mp4](../../apps/docs/public/hosts/wordpress.mp4) | ![The shop on WordPress](../../apps/docs/public/hosts/wordpress/2-cart.webp) |
+| `laravel` | [laravel.mp4](../../apps/docs/public/hosts/laravel.mp4) | ![The shop on Laravel](../../apps/docs/public/hosts/laravel/2-cart.webp) |
 | `sinatra` | [sinatra.mp4](../../apps/docs/public/hosts/sinatra.mp4) | ![The shop on Sinatra](../../apps/docs/public/hosts/sinatra/2-cart.webp) |
 | `rails` | [rails.mp4](../../apps/docs/public/hosts/rails.mp4) | ![The shop on Rails](../../apps/docs/public/hosts/rails/2-cart.webp) |
 | `aspnet` | [aspnet.mp4](../../apps/docs/public/hosts/aspnet.mp4) | ![The shop on ASP.NET Core](../../apps/docs/public/hosts/aspnet/2-cart.webp) |

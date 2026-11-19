@@ -251,7 +251,7 @@ another origin than the page, so the Svelte example runs with `cors: true`
 and `DROPLETS_TRUSTED_ORIGINS` lists both `DROPLETS_URL` and this host's
 `WEB_URL`.
 
-Laravel, Symfony or any other PHP framework works the same way: fetch in
-the controller (Guzzle's `Pool` or Symfony's HttpClient run several at
-once), print the body unescaped (`{!! $fragment !!}` in Blade, `|raw` in
-Twig).
+[Laravel](/integrate/hosts/laravel/) has its own page, with the same shop.
+Symfony or any other PHP framework works the same way: fetch in the
+controller (Symfony's HttpClient runs several at once), print the body
+unescaped (`|raw` in Twig).

@@ -99,6 +99,7 @@ comes back with the button saying "✓ Added".
 | [Sinatra](/integrate/hosts/sinatra/) | ERB views | `Net::HTTP`, a thread per fragment | a catch-all route |
 | [Rails 8](/integrate/hosts/rails/) | ERB views, a controller | `Net::HTTP`, a thread per fragment | a Rack endpoint in the routes |
 | [PHP](/integrate/hosts/php/) | PHP templates, no framework | `curl_multi`, all at once | a front controller (`index.php`) |
+| [Laravel 13](/integrate/hosts/laravel/) | Blade views, `{!! !!}` | `Http::pool`, all at once | `Route::any` routes, outside the `web` group |
 | [ASP.NET Core](/integrate/hosts/aspnet/) | Razor Pages, `Html.Raw` | `HttpClient` from `IHttpClientFactory`, `Task.WhenAll` | minimal API endpoints (`MapMethods`) |
 | [Spring Boot](/integrate/hosts/spring/) | Thymeleaf templates, `th:utext` | `RestClient` in a controller, a virtual thread per fragment | a `@RequestMapping` over the shop's paths |
 | [React + Vite](/integrate/hosts/react-vite/) | a single-page app | client-only: fetched by the browser, the cart as `data-droplet` | nginx in the image |
@@ -266,6 +267,10 @@ asks the shop for its fragments cross-origin, with no proxy.
 ### PHP
 
 <HostDemo id="php" stack="PHP 8.3" />
+
+### Laravel
+
+<HostDemo id="laravel" stack="Laravel 13" />
 
 ### ASP.NET Core
 

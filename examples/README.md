@@ -71,6 +71,7 @@ end-to-end recordings ([`tests/hosts`](../tests/hosts)).
 | [`django`](./hosts/django) | Python | Fragment fetch with `httpx` in a view, pasted into a Django template |
 | [`php`](./hosts/php) | PHP | Fragment fetch with `curl_multi`, pasted into plain PHP templates |
 | [`wordpress`](./hosts/wordpress) | PHP | A `[droplet]` shortcode plugin serving `examples/wp-shop` |
+| [`laravel`](./hosts/laravel) | PHP | Fragment fetch with `Http::pool` in a controller, pasted into Blade with `{!! !!}` |
 | [`sinatra`](./hosts/sinatra) | Ruby | Fragment fetch with `Net::HTTP`, pasted into ERB |
 | [`rails`](./hosts/rails) | Ruby | Fragment fetch with `Net::HTTP` in a controller, pasted into ERB views |
 | [`aspnet`](./hosts/aspnet) | C# / .NET | Fragment fetch with `HttpClient` in a page model, pasted into a Razor page with `Html.Raw` |

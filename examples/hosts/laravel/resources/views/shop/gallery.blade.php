@@ -1,0 +1,12 @@
+@extends('shop.layout')
+
+@section('content')
+<section class="shop-hero">
+<h1>Everything a demo shop needs.</h1>
+<p>Rendered by six frameworks, embedded by {{ $stack }}.</p>
+</section>
+<div class="shop-gallery">
+<aside>{!! $fragments[0] !!}</aside>
+<div>{!! $fragments[1] !!}</div>
+</div>
+@endsection
