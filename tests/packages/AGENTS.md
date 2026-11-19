@@ -1,4 +1,4 @@
-`tests/packages`: the published packages as `npm pack` writes them, checked against each package's `tsdown.config.ts`, the ranges the examples ask for them at, and the triggers and runners of the workflows.
+`tests/packages`: the published packages as `npm pack` writes them, checked against each package's `tsdown.config.ts`, the ranges the examples ask for them at, the triggers and runners of the workflows, and what CI runs for a path.
 
 ## Rules
 
@@ -21,6 +21,10 @@
   Checked by: `test/workflows.test.ts`.
 - The Cloudflare deploys in `ci.yml` run only on a push to `main` of `dropletsjs/droplets`, after every other CI job and the demo before the docs, in the `cloudflare` environment; they are the only jobs that name the Cloudflare secrets.
   Checked by: `test/workflows.test.ts` ("ci.yml's Cloudflare deploys").
+- `.github/scripts/areas.ts` gives each changed path the CI it needs: every rule's outputs are pinned, every tracked file takes a rule or the fallback (everything), and a new top-level name that reaches the fallback fails until it is placed.
+  Checked by: `test/areas.test.ts`.
+- The four jobs the ruleset requires keep their names, have no `needs` and no job-level `if`, fetch depth 2, run the areas step once and ungated, and gate every later step on `steps.areas.outputs.<name> != 'false'`; the check job runs every command of the root `check` script.
+  Checked by: `test/workflows.test.ts` ("ci.yml's areas").
 - The suite packs the packages' `dist/`: `pnpm build` first, then `pnpm test:integration`.
 - A behaviour change comes with a test; a fix with a test that failed before it.
 

@@ -17,7 +17,7 @@ Every folder of interest has its own `AGENTS.md` with that folder's rules and a 
 - `examples/shop`, `examples/wp-shop`: the shop demo, on SQLite and on WordPress.
 - `examples/hosts/*`: host stacks, outside the pnpm workspace (own toolchains, Docker Compose).
 - `tests/*`: end-to-end tests across packages. A package's own tests live in its `test/`.
-  `examples` (Playwright), `hosts` (Docker; `test/` static checks over `examples/` without it), `create-droplets`, `djs-add`, `dev-mixed` (`vite dev` + HMR, and the production build), `packages` (the packed tarballs, the workflows' triggers and runners).
+  `examples` (Playwright), `hosts` (Docker; `test/` static checks over `examples/` without it), `create-droplets`, `djs-add`, `dev-mixed` (`vite dev` + HMR, and the production build), `packages` (the packed tarballs, the workflows' triggers and runners, what CI runs for a path).
 
 ## Where things go
 
@@ -39,7 +39,7 @@ pnpm docs:check-csp   # after docs:build: every inline script hash is in apps/do
 pnpm typecheck:hosts  # npm ci + npm run typecheck in each Node host (examples/hosts/*, outside the workspace)
 ```
 
-`pnpm test` = vitest over `packages/**` and `tests/**`; `pnpm test:integration` = `tests/**` only, what `check` runs after `build`. `pnpm test:hosts [host…]` needs Docker and the gitignored `.env.local` (see `.env.example`). CI (`.github/workflows/ci.yml`) runs `check`, `docs:build`, `docs:check-csp`, `test:e2e`, `typecheck:hosts` and a Docker smoke test; on a push to `main` that passes them all it deploys the demo, then the docs, to Cloudflare.
+`pnpm test` = vitest over `packages/**` and `tests/**`; `pnpm test:integration` = `tests/**` only, what `check` runs after `build`. `pnpm test:hosts [host…]` needs Docker and the gitignored `.env.local` (see `.env.example`). CI (`.github/workflows/ci.yml`) runs `check`, `docs:build`, `docs:check-csp`, `test:e2e`, `typecheck:hosts` and a Docker smoke test. A PR runs `biome ci` and the tree checks every time, and the rest by the areas it touches (`.github/scripts/areas.ts`; an unrecognised path runs everything); a push to `main` runs everything and, when it all passes, deploys the demo, then the docs, to Cloudflare.
 
 ## Rules
 
