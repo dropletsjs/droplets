@@ -32,8 +32,8 @@ STYLESHEET = Path(__file__).parent / "static" / "shop.css"
 def fragment(droplet: str, params: list[tuple[str, str]], headers: dict[str, str]) -> dict:
     """`GET /droplets/<id>?<params>` → `{ html, status, location, cookies, link }`.
 
-    Only an HTML answer is a fragment (a 500 carries the droplet's error
-    page); anything else may echo the props, so it is never inserted.
+    Only an HTML answer is a fragment (a 500 or 504 carries the droplet's
+    error page); anything else may echo the props, so it is never inserted.
     """
     url = f"{upstream.SHOP_INTERNAL_URL}/droplets/{quote(droplet, safe='')}?{urlencode(params)}"
     result = {"html": "", "status": 502, "location": None, "cookies": [], "link": None}
@@ -45,7 +45,7 @@ def fragment(droplet: str, params: list[tuple[str, str]], headers: dict[str, str
         content_type = response.headers.get("content-type", "")
         if 300 <= response.status_code < 400:
             result["location"] = response.headers.get("location")
-        elif (response.is_success or response.status_code == 500) and content_type.startswith("text/html"):
+        elif (response.is_success or response.status_code in (500, 504)) and content_type.startswith("text/html"):
             # Trusted markup from the shop: inserted as it is.
             result["html"] = mark_safe(response.text)
             return result

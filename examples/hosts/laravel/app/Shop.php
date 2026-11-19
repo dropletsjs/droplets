@@ -244,8 +244,8 @@ final class Shop
      * `GET /droplets/<id>?<pairs>` for each of `$wanted` (`[id, pairs]`), in
      * parallel, as the browser's request: its cookies, this page as the host.
      * Each answer: `html`, `status`, `location`, `cookies`, `link`. Only an HTML
-     * answer is a fragment (a 500 carries the droplet's error page); anything
-     * else may echo the props, so it is never inserted.
+     * answer is a fragment (a 500 or 504 carries the droplet's error page);
+     * anything else may echo the props, so it is never inserted.
      */
     public function fragments(Request $request, array $wanted): array
     {
@@ -279,7 +279,7 @@ final class Shop
             $isHtml = str_starts_with($received['content-type'][0] ?? '', 'text/html');
             if ($status >= 300 && $status < 400) {
                 $result['location'] = $received['location'][0] ?? null;
-            } elseif ((($status >= 200 && $status < 300) || $status === 500) && $isHtml) {
+            } elseif ((($status >= 200 && $status < 300) || in_array($status, [500, 504], true)) && $isHtml) {
                 // Trusted markup from the shop: inserted as it is.
                 $result['html'] = $answer->body();
                 $results[$key] = $result;
@@ -298,7 +298,7 @@ final class Shop
     public function product(string $slug): ?array
     {
         try {
-            $answer = $this->client(Http::withHeaders(['x-droplet-location' => $this->origin, 'accept' => 'application/json']), 5)
+            $answer = $this->client(Http::withHeaders(['x-droplet-location' => $this->origin, 'accept' => 'application/json']), 10)
                 ->get($this->internalUrl.'/droplets/product-page/_data?'.self::buildQuery([['slug', $slug]]));
         } catch (\Throwable $error) {
             Log::error('[shop] product '.$slug.': '.$error->getMessage());

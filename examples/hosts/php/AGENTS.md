@@ -17,7 +17,7 @@
 - No curl handle keeps cookies: no cookie file, jar or share handle, one request per handle, only the visitor's own `Cookie` sent.
   Checked by: `tests/hosts/e2e/shop.spec.ts` ("a new visitor gets nobody else's cart or session").
 - `enable_post_data_reading` stays off, so multipart posts reach the proxy in `php://input`.
-- Only an HTML answer (2xx or 500) is inserted as a fragment; any other answer becomes a fixed note, and values from the shop go out through `h()`.
+- Only an HTML answer (2xx, 500 or 504) is inserted as a fragment; any other answer becomes a fixed note, and values from the shop go out through `h()`.
 - A page passes its fragments' `Set-Cookie` and a fragment's redirect on to the browser.
 - `public/shop.css` is the same file as every other host's shop layout; a change goes to all of them.
   Checked by: `tests/hosts/test/shop-css.test.ts`.

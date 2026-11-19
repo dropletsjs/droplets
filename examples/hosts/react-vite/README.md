@@ -74,7 +74,7 @@ Host, with `Forwarded` and `X-Forwarded-*` removed and the browser's
   shop's.
 
 Pages fetch their fragments from the browser with `redirect: "manual"` and
-insert one only when it is HTML (2xx, or a 500 carrying the droplet's
+insert one only when it is HTML (2xx, or a 500 or 504 carrying the droplet's
 error page). The cart badge (`shopping-cart`) and the toasts
 (`toast-center`, first in the layout) are client-only `<djs-shop>`
 elements with `data-droplet-props`. Login and the other forms are full-page posts
@@ -126,7 +126,7 @@ flow against the compose stack (needs Docker).
 - `ensureDropletsClient()` adds `<origin>/index.js` once per page. `src/droplets.tsx:14`
 - `<Droplet>` client mode sets `data-droplet` and `data-droplet-context` (base64 JSON `{ props }`). `src/droplets.tsx:24`, `src/droplets.tsx:58`, `src/droplets.tsx:59`
 - `<Droplet>` fragment mode fetches `/droplets/<id>` with props as query parameters, `accept: text/html` and `redirect: "manual"`, and inserts it through a `<template>`. `src/droplets.tsx:65`, `src/droplets.tsx:68`, `src/droplets.tsx:80`
-- `<Droplet>` fragment mode inserts only a `text/html` answer that is 2xx or 500 (the droplet's error page); a redirect or any other answer is an error. `src/droplets.tsx:72`, `src/droplets.tsx:75`
+- `<Droplet>` fragment mode inserts only a `text/html` answer that is 2xx, 500 or 504 (the droplet's error page); a redirect or any other answer is an error. `src/droplets.tsx:72`, `src/droplets.tsx:75`
 - `<Droplet>` that fails renders `<p className="error">`. `src/droplets.tsx:97`
 - Basic page: `ssr-hydrate` and `ssr-nohydrate` as fragments, `client` in client mode, `who` defaulting to `React`. `src/App.tsx:5`, `src/App.tsx:8`, `src/App.tsx:25`
 - Router: shop paths are `/gallery`, `/login`, `/admin`, `/product/<slug>`; everything else is the basic page. `src/shop/ShopApp.tsx:10`, `src/main.tsx:10`
@@ -135,7 +135,7 @@ flow against the compose stack (needs Docker).
 - Shop `/index.js` is loaded once from this origin. `src/shop/ShopDroplet.tsx:16`, `src/shop/ShopDroplet.tsx:19`
 - Shop fragment fetch uses `redirect: "manual"` and `accept: text/html`. `src/shop/ShopDroplet.tsx:52`
 - Shop fragment redirect (`opaqueredirect`) calls `onRedirect`, or shows the droplet as unavailable. `src/shop/ShopDroplet.tsx:57`
-- Shop fragment is inserted only when it is 2xx or 500 and `text/html`. `src/shop/ShopDroplet.tsx:63`
+- Shop fragment is inserted only when it is 2xx, 500 or 504 and `text/html`. `src/shop/ShopDroplet.tsx:63`
 - Shop client-only droplets are `<djs-shop>` with `data-droplet` and `data-droplet-props` (JSON). `src/shop/ShopDroplet.tsx:103`, `src/shop/ShopDroplet.tsx:104`
 - Shop layout: `toast-center` first, `shopping-cart` with `variant: "badge"` in the header, both client-only. `src/shop/ShopApp.tsx:50`, `src/shop/ShopApp.tsx:68`
 - Shop product lookup reads `/droplets/product-page/_data?slug=`; `null` renders Not found. `src/shop/ShopDroplet.tsx:121`, `src/shop/ShopApp.tsx:127`

@@ -22,7 +22,7 @@
   Checked by: `tests/hosts/e2e/wordpress-service.spec.ts` (each secret one required variable in `docker-compose.yml`, on both services; the host secret does not sign writes).
 - The `product-admin` droplet renders only on the Shop screen in wp-admin; no public page, `/admin` included, carries it, and no public droplet is in wp-admin.
   Checked by: `tests/hosts/e2e/shop-wordpress.spec.ts`.
-- A page inserts only a 2xx or 500 `text/html` fragment, after WordPress's content filters; a fragment's redirect is answered, never followed.
+- A page inserts only a 2xx, 500 or 504 `text/html` fragment, after WordPress's content filters; a fragment's redirect is answered, never followed.
   Checked by: `pnpm test:hosts wordpress`.
 - The catalogue's category slugs match `examples/wp-shop`'s `src/lib/categories.ts`; the catalogue is imported from `examples/shop`'s mock data.
 - The host flow runs only when named.

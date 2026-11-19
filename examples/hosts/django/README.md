@@ -69,7 +69,7 @@ droplets server runs with `cors: true`
 - The pages fetch their fragments at once (a `ThreadPoolExecutor`) with
   the browser's `Cookie` cut down to the shop's own `cart_id` and
   `shop_admin` (so does the proxy), the page URL as `Referer`, and never
-  follow redirects. Only an HTML answer (2xx or 500) is inserted, with
+  follow redirects. Only an HTML answer (2xx, 500 or 504) is inserted, with
   `mark_safe`, into the templates under `templates/shop/`. Their
   `Set-Cookie` goes back with the page, a droplet's redirect is answered as
   it is, and their `Link` preloads go into its `<head>`.
@@ -156,9 +156,9 @@ page: [Django](https://dropletsjs.dev/integrate/hosts/django/).
 - Basic page droplets are `client`, `ssr-hydrate`, `ssr-nohydrate`. `basic/views.py:26`
 - Basic page fragment fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`, no redirect followed. `basic/views.py:33`, `basic/views.py:36`
 - Basic page fragment failure (`httpx.HTTPError`) is logged and renders a fixed inline `<p class="error">`: the error names the internal URL. `basic/views.py:41`
-- Basic page pastes only a 2xx or 500 `text/html` answer; anything else renders `<p class="error">` with the status, the id escaped by `format_html`. `basic/views.py:45`, `basic/views.py:47`
+- Basic page pastes only a 2xx, 500 or 504 `text/html` answer; anything else renders `<p class="error">` with the status, the id escaped by `format_html`. `basic/views.py:45`, `basic/views.py:47`
 - Basic page answers `GET` and `HEAD`; `who` defaults to `Django`. `basic/views.py:50`, `basic/views.py:52`
-- Basic page opens one `httpx.Client` per request (timeout 5 s) and fetches the three fragments in a thread pool. `basic/views.py:53`
+- Basic page opens one `httpx.Client` per request (timeout 10 s) and fetches the three fragments in a thread pool. `basic/views.py:53`
 - Basic page template loads `{{ droplets_public_url }}/index.js`. `basic/templates/basic/index.html:7`
 - Shop footer stack name is `Django`. `shop/upstream.py:14`
 - Shop origin is scheme and host of `SHOP_PUBLIC_URL`. `shop/upstream.py:19`, `shop/upstream.py:20`
@@ -179,7 +179,7 @@ page: [Django](https://dropletsjs.dev/integrate/hosts/django/).
 - Shop proxy answers 502 `The shop is unreachable.` when the shop is down. `shop/proxy.py:101`
 - Shop proxy joins a repeated answer header with `, `, Set-Cookie aside. `shop/proxy.py:107`
 - Shop fragment 3xx keeps its `location`. `shop/views.py:46`
-- Shop fragment inserted only when 2xx or 500 and `text/html`, with `mark_safe`. `shop/views.py:48`
+- Shop fragment inserted only when 2xx, 500 or 504 and `text/html`, with `mark_safe`. `shop/views.py:48`
 - Shop fragment otherwise renders `<p class="shop-unavailable">` with the id escaped (`format_html`). `shop/views.py:55`
 - Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page (`get_full_path()`) as `referer` and the browser's `cookie` cut down to the shop's. `shop/views.py:59`, `shop/views.py:64`
 - Shop product lookup reads `/droplets/product-page/_data?slug=` and needs string `id` and `name`. `shop/views.py:74`

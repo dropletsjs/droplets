@@ -25,7 +25,7 @@ async function fragment(page: PageRequest, id: string, params = new URLSearchPar
   if (response.status >= 300 && response.status < 400) {
     result.location = response.headers.get("location");
   } else if (
-    (response.ok || response.status === 500) &&
+    (response.ok || [500, 504].includes(response.status)) &&
     (response.headers.get("content-type") ?? "").startsWith("text/html")
   ) {
     result.html = await response.text();
@@ -53,7 +53,7 @@ async function fragment(page: PageRequest, id: string, params = new URLSearchPar
   with SvelteKit's `redirect()`; the fragments' `Set-Cookie` go to
   `event.locals.shopCookies`, which `handle` appends to the page's response,
   sent `private, no-store`.
-- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+- Only a `text/html` answer (a 2xx, or a 500 or 504 carrying the droplet's error
   page) is pasted; `{@html}` writes it unescaped.
 - `handle` in `src/hooks.server.ts` passes `/index.js`, `/env.js`, `/index.css`, `/droplets/*`,
   `/assets/*` and `/api/*` on to the shop before any routing:
@@ -152,7 +152,7 @@ this host's origin), and the layout loads
 `cookie` cut down to the shop's own `cart_id` and `shop_admin`: nothing that
 names a host, and no other app's cookie on this origin. The body streams
 through (`duplex: "half"`), redirects are not followed, each request times
-out (15 seconds; fragments 10, the product lookup 5), and the answer comes
+out (15 seconds; fragments and the product lookup 10), and the answer comes
 back with its `Set-Cookie`
 untouched, minus `content-encoding`, `content-length` and the hop-by-hop
 headers. When the shop is down it answers `502`. The shop's cookies are
@@ -230,8 +230,8 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
 `fetch` SvelteKit hands to `load`, so the fragments are fetched during
 server rendering and never again on the client. It sends
 `x-droplet-location: DROPLETS_PUBLIC_URL` with `redirect: "manual"` and a
-5 second `AbortSignal.timeout`, pastes only a `text/html` answer (a 2xx, or a
-500 carrying the droplet's error page), and renders a `<p class="error">`
+10 second `AbortSignal.timeout`, pastes only a `text/html` answer (a 2xx, or
+a 500 or 504 carrying the droplet's error page), and renders a `<p class="error">`
 for anything else, the id and the error escaped.
 
 Here the page loads `/index.js` from the droplets server's own origin

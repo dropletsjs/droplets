@@ -17,7 +17,7 @@
 - The app's own build output stays under `/app/` (`build.assetsDir`), so `/assets/*` is the shop's.
 - The proxy passes bodies, `303`s and every `Set-Cookie` on untouched; the browser sends the shop's cookies itself.
   Checked by: `tests/hosts/e2e/shop.spec.ts` ("a new visitor gets nobody else's cart or session").
-- Fragments are fetched with `redirect: "manual"`; only an HTML answer (2xx or 500) is inserted.
+- Fragments are fetched with `redirect: "manual"`; only an HTML answer (2xx, 500 or 504) is inserted.
 - React owns a droplet's wrapper element and never renders inside it; the custom element owns its children.
 - `src/shop/shop.css` is the same file as every other host's shop layout; a change goes to all of them.
   Checked by: `tests/hosts/test/shop-css.test.ts`.

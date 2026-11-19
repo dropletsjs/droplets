@@ -35,7 +35,7 @@ public async Task<Fragment> Get(HttpContext context, Wanted wanted)
     var cookies = response.Headers.TryGetValues("set-cookie", out var setCookies) ? setCookies.ToArray() : [];
     var isHtml = response.Content.Headers.ContentType?.MediaType == "text/html";
     if (status is >= 300 and < 400) location = response.Headers.Location?.OriginalString;
-    else if ((response.IsSuccessStatusCode || status == 500) && isHtml)
+    else if ((response.IsSuccessStatusCode || status is 500 or 504) && isHtml)
         return new Fragment(await response.Content.ReadAsStringAsync(context.RequestAborted), status, null, cookies, link);
     // … anything else: a "droplet is unavailable" note, the id HTML-encoded
 }
@@ -61,7 +61,7 @@ public async Task<Fragment> Get(HttpContext context, Wanted wanted)
   `ShopPage.Render` sends the fragments' `Set-Cookie` with the page; a
   fragment's redirect answers the whole page with that status and
   `Location`.
-- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+- Only a `text/html` answer (a 2xx, or a 500 or 504 carrying the droplet's error
   page) is printed with `Html.Raw`; Razor encodes everything else.
 - `_ShopLayout.cshtml` loads `/index.js` once. Minimal API endpoints
   (`MapMethods`) pass `/index.js`, `/env.js`, `/index.css`, `/droplets/*`,
@@ -272,10 +272,10 @@ private async Task<string> Fetch(string droplet, IReadOnlyList<Pair> props)
     try
     {
         using var response = await clients.CreateClient(HostApp.DropletsClient).SendAsync(request, HttpContext.RequestAborted);
-        // Only an HTML answer is a fragment (a 500 carries the droplet's error
-        // page); anything else may echo the props, so it is never pasted.
+        // Only an HTML answer is a fragment (a 500 or 504 carries the droplet's
+        // error page); anything else may echo the props, so it is never pasted.
         var isHtml = response.Content.Headers.ContentType?.MediaType == "text/html";
-        if ((response.IsSuccessStatusCode || (int)response.StatusCode == 500) && isHtml)
+        if ((response.IsSuccessStatusCode || (int)response.StatusCode is 500 or 504) && isHtml)
         {
             return await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
         }
@@ -300,8 +300,8 @@ private async Task<string> Fetch(string droplet, IReadOnlyList<Pair> props)
 }
 ```
 
-Only a `text/html` answer is printed with `Html.Raw` (a 2xx, or a 500
-carrying the droplet's error page); any other answer prints an error
+Only a `text/html` answer is printed with `Html.Raw` (a 2xx, or a 500 or
+504 carrying the droplet's error page); any other answer prints an error
 paragraph with its status, the id encoded. A failed request prints a fixed
 one and logs the error, since its message names the internal URL. Here the
 page loads `/index.js` from the droplets server's public URL, another

@@ -187,6 +187,8 @@ class PageTests(ShopTestCase):
                 return httpx.Response(400, json={"error": "<script>alert(1)</script>"})
             if request.url.path == "/droplets/product-library":
                 return httpx.Response(500, headers={"content-type": "text/html"}, text="<p>The droplet failed.</p>")
+            if request.url.path == "/droplets/shopping-cart":
+                return httpx.Response(504, headers={"content-type": "text/html"}, text="<p>The droplet timed out.</p>")
             return StandInShop.fragments(request)
 
         self.shop.answer = answer
@@ -194,6 +196,7 @@ class PageTests(ShopTestCase):
         self.assertNotIn("alert(1)", html)
         self.assertIn("The product-filter droplet is unavailable (HTTP 400).", html)
         self.assertIn("<p>The droplet failed.</p>", html)
+        self.assertIn("<p>The droplet timed out.</p>", html)
 
     def test_escapes_the_droplet_id_in_the_unavailable_note(self):
         from .views import fragment

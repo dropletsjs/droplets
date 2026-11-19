@@ -174,8 +174,8 @@ public class Shop {
 
   /**
    * `GET /droplets/<id>?<params>`. Only an HTML answer is a fragment (a 500
-   * carries the droplet's error page); anything else may echo the props, so
-   * it is never inserted.
+   * or 504 carries the droplet's error page); anything else may echo the
+   * props, so it is never inserted.
    */
   Fragment fragment(String target, String cookie, String droplet, List<Param> params) {
     URI uri = URI.create(internalUrl + "/droplets/" + UriUtils.encodePathSegment(droplet, StandardCharsets.UTF_8) + "?" + encodeQuery(params));
@@ -200,7 +200,7 @@ public class Shop {
                 if (status >= 300 && status < 400) {
                   return new Fragment(unavailable(droplet, "HTTP " + status), status, res.getHeaders().getFirst("location"), cookies, link);
                 }
-                if (((status >= 200 && status < 300) || status == 500) && html) {
+                if (((status >= 200 && status < 300) || status == 500 || status == 504) && html) {
                   // Trusted markup from the shop: inserted as it is.
                   return new Fragment(new String(res.getBody().readAllBytes(), StandardCharsets.UTF_8), status, null, cookies, link);
                 }

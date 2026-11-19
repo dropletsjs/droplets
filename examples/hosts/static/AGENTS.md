@@ -7,7 +7,7 @@
   Checked by: `tests/hosts/e2e/shop.spec.ts` (the shop flow, run against this page), `tests/hosts/e2e/static.spec.ts`.
 - Nothing here sends `x-droplet-location`: the browser reaches the droplets server on its own origin.
   Checked by: `tests/hosts/test/location.test.ts` (`NONE`).
-- `html/shop.js` reads the droplets server's URL from the page's `/index.js` tag, sends every request with `credentials: "include"` and the page's whole URL as `Referer`, inserts only an HTML answer (a 2xx, or a 500), never follows a redirect, and shows a fixed note for anything else.
+- `html/shop.js` reads the droplets server's URL from the page's `/index.js` tag, sends every request with `credentials: "include"` and the page's whole URL as `Referer`, inserts only an HTML answer (a 2xx, a 500 or a 504), never follows a redirect, and shows a fixed note for anything else.
   Checked by: `tests/hosts/e2e/static.spec.ts` ("a page loaded directly takes its props from its URL", "an old version in the URL renders the product live").
 - The page names its droplets server as `http://localhost:8000`; `sub_filter` in `nginx.conf` rewrites it to `DROPLETS_PUBLIC_URL`.
 - In `docker-compose.yml`, the shop's `DROPLETS_TRUSTED_ORIGINS` is this page's `WEB_URL`; the shop's own `cors` answers that origin by name with credentials, never `*`.

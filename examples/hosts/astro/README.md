@@ -46,7 +46,7 @@ droplets server runs with `cors: true`
   request's Host, and passes `Set-Cookie` and redirects back untouched.
 - Each page's frontmatter (`src/lib/shop-page.ts`) fetches the toasts, the
   cart badge and its own fragments with the browser's `Cookie`, the page as
-  `Referer` and `redirect: "manual"`. Only an HTML answer (2xx or 500) is
+  `Referer` and `redirect: "manual"`. Only an HTML answer (2xx, 500 or 504) is
   inserted. The fragments' `Set-Cookie` go out with the page, a droplet's
   redirect is answered as it is, and `src/layouts/Shop.astro` writes their
   `Link` preloads into the head.
@@ -127,14 +127,14 @@ against this compose stack). The guide's page:
 - Middleware answers 403 to a form-like request whose `Origin` is not the public origin. `src/middleware.ts:22`, `src/middleware.ts:23`
 - Basic page `DROPLETS_INTERNAL_URL` defaults to `http://localhost:8000`. `src/lib/droplets.ts:2`
 - Basic page `DROPLETS_PUBLIC_URL` defaults to `http://localhost:8000`. `src/lib/droplets.ts:5`
-- Basic page fragment fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`, never follows a redirect, 5 second timeout. `src/lib/droplets.ts:23`, `src/lib/droplets.ts:24`, `src/lib/droplets.ts:25`
-- Basic page pastes only a 2xx or 500 `text/html` answer; anything else renders an inline `<p class="error">`, the id and the error escaped. `src/lib/droplets.ts:29`, `src/lib/droplets.ts:33`, `src/lib/droplets.ts:35`
+- Basic page fragment fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`, never follows a redirect, 10 second timeout. `src/lib/droplets.ts:23`, `src/lib/droplets.ts:24`, `src/lib/droplets.ts:25`
+- Basic page pastes only a 2xx, 500 or 504 `text/html` answer; anything else renders an inline `<p class="error">`, the id and the error escaped. `src/lib/droplets.ts:29`, `src/lib/droplets.ts:33`, `src/lib/droplets.ts:35`
 - Basic page droplets are `client`, `ssr-hydrate`, `ssr-nohydrate`. `src/pages/index.astro:6`
 - Basic page `who` defaults to `Astro`. `src/pages/index.astro:4`
 - Basic page loads `${DROPLETS_PUBLIC_URL}/index.js` with `is:inline`. `src/pages/index.astro:16`
 - Shop proxy routes are `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`, `/api/*`, all methods (`ALL`). `src/pages/index.js.ts:5`, `src/pages/env.js.ts:5`, `src/pages/index.css.ts:5`, `src/pages/droplets/[...path].ts:5`, `src/pages/assets/[...path].ts:5`, `src/pages/api/[...path].ts:5`
 - Shop proxy forwards only `accept`, `accept-language`, `content-type`, `if-none-match`, `origin`, `referer`, `user-agent`, `x-droplet-props`, `x-droplets-build`, plus `cookie` cut down to `cart_id` and `shop_admin` (`SHOP_COOKIES`). `src/lib/shop.ts:48`, `src/lib/shop.ts:74`, `src/lib/shop.ts:110`
-- Shop upstream timeouts: the proxy 15 s, a fragment 10 s, the product lookup 5 s. `src/lib/shop.ts:120`, `src/lib/shop.ts:151`, `src/lib/shop.ts:181`
+- Shop upstream timeouts: the proxy 15 s, a fragment 10 s, the product lookup 10 s. `src/lib/shop.ts:120`, `src/lib/shop.ts:151`, `src/lib/shop.ts:181`
 - Shop proxy drops `connection`, `content-encoding`, `content-length`, `keep-alive`, `transfer-encoding` from the answer and re-appends `set-cookie`. `src/lib/shop.ts:61`, `src/lib/shop.ts:131`
 - Shop `x-droplet-location` is the origin of `SHOP_PUBLIC_URL`, never the request's Host. `src/lib/shop.ts:102`, `src/lib/shop.ts:107`
 - Shop proxy URL is concatenated, not resolved: `//elsewhere` stays a path on the shop. `src/lib/shop.ts:117`
@@ -143,7 +143,7 @@ against this compose stack). The guide's page:
 - Shop proxy answers 502 `The shop is unreachable.` when the shop is down. `src/lib/shop.ts:136`
 - Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page as `referer` and the browser's `cookie` cut down to the shop's. `src/lib/shop.ts:147`, `src/lib/shop.ts:148`
 - Shop fragment fetch uses `redirect: "manual"` and `cache: "no-store"`; a 3xx keeps its `location`. `src/lib/shop.ts:153`, `src/lib/shop.ts:158`
-- Shop fragment inserted only when 2xx or 500 and `text/html`. `src/lib/shop.ts:160`, `src/lib/shop.ts:161`
+- Shop fragment inserted only when 2xx, 500 or 504 and `text/html`. `src/lib/shop.ts:160`, `src/lib/shop.ts:161`
 - Shop fragment otherwise renders `<p class="shop-unavailable">` with the id escaped. `src/lib/shop.ts:171`
 - Shop product lookup reads `/droplets/product-page/_data?slug=` and needs string `id`, `name`, `slug`. `src/lib/shop.ts:177`, `src/lib/shop.ts:188`
 - Shop `Link` preloads kept only for `preload`/`modulepreload` on the public origin. `src/lib/shop.ts:213`, `src/lib/shop.ts:220`

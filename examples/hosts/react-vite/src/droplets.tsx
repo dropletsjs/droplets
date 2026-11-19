@@ -70,10 +70,10 @@ export function Droplet({ id, props = {}, mode = "fragment", origin = DROPLETS_U
         // Never followed: a redirect's target is opaque in the browser and
         // could be a page, not a fragment.
         if (response.type === "opaqueredirect") throw new Error("redirected");
-        // Only an HTML answer is a fragment (a 500 carries the droplet's error
-        // page); a 400 or 404 is text that may echo the props: never insert it.
+        // Only an HTML answer is a fragment (a 500 or 504 carries the droplet's
+        // error page); a 400 or 404 may echo the props: never insert it.
         const isFragment =
-          (response.ok || response.status === 500) && (response.headers.get("content-type") ?? "").startsWith("text/html");
+          (response.ok || [500, 504].includes(response.status)) && (response.headers.get("content-type") ?? "").startsWith("text/html");
         if (!isFragment) throw new Error(`HTTP ${response.status}`);
         // Parsing through a <template> lets the custom element upgrade on insert.
         const template = document.createElement("template");

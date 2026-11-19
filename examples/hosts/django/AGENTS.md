@@ -19,7 +19,7 @@
   Checked by: `shop/tests.py`.
 - The shared `httpx.Client` keeps no cookies and follows no redirects: each visitor's `Cookie` is forwarded as it came.
   Checked by: `tests/hosts/e2e/shop.spec.ts` ("a new visitor gets nobody else's cart or session").
-- A shop page inserts a fragment only when it is a 2xx or 500 `text/html` answer, with `mark_safe`; every other string goes through the template's escaping or `format_html`.
+- A shop page inserts a fragment only when it is a 2xx, 500 or 504 `text/html` answer, with `mark_safe`; every other string goes through the template's escaping or `format_html`.
   Checked by: `shop/tests.py`.
 - Published ports bind to `127.0.0.1` only.
 - `shop/static/shop.css` is the same file as the other hosts' `shop.css` (all but WordPress); a change goes to all of them.

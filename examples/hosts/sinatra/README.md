@@ -94,8 +94,8 @@ http://localhost:8002 and takes the stack down. It needs Docker.
 - Basic page droplets are `client`, `ssr-hydrate` and `ssr-nohydrate`. `app.rb:17`
 - Basic page prop `who` comes from the query, default `Sinatra`. `app.rb:46`
 - Basic page fragment fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`; `Net::HTTP` never follows a redirect. `app.rb:32`
-- Basic page fragment fetch has 5 second open and read timeouts. `app.rb:31`
-- Basic page pastes only a 2xx or 500 `text/html` answer; anything else, or a failure, renders `<p class="error">` with the id and the error escaped. `app.rb:37`, `app.rb:39`, `app.rb:41`
+- Basic page fragment fetch has a 5 second open and a 10 second read timeout. `app.rb:31`
+- Basic page pastes only a 2xx, 500 or 504 `text/html` answer; anything else, or a failure, renders `<p class="error">` with the id and the error escaped. `app.rb:37`, `app.rb:39`, `app.rb:41`
 - Basic page loads `<DROPLETS_PUBLIC_URL>/index.js` as a module script. `views/index.erb:7`
 - Droplets server image is `examples/frameworks/Dockerfile`, the Svelte example by default. `docker-compose.yml:9`, `../../frameworks/Dockerfile:24`
 - Droplets server CORS: the Svelte example sets `cors: true`. `../../frameworks/svelte/droplets.config.ts:16`
@@ -119,7 +119,7 @@ http://localhost:8002 and takes the stack down. It needs Docker.
 - Request body is buffered by `ShopBufferedInput`, up to 4 MB (`SHOP_MAX_BODY`; above it, 413), with `method_override` off. `shop.rb:38`, `shop.rb:228`, `shop.rb:229`, `shop.rb:218`
 - Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page URL as `referer` and the browser's `cookie` cut down to the shop's. `shop.rb:118`, `shop.rb:119`
 - Shop fragment 3xx is kept as a redirect, not followed. `shop.rb:127`
-- Shop fragment is inserted only for 2xx or 500 with `text/html`. `shop.rb:129`
+- Shop fragment is inserted only for 2xx, 500 or 504 with `text/html`. `shop.rb:129`
 - Shop fragment otherwise renders `<p class="shop-unavailable">`. `shop.rb:138`
 - Shop page fetches `toast-center`, `shopping-cart` (`variant=badge`) and its own fragments, one thread each. `shop.rb:194`, `shop.rb:195`
 - Shop page sets `cache-control: private, no-store`. `shop.rb:197`

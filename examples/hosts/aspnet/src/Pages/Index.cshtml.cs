@@ -30,10 +30,10 @@ public sealed class IndexModel(IHttpClientFactory clients, HostSettings settings
         try
         {
             using var response = await clients.CreateClient(HostApp.DropletsClient).SendAsync(request, HttpContext.RequestAborted);
-            // Only an HTML answer is a fragment (a 500 carries the droplet's error
-            // page); anything else may echo the props, so it is never pasted.
+            // Only an HTML answer is a fragment (a 500 or 504 carries the droplet's
+            // error page); anything else may echo the props, so it is never pasted.
             var isHtml = response.Content.Headers.ContentType?.MediaType == "text/html";
-            if ((response.IsSuccessStatusCode || (int)response.StatusCode == 500) && isHtml)
+            if ((response.IsSuccessStatusCode || (int)response.StatusCode is 500 or 504) && isHtml)
             {
                 return await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
             }

@@ -1,6 +1,8 @@
 ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 require "rails/test_help"
+# shop_answer builds Net::HTTP answers before a test may have loaded Shop, which requires it.
+require "net/http"
 
 class ActionDispatch::IntegrationTest
   # The shop, answering every request with `answer` (called with the

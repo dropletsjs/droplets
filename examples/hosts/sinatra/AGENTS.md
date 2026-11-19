@@ -13,7 +13,7 @@
   Checked by: `pnpm test:hosts sinatra`.
 - The shop's browser requests (`/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`, `/api/*`) go through this host's same-origin proxy, which forwards only its listed request headers and passes `Set-Cookie` back untouched.
   Checked by: `pnpm test:hosts sinatra`.
-- A page inserts only a 2xx or 500 `text/html` fragment; a fragment's redirect is answered, never followed.
+- A page inserts only a 2xx, 500 or 504 `text/html` fragment; a fragment's redirect is answered, never followed.
   Checked by: `pnpm test:hosts sinatra`.
 - The host flow is the shop flow against this compose stack.
   Checked by: `pnpm test:hosts sinatra` (`tests/hosts/run.mjs`, `tests/hosts/e2e/shop.spec.ts`); needs Docker.

@@ -141,6 +141,13 @@ so by `pnpm check`, with no Docker:
   line that reads it from the environment, and no read of the request's
   own `Host` (in JavaScript, Python, Ruby, PHP, nginx or IIS terms) in
   those files.
+- `test/fragment-answers.test.ts`: every host example is listed, with the
+  files that fetch fragments or (`nginx`, `htmx`) as configured; per host,
+  every line that accepts a `500` fragment accepts a `504` too, and every
+  timer that bounds a fragment or `_data` answer is 10 s or more, longer
+  than the droplets server's `render.timeout` (5 s by default); nginx's
+  fragments leave every 5xx out of `error_page` and fall back to a backup
+  server when nginx gets no answer; htmx swaps a 2xx alone.
 - `test/standalone.test.ts`: `examples/shop`, `examples/wp-shop`, each
   `examples/frameworks/*` and each `examples/hosts/*` has no `file:` or
   `link:` dependency, no relative import or `tsconfig` `extends` reaching
@@ -222,6 +229,9 @@ its own install. The hosts are outside the pnpm workspace, so
 - `shop-css.test.ts` expects WordPress's `shop.css` to name the theme (Twenty Twenty-Five) and use `--wp--preset--` values. `test/shop-css.test.ts:50`
 - `location.test.ts` lists per host the files that send `x-droplet-location`, the value a line may give it and the environment read it comes from. `test/location.test.ts:24`
 - `location.test.ts` fails on a host-header read (`.headers.host`, `req.hostname`, `request.host`, `HTTP_HOST`, `$host`, `$http_host`, `{HTTP_HOST}` and the like) in those files, comments left out. `test/location.test.ts:95`, `test/location.test.ts:123`
+- `fragment-answers.test.ts` lists per host the files that fetch fragments or `_data`, how many lines accept a 500 and a 504, and how many response timers they set. `test/fragment-answers.test.ts:28`
+- `fragment-answers.test.ts` fails on a line naming 500 (`500`, `StatusInternalServerError`) without 504 (`504`, `StatusGatewayTimeout`), and on a response timer under 10 s (`AbortSignal.timeout`, httpx `timeout=`, `read_timeout:`, `'timeout' =>`, `->timeout()`, `TimeSpan.FromSeconds`, `restClient(Duration.ofSeconds())`, `* time.Second` and the like), comments left out; connect timeouts are not read. `test/fragment-answers.test.ts:58`, `test/fragment-answers.test.ts:62`, `test/fragment-answers.test.ts:99`, `test/fragment-answers.test.ts:105`
+- `fragment-answers.test.ts` expects nginx's `/_fragment/` location to list no 5xx in `error_page`, intercept errors, wait 10 s and pass to an upstream of `shop:8300 max_fails=0` and a loopback `backup` that answers the note. `test/fragment-answers.test.ts:123`, `test/fragment-answers.test.ts:130`
 - `standalone.test.ts` takes `examples/shop`, `examples/wp-shop`, every `examples/frameworks/*` and every `examples/hosts/*` as a root, skipping `node_modules`, `dist`, `build`, `.next`, `.svelte-kit`, `.astro`, `.venv`, `.droplets`, `.tmp` and `__pycache__`. `test/standalone.test.ts:16`, `test/standalone.test.ts:27`
 - `standalone.test.ts` fails on a `file:` or `link:` range in any `package.json`, a relative import resolving above the root in a `.js`/`.ts`/`.svelte`/`.vue`/`.astro` file, or a relative `extends` above the root in a `tsconfig*.json`. `test/standalone.test.ts:49`, `test/standalone.test.ts:62`, `test/standalone.test.ts:72`
 - Root `test:hosts` and `typecheck:hosts` run this folder's scripts. `../../package.json:40`

@@ -31,7 +31,7 @@ generates its own for a run.
 `load` fetches `GET /droplets/<id>?who=<who>` for `client`, `ssr-hydrate` and
 `ssr-nohydrate` through `src/lib/droplets.server.ts`, with
 `x-droplet-location` set to `DROPLETS_PUBLIC_URL`. `?who=Kit` changes the
-prop. Only a `text/html` answer (2xx or 500) is pasted; anything else, or
+prop. Only a `text/html` answer (2xx, 500 or 504) is pasted; anything else, or
 a failure, renders an inline `<p class="error">`.
 
 The page and the droplets server are different origins, so the droplets
@@ -107,8 +107,8 @@ From the repository root:
 - `tsconfig.json` extends `.svelte-kit/tsconfig.json`, written by `svelte-kit sync`. `tsconfig.json:3`
 - `DROPLETS_INTERNAL_URL` defaults to `http://localhost:8000`. `src/lib/droplets.server.ts:4`
 - `DROPLETS_PUBLIC_URL` defaults to `http://localhost:8000`. `src/lib/droplets.server.ts:6`
-- Basic page fragment fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`, never follows a redirect, 5 second timeout. `src/lib/droplets.server.ts:24`, `src/lib/droplets.server.ts:25`, `src/lib/droplets.server.ts:26`
-- Basic page pastes only a 2xx or 500 `text/html` answer; anything else renders `<p class="error">`, the id and the error escaped. `src/lib/droplets.server.ts:30`, `src/lib/droplets.server.ts:34`, `src/lib/droplets.server.ts:36`
+- Basic page fragment fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`, never follows a redirect, 10 second timeout. `src/lib/droplets.server.ts:24`, `src/lib/droplets.server.ts:25`, `src/lib/droplets.server.ts:26`
+- Basic page pastes only a 2xx, 500 or 504 `text/html` answer; anything else renders `<p class="error">`, the id and the error escaped. `src/lib/droplets.server.ts:30`, `src/lib/droplets.server.ts:34`, `src/lib/droplets.server.ts:36`
 - Basic page droplets are `client`, `ssr-hydrate` and `ssr-nohydrate`. `src/routes/+page.server.ts:5`
 - Basic page prop `who` comes from the query, default `SvelteKit`. `src/routes/+page.server.ts:8`
 - Basic page loads `<DROPLETS_PUBLIC_URL>/index.js` in `<svelte:head>`. `src/routes/+page.svelte:8`
@@ -124,14 +124,14 @@ From the repository root:
 - `SHOP_PUBLIC_URL` is reduced to its origin, the `x-droplet-location` value. `src/lib/shop.server.ts:102`
 - Shop proxy sends `x-droplet-location` set to that origin, never the request's Host. `src/lib/shop.server.ts:107`
 - Shop proxy forwards only `accept`, `accept-language`, `content-type`, `if-none-match`, `origin`, `referer`, `user-agent`, `x-droplet-props`, `x-droplets-build`, plus `cookie` cut down to `cart_id` and `shop_admin` (`SHOP_COOKIES`). `src/lib/shop.server.ts:48`, `src/lib/shop.server.ts:74`, `src/lib/shop.server.ts:112`
-- Shop upstream timeouts: the proxy 15 s, a fragment 10 s, the product lookup 5 s. `src/lib/shop.server.ts:122`, `src/lib/shop.server.ts:153`, `src/lib/shop.server.ts:183`
+- Shop upstream timeouts: the proxy 15 s, a fragment 10 s, the product lookup 10 s. `src/lib/shop.server.ts:122`, `src/lib/shop.server.ts:153`, `src/lib/shop.server.ts:183`
 - Shop proxy drops hop-by-hop response headers and passes `Set-Cookie` untouched. `src/lib/shop.server.ts:61`, `src/lib/shop.server.ts:131`
 - Shop proxy concatenates the path onto the shop's base, never resolves it. `src/lib/shop.server.ts:117`
 - Shop proxy never follows redirects and streams the request body (`duplex: "half"`). `src/lib/shop.server.ts:121`, `src/lib/shop.server.ts:124`
 - Shop proxy answers 502 `The shop is unreachable.` when the shop fails. `src/lib/shop.server.ts:136`
 - Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page URL as `referer` and the browser's `cookie` cut down to the shop's. `src/lib/shop.server.ts:149`, `src/lib/shop.server.ts:150`
 - Shop fragment fetch uses `redirect: "manual"` and `cache: "no-store"`. `src/lib/shop.server.ts:153`
-- Shop fragment 3xx is kept as a redirect; only 2xx or 500 with `text/html` is inserted. `src/lib/shop.server.ts:157`, `src/lib/shop.server.ts:160`
+- Shop fragment 3xx is kept as a redirect; only 2xx, 500 or 504 with `text/html` is inserted. `src/lib/shop.server.ts:157`, `src/lib/shop.server.ts:160`
 - Shop fragment otherwise renders `<p class="shop-unavailable">`. `src/lib/shop.server.ts:171`
 - Shop product lookup reads `/droplets/product-page/_data?slug=<slug>`. `src/lib/shop.server.ts:177`
 - Shop `Link` preloads keep only `preload` and `modulepreload` on this host's origin. `src/lib/shop.server.ts:213`, `src/lib/shop.server.ts:220`

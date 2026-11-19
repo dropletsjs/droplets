@@ -23,7 +23,7 @@ def fragment(id, params, cookie:, referer:)
   result.merge!(status: code, cookies: response.get_fields("set-cookie") || [], link: response["link"])
   if (300..399).cover?(code)
     result[:location] = response["location"]
-  elsif (response.is_a?(Net::HTTPSuccess) || code == 500) && response["content-type"].to_s.start_with?("text/html")
+  elsif (response.is_a?(Net::HTTPSuccess) || [500, 504].include?(code)) && response["content-type"].to_s.start_with?("text/html")
     result[:html] = response.body.to_s.force_encoding("UTF-8").html_safe
     return result
   end
@@ -48,7 +48,7 @@ end
 - `Net::HTTP` never follows a redirect, so a droplet's 3xx is kept:
   `ShopController#render_shop` answers it with `head`, and sends the
   fragments' `Set-Cookie` with the page.
-- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+- Only a `text/html` answer (a 2xx, or a 500 or 504 carrying the droplet's error
   page) is marked `html_safe`; `<%= %>` escapes everything else.
 - The `shop` layout loads `/index.js` once. `ShopProxy`, routed for every
   verb, passes `/index.js`, `/env.js`, `/index.css`, `/droplets/*`,
@@ -228,11 +228,11 @@ class HomeController < ActionController::Base
     uri.query = URI.encode_www_form(props) unless props.empty?
 
     # Net::HTTP never follows a redirect.
-    answer = Net::HTTP.start(uri.host, uri.port, open_timeout: 5, read_timeout: 5) do |http|
+    answer = Net::HTTP.start(uri.host, uri.port, open_timeout: 5, read_timeout: 10) do |http|
       http.get(uri.request_uri, { "accept" => "text/html", "x-droplet-location" => DROPLETS_PUBLIC_URL })
     end
     is_html = answer["content-type"].to_s.start_with?("text/html")
-    return answer.body.to_s.force_encoding("UTF-8").html_safe if (answer.is_a?(Net::HTTPSuccess) || answer.code == "500") && is_html
+    return answer.body.to_s.force_encoding("UTF-8").html_safe if (answer.is_a?(Net::HTTPSuccess) || %w[500 504].include?(answer.code)) && is_html
 
     helpers.tag.p(%(droplet "#{droplet}" unavailable: HTTP #{answer.code}), class: "error")
   rescue StandardError => e

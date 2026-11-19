@@ -17,7 +17,7 @@
   Checked by: `shop_test.go`, `tests/hosts/e2e/shop.spec.ts`.
 - The shared `http.Client` has no cookie jar and follows no redirects: each visitor's `Cookie` is forwarded as it came.
   Checked by: `shop_test.go`, `tests/hosts/e2e/shop.spec.ts` ("a new visitor gets nobody else's cart or session").
-- A page inserts a fragment only when it is a 2xx or 500 `text/html` answer, as `template.HTML`; nothing else from a request becomes `template.HTML` unescaped.
+- A page inserts a fragment only when it is a 2xx, 500 or 504 `text/html` answer, as `template.HTML`; nothing else from a request becomes `template.HTML` unescaped.
   Checked by: `shop_test.go`.
 - Published ports bind to `127.0.0.1` only.
 - `static/shop.css` is the same file as the other hosts' `shop.css` (all but WordPress); a change goes to all of them.

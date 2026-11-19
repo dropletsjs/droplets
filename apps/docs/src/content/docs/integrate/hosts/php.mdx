@@ -33,7 +33,7 @@ function shop_fragments(array $wanted): array
         $is_html = str_starts_with((string) http_header($response, 'content-type'), 'text/html');
         if ($status >= 300 && $status < 400) {
             $result['location'] = http_header($response, 'location');
-        } elseif ((($status >= 200 && $status < 300) || $status === 500) && $is_html) {
+        } elseif ((($status >= 200 && $status < 300) || in_array($status, [500, 504], true)) && $is_html) {
             $result['html'] = $response['body'];
             $results[$key] = $result;
             continue;
@@ -62,7 +62,7 @@ function shop_fragments(array $wanted): array
 - curl never follows a redirect, so a droplet's 3xx is kept: `shop_render()`
   answers it with a `Location` header, and sends the fragments'
   `Set-Cookie` with the page.
-- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+- Only a `text/html` answer (a 2xx, or a 500 or 504 carrying the droplet's error
   page) is pasted; `<?= ?>` prints it unescaped.
 - `app/views/shop/layout.php` loads `/index.js` once. `shop_is_proxied()`
   sends `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and `/api/*` to
@@ -223,15 +223,15 @@ $droplets_public = rtrim(getenv('DROPLETS_PUBLIC_URL') ?: 'http://localhost:8000
     $responses = http_all(array_map(static fn(string $id) => [
         'url' => $droplets_internal . '/droplets/' . rawurlencode($id) . '?' . http_build_query(['who' => $who]),
         'headers' => ['accept' => 'text/html', 'x-droplet-location' => $droplets_public],
-    ], $ids), 5);
+    ], $ids), 10);
     $fragments = [];
     foreach ($ids as $index => $id) {
         $response = $responses[$index];
-        // Only an HTML answer is a fragment (a 500 carries the droplet's error
-        // page); anything else may echo the props, so it is never pasted.
+        // Only an HTML answer is a fragment (a 500 or 504 carries the droplet's
+        // error page); anything else may echo the props, so it is never pasted.
         $status = $response['status'];
         $is_html = str_starts_with((string) http_header($response, 'content-type'), 'text/html');
-        $fragments[] = (($status >= 200 && $status < 300) || $status === 500) && $is_html
+        $fragments[] = (($status >= 200 && $status < 300) || in_array($status, [500, 504], true)) && $is_html
             ? $response['body'] // trusted markup from the droplets server; never escaped
             : sprintf('<p class="error">droplet "%s" unavailable: %s</p>', h($id), $status ? 'HTTP ' . $status : 'unreachable');
     }

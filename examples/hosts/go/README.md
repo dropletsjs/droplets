@@ -51,7 +51,7 @@ server runs with `cors: true` (`examples/frameworks/svelte/droplets.config.ts`).
   down to the shop's own `cart_id` and `shop_admin` (so does the proxy,
   which also refuses a path with a `.` or `..` segment once decoded, a
   method off its list and a body over 4 MiB), the page URL as `Referer`, and
-  never follow redirects. Only an HTML answer (2xx or 500) is inserted, into
+  never follow redirects. Only an HTML answer (2xx, 500 or 504) is inserted, into
   the templates under `templates/shop/`. Their `Set-Cookie` goes back with
   the page, a droplet's redirect is answered as it is, and their `Link`
   preloads go into its `<head>`.
@@ -130,9 +130,9 @@ stack). `pnpm typecheck:hosts` covers the Node hosts only. The guide's page:
 - Basic page is `GET /{$}`, the root alone. `main.go:72`
 - Basic page `who` defaults to `Go` when the query has none. `main.go:94`
 - Basic page fetches the three fragments at once, a goroutine each. `main.go:101`
-- Basic page fragment fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`, timeout 5 s. `main.go:109`, `main.go:116`, `main.go:117`
+- Basic page fragment fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`, timeout 10 s. `main.go:109`, `main.go:116`, `main.go:117`
 - Basic page fragment failure is logged and renders a fixed inline `<p class="error">`: the error names the internal URL. `main.go:121`
-- Basic page pastes only a 2xx or 500 `text/html` answer; anything else renders `<p class="error">` with the status, the id escaped. `main.go:132`, `main.go:140`
+- Basic page pastes only a 2xx, 500 or 504 `text/html` answer; anything else renders `<p class="error">` with the status, the id escaped. `main.go:132`, `main.go:140`
 - Pages are executed into memory first; a template error answers 500 `The page could not be rendered.`. `main.go:147`
 - Basic page template loads `{{.PublicURL}}/index.js`. `templates/index.html:7`
 - Shop footer stack name is `Go`. `shop.go:32`
@@ -150,10 +150,10 @@ stack). `pnpm typecheck:hosts` covers the Node hosts only. The guide's page:
 - Shop proxy streams the request body and the answer, and sends no body for `HEAD`. `shop.go:228`, `shop.go:229`
 - Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page as `referer` and the browser's `cookie` cut down to the shop's, timeout 10 s. `shop.go:292`, `shop.go:298`, `shop.go:300`, `shop.go:302`
 - Shop fragment 3xx keeps its `location`. `shop.go:312`
-- Shop fragment inserted only when 2xx or 500 and `text/html`, as `template.HTML`. `shop.go:324`, `main.go:140`
+- Shop fragment inserted only when 2xx, 500 or 504 and `text/html`, as `template.HTML`. `shop.go:324`, `main.go:140`
 - Shop fragment otherwise renders `<p class="shop-unavailable">` with the id escaped. `shop.go:283`
 - Shop pages fetch every fragment at once, a goroutine each. `shop.go:332`
-- Shop product lookup reads `/droplets/product-page/_data?slug=`, timeout 5 s, and needs string `id` and `name`. `shop.go:353`, `shop.go:356`, `shop.go:381`
+- Shop product lookup reads `/droplets/product-page/_data?slug=`, timeout 10 s, and needs string `id` and `name`. `shop.go:353`, `shop.go:356`, `shop.go:381`
 - Shop `Link` preloads kept only for `preload`/`modulepreload` on the public origin. `shop.go:421`, `shop.go:425`
 - Shop pages always fetch `toast-center` and `shopping-cart` with `variant=badge`. `shop.go:483`
 - Shop page redirect: the first fragment with a `location` answers the page with its status. `shop.go:494`

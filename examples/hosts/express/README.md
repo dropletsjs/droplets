@@ -46,7 +46,7 @@ origins, so the droplets server runs with `cors: true`
 - the pages fetch their fragments on the server with `x-droplet-location`
   (the configured `SHOP_PUBLIC_URL`, never the request's Host), the
   browser's `Cookie`, the page as `Referer` and `redirect: "manual"`; only
-  an HTML answer (2xx or 500) is inserted, the fragments' `Set-Cookie` go
+  an HTML answer (2xx, 500 or 504) is inserted, the fragments' `Set-Cookie` go
   out with the page, a droplet's redirect is answered as it is, and their
   `Link` preloads go into its `<head>`;
 - `public/shop.css` is the layout, the same file in every host but
@@ -159,8 +159,8 @@ stack; `--https` for the Caddy variant). The guide's page:
 - Host shop defaults: `SHOP_INTERNAL_URL` `http://localhost:8300`, `SHOP_PUBLIC_URL` `http://localhost:<PORT>`. `src/server.js:23`, `src/server.js:24`
 - Host basic page `who` defaults to `Express`. `src/server.js:29`
 - Host log line: `express host listening on http://localhost:<port>`. `src/server.js:45`
-- Droplet client fragment fetch sends `accept: text/html` and `x-droplet-location: publicUrl`, never follows a redirect, 5 second timeout. `src/droplets.js:22`, `src/droplets.js:23`, `src/droplets.js:24`
-- Droplet client pastes only a 2xx or 500 `text/html` answer; anything else renders an inline `<p class="error">`, the id and the error escaped. `src/droplets.js:28`, `src/droplets.js:32`, `src/droplets.js:34`
+- Droplet client fragment fetch sends `accept: text/html` and `x-droplet-location: publicUrl`, never follows a redirect, 10 second timeout. `src/droplets.js:22`, `src/droplets.js:23`, `src/droplets.js:24`
+- Droplet client pastes only a 2xx, 500 or 504 `text/html` answer; anything else renders an inline `<p class="error">`, the id and the error escaped. `src/droplets.js:28`, `src/droplets.js:32`, `src/droplets.js:34`
 - Droplet client script tag loads `${publicUrl}/index.js`. `src/droplets.js:39`
 - Embedded needs `DROPLETS_DIST`, the droplets server's build folder, resolved from the working directory; without it, it exits 2. `src/embedded.js:18`, `src/embedded.js:22`
 - Embedded imports `dist/server.js` and uses its default export `{ fetch }`. `src/embedded.js:32`
@@ -172,7 +172,7 @@ stack; `--https` for the Caddy variant). The guide's page:
 - Shop footer stack name is `Express 5`. `src/shop.js:16`
 - Shop proxy forwards only `accept`, `accept-language`, `content-type`, `if-none-match`, `origin`, `referer`, `user-agent`, `x-droplet-props`, `x-droplets-build`, plus `cookie` cut down to `cart_id` and `shop_admin` (`SHOP_COOKIES`). `src/shop.js:19`, `src/shop.js:44`, `src/shop.js:97`
 - Shop proxy refuses a path with a `.` or `..` segment, once decoded, with 400. `src/shop.js:56`, `src/shop.js:91`
-- Shop upstream timeouts: the proxy 15 s, a fragment 10 s, the product lookup 5 s. `src/shop.js:108`, `src/shop.js:147`, `src/shop.js:175`
+- Shop upstream timeouts: the proxy 15 s, a fragment 10 s, the product lookup 10 s. `src/shop.js:108`, `src/shop.js:147`, `src/shop.js:175`
 - Shop proxy drops `connection`, `content-encoding`, `content-length`, `keep-alive`, `transfer-encoding` from the answer and re-sets `set-cookie`. `src/shop.js:32`, `src/shop.js:116`
 - Shop proxy routes are `/index.js`, `/env.js`, `/index.css`, `/droplets`, `/assets`, `/api`, every method. `src/shop.js:41`, `src/shop.js:125`
 - Shop `x-droplet-location` is the origin of `SHOP_PUBLIC_URL`, never the request's Host. `src/shop.js:85`, `src/shop.js:92`
@@ -182,7 +182,7 @@ stack; `--https` for the Caddy variant). The guide's page:
 - Shop proxy answers 502 `The shop is unreachable.` when the shop is down. `src/shop.js:121`
 - Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page as `referer` and the browser's `cookie` cut down to the shop's. `src/shop.js:132`, `src/shop.js:133`
 - Shop fragment fetch uses `redirect: "manual"`; a 3xx keeps its `location`. `src/shop.js:147`, `src/shop.js:152`
-- Shop fragment inserted only when 2xx or 500 and `text/html`. `src/shop.js:154`, `src/shop.js:155`
+- Shop fragment inserted only when 2xx, 500 or 504 and `text/html`. `src/shop.js:154`, `src/shop.js:155`
 - Shop fragment otherwise renders `<p class="shop-unavailable">` with the id escaped. `src/shop.js:164`
 - Shop product lookup reads `/droplets/product-page/_data?slug=` and needs string `id` and `name`. `src/shop.js:170`, `src/shop.js:180`
 - Shop `Link` preloads kept only for `preload`/`modulepreload` on the public origin. `src/shop.js:199`, `src/shop.js:206`

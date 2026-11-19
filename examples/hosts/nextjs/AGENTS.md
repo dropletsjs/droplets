@@ -18,7 +18,7 @@
   Checked by: `tests/hosts/e2e/shop.spec.ts` ("without JavaScript, add to cart lands back on the host page").
 - Each request to the shop carries only the visitor's own `Cookie`: nothing keeps cookies between requests.
   Checked by: `tests/hosts/e2e/shop.spec.ts` ("a new visitor gets nobody else's cart or session").
-- Only an HTML answer (2xx or 500) is inserted as a fragment; any other answer becomes a fixed note.
+- Only an HTML answer (2xx, 500 or 504) is inserted as a fragment; any other answer becomes a fixed note.
 - Modules that read server environment or fetch the shop import `server-only`.
 - `public/shop.css` is the same file as every other host's shop layout; a change goes to all of them.
   Checked by: `tests/hosts/test/shop-css.test.ts`.

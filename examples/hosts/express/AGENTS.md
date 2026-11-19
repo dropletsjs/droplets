@@ -16,7 +16,7 @@
   Checked by: `tests/hosts/e2e/shop.spec.ts`.
 - The proxy forwards only the listed request headers, none that names a host, and passes `Set-Cookie`, redirects and bodies back untouched.
   Checked by: `tests/hosts/e2e/shop.spec.ts`.
-- A shop page inserts a fragment only when it is a 2xx or 500 `text/html` answer.
+- A shop page inserts a fragment only when it is a 2xx, 500 or 504 `text/html` answer.
 - Published ports bind to `127.0.0.1` only.
 - `public/shop.css` is the same file as the other hosts' `shop.css` (all but WordPress); a change goes to all of them.
   Checked by: `tests/hosts/test/shop-css.test.ts`.

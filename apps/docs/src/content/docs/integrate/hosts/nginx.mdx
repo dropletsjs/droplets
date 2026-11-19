@@ -34,7 +34,7 @@ location ~ ^/(index\.js$|env\.js$|index\.css$|droplets/|assets/|api/) {
 location ^~ /_fragment/ {
   internal;
   rewrite ^/_fragment(/.*)$ $1 break;
-  proxy_pass http://shop;
+  proxy_pass http://shop_fragments;
   proxy_set_header Cookie $shop_cookie;
   proxy_set_header Referer ${SHOP_PUBLIC_URL}$request_uri;
   proxy_set_header Accept text/html;
@@ -44,10 +44,23 @@ location ^~ /_fragment/ {
   proxy_set_header X-Forwarded-Host "";
   proxy_set_header X-Forwarded-Proto "";
   proxy_set_header X-Forwarded-Prefix "";
+  proxy_read_timeout 10s;
   proxy_intercept_errors on;
-  error_page 400 401 403 404 405 413 431 502 503 504 = @unavailable;
+  error_page 400 401 403 404 405 413 431 = @unavailable;
 }
 location @unavailable {
+  default_type text/html;
+  return 200 '<p class="shop-unavailable">This droplet is unavailable.</p>';
+}
+
+# After the shop's server block: when nginx itself gets no answer, the
+# backup answers the note.
+upstream shop_fragments {
+  server shop:8300 max_fails=0;
+  server 127.0.0.1:8082 backup;
+}
+server {
+  listen 127.0.0.1:8082;
   default_type text/html;
   return 200 '<p class="shop-unavailable">This droplet is unavailable.</p>';
 }
@@ -73,8 +86,19 @@ location @unavailable {
   `Accept-Encoding`, so the body it pastes is plain HTML.
 - The answer's body goes into the page where the include was. The error
   statuses listed in `error_page` become a fixed note instead, since their
-  text may echo the query; a 500 is pasted, because it carries the droplet's
-  error page.
+  text may echo the query; a 500 or a 504 is pasted, because it carries the
+  droplet's error page (a 504 when the render ran past the shop's
+  `render.timeout`).
+- nginx's own failures are not in that list: `error_page` applies to the
+  errors nginx generates whatever `proxy_intercept_errors` says, so listing
+  504 there would replace the shop's error page too, and leaving it out
+  would paste nginx's own "504 Gateway Time-out" page when the shop is
+  silent. The fragments go through `upstream shop_fragments` instead: when
+  the shop is unreachable or sends no answer within 10 s
+  (`proxy_read_timeout`), nginx moves on to the `backup` server, which
+  answers the same note; an answer the shop did send is never retried.
+  `max_fails=0` keeps one slow droplet from sending the others to the
+  backup.
 - The `location ~` block passes `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and
   `/api/*` to the shop, so the browser only talks to nginx.
 - `nginx.conf` is a template (the nginx image's `/etc/nginx/templates/`):

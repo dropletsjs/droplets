@@ -23,7 +23,7 @@ def shop_fragment(id, params = [])
   result.merge!(status: code, cookies: response.get_fields("set-cookie") || [], link: response["link"])
   if (300..399).cover?(code)
     result[:location] = response["location"]
-  elsif (response.is_a?(Net::HTTPSuccess) || code == 500) && response["content-type"].to_s.start_with?("text/html")
+  elsif (response.is_a?(Net::HTTPSuccess) || [500, 504].include?(code)) && response["content-type"].to_s.start_with?("text/html")
     result[:html] = response.body.to_s.force_encoding("UTF-8")
     return result
   end
@@ -48,7 +48,7 @@ end
 - `Net::HTTP` never follows a redirect, so a droplet's 3xx is kept:
   `shop_render` answers it with `halt`, and sends the fragments' `Set-Cookie`
   with the page.
-- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+- Only a `text/html` answer (a 2xx, or a 500 or 504 carrying the droplet's error
   page) is pasted; `<%= %>` prints it unescaped.
 - `views/shop/layout.erb` loads `/index.js` once. `SHOP_PROXIED`, routed for
   every verb, passes `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*` and `/api/*` on
@@ -192,13 +192,13 @@ def fetch_droplet(droplet, props = {})
   uri.query = URI.encode_www_form(props) unless props.empty?
 
   # Net::HTTP never follows a redirect.
-  response = Net::HTTP.start(uri.host, uri.port, open_timeout: 5, read_timeout: 5) do |http|
+  response = Net::HTTP.start(uri.host, uri.port, open_timeout: 5, read_timeout: 10) do |http|
     http.get(uri.request_uri, { "accept" => "text/html", "x-droplet-location" => DROPLETS_PUBLIC_URL })
   end
-  # Only an HTML answer is a fragment (a 500 carries the droplet's error
-  # page); anything else may echo the props, so it is never pasted.
+  # Only an HTML answer is a fragment (a 500 or 504 carries the droplet's
+  # error page); anything else may echo the props, so it is never pasted.
   is_html = response["content-type"].to_s.start_with?("text/html")
-  return response.body if (response.is_a?(Net::HTTPSuccess) || response.code == "500") && is_html
+  return response.body if (response.is_a?(Net::HTTPSuccess) || %w[500 504].include?(response.code)) && is_html
 
   %(<p class="error">droplet "#{Rack::Utils.escape_html(droplet)}" unavailable: HTTP #{response.code}</p>)
 rescue StandardError => e

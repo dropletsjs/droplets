@@ -21,12 +21,12 @@ export function createDropletClient({ internalUrl, publicUrl }) {
       const response = await fetch(url, {
         headers: { accept: "text/html", "x-droplet-location": publicUrl },
         redirect: "manual",
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(10_000),
       });
-      // Only an HTML answer is a fragment (a 500 carries the droplet's error
-      // page); anything else may echo the props, so it is never pasted.
+      // Only an HTML answer is a fragment (a 500 or 504 carries the droplet's
+      // error page); anything else may echo the props, so it is never pasted.
       const isFragment =
-        (response.ok || response.status === 500) && (response.headers.get("content-type") ?? "").startsWith("text/html");
+        (response.ok || [500, 504].includes(response.status)) && (response.headers.get("content-type") ?? "").startsWith("text/html");
       if (isFragment) return await response.text();
       await response.body?.cancel();
       return `<p class="error">droplet "${escapeHtml(droplet)}" unavailable: HTTP ${response.status}</p>`;

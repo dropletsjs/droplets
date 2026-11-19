@@ -32,7 +32,7 @@ public static class HostApp
         builder.Services.AddSingleton(services => HostSettings.From(services.GetRequiredService<IConfiguration>()));
         builder.Services.AddHttpClient(ShopClient, client => client.Timeout = TimeSpan.FromSeconds(10))
             .ConfigurePrimaryHttpMessageHandler(Handler);
-        builder.Services.AddHttpClient(DropletsClient, client => client.Timeout = TimeSpan.FromSeconds(5))
+        builder.Services.AddHttpClient(DropletsClient, client => client.Timeout = TimeSpan.FromSeconds(10))
             .ConfigurePrimaryHttpMessageHandler(Handler);
         builder.Services.AddScoped<ShopFragments>();
         builder.Services.AddRazorPages();

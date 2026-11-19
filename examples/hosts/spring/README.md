@@ -57,7 +57,7 @@ server runs with `cors: true` (`examples/frameworks/svelte/droplets.config.ts`).
   cut down to the shop's own `cart_id` and `shop_admin` (so does the proxy,
   which also refuses a path with a `.` or `..` segment once decoded),
   the page URL as `Referer`, and never follow redirects. Only an HTML answer
-  (2xx or 500) is inserted (`th:utext`), into the Thymeleaf templates under
+  (2xx, 500 or 504) is inserted (`th:utext`), into the Thymeleaf templates under
   `templates/shop/`. Their `Set-Cookie` goes back with the page, a droplet's
   redirect is answered as it is, and their `Link` preloads go into its
   `<head>`.
@@ -125,13 +125,13 @@ stack). `pnpm typecheck:hosts` covers the Node hosts only. The guide's page:
 - Multipart parsing and the form-content filter are off: nothing reads a body before the proxy. `src/main/resources/application.properties:7`, `src/main/resources/application.properties:8`
 - Request headers may total 32 KB. `src/main/resources/application.properties:11`
 - HTTP client is the JDK's `HttpClient`, HTTP/1.1, `Redirect.NEVER`, no cookie handler, connect timeout 5 s. `src/main/java/com/example/droplets/Application.java:33`, `src/main/java/com/example/droplets/Application.java:34`, `src/main/java/com/example/droplets/Application.java:35`
-- Shared `RestClient` read timeout 10 s; the basic page's own client 5 s. `src/main/java/com/example/droplets/Application.java:44`, `src/main/java/com/example/droplets/IndexController.java:34`
+- Shared `RestClient` read timeout 10 s; the basic page's own client 10 s too. `src/main/java/com/example/droplets/Application.java:44`, `src/main/java/com/example/droplets/IndexController.java:34`
 - Fragments are fetched on a virtual-thread-per-task executor. `src/main/java/com/example/droplets/Application.java:50`, `src/main/java/com/example/droplets/Shop.java:170`
 - Basic page `DROPLETS_INTERNAL_URL` and `DROPLETS_PUBLIC_URL` default to `http://localhost:8000`. `src/main/java/com/example/droplets/IndexController.java:45`, `src/main/java/com/example/droplets/IndexController.java:46`
 - Basic page droplets are `client`, `ssr-hydrate`, `ssr-nohydrate`. `src/main/java/com/example/droplets/IndexController.java:32`
 - Basic page `who` defaults to `Spring Boot`. `src/main/java/com/example/droplets/IndexController.java:53`
 - Basic page fragment fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`, no redirect followed. `src/main/java/com/example/droplets/IndexController.java:75`
-- Basic page pastes only a 2xx or 500 `text/html` answer; anything else renders `<p class="error">` with the status, the id escaped (`HtmlUtils.htmlEscape`). `src/main/java/com/example/droplets/IndexController.java:82`, `src/main/java/com/example/droplets/IndexController.java:85`
+- Basic page pastes only a 2xx, 500 or 504 `text/html` answer; anything else renders `<p class="error">` with the status, the id escaped (`HtmlUtils.htmlEscape`). `src/main/java/com/example/droplets/IndexController.java:82`, `src/main/java/com/example/droplets/IndexController.java:85`
 - Basic page fragment failure is logged and renders a fixed `<p class="error">`: the error names the internal URL. `src/main/java/com/example/droplets/IndexController.java:90`
 - Basic page template loads `${dropletsPublicUrl}/index.js`. `src/main/resources/templates/index.html:7`
 - Shop footer stack name is `Spring Boot`. `src/main/java/com/example/droplets/Shop.java:37`
@@ -152,7 +152,7 @@ stack). `pnpm typecheck:hosts` covers the Node hosts only. The guide's page:
 - Shop proxy answers 502 `The shop is unreachable.` when the shop is down and nothing was sent yet. `src/main/java/com/example/droplets/ShopProxy.java:138`, `src/main/java/com/example/droplets/ShopProxy.java:140`
 - Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page as `referer` and the browser's `cookie` cut down to the shop's. `src/main/java/com/example/droplets/Shop.java:189`, `src/main/java/com/example/droplets/Shop.java:190`
 - Shop fragment 3xx keeps its `location`. `src/main/java/com/example/droplets/Shop.java:200`
-- Shop fragment inserted only when 2xx or 500 and `text/html`. `src/main/java/com/example/droplets/Shop.java:203`
+- Shop fragment inserted only when 2xx, 500 or 504 and `text/html`. `src/main/java/com/example/droplets/Shop.java:203`
 - Shop fragment otherwise renders `<p class="shop-unavailable">` with the id escaped (`HtmlUtils.htmlEscape`). `src/main/java/com/example/droplets/Shop.java:215`
 - Shop product lookup reads `/droplets/product-page/_data?slug=` and needs string `id` and `name`. `src/main/java/com/example/droplets/Shop.java:221`, `src/main/java/com/example/droplets/Shop.java:235`
 - Shop `Link` preloads kept only for `preload`/`modulepreload` on the public origin. `src/main/java/com/example/droplets/Shop.java:260`

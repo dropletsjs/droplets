@@ -55,8 +55,12 @@ two tools, no code:
   (subrequests carry it), cut down to the shop's own `cart_id` and
   `shop_admin` by a `map`, so the cart badge and the admin render for the
   visitor and another app's cookie on this origin stays here. The page's query (`$args`) goes to the droplets that take it.
-- Only a fragment is pasted: other error answers are replaced with a fixed
-  note (`proxy_intercept_errors`), since they may echo the query.
+- Only a fragment is pasted (a 2xx, or a 500 or 504 with the droplet's error
+  page): the shop's other error answers are replaced with a fixed note
+  (`proxy_intercept_errors`), since they may echo the query. When nginx gets
+  no answer at all (the shop unreachable, or silent for 10 s), the fragments'
+  upstream falls back to a loopback server that answers the same note:
+  `error_page` cannot tell nginx's own 504 from the shop's.
 - The product page reads the product's id, name and category from
   `/droplets/product-page/_data?slug=` into an SSI variable and picks them
   out with named captures. An `auth_request` to the product fragment runs
@@ -156,7 +160,8 @@ hydrates through the proxy (needs Docker).
 - Shop proxy and fragment subrequests send the shop only `cart_id` and `shop_admin`, from the `$shop_cookie` map. `nginx.conf:71`, `nginx.conf:173`, `nginx.conf:190`
 - Shop fragment `Referer` is `${SHOP_PUBLIC_URL}$request_uri`, the page itself. `nginx.conf:188`
 - Shop fragment sends `Accept: text/html` and no `Accept-Encoding`. `nginx.conf:189`, `nginx.conf:191`
-- Shop fragment errors 400, 401, 403, 404, 405, 413, 431, 502, 503, 504 become `<p class="shop-unavailable">This droplet is unavailable.</p>`; a 500 is pasted. `nginx.conf:200`, `nginx.conf:204`
+- Shop fragment errors 400, 401, 403, 404, 405, 413, 431 become `<p class="shop-unavailable">This droplet is unavailable.</p>`; a 500 or 504 is pasted. `nginx.conf:205`, `nginx.conf:207`
+- Shop fragments go to `upstream shop_fragments`: `shop:8300` with `max_fails=0`, and a `backup` on `127.0.0.1:8082` that answers the same note when the shop does not answer (unreachable, or 10 s `proxy_read_timeout`). `nginx.conf:189`, `nginx.conf:199`, `nginx.conf:217`, `nginx.conf:224`
 - Shop layout: `_layout/head.html`, `header.html`, `footer.html`, internal only. `nginx.conf:159`, `nginx.conf:160`
 - Shop head loads `/shop.css` and `/index.js` from the shop origin, with speculation rules for `/product/*`. `shop/_layout/head.html:3`, `shop/_layout/head.html:4`, `shop/_layout/head.html:6`
 - Shop header includes `toast-center` first, then `shopping-cart?variant=badge`. `shop/_layout/header.html:2`, `shop/_layout/header.html:9`
