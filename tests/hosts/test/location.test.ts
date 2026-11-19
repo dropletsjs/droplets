@@ -70,6 +70,16 @@ const HOSTS: Record<string, Host> = {
     value: /"x-droplet-location" => (?:SHOP_ORIGIN|DROPLETS_PUBLIC_URL)\b/,
     source: [/ENV\.fetch\("SHOP_PUBLIC_URL"/, /DROPLETS_PUBLIC_URL = ENV\.fetch\("DROPLETS_PUBLIC_URL"/],
   },
+  rails: {
+    files: [
+      "app/models/shop.rb",
+      "app/controllers/home_controller.rb",
+      "app/controllers/shop_controller.rb",
+      "app/controllers/shop_proxy.rb",
+    ],
+    value: /"x-droplet-location" => (?:ORIGIN|DROPLETS_PUBLIC_URL)\b/,
+    source: [/ENV\.fetch\("SHOP_PUBLIC_URL"/, /DROPLETS_PUBLIC_URL = ENV\.fetch\("DROPLETS_PUBLIC_URL"/],
+  },
   aspnet: {
     files: ["src/HostSettings.cs", "src/Shop/ShopFragments.cs", "src/Shop/ShopProxy.cs", "src/Pages/Index.cshtml.cs"],
     value: /"x-droplet-location", settings\.(?:ShopOrigin|DropletsPublicUrl)\)/,

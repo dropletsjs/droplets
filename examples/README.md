@@ -72,6 +72,7 @@ end-to-end recordings ([`tests/hosts`](../tests/hosts)).
 | [`php`](./hosts/php) | PHP | Fragment fetch with `curl_multi`, pasted into plain PHP templates |
 | [`wordpress`](./hosts/wordpress) | PHP | A `[droplet]` shortcode plugin serving `examples/wp-shop` |
 | [`sinatra`](./hosts/sinatra) | Ruby | Fragment fetch with `Net::HTTP`, pasted into ERB |
+| [`rails`](./hosts/rails) | Ruby | Fragment fetch with `Net::HTTP` in a controller, pasted into ERB views |
 | [`aspnet`](./hosts/aspnet) | C# / .NET | Fragment fetch with `HttpClient` in a page model, pasted into a Razor page with `Html.Raw` |
 | [`nginx`](./hosts/nginx) | No backend code | Server Side Includes and a reverse proxy, same origin |
 | [`htmx`](./hosts/htmx) | No backend code | `hx-get` swaps the fragments in, proxied or cross-origin; `hx-boost` swaps `<main>` alone |

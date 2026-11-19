@@ -1,0 +1,7 @@
+<nav class="shop-crumbs" aria-label="Breadcrumb">
+<a href="/gallery">Gallery</a> ›
+<%= link_to @category["name"].to_s, "/gallery?#{URI.encode_www_form(category: @category["slug"].to_s)}" %> ›
+<span aria-current="page"><%= @product["name"] %></span>
+</nav>
+<%= @fragments[0] %>
+<section class="shop-comments"><%= @fragments[1] %></section>
