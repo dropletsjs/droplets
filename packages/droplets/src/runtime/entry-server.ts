@@ -7,6 +7,7 @@ import { checkLoadResult, DropletRenderError, runHandleError, settle, toWireErro
 import { ACTION_NAME, actionUrlFor } from "./form.ts";
 import { parseHost } from "./host.ts";
 import { PropsError, prerenderKey, propsKey, validateProps } from "./props.ts";
+import { isRenderTimeout } from "./render-timeout.ts";
 import { requestInfo, withRequestInfo } from "./request-store.ts";
 import { matchRoute, type ApiMatch, type ApiRoute } from "./routes.ts";
 import {
@@ -105,15 +106,16 @@ async function renderWith({ renderer, module, props, droplet, kind, dropletProps
   return { html: output.html, head: output.head, renderId };
 }
 
-type IsAnswerInput = { error: unknown };
+type IsAnswerInput = { error: unknown; event: LoadEvent };
 
 /**
  * `error()` and `redirect()` are answers, not failures: they skip
  * `handleError`. So does a read of `host` the build cannot serve: it stops
- * the build instead of becoming the error page.
+ * the build instead of becoming the error page. So does whatever a load
+ * throws once `render.timeout` passed: the app has answered 504 already.
  */
-function isAnswer({ error }: IsAnswerInput): boolean {
-  return isHttpError(error) || isRedirect(error) || isHostUrlPropsErrorInPrerender(error);
+function isAnswer({ error, event }: IsAnswerInput): boolean {
+  return isHttpError(error) || isRedirect(error) || isHostUrlPropsErrorInPrerender(error) || isRenderTimeout(event.request.signal.reason);
 }
 
 /** Whether a droplet exists, and how it wants to be rendered. */
@@ -252,7 +254,7 @@ export async function loadDropletData(name: string, event: LoadEvent): Promise<D
   try {
     return { data: await runServerLoad({ name, event }) };
   } catch (error) {
-    if (isAnswer({ error })) throw error;
+    if (isAnswer({ error, event })) throw error;
     return serverFailure({ name, error });
   }
 }
@@ -351,7 +353,7 @@ export async function renderDroplet(name: string, event: LoadEvent, options: Ren
     if (import.meta.env.DEV) logger.debug("framework", "rendered droplet", { droplet: name, bodyLength: html.length });
     return { body: html, html, data, serverData, renderId, ...(head === undefined ? {} : { head }) };
   } catch (error) {
-    if (isAnswer({ error })) throw error;
+    if (isAnswer({ error, event })) throw error;
     return serverFailure({ name, error });
   }
 }

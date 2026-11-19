@@ -38,7 +38,9 @@ answers `405` with `allow: GET, POST` to any other method than `GET` and
 alike, before any body is read. A path no route matches, a trailing slash
 included (`/droplets/hello/`), answers `404` the same way: text, or
 `{ "message": "Not Found" }` under `_data` and `/api`. A load that fails
-answers the error page with `500` ([Errors](/guides/errors/)); `error()` and
+answers the error page with `500` ([Errors](/guides/errors/)), and with `504`
+when its loads and render take longer than `render.timeout`
+([Timeouts](/guides/errors/#timeouts)); `error()` and
 `redirect()` answer their own status; props the schema refuses answer `400`.
 
 Every `redirect()` a droplets server answers, from a load, `transform`,
@@ -150,7 +152,7 @@ come with the JavaScript.
 
 `GET` or `POST /droplets/:id/_data` runs the props schema and the server load,
 and answers `{ "data": … }`, or `{ "error": … }` with a `500` when the load
-failed. When `host` carries a no-JavaScript action's result for the droplet,
+failed (a `504` past `render.timeout`). When `host` carries a no-JavaScript action's result for the droplet,
 it is `{ "data": …, "form": … }` ([Post/Redirect/Get](#postredirectget)). `error()` and `redirect()` answer as they would for the fragment, the redirect's bound included (`400` `{ "message": … }` for a target off this site); the element fetches `_data` with `redirect: "manual"`, so a redirect reaches it as an opaque answer it logs and renders nothing for.
 Every answer carries `x-droplets-build`, as every fragment answer does,
 `404` and `405` included. Other methods answer `405`.

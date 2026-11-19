@@ -156,3 +156,26 @@ export function rawGet({ url, headers = {} }: RawGetInput): Promise<RawAnswer> {
       .end();
   });
 }
+
+/**
+ * A script for `bun -e` or `deno eval` that prints, as JSON, whether the
+ * brand of `render.timeout`'s abort reason survives `AbortSignal.any` and
+ * both copies `withSignal` makes, and whether the copy's body and the
+ * original's both stay readable.
+ */
+export function renderTimeoutProbe(): string {
+  const module = fileURLToPath(new URL("../droplets/src/runtime/render-timeout.ts", import.meta.url));
+  return `const { createDeadline, isRenderTimeout, withSignal } = await import(${JSON.stringify(module)});
+const deadline = createDeadline({ timeout: 50 });
+const signal = AbortSignal.any([new AbortController().signal, deadline.signal]);
+const original = new Request("http://drops.test/", { method: "POST", body: '{"a":1}' });
+const moved = withSignal({ request: original, signal });
+const used = new Request("http://drops.test/", { method: "POST", body: "a=1" });
+await used.text();
+const bodyless = withSignal({ request: used, signal });
+const body = await moved.text();
+const originalBody = await original.text();
+await new Promise((resolve) => signal.addEventListener("abort", resolve));
+console.log(JSON.stringify({ any: isRenderTimeout(signal.reason), moved: isRenderTimeout(moved.signal.reason), bodyless: isRenderTimeout(bodyless.signal.reason), name: signal.reason.name, body, originalBody, hasBody: bodyless.body !== null }));
+`;
+}

@@ -121,6 +121,21 @@ export type DropletsConfig = {
    * `Infinity` lifts a limit.
    */
   limits?: Partial<BodyLimits>;
+  render?: {
+    /**
+     * How long a droplet's loads and render may take on the server, in
+     * milliseconds, from when the fragment or `_data` request starts them
+     * (after `handle`, the props schema and any form action). Past it the
+     * answer is `504`: the fragment with the droplet's `+error.*` page,
+     * `_data` with `{ error }`. The server load sees the deadline in
+     * `event.request.signal` (on Node, Bun and Deno it also aborts when the
+     * client goes away): pass it to `fetch` and your database client so
+     * their work stops too.
+     * `0` waits for no promise; `Infinity` sets no deadline. Renders
+     * prerendered by `vite build` have none. Default: `5000`.
+     */
+    timeout?: number;
+  };
   dev?: {
     /** Dev server port. Vite's own `server.port` takes precedence. */
     server?: { port?: number };
@@ -193,6 +208,8 @@ export type ResolvedDropletsConfig = {
   publicCacheControl: string | false;
   csrf: { checkOrigin: boolean };
   limits: BodyLimits;
+  /** `timeout`: `Infinity` sets no deadline. */
+  render: { timeout: number };
   server: { port: number };
 };
 
@@ -214,7 +231,11 @@ export const DEFAULTS = {
   limits: { json: 1024 * 1024, form: 1024 * 1024, multipart: 10 * 1024 * 1024, props: 8 * 1024 },
   fragmentCacheControl: "private, no-store, no-transform",
   publicCacheControl: "no-cache",
+  render: { timeout: 5000 },
 } as const;
+
+// The longest delay a timer takes: Node fires a larger one after 1 ms.
+const TIMER_MAX_MS = 2147483647;
 
 /**
  * Identity helper that gives `droplets.config.ts` authors type checking and
@@ -239,6 +260,8 @@ type NormalizeHostInput = { value: unknown };
 type ResolveCacheControlInput = { option: "fragmentCacheControl" | "publicCacheControl"; value: unknown; fallback: string };
 
 type ResolveLimitsInput = { limits: Partial<BodyLimits> | undefined };
+
+type ResolveRenderInput = { value: unknown };
 
 export type ResolveDevConfigInput = { user: DropletsConfig };
 
@@ -382,6 +405,34 @@ function resolveLimits({ limits }: ResolveLimitsInput): BodyLimits {
   return resolved;
 }
 
+type ShownValueInput = { value: unknown };
+
+function shownValue({ value }: ShownValueInput): string {
+  return typeof value === "string" ? JSON.stringify(value) : String(value);
+}
+
+const TIMEOUT_RANGE = `use 0 (wait for no promise) up to ${TIMER_MAX_MS} ms, or Infinity (wait forever)`;
+
+function resolveRender({ value }: ResolveRenderInput): ResolvedDropletsConfig["render"] {
+  if (value === undefined) return { ...DEFAULTS.render };
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`droplets: render must be an object such as { timeout: 10000 }, got ${shownValue({ value })}`);
+  }
+  const timeout = "timeout" in value ? value.timeout : undefined;
+  if (timeout === undefined) return { ...DEFAULTS.render };
+  if (timeout === Number.POSITIVE_INFINITY) return { timeout };
+  const got = shownValue({ value: timeout });
+  if (typeof timeout !== "number" || Number.isNaN(timeout)) {
+    throw new Error(`droplets: render.timeout must be a number of milliseconds; ${TIMEOUT_RANGE}, got ${got}`);
+  }
+  if (timeout < 0) throw new Error(`droplets: render.timeout cannot be negative; ${TIMEOUT_RANGE}, got ${got}`);
+  if (!Number.isInteger(timeout)) {
+    throw new Error(`droplets: render.timeout must be a whole number of milliseconds; ${TIMEOUT_RANGE}, got ${got}`);
+  }
+  if (timeout > TIMER_MAX_MS) throw new Error(`droplets: render.timeout is longer than a timer can wait; ${TIMEOUT_RANGE}, got ${got}`);
+  return { timeout };
+}
+
 export type ResolveConfigEnv = {
   /** The `PORT` environment variable, read by the production server's entry: it wins over `server.port`. */
   port?: string | undefined;
@@ -450,6 +501,7 @@ export function resolveConfig(user: DropletsConfig, env: ResolveConfigEnv = {}):
     }),
     csrf: { checkOrigin: user.csrf?.checkOrigin ?? true },
     limits: resolveLimits({ limits: user.limits }),
+    render: resolveRender({ value: user.render }),
     server: { port: envPort || user.server?.port || DEFAULTS.serverPort },
   };
 }

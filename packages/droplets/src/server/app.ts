@@ -121,6 +121,7 @@ export function createServerApp({ ssr, assets, config }: ServerAppOptions): Drop
     fragmentCacheControl: config.fragmentCacheControl,
     csrf: config.csrf,
     limits: config.limits,
+    render: config.render,
   });
 
   app.get("/assets/*", assets.assetHandler);

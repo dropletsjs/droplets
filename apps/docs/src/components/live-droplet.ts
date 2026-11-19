@@ -50,8 +50,9 @@ export type Fragment = { html: string; failed: boolean };
 /**
  * The droplet's fragment for `props`, rendered for `page` (its `host`: the
  * page it will be part of, so a form posted without JavaScript comes back
- * here). A load that throws is a fragment too (the error page, `500`);
- * anything else that is not a fragment of `<djs-demo>` fails the build.
+ * here). A load that throws is a fragment too (the error page, `500`), and
+ * so is one past `render.timeout` (`504`); anything else that is not a
+ * fragment of `<djs-demo>` fails the build.
  */
 export async function fetchFragment(id: string, props: Record<string, unknown>, page: string): Promise<Fragment> {
   const url = `${demoUrl()}/droplets/${encodeURIComponent(id)}`;
@@ -70,7 +71,7 @@ export async function fetchFragment(id: string, props: Record<string, unknown>, 
   }
   const html = (await response.text()).trim();
   const isFragment = html.startsWith(`<${DEMO_ELEMENT} data-droplet="${id}"`) && html.endsWith(`</${DEMO_ELEMENT}>`);
-  const failed = response.status === 500 && isFragment && /^<[^>]* data-droplet-error[\s>]/.test(html);
+  const failed = (response.status === 500 || response.status === 504) && isFragment && /^<[^>]* data-droplet-error[\s>]/.test(html);
   if (!isFragment || (response.status !== 200 && !failed)) {
     throw new Error(`live droplet "${id}": ${url} answered ${response.status}, not a fragment:\n${describe(response, html)}`);
   }

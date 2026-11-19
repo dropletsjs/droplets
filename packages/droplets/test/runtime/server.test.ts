@@ -36,6 +36,7 @@ describe("error()", () => {
     expect(value).toMatchObject({ status: 404, body: { message: "Not Found" } });
     expect(thrown({ run: () => error(418, "teapot") })).toMatchObject({ body: { message: "teapot" } });
     expect(thrown({ run: () => error(499) })).toMatchObject({ body: { message: "Error 499" } });
+    expect(thrown({ run: () => error(504) })).toMatchObject({ status: 504, body: { message: "Gateway Timeout" } });
   });
 
   it("rejects statuses outside 400-599", () => {
