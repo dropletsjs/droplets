@@ -149,10 +149,11 @@ changes) and describe the change from a user's point of view. Every
 these files at release time (`pnpm version-packages`), so do not edit a
 `CHANGELOG.md` by hand. See [`.changeset/README.md`](./.changeset/README.md).
 
-A release is a commit on `main`, never a manual dispatch:
-`.github/workflows/release.yml` opens or updates the "Version Packages" pull
-request while changesets are pending, and once it is merged, publishes every
-package version npm does not have yet, through npm trusted publishing. A
+A release is a commit on `main`, never a manual dispatch: the version
+commit (`pnpm version-packages`) goes through a pull request like any other
+change. While changesets are pending, `.github/workflows/release.yml` only
+says so; once the version commit is merged, it publishes every package
+version npm does not have yet, through npm trusted publishing. A
 failed run is re-run from the Actions page. While the repository is private,
 the publish job is skipped (its condition requires a public repository), so
 nothing is published from CI; 1.0.0 is published by hand. From 1.0.1 on, a
