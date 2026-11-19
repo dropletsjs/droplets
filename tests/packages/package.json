@@ -7,6 +7,7 @@
   "description": "The published packages as npm packs them: entries at their fixed paths, server code out of the client graphs, no source maps.",
   "scripts": {
     "test": "vitest run",
+    "test:tree": "vitest run test/workflows.test.ts test/examples.test.ts test/attributes.test.ts test/areas.test.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
   "devDependencies": {
