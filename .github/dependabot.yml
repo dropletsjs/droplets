@@ -30,3 +30,6 @@ updates:
     commit-message:
       prefix: "deps"
     versioning-strategy: increase-if-necessary
+    # The same 7 days as pnpm's minimumReleaseAge (pnpm-workspace.yaml).
+    cooldown:
+      default-days: 7
