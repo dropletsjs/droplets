@@ -1,0 +1,309 @@
+---
+title: Django
+description: "Python: fetch fragments with httpx in a Django view and print them in a Django template."
+---
+
+import HostDemo from "../../../../components/HostDemo.astro";
+
+How a Django project embeds droplets: a view fetches each fragment with
+`httpx` and a Django template prints it into the page.
+
+## The pattern in Django
+
+```python
+# shop/upstream.py (trimmed): one client for every visitor and thread
+client = httpx.Client(
+    timeout=10.0,
+    follow_redirects=False,
+    cookies=CookieJar(policy=DefaultCookiePolicy(allowed_domains=[])),
+)
+
+# shop/views.py (trimmed)
+def fragment_headers(request) -> dict[str, str]:
+    headers = {
+        "accept": "text/html",
+        "x-droplet-location": upstream.SHOP_ORIGIN,
+        "referer": upstream.SHOP_ORIGIN + request.get_full_path(),
+    }
+    cookie = upstream.shop_cookies(request)
+    if cookie:
+        headers["cookie"] = cookie
+    return headers
+
+def fragment(droplet: str, params: list[tuple[str, str]], headers: dict[str, str]) -> dict:
+    url = f"{upstream.SHOP_INTERNAL_URL}/droplets/{quote(droplet, safe='')}?{urlencode(params)}"
+    result = {"html": "", "status": 502, "location": None, "cookies": [], "link": None}
+    response = upstream.client.get(url, headers=headers)
+    result["status"] = response.status_code
+    result["cookies"] = response.headers.get_list("set-cookie")
+    content_type = response.headers.get("content-type", "")
+    if 300 <= response.status_code < 400:
+        result["location"] = response.headers.get("location")
+    elif (response.is_success or response.status_code == 500) and content_type.startswith("text/html"):
+        result["html"] = mark_safe(response.text)
+        return result
+    # … anything else: result["html"] becomes a "droplet is unavailable" note
+    return result
+```
+
+```jinja
+{# shop/templates/shop/layout.html, in <head>: once per page #}
+<script type="module" src="/index.js"></script>
+{# shop/templates/shop/gallery.html: the fragment's HTML, as it came #}
+<aside>{{ fragments.0 }}</aside>
+```
+
+- `fragment()` sends `GET /droplets/<id>?<params>` to `SHOP_INTERNAL_URL`
+  with `accept: text/html` and `x-droplet-location` set to `SHOP_ORIGIN`,
+  the origin of `SHOP_PUBLIC_URL` from the settings. It passes on the
+  browser's `Cookie` cut down to the shop's own `cart_id` and `shop_admin`,
+  and the page's URL as `referer`: `SHOP_ORIGIN` plus
+  `request.get_full_path()`, the path and query of this request. Nothing
+  reads the request's `Host`: no `get_host()`, no `build_absolute_uri()`.
+- The shared client never follows a redirect (`follow_redirects=False`), so
+  a droplet's 3xx is answered as it is, and never keeps a cookie (a
+  `CookieJar` that accepts no domain). `shop_page` sends the fragments'
+  `Set-Cookie` with the page; a fragment's redirect answers the whole page
+  with that status and `location`.
+- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+  page) is marked safe with `mark_safe`, which the template prints
+  unescaped. Everything else is escaped, by the template or by
+  `format_html`.
+- `shop/templates/shop/layout.html` loads `/index.js` once. One view,
+  `proxy`, passes `/index.js`, `/env.js`, `/index.css`, `/droplets/*`,
+  `/assets/*` and `/api/*` on to the shop.
+
+## The shop demo, recorded
+
+The [shop demo](/integrate/hosts/shop-demo/) on Django, recorded by the
+end-to-end test. [How the pieces fit](/integrate/hosts/shop-demo/#how-it-fits-together)
+has the diagram.
+
+<HostDemo id="django" stack="Django 6.1" />
+
+The code is the `shop` app in `examples/hosts/django`: `views.py` for the
+pages, `proxy.py` for the proxy, `upstream.py` for what they share, and the
+templates in `templates/shop/`. The project in `config/` has no database,
+no sessions and no auth; gunicorn serves it.
+
+### Pieces and ports
+
+`docker-compose.yml` starts three services:
+
+| Service | Port | What it is |
+| --- | --- | --- |
+| `web` | 8012, public | Django under gunicorn: the shop's pages, the proxy, and the basic page at `/` |
+| `shop` | 8300, internal only | the shop's droplets server (`examples/shop`) |
+| `droplets` | 8000, public | the Svelte example's droplets server, for `/` only |
+
+| On `web` | Value | Used for |
+| --- | --- | --- |
+| `SHOP_INTERNAL_URL` | `http://shop:8300` | internal: fragment fetches and the proxy |
+| `SHOP_PUBLIC_URL` | `http://localhost:8012` | public: this host's own origin, sent as `x-droplet-location` |
+| `DROPLETS_INTERNAL_URL`, `DROPLETS_PUBLIC_URL` | `http://droplets:8000`, `http://localhost:8000` | the same pair, for the basic page |
+| `DJANGO_ALLOWED_HOSTS` | unset: `localhost,127.0.0.1` | the names Django answers; set it when the host is served under another |
+
+`config/settings.py` reads them once; the views read the settings.
+
+### How a page gets a droplet
+
+A server fetch with `httpx`, all of a page's fragments at once (a
+`ThreadPoolExecutor`, one thread per fragment), printed by a Django
+template. The fetch is `fragment()` and the template is
+`shop/templates/shop/gallery.html`, both shown in the pattern above; the
+fragments' `Link` preloads go into `<head>`.
+
+```python
+# shop/views.py (trimmed)
+def shop_page(request, template, *, title, current, wanted, status=200, **context):
+    headers = fragment_headers(request)
+    jobs = [("toast-center", []), ("shopping-cart", [("variant", "badge")]), *wanted]
+    with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
+        results = list(pool.map(lambda job: fragment(job[0], job[1], headers), jobs))
+    …
+```
+
+`referer` is the page's URL, query included. The shop's `handle` reads it
+with `hostFrom`, so it is the droplet's
+[`host`](/integrate/http-contract/#host-where-the-droplet-renders), and after
+a form posted without JavaScript its query carries the form's result.
+`shop/templates/shop/layout.html` loads `<script type="module" src="/index.js">`
+once, through the proxy, and each droplet hydrates itself. `shop_page`
+fetches the toasts and the header's cart badge with every page's
+fragments; the `toast-center` fragment comes first in the body, and
+`/index.js` installs `window.shopMessageQueue` before any droplet starts
+(the shop's `src/hooks.client.ts`):
+
+```jinja
+{# shop/templates/shop/layout.html #}
+<body class="shop">
+{{ toasts }}
+<header class="shop-header">…<div class="shop-cart">{{ cart }}</div>…</header>
+```
+
+The product page first reads the product from the shop's public
+`GET /droplets/product-page/_data?slug=<slug>`; an unknown slug answers the
+`not-found` template with `404`. The pages pass on only the query keys
+each droplet takes, from `request.GET`: the whole query to
+`product-filter` and `product-library`, `order`, `page` and `showing`
+(plus `productId`) to `product-comments`, `slug` and `v` to
+`product-page`, `next` to `login`, `view` and `id` to `product-admin`.
+
+### What it proxies
+
+```python
+# shop/urls.py
+urlpatterns = [
+    path("index.js", proxy),
+    path("env.js", proxy),
+    path("index.css", proxy),
+    re_path(r"^(?:droplets|assets|api)/", proxy),
+    …
+]
+
+# shop/proxy.py (trimmed)
+@csrf_exempt
+@require_http_methods(METHODS)
+def proxy(request):
+    if _has_dot_segment(request.path):
+        return _text(400, "Bad request.")
+    has_body = request.method not in ("GET", "HEAD")
+    if has_body and _body_length(request) > settings.DATA_UPLOAD_MAX_MEMORY_SIZE:
+        return _text(413, "Payload too large.")
+    headers = {"x-droplet-location": upstream.SHOP_ORIGIN}
+    …
+```
+
+`proxy` covers `/index.js`, `/env.js`, `/index.css`, `/droplets/*`
+(fragments, `_data`, form actions), `/assets/*` and `/api/*`, for `GET`,
+`HEAD`, `POST`, `PUT`, `PATCH`, `DELETE` and `OPTIONS` (any other method
+answers `405`). It sends the shop `x-droplet-location` written out and only
+these of the browser's headers: `accept`, `accept-language`,
+`content-type`, `if-none-match`, `origin`, `referer`, `user-agent`,
+`x-droplet-props` and `x-droplets-build`, plus `cookie` cut down to the
+shop's own `cart_id` and `shop_admin`, so another app's cookie on this
+origin stays here. The target is `request.get_full_path()` concatenated
+onto `SHOP_INTERNAL_URL`, never resolved, so `//elsewhere` stays a path on
+the shop.
+
+Before it reads the body, the proxy refuses a path with a `.` or `..`
+segment (`400`) and a body over `DATA_UPLOAD_MAX_MEMORY_SIZE` (`413`; 4 MiB
+here, above the shop's own 3 MiB limit for uploads, so the shop answers an
+upload that is too large itself). The body is then read with
+`request.body` and sent on; the answer is streamed (`client.send(…,
+stream=True)` into a `StreamingHttpResponse`). It keeps its status, every
+`Set-Cookie` and any redirect, without `connection`, `keep-alive`,
+`transfer-encoding`, `content-encoding` and `content-length`, which no
+longer hold once httpx has decoded the body, and without `date`, which
+gunicorn writes itself. A shop that cannot be reached answers `502`
+`The shop is unreachable.`
+
+The shop's cookies (`cart_id`, `shop_admin`) are first-party, and nothing
+is cross-origin; the shop sets them only from form actions and `/api`,
+which come through here.
+
+### Gotchas
+
+- **The proxy is `csrf_exempt`.** Django's `CsrfViewMiddleware` would
+  refuse every form the shop's droplets post, since they carry no Django
+  token. The shop checks a post's `Origin` against its trusted origins
+  itself; the middleware stays on for the project's own forms.
+- **Several `Set-Cookie` lines need `response.cookies`.** A Django response
+  keeps one value per header name, and its handlers write `Set-Cookie`
+  lines only from `response.cookies`. Parsing the shop's lines into
+  `SimpleCookie` would rewrite them; `pass_set_cookies` (in
+  `shop/upstream.py`) puts each line there as it came, in a `Morsel` whose
+  `OutputString()` is that line.
+- **The shared `httpx` client must not keep cookies.** Its default jar would
+  store the first visitor's `cart_id` (or admin session) from a proxied
+  answer and send it with everyone else's requests. The client gets a
+  `CookieJar` that accepts no domain; what goes out is the browser's own
+  `Cookie`, cut down to `cart_id` and `shop_admin`.
+- **`mark_safe` only for the shop's HTML.** The templates escape
+  everything else; the "unavailable" note is built with `format_html`, so
+  the droplet's id is escaped. See [For hosts](/guides/security/#for-hosts).
+- **The page is `private, no-store`.** `shop_page` sets it on every shop
+  page and redirect: their fragments were rendered with the visitor's
+  cookies.
+- **`ALLOWED_HOSTS` still applies.** Django answers `400` to a `Host` it
+  does not list; served under another name than `localhost`, set
+  `DJANGO_ALLOWED_HOSTS`. It only gates the request: the origin the shop
+  sees is `SHOP_PUBLIC_URL`, whatever the `Host`.
+
+`shop/tests.py` checks these against a stand-in shop
+(`httpx.MockTransport`): the refusals before the shop is asked, the headers
+sent, the fragments pasted or not, and every `Set-Cookie` line reaching the
+WSGI server untouched. `python manage.py test` runs it, and so does the
+Docker build.
+
+### Run it
+
+```bash
+cd examples/hosts/django
+docker compose up --build
+open http://localhost:8012/gallery   # log in as admin / droplets
+```
+
+Set `SHOP_SECRET` and `DROPLETS_SECRET` first; compose refuses to start
+without them. The shop trusts one origin besides its own,
+`DROPLETS_TRUSTED_ORIGINS: http://localhost:8012`, this host's; the rest of
+its environment is the same on every host: see
+[Running a host](/integrate/hosts/shop-demo/#running-a-host).
+
+## The Svelte example
+
+The same project serves the Svelte example at `/`: its three droplets, one
+per mode, from `examples/frameworks/svelte` (the `droplets` service). No
+JavaScript runs on the host: the view fetches the fragments and a template
+prints them.
+
+```python
+# basic/views.py (trimmed)
+DROPLETS_INTERNAL_URL = settings.DROPLETS_INTERNAL_URL
+DROPLETS_PUBLIC_URL = settings.DROPLETS_PUBLIC_URL
+
+IDS = ["client", "ssr-hydrate", "ssr-nohydrate"]
+
+def fetch_droplet(client: httpx.Client, droplet: str, **props: str) -> SafeString:
+    query = f"?{urlencode(props)}" if props else ""
+    try:
+        # Never follows a redirect (the client's default).
+        response = client.get(
+            f"{DROPLETS_INTERNAL_URL}/droplets/{quote(droplet, safe='')}{query}",
+            headers={"accept": "text/html", "x-droplet-location": DROPLETS_PUBLIC_URL},
+        )
+    except httpx.HTTPError as error:
+        # The error names the internal URL: it goes to the log, not the page.
+        logger.error("[droplets] %s: %r", droplet, error)
+        return format_html('<p class="error">droplet "{}" unavailable</p>', droplet)
+    is_html = response.headers.get("content-type", "").startswith("text/html")
+    if (response.is_success or response.status_code == 500) and is_html:
+        return mark_safe(response.text)
+    return format_html('<p class="error">droplet "{}" unavailable: HTTP {}</p>', droplet, response.status_code)
+
+@require_safe
+def index(request):
+    who = request.GET.get("who", "Django")
+    with httpx.Client(timeout=5.0) as client, ThreadPoolExecutor(max_workers=len(IDS)) as pool:
+        fragments = list(pool.map(lambda droplet: fetch_droplet(client, droplet, who=who), IDS))
+    return render(request, "basic/index.html", {"droplets_public_url": DROPLETS_PUBLIC_URL, "fragments": fragments})
+```
+
+```jinja
+{# basic/templates/basic/index.html #}
+<script type="module" src="{{ droplets_public_url }}/index.js"></script>
+…
+{% for fragment in fragments %}
+  {{ fragment }}
+{% endfor %}
+```
+
+`mark_safe` marks the fragment as safe, so the template does not escape
+it. Only a `text/html` answer is pasted (a 2xx, or a 500 carrying the
+droplet's error page); any other answer prints an error paragraph with its
+status, built with `format_html` so the id is escaped. A failed request
+(`httpx.HTTPError`) prints a fixed one and logs the error, since its
+message names the internal URL. Here the page loads `/index.js` from the
+droplets server's public URL, another origin than the page, so the Svelte
+example runs with `cors: true` and `DROPLETS_TRUSTED_ORIGINS` lists both
+`DROPLETS_URL` and this host's `WEB_URL`.

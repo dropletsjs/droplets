@@ -95,6 +95,7 @@ comes back with the button saying "✓ Added".
 | [nginx](/integrate/hosts/nginx/) | static `.html` files | Server Side Includes (`include virtual`); the product's id from its `_data` into an SSI variable | `proxy_pass` |
 | [Express 5](/integrate/hosts/express/) | route handlers, template strings | `fetch` on the server, in parallel | a router that streams through |
 | [FastAPI](/integrate/hosts/fastapi/) | Jinja2 templates | `httpx`, `asyncio.gather` | a catch-all route |
+| [Django](/integrate/hosts/django/) | Django templates | `httpx` in a view, a thread per fragment | one `csrf_exempt` view |
 | [Sinatra](/integrate/hosts/sinatra/) | ERB views | `Net::HTTP`, a thread per fragment | a catch-all route |
 | [PHP](/integrate/hosts/php/) | PHP templates, no framework | `curl_multi`, all at once | a front controller (`index.php`) |
 | [React + Vite](/integrate/hosts/react-vite/) | a single-page app | client-only: fetched by the browser, the cart as `data-droplet` | nginx in the image |
@@ -245,6 +246,10 @@ asks the shop for its fragments cross-origin, with no proxy.
 ### FastAPI
 
 <HostDemo id="fastapi" stack="FastAPI" />
+
+### Django
+
+<HostDemo id="django" stack="Django 6.1" />
 
 ### Sinatra
 

@@ -93,10 +93,10 @@
       "name": "Django",
       "language": "python",
       "pattern": "server-include",
-      "status": "planned",
+      "status": "built",
       "docs": "integrate/hosts/django",
-      "stack": "Python, Django",
-      "how": "Fragment fetch in a view, pasted into a template",
+      "stack": "Python, Django 6.1, httpx, Django templates",
+      "how": "Fragment fetch with `httpx` in a view, pasted into a Django template",
       "example": true,
       "runner": { "offset": 12, "flow": "shop" }
     },

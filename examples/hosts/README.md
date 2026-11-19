@@ -14,7 +14,7 @@ The element's tag name is the server's `element` setting: `djs-droplet` by
 default, `djs-svelte` for the Svelte example these hosts embed.
 
 <!-- hosts:count -->
-Twelve host examples, by language; ten run the shared shop flow, and WordPress and htmx have flows of their own.
+Thirteen host examples, by language; eleven run the shared shop flow, and WordPress and htmx have flows of their own.
 <!-- /hosts:count -->
 
 Most examples in this folder do the same two things, in their
@@ -80,6 +80,7 @@ docker compose up --build
 | JavaScript / TypeScript | [`astro`](./astro) | Astro, Node adapter | Fragment fetch in the frontmatter, `set:html` |
 | JavaScript / TypeScript | [`react-vite`](./react-vite) | React 19, Vite | A client-side `<Droplet>` component, the shop through a same-origin proxy |
 | Python | [`fastapi`](./fastapi) | Python, FastAPI, httpx, Jinja2 | Fragment fetch with `httpx`, pasted into a Jinja2 template |
+| Python | [`django`](./django) | Python, Django 6.1, httpx, Django templates | Fragment fetch with `httpx` in a view, pasted into a Django template |
 | PHP | [`php`](./php) | PHP 8.3 on Apache, curl, no framework | Fragment fetch with `curl_multi`, pasted into plain PHP templates |
 | PHP | [`wordpress`](./wordpress) | WordPress 6, a plugin; WordPress owns the data | A `[droplet]` shortcode plugin serving `examples/wp-shop` |
 | Ruby | [`sinatra`](./sinatra) | Ruby, Sinatra, Net::HTTP, ERB | Fragment fetch with `Net::HTTP`, pasted into ERB |
@@ -147,6 +148,7 @@ host, the same file everywhere.
 | `astro` | http://localhost:8005/gallery |
 | `react-vite` | http://localhost:8004/gallery |
 | `fastapi` | http://localhost:8001/gallery |
+| `django` | http://localhost:8012/gallery |
 | `php` | http://localhost:8009/gallery |
 | `wordpress` | http://localhost:8008/gallery |
 | `sinatra` | http://localhost:8002/gallery |
@@ -211,6 +213,7 @@ The `--https` run checks that the `cart_id` and `shop_admin` cookies arrive
 | `astro` | [astro.mp4](../../apps/docs/public/hosts/astro.mp4) | ![The shop on Astro](../../apps/docs/public/hosts/astro/2-cart.webp) |
 | `react-vite` | [react-vite.mp4](../../apps/docs/public/hosts/react-vite.mp4) | ![The shop on React + Vite](../../apps/docs/public/hosts/react-vite/2-cart.webp) |
 | `fastapi` | [fastapi.mp4](../../apps/docs/public/hosts/fastapi.mp4) | ![The shop on FastAPI](../../apps/docs/public/hosts/fastapi/2-cart.webp) |
+| `django` | [django.mp4](../../apps/docs/public/hosts/django.mp4) | ![The shop on Django](../../apps/docs/public/hosts/django/2-cart.webp) |
 | `php` | [php.mp4](../../apps/docs/public/hosts/php.mp4) | ![The shop on PHP](../../apps/docs/public/hosts/php/2-cart.webp) |
 | `wordpress` | [wordpress.mp4](../../apps/docs/public/hosts/wordpress.mp4) | ![The shop on WordPress](../../apps/docs/public/hosts/wordpress/2-cart.webp) |
 | `sinatra` | [sinatra.mp4](../../apps/docs/public/hosts/sinatra.mp4) | ![The shop on Sinatra](../../apps/docs/public/hosts/sinatra/2-cart.webp) |
