@@ -75,6 +75,7 @@ end-to-end recordings ([`tests/hosts`](../tests/hosts)).
 | [`rails`](./hosts/rails) | Ruby | Fragment fetch with `Net::HTTP` in a controller, pasted into ERB views |
 | [`aspnet`](./hosts/aspnet) | C# / .NET | Fragment fetch with `HttpClient` in a page model, pasted into a Razor page with `Html.Raw` |
 | [`spring`](./hosts/spring) | Java | Fragment fetch with `RestClient` in a controller, pasted into a Thymeleaf template |
+| [`go`](./hosts/go) | Go | Fragment fetch with `net/http`, one goroutine each, pasted into an `html/template` as `template.HTML` |
 | [`nginx`](./hosts/nginx) | No backend code | Server Side Includes and a reverse proxy, same origin |
 | [`htmx`](./hosts/htmx) | No backend code | `hx-get` swaps the fragments in, proxied or cross-origin; `hx-boost` swaps `<main>` alone |
 | [`static`](./hosts/static) | No backend code | The page fetches the fragments from the shop's own origin, cross-origin, with the shop's cookies |

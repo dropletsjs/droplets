@@ -114,6 +114,11 @@ const HOSTS: Record<string, Host> = {
     value: /x-droplet-location \$\{(?:DROPLETS|SHOP)_PUBLIC_URL\};|name="HTTP_X_DROPLET_LOCATION" value="https:\/\/www\.example\.com"/,
     source: [/\$\{DROPLETS_PUBLIC_URL\}/, /\$\{SHOP_PUBLIC_URL\}/],
   },
+  go: {
+    files: ["shop.go", "main.go"],
+    value: /\.Set\("x-droplet-location", (?:s\.origin|b\.publicURL)\)/,
+    source: [/getenv\("SHOP_PUBLIC_URL", /, /getenv\("DROPLETS_PUBLIC_URL", /],
+  },
   htmx: {
     files: ["nginx.conf"],
     value: /x-droplet-location \$\{SHOP_PUBLIC_URL\};/,
@@ -142,7 +147,7 @@ describe("every host example", () => {
 
 /** A read of the request's own host, in any of the hosts' languages. */
 const HOST_HEADER =
-  /\.headers\.host\b|headers\.get\(["']host["']\)|req\.get\(["']host["']\)|req\.hostname|request\.headers\[["']host["']\]|request\.headers\.get\(["']host["']\)|request\.host\b|request\.base_url|\.get_host\(|build_absolute_uri|HTTP_HOST\b|\$host\b|\$http_host\b|\$server_name\b|\{HTTP_HOST\}/i;
+  /\.headers\.host\b|headers\.get\(["']host["']\)|req\.get\(["']host["']\)|req\.hostname|request\.headers\[["']host["']\]|request\.headers\.get\(["']host["']\)|request\.host\b|request\.base_url|\.get_host\(|build_absolute_uri|HTTP_HOST\b|\$host\b|\$http_host\b|\$server_name\b|\{HTTP_HOST\}|\br\.Host\b|\.Header\.Get\(["']host["']\)/i;
 
 const isComment = (line: string) => /^\s*(?:\/\/|\*|\/\*|#|<!--)/.test(line);
 

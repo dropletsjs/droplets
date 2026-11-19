@@ -189,10 +189,10 @@
       "name": "Go",
       "language": "go",
       "pattern": "server-include",
-      "status": "planned",
+      "status": "built",
       "docs": "integrate/hosts/go",
-      "stack": "Go, net/http, html/template",
-      "how": "Fragment fetch in a handler, pasted into an `html/template`",
+      "stack": "Go 1.27, net/http, html/template, no dependencies",
+      "how": "Fragment fetch with `net/http`, one goroutine each, pasted into an `html/template` as `template.HTML`",
       "example": true,
       "runner": { "offset": 17, "flow": "shop" }
     },

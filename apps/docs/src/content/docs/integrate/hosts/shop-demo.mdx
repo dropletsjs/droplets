@@ -105,6 +105,7 @@ comes back with the button saying "✓ Added".
 | [Astro 5](/integrate/hosts/astro/) | `.astro` pages, `set:html` | `fetch` in the frontmatter; cookies through `Astro.response` | endpoints (`ALL`) |
 | [SvelteKit](/integrate/hosts/sveltekit/) | `+page.svelte`, `{@html}` | `fetch` in `+page.server.ts`; cookies from `handle` | `hooks.server.ts` |
 | [Next.js 16](/integrate/hosts/nextjs/) | server components | `fetch` in the component, `dangerouslySetInnerHTML` | route handlers |
+| [Go](/integrate/hosts/go/) | `html/template`, `template.HTML` | `net/http`, a goroutine per fragment | a handler in front of the `ServeMux` |
 | [Static HTML](/integrate/hosts/static/) | one static `.html` file | client-only: fetched by the browser from the shop's own origin | none: cross-origin, the shop's `cors` allows the page's origin with credentials |
 
 nginx and Next.js cannot pass on a `Set-Cookie` that a fragment sends on a
@@ -289,6 +290,10 @@ asks the shop for its fragments cross-origin, with no proxy.
 ### Next.js
 
 <HostDemo id="nextjs" stack="Next.js 16" />
+
+### Go
+
+<HostDemo id="go" stack="Go" />
 
 ### htmx
 

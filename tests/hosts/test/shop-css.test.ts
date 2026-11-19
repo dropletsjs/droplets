@@ -26,6 +26,7 @@ describe("the shop's layout CSS across the hosts", () => {
       "django",
       "express",
       "fastapi",
+      "go",
       "htmx",
       "nextjs",
       "nginx",

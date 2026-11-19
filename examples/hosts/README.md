@@ -14,7 +14,7 @@ The element's tag name is the server's `element` setting: `djs-droplet` by
 default, `djs-svelte` for the Svelte example these hosts embed.
 
 <!-- hosts:count -->
-Sixteen host examples, by language; fourteen run the shared shop flow, and WordPress and htmx have flows of their own.
+Seventeen host examples, by language; fifteen run the shared shop flow, and WordPress and htmx have flows of their own.
 <!-- /hosts:count -->
 
 Most examples in this folder do the same two things, in their
@@ -87,6 +87,7 @@ docker compose up --build
 | Ruby | [`rails`](./rails) | Ruby, Rails 8, Net::HTTP, ERB | Fragment fetch with `Net::HTTP` in a controller, pasted into ERB views |
 | C# / .NET | [`aspnet`](./aspnet) | C# on .NET 10, ASP.NET Core Razor Pages, `IHttpClientFactory` | Fragment fetch with `HttpClient` in a page model, pasted into a Razor page with `Html.Raw` |
 | Java | [`spring`](./spring) | Java 25, Spring Boot 4, RestClient, Thymeleaf | Fragment fetch with `RestClient` in a controller, pasted into a Thymeleaf template |
+| Go | [`go`](./go) | Go 1.27, net/http, html/template, no dependencies | Fragment fetch with `net/http`, one goroutine each, pasted into an `html/template` as `template.HTML` |
 | No backend code | [`nginx`](./nginx) | nginx, zero application code; an IIS web.config | Server Side Includes and a reverse proxy, same origin |
 | No backend code | [`htmx`](./htmx) | htmx 2 on static pages, nginx | `hx-get` swaps the fragments in, proxied or cross-origin; `hx-boost` swaps `<main>` alone |
 | No backend code | [`static`](./static) | One HTML page and a script on nginx, no proxy | The page fetches the fragments from the shop's own origin, cross-origin, with the shop's cookies |
@@ -158,6 +159,7 @@ host, the same file everywhere.
 | `rails` | http://localhost:8015/gallery |
 | `aspnet` | http://localhost:8014/gallery |
 | `spring` | http://localhost:8016/gallery |
+| `go` | http://localhost:8017/gallery |
 | `nginx` | http://localhost:8081/gallery |
 | `htmx` | http://localhost:8010/ |
 | `static` | http://localhost:8011/gallery |
@@ -226,6 +228,7 @@ The `--https` run checks that the `cart_id` and `shop_admin` cookies arrive
 | `rails` | [rails.mp4](../../apps/docs/public/hosts/rails.mp4) | ![The shop on Rails](../../apps/docs/public/hosts/rails/2-cart.webp) |
 | `aspnet` | [aspnet.mp4](../../apps/docs/public/hosts/aspnet.mp4) | ![The shop on ASP.NET Core](../../apps/docs/public/hosts/aspnet/2-cart.webp) |
 | `spring` | [spring.mp4](../../apps/docs/public/hosts/spring.mp4) | ![The shop on Spring Boot](../../apps/docs/public/hosts/spring/2-cart.webp) |
+| `go` | [go.mp4](../../apps/docs/public/hosts/go.mp4) | ![The shop on Go](../../apps/docs/public/hosts/go/2-cart.webp) |
 | `nginx` | [nginx.mp4](../../apps/docs/public/hosts/nginx.mp4) | ![The shop on nginx](../../apps/docs/public/hosts/nginx/2-cart.webp) |
 | `htmx` | [htmx.mp4](../../apps/docs/public/hosts/htmx.mp4) | ![The shop on htmx](../../apps/docs/public/hosts/htmx/4-lazy.webp) |
 | `static` | [static.mp4](../../apps/docs/public/hosts/static.mp4) | ![The shop on Static HTML](../../apps/docs/public/hosts/static/2-cart.webp) |

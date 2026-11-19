@@ -129,6 +129,7 @@ or one in `trustedOrigins` / `DROPLETS_TRUSTED_ORIGINS`. See the
 - **Ruby**: [Sinatra](https://dropletsjs.dev/integrate/hosts/sinatra/), [Rails](https://dropletsjs.dev/integrate/hosts/rails/)
 - **C# / .NET**: [ASP.NET Core](https://dropletsjs.dev/integrate/hosts/aspnet/)
 - **Java**: [Spring Boot](https://dropletsjs.dev/integrate/hosts/spring/)
+- **Go**: [Go](https://dropletsjs.dev/integrate/hosts/go/)
 - **No backend code**: [nginx](https://dropletsjs.dev/integrate/hosts/nginx/), [htmx](https://dropletsjs.dev/integrate/hosts/htmx/), [Static HTML](https://dropletsjs.dev/integrate/hosts/static/), [Site builders](https://dropletsjs.dev/integrate/hosts/site-builders/)
 <!-- /hosts:wall -->
 
@@ -208,7 +209,7 @@ They all share one version.
   example on `/` where there is one):
 
 <!-- hosts:count -->
-Sixteen host examples, by language; fourteen run the shared shop flow, and WordPress and htmx have flows of their own. [Site builders](https://dropletsjs.dev/integrate/hosts/site-builders/) is a guide, with no example: Webflow, Wix, Squarespace, Shopify.
+Seventeen host examples, by language; fifteen run the shared shop flow, and WordPress and htmx have flows of their own. [Site builders](https://dropletsjs.dev/integrate/hosts/site-builders/) is a guide, with no example: Webflow, Wix, Squarespace, Shopify.
 <!-- /hosts:count -->
 
 <!-- hosts:table -->
@@ -227,6 +228,7 @@ Sixteen host examples, by language; fourteen run the shared shop flow, and WordP
 | [rails](./examples/hosts/rails) | Ruby | Ruby, Rails 8, Net::HTTP, ERB | Fragment fetch with `Net::HTTP` in a controller, pasted into ERB views |
 | [aspnet](./examples/hosts/aspnet) | C# / .NET | C# on .NET 10, ASP.NET Core Razor Pages, `IHttpClientFactory` | Fragment fetch with `HttpClient` in a page model, pasted into a Razor page with `Html.Raw` |
 | [spring](./examples/hosts/spring) | Java | Java 25, Spring Boot 4, RestClient, Thymeleaf | Fragment fetch with `RestClient` in a controller, pasted into a Thymeleaf template |
+| [go](./examples/hosts/go) | Go | Go 1.27, net/http, html/template, no dependencies | Fragment fetch with `net/http`, one goroutine each, pasted into an `html/template` as `template.HTML` |
 | [nginx](./examples/hosts/nginx) | No backend code | nginx, zero application code; an IIS web.config | Server Side Includes and a reverse proxy, same origin |
 | [htmx](./examples/hosts/htmx) | No backend code | htmx 2 on static pages, nginx | `hx-get` swaps the fragments in, proxied or cross-origin; `hx-boost` swaps `<main>` alone |
 | [static](./examples/hosts/static) | No backend code | One HTML page and a script on nginx, no proxy | The page fetches the fragments from the shop's own origin, cross-origin, with the shop's cookies |
