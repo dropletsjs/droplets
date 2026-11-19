@@ -70,6 +70,11 @@ const HOSTS: Record<string, Host> = {
     value: /"x-droplet-location" => (?:SHOP_ORIGIN|DROPLETS_PUBLIC_URL)\b/,
     source: [/ENV\.fetch\("SHOP_PUBLIC_URL"/, /DROPLETS_PUBLIC_URL = ENV\.fetch\("DROPLETS_PUBLIC_URL"/],
   },
+  aspnet: {
+    files: ["src/HostSettings.cs", "src/Shop/ShopFragments.cs", "src/Shop/ShopProxy.cs", "src/Pages/Index.cshtml.cs"],
+    value: /"x-droplet-location", settings\.(?:ShopOrigin|DropletsPublicUrl)\)/,
+    source: [/ShopOrigin: OriginOf\(configuration\["SHOP_PUBLIC_URL"\]/, /DropletsPublicUrl: \(configuration\["DROPLETS_PUBLIC_URL"\]/],
+  },
   php: {
     files: ["app/shop.php", "public/index.php"],
     value: /'x-droplet-location' => (?:shop_origin\(\)|\$droplets_public)/,

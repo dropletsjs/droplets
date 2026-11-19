@@ -14,7 +14,7 @@ The element's tag name is the server's `element` setting: `djs-droplet` by
 default, `djs-svelte` for the Svelte example these hosts embed.
 
 <!-- hosts:count -->
-Thirteen host examples, by language; eleven run the shared shop flow, and WordPress and htmx have flows of their own.
+Fourteen host examples, by language; twelve run the shared shop flow, and WordPress and htmx have flows of their own.
 <!-- /hosts:count -->
 
 Most examples in this folder do the same two things, in their
@@ -84,6 +84,7 @@ docker compose up --build
 | PHP | [`php`](./php) | PHP 8.3 on Apache, curl, no framework | Fragment fetch with `curl_multi`, pasted into plain PHP templates |
 | PHP | [`wordpress`](./wordpress) | WordPress 6, a plugin; WordPress owns the data | A `[droplet]` shortcode plugin serving `examples/wp-shop` |
 | Ruby | [`sinatra`](./sinatra) | Ruby, Sinatra, Net::HTTP, ERB | Fragment fetch with `Net::HTTP`, pasted into ERB |
+| C# / .NET | [`aspnet`](./aspnet) | C# on .NET 10, ASP.NET Core Razor Pages, `IHttpClientFactory` | Fragment fetch with `HttpClient` in a page model, pasted into a Razor page with `Html.Raw` |
 | No backend code | [`nginx`](./nginx) | nginx, zero application code; an IIS web.config | Server Side Includes and a reverse proxy, same origin |
 | No backend code | [`htmx`](./htmx) | htmx 2 on static pages, nginx | `hx-get` swaps the fragments in, proxied or cross-origin; `hx-boost` swaps `<main>` alone |
 | No backend code | [`static`](./static) | One HTML page and a script on nginx, no proxy | The page fetches the fragments from the shop's own origin, cross-origin, with the shop's cookies |
@@ -152,6 +153,7 @@ host, the same file everywhere.
 | `php` | http://localhost:8009/gallery |
 | `wordpress` | http://localhost:8008/gallery |
 | `sinatra` | http://localhost:8002/gallery |
+| `aspnet` | http://localhost:8014/gallery |
 | `nginx` | http://localhost:8081/gallery |
 | `htmx` | http://localhost:8010/ |
 | `static` | http://localhost:8011/gallery |
@@ -217,6 +219,7 @@ The `--https` run checks that the `cart_id` and `shop_admin` cookies arrive
 | `php` | [php.mp4](../../apps/docs/public/hosts/php.mp4) | ![The shop on PHP](../../apps/docs/public/hosts/php/2-cart.webp) |
 | `wordpress` | [wordpress.mp4](../../apps/docs/public/hosts/wordpress.mp4) | ![The shop on WordPress](../../apps/docs/public/hosts/wordpress/2-cart.webp) |
 | `sinatra` | [sinatra.mp4](../../apps/docs/public/hosts/sinatra.mp4) | ![The shop on Sinatra](../../apps/docs/public/hosts/sinatra/2-cart.webp) |
+| `aspnet` | [aspnet.mp4](../../apps/docs/public/hosts/aspnet.mp4) | ![The shop on ASP.NET Core](../../apps/docs/public/hosts/aspnet/2-cart.webp) |
 | `nginx` | [nginx.mp4](../../apps/docs/public/hosts/nginx.mp4) | ![The shop on nginx](../../apps/docs/public/hosts/nginx/2-cart.webp) |
 | `htmx` | [htmx.mp4](../../apps/docs/public/hosts/htmx.mp4) | ![The shop on htmx](../../apps/docs/public/hosts/htmx/4-lazy.webp) |
 | `static` | [static.mp4](../../apps/docs/public/hosts/static.mp4) | ![The shop on Static HTML](../../apps/docs/public/hosts/static/2-cart.webp) |

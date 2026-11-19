@@ -1,0 +1,17 @@
+@page "/product/{slug}"
+@model ProductModel
+@{ Layout = "_ShopLayout"; }
+@if (Model.Product is not { } product)
+{
+<div class="shop-narrow shop-notice"><h1>Not found</h1><p>This product does not exist.</p><p><a href="/gallery">Back to the gallery</a></p></div>
+}
+else
+{
+<nav class="shop-crumbs" aria-label="Breadcrumb">
+<a href="/gallery">Gallery</a> ›
+<a href="/gallery?category=@Uri.EscapeDataString(product.CategorySlug)">@product.CategoryName</a> ›
+<span aria-current="page">@product.Name</span>
+</nav>
+@Html.Raw(Model.Fragments[0])
+<section class="shop-comments">@Html.Raw(Model.Fragments[1])</section>
+}

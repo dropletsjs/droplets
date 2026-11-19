@@ -1,0 +1,22 @@
+@page "/"
+@model IndexModel
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Droplets in ASP.NET Core</title>
+  <script type="module" src="@Model.DropletsPublicUrl/index.js"></script>
+</head>
+<body style="font-family: system-ui, sans-serif; background: #f8fafc; margin: 0; padding: 2rem;">
+  <main style="max-width: 48rem; margin: 0 auto;">
+    <h1>ASP.NET Core page, three Svelte droplets</h1>
+    <p>Each fragment below was fetched by the .NET process and rendered on the server.
+       Try <a href="/?who=.NET">?who=.NET</a>, or the <a href="/gallery">shop demo</a>.</p>
+    @foreach (var fragment in Model.Fragments)
+    {
+      @Html.Raw(fragment)
+    }
+  </main>
+</body>
+</html>

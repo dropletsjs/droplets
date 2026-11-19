@@ -98,6 +98,7 @@ comes back with the button saying "✓ Added".
 | [Django](/integrate/hosts/django/) | Django templates | `httpx` in a view, a thread per fragment | one `csrf_exempt` view |
 | [Sinatra](/integrate/hosts/sinatra/) | ERB views | `Net::HTTP`, a thread per fragment | a catch-all route |
 | [PHP](/integrate/hosts/php/) | PHP templates, no framework | `curl_multi`, all at once | a front controller (`index.php`) |
+| [ASP.NET Core](/integrate/hosts/aspnet/) | Razor Pages, `Html.Raw` | `HttpClient` from `IHttpClientFactory`, `Task.WhenAll` | minimal API endpoints (`MapMethods`) |
 | [React + Vite](/integrate/hosts/react-vite/) | a single-page app | client-only: fetched by the browser, the cart as `data-droplet` | nginx in the image |
 | [Astro 5](/integrate/hosts/astro/) | `.astro` pages, `set:html` | `fetch` in the frontmatter; cookies through `Astro.response` | endpoints (`ALL`) |
 | [SvelteKit](/integrate/hosts/sveltekit/) | `+page.svelte`, `{@html}` | `fetch` in `+page.server.ts`; cookies from `handle` | `hooks.server.ts` |
@@ -258,6 +259,10 @@ asks the shop for its fragments cross-origin, with no proxy.
 ### PHP
 
 <HostDemo id="php" stack="PHP 8.3" />
+
+### ASP.NET Core
+
+<HostDemo id="aspnet" stack="ASP.NET Core 10" />
 
 ### React + Vite
 
