@@ -3,7 +3,9 @@
  * `push` events only (AGENTS.md rule 22), the release workflow's publish
  * job runs only from a public repository, and the Cloudflare deploys run
  * only on a push to main, after every other CI job, in the `cloudflare`
- * environment, the only jobs that name its secrets. The release workflow's
+ * environment, the only jobs that name its secrets. The four required CI jobs
+ * keep their names, and every step after the areas step runs by one of its
+ * outputs (.github/scripts/areas.ts). The release workflow's
  * version job opens no PR and writes nothing, and Dependabot's npm updates
  * wait as long as pnpm's minimumReleaseAge. The workflows are read line by
  * line, with no YAML parser: a form of `on` or `runs-on` the reader does not
@@ -13,8 +15,10 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { OUTPUTS } from "../../../.github/scripts/areas.ts";
 
 const workflowsDir = fileURLToPath(new URL("../../../.github/workflows/", import.meta.url));
+const rootPackage = fileURLToPath(new URL("../../../package.json", import.meta.url));
 const dependabotFile = fileURLToPath(new URL("../../../.github/dependabot.yml", import.meta.url));
 const workflows = readdirSync(workflowsDir)
   .filter((name) => /\.ya?ml$/.test(name))
@@ -128,6 +132,49 @@ function jobNeeds({ source, job }: JobInput): string[] {
     .map((name) => unquote(name.trim()));
 }
 
+/** One step of a job: its keys with their inline values, a `run: |` block as its lines joined, a nested map (`with`, `env`) as `with.key`. */
+type Step = Map<string, string>;
+
+/** The steps of `job`, in order; a step line the reader cannot place fails the suite. */
+function jobSteps({ source, job }: JobInput): Step[] {
+  const lines = jobLines({ source, job });
+  const start = lines.findIndex((line) => withoutComment(line) === "steps:" && indentOf(line) === 4);
+  if (start === -1) throw new Error(`no steps in \`${job}\``);
+  const steps: Step[] = [];
+  let parent: string | undefined;
+  let block: { key: string; indent: number } | undefined;
+  for (const raw of lines.slice(start + 1)) {
+    if (raw.trim() === "") continue;
+    const line = /^ {6}- /.test(raw) ? `        ${raw.slice(8)}` : raw;
+    const step = steps.at(-1);
+    if (/^ {6}- /.test(raw)) {
+      steps.push(new Map());
+      parent = undefined;
+      block = undefined;
+    } else if (block && step && indentOf(line) > block.indent) {
+      step.set(block.key, [step.get(block.key), line.trim()].filter(Boolean).join("\n"));
+      continue;
+    }
+    if (!isContent(line)) continue;
+    const current = steps.at(-1);
+    if (current === undefined || indentOf(line) <= 4) throw new Error(`cannot read \`${line.trim()}\` in the steps of \`${job}\``);
+    const entry = /^(\s*)([A-Za-z_][\w-]*):(?:\s+(.*))?$/.exec(line);
+    if (entry === undefined || entry === null) throw new Error(`cannot read \`${line.trim()}\` in the steps of \`${job}\``);
+    const [, indent = "", key = "", value = ""] = entry;
+    const inline = withoutComment(value);
+    if (indent.length === 8) {
+      parent = key;
+      block = inline === "|" ? { key, indent: 8 } : undefined;
+      if (!block && inline !== "") current.set(key, inline);
+    } else if (indent.length === 10 && parent !== undefined) {
+      current.set(`${parent}.${key}`, inline);
+    } else {
+      throw new Error(`cannot read \`${line.trim()}\` in the steps of \`${job}\``);
+    }
+  }
+  return steps;
+}
+
 type UpdateInput = { source: string; ecosystem: string };
 
 /** The lines of the `updates` entry for `ecosystem` in dependabot.yml, its `- package-ecosystem` line excluded. */
@@ -162,6 +209,20 @@ function topPermissions(source: string): string[] {
 const grantsWrite = (line: string) => /\bwrite(-all)?$/.test(line);
 
 const DEPLOY_JOBS = ["deploy-demo", "deploy-docs"];
+/** The contexts ruleset "main: CI" requires: the jobs' names, never to change. */
+const REQUIRED_JOBS: Record<string, string> = {
+  check: "Check (Node 22)",
+  e2e: "Browser (tests/examples)",
+  hosts: "Hosts typecheck (examples/hosts)",
+  docker: "Docker image smoke test",
+};
+const AREAS_RUN = "node .github/scripts/areas.ts";
+const AREAS_IF = /^steps\.areas\.outputs\.(\w+) != 'false'$/;
+/** The root `check` script's commands as the check job writes them. */
+const IN_CI: Record<string, string> = {
+  "biome ci": "pnpm exec biome ci",
+  "pnpm typecheck": "pnpm -r $TYPECHECK_FILTER typecheck",
+};
 const DEPLOY_CONDITION = "github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'dropletsjs/droplets'";
 
 describe("the workflows", () => {
@@ -254,6 +315,82 @@ describe("the workflows", () => {
       for (const job of others) expect(jobLines({ source, job }).join("\n"), job).not.toMatch(/secrets\./);
     });
   });
+  describe("ci.yml's areas", () => {
+    const source = readFileSync(join(workflowsDir, "ci.yml"), "utf8");
+    const required = Object.keys(REQUIRED_JOBS);
+    const stepsOf = (job: string) => jobSteps({ source, job });
+    const areasIndex = (job: string) => stepsOf(job).findIndex((step) => step.get("id") === "areas");
+
+    it.each(required)("%s keeps the name the ruleset requires, with no needs and no job-level if", (job) => {
+      expect(jobKey({ source, job, key: "name" })).toBe(REQUIRED_JOBS[job]);
+      expect(jobNeeds({ source, job })).toEqual([]);
+      expect(jobCondition({ source, job })).toBeUndefined();
+    });
+
+    it.each(workflows)("%s filters no trigger by path", (name) => {
+      expect(readFileSync(join(workflowsDir, name), "utf8")).not.toMatch(/^\s*(paths|paths-ignore)\s*:/m);
+    });
+
+    it.each(required)("%s fetches the merge commit's parents and runs the areas step once, ungated", (job) => {
+      const steps = stepsOf(job);
+      const checkout = steps.filter((step) => step.get("uses")?.startsWith("actions/checkout@"));
+      expect(checkout.map((step) => step.get("with.fetch-depth"))).toEqual(["2"]);
+      const areas = steps.filter((step) => step.get("id") === "areas");
+      expect(areas).toHaveLength(1);
+      expect(areas[0]?.get("run")).toBe(AREAS_RUN);
+      expect(areas[0]?.has("if")).toBe(false);
+      expect(areas[0]?.has("continue-on-error")).toBe(false);
+      expect(steps.slice(0, areasIndex(job)).filter((step) => step.has("if"))).toEqual([]);
+    });
+
+    it.each(required)("%s gates its steps on an output of the areas step, never on == 'true'", (job) => {
+      for (const step of stepsOf(job)) {
+        const condition = step.get("if");
+        if (condition === undefined) continue;
+        const output = AREAS_IF.exec(condition)?.[1];
+        expect(output, condition).toBeDefined();
+        expect(OUTPUTS, condition).toContain(output);
+      }
+    });
+
+    it("uses every output, the typecheck filter as the typecheck step's env", () => {
+      const used = new Set(required.flatMap((job) => stepsOf(job).map((step) => AREAS_IF.exec(step.get("if") ?? "")?.[1])));
+      expect(OUTPUTS.filter((output) => output !== "typecheck_filter" && !used.has(output))).toEqual([]);
+      const typecheck = stepsOf("check").find((step) => step.get("if") === "steps.areas.outputs.typecheck != 'false'");
+      expect(typecheck?.get("env.TYPECHECK_FILTER")).toBe("${{ steps.areas.outputs.typecheck_filter }}");
+      expect(typecheck?.get("run")).toBe("set -f\npnpm -r $TYPECHECK_FILTER typecheck");
+    });
+
+    it.each([
+      ["e2e", "e2e"],
+      ["hosts", "hosts"],
+      ["docker", "docker"],
+    ])("%s runs every step after the areas step by its one output, %s", (job, output) => {
+      const after = stepsOf(job).slice(areasIndex(job) + 1);
+      expect(after.length).toBeGreaterThan(0);
+      expect(after.map((step) => step.get("if"))).toEqual(after.map(() => `steps.areas.outputs.${output} != 'false'`));
+    });
+
+    it("runs every command of the root check script, the lint and the tree suites on every run", () => {
+      const scripts = (JSON.parse(readFileSync(rootPackage, "utf8")) as { scripts: Record<string, string> }).scripts;
+      // The CI form of pnpm typecheck is the same command with a filter.
+      expect(scripts["typecheck"]).toBe("pnpm -r typecheck");
+      const commands = (scripts["check"] ?? "").split(" && ");
+      expect(commands.length).toBeGreaterThan(5);
+      const runs = stepsOf("check").flatMap((step) => step.get("run")?.split("\n") ?? []);
+      expect(commands.map((command) => IN_CI[command] ?? command).filter((command) => !runs.includes(command))).toEqual([]);
+      const always = stepsOf("check")
+        .filter((step) => !step.has("if"))
+        .map((step) => step.get("run"));
+      expect(always).toEqual(
+        expect.arrayContaining([
+          "pnpm exec biome ci",
+          "pnpm --filter @dropletsjs/tests-hosts test",
+          "pnpm --filter @dropletsjs/tests-packages test:tree",
+        ]),
+      );
+    });
+  });
 });
 
 describe("dependabot.yml", () => {
@@ -310,5 +447,15 @@ describe("the workflow reader", () => {
     expect(jobNeeds({ source, job: "b-c" })).toEqual(["a", "d"]);
     expect(jobNeeds({ source, job: "e" })).toEqual(["a"]);
     expect(() => jobNeeds({ source, job: "f" })).toThrow();
+  });
+  it("reads a job's steps: inline keys, a run block, nested maps; a stray line fails", () => {
+    const source =
+      "jobs:\n  a:\n    steps:\n      - uses: x@1 # v1\n        with:\n          fetch-depth: 2\n      # a comment\n      - id: s\n        run: echo\n      - if: c\n        env:\n          A: b\n        run: |\n          set -f\n          # kept\n          go\n  b:\n    steps:\n      - run: x\n       oops: 1\n";
+    expect(jobSteps({ source, job: "a" }).map((step) => Object.fromEntries(step))).toEqual([
+      { uses: "x@1", "with.fetch-depth": "2" },
+      { id: "s", run: "echo" },
+      { if: "c", "env.A": "b", run: "set -f\n# kept\ngo" },
+    ]);
+    expect(() => jobSteps({ source, job: "b" })).toThrow();
   });
 });

@@ -38,29 +38,74 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # A PR's merge commit and both its parents, for the areas step's diff.
+          fetch-depth: 2
       # Version comes from "packageManager" in the root package.json.
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: pnpm
+      # What this run needs: on a PR, the areas its changed files touch; on a
+      # push, everything (.github/scripts/areas.ts). Every later step reads one
+      # output and runs unless it is 'false'.
+      - id: areas
+        run: node .github/scripts/areas.ts
+      - run: pnpm install --frozen-lockfile
+      # Every run: the lint, and the suites that read the tree (the READMEs,
+      # the examples' ranges, the workflows, the attribute names, the areas).
+      - run: pnpm exec biome ci
+      - run: pnpm --filter @dropletsjs/tests-hosts test
+      - run: pnpm --filter @dropletsjs/tests-packages test:tree
       # The Bun and Deno adapters' suites serve a build with the real runtime;
       # they are skipped where the binary is missing.
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - if: steps.areas.outputs.runtimes != 'false'
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.4
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+      - if: steps.areas.outputs.runtimes != 'false'
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
           deno-version: v2.x
-      - run: pnpm install --frozen-lockfile
-      # pnpm check runs tests/dev-mixed, which drives vite dev in Chromium.
-      - run: pnpm --filter @dropletsjs/tests-dev-mixed exec playwright install --with-deps chromium
-      - run: pnpm check
+      # The packages with their unit tests, or only their dist/ for what builds on it.
+      - if: steps.areas.outputs.unit != 'false'
+        run: pnpm build
+      - if: steps.areas.outputs.dist != 'false'
+        run: pnpm build:dist
+      # pnpm typecheck, for every project or the filtered ones; set -f keeps
+      # the filter's paths from being read as globs.
+      - if: steps.areas.outputs.typecheck != 'false'
+        env:
+          TYPECHECK_FILTER: ${{ steps.areas.outputs.typecheck_filter }}
+        run: |
+          set -f
+          pnpm -r $TYPECHECK_FILTER typecheck
+      # tests/dev-mixed drives vite dev in Chromium.
+      - if: steps.areas.outputs.integration != 'false'
+        run: pnpm --filter @dropletsjs/tests-dev-mixed exec playwright install --with-deps chromium
+      - if: steps.areas.outputs.integration != 'false'
+        run: pnpm test:integration
+      - if: steps.areas.outputs.examples != 'false'
+        run: pnpm build:examples
+      - if: steps.areas.outputs.examples != 'false'
+        run: pnpm build:examples:cloudflare
+      - if: steps.areas.outputs.shop != 'false'
+        run: pnpm build:example:shop
+      - if: steps.areas.outputs.shop != 'false'
+        run: pnpm test:example:shop
+      - if: steps.areas.outputs.shop != 'false'
+        run: pnpm test:example:wp-shop
+      - if: steps.areas.outputs.demo != 'false'
+        run: pnpm build:demo
+      - if: steps.areas.outputs.demo != 'false'
+        run: pnpm test:demo
       # Builds and starts apps/demo (Node) on a local port, for the live
       # droplets the pages inline; the build fails without it.
-      - run: pnpm docs:build
+      - if: steps.areas.outputs.docs != 'false'
+        run: pnpm docs:build
       # Every inline script Starlight writes has its hash in apps/docs/public/_headers.
-      - run: pnpm docs:check-csp
+      - if: steps.areas.outputs.docs != 'false'
+        run: pnpm docs:check-csp
 
   e2e:
     name: Browser (tests/examples)
@@ -70,17 +115,35 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # A PR's merge commit and both its parents, for the areas step's diff.
+          fetch-depth: 2
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      # Node for the areas step; the pnpm cache comes with the install below:
+      # setup-node's cache save fails the job when nothing was installed.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
+          package-manager-cache: false
+      # What this run needs: on a PR, the areas its changed files touch; on a
+      # push, everything (.github/scripts/areas.ts). Every later step reads one
+      # output and runs unless it is 'false'.
+      - id: areas
+        run: node .github/scripts/areas.ts
+      - if: steps.areas.outputs.e2e != 'false'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - if: steps.areas.outputs.e2e != 'false'
+        run: pnpm install --frozen-lockfile
       # The unit tests run in the check job's build.
-      - run: pnpm build:dist
-      - run: pnpm --filter @dropletsjs/tests-examples exec playwright install --with-deps chromium
+      - if: steps.areas.outputs.e2e != 'false'
+        run: pnpm build:dist
+      - if: steps.areas.outputs.e2e != 'false'
+        run: pnpm --filter @dropletsjs/tests-examples exec playwright install --with-deps chromium
       # Builds the eight framework examples, then runs one project per example.
-      - run: pnpm test:e2e
+      - if: steps.areas.outputs.e2e != 'false'
+        run: pnpm test:e2e
 
   hosts:
     name: Hosts typecheck (examples/hosts)
@@ -90,14 +153,28 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # A PR's merge commit and both its parents, for the areas step's diff.
+          fetch-depth: 2
+      # Node for the areas step; the npm cache only where the hosts install.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      # What this run needs: on a PR, the areas its changed files touch; on a
+      # push, everything (.github/scripts/areas.ts). Every later step reads one
+      # output and runs unless it is 'false'.
+      - id: areas
+        run: node .github/scripts/areas.ts
+      - if: steps.areas.outputs.hosts != 'false'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: examples/hosts/*/package-lock.json
       # The hosts are outside the pnpm workspace: each one's npm ci, then its
       # npm run typecheck. A job of its own, since it installs five projects.
-      - run: node tests/hosts/typecheck.mjs
+      - if: steps.areas.outputs.hosts != 'false'
+        run: node tests/hosts/typecheck.mjs
 
   docker:
     name: Docker image smoke test
@@ -107,8 +184,21 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+          # A PR's merge commit and both its parents, for the areas step's diff.
+          fetch-depth: 2
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      # What this run needs: on a PR, the areas its changed files touch; on a
+      # push, everything (.github/scripts/areas.ts). Every later step reads one
+      # output and runs unless it is 'false'.
+      - id: areas
+        run: node .github/scripts/areas.ts
+      - if: steps.areas.outputs.docker != 'false'
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Build the droplets server image
+        if: steps.areas.outputs.docker != 'false'
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -120,6 +210,7 @@ jobs:
           # Only main writes the layer cache, so a PR can't seed it.
           cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max' || '' }}
       - name: Smoke test
+        if: steps.areas.outputs.docker != 'false'
         run: |
           docker run -d --rm --name droplets -p 8000:8000 droplets-svelte:ci
           for i in $(seq 1 30); do curl -sf http://localhost:8000/health && break; sleep 1; done
