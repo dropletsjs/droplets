@@ -62,7 +62,7 @@ function droplets_shortcode(array|string $atts): string
     }
 
     $response = wp_remote_get($url, [
-        'timeout' => 5,
+        'timeout' => 10,
         'redirection' => 0,
         'headers' => ['accept' => 'text/html', 'x-droplet-location' => droplets_public_url()],
     ]);
@@ -74,11 +74,11 @@ function droplets_shortcode(array|string $atts): string
             esc_html($response->get_error_message())
         );
     }
-    // Only an HTML answer is a fragment (a 500 carries the droplet's error
-    // page); anything else may echo the props, so it is never pasted.
+    // Only an HTML answer is a fragment (a 500 or 504 carries the droplet's
+    // error page); anything else may echo the props, so it is never pasted.
     $status = (int) wp_remote_retrieve_response_code($response);
     $is_html = str_starts_with((string) wp_remote_retrieve_header($response, 'content-type'), 'text/html');
-    if (!(($status >= 200 && $status < 300) || $status === 500) || !$is_html) {
+    if (!(($status >= 200 && $status < 300) || in_array($status, [500, 504], true)) || !$is_html) {
         return sprintf('<p class="error">droplet "%s" unavailable: HTTP %d</p>', esc_html($id), $status);
     }
 

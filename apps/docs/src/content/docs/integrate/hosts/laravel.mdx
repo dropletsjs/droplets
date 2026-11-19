@@ -34,7 +34,7 @@ public function fragments(Request $request, array $wanted): array
         // … $result: html, status, location, cookies (every Set-Cookie), link
         if ($status >= 300 && $status < 400) {
             $result['location'] = $received['location'][0] ?? null;
-        } elseif ((($status >= 200 && $status < 300) || $status === 500) && $isHtml) {
+        } elseif ((($status >= 200 && $status < 300) || in_array($status, [500, 504], true)) && $isHtml) {
             $result['html'] = $answer->body();
             $results[$key] = $result;
             continue;
@@ -70,7 +70,7 @@ private function client(PendingRequest $request, int $timeout): PendingRequest
 - `withoutRedirecting()` keeps a droplet's 3xx: `ShopController::render()`
   answers it with its `Location`, and sends the fragments' `Set-Cookie` with
   the page.
-- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+- Only a `text/html` answer (a 2xx, or a 500 or 504 carrying the droplet's error
   page) is pasted; `{!! !!}` prints it unescaped.
 - `resources/views/shop/layout.blade.php` loads `/index.js` once.
   `routes/web.php` sends `/index.js`, `/env.js`, `/index.css`,
@@ -275,11 +275,11 @@ $answers = Http::pool(fn (Pool $pool) => array_map(
     fn (string $id) => $pool->as($id)
         ->withHeaders(['accept' => 'text/html', 'x-droplet-location' => $publicUrl])
         ->withoutRedirecting()
-        ->timeout(5)
+        ->timeout(10)
         ->get($internalUrl.'/droplets/'.rawurlencode($id).'?'.http_build_query(['who' => $who])),
     self::IDS,
 ));
-// … only a 2xx or 500 text/html answer becomes a fragment; anything else a <p class="error">
+// … only a 2xx, 500 or 504 text/html answer becomes a fragment; anything else a <p class="error">
 ```
 
 ```blade

@@ -33,13 +33,13 @@ class HomeController < ActionController::Base
     uri.query = URI.encode_www_form(props) unless props.empty?
 
     # Net::HTTP never follows a redirect.
-    answer = Net::HTTP.start(uri.host, uri.port, open_timeout: 5, read_timeout: 5) do |http|
+    answer = Net::HTTP.start(uri.host, uri.port, open_timeout: 5, read_timeout: 10) do |http|
       http.get(uri.request_uri, { "accept" => "text/html", "x-droplet-location" => DROPLETS_PUBLIC_URL })
     end
-    # Only an HTML answer is a fragment (a 500 carries the droplet's error
-    # page); anything else may echo the props, so it is never printed.
+    # Only an HTML answer is a fragment (a 500 or 504 carries the droplet's
+    # error page); anything else may echo the props, so it is never printed.
     is_html = answer["content-type"].to_s.start_with?("text/html")
-    return answer.body.to_s.force_encoding("UTF-8").html_safe if (answer.is_a?(Net::HTTPSuccess) || answer.code == "500") && is_html
+    return answer.body.to_s.force_encoding("UTF-8").html_safe if (answer.is_a?(Net::HTTPSuccess) || %w[500 504].include?(answer.code)) && is_html
 
     helpers.tag.p(%(droplet "#{droplet}" unavailable: HTTP #{answer.code}), class: "error")
   rescue StandardError => e

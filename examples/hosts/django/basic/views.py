@@ -39,10 +39,10 @@ def fetch_droplet(client: httpx.Client, droplet: str, **props: str) -> SafeStrin
         # The error names the internal URL: it goes to the log, not the page.
         logger.error("[droplets] %s: %r", droplet, error)
         return format_html('<p class="error">droplet "{}" unavailable</p>', droplet)
-    # Only an HTML answer is a fragment (a 500 carries the droplet's error
-    # page); anything else may echo the props, so it is never pasted.
+    # Only an HTML answer is a fragment (a 500 or 504 carries the droplet's
+    # error page); anything else may echo the props, so it is never pasted.
     is_html = response.headers.get("content-type", "").startswith("text/html")
-    if (response.is_success or response.status_code == 500) and is_html:
+    if (response.is_success or response.status_code in (500, 504)) and is_html:
         return mark_safe(response.text)
     return format_html('<p class="error">droplet "{}" unavailable: HTTP {}</p>', droplet, response.status_code)
 
@@ -50,6 +50,6 @@ def fetch_droplet(client: httpx.Client, droplet: str, **props: str) -> SafeStrin
 @require_safe
 def index(request):
     who = request.GET.get("who", "Django")
-    with httpx.Client(timeout=5.0) as client, ThreadPoolExecutor(max_workers=len(IDS)) as pool:
+    with httpx.Client(timeout=10.0) as client, ThreadPoolExecutor(max_workers=len(IDS)) as pool:
         fragments = list(pool.map(lambda droplet: fetch_droplet(client, droplet, who=who), IDS))
     return render(request, "basic/index.html", {"droplets_public_url": DROPLETS_PUBLIC_URL, "fragments": fragments})

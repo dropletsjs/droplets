@@ -74,8 +74,8 @@ module Shop
   end
 
   # GET /droplets/<id>?<params> -> { html:, status:, location:, cookies:, link: }.
-  # Only an HTML answer is a fragment (a 500 carries the droplet's error
-  # page); anything else may echo the props, so it is never inserted.
+  # Only an HTML answer is a fragment (a 500 or 504 carries the droplet's
+  # error page); anything else may echo the props, so it is never inserted.
   def fragment(id, params, cookie:, referer:)
     # The browser's request, as the shop should see it: its shop cookies, this page as the host.
     headers = { "accept" => "text/html", "x-droplet-location" => ORIGIN, "referer" => referer }
@@ -88,7 +88,7 @@ module Shop
       result.merge!(status: code, cookies: response.get_fields("set-cookie") || [], link: response["link"])
       if (300..399).cover?(code)
         result[:location] = response["location"]
-      elsif (response.is_a?(Net::HTTPSuccess) || code == 500) && response["content-type"].to_s.start_with?("text/html")
+      elsif (response.is_a?(Net::HTTPSuccess) || [500, 504].include?(code)) && response["content-type"].to_s.start_with?("text/html")
         # Trusted markup from the shop: inserted as it is.
         result[:html] = response.body.to_s.force_encoding("UTF-8").html_safe
         return result

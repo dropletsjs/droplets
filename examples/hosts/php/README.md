@@ -61,7 +61,7 @@ first-party and nothing is cross-origin. It follows the shop's
 - Fragment fetches forward the browser's `Cookie` cut down to the shop's
   own `cart_id` and `shop_admin` (so does the proxy), send the page URL
   (`REQUEST_URI`, query included) as `Referer`, never follow redirects, and
-  insert only `text/html` answers (2xx, or a 500 carrying the droplet's
+  insert only `text/html` answers (2xx, or a 500 or 504 carrying the droplet's
   error page). Their `Set-Cookie` goes back with the page, their `Link`
   preloads into its `<head>`, and a redirect is passed on.
 - The proxy forwards an allowlist of the browser's headers and the body as
@@ -132,8 +132,8 @@ into a page.
 - PHP built-in server: a file in `public/` is served as it is (`return false`). `public/index.php:25`
 - Basic page answers only GET and HEAD on `/`; anything unrouted is a plain-text 404. `public/index.php:33`, `public/index.php:57`
 - Basic page droplets: `client`, `ssr-hydrate`, `ssr-nohydrate`, with `who` defaulting to `PHP`. `public/index.php:36`, `public/index.php:37`
-- Basic fragment fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`, timeout 5 s. `public/index.php:40`, `public/index.php:41`
-- Basic page pastes only a 2xx or 500 `text/html` answer; anything else renders an inline `<p class="error">`. `public/index.php:49`, `public/index.php:51`
+- Basic fragment fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`, timeout 10 s. `public/index.php:40`, `public/index.php:41`
+- Basic page pastes only a 2xx, 500 or 504 `text/html` answer; anything else renders an inline `<p class="error">`. `public/index.php:49`, `public/index.php:51`
 - Basic page loads `<DROPLETS_PUBLIC_URL>/index.js`. `app/views/index.php:7`
 - Droplets server's `cors: true` (the Svelte example) lets the basic page load droplets cross-origin. `../../frameworks/svelte/droplets.config.ts:16`
 - curl: requests in parallel with `curl_multi`, redirects never followed, http and https only. `app/http.php:19`, `app/http.php:39`, `app/http.php:40`
@@ -154,7 +154,7 @@ into a page.
 - Shop proxy passes every `Set-Cookie` on untouched. `app/shop.php:155`, `app/shop.php:213`
 - Shop query is parsed from `QUERY_STRING` as pairs: repeated keys and dotted names kept. `app/shop.php:116`
 - Shop fragment fetch sends `accept: text/html`, the page URL as `Referer` and the browser's `Cookie` cut down to the shop's. `app/shop.php:230`, `app/shop.php:231`
-- Shop fragment is inserted only when it is 2xx or 500 and `text/html`. `app/shop.php:255`
+- Shop fragment is inserted only when it is 2xx, 500 or 504 and `text/html`. `app/shop.php:255`
 - Shop fragment that is not inserted becomes `<p class="shop-unavailable">`. `app/shop.php:262`
 - Shop product lookup reads `/droplets/product-page/_data?slug=`; an unknown product renders `not-found` with 404. `app/shop.php:272`, `app/shop.php:370`
 - Shop product name and category from `_data` are escaped with `h()` in the breadcrumb. `app/views/shop/product.php:3`, `app/views/shop/product.php:4`

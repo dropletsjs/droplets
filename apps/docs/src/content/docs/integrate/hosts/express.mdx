@@ -30,7 +30,7 @@ async function fragment(req, id, params = new URLSearchParams()) {
     if (response.status >= 300 && response.status < 400) {
       result.location = response.headers.get("location");
     } else if (
-      (response.ok || response.status === 500) &&
+      (response.ok || [500, 504].includes(response.status)) &&
       (response.headers.get("content-type") ?? "").startsWith("text/html")
     ) {
       result.html = await response.text();
@@ -58,7 +58,7 @@ async function fragment(req, id, params = new URLSearchParams()) {
   `SHOP_PUBLIC_URL`), the browser's `Cookie` cut down to the shop's own `cart_id` and `shop_admin`, and the page's URL
   as `referer`. `redirect: "manual"` keeps a droplet's 3xx, which `render()`
   answers as it is.
-- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+- Only a `text/html` answer (a 2xx, or a 500 or 504 carrying the droplet's error
   page) is pasted; anything else becomes a "droplet is unavailable" note
   with the id escaped. `render()` sends every fragment's `Set-Cookie` with
   the page.
@@ -140,7 +140,7 @@ plus `cookie` cut down to the shop's own `cart_id` and `shop_admin`, so a
 `Forwarded` or `X-Forwarded-*` header a client sends never reaches the
 shop, and neither does another app's cookie on this origin. A path with a
 `.` or `..` segment, once decoded, is refused with `400`. Each request to
-the shop times out (15 seconds; fragments 10, the product lookup 5). When
+the shop times out (15 seconds; fragments and the product lookup 10). When
 the shop is down it answers `502` `The shop is unreachable.`
 
 The browser only ever talks to `localhost:8003`, so there is no CORS, and
@@ -203,12 +203,12 @@ export function createDropletClient({ internalUrl, publicUrl }) {
       const response = await fetch(url, {
         headers: { accept: "text/html", "x-droplet-location": publicUrl },
         redirect: "manual",
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(10_000),
       });
-      // Only an HTML answer is a fragment (a 500 carries the droplet's error
-      // page); anything else may echo the props, so it is never pasted.
+      // Only an HTML answer is a fragment (a 500 or 504 carries the droplet's
+      // error page); anything else may echo the props, so it is never pasted.
       const isFragment =
-        (response.ok || response.status === 500) && (response.headers.get("content-type") ?? "").startsWith("text/html");
+        (response.ok || [500, 504].includes(response.status)) && (response.headers.get("content-type") ?? "").startsWith("text/html");
       if (isFragment) return await response.text();
       await response.body?.cancel();
       return `<p class="error">droplet "${escapeHtml(droplet)}" unavailable: HTTP ${response.status}</p>`;

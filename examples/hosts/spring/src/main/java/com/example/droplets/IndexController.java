@@ -31,7 +31,7 @@ class IndexController {
   /** The Svelte example's droplets (examples/frameworks/svelte), one per mode. */
   static final List<String> IDS = List.of("client", "ssr-hydrate", "ssr-nohydrate");
 
-  private final RestClient client = Application.restClient(Duration.ofSeconds(5));
+  private final RestClient client = Application.restClient(Duration.ofSeconds(10));
   private final ExecutorService executor;
 
   /** Server-to-server address (inside Docker: the service name). */
@@ -77,9 +77,9 @@ class IndexController {
               (req, res) -> {
                 int status = res.getStatusCode().value();
                 String type = res.getHeaders().getFirst("content-type");
-                // Only an HTML answer is a fragment (a 500 carries the droplet's error
-                // page); anything else may echo the props, so it is never pasted.
-                if ((res.getStatusCode().is2xxSuccessful() || status == 500) && type != null && type.startsWith("text/html")) {
+                // Only an HTML answer is a fragment (a 500 or 504 carries the droplet's
+                // error page); anything else may echo the props, so it is never pasted.
+                if ((res.getStatusCode().is2xxSuccessful() || status == 500 || status == 504) && type != null && type.startsWith("text/html")) {
                   return new String(res.getBody().readAllBytes(), StandardCharsets.UTF_8);
                 }
                 return "<p class=\"error\">droplet \"" + HtmlUtils.htmlEscape(droplet) + "\" unavailable: HTTP " + status + "</p>";

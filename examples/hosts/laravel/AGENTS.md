@@ -20,7 +20,7 @@
 - A path with a `.` or `..` segment, once decoded, never reaches the shop (400).
   Checked by: `tests/Feature/ProxyTest.php`.
 - `enable_post_data_reading` stays off, so multipart posts reach the proxy in `php://input`.
-- Only an HTML answer (2xx or 500) is inserted as a fragment, with `{!! !!}`; any other answer becomes a fixed note, and values from the shop go out through `{{ }}`.
+- Only an HTML answer (2xx, 500 or 504) is inserted as a fragment, with `{!! !!}`; any other answer becomes a fixed note, and values from the shop go out through `{{ }}`.
   Checked by: `tests/Feature/PagesTest.php`.
 - A page passes its fragments' `Set-Cookie` and a fragment's redirect on to the browser.
   Checked by: `tests/Feature/PagesTest.php`.

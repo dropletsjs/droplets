@@ -222,8 +222,8 @@ function shop_proxy(): void
  * `GET /droplets/<id>?<pairs>` for each of `$wanted` (`[id, pairs]`), in
  * parallel, as the browser's request: its cookies, this page as the host.
  * Each answer: `html`, `status`, `location`, `cookies`, `link`. Only an HTML
- * answer is a fragment (a 500 carries the droplet's error page); anything
- * else may echo the props, so it is never inserted.
+ * answer is a fragment (a 500 or 504 carries the droplet's error page);
+ * anything else may echo the props, so it is never inserted.
  */
 function shop_fragments(array $wanted): array
 {
@@ -252,7 +252,7 @@ function shop_fragments(array $wanted): array
         $is_html = str_starts_with((string) http_header($response, 'content-type'), 'text/html');
         if ($status >= 300 && $status < 400) {
             $result['location'] = http_header($response, 'location');
-        } elseif ((($status >= 200 && $status < 300) || $status === 500) && $is_html) {
+        } elseif ((($status >= 200 && $status < 300) || in_array($status, [500, 504], true)) && $is_html) {
             // Trusted markup from the shop: inserted as it is.
             $result['html'] = $response['body'];
             $results[$key] = $result;
@@ -271,7 +271,7 @@ function shop_product(string $slug): ?array
     $response = http_one([
         'url' => shop_internal_url() . '/droplets/product-page/_data?' . shop_build_query([['slug', $slug]]),
         'headers' => ['x-droplet-location' => shop_origin(), 'accept' => 'application/json'],
-    ], 5);
+    ], 10);
     if ($response['status'] !== 200) {
         return null;
     }

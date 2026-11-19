@@ -18,8 +18,8 @@ const main = document.getElementById("page");
 
 /**
  * `GET <droplets>/droplets/<id>?<params>`, inserted into `target` when the
- * answer is a fragment: a 2xx, or a 500 carrying the droplet's error page.
- * Any other answer may echo the props, so it is never inserted; a redirect
+ * answer is a fragment: a 2xx, or a 500 or 504 carrying the droplet's error
+ * page. Any other answer may echo the props, so it is never inserted; a redirect
  * is never followed (its target is opaque here) and goes to `onRedirect`.
  */
 async function fragment({ id, params, target, onRedirect }) {
@@ -35,7 +35,7 @@ async function fragment({ id, params, target, onRedirect }) {
     });
     if (response.type === "opaqueredirect" && onRedirect) return onRedirect();
     const isFragment =
-      (response.ok || response.status === 500) && (response.headers.get("content-type") ?? "").startsWith("text/html");
+      (response.ok || [500, 504].includes(response.status)) && (response.headers.get("content-type") ?? "").startsWith("text/html");
     if (!isFragment) throw new Error(`HTTP ${response.status}`);
     const template = document.createElement("template");
     template.innerHTML = await response.text();

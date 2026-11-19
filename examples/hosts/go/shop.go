@@ -286,8 +286,8 @@ func (s *shop) fetch(r *http.Request, id string, params []pair) fragment {
 }
 
 // fetchInto asks as the browser's request: its shop cookies, this page as
-// the host. Only an HTML answer is a fragment (a 500 carries the droplet's
-// error page); anything else may echo the props, so it is never inserted.
+// the host. Only an HTML answer is a fragment (a 500 or 504 carries the
+// droplet's error page); anything else may echo the props: never inserted.
 func (s *shop) fetchInto(result *fragment, r *http.Request, id string, params []pair) (bool, error) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
@@ -350,7 +350,7 @@ type product struct {
 // lookup reads a product's name, category and id from the product page's
 // public _data read; nil when there is none, or it is out of shape.
 func (s *shop) lookup(ctx context.Context, slug string) *product {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		s.internal+"/droplets/product-page/_data?"+encode([]pair{{"slug", slug}}), nil)

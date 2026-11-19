@@ -17,7 +17,7 @@
   Checked by: `tests/hosts/e2e/shop.spec.ts`.
 - The shared `RestClient` (JDK `HttpClient`) has no cookie handler and follows no redirects: each visitor's `Cookie` is forwarded as it came.
   Checked by: `tests/hosts/e2e/shop.spec.ts` ("a new visitor gets nobody else's cart or session").
-- A shop page inserts a fragment (`th:utext`) only when it is a 2xx or 500 `text/html` answer; every other value goes through `th:text` or `HtmlUtils.htmlEscape`.
+- A shop page inserts a fragment (`th:utext`) only when it is a 2xx, 500 or 504 `text/html` answer; every other value goes through `th:text` or `HtmlUtils.htmlEscape`.
 - Published ports bind to `127.0.0.1` only.
 - `src/main/resources/static/shop.css` is the same file as the other hosts' `shop.css` (all but WordPress); a change goes to all of them.
   Checked by: `tests/hosts/test/shop-css.test.ts`.

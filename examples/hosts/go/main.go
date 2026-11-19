@@ -106,7 +106,7 @@ func (b *basicPage) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // fetch is GET /droplets/<id>?who=<who>: the droplet element's fragment, or an inline error.
 func (b *basicPage) fetch(ctx context.Context, id, who string) template.HTML {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	target := b.internalURL + "/droplets/" + url.PathEscape(id) + "?" + url.Values{"who": {who}}.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
@@ -122,8 +122,8 @@ func (b *basicPage) fetch(ctx context.Context, id, who string) template.HTML {
 		return unavailable(id, "")
 	}
 	defer resp.Body.Close()
-	// Only an HTML answer is a fragment (a 500 carries the droplet's error
-	// page); anything else may echo the props, so it is never pasted.
+	// Only an HTML answer is a fragment (a 500 or 504 carries the droplet's
+	// error page); anything else may echo the props, so it is never pasted.
 	if isFragment(resp) {
 		if body, err := io.ReadAll(resp.Body); err == nil {
 			return template.HTML(body)
@@ -136,9 +136,9 @@ func unavailable(id, reason string) template.HTML {
 	return template.HTML(fmt.Sprintf(`<p class="error">droplet "%s" unavailable%s</p>`, template.HTMLEscapeString(id), reason))
 }
 
-// isFragment says whether an answer is one to paste: a 2xx or 500, text/html.
+// isFragment says whether an answer is one to paste: a 2xx, 500 or 504, text/html.
 func isFragment(resp *http.Response) bool {
-	ok := resp.StatusCode/100 == 2 || resp.StatusCode == http.StatusInternalServerError
+	ok := resp.StatusCode/100 == 2 || resp.StatusCode == http.StatusInternalServerError || resp.StatusCode == http.StatusGatewayTimeout
 	return ok && strings.HasPrefix(resp.Header.Get("Content-Type"), "text/html")
 }
 

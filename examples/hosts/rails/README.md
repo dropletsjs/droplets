@@ -117,8 +117,8 @@ http://localhost:8015 and takes the stack down. It needs Docker.
 - Basic page droplets are `client`, `ssr-hydrate` and `ssr-nohydrate`. `app/controllers/home_controller.rb:18`
 - Basic page prop `who` is the permitted scalar `who` param, default `Rails`. `app/controllers/home_controller.rb:23`
 - Basic page fragment fetch sends `accept: text/html` and `x-droplet-location: DROPLETS_PUBLIC_URL`; `Net::HTTP` never follows a redirect. `app/controllers/home_controller.rb:37`
-- Basic page fragment fetch has 5 second open and read timeouts. `app/controllers/home_controller.rb:36`
-- Basic page prints only a 2xx or 500 `text/html` answer (`html_safe`); anything else, or a failure, renders `<p class="error">` with `tag.p`, escaped. `app/controllers/home_controller.rb:42`, `app/controllers/home_controller.rb:44`, `app/controllers/home_controller.rb:46`
+- Basic page fragment fetch has a 5 second open and a 10 second read timeout. `app/controllers/home_controller.rb:36`
+- Basic page prints only a 2xx, 500 or 504 `text/html` answer (`html_safe`); anything else, or a failure, renders `<p class="error">` with `tag.p`, escaped. `app/controllers/home_controller.rb:42`, `app/controllers/home_controller.rb:44`, `app/controllers/home_controller.rb:46`
 - Basic page loads `<DROPLETS_PUBLIC_URL>/index.js` as a module script. `app/views/home/index.html.erb:7`
 - Routes: `/` to `home#index`; `/gallery`, `/product/:slug`, `/login`, `/admin` to `ShopController`, GET only, no format. `config/routes.rb:3`, `config/routes.rb:6`
 - Droplets server image is `examples/frameworks/Dockerfile`, the Svelte example by default. `docker-compose.yml:9`, `../../frameworks/Dockerfile:24`
@@ -144,7 +144,7 @@ http://localhost:8015 and takes the stack down. It needs Docker.
 - Shop proxy answers 502 `The shop is unreachable.` when the shop fails. `app/controllers/shop_proxy.rb:37`
 - Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page URL (`Shop::ORIGIN` plus `request.original_fullpath`) as `referer` and the browser's `cookie` cut down to the shop's. `app/models/shop.rb:81`, `app/models/shop.rb:82`, `app/controllers/shop_controller.rb:54`
 - Shop fragment 3xx is kept as a redirect, not followed. `app/models/shop.rb:89`
-- Shop fragment is inserted (`html_safe`) only for 2xx or 500 with `text/html`. `app/models/shop.rb:91`, `app/models/shop.rb:93`
+- Shop fragment is inserted (`html_safe`) only for 2xx, 500 or 504 with `text/html`. `app/models/shop.rb:91`, `app/models/shop.rb:93`
 - Shop fragment otherwise renders `<p class="shop-unavailable">`, escaped by `tag.p`. `app/models/shop.rb:100`
 - Shop page fetches `toast-center`, `shopping-cart` (`variant=badge`) and its own fragments, one thread each, inside the Rails executor. `app/controllers/shop_controller.rb:55`, `app/controllers/shop_controller.rb:57`
 - Shop page sets `cache-control: private, no-store`. `app/controllers/shop_controller.rb:62`

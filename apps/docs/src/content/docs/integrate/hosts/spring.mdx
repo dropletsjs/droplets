@@ -42,7 +42,7 @@ Fragment fragment(String target, String cookie, String droplet, List<Param> para
         if (status >= 300 && status < 400) {
           return new Fragment(unavailable(droplet, "HTTP " + status), status, res.getHeaders().getFirst("location"), cookies, link);
         }
-        if (((status >= 200 && status < 300) || status == 500) && type != null && type.startsWith("text/html")) {
+        if (((status >= 200 && status < 300) || status == 500 || status == 504) && type != null && type.startsWith("text/html")) {
           return new Fragment(new String(res.getBody().readAllBytes(), UTF_8), status, null, cookies, link);
         }
         // … anything else: a "droplet is unavailable" note, the id escaped
@@ -70,7 +70,7 @@ Fragment fragment(String target, String cookie, String droplet, List<Param> para
   is, without `RestClient`'s error handling for 4xx and 5xx. `ShopPages`
   sends the fragments' `Set-Cookie` with the page; a fragment's redirect
   answers the whole page with that status and `location`.
-- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+- Only a `text/html` answer (a 2xx, or a 500 or 504 carrying the droplet's error
   page) is printed with `th:utext`, which Thymeleaf leaves unescaped; every
   other value goes through `th:text`.
 - `templates/shop/layout.html` loads `/index.js` once. One handler,
@@ -260,9 +260,9 @@ private String fetchDroplet(String droplet, String who) {
       .exchange((req, res) -> {
         int status = res.getStatusCode().value();
         String type = res.getHeaders().getFirst("content-type");
-        // Only an HTML answer is a fragment (a 500 carries the droplet's error
-        // page); anything else may echo the props, so it is never pasted.
-        if ((res.getStatusCode().is2xxSuccessful() || status == 500) && type != null && type.startsWith("text/html")) {
+        // Only an HTML answer is a fragment (a 500 or 504 carries the droplet's
+        // error page); anything else may echo the props, so it is never pasted.
+        if ((res.getStatusCode().is2xxSuccessful() || status == 500 || status == 504) && type != null && type.startsWith("text/html")) {
           return new String(res.getBody().readAllBytes(), UTF_8);
         }
         return "<p class=\"error\">droplet \"" + HtmlUtils.htmlEscape(droplet) + "\" unavailable: HTTP " + status + "</p>";
@@ -278,7 +278,7 @@ private String fetchDroplet(String droplet, String who) {
 ```
 
 `th:utext` prints the fragment unescaped. Only a `text/html` answer is
-pasted (a 2xx, or a 500 carrying the droplet's error page); any other answer
+pasted (a 2xx, or a 500 or 504 carrying the droplet's error page); any other answer
 prints an error paragraph with its status, the id escaped. A failed request
 prints a fixed one and logs the error, since its message names the internal
 URL. Here the page loads `/index.js` from the droplets server's public URL,
