@@ -30,6 +30,7 @@ describe("the shop's layout CSS across the hosts", () => {
       "nextjs",
       "nginx",
       "php",
+      "rails",
       "react-vite",
       "sinatra",
       "static",

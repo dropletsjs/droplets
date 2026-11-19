@@ -1,0 +1,7 @@
+source "https://rubygems.org"
+
+# Rails without a database, mail, jobs or an asset pipeline: the shop's server holds the data.
+gem "railties", "~> 8.1"
+gem "actionpack", "~> 8.1"
+gem "actionview", "~> 8.1"
+gem "puma", "~> 8.0"

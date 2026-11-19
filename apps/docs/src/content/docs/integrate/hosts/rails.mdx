@@ -1,0 +1,256 @@
+---
+title: Rails
+description: "Ruby: fetch fragments with Net::HTTP in a controller and render them into ERB views."
+---
+
+import HostDemo from "../../../../components/HostDemo.astro";
+
+How a Rails app embeds droplets: a controller fetches each fragment with
+`Net::HTTP` and an ERB view prints it into the page. The app has no
+database: the shop's droplets server holds the data.
+
+## The pattern in Rails
+
+```ruby
+# app/models/shop.rb (trimmed)
+def fragment(id, params, cookie:, referer:)
+  headers = { "accept" => "text/html", "x-droplet-location" => ORIGIN, "referer" => referer }
+  headers["cookie"] = cookie if cookie
+  target = "/droplets/#{ERB::Util.url_encode(id)}?#{URI.encode_www_form(params)}"
+  result = { html: "", status: 502, location: nil, cookies: [], link: nil }
+  response = request("GET", target, headers) # Net::HTTP to SHOP_INTERNAL_URL
+  code = response.code.to_i
+  result.merge!(status: code, cookies: response.get_fields("set-cookie") || [], link: response["link"])
+  if (300..399).cover?(code)
+    result[:location] = response["location"]
+  elsif (response.is_a?(Net::HTTPSuccess) || code == 500) && response["content-type"].to_s.start_with?("text/html")
+    result[:html] = response.body.to_s.force_encoding("UTF-8").html_safe
+    return result
+  end
+  # … anything else: result[:html] becomes a "droplet is unavailable" note
+  result
+end
+```
+
+```erb
+<%# app/views/layouts/shop.html.erb, in <head>: once per page %>
+<script type="module" src="/index.js"></script>
+<%# app/views/shop/gallery.html.erb: the fragment's HTML, as it came %>
+<aside><%= @fragments[0] %></aside>
+```
+
+- `Shop.fragment` sends `GET /droplets/<id>?<params>` to `SHOP_INTERNAL_URL`
+  with `accept: text/html` and `x-droplet-location` set to `Shop::ORIGIN`,
+  the origin of `SHOP_PUBLIC_URL`. It passes on the browser's `Cookie` cut
+  down to the shop's own `cart_id` and `shop_admin`, and the page's URL as
+  `referer`: `Shop::ORIGIN` plus `request.original_fullpath`, the path and
+  query as the browser sent them.
+- `Net::HTTP` never follows a redirect, so a droplet's 3xx is kept:
+  `ShopController#render_shop` answers it with `head`, and sends the
+  fragments' `Set-Cookie` with the page.
+- Only a `text/html` answer (a 2xx, or a 500 carrying the droplet's error
+  page) is marked `html_safe`; `<%= %>` escapes everything else.
+- The `shop` layout loads `/index.js` once. `ShopProxy`, routed for every
+  verb, passes `/index.js`, `/env.js`, `/index.css`, `/droplets/*`,
+  `/assets/*` and `/api/*` on to the shop.
+
+## The shop demo, recorded
+
+The [shop demo](/integrate/hosts/shop-demo/) on Rails 8, recorded by the
+end-to-end test. [How the pieces fit](/integrate/hosts/shop-demo/#how-it-fits-together)
+has the diagram.
+
+<HostDemo id="rails" stack="Rails 8" />
+
+The code is `examples/hosts/rails`: `app/models/shop.rb` (the requests to
+the shop), `app/controllers/shop_controller.rb` (the pages),
+`app/controllers/shop_proxy.rb` (the proxy) and the ERB views in
+`app/views/shop/`.
+
+### Pieces and ports
+
+`docker-compose.yml` starts three services:
+
+| Service | Port | What it is |
+| --- | --- | --- |
+| `web` | 8015, public | Rails on Puma: the shop's pages, the proxy, and the basic page at `/` |
+| `shop` | 8300, internal only | the shop's droplets server (`examples/shop`) |
+| `droplets` | 8000, public | the Svelte example's droplets server, for `/` only |
+
+| On `web` | Value | Used for |
+| --- | --- | --- |
+| `SHOP_INTERNAL_URL` | `http://shop:8300` | internal: fragment fetches and the proxy |
+| `SHOP_PUBLIC_URL` | `http://localhost:8015` | public: this host's own origin, sent as `x-droplet-location` |
+| `DROPLETS_INTERNAL_URL`, `DROPLETS_PUBLIC_URL` | `http://droplets:8000`, `http://localhost:8000` | the same pair, for the basic page |
+
+### How a page gets a droplet
+
+A server fetch with `Net::HTTP`, one thread per fragment, rendered into ERB.
+The fetch is `Shop.fragment` and the view is `app/views/shop/gallery.html.erb`,
+both shown in the pattern above; the fragments' `Link` preloads go into
+`<head>`. `render_shop` runs the fetches, each thread inside the Rails
+executor:
+
+```ruby
+# app/controllers/shop_controller.rb
+threads = requests.map do |id, params|
+  Thread.new { Rails.application.executor.wrap { Shop.fragment(id, params, cookie: cookie, referer: referer) } }
+end
+results = threads.map(&:value)
+```
+
+`referer` is the page's URL, query included. The shop's `handle` reads it
+with `hostFrom`, so it is the droplet's
+[`host`](/integrate/http-contract/#host-where-the-droplet-renders), and after
+a form posted without JavaScript its query carries the form's result.
+The `shop` layout loads `<script type="module" src="/index.js">` once,
+through the proxy, and each droplet hydrates itself. `render_shop` fetches
+the toasts and the header's cart badge with every page's fragments; the
+`toast-center` fragment comes first in the body, and `/index.js` installs
+`window.shopMessageQueue` before any droplet starts (the shop's
+`src/hooks.client.ts`):
+
+```erb
+<%# app/views/layouts/shop.html.erb %>
+<body class="shop">
+<%= @shop[:toasts] %>
+<header class="shop-header">…<div class="shop-cart"><%= @shop[:cart] %></div>…</header>
+```
+
+The product page first reads the product from the shop's public
+`GET /droplets/product-page/_data?slug=<slug>`; an unknown slug renders the
+`not_found` view with `404`. The pages pass on only the query keys each
+droplet takes, read from the raw query string as name and value pairs: the
+whole query to `product-filter` and `product-library`, `order`, `page` and
+`showing` (plus `productId`) to `product-comments`, `slug` and `v` to
+`product-page`, `next` to `login`, `view` and `id` to `product-admin`.
+
+### What it proxies
+
+```ruby
+# config/routes.rb
+%w[index.js env.js index.css droplets/*path assets/*path api/*path].each do |path|
+  match path, to: ShopProxy, via: :all, format: false
+end
+```
+
+`/index.js`, `/env.js`, `/index.css`, `/droplets/*` (fragments, `_data`,
+form actions), `/assets/*` and `/api/*` go to `ShopProxy`, a Rack endpoint,
+for every verb. It sends the shop `x-droplet-location` written out. Of the
+browser's headers it sends only `accept`, `accept-language`,
+`content-type`, `if-none-match`, `origin`, `referer`, `user-agent`,
+`x-droplet-props` and `x-droplets-build`, plus `cookie` cut down to the
+shop's own `cart_id` and `shop_admin` (another app's cookie on this origin
+stays here), with `accept-encoding: identity` so the body comes back as it
+is. The target is `request.original_fullpath` concatenated onto the shop's
+base, never resolved, so `//elsewhere` stays a path on the shop; a path
+with a `.` or `..` segment, once decoded, is refused with `400`. A body
+over 4 MB is a `413`, before the shop is asked. The answer comes back with
+its status, every `Set-Cookie` and any redirect, without `connection`,
+`keep-alive`, `transfer-encoding`, `content-encoding` and `content-length`.
+`Net::HTTP` waits 5 seconds to connect and 10 to read; a shop that cannot be
+reached answers `502` `The shop is unreachable.`
+
+The shop's cookies are first-party, and nothing is cross-origin; the shop
+sets them only from form actions and `/api`, which come through here.
+
+### Gotchas
+
+- **The proxy is a Rack endpoint, not a controller action.**
+  `ActionController::Base` would parse the body into `params` and log it,
+  ask a post for a CSRF token, and rewrite the answer's `Cache-Control`.
+  The shop checks a post's `Origin` itself, so `ShopProxy` reads the body
+  once it is routed and passes it and the answer on as they came.
+- **Three middlewares are off** (`config/application.rb`):
+  `Rack::MethodOverride` parses a form body before any route is chosen,
+  and `Rack::ETag` and `Rack::ConditionalGet` would add caching headers of
+  their own to the shop's answers.
+- **Not `redirect_to`.** With a path it prefixes the request's own Host, a
+  value the client chooses; a fragment's redirect goes out as the shop sent
+  it, with `head`.
+- **Rails escapes `<%= %>`**, so a fragment prints only once marked
+  `html_safe`, which `Shop.fragment` does for the shop's `text/html` alone.
+  The "unavailable" note is built with `tag.p`, so the droplet's id is
+  escaped. See [For hosts](/guides/security/#for-hosts).
+- **The page is `private, no-store`.** `render_shop` sets it before it
+  answers the page or a fragment's redirect: the fragments were rendered
+  with the visitor's cookies.
+- **No session, nothing signed.** The app keeps no state of its own
+  (`session_store :disabled`); Rails still asks for a `secret_key_base` at
+  boot, so it takes `SECRET_KEY_BASE` or makes one per process.
+
+### Run it
+
+```bash
+cd examples/hosts/rails
+docker compose up --build
+open http://localhost:8015/gallery   # log in as admin / droplets
+```
+
+Set `SHOP_SECRET` and `DROPLETS_SECRET` first; compose refuses to start
+without them. The shop trusts one origin besides its own,
+`DROPLETS_TRUSTED_ORIGINS: http://localhost:8015`, this host's; the rest of
+its environment is the same on every host: see
+[Running a host](/integrate/hosts/shop-demo/#running-a-host).
+
+The image runs the app's own tests (`bin/rails test`, in `test/`) while it
+builds, so a failing one stops `docker compose up --build`: a body over the
+limit and a dot segment refused before the shop is asked, the headers and
+cookies the proxy sends, a fragment that is not HTML never inserted, a
+fragment's redirect answered and not followed.
+
+## The Svelte example
+
+The same app serves the Svelte example at `/`: its three droplets, one per
+mode, from `examples/frameworks/svelte` (the `droplets` service), fetched one
+after the other.
+
+```ruby
+# app/controllers/home_controller.rb (trimmed)
+class HomeController < ActionController::Base
+  DROPLETS_INTERNAL_URL = ENV.fetch("DROPLETS_INTERNAL_URL", "http://localhost:8000")
+  DROPLETS_PUBLIC_URL = ENV.fetch("DROPLETS_PUBLIC_URL", "http://localhost:8000")
+
+  IDS = %w[client ssr-hydrate ssr-nohydrate].freeze
+
+  layout false
+
+  def index
+    who = params.permit(:who).fetch(:who, "Rails")
+    @droplets_public_url = DROPLETS_PUBLIC_URL
+    @fragments = IDS.map { |id| fetch_droplet(id, who: who) }
+  end
+
+  private
+
+  def fetch_droplet(droplet, props = {})
+    uri = URI("#{DROPLETS_INTERNAL_URL}/droplets/#{droplet}")
+    uri.query = URI.encode_www_form(props) unless props.empty?
+
+    # Net::HTTP never follows a redirect.
+    answer = Net::HTTP.start(uri.host, uri.port, open_timeout: 5, read_timeout: 5) do |http|
+      http.get(uri.request_uri, { "accept" => "text/html", "x-droplet-location" => DROPLETS_PUBLIC_URL })
+    end
+    is_html = answer["content-type"].to_s.start_with?("text/html")
+    return answer.body.to_s.force_encoding("UTF-8").html_safe if (answer.is_a?(Net::HTTPSuccess) || answer.code == "500") && is_html
+
+    helpers.tag.p(%(droplet "#{droplet}" unavailable: HTTP #{answer.code}), class: "error")
+  rescue StandardError => e
+    helpers.tag.p(%(droplet "#{droplet}" unavailable: #{e.message}), class: "error")
+  end
+end
+```
+
+```erb
+<%# app/views/home/index.html.erb %>
+<script type="module" src="<%= @droplets_public_url %>/index.js"></script>
+…
+<% @fragments.each do |fragment| %>
+  <%= fragment %>
+<% end %>
+```
+
+Here the page loads `/index.js` from the droplets server's public URL,
+another origin than the page, so the Svelte example runs with `cors: true`
+and `DROPLETS_TRUSTED_ORIGINS` lists both `DROPLETS_URL` and this host's
+`WEB_URL`.

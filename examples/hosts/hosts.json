@@ -153,10 +153,10 @@
       "name": "Rails",
       "language": "ruby",
       "pattern": "server-include",
-      "status": "planned",
+      "status": "built",
       "docs": "integrate/hosts/rails",
-      "stack": "Ruby, Rails",
-      "how": "Fragment fetch in a controller, pasted into an ERB view",
+      "stack": "Ruby, Rails 8, Net::HTTP, ERB",
+      "how": "Fragment fetch with `Net::HTTP` in a controller, pasted into ERB views",
       "example": true,
       "runner": { "offset": 15, "flow": "shop" }
     },
