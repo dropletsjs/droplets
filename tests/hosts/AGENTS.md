@@ -17,7 +17,7 @@
   Checked by: `test/htmx.test.ts`.
 - Every host sends `x-droplet-location` from its environment or config, never from the request's `Host`; a new host is listed in the test with its files.
   Checked by: `test/location.test.ts`.
-- Every host pastes a fragment's 504 as it pastes a 500 (both carry the droplet's error page) and waits 10 s or more for a fragment or `_data` answer, longer than `render.timeout`; nginx answers its own failures from a backup, never with its own error page; a new host is listed in the test with its files.
+- Every host pastes a fragment's 504 as it pastes a 500 (both carry the droplet's error page) and waits 10 s or more for a fragment or `_data` answer; nginx answers its own failures from a backup, never with its own error page; a new host is listed in the test with its files.
   Checked by: `test/fragment-answers.test.ts`.
 - Every example under `examples/` stands on its own: no `file:` or `link:` dependency, no import or `tsconfig` reaching above its folder.
   Checked by: `test/standalone.test.ts`.

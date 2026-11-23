@@ -144,8 +144,7 @@ so by `pnpm check`, with no Docker:
 - `test/fragment-answers.test.ts`: every host example is listed, with the
   files that fetch fragments or (`nginx`, `htmx`) as configured; per host,
   every line that accepts a `500` fragment accepts a `504` too, and every
-  timer that bounds a fragment or `_data` answer is 10 s or more, longer
-  than the droplets server's `render.timeout` (5 s by default); nginx's
+  timer that bounds a fragment or `_data` answer is 10 s or more; nginx's
   fragments leave every 5xx out of `error_page` and fall back to a backup
   server when nginx gets no answer; htmx swaps a 2xx alone.
 - `test/standalone.test.ts`: `examples/shop`, `examples/wp-shop`, each
