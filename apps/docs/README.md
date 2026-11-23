@@ -160,6 +160,24 @@ and fonts written into it and the page's background behind it.
 `DropletTour` (the home page's video) are not diagrams and keep their own
 markup.
 
+### Markdown twins
+
+Every page is also a Markdown file for agents: `/guides/configuration/` has
+`/guides/configuration.md`, the home page `/index.md`
+(`src/plugins/markdown-twin.mjs`). They are not rendered on their own: after
+the build, `src/plugins/llms-txt.mjs` splits the finished `llms-full.txt` into
+its pages and writes each one, so a twin is cleaned exactly as `llms-full.txt`
+is (no live droplets, heading anchors or images, each diagram as its
+description). `llms.txt` links every page to its twin, every page's head names
+it in `<link rel="alternate" type="text/markdown">` (`src/route-data.ts`, a
+Starlight route middleware), and `_headers` keeps the twins out of search
+results with `X-Robots-Tag: noindex`.
+
+Under each page's title, and under the home page's hero, "Copy as Markdown"
+puts the twin on the clipboard and "View as Markdown" opens it
+(`PageActions.astro`, shown by the `PageTitle` and `Hero` overrides). The
+build fails when a page lacks its twin or its alternate link.
+
 ### Videos and the tour's poster
 
 `public/hosts/` holds each host's recorded video and screenshots
@@ -249,27 +267,27 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - `deploy-docs` runs in the GitHub environment `cloudflare`, with no dependency cache; the Cloudflare credentials reach the deploy step only. `../../.github/workflows/ci.yml:173`, `../../.github/workflows/ci.yml:198`, `../../.github/workflows/ci.yml:199`
 - Node version: the repository requires Node 22 or newer. `../../package.json:9`
 - Content collection: Starlight's `docsLoader()`, which reads `src/content/docs/` only. `src/content.config.ts:6`
-- Sidebar order is the `sidebar` constant, passed to Starlight; the "Next" links, the sections of `llms.txt` and the page order of `llms-full.txt` follow it. `astro.config.mjs:29`, `astro.config.mjs:134`, `astro.config.mjs:113`, `astro.config.mjs:139`
-- Sidebar groups, in order: Start here, Writing droplets, Renderers, Integrating, In the browser, Deployment, Security, Reference. `astro.config.mjs:31`, `astro.config.mjs:35`, `astro.config.mjs:49`, `astro.config.mjs:65`, `astro.config.mjs:91`, `astro.config.mjs:92`, `astro.config.mjs:93`, `astro.config.mjs:94`
-- Sidebar Renderers group: Overview, Svelte, Vue, React, Preact, Solid, Hono JSX, Handlebars, Lit, plain script; collapsed. `astro.config.mjs:49`, `astro.config.mjs:50`
+- Sidebar order is the `sidebar` constant, passed to Starlight; the "Next" links, the sections of `llms.txt` and the page order of `llms-full.txt` follow it. `astro.config.mjs:41`, `astro.config.mjs:138`, `astro.config.mjs:113`, `astro.config.mjs:149`
+- Sidebar groups, in order: Start here, Writing droplets, Renderers, Integrating, In the browser, Deployment, Security, Reference. `astro.config.mjs:43`, `astro.config.mjs:47`, `astro.config.mjs:61`, `astro.config.mjs:77`, `astro.config.mjs:90`, `astro.config.mjs:91`, `astro.config.mjs:92`, `astro.config.mjs:93`
+- Sidebar Renderers group: Overview, Svelte, Vue, React, Preact, Solid, Hono JSX, Handlebars, Lit, plain script; collapsed. `astro.config.mjs:61`, `astro.config.mjs:62`
 - Sidebar Integrating group: any stack, a client-only page, HTTP contract, Hosts (collapsed: Overview, one group per language from `examples/hosts/hosts.json` with a page per built host, WordPress a link to its tutorial, then the shop demo), WordPress. `astro.config.mjs:31`, `astro.config.mjs:77`, `astro.config.mjs:83`, `astro.config.mjs:87`
-- `DOCS_SITE` defaults to `https://dropletsjs.dev`, `DOCS_BASE` to `/`. `astro.config.mjs:12`, `astro.config.mjs:13`
+- `DOCS_SITE` defaults to `https://dropletsjs.dev`, `DOCS_BASE` to `/`. `astro.config.mjs:13`, `astro.config.mjs:14`
 - `trailingSlash` is `"always"`. `astro.config.mjs:103`
-- Component scripts of `src/components/*.astro` are never inlined (`assetsInlineLimit` returns `false` for them). `astro.config.mjs:23`, `astro.config.mjs:26`
+- Component scripts of `src/components/*.astro` are never inlined (`assetsInlineLimit` returns `false` for them). `astro.config.mjs:24`, `astro.config.mjs:27`
 - `vite` stays external at prerender time, for `AddRenderer`'s `parseAst`. `astro.config.mjs:108`
-- Sidebar Start here group: what is a droplet, ways to use Droplets, getting started, manual setup. `astro.config.mjs:31`
-- Sidebar Writing droplets group: writing droplets, styling, shared libraries (import maps), actions, prerendering, errors, server code, development, configuration. `astro.config.mjs:35`
-- `starlight-llms-txt` writes `/llms.txt`, `/llms-full.txt`, `/llms-small.txt` and the sets `/_llms-txt/renderers.txt` and `/_llms-txt/known-hosts.txt` at build, pages in sidebar order (`promote`). `astro.config.mjs:137`, `astro.config.mjs:139`, `astro.config.mjs:145`
-- `src/plugins/llms-txt.mjs` (`llmsTxt`) rewrites those files after the build (`astro:build:done`), then checks them. `astro.config.mjs:112`, `src/plugins/llms-txt.mjs:53`
-- `llms.txt`: the title, the home page's hero tagline as the summary, `llmsDetails` (what Droplets is and its essentials), the documentation sets, one section per sidebar group with each page's title, absolute URL and `description`, then the optional links. `src/plugins/llms-txt.mjs:19`, `src/plugins/llms-txt.mjs:225`, `src/plugins/llms-txt.mjs:243`
-- In `llms-full.txt`, `llms-small.txt` and the sets, every page starts with its title, `Source: <its URL>` and its description. `src/plugins/llms-txt.mjs:147`
-- In those files, root-relative and `#` links are absolute on `DOCS_SITE` and `DOCS_BASE`, table cells carry no padding, no two blank lines follow each other (code included) and a heading with nothing under it is dropped. `src/plugins/llms-txt.mjs:136`, `src/plugins/llms-txt.mjs:171`, `src/plugins/llms-txt.mjs:206`, `src/plugins/llms-txt.mjs:220`
-- The pages are told apart by `LLMS_PAGE_BREAK`, the plugin's `pageSeparator`; the outputs separate them by a blank line. `src/plugins/llms-txt.mjs:16`, `astro.config.mjs:140`
-- `llms-*.txt` leave out the section "A note from the author" of `start/what-is-a-droplet` (`omit`). `astro.config.mjs:115`, `src/plugins/llms-txt.mjs:195`
-- `llms-small.txt` leaves out the renderer pages but the overview, the known hosts and the WordPress tutorial (`exclude`), and notes and tips (the plugin's default); it keeps its lines and the `<details>` (`minify`). Its `<SYSTEM>` line names the pages it leaves out. `astro.config.mjs:142`, `astro.config.mjs:144`, `src/plugins/llms-txt.mjs:93`
-- `llms-*.txt` leave out the live droplets (`.live-droplet`), the Examples box (`.droplet-examples`), the heading anchor links (`.sl-anchor-link`), every `img`, the tour video (`.droplet-tour`), the host recordings and screenshots (`.host-demo`), the host gallery (`.host-grid`), the fragment anatomy's mock-up and hint (`.ax-mock`, `.ax-hint`), the diagram figures (`.dg`) and a page's sentences about what is on screen (`.screen-only`, the lead-ins of `hello` and the Examples box). `astro.config.mjs:171`
+- Sidebar Start here group: what is a droplet, ways to use Droplets, getting started, manual setup. `astro.config.mjs:43`
+- Sidebar Writing droplets group: writing droplets, styling, shared libraries (import maps), actions, prerendering, errors, server code, development, configuration. `astro.config.mjs:47`
+- `starlight-llms-txt` writes `/llms.txt`, `/llms-full.txt`, `/llms-small.txt` and the sets `/_llms-txt/renderers.txt` and `/_llms-txt/known-hosts.txt` at build, pages in sidebar order (`promote`). `astro.config.mjs:147`, `astro.config.mjs:149`, `astro.config.mjs:155`
+- `src/plugins/llms-txt.mjs` (`llmsTxt`) rewrites those files after the build (`astro:build:done`), then checks them. `astro.config.mjs:112`, `src/plugins/llms-txt.mjs:58`
+- `llms.txt`: the title, the home page's hero tagline as the summary, `llmsDetails` (what Droplets is, its essentials and the Markdown twins), the documentation sets, one section per sidebar group with each page's title, the absolute URL of its Markdown twin and its `description`, then the optional links. `src/plugins/llms-txt.mjs:22`, `src/plugins/llms-txt.mjs:115`, `src/plugins/llms-txt.mjs:238`, `src/plugins/llms-txt.mjs:258`
+- In `llms-full.txt`, `llms-small.txt` and the sets, every page starts with its title, `Source: <its URL>` and its description. `src/plugins/llms-txt.mjs:156`
+- In those files, root-relative and `#` links are absolute on `DOCS_SITE` and `DOCS_BASE`, table cells carry no padding, no two blank lines follow each other (code included) and a heading with nothing under it is dropped. `src/plugins/llms-txt.mjs:145`, `src/plugins/llms-txt.mjs:180`, `src/plugins/llms-txt.mjs:215`, `src/plugins/llms-txt.mjs:229`
+- The pages are told apart by `LLMS_PAGE_BREAK`, the plugin's `pageSeparator`; the outputs separate them by a blank line. `src/plugins/llms-txt.mjs:19`, `astro.config.mjs:150`
+- `llms-*.txt` leave out the section "A note from the author" of `start/what-is-a-droplet` (`omit`). `astro.config.mjs:115`, `src/plugins/llms-txt.mjs:204`
+- `llms-small.txt` leaves out the renderer pages but the overview, the known hosts and the WordPress tutorial (`exclude`), and notes and tips (the plugin's default); it keeps its lines and the `<details>` (`minify`). Its `<SYSTEM>` line names the pages it leaves out. `astro.config.mjs:152`, `astro.config.mjs:154`, `src/plugins/llms-txt.mjs:97`
+- `llms-*.txt` leave out the live droplets (`.live-droplet`), the Examples box (`.droplet-examples`), the heading anchor links (`.sl-anchor-link`), every `img`, the tour video (`.droplet-tour`), the host recordings and screenshots (`.host-demo`), the host gallery (`.host-grid`), the fragment anatomy's mock-up and hint (`.ax-mock`, `.ax-hint`), the diagram figures (`.dg`) and a page's sentences about what is on screen (`.screen-only`, the lead-ins of `hello` and the Examples box). `astro.config.mjs:182`
 - A diagram rendered for `llms-*.txt` (its page's URL ends in `.txt`) writes `**Diagram: <title>.** <desc>` in place of the figure. `src/components/Diagram.astro:41`, `src/components/Diagram.astro:50`
-- The docs build fails when a page is not in the sidebar, two pages share a title, `llms.txt` lacks a sidebar page, an `omit` heading is gone, or a line outside code in `llms-full.txt`, `llms-small.txt` or a set has a link without a scheme, an image, or "Full screen", "Download as SVG", "Section titled" or "Hover, focus or tap". `src/plugins/llms-txt.mjs:59`, `src/plugins/llms-txt.mjs:72`, `src/plugins/llms-txt.mjs:271`, `src/plugins/llms-txt.mjs:33`
+- The docs build fails when a page is not in the sidebar, two pages share a title, `llms.txt` lacks a sidebar page, an `omit` heading is gone, or a line outside code in `llms-full.txt`, `llms-small.txt` or a set has a link without a scheme, an image, or "Full screen", "Download as SVG", "Section titled" or "Hover, focus or tap". `src/plugins/llms-txt.mjs:65`, `src/plugins/llms-txt.mjs:78`, `src/plugins/llms-txt.mjs:286`, `src/plugins/llms-txt.mjs:38`
 - Base links: after the build, root-relative `<a href>` get the `base` prefix; nothing changes when `base` is `/`. `src/plugins/base-links.mjs:23`, `src/plugins/base-links.mjs:24`
 - Expressive Code options live in `ec.config.mjs` (themes `github-dark`, `github-light`). `ec.config.mjs:12`
 - `docs:dev` starts the demo's dev server (`pnpm run dev` in `../demo`) with `DOCS_PORT`. `scripts/dev.mjs:37`
@@ -320,6 +338,7 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - CSP header for every path is in `_headers`. `public/_headers:24`
 - `_headers` caches `/_astro/*` and Pagefind's hashed chunks for a year, immutable. `public/_headers:33`, `public/_headers:38`, `public/_headers:40`
 - `_headers` revalidates `/hosts/*` on every request. `public/_headers:45`
+- `_headers` sends `X-Robots-Tag: noindex` on `/*.md`; Wrangler uploads `.md` files as `text/markdown; charset=utf-8`, so no `Content-Type` rule. `public/_headers:50`
 - CI runs `pnpm docs:build`, then `pnpm docs:check-csp`. `../../.github/workflows/ci.yml:61`, `../../.github/workflows/ci.yml:63`
 - Diagram scenes: wide 620 px, narrow 360 px. `src/components/diagram-kit.ts:23`, `src/components/diagram-kit.ts:24`
 - Diagram type sizes: title 15, label 14, body 13, small 12.5, code 13, code small 12.5 px, written as `font-size` attributes. `src/components/diagram-kit.ts:26`, `src/components/Diagram.astro:101`
@@ -341,3 +360,12 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - Worker `dropletsjs-docs` serves `./dist` as assets only, on the custom domain `dropletsjs.dev`. `wrangler.jsonc:4`, `wrangler.jsonc:8`, `wrangler.jsonc:22`
 - Worker `html_handling` is `auto-trailing-slash`; unknown paths get `404.html` with 404. `wrangler.jsonc:12`, `wrangler.jsonc:14`
 - Worker has no `*.workers.dev` or preview URLs. `wrangler.jsonc:17`, `wrangler.jsonc:18`
+- Markdown twin: every page's Markdown is `/<slug>.md` (`/guides/configuration.md`), the home page's `/index.md`, on `DOCS_BASE`. `src/plugins/markdown-twin.mjs:9`, `src/plugins/markdown-twin.mjs:16`
+- Markdown twins are written after the build from the finished pages of `llms-full.txt`, one file each: the same text, cleaned the same way (title, `Source:` URL, summary; no live droplets, heading anchors or images; diagrams as their description; `omit` applied). `src/plugins/llms-txt.mjs:83`, `src/plugins/llms-txt.mjs:105`
+- Markdown twins go through the same checks as `llms-full.txt` (absolute links, no image, no UI text). `src/plugins/llms-txt.mjs:119`, `src/plugins/llms-txt.mjs:286`
+- Every page's head has `<link rel="alternate" type="text/markdown" href="<DOCS_BASE><slug>.md">`, added by the route middleware; Starlight's 404 page has none. `astro.config.mjs:140`, `src/route-data.ts:7`
+- The docs build fails when a built page (`<slug>/index.html`, `404.html` aside) has no Markdown twin, or not exactly one alternate link naming it, or a twin has no page. `src/plugins/llms-txt.mjs:124`, `src/plugins/llms-txt.mjs:324`
+- Page actions: "Copy as Markdown" (a button) and "View as Markdown" (a link to the twin) under every page's title, and under the home page's hero; none on 404. `src/components/PageActions.astro:15`, `src/components/PageTitle.astro:7`, `src/components/Hero.astro:8`, `astro.config.mjs:142`, `astro.config.mjs:143`
+- "Copy as Markdown" fetches the twin and writes it with a `ClipboardItem` holding the fetch's promise (Safari keeps the click's activation), `writeText` where `ClipboardItem` is missing; the result goes to a `role="status"` region and the button's label for 2 s. `src/components/PageActions.astro:46`, `src/components/PageActions.astro:48`, `src/components/PageActions.astro:30`, `src/components/PageActions.astro:36`
+- The copy button takes its place hidden (`visibility`) until its script runs, and its three labels share one grid cell, so nothing moves. `src/components/PageActions.astro:109`, `src/components/PageActions.astro:120`
+- The page actions are left out of the search index (`data-pagefind-ignore`) and their script is bundled to `/_astro/`, so the CSP hashes do not change. `src/components/PageActions.astro:15`, `astro.config.mjs:27`

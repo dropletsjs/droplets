@@ -1,0 +1,125 @@
+---
+/**
+ * Under every page's title: copy the page as Markdown, or open its Markdown
+ * twin (src/plugins/markdown-twin.mjs). Starlight's 404 page has no twin and
+ * no actions.
+ */
+import { twinHref } from "../plugins/markdown-twin.mjs";
+
+const { id } = Astro.locals.starlightRoute;
+const href = id === "404" ? undefined : twinHref(id, import.meta.env.BASE_URL);
+---
+
+{
+  href && (
+    <div class="page-actions not-content" data-pagefind-ignore>
+      <button type="button" class="page-action" data-copy-md={href} data-state="idle">
+        <span class="page-action-labels">
+          <span data-label="idle">Copy as Markdown</span>
+          <span data-label="copied" aria-hidden="true">
+            Copied
+          </span>
+          <span data-label="failed" aria-hidden="true">
+            Copy failed
+          </span>
+        </span>
+      </button>
+      <a class="page-action" href={href} type="text/markdown">
+        View as Markdown
+      </a>
+      <span class="sr-only" role="status" data-copy-status />
+    </div>
+  )
+}
+
+<script>
+  const RESET_MS = 2000;
+
+  /** The fetch stays inside the click's user activation: Safari drops it after an `await`. */
+  async function copy(href: string) {
+    const text = fetch(href).then((response) => {
+      if (!response.ok) throw new Error(`${href}: ${response.status}`);
+      return response.text();
+    });
+    if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+      const blob = text.then((value) => new Blob([value], { type: "text/plain" }));
+      await navigator.clipboard.write([new ClipboardItem({ "text/plain": blob })]);
+    } else {
+      await navigator.clipboard.writeText(await text);
+    }
+  }
+
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-copy-md]")) {
+    const status = button.parentElement?.querySelector<HTMLElement>("[data-copy-status]");
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const show = (state: "idle" | "copied" | "failed", message = "") => {
+      button.dataset.state = state;
+      for (const label of button.querySelectorAll<HTMLElement>("[data-label]")) {
+        label.toggleAttribute("aria-hidden", label.dataset.label !== state);
+      }
+      if (status) status.textContent = message;
+    };
+    button.addEventListener("click", async () => {
+      clearTimeout(timer);
+      try {
+        await copy(button.dataset.copyMd ?? "");
+        show("copied", "The page's Markdown is on the clipboard.");
+      } catch {
+        show("failed", "Copying failed; open View as Markdown instead.");
+      }
+      timer = setTimeout(() => show("idle"), RESET_MS);
+    });
+    button.dataset.ready = "";
+  }
+</script>
+
+<style>
+  .page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    font-size: var(--sl-text-sm);
+  }
+  .page-action {
+    display: inline-flex;
+    align-items: center;
+    font: inherit;
+    font-size: var(--sl-text-xs, 0.8125rem);
+    line-height: 1;
+    padding: 0.4rem 0.65rem;
+    border: 1px solid var(--djs-line-strong);
+    border-radius: var(--djs-radius-sm, 4px);
+    background: var(--djs-surface-200);
+    color: var(--djs-ink);
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .page-action:hover {
+    border-color: var(--djs-accent);
+    color: var(--djs-ink);
+  }
+  .page-action:focus-visible {
+    outline: 2px solid var(--djs-focus);
+    outline-offset: 2px;
+  }
+  /* Takes its place in the layout before the script runs, so nothing moves when it shows. */
+  button.page-action:not([data-ready]) {
+    visibility: hidden;
+  }
+  /* The three labels share one cell: the button is as wide as the longest and keeps that width. */
+  .page-action-labels {
+    display: grid;
+  }
+  .page-action-labels > span {
+    grid-area: 1 / 1;
+    text-align: center;
+  }
+  .page-action-labels > [aria-hidden] {
+    visibility: hidden;
+  }
+  .page-action[data-state="copied"] {
+    border-color: var(--djs-accent);
+  }
+</style>

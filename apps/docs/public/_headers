@@ -44,3 +44,8 @@
 # names, so always revalidated.
 /hosts/*
   Cache-Control: public, max-age=0, must-revalidate
+
+# Each page's Markdown twin (/<page>.md) is for agents, not for search
+# results; the page itself is. Wrangler uploads .md as text/markdown; charset=utf-8.
+/*.md
+  X-Robots-Tag: noindex

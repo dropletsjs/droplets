@@ -136,6 +136,12 @@ export default defineConfig({
         "./src/styles/custom.css",
       ],
       sidebar,
+      // Each page's Markdown twin (src/plugins/markdown-twin.mjs): the head link, and the actions under the title.
+      routeMiddleware: "./src/route-data.ts",
+      components: {
+        PageTitle: "./src/components/PageTitle.astro",
+        Hero: "./src/components/Hero.astro",
+      },
       plugins: [
         // For AI readers; src/plugins/llms-txt.mjs finishes and checks the files after the build.
         starlightLlmsTxt({
