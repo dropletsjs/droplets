@@ -1,15 +1,18 @@
-import { readdir, readFile, writeFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { twinFile, twinHref } from "./markdown-twin.mjs";
 
 /**
  * The files starlight-llms-txt writes, finished for an AI reader after the
  * build: llms.txt becomes an index of every page, and in llms-full.txt,
  * llms-small.txt and the custom sets every page gets its URL, links become
- * absolute, tables lose their padding and media-only headings go. Then the
- * outputs are checked, and the build fails on a page missing from the index,
- * a page outside the sidebar, a root-relative link, an image or a diagram's
- * button labels.
+ * absolute, tables lose their padding and media-only headings go. Each page
+ * of llms-full.txt is also written on its own as the page's Markdown twin
+ * (`markdown-twin.mjs`). Then the outputs are checked, and the build fails on
+ * a page missing from the index, a page outside the sidebar, a root-relative
+ * link, an image, a diagram's button labels, or an HTML page without its twin
+ * and its alternate link.
  */
 
 /** `pageSeparator` of the plugin, so pages can be told apart here; replaced by a blank line. */
@@ -27,7 +30,9 @@ The essentials, each detailed in the pages listed below:
 - The droplet location, where the browser reaches the droplets server, is computed per request from a trusted \`x-droplet-location\`, \`Forwarded\` or \`X-Forwarded-*\` header, else the request's own origin, or fixed at build with \`location\`. Every URL a droplet emits for its own files is on it.
 - Server code (\`*.server.*\` files, \`server/\` folders, \`+server.*\` routes) never reaches a browser bundle: the build fails and names the import chain.
 - The framework reads the environment variables \`DROPLETS_TRUSTED_ORIGINS\`, \`DROPLETS_SECRET\`, \`DROPLETS_ENV_MAX_AGE\`, \`PORT\` and \`DEV_DROPLETS_LOG\`, no others; a project declares its own in \`src/env.ts\` and reads them from \`$droplets/env/public\` and \`$droplets/env/private\`.
-- Packages: \`@dropletsjs/droplets\` (the plugin, the runtime and the \`djs\` command), \`@dropletsjs/renderer-<framework>\`, \`@dropletsjs/adapter-<node|bun|deno|cloudflare>\` (a build needs one) and \`@dropletsjs/devtools\`. \`npm create droplets\` starts a project, \`djs add\` adds a droplet.`;
+- Packages: \`@dropletsjs/droplets\` (the plugin, the runtime and the \`djs\` command), \`@dropletsjs/renderer-<framework>\`, \`@dropletsjs/adapter-<node|bun|deno|cloudflare>\` (a build needs one) and \`@dropletsjs/devtools\`. \`npm create droplets\` starts a project, \`djs add\` adds a droplet.
+
+Every page is also served as Markdown at its URL with \`.md\` in place of the trailing slash (\`/guides/configuration.md\`, \`/index.md\` for the home page). The lists below link to those; each starts with its title and \`Source:\`, the page's URL.`;
 
 /** Text the pages' interactive parts would leave behind; none of it may reach an output. */
 const UI_STRINGS = ["Full screen", "Download as SVG", "Section titled", "Hover, focus or tap"];
@@ -53,6 +58,7 @@ export function llmsTxt({ sidebar, pages, omit = [] }) {
       "astro:build:done": async ({ dir }) => {
         const out = fileURLToPath(dir);
         const urlOf = (slug) => new URL(`${prefix}/${slug === "index" ? "" : `${slug}/`}`, site).href;
+        const twinUrlOf = (slug) => new URL(twinHref(slug, prefix), site).href;
         const read = (file) => readFile(join(out, file), "utf8");
 
         const full = splitPages(await read("llms-full.txt"));
@@ -74,17 +80,15 @@ export function llmsTxt({ sidebar, pages, omit = [] }) {
           bySlug.set(page.slug, page);
         });
 
-        const finish = ({ system, pages: texts }) =>
-          [
-            system,
-            ...texts.map((text) => {
-              const page = byTitle.get(headOf(text).title);
-              if (!page) throw new Error(`llms-txt: no page titled "${headOf(text).title}"`);
-              const url = urlOf(page.slug);
-              const absolute = (href) => (href.startsWith("#") ? `${url}${href}` : new URL(`${prefix}${href}`, site).href);
-              return finishPage({ text, page, url, absolute, omit });
-            }),
-          ].join("\n\n") + "\n";
+        const finishPages = (texts) =>
+          texts.map((text) => {
+            const page = byTitle.get(headOf(text).title);
+            if (!page) throw new Error(`llms-txt: no page titled "${headOf(text).title}"`);
+            const url = urlOf(page.slug);
+            const absolute = (href) => (href.startsWith("#") ? `${url}${href}` : new URL(`${prefix}${href}`, site).href);
+            return { slug: page.slug, text: finishPage({ text, page, url, absolute, omit }) };
+          });
+        const finish = ({ system, pages: texts }) => `${[system, ...finishPages(texts).map((page) => page.text)].join("\n\n")}\n`;
 
         const small = splitPages(await read("llms-small.txt"));
         const kept = new Set(small.pages.map((text) => headOf(text).title));
@@ -98,6 +102,7 @@ export function llmsTxt({ sidebar, pages, omit = [] }) {
 
         const sets = (await readdir(join(out, "_llms-txt")).catch(() => [])).filter((file) => file.endsWith(".txt"));
         const outputs = {
+          ...Object.fromEntries(finishPages(full.pages).map(({ slug, text }) => [twinFile(slug), `${text}\n`])),
           "llms-full.txt": finish(full),
           "llms-small.txt": finish(small),
           ...Object.fromEntries(
@@ -107,12 +112,16 @@ export function llmsTxt({ sidebar, pages, omit = [] }) {
         outputs["llms.txt"] = indexFile({
           generated: await read("llms.txt"),
           summary: bySlug.get("index")?.summary,
-          sections: sidebarSections({ sidebar, bySlug, urlOf }),
+          sections: sidebarSections({ sidebar, bySlug, urlOf: twinUrlOf }),
           leftOut,
         });
 
-        check({ outputs, index: outputs["llms.txt"], pages: pages.filter((slug) => slug !== "index").map(urlOf) });
-        for (const [file, text] of Object.entries(outputs)) await writeFile(join(out, file), text);
+        check({ outputs, index: outputs["llms.txt"], pages: pages.filter((slug) => slug !== "index").map(twinUrlOf) });
+        for (const [file, text] of Object.entries(outputs)) {
+          await mkdir(dirname(join(out, file)), { recursive: true });
+          await writeFile(join(out, file), text);
+        }
+        await checkTwins({ out, prefix });
       },
     },
   };
@@ -305,4 +314,31 @@ async function contentSlugs({ root, dir = root }) {
     }
   }
   return slugs;
+}
+
+/**
+ * Every built page has its Markdown twin and names it in a
+ * `<link rel="alternate" type="text/markdown">`, and every twin has its page.
+ * Starlight's 404 page is no page of the docs and has neither.
+ */
+async function checkTwins({ out, prefix }) {
+  const problems = [];
+  const files = (await readdir(out, { recursive: true })).map((file) => file.split(sep).join("/"));
+  const twins = new Set(files.filter((file) => file.endsWith(".md")));
+  const pages = files.filter((file) => file.endsWith(".html") && file !== "404.html");
+  const alternate = /<link\b(?=[^>]*\brel="alternate")(?=[^>]*\btype="text\/markdown")[^>]*\bhref="([^"]*)"/g;
+  for (const page of pages) {
+    const slug = page === "index.html" ? "index" : page.replace(/\/index\.html$/, "");
+    if (slug.endsWith(".html")) {
+      problems.push(`${page} is not a page Starlight writes (<slug>/index.html)`);
+      continue;
+    }
+    const twin = twinFile(slug);
+    if (!twins.delete(twin)) problems.push(`${page} has no Markdown twin ${twin}`);
+    const links = [...(await readFile(join(out, page), "utf8")).matchAll(alternate)].map((match) => match[1]);
+    if (links.length !== 1 || links[0] !== twinHref(slug, prefix))
+      problems.push(`${page} links ${links.join(", ") || "no"} Markdown twin, not ${twinHref(slug, prefix)}`);
+  }
+  for (const twin of twins) problems.push(`${twin} has no page`);
+  if (problems.length) throw new Error(`llms-txt: Markdown twins:\n  ${problems.slice(0, 30).join("\n  ")}`);
 }

@@ -1,0 +1,27 @@
+---
+import Default from "@astrojs/starlight/components/Hero.astro";
+import PageActions from "./PageActions.astro";
+---
+
+<div class="hero-page">
+  <Default />
+  <PageActions />
+</div>
+
+<style is:global>
+  /* The actions join the hero's own: its bottom padding moves below them. */
+  .hero-page:has(> .page-actions) > .hero {
+    padding-bottom: 0;
+  }
+  div.hero-page > .page-actions {
+    justify-content: center;
+    margin-top: 1.5rem;
+    padding-bottom: 1rem;
+  }
+  @media (min-width: 50rem) {
+    div.hero-page > .page-actions {
+      justify-content: flex-start;
+      padding-bottom: clamp(2.5rem, calc(1rem + 10vmin), 10rem);
+    }
+  }
+</style>
