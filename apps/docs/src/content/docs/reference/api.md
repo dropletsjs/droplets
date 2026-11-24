@@ -511,8 +511,6 @@ adapters. The Vite plugin is in [`./vite`](#dropletsjsdropletsvite).
 | `ActionFailure`, `HostUrlPropsErrorInPrerender`, `CookiesInPrerenderError` | The classes of `./server`, for code that is not a server file. |
 | `createServerApp({ ssr, assets, config })` | The production app (a Hono app, `DropletsApp`) over the SSR bundle and an adapter's asset loaders. Throws when the SSR bundle exports no `renderDroplet`. |
 | `createPrerenderedLoader(read)` | Looks up prerendered renders through `read(path) => Promise<string \| null>`. |
-| `fileHeaderTable(config)` | The headers of the build's files, from the resolved config: the [file-header table](#the-file-header-table). |
-| `fileHeadersFor({ table, path })` | The headers of the table's last rule that matches `path`; `undefined` when none does. |
 | `PRERENDER_DIR` | `"_prerendered"`: `dist/server/_prerendered/`, or `dist/client/_prerendered/<random>/` (named only in the manifest) for an adapter without `dist/server`. |
 | `setRuntimeEnv(values)` | Hands the runtime environment to the framework and `$droplets/env/*`; where it is not called, `process.env` is read. |
 | `FALLBACK_MANIFEST` | The manifest a runtime answers with before it finds a build: no droplets. |
@@ -535,7 +533,7 @@ Types:
 | `DropletsManifest`, `DropletManifestEntry` | `dist/client/droplets.json`. |
 | `AssetLoaders`, `ServerAppOptions`, `SsrModule` | `createServerApp`'s types. |
 | `DropletsAdapter`, `AdapterBuildContext`, `AdapterPreviewContext` | The [adapter contract](#adapter-contract). |
-| `FileHeaderRule`, `FileHeaderConfig` | A row of the [file-header table](#the-file-header-table): `{ path, headers }`; what `fileHeaderTable` reads of the config. |
+| `FileHeaderRule` | A row of the [file-header table](#the-file-header-table), `AdapterBuildContext.fileHeaders`: `{ path, headers }`. |
 
 ### Renderer contract
 
@@ -605,8 +603,9 @@ are the reference.
 #### The file-header table
 
 The headers of every file `vite build` writes for the browser are decided in
-one place, `fileHeaderTable(config)`, and every adapter takes them from
-there. It is an ordered list of `FileHeaderRule`s:
+one place, from the resolved config: `createServerApp` sets them on what the
+server answers, and `afterBuild` gets them as `fileHeaders`, for a platform
+that serves the files itself. It is an ordered list of `FileHeaderRule`s:
 
 ```ts
 type FileHeaderRule = {
@@ -622,7 +621,7 @@ type FileHeaderRule = {
   `/droplets/cart/client.js`.
 - **Precedence.** A narrower pattern comes after the wider one it refines
   (`/assets/public/*` after `/assets/*`), so a path takes the last rule that
-  matches, and that rule alone: `fileHeadersFor({ table, path })`.
+  matches, and that rule alone.
 - **Leaving a header out.** A rule's `headers` are all the headers of the
   table a matching file gets. A header another rule sets and the matching
   one leaves out is not sent: with `publicCacheControl: false`,

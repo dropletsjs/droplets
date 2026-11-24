@@ -68,8 +68,8 @@ export type AssetLoaders = {
   loadPrerendered?(droplet: string, key: string): Promise<PrerenderedDroplet | null>;
   /**
    * Serves `/assets/*`: the entry, shared chunks, stylesheets, fonts and
-   * `public/` under `/assets/public/`. The app sets the headers of
-   * `fileHeaderTable` on what it answers with a 2xx or 304.
+   * `public/` under `/assets/public/`. The app sets the headers of the
+   * build's files on what it answers with a 2xx or 304.
    */
   assetHandler: Handler;
 };

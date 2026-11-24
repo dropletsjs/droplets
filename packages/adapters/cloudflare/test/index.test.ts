@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { type FileHeaderRule, fileHeadersFor, fileHeaderTable, resolveConfig } from "@dropletsjs/droplets";
+import { type FileHeaderRule, resolveConfig } from "@dropletsjs/droplets";
 import { logger } from "@dropletsjs/droplets/vite";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
 import { cloudflare } from "../src/index.ts";
@@ -48,6 +48,25 @@ describe("cloudflare", () => {
 });
 
 const IMMUTABLE = "public, max-age=2592000, immutable";
+
+const FILES = { "Access-Control-Allow-Origin": "*", "X-Content-Type-Options": "nosniff" };
+
+type FileTableInput = { publicCacheControl: string | false };
+
+/** The file-header table the plugin passes as `fileHeaders` for `publicCacheControl`. */
+function fileTable({ publicCacheControl }: FileTableInput): FileHeaderRule[] {
+  return [
+    { path: "/index.js", headers: { ...FILES, "Cache-Control": "no-store" } },
+    { path: "/index.css", headers: { ...FILES, "Cache-Control": "no-store" } },
+    { path: "/assets/*", headers: { ...FILES, "Cache-Control": IMMUTABLE } },
+    {
+      path: "/assets/public/*",
+      headers: { ...FILES, ...(publicCacheControl === false ? {} : { "Cache-Control": publicCacheControl }) },
+    },
+    { path: "/droplets/:id/client.js", headers: { ...FILES, "Cache-Control": IMMUTABLE } },
+    { path: "/droplets/:id/style.css", headers: { ...FILES, "Cache-Control": IMMUTABLE } },
+  ];
+}
 
 /** What the adapter writes first in `dist/client/_headers`, for a `/assets/public/*` rule. */
 function adapterHeaders(publicRule: string): string {
@@ -132,7 +151,7 @@ describe("cloudflare: afterBuild", () => {
       manifestPath: join(root, "dist/client/droplets.json"),
       serverPath: "dist/worker.js",
       config: resolved,
-      fileHeaders: table ?? fileHeaderTable(resolved),
+      fileHeaders: table ?? fileTable({ publicCacheControl: resolved.publicCacheControl }),
     });
   };
   const headers = () => readFile(join(root, "dist/client/_headers"), "utf8");
@@ -150,47 +169,45 @@ describe("cloudflare: afterBuild", () => {
     });
 
     it("writes the table it is given, so that Cloudflare gives each path the headers of its last matching rule", async () => {
-      const files = { "Access-Control-Allow-Origin": "*", "X-Content-Type-Options": "nosniff" };
       const table: FileHeaderRule[] = [
-        { path: "/index.js", headers: { ...files, "Cache-Control": "no-store" } },
-        { path: "/assets/*", headers: { ...files, "Cache-Control": "one", "X-Kind": "file" } },
-        { path: "/assets/public/*", headers: { ...files, "Cache-Control": "two" } },
-        { path: "/assets/public/img/*", headers: { ...files, "X-Kind": "img" } },
+        { path: "/index.js", headers: { ...FILES, "Cache-Control": "no-store" } },
+        { path: "/assets/*", headers: { ...FILES, "Cache-Control": "one", "X-Kind": "file" } },
+        { path: "/assets/public/*", headers: { ...FILES, "Cache-Control": "two" } },
+        { path: "/assets/public/img/*", headers: { ...FILES, "X-Kind": "img" } },
         // Under /assets/*, and across /assets/public/* for one directory only.
-        { path: "/assets/:dir/x.js", headers: { ...files, "X-Kind": "x" } },
-        { path: "/droplets/:id/client.js", headers: { ...files, "Cache-Control": "three" } },
+        { path: "/assets/:dir/x.js", headers: { ...FILES, "X-Kind": "x" } },
+        { path: "/droplets/:id/client.js", headers: { ...FILES, "Cache-Control": "three" } },
       ];
       await afterBuild({ table });
       const text = await headers();
-      for (const path of [
-        "/index.js",
-        "/assets/a.js",
-        "/assets/chunks/a.js",
-        "/assets/public/robots.txt",
-        "/assets/public/img/logo.svg",
-        "/assets/public/x.js",
-        "/assets/other/x.js",
-        "/droplets/hello/client.js",
-      ]) {
-        expect([...cloudflareHeaders({ text, path })], path).toEqual([...new Headers(fileHeadersFor({ table, path }))]);
+      for (const [path, own] of [
+        ["/index.js", { "Cache-Control": "no-store" }],
+        ["/assets/a.js", { "Cache-Control": "one", "X-Kind": "file" }],
+        ["/assets/chunks/a.js", { "Cache-Control": "one", "X-Kind": "file" }],
+        ["/assets/public/robots.txt", { "Cache-Control": "two" }],
+        ["/assets/public/img/logo.svg", { "X-Kind": "img" }],
+        ["/assets/public/x.js", { "X-Kind": "x" }],
+        ["/assets/other/x.js", { "X-Kind": "x" }],
+        ["/droplets/hello/client.js", { "Cache-Control": "three" }],
+      ] as const) {
+        expect([...cloudflareHeaders({ text, path })], path).toEqual([...new Headers({ ...FILES, ...own })]);
       }
     });
 
-    it("gives each build file on Cloudflare exactly the headers fileHeaderTable gives it on the server", async () => {
+    it("gives each build file on Cloudflare exactly the headers of the file-header table", async () => {
       for (const publicCacheControl of ["no-cache", "public, max-age=3600", false] as const) {
-        const table = fileHeaderTable(resolveConfig({ publicCacheControl }));
         await afterBuild({ config: { publicCacheControl } });
         const text = await headers();
-        for (const path of [
-          "/index.js",
-          "/index.css",
-          "/assets/index.abc.js",
-          "/assets/public/robots.txt",
-          "/droplets/cart/client.js",
-          "/droplets/cart/style.css",
-        ]) {
+        for (const [path, cache] of [
+          ["/index.js", "no-store"],
+          ["/index.css", "no-store"],
+          ["/assets/index.abc.js", IMMUTABLE],
+          ["/assets/public/robots.txt", publicCacheControl],
+          ["/droplets/cart/client.js", IMMUTABLE],
+          ["/droplets/cart/style.css", IMMUTABLE],
+        ] as const) {
           expect([...cloudflareHeaders({ text, path })], `${path} ${publicCacheControl}`).toEqual([
-            ...new Headers(fileHeadersFor({ table, path })),
+            ...new Headers({ ...FILES, ...(cache === false ? {} : { "Cache-Control": cache }) }),
           ]);
         }
       }

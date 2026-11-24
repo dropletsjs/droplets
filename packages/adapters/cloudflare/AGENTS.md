@@ -10,8 +10,8 @@
   Checked by: `tests/dev-mixed/test/production.test.ts`.
 - Prerendered renders are never in the bundle and never at a URL one could guess: a folder named anew every build, only in the inlined manifest; `droplets.json` and `.vite/` are never uploaded.
   Checked by: `test/worker.test.ts`, `test/index.test.ts`.
-- The headers of the build's files come from the file-header table alone (`fileHeaders` in `afterBuild`, `fileHeaderTable(config)` in the Worker through `createServerApp`): the Worker's `assetHandler` adds only the `ETag` and 304 of `public/`, and `_headers` adds nothing to the table.
-  Checked by: `test/worker.test.ts` ("answers every build file that reaches it with the headers of fileHeaderTable(config)"), `test/index.test.ts` ("writes the table it is given").
+- The headers of the build's files come from the file-header table alone (`fileHeaders` in `afterBuild`, `createServerApp` in the Worker): the Worker's `assetHandler` adds only the `ETag` and 304 of `public/`, and `_headers` adds nothing to the table.
+  Checked by: `test/worker.test.ts` ("answers every build file that reaches it with the headers of the file-header table"), `test/index.test.ts` ("writes the table it is given").
 - Static assets answer the build's files before the Worker; `dist/client/_headers` holds one rule per row of the table, in its order, each writing only what differs from the wider rule before it and detaching (`! Name`) what it replaces or leaves out (`Cache-Control` first, where no wider rule comes before), so Cloudflare gives a path the headers of its last matching rule, as the table does; the project root's `_headers` is appended after them.
   Checked by: `test/index.test.ts`.
 - The user's wrangler config is read, never written; a `run_worker_first` that sends one of the build's files through the Worker warns once and never fails the build, and unset or `false` is silent.

@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
-import { fileHeadersFor, fileHeaderTable, resolveConfig } from "@dropletsjs/droplets";
+import { resolveConfig } from "@dropletsjs/droplets";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createNodeServerApp, type NodeServerPaths } from "../src/app.ts";
 import { buildFixture, FIXTURE_ROOT } from "./build-fixture.ts";
@@ -11,6 +11,8 @@ const outDir = resolve(FIXTURE_ROOT, "dist-node-app");
 type DecodeInput = { base64: string };
 
 type FormInput = { origin: string };
+
+const IMMUTABLE = "public, max-age=2592000, immutable";
 
 function decode({ base64 }: DecodeInput): Record<string, unknown> {
   return JSON.parse(Buffer.from(base64, "base64").toString("utf8")) as Record<string, unknown>;
@@ -164,31 +166,59 @@ describe("createNodeServerApp", () => {
     expect((await app.request("/index.js")).headers.get("cache-control")).toBe("no-store");
   });
 
-  it("answers every build file with the headers of fileHeaderTable(config), and no other of the table's", async () => {
-    const manifest = JSON.parse(await readFile(resolve(outDir, "client/droplets.json"), "utf8"));
-    const files = [
-      "/index.js",
-      "/index.css",
-      `/${manifest.__entryModule}`,
-      "/assets/public/robots.txt",
-      "/droplets/hello/client.js",
-      "/droplets/static-note/style.css",
-    ];
-    for (const publicCacheControl of ["no-cache", false] as const) {
-      const config = resolveConfig({ element: "test-droplet", publicCacheControl });
-      const app = await createNodeServerApp(paths, config);
-      const table = fileHeaderTable(config);
-      const names = [...new Set(table.flatMap((rule) => Object.keys(rule.headers).map((name) => name.toLowerCase())))];
-      for (const path of files) {
-        const res = await app.request(path);
-        expect(res.status, path).toBe(200);
-        const expected = new Headers(fileHeadersFor({ table, path }));
-        expect(
-          names.map((name) => [name, res.headers.get(name)]),
-          `${path} ${publicCacheControl}`,
-        ).toEqual(names.map((name) => [name, expected.get(name)]));
+  it("keeps publicCacheControl, or none for false, on public/'s 304, with its ETag", async () => {
+    for (const publicCacheControl of ["public, max-age=3600", false] as const) {
+      const app = await createNodeServerApp(paths, resolveConfig({ element: "test-droplet", publicCacheControl }));
+      const res = await app.request("/assets/public/robots.txt");
+      const etag = res.headers.get("etag") ?? expect.unreachable("an etag");
+      const again = await app.request("/assets/public/robots.txt", { headers: { "if-none-match": etag } });
+      expect(again.status).toBe(304);
+      for (const answer of [res, again]) {
+        expect(answer.headers.get("cache-control")).toBe(publicCacheControl || null);
+        expect(answer.headers.get("x-content-type-options")).toBe("nosniff");
+        expect(answer.headers.get("access-control-allow-origin")).toBe("*");
       }
     }
+  });
+
+  it("answers every build file with the headers of the file-header table, and no other of the table's", async () => {
+    const manifest = JSON.parse(await readFile(resolve(outDir, "client/droplets.json"), "utf8"));
+    for (const publicCacheControl of ["no-cache", false] as const) {
+      const app = await createNodeServerApp(paths, resolveConfig({ element: "test-droplet", publicCacheControl }));
+      const files: Array<[string, string | null]> = [
+        ["/index.js", "no-store"],
+        ["/index.css", "no-store"],
+        [`/${manifest.__entryModule}`, IMMUTABLE],
+        ["/assets/public/robots.txt", publicCacheControl || null],
+        ["/droplets/hello/client.js", IMMUTABLE],
+        ["/droplets/static-note/style.css", IMMUTABLE],
+      ];
+      for (const [path, cache] of files) {
+        const res = await app.request(path);
+        expect(res.status, path).toBe(200);
+        expect(
+          {
+            cache: res.headers.get("cache-control"),
+            cors: res.headers.get("access-control-allow-origin"),
+            nosniff: res.headers.get("x-content-type-options"),
+          },
+          `${path} ${publicCacheControl}`,
+        ).toEqual({ cache, cors: "*", nosniff: "nosniff" });
+      }
+    }
+  });
+
+  it("with cors: true, sends * on a build file it answers, and nothing of CORS on a missing one", async () => {
+    const app = await createNodeServerApp(paths, resolveConfig({ element: "test-droplet", cors: true }));
+    const manifest = JSON.parse(await readFile(resolve(outDir, "client/droplets.json"), "utf8"));
+    const origin = { headers: { origin: "https://shop.example" } };
+    const found = await app.request(`/${manifest.__entryModule}`, origin);
+    expect(found.status).toBe(200);
+    expect(found.headers.get("access-control-allow-origin")).toBe("*");
+    const missing = await app.request("/assets/missing.js", origin);
+    expect(missing.status).toBe(404);
+    expect(missing.headers.get("access-control-allow-origin")).toBeNull();
+    expect(missing.headers.get("cache-control")).toBe("no-store");
   });
 
   it("sends Access-Control-Allow-Origin: * on every build file without cors, and nothing of CORS elsewhere", async () => {
