@@ -10,6 +10,8 @@
  */
 import type { ClientRenderContext, ComponentModule, RenderProps } from "../../renderer.ts";
 import { MARKER, type FakeComponent } from "./server.ts";
+import { dropletsError } from "../../errors/format.ts";
+import { FAKE_COMPONENT_NOT_FUNCTION } from "../../errors/browser.ts";
 
 type Instance = {
   target: HTMLElement;
@@ -23,7 +25,7 @@ type HtmlInput = { module: ComponentModule; props: RenderProps; context: ClientR
 function html({ module, props, context }: HtmlInput): string {
   const component = module.default as FakeComponent | undefined;
   if (typeof component !== "function") {
-    throw new Error(`${context.droplet}: a .fake.js ${context.kind} must export a default function`);
+    throw dropletsError({ message: FAKE_COMPONENT_NOT_FUNCTION, params: { kind: context.kind }, droplet: context.droplet });
   }
   // The same URLs the server rendered.
   return component({ ...props, children: () => MARKER, actionUrl: context.actionUrl });

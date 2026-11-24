@@ -141,7 +141,7 @@ describe("with src/hooks.client.ts", () => {
     await import(pathToFileURL((await build(root)).entry).href);
     expect(trace().steps).toEqual(["init: not defined", "define throw-el"]);
     expect(error).toHaveBeenCalledWith(
-      "[droplets] init() in src/hooks.client.ts failed; starting the droplets anyway",
+      expect.stringContaining("droplets error client-init-threw"),
       expect.objectContaining({ message: "no queue today" }),
     );
   }, 90_000);
@@ -163,7 +163,7 @@ describe("with src/hooks.client.ts", () => {
     expect(error).not.toHaveBeenCalled();
     await vi.waitFor(() =>
       expect(error).toHaveBeenCalledWith(
-        "[droplets] init() in src/hooks.client.ts returned a promise that rejected; init is not waited for",
+        expect.stringContaining("droplets error client-init-rejected"),
         expect.objectContaining({ message: "too late" }),
       ),
     );

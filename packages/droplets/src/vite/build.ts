@@ -5,6 +5,8 @@ import type { DropletsAdapter } from "../adapters.ts";
 import { shipsClient, type DropletEntry } from "../core/discover.ts";
 import { loadJsonFile, loadTextFile, writeTextFile } from "../core/fs.ts";
 import { logger } from "../core/logger.ts";
+import { ADAPTER_MISSING, ENTRY_STYLES_PLACEHOLDER_MISSING, OUT_DIR_OUTSIDE_PROJECT, VITE_MANIFEST_MISSING } from "../errors/build.ts";
+import { dropletsError } from "../errors/format.ts";
 import { dynamicPublicNames } from "../core/env.ts";
 import { entryClientPath, entryServerPath } from "../core/paths.ts";
 import type { HydrateMode } from "../renderer.ts";
@@ -103,7 +105,7 @@ export async function emptyOutDir({ root, outDir, emptyOutDir }: EmptyOutDirInpu
   const isInside = outDir !== root && outDir.startsWith(`${root}${sep}`);
   if (emptyOutDir === false) return;
   if (emptyOutDir !== true && !isInside) {
-    logger.warn("framework", `${outDir} is outside the project and is not emptied; set build.emptyOutDir to true to empty it`);
+    logger.report({ message: OUT_DIR_OUTSIDE_PROJECT, params: { outDir } });
     return;
   }
   const entries = await readdir(outDir, { withFileTypes: true }).catch(() => []);
@@ -118,11 +120,7 @@ export const BUILD_ENVIRONMENTS = ["client", "ssr", "server"] as const;
 /** The adapter, or a clear error when `vite build` runs without one. */
 export function requireAdapter(state: PluginState): DropletsAdapter {
   if (!state.adapter) {
-    throw new Error(
-      "droplets: `vite build` needs an adapter. Install one and pass it to the plugin, e.g.\n" +
-        '  import { node } from "@dropletsjs/adapter-node";\n' +
-        "  droplets({ adapter: node() })",
-    );
+    throw dropletsError({ message: ADAPTER_MISSING });
   }
   return state.adapter;
 }
@@ -312,7 +310,7 @@ export function fillStyles({ code, droplets }: FillStylesInput): string {
     filled = true;
     return JSON.stringify(JSON.stringify(styles));
   });
-  if (!filled) throw new Error("droplets: the entry client has no room for the droplets' stylesheets");
+  if (!filled) throw dropletsError({ message: ENTRY_STYLES_PLACEHOLDER_MISSING });
   return result;
 }
 
@@ -324,7 +322,7 @@ export async function writeManifest(state: PluginState): Promise<string> {
   const clientRoot = resolve(state.outDir, "client");
   const viteManifest = await loadJsonFile<Record<string, ViteManifestEntry>>({ path: resolve(clientRoot, ".vite/manifest.json") });
   if (!viteManifest) {
-    logger.warn("framework", "vite manifest missing; CSS paths will fall back and /index.js has no entry");
+    logger.report({ message: VITE_MANIFEST_MISSING });
   }
 
   const index = await loadIndexHtml({ root: state.root, index: state.config.index });
@@ -376,7 +374,7 @@ export async function writeManifest(state: PluginState): Promise<string> {
 
   const manifestPath = resolve(clientRoot, "droplets.json");
   await writeTextFile({ path: manifestPath, contents: `${JSON.stringify(manifest, null, 2)}\n` });
-  logger.debug("framework", "wrote droplet manifest", {
+  logger.debug("wrote droplet manifest", {
     path: manifestPath,
     droplets: Object.keys(manifest.droplets),
   });

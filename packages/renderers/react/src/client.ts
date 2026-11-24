@@ -23,6 +23,7 @@ import type { ClientRenderContext, ComponentModule, RenderProps } from "@droplet
 import { flushSync } from "react-dom";
 import { createRoot, hydrateRoot, type Root, type RootOptions } from "react-dom/client";
 import { type AnyComponent, componentOf, DropletBoundary, tree } from "./tree.ts";
+import { formatMessage, REACT_CAUGHT_ERROR, REACT_RECOVERABLE_ERROR, REACT_UNCAUGHT_ERROR } from "@dropletsjs/droplets/errors";
 
 type RootOptionsInput = Pick<ClientRenderContext, "droplet" | "kind">;
 
@@ -30,18 +31,17 @@ type RootOptionsInput = Pick<ClientRenderContext, "droplet" | "kind">;
 export type ReactInstance = { root: Root; component: AnyComponent; context: ClientRenderContext };
 
 function rootOptions({ droplet, kind }: RootOptionsInput): RootOptions {
-  const where = `[droplets] ${droplet} (${kind}, react)`;
   return {
     onRecoverableError(error, info) {
-      console.error(`${where}: React recovered from an error`, error, info.componentStack ?? "");
+      console.error(formatMessage({ message: REACT_RECOVERABLE_ERROR, params: { kind }, droplet }), error, info.componentStack ?? "");
     },
     onUncaughtError(error, info) {
-      console.error(`${where}: uncaught error in the component`, error, info.componentStack ?? "");
+      console.error(formatMessage({ message: REACT_UNCAUGHT_ERROR, params: { kind }, droplet }), error, info.componentStack ?? "");
     },
     onCaughtError(error, info) {
       // The droplet's own boundary: core reports it as it shows +error.tsx.
       if (info.errorBoundary instanceof DropletBoundary) return;
-      console.error(`${where}: error caught by a boundary in the component`, error, info.componentStack ?? "");
+      console.error(formatMessage({ message: REACT_CAUGHT_ERROR, params: { kind }, droplet }), error, info.componentStack ?? "");
     },
   };
 }

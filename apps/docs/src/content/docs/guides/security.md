@@ -88,7 +88,10 @@ location a request's headers name. The server allows it; under `vite dev`
 and `vite build` it warns (a production server logs errors only):
 
 ```
-trustedOrigins: "*" trusts any forwarded location; see https://dropletsjs.dev/guides/security/#trusting-any-location
+droplets warning any-location-trusted
+  what: trustedOrigins: "*" trusts any forwarded location
+  fix: list the hosts' origins instead, unless every request reaches this server through a proxy you control
+  docs: https://dropletsjs.dev/errors/any-location-trusted.md
 ```
 
 What it opens up:

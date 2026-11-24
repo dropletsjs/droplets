@@ -7,6 +7,7 @@ import type { ComponentModule, RenderProps, ServerRenderContext, ServerRenderOut
 import { createSSRApp, type Component } from "vue";
 import { renderToString } from "vue/server-renderer";
 import { CHILDREN_KEY } from "./children.ts";
+import { COMPONENT_NOT_RENDERABLE, dropletsError } from "@dropletsjs/droplets/errors";
 
 /** A compiled error page in plugin-vue's custom-element mode: its CSS, inlined. */
 type WithStyles = { styles?: string[] };
@@ -16,7 +17,7 @@ type ComponentOfInput = { module: ComponentModule; context: Pick<ServerRenderCon
 function componentOf({ module, context }: ComponentOfInput): Component {
   const component = module.default;
   if (!component || (typeof component !== "object" && typeof component !== "function")) {
-    throw new Error(`${context.droplet}: the ${context.kind} component is not a Vue component`);
+    throw dropletsError({ message: COMPONENT_NOT_RENDERABLE, params: { kind: context.kind, framework: "Vue" }, droplet: context.droplet });
   }
   return component as Component;
 }

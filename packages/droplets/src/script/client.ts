@@ -5,6 +5,8 @@
  * server markup to hydrate: `hydrate` does what `mount` does. See `./index.ts`.
  */
 import type { ClientRenderContext, ComponentModule, RenderProps } from "../renderer.ts";
+import { dropletsError } from "../errors/format.ts";
+import { SCRIPT_DEFAULT_NOT_FUNCTION } from "../errors/browser.ts";
 
 /**
  * A script droplet: the default export of `+droplet.script.ts`. It runs in
@@ -32,7 +34,7 @@ export async function mount(
 ): Promise<Instance> {
   const run = module.default;
   if (typeof run !== "function") {
-    throw new Error(`${context.droplet}: +droplet.script.ts must export a default function (data, el)`);
+    throw dropletsError({ message: SCRIPT_DEFAULT_NOT_FUNCTION, droplet: context.droplet });
   }
   // A promise when mounting; a rejection is the droplet's error, logged by the element.
   const data = "data" in props ? await props.data : undefined;

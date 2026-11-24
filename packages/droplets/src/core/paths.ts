@@ -1,6 +1,8 @@
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { PACKAGE_ROOT_NOT_FOUND } from "../errors/config.ts";
+import { dropletsError } from "../errors/format.ts";
 
 type FindPackageRootInput = { start: string };
 
@@ -12,7 +14,7 @@ function findPackageRoot({ start }: FindPackageRootInput): string {
     if (existsSync(join(dir, "package.json"))) return dir;
     const parent = dirname(dir);
     if (parent === dir) {
-      throw new Error(`Could not locate the droplets package root from ${start}`);
+      throw dropletsError({ message: PACKAGE_ROOT_NOT_FOUND, params: { start } });
     }
     dir = parent;
   }
@@ -51,6 +53,9 @@ export const hostTokensModulePath = resolve(packageDist, "runtime/host-tokens.js
 
 /** Where the browser loads a server from: `$droplets/drop` and `$droplets/form` in the browser, and the element. */
 export const serverRecordsModulePath = resolve(packageDist, "runtime/server-records.js");
+
+/** The registry of messages and its formatters: the browser registry re-exports the build's formatter from it. */
+export const errorsModulePath = resolve(packageDist, "errors.js");
 
 /** Runs `init` of `src/hooks.client.ts`: imported by the browser registry only when the file exists. */
 export const clientInitModulePath = resolve(packageDist, "runtime/client-init.js");

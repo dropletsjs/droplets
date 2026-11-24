@@ -20,10 +20,10 @@ describe("flagsFor()", () => {
   it("client renders in the browser; without hydration it warns of a blank component", () => {
     expect(flagsFor({ target: "client" })).toEqual({ flags: { ssr: false, hydrate: true, prerender: false }, notes: [] });
     expect(flagsFor({ target: "client", hydrate: "none" }).notes).toEqual([
-      { level: "warn", message: expect.stringContaining("blank component") },
+      { level: "warn", message: expect.stringContaining("blank component"), code: "add-blank-component" },
     ]);
     expect(flagsFor({ target: "client", hydrate: "interactive" }).notes).toEqual([
-      { level: "warn", message: expect.stringContaining("mounts at once") },
+      { level: "warn", message: expect.stringContaining("mounts at once"), code: "add-client-only-interactive" },
     ]);
     expect(flagsFor({ target: "client", hydrate: "visible" }).notes).toEqual([]);
   });

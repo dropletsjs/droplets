@@ -81,8 +81,12 @@ describe("discoverApiRoutes", () => {
       expect((await discoverApiRoutes({ apiRoot: root })).map((r) => r.id)).toEqual(["/api"]);
       await discoverApiRoutes({ apiRoot: root });
       expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
-        "[droplets:framework] files/+server.mts is not a route; name it +server.ts or +server.js",
-        "[droplets:framework] users/+server.mjs is not a route; name it +server.ts or +server.js",
+        expect.stringMatching(
+          /^droplets warning route-file-misnamed\n {2}file: files\/\+server\.mts\n.*\n {2}fix: name it \+server\.ts or \+server\.js\n/,
+        ),
+        expect.stringMatching(
+          /^droplets warning route-file-misnamed\n {2}file: users\/\+server\.mjs\n.*\n {2}fix: name it \+server\.ts or \+server\.js\n/,
+        ),
       ]);
     } finally {
       warn.mockRestore();

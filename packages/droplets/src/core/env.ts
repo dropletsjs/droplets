@@ -2,6 +2,8 @@ import { resolve } from "node:path";
 import { loadEnv, runnerImport } from "vite";
 import { validateEnvDeclaration, type EnvDeclaration } from "../env.ts";
 import { fileExists } from "./fs.ts";
+import { ENV_VARIABLES_MISSING } from "../errors/config.ts";
+import { dropletsError } from "../errors/format.ts";
 
 /** Where the declaration lives, like SvelteKit's `src/env.ts`. */
 export const ENV_FILES = ["src/env.ts", "src/env.js"];
@@ -54,7 +56,7 @@ export async function loadEnvState({ root, mode, envDir = root }: LoadEnvStateIn
   });
   const declaration = module.variables;
   if (typeof declaration !== "object" || declaration === null) {
-    throw new Error(`droplets: ${path} must export \`variables\`, e.g. export const variables = defineEnvVars({ ... })`);
+    throw dropletsError({ message: ENV_VARIABLES_MISSING, file: path });
   }
   validateEnvDeclaration(declaration as EnvDeclaration);
   return {

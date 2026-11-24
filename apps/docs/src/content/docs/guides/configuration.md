@@ -81,6 +81,7 @@ export default config({
 | `limits.multipart` | 10 MB | Largest multipart body, and body of any other type (uploads). A body without a `content-length` is held in memory while it is counted, up to the limit, so mind it times your concurrency. |
 | `limits.props` | 8 KB | Largest `x-droplet-props` header; bigger answers `431`. `Infinity` lifts any limit. |
 | `render.timeout` | `5000` | How long, in milliseconds, a droplet's loads and render may take on the server, from when the fragment or `_data` request starts them (after `handle`, the props schema and any form action). Past it the fragment answers `504` with the droplet's error page, `_data` `504` with `{ error }`. The load sees it in `event.request.signal`. An integer from `0` (wait for no promise) to `2147483647`, or `Infinity` (no deadline); anything else fails the build. Prerendering has none. See [Timeouts](/guides/errors/#timeouts). |
+| `errorFormat` | `"agent"` | How every error and warning of the framework reads, in `vite build`, `vite dev`, the browser and the production server: `"agent"`, a block of labelled lines, or `"human"`, one line. Every message has a code and a page under [Error codes](/errors/) either way; anything else fails the build. See [Error format](#error-format). |
 | `health` | `"/health"` | Path answering `ok`, before `handle` runs, so an auth hook cannot break it. `false` turns it off. |
 | `index` | `index.html` in the root, else a placeholder | What `/` serves in `vite preview` and production: an HTML file, served as written. A path that does not exist fails `vite build`. `false` answers `404`. In `vite dev`, `/` belongs to the [devtools](/guides/development/#the-devtools-page). |
 | `importMap` | `"/importmap"`, when the client build has externals | Where the [import map](/guides/import-maps/) is served; `<path>.js` answers the inserting script. `false` turns both off. |
@@ -217,6 +218,45 @@ no page: `host.pathname` is `/`, and a form posted without JavaScript from
 it returns to `host`'s root page. With `location` alone, `host` and the page
 are still tokens, replaced per request. Only here does an entry's `file`
 write its render as a [static file](/guides/prerendering/#static-files).
+
+### Error format
+
+Every message the framework writes, an error it throws or a warning it
+logs, has a stable code and a page at `https://dropletsjs.dev/errors/<code>/`
+(all of them are listed under [Error codes](/errors/)). `errorFormat` picks
+how it reads, everywhere: `vite build`, `vite dev`, the browser and the
+production server, errors and warnings alike.
+
+`"agent"`, the default, writes a block of labelled lines, easy for a coding
+agent or a script to read. The droplet and the file come when they are known,
+and the last line is the page's Markdown:
+
+```txt
+droplets error load-result-not-object
+  droplet: cart
+  file: +droplet.ts
+  what: load must return a plain object
+  fix: return an object literal from load, e.g. return { … }, or nothing
+  docs: https://dropletsjs.dev/errors/load-result-not-object.md
+```
+
+A warning starts with `droplets warning <code>`. `"human"` writes one line
+that ends with the page:
+
+```ts
+errorFormat: "human",
+```
+
+```txt
+droplets: cart: +droplet.ts: load must return a plain object; return an object literal from load, e.g. return { … }, or nothing (https://dropletsjs.dev/errors/load-result-not-object/)
+```
+
+A thrown error carries the code as `error.code` (a build error from a Vite
+hook as `pluginCode`). A production server logs only errors, with
+`console.error`: the message in this format, then the error itself as the
+second value, with its stack. No environment variable changes it: the build
+writes the format into the server bundle and the browser code, and the
+browser code holds only that formatter.
 
 ### The element name
 

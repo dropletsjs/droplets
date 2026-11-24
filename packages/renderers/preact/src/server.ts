@@ -13,13 +13,18 @@ import type { ComponentModule, RenderProps, ServerRenderContext, ServerRenderOut
 import { h, type ComponentType } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { childrenElement } from "./children.ts";
+import { COMPONENT_NOT_RENDERABLE, dropletsError } from "@dropletsjs/droplets/errors";
 
 type ComponentOfInput = { module: ComponentModule; context: Pick<ServerRenderContext, "droplet" | "kind"> };
 
 function componentOf({ module, context }: ComponentOfInput): ComponentType<Record<string, unknown>> {
   const component = module.default;
   if (typeof component !== "function") {
-    throw new Error(`${context.droplet}: the ${context.kind} component is not a Preact component`);
+    throw dropletsError({
+      message: COMPONENT_NOT_RENDERABLE,
+      params: { kind: context.kind, framework: "Preact" },
+      droplet: context.droplet,
+    });
   }
   return component as ComponentType<Record<string, unknown>>;
 }

@@ -46,8 +46,9 @@ files from there.
 
 ### The dev log
 
-`vite dev` and `vite build` print what the framework notices, prefixed
-`[droplets:framework]`: a droplet folder that is not lowercase kebab-case, a
+`vite dev` and `vite build` print what the framework notices, each as a
+`droplets warning <code>` block with a link to its
+[page](/errors/): a droplet folder that is not lowercase kebab-case, a
 flag that is not a literal, flags an error page declares (in dev), an untrusted
 location header, `"*"` in `trustedOrigins`, a missing `DROPLETS_SECRET`, a
 malformed `x-droplet-props`. `DEV_DROPLETS_LOG` sets the level: `error`,

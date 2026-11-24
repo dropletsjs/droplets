@@ -10,18 +10,19 @@ import { join, relative } from "node:path";
 import { styleText } from "node:util";
 import * as prompts from "@clack/prompts";
 import { dropletId } from "../core/discover.ts";
-import { ADD_KINDS, FRAMEWORKS, frameworkNamed, kindNamed, packageName, SCRIPT, type Framework } from "./catalog.ts";
 import {
-  FULL_HYDRATE,
-  HYDRATE_CHOICES,
-  TARGETS,
-  flagsFor,
-  scriptFlags,
-  type Flags,
-  type HydrateChoice,
-  type Note,
-  type Target,
-} from "./flags.ts";
+  ADD_CONFIRMATION_NEEDED,
+  ADD_FLAG_VALUE_INVALID,
+  ADD_FRAMEWORK_MISSING,
+  ADD_NAME_INVALID,
+  ADD_NAME_MISSING,
+  ADD_OPTION_NOT_FOR_SCRIPT,
+  ADD_RENDERER_INSTALL,
+  ADD_VITE_CONFIG_NOT_UPDATED,
+} from "../errors/cli.ts";
+import { dropletsError, formatMessage } from "../errors/format.ts";
+import { ADD_KINDS, FRAMEWORKS, frameworkNamed, kindNamed, packageName, SCRIPT, type Framework } from "./catalog.ts";
+import { FULL_HYDRATE, HYDRATE_CHOICES, TARGETS, flagsFor, scriptFlags, type Flags, type HydrateChoice, type Target } from "./flags.ts";
 import {
   coreVersion,
   detectPackageManager,
@@ -168,7 +169,7 @@ export type AddFlags = ProjectOptions & {
 function oneOf<T extends string>({ value, allowed, flag }: OneOfInput<T>): T | undefined {
   if (value === undefined) return undefined;
   if ((allowed as readonly string[]).includes(value)) return value as T;
-  throw new Error(`--${flag} ${value}: expected ${allowed.join(", ")}`);
+  throw dropletsError({ message: ADD_FLAG_VALUE_INVALID, params: { flag, value, allowed: allowed.join(", ") } });
 }
 
 /** Ends the command when a prompt was cancelled (ctrl-c, escape). */
@@ -188,16 +189,15 @@ export async function runAdd({ name, flags }: RunAddInput): Promise<void> {
   const pm = oneOf({ value: flags.pm, allowed: PACKAGE_MANAGERS, flag: "pm" }) ?? detectPackageManager({ root: project.root });
   const target = oneOf({ value: flags.target, allowed: TARGETS.map((t) => t.value), flag: "target" });
   const hydrate = oneOf({ value: flags.hydrate, allowed: HYDRATE_CHOICES, flag: "hydrate" });
+  const frameworkChoices = ADD_KINDS.map((f) => f.name).join("|");
   const files = flags.with
     ?.split(",")
     .flatMap((file) => oneOf({ value: file.trim(), allowed: DROPLET_FILES.map((f) => f.value), flag: "with" }) ?? []);
-  const needsAnswer = (what: string) => new Error(`${what} (or run djs add in a terminal to be asked)`);
-
-  /** A warning: confirmed when interactive, accepted with --yes, an error otherwise. */
-  const accept = async (message: string) => {
-    if (flags.yes) return prompts.log.warn(message);
-    if (!interactive) throw needsAnswer(`${message}; pass --yes to go ahead`);
+  /** A formatted warning: confirmed when interactive, accepted with --yes, an error otherwise. */
+  const accept = async ({ message, code }: { message: string; code: string }) => {
     prompts.log.warn(message);
+    if (flags.yes) return;
+    if (!interactive) throw dropletsError({ message: ADD_CONFIRMATION_NEEDED, params: { warning: code } });
     if (!answer({ value: await prompts.confirm({ message: "Go ahead?" }) })) {
       prompts.cancel("Nothing written.");
       process.exit(1);
@@ -206,7 +206,7 @@ export async function runAdd({ name, flags }: RunAddInput): Promise<void> {
 
   if (interactive) prompts.intro("djs add");
 
-  if (name === undefined && !interactive) throw needsAnswer("name the droplet: djs add <name>");
+  if (name === undefined && !interactive) throw dropletsError({ message: ADD_NAME_MISSING });
   const dropletName =
     name ??
     answer({
@@ -217,14 +217,19 @@ export async function runAdd({ name, flags }: RunAddInput): Promise<void> {
       }),
     });
   const problem = nameProblem({ name: dropletName, project });
-  if (problem) throw new Error(`${dropletName}: ${problem}`);
+  if (problem) throw dropletsError({ message: ADD_NAME_INVALID, params: { name: dropletName, problem } });
 
   let framework: Framework | undefined;
   if (flags.framework) {
     framework = kindNamed({ name: flags.framework });
-    if (!framework) throw new Error(`--framework ${flags.framework}: expected ${ADD_KINDS.map((f) => f.name).join(", ")}`);
+    if (!framework) {
+      throw dropletsError({
+        message: ADD_FLAG_VALUE_INVALID,
+        params: { flag: "framework", value: flags.framework, allowed: ADD_KINDS.map((f) => f.name).join(", ") },
+      });
+    }
   } else if (!interactive) {
-    if (configured.size !== 1) throw needsAnswer(`pick a framework: --framework ${ADD_KINDS.map((f) => f.name).join("|")}`);
+    if (configured.size !== 1) throw dropletsError({ message: ADD_FRAMEWORK_MISSING, params: { frameworks: frameworkChoices } });
     const [only] = configured;
     if (only !== undefined) framework = frameworkNamed({ name: only });
   } else {
@@ -244,14 +249,28 @@ export async function runAdd({ name, flags }: RunAddInput): Promise<void> {
     });
     framework = kindNamed({ name: picked });
   }
-  if (!framework) throw new Error("no framework");
+  if (!framework) throw dropletsError({ message: ADD_FRAMEWORK_MISSING, params: { frameworks: frameworkChoices } });
   if (framework.builtIn) {
     // A script droplet: no target, no renderer to install, client only.
-    if (target !== undefined)
-      throw new Error("--target does not apply to a script droplet: it renders nothing on the server and always runs in the browser");
-    if (hydrate !== undefined) throw new Error("--hydrate does not apply to a script droplet: it is client only and runs at once");
+    if (target !== undefined) {
+      throw dropletsError({
+        message: ADD_OPTION_NOT_FOR_SCRIPT,
+        params: { option: "--target", why: "it renders nothing on the server and always runs in the browser" },
+      });
+    }
+    if (hydrate !== undefined) {
+      throw dropletsError({
+        message: ADD_OPTION_NOT_FOR_SCRIPT,
+        params: { option: "--hydrate", why: "it is client only and runs at once" },
+      });
+    }
     const flags = scriptFlags();
-    if (files?.includes("error")) throw new Error("--with error: a script droplet has no error page; it renders nothing");
+    if (files?.includes("error")) {
+      throw dropletsError({
+        message: ADD_OPTION_NOT_FOR_SCRIPT,
+        params: { option: "--with error", why: "it has no error page, it renders nothing" },
+      });
+    }
     const choices = dropletFileChoices({ framework });
     const chosenFiles =
       files ??
@@ -274,8 +293,14 @@ export async function runAdd({ name, flags }: RunAddInput): Promise<void> {
   if (!configured.has(framework.name)) {
     const { dependencies, devDependencies } = missingPackages({ root: project.root, framework });
     const specs = [...dependencies, ...devDependencies].map((spec) => packageName({ spec }));
-    const install = specs.length > 0 ? `this will install ${specs.join(", ")} and ` : "this will ";
-    await accept(`${install}add ${framework.factory}() to renderers in vite.config`);
+    const install = specs.length > 0 ? `install ${specs.join(", ")} and ` : "";
+    await accept({
+      message: formatMessage({
+        message: ADD_RENDERER_INSTALL,
+        params: { change: `${install}add ${framework.factory}() to renderers in vite.config` },
+      }),
+      code: ADD_RENDERER_INSTALL.code,
+    });
   }
 
   const chosenTarget =
@@ -296,8 +321,8 @@ export async function runAdd({ name, flags }: RunAddInput): Promise<void> {
     });
   }
   const { flags: dropletFlags, notes } = flagsFor({ target: chosenTarget, hydrate: chosenHydrate });
-  for (const note of notes.filter((n: Note) => n.level === "info")) prompts.log.info(note.message);
-  for (const note of notes.filter((n: Note) => n.level === "warn")) await accept(note.message);
+  for (const note of notes) if (note.level === "info") prompts.log.info(note.message);
+  for (const note of notes) if (note.level === "warn") await accept(note);
 
   const chosenFiles =
     files ??
@@ -324,7 +349,7 @@ function report({ result, dropletName, interactive }: ReportInput): void {
   for (const file of result.edited) prompts.log.success(`updated ${file}`);
   for (const file of result.written) prompts.log.success(`created ${file}`);
   if (result.manual) {
-    prompts.log.warn(`vite.config could not be updated; add the renderer by hand, then run djs sync:\n${result.manual}`);
+    prompts.log.warn(formatMessage({ message: ADD_VITE_CONFIG_NOT_UPDATED, params: { manual: result.manual } }));
   }
   const next = `${result.folder}/ is ready: vite dev, then /?droplet=${dropletName} or /droplets/${dropletName}`;
   if (interactive) prompts.outro(next);

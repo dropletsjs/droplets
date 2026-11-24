@@ -3,12 +3,15 @@
  * of a one-droplet project, twice with different adapters, and Vite's plain
  * `build()` without the builder.
  */
+import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 import { build, createBuilder } from "vite";
 import { afterAll, describe, expect, it } from "vitest";
+import { formatAgent, setErrorFormatter } from "../../src/errors/format.ts";
 import { fakeRenderer } from "../../src/testing/index.ts";
 import { droplets, type DropletsAdapter } from "../../src/vite.ts";
 
@@ -92,7 +95,7 @@ describe("vite build needs the builder", () => {
         plugins: [droplets({ adapter: adapter("server.js"), renderers: [fakeRenderer()] })],
       }),
     ).rejects.toThrow(
-      "droplets: vite build (the builder) is required; build() alone builds one environment; use createBuilder() or the vite build command",
+      "droplets error builder-required\n  what: vite build (the builder) is required; build() alone builds one environment\n  fix: use createBuilder() or the vite build command",
     );
     expect(existsSync(join(root, "dist/client/droplets.json"))).toBe(false);
   }, 60_000);
@@ -105,10 +108,43 @@ describe("vite build with an index that does not exist", () => {
       "package.json": '{ "type": "module" }\n',
     });
     roots.push(root);
-    await expect(buildWith(root, "server.js")).rejects.toThrow("droplets: index points at home.html, which does not exist");
+    await expect(buildWith(root, "server.js")).rejects.toMatchObject({
+      code: "index-file-missing",
+      message: expect.stringContaining("what: index points at home.html, which does not exist"),
+    });
     expect(existsSync(join(root, "dist"))).toBe(false);
     await writeFile(join(root, "home.html"), "<p>home</p>\n");
     await buildWith(root, "server.js");
     expect(JSON.parse(await readFile(join(root, "dist/client/droplets.json"), "utf8")).__index).toBe("<p>home</p>\n");
+  }, 120_000);
+});
+
+describe("vite build with errorFormat human", () => {
+  afterAll(() => {
+    // The plugin set this realm's formatter from the fixture's config.
+    setErrorFormatter(formatAgent);
+  });
+
+  it("sets the SSR bundle's formatter to human, and bakes the generated modules' messages as one line", async () => {
+    const root = await project({
+      "droplets.config.js": 'export default { errorFormat: "human" };\n',
+      "package.json": '{ "type": "module" }\n',
+      "src/droplets/card/+droplet.fake.js":
+        'import { actionUrl } from "$droplets/form";\n' +
+        "globalThis.probe = () => { try { actionUrl(); } catch (error) { return error.message; } };\n" +
+        "export default () => `<p>card</p>`;\n",
+    });
+    roots.push(root);
+    await buildWith(root, "server.js");
+    const entry = join(root, "dist/server/entry-server.js");
+    // virtual:droplets-config's errorFormat, inlined where entry-server sets its realm's formatter.
+    expect(await readFile(entry, "utf8")).toContain('setErrorFormatter(formatterOf({ format: "human" }));');
+    const script = `await import(${JSON.stringify(pathToFileURL(entry).href)}); process.stdout.write(globalThis.probe());`;
+    const { stdout } = await promisify(execFile)(process.execPath, ["--input-type=module", "-e", script], { cwd: root });
+    expect(stdout).toBe(
+      "droplets: actionUrl() of $droplets/form knows the droplet only while one renders; " +
+        "call it as the component sets up (React, Preact and Hono JSX: useState(() => actionUrl(...))), or pass { droplet } " +
+        "(https://dropletsjs.dev/errors/action-url-outside-render/)",
+    );
   }, 120_000);
 });

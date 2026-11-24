@@ -1,5 +1,13 @@
 import Handlebars from "handlebars";
 import { parseHydrateMode, type ReadFlagsInput, type RenderFlags } from "@dropletsjs/droplets";
+import {
+  dropletsError,
+  HANDLEBARS_FLAG_LINE_INVALID,
+  HANDLEBARS_FLAG_REPEATED,
+  HANDLEBARS_FLAG_UNKNOWN,
+  HANDLEBARS_FLAG_VALUE_INVALID,
+  HANDLEBARS_FLAGS_MISPLACED,
+} from "@dropletsjs/droplets/errors";
 
 const FLAG_NAMES = ["ssr", "hydrate", "prerender"] as const;
 const FLAG_LINE = /^export\s+(?:const\s+)?(\w+)\s*=\s*(.+)$/;
@@ -52,7 +60,7 @@ export function readTemplateFlags(source: string, where: string): Partial<Render
   const leading = leadingComment({ program });
   for (const comment of commentsOf({ program })) {
     if (comment !== leading && MENTIONS_FLAG.test(comment.value)) {
-      throw new Error(`droplets: ${where}: flags go in the comment the template starts with, before anything else`);
+      throw dropletsError({ message: HANDLEBARS_FLAGS_MISPLACED, file: where });
     }
   }
 
@@ -68,22 +76,26 @@ export function readTemplateFlags(source: string, where: string): Partial<Render
   for (const line of lines) {
     const [, name = "", value = ""] = line.match(FLAG_LINE) ?? [];
     if (!name) {
-      throw new Error(`droplets: ${where}: expected \`export <flag> = true|false\` in the flags comment, found "${line}"`);
+      throw dropletsError({ message: HANDLEBARS_FLAG_LINE_INVALID, params: { line }, file: where });
     }
     if (!isFlagName(name)) {
-      throw new Error(`droplets: ${where}: unknown flag "${name}" (expected ${FLAG_NAMES.join(", ")})`);
+      throw dropletsError({ message: HANDLEBARS_FLAG_UNKNOWN, params: { name, known: FLAG_NAMES.join(", ") }, file: where });
     }
-    if (name in flags) throw new Error(`droplets: ${where}: flag "${name}" is declared twice`);
+    if (name in flags) throw dropletsError({ message: HANDLEBARS_FLAG_REPEATED, params: { name }, file: where });
     if (name === "hydrate") {
       const mode = parseHydrateMode(value);
       if (mode === undefined) {
-        throw new Error(`droplets: ${where}: flag "hydrate" must be true, false, "visible" or "interactive", found "${value}"`);
+        throw dropletsError({
+          message: HANDLEBARS_FLAG_VALUE_INVALID,
+          params: { name, value, expected: 'true, false, "visible" or "interactive"' },
+          file: where,
+        });
       }
       flags.hydrate = mode;
       continue;
     }
     if (value !== "true" && value !== "false") {
-      throw new Error(`droplets: ${where}: flag "${name}" must be true or false, found "${value}"`);
+      throw dropletsError({ message: HANDLEBARS_FLAG_VALUE_INVALID, params: { name, value, expected: "true or false" }, file: where });
     }
     flags[name] = value === "true";
   }

@@ -3,6 +3,8 @@
  * thing in the browser. Only a project that has the file imports this
  * module; without one `/index.js` is unchanged.
  */
+import { formatMessage } from "../errors/format.ts";
+import { CLIENT_INIT_NOT_FUNCTION, CLIENT_INIT_REJECTED, CLIENT_INIT_THREW } from "../errors/browser.ts";
 
 /**
  * The `init` export of `src/hooks.client.ts`. `/index.js` calls it once,
@@ -45,7 +47,7 @@ export function runClientInit(hooks: ClientHooksModule, file: string): void {
   const init = hooks.init;
   if (init === undefined) return;
   if (typeof init !== "function") {
-    console.error(`[droplets] init in ${file} is not a function; starting the droplets without it`);
+    console.error(formatMessage({ message: CLIENT_INIT_NOT_FUNCTION, file }));
     return;
   }
   try {
@@ -53,10 +55,10 @@ export function runClientInit(hooks: ClientHooksModule, file: string): void {
     // Not waited for: the droplets start now. A rejection is still reported.
     if (isThenable(result)) {
       Promise.resolve(result).then(undefined, (error: unknown) => {
-        console.error(`[droplets] init() in ${file} returned a promise that rejected; init is not waited for`, error);
+        console.error(formatMessage({ message: CLIENT_INIT_REJECTED, file }), error);
       });
     }
   } catch (error) {
-    console.error(`[droplets] init() in ${file} failed; starting the droplets anyway`, error);
+    console.error(formatMessage({ message: CLIENT_INIT_THREW, file }), error);
   }
 }

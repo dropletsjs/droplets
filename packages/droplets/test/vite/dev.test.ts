@@ -182,7 +182,7 @@ describe("createDevApp: prerender files", () => {
     });
 
   it("answers a file's URL 404 in plain text, warning once per path, and names the live fragment", async () => {
-    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const warn = vi.spyOn(logger, "report").mockImplementation(() => {});
     try {
       const dev = app();
       const notice =
@@ -198,10 +198,10 @@ describe("createDevApp: prerender files", () => {
       expect(await (await dev.request("http://localhost/assets/prerendered/Bad_Id/x")).text()).toContain(
         "the live fragment /droplets/<id>;",
       );
-      expect(warn.mock.calls.map((call) => call[1])).toEqual([
-        notice,
-        notice.replace("page-2:", "page-2.html:"),
-        expect.stringContaining("/assets/prerendered/Bad_Id/x: prerender files"),
+      expect(warn.mock.calls.map(([{ message, params }]) => ({ code: message.code, params }))).toEqual([
+        { code: "prerender-file-in-dev", params: { path: "/assets/prerendered/testimonials/page-2", id: "testimonials" } },
+        { code: "prerender-file-in-dev", params: { path: "/assets/prerendered/testimonials/page-2.html", id: "testimonials" } },
+        { code: "prerender-file-in-dev", params: { path: "/assets/prerendered/Bad_Id/x", id: "<id>" } },
       ]);
     } finally {
       warn.mockRestore();

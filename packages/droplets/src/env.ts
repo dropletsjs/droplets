@@ -20,6 +20,8 @@
  * then read them with `import { env } from "$droplets/env/private"` (server
  * code only) or `"$droplets/env/public"` (anywhere).
  */
+import { ENV_NAME_INVALID, ENV_OPTIONS_NOT_OBJECT } from "./errors/config.ts";
+import { dropletsError } from "./errors/format.ts";
 
 export type EnvVarOptions = {
   /**
@@ -62,10 +64,10 @@ const NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 export function validateEnvDeclaration(vars: EnvDeclaration): void {
   for (const [name, options] of Object.entries(vars)) {
     if (!NAME.test(name)) {
-      throw new Error(`droplets: "${name}" is not a valid environment variable name`);
+      throw dropletsError({ message: ENV_NAME_INVALID, params: { name } });
     }
     if (typeof options !== "object" || options === null) {
-      throw new Error(`droplets: ${name} must be declared with an options object, e.g. ${name}: {}`);
+      throw dropletsError({ message: ENV_OPTIONS_NOT_OBJECT, params: { name } });
     }
   }
 }

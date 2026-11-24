@@ -1,3 +1,5 @@
+import { dropletsError } from "../errors/format.ts";
+import { SSR_BUNDLE_WITHOUT_RENDER } from "../errors/runtime.ts";
 import type { Handler } from "hono";
 import {
   createDropletsApp,
@@ -88,7 +90,7 @@ export type ServerAppOptions = {
 export function createServerApp({ ssr, assets, config }: ServerAppOptions): DropletsApp {
   const renderDroplet = ssr.renderDroplet ?? ssr.default;
   if (!renderDroplet) {
-    throw new Error("The SSR bundle does not export renderDroplet.");
+    throw dropletsError({ message: SSR_BUNDLE_WITHOUT_RENDER });
   }
   const app = createDropletsApp({
     element: config.element,
@@ -128,6 +130,7 @@ export function createServerApp({ ssr, assets, config }: ServerAppOptions): Drop
     csrf: config.csrf,
     limits: config.limits,
     render: config.render,
+    errorFormat: config.errorFormat,
   });
 
   app.get("/assets/*", assets.assetHandler);

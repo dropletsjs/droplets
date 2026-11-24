@@ -176,7 +176,10 @@ describe("a script droplet in the browser", () => {
     expect(entryOf({ element: tracker }).textContent).toBe("fine");
     // What the failed run left behind goes; the failure is in the console.
     expect(entryOf({ element: broken }).childNodes).toHaveLength(0);
-    expect(error).toHaveBeenCalledWith("[droplets] broken failed", expect.objectContaining({ message: "tracker exploded" }));
+    expect(error).toHaveBeenCalledWith(
+      expect.stringMatching(/^droplets error droplet-failed-in-browser\n {2}droplet: broken\n/),
+      expect.objectContaining({ message: "tracker exploded" }),
+    );
   });
 
   it("says what is wrong with a file that exports no function", async () => {
@@ -185,8 +188,11 @@ describe("a script droplet in the browser", () => {
     place({ html: fragment({ id: "tracker", data: {} }) });
     await tick();
     expect(error).toHaveBeenCalledWith(
-      "[droplets] tracker failed",
-      expect.objectContaining({ message: expect.stringContaining("must export a default function (data, el)") }),
+      expect.stringMatching(/^droplets error droplet-failed-in-browser\n {2}droplet: tracker\n/),
+      expect.objectContaining({
+        code: "script-default-not-function",
+        message: expect.stringContaining("must export a default function (data, el)"),
+      }),
     );
   });
 });

@@ -143,7 +143,7 @@ mode and without it, on a copy of the fixture in `test/fixtures/.app-sync`.
 - Server `render` passes the `marker` snippet of `children.svelte` as `children`. `src/server.ts:9`, `src/server.ts:18`
 - Server `render` of an error page returns `{ html, head }`, with the injected `<style>` in `head`. `src/server.ts:22`
 - Server `render` of a droplet returns the body only: `<svelte:head>` is dropped. `src/server.ts:22`
-- Server `render` throws `<droplet>: the <kind> component is not a Svelte component` when the default export is not a function. `src/server.ts:13`
+- Server `render` throws `component-not-renderable` (`the <kind> component is not a Svelte component`, for the droplet) when the default export is not a function. `src/server.ts:13`
 - Children marker is `<div data-droplet-children style="display: contents" use:fill out:release|global>`. `src/children.svelte:15`
 - Children host reaches the marker through Svelte's context, under `Symbol.for("droplets:svelte:children")`. `src/children.ts:20`, `src/client.ts:35`
 - Children `use:fill` calls `host.fill(marker)`; the `out:release|global` transition calls `host.empty(marker)` with duration 0, before Svelte removes the marker. `src/children.ts:28`, `src/children.ts:37`

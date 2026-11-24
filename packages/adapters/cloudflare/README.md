@@ -198,7 +198,7 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - Wrangler config missing: logs (info) what to set for `main`, `assets.directory` and `assets.binding`, nothing about `run_worker_first`. `src/index.ts:333`, `test/index.test.ts:368`
 - Wrangler JSONC is read with `//` and `/* */` comments and trailing commas removed. `src/index.ts:26`
 - Wrangler TOML: `run_worker_first` is read from the `[assets]` section, one line, `#` comments allowed, single quotes taken as double. `src/index.ts:58`
-- `run_worker_first` that does not parse warns `could not read assets.run_worker_first in <file>` and the build goes on. `src/index.ts:344`, `test/index.test.ts:368`
+- `run_worker_first` that does not parse warns `cloudflare-wrangler-unreadable` (`could not read the wrangler config (assets.run_worker_first, compatibility_flags)`, with the file) and the build goes on. `src/index.ts:344`, `test/index.test.ts:368`
 - `run_worker_first` unset, `false` or a list that matches none of the build's files is silent. `src/index.ts:213`, `test/index.test.ts:284`
 - `run_worker_first` `true` sends every build file through the Worker and warns once, never fails. `src/index.ts:212`, `test/index.test.ts:303`
 - `run_worker_first` list warns when a pattern matches a build file and no `!` pattern excludes it: negative patterns win. `src/index.ts:211`, `src/index.ts:217`, `test/index.test.ts:303`
@@ -213,7 +213,7 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - Config in the Worker is `resolveConfig(userConfig)` with no environment: `PORT` is never read. `src/worker.ts:119`
 - `droplets.config.ts` that exports a function is called in `dist/worker.js` with the build's `{ command, mode, isSsrBuild, isPreview }` and awaited on the first request, never at the top level: a Worker module has no top-level `await`. `src/worker.ts:25`, `src/worker.ts:118`, `test/worker.test.ts:427`
 - Manifest is inlined into the Worker through `virtual:droplets-manifest`, the build's `droplets.json`. `src/worker.ts:2`, `../../droplets/src/vite/virtual.ts:73`
-- Assets binding missing from `env`: the request throws `droplets: no "<name>" binding`. `src/worker.ts:126`, `test/worker.test.ts:352`
+- Assets binding missing from `env`: the request throws `cloudflare-assets-binding-missing` (`the Worker has no "<name>" binding`). `src/worker.ts:126`, `test/worker.test.ts:352`
 - App is created once per assets binding object and kept in a `WeakMap`, as the promise of its creation. `src/worker.ts:32`, `src/worker.ts:132`
 - Bindings are the runtime env: every request calls `setRuntimeEnv(env)` before it is answered. `src/worker.ts:141`
 - `platform.env` is the Worker's `env`, every binding included. `../../droplets/src/runtime/app.ts:526`, `test/worker.test.ts:86`

@@ -2,11 +2,22 @@ import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { loadDirectoryNames, loadTextFile } from "./fs.ts";
 import { langOfFile, readExportedFlags } from "./flags.ts";
-import { logger } from "./logger.ts";
+import { type LogReportInput, logger } from "./logger.ts";
+import {
+  COMPONENT_FILES_DUPLICATE,
+  COMPONENT_NOT_RECOGNISED,
+  COMPONENT_RENDERER_MISSING,
+  DROPLET_FOLDERS_MISNAMED,
+  ERROR_PAGE_FLAGS_IGNORED,
+  ERROR_PAGE_OTHER_FRAMEWORK,
+  LOAD_FILE_MISNAMED,
+  SCRIPT_ERROR_PAGE_IGNORED,
+} from "../errors/config.ts";
+import { type AnyMessage, dropletsError } from "../errors/format.ts";
 import {
   CORE_SUFFIXES,
   MODULE_EXTENSIONS,
-  noRendererMessage,
+  noRendererHint,
   pickRenderer,
   SCRIPT_RENDERER,
   validateRenderers,
@@ -114,13 +125,13 @@ type Found = { file: string; renderer: DropletRenderer; flags: RenderFlags };
 /** What was already reported, so a rescan (or the next environment's build) stays quiet. */
 const reported = new Set<string>();
 
-export type ReportOnceInput = { key: string; message: string };
+export type ReportOnceInput<M extends AnyMessage> = LogReportInput<M> & { key: string };
 
-/** Warns once per key for the process: a file taken for what it is not, a folder ignored. */
-export function reportOnce({ key, message }: ReportOnceInput): void {
-  if (reported.has(key)) return;
-  reported.add(key);
-  logger.warn("framework", message);
+/** Reports once per key for the process: a file taken for what it is not, a folder ignored. */
+export function reportOnce<M extends AnyMessage>(input: ReportOnceInput<M>): void {
+  if (reported.has(input.key)) return;
+  reported.add(input.key);
+  logger.report(input);
 }
 
 /**
@@ -146,12 +157,14 @@ async function findComponent({
   };
   let candidates = files.filter((f) => componentSuffix({ fileName: f, kind }) !== null);
   if (framework) {
-    const other = (f: string) =>
-      `${folderName}/${f} is not a ${framework.name} component like the droplet; ignored, ` +
-      "the error page is written in the droplet's framework";
-    for (const f of candidates.filter((f) => !handlers(f).includes(framework))) {
-      reportOnce({ key: `${folder}/${f}:framework`, message: other(f) });
-    }
+    const reportOther = (f: string) =>
+      reportOnce({
+        key: `${folder}/${f}:framework`,
+        message: ERROR_PAGE_OTHER_FRAMEWORK,
+        params: { framework: framework.name },
+        file: `${folderName}/${f}`,
+      });
+    for (const f of candidates.filter((f) => !handlers(f).includes(framework))) reportOther(f);
     candidates = candidates.filter((f) => handlers(f).includes(framework));
     const [only] = candidates;
     if (only !== undefined && candidates.length === 1 && handlers(only).length > 1) {
@@ -159,7 +172,7 @@ async function findComponent({
       const source = (await loadTextFile({ path: resolve(folder, only) })) ?? "";
       const picked = pickRenderer({ candidates: handlers(only), source, file: `${folderName}/${only}`, fallback: framework });
       if (picked !== framework) {
-        reportOnce({ key: `${folder}/${only}:framework`, message: other(only) });
+        reportOther(only);
         return null;
       }
     }
@@ -167,12 +180,21 @@ async function findComponent({
   const [file] = candidates;
   if (file === undefined) return null;
   if (candidates.length > 1) {
-    throw new Error(`droplets: ${folderName}/ has ${candidates.length} ${kind} components (${candidates.join(", ")}); keep one`);
+    throw dropletsError({
+      message: COMPONENT_FILES_DUPLICATE,
+      params: { folder: folderName, count: candidates.length, kind, files: candidates.join(", ") },
+    });
   }
   const suffix = componentSuffix({ fileName: file, kind });
-  if (suffix === null) throw new Error(`droplets: ${folderName}/${file} is not a ${kind} component`);
+  if (suffix === null) throw dropletsError({ message: COMPONENT_NOT_RECOGNISED, params: { kind }, file: `${folderName}/${file}` });
   const group = byExtension.get(suffix);
-  if (!group) throw new Error(`droplets: ${noRendererMessage({ file: `${folderName}/${file}`, extension: suffix })}`);
+  if (!group) {
+    throw dropletsError({
+      message: COMPONENT_RENDERER_MISSING,
+      params: { extension: suffix, hint: noRendererHint({ extension: suffix }) },
+      file: `${folderName}/${file}`,
+    });
+  }
 
   const source = (await loadTextFile({ path: resolve(folder, file) })) ?? "";
   const renderer = pickRenderer({ candidates: group, source, file: `${folderName}/${file}`, fallback: framework });
@@ -191,9 +213,9 @@ async function findComponent({
     if (own.length > 0) {
       reportOnce({
         key: `${folder}/${file}:${own.join(",")}`,
-        message:
-          `${folderName}/${file} declares ${own.map((name) => `"${name}"`).join(", ")}; ignored, ` +
-          "+error.* follows the droplet's ssr, hydrate and prerender",
+        message: ERROR_PAGE_FLAGS_IGNORED,
+        params: { flags: own.map((name) => `"${name}"`).join(", ") },
+        file: `${folderName}/${file}`,
       });
     }
     return { file, renderer, flags: withFlagDefaults(undefined) };
@@ -230,7 +252,9 @@ export async function discoverDroplets({ dropletsRoot, renderers = [] }: Discove
       const base = f.includes(".server.") ? "+droplet.server" : "+droplet";
       reportOnce({
         key: `${folder}/${f}:misnamed`,
-        message: `${name}/${f} is not loaded; name it ${MODULE_EXTENSIONS.map((extension) => `${base}${extension}`).join(" or ")}`,
+        message: LOAD_FILE_MISNAMED,
+        params: { names: MODULE_EXTENSIONS.map((extension) => `${base}${extension}`).join(" or ") },
+        file: `${name}/${f}`,
       });
     }
 
@@ -239,7 +263,7 @@ export async function discoverDroplets({ dropletsRoot, renderers = [] }: Discove
     const script = component.renderer.name === SCRIPT_RENDERER;
     if (script) {
       for (const f of files.filter((f) => componentSuffix({ fileName: f, kind: "error" }) !== null)) {
-        reportOnce({ key: `${folder}/${f}:script`, message: `${name}/${f} is ignored: a script droplet has no error page` });
+        reportOnce({ key: `${folder}/${f}:script`, message: SCRIPT_ERROR_PAGE_IGNORED, file: `${name}/${f}` });
       }
     }
     const error = script
@@ -271,10 +295,7 @@ export async function discoverDroplets({ dropletsRoot, renderers = [] }: Discove
   }
 
   if (ignored.length > 0) {
-    logger.warn(
-      "framework",
-      `These droplet folders do not match the naming convention (lowercase kebab-case) and are ignored: ${ignored.join(", ")}`,
-    );
+    logger.report({ message: DROPLET_FOLDERS_MISNAMED, params: { folders: ignored.join(", ") } });
   }
   return entries.sort((a, b) => a.id.localeCompare(b.id));
 }

@@ -6,6 +6,8 @@
  * URL goes to the global `fetch` with what the caller passed and nothing of
  * the incoming request.
  */
+import { dropletsError } from "../errors/format.ts";
+import { EVENT_FETCH_TOO_DEEP } from "../errors/runtime.ts";
 
 /**
  * The request headers that decide an answer's URLs and `host`: what a
@@ -97,9 +99,7 @@ export function createEventFetch({ request, location, dispatch }: CreateEventFet
     const path = internalPath({ url, own, location });
     if (path === null) return fetch(input, init);
     if (depth >= FETCH_DEPTH) {
-      throw new Error(
-        `droplets: event.fetch(${JSON.stringify(url.href.slice(0, 200))}) would be ${depth + 1} internal requests deep (the limit is ${FETCH_DEPTH}): a request is fetching itself; call the code the route runs instead of the route`,
-      );
+      throw dropletsError({ message: EVENT_FETCH_TOO_DEEP, params: { url: url.href, depth: depth + 1, limit: FETCH_DEPTH } });
     }
     const internal = await internalRequest({ input, init, href: `${own}${path}`, incoming: request.headers });
     depths.set(internal, depth + 1);

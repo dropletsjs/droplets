@@ -86,18 +86,46 @@ nothing else would catch a mistake in it: every mistake stops `vite build`,
 and the `vite dev` server reports it too. A flag line in any other comment:
 
 ```
-droplets: counter/+droplet.hbs: flags go in the comment the template starts with, before anything else
+droplets error handlebars-flags-misplaced
+  file: counter/+droplet.hbs
+  what: flag lines are in a comment other than the one the template starts with
+  fix: move every flag line into the comment the template starts with, before anything else
+  docs: https://dropletsjs.dev/errors/handlebars-flags-misplaced.md
 ```
 
 A misspelled flag, one declared twice, a value that is not a literal, and a
 line in the flags comment that is no flag:
 
 ```
-droplets: counter/+droplet.hbs: unknown flag "hydrat" (expected ssr, hydrate, prerender)
-droplets: counter/+droplet.hbs: flag "hydrate" is declared twice
-droplets: counter/+droplet.hbs: flag "hydrate" must be true, false, "visible" or "interactive", found "maybe"
-droplets: counter/+droplet.hbs: flag "ssr" must be true or false, found "yes"
-droplets: counter/+droplet.hbs: expected `export <flag> = true|false` in the flags comment, found "keep it simple"
+droplets error handlebars-flag-unknown
+  file: counter/+droplet.hbs
+  what: unknown flag "hydrat" (expected ssr, hydrate, prerender)
+  fix: use ssr, hydrate or prerender, spelled as here
+  docs: https://dropletsjs.dev/errors/handlebars-flag-unknown.md
+
+droplets error handlebars-flag-repeated
+  file: counter/+droplet.hbs
+  what: flag "hydrate" is declared twice
+  fix: keep one declaration of the flag
+  docs: https://dropletsjs.dev/errors/handlebars-flag-repeated.md
+
+droplets error handlebars-flag-value-invalid
+  file: counter/+droplet.hbs
+  what: flag "hydrate" must be true, false, "visible" or "interactive", found "maybe"
+  fix: write the value literally, without quotes around true or false
+  docs: https://dropletsjs.dev/errors/handlebars-flag-value-invalid.md
+
+droplets error handlebars-flag-value-invalid
+  file: counter/+droplet.hbs
+  what: flag "ssr" must be true or false, found "yes"
+  fix: write the value literally, without quotes around true or false
+  docs: https://dropletsjs.dev/errors/handlebars-flag-value-invalid.md
+
+droplets error handlebars-flag-line-invalid
+  file: counter/+droplet.hbs
+  what: the flags comment holds "keep it simple"
+  fix: write one `export <flag> = true|false` per line, and nothing else, in the flags comment
+  docs: https://dropletsjs.dev/errors/handlebars-flag-line-invalid.md
 ```
 
 A leading comment with no `export` line in it is an ordinary comment: it
@@ -107,9 +135,23 @@ A `<style>` block is static CSS, and the build refuses one it cannot take
 out of the template:
 
 ```
-droplets: src/droplets/counter/+droplet.hbs:1: a <style> block cannot contain {{…}}: CSS is static
-droplets: src/droplets/counter/+droplet.hbs:4: a <style> block goes at the top of the template, outside {{#…}} blocks
-droplets: src/partials/footer.hbs: a partial has no <style>: put it in the droplet templates that use it
+droplets error handlebars-style-dynamic
+  file: src/droplets/counter/+droplet.hbs:1
+  what: a <style> block cannot contain {{…}}: CSS is static
+  fix: take the {{…}} out of the <style> block; set a class or a style attribute in the markup instead
+  docs: https://dropletsjs.dev/errors/handlebars-style-dynamic.md
+
+droplets error handlebars-style-nested
+  file: src/droplets/counter/+droplet.hbs:4
+  what: a <style> block goes at the top of the template, outside {{#…}} blocks
+  fix: move the <style> block out of the {{#…}} block, to the top level of the template
+  docs: https://dropletsjs.dev/errors/handlebars-style-nested.md
+
+droplets error handlebars-partial-style
+  file: src/partials/footer.hbs
+  what: a partial has no <style>
+  fix: put the <style> block in the droplet templates that use the partial
+  docs: https://dropletsjs.dev/errors/handlebars-partial-style.md
 ```
 
 ## Specifics

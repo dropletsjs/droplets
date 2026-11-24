@@ -353,7 +353,7 @@ describe("event.fetch: what being internal does not grant", () => {
     expect(errors).toHaveBeenCalledTimes(1);
     const [, error] = errors.mock.calls[0] ?? [];
     expect(String((error as Error).message)).toMatch(
-      `droplets: event.fetch("${ORIGIN}/api/loop") would be ${FETCH_DEPTH + 1} internal requests deep (the limit is ${FETCH_DEPTH}): a request is fetching itself`,
+      `event.fetch("${ORIGIN}/api/loop") would be ${FETCH_DEPTH + 1} internal requests deep (the limit is ${FETCH_DEPTH}): a request is fetching itself`,
     );
   });
 

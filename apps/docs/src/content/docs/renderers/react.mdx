@@ -92,7 +92,11 @@ names the fix:
   extension. With `react()` and `preact()` in `renderers`:
 
   ```
-  droplets: counter/+droplet.tsx: react and preact both handle this file and it imports neither; import from react or preact, or add a /** @jsxImportSource <package> */ comment
+  droplets error component-renderer-ambiguous
+    file: counter/+droplet.tsx
+    what: react and preact both handle this file and it imports neither
+    fix: import from react or preact, or add a /** @jsxImportSource <package> */ comment
+    docs: https://dropletsjs.dev/errors/component-renderer-ambiguous.md
   ```
 
   The message lists every renderer that shares the extension, in the order
@@ -102,7 +106,10 @@ names the fix:
   neutral file:
 
   ```
-  droplets: a react droplet imports preact code: src/droplets/counter/+droplet.tsx -> src/lib/preact-label.ts -> preact/dist/preact.mjs. A droplet uses its own framework's modules and neutral code only.
+  droplets error droplet-imports-other-framework
+    what: a react droplet imports preact code: src/droplets/counter/+droplet.tsx -> src/lib/preact-label.ts -> preact/dist/preact.mjs
+    fix: a droplet uses its own framework's modules and neutral code only: move the shared part into plain TypeScript, or render it from a droplet of that framework
+    docs: https://dropletsjs.dev/errors/droplet-imports-other-framework.md
   ```
 
 Other mistakes are ignored, with a warning:
@@ -111,12 +118,18 @@ Other mistakes are ignored, with a warning:
   warns under `vite dev` and `vite build`, and the flag keeps its default:
 
   ```
-  [droplets:framework] `export const hydrate` must be true, false, "visible" or "interactive"; ignoring it { droplet: 'counter', found: 'isMobile' }
+  droplets warning hydrate-flag-invalid
+    droplet: counter
+    what: `export const hydrate` must be true, false, "visible" or "interactive", found isMobile; ignoring it
+    fix: write one of those four literals
+    docs: https://dropletsjs.dev/errors/hydrate-flag-invalid.md
   ```
 
 - an `+error.tsx` that names another framework is not used; under
-  `vite dev` and `vite build` warn once
-  `counter/+error.tsx is not a react component like the droplet; ignored, the error page is written in the droplet's framework`.
+  `vite dev` and `vite build` warn once with
+  [`error-page-other-framework`](/errors/error-page-other-framework/)
+  for `counter/+error.tsx`: "this error page is not a react component like
+  the droplet; ignored".
 
 ## Specifics
 
@@ -137,7 +150,11 @@ Other mistakes are ignored, with a warning:
   and shows the result in place; without `onResult`, it calls
   `result.update()`. See [Actions](/guides/actions/).
 - **Errors in the browser:** React's recoverable, uncaught and caught errors
-  go to `console.error` as `[droplets] <droplet> (<kind>, react)`; what the
+  go to `console.error` as the blocks
+  [`react-recoverable-error`](/errors/react-recoverable-error/),
+  [`react-uncaught-error`](/errors/react-uncaught-error/) and
+  [`react-caught-error`](/errors/react-caught-error/), each naming the
+  droplet and followed by the error and the component stack; what the
   renderer's own boundary catches is reported by the framework instead.
 - **Fast Refresh** works on any host page under `vite dev`, with
   `dev.strategy: "hmr"` (the default). The renderer installs React's

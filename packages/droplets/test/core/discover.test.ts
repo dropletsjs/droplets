@@ -169,8 +169,13 @@ describe("pickRenderer", () => {
 
   it("says what to add when the imports do not decide", () => {
     expect(() => pickRenderer({ candidates: [react, solid], source: "export default () => <p/>", file: "a/+droplet.tsx" })).toThrow(
-      "a/+droplet.tsx: react and solid both handle this file and it imports neither; import from react or solid-js, " +
-        "or add a /** @jsxImportSource <package> */ comment",
+      expect.objectContaining({
+        code: "component-renderer-ambiguous",
+        message: expect.stringContaining(
+          "  file: a/+droplet.tsx\n  what: react and solid both handle this file and it imports neither\n" +
+            "  fix: import from react or solid-js, or add a /** @jsxImportSource <package> */ comment\n",
+        ),
+      }),
     );
     expect(() =>
       pickRenderer({ candidates: [react, solid], source: 'import "react";\nimport "solid-js";', file: "a/+droplet.tsx" }),
@@ -192,8 +197,8 @@ describe("pickRenderer", () => {
     expect(() =>
       pickRenderer({ candidates: [react, solid, hono], source: 'import "react";\nimport "hono/jsx";', file: "a/+droplet.tsx" }),
     ).toThrow(
-      "a/+droplet.tsx: react, solid and hono-jsx all handle this file and it imports from react and hono-jsx; " +
-        "import from react, solid-js or hono/jsx, or add a /** @jsxImportSource <package> */ comment",
+      "  file: a/+droplet.tsx\n  what: react, solid and hono-jsx all handle this file and it imports from react and hono-jsx\n" +
+        "  fix: import from react, solid-js or hono/jsx, or add a /** @jsxImportSource <package> */ comment\n",
     );
     expect(() => pickRenderer({ candidates: [react, solid, hono], source: "export default () => <p/>", file: "a/+droplet.tsx" })).toThrow(
       "imports none of them",
@@ -282,8 +287,10 @@ describe("discoverDroplets", () => {
     expect(alpha?.name).toBe("alpha-beta");
 
     const messages = warn.mock.calls.map((call) => String(call[0]));
-    expect(messages).toContain(
-      "[droplets:framework] These droplet folders do not match the naming convention (lowercase kebab-case) and are ignored: AlphaBeta",
+    expect(messages).toContainEqual(
+      expect.stringContaining(
+        "droplets warning droplet-folders-misnamed\n  what: these droplet folders do not match the naming convention (lowercase kebab-case) and are ignored: AlphaBeta\n",
+      ),
     );
     vi.restoreAllMocks();
   });
@@ -307,7 +314,9 @@ describe("discoverDroplets", () => {
       expect(entries.map((e) => [e.id, e.name])).toEqual([["product-card", "product-card"]]);
     }
     expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
-      "[droplets:framework] These droplet folders do not match the naming convention (lowercase kebab-case) and are ignored: ProductCard, hello_world",
+      expect.stringContaining(
+        "droplets warning droplet-folders-misnamed\n  what: these droplet folders do not match the naming convention (lowercase kebab-case) and are ignored: ProductCard, hello_world\n",
+      ),
     ]);
     warn.mockRestore();
     await rm(other, { recursive: true, force: true });
@@ -329,7 +338,8 @@ describe("discoverDroplets", () => {
     const messages = warn.mock.calls.map((call) => String(call[0])).filter((m) => m.includes("+error.svelte"));
     expect(messages).toHaveLength(1);
     expect(messages[0]).toContain(
-      'docs/+error.svelte declares "hydrate", "prerender"; ignored, +error.* follows the droplet\'s ssr, hydrate and prerender',
+      'droplets warning error-page-flags-ignored\n  file: docs/+error.svelte\n  what: the error page declares "hydrate", "prerender"; ignored\n' +
+        "  fix: remove them: +error.* follows the droplet's ssr, hydrate and prerender\n",
     );
     warn.mockRestore();
   });
@@ -404,8 +414,12 @@ describe("discoverDroplets", () => {
     expect(odd).not.toHaveProperty("loadFile");
     await discoverDroplets({ dropletsRoot: other, renderers: [svelte] });
     expect(warn.mock.calls.map((call) => String(call[0])).filter((m) => m.includes("odd/"))).toEqual([
-      "[droplets:framework] odd/+droplet.mts is not loaded; name it +droplet.ts or +droplet.js",
-      "[droplets:framework] odd/+droplet.server.mjs is not loaded; name it +droplet.server.ts or +droplet.server.js",
+      expect.stringContaining(
+        "droplets warning load-file-misnamed\n  file: odd/+droplet.mts\n  what: this file is not loaded\n  fix: name it +droplet.ts or +droplet.js\n",
+      ),
+      expect.stringContaining(
+        "droplets warning load-file-misnamed\n  file: odd/+droplet.server.mjs\n  what: this file is not loaded\n  fix: name it +droplet.server.ts or +droplet.server.js\n",
+      ),
     ]);
     warn.mockRestore();
   });
@@ -426,25 +440,30 @@ describe("discoverDroplets", () => {
     await mkdir(join(other, "docs"));
     await writeFile(join(other, "docs", "+droplet.hbs"), "<p></p>");
     await expect(discoverDroplets({ dropletsRoot: other, renderers: [svelte] })).rejects.toThrow(
-      "docs/+droplet.hbs: no renderer for .hbs; install @dropletsjs/renderer-handlebars and add handlebars() to renderers",
+      expect.objectContaining({
+        code: "component-renderer-missing",
+        message: expect.stringContaining(
+          "  file: docs/+droplet.hbs\n  what: no renderer for .hbs\n  fix: install @dropletsjs/renderer-handlebars and add handlebars() to renderers\n",
+        ),
+      }),
     );
     await writeFile(join(other, "docs", "+droplet.hbs"), "");
     await rm(join(other, "docs", "+droplet.hbs"));
     await writeFile(join(other, "docs", "+droplet.weird"), "");
     await expect(discoverDroplets({ dropletsRoot: other, renderers: [svelte] })).rejects.toThrow(
-      /docs\/\+droplet\.weird: no renderer for \.weird; add a renderer/,
+      /file: docs\/\+droplet\.weird\n {2}what: no renderer for \.weird\n {2}fix: add a renderer/,
     );
     // A two-part suffix is known by itself, not by its last part.
     await rm(join(other, "docs", "+droplet.weird"));
     await writeFile(join(other, "docs", "+droplet.lit.ts"), "");
     await expect(discoverDroplets({ dropletsRoot: other, renderers: [svelte] })).rejects.toThrow(
-      "docs/+droplet.lit.ts: no renderer for .lit.ts; install @dropletsjs/renderer-lit and add lit() to renderers",
+      "  file: docs/+droplet.lit.ts\n  what: no renderer for .lit.ts\n  fix: install @dropletsjs/renderer-lit and add lit() to renderers\n",
     );
     await rm(join(other, "docs", "+droplet.lit.ts"));
     // The renderer handles .hbs alone: the fix is a rename, not an install.
     await writeFile(join(other, "docs", "+droplet.handlebars"), "");
     await expect(discoverDroplets({ dropletsRoot: other, renderers: [svelte] })).rejects.toThrow(
-      "docs/+droplet.handlebars: no renderer for .handlebars; @dropletsjs/renderer-handlebars handles +droplet.hbs, rename the file",
+      "  file: docs/+droplet.handlebars\n  what: no renderer for .handlebars\n  fix: @dropletsjs/renderer-handlebars handles +droplet.hbs, rename the file\n",
     );
     await rm(join(other, "docs", "+droplet.handlebars"));
     await writeFile(join(other, "docs", "+droplet.weird"), "");
@@ -456,7 +475,7 @@ describe("discoverDroplets", () => {
     const [docs] = await discoverDroplets({ dropletsRoot: other, renderers: [svelte] });
     expect(docs).toMatchObject({ id: "docs", hasError: false });
     expect(warn.mock.calls.map((call) => String(call[0])).join("\n")).toContain(
-      "docs/+error.vue is not a svelte component like the droplet; ignored",
+      "  file: docs/+error.vue\n  what: this error page is not a svelte component like the droplet; ignored\n",
     );
     warn.mockRestore();
     await rm(other, { recursive: true, force: true });
@@ -474,7 +493,9 @@ describe("discoverDroplets", () => {
       expect(docs).toMatchObject({ id: "docs", hasError: false });
     }
     expect(warn.mock.calls.map((call) => String(call[0])).filter((m) => m.includes("+error.vue"))).toEqual([
-      "[droplets:framework] docs/+error.vue is not a svelte component like the droplet; ignored, the error page is written in the droplet's framework",
+      expect.stringContaining(
+        "droplets warning error-page-other-framework\n  file: docs/+error.vue\n  what: this error page is not a svelte component like the droplet; ignored\n",
+      ),
     ]);
     warn.mockRestore();
     await rm(other, { recursive: true, force: true });
@@ -486,7 +507,10 @@ describe("discoverDroplets", () => {
     await writeFile(join(other, "twice", "+droplet.svelte"), "");
     await writeFile(join(other, "twice", "+droplet.vue"), "");
     await expect(discoverDroplets({ dropletsRoot: other, renderers: [svelte, vue] })).rejects.toThrow(
-      "twice/ has 2 droplet components (+droplet.svelte, +droplet.vue); keep one",
+      expect.objectContaining({
+        code: "component-files-duplicate",
+        message: expect.stringContaining("  what: twice/ has 2 droplet components (+droplet.svelte, +droplet.vue)\n  fix: keep one\n"),
+      }),
     );
     await rm(other, { recursive: true, force: true });
   });
@@ -506,7 +530,7 @@ describe("discoverDroplets", () => {
       ["s", "solid", null],
     ]);
     expect(warn.mock.calls.map((call) => String(call[0])).join("\n")).toContain(
-      "s/+error.tsx is not a solid component like the droplet; ignored",
+      "  file: s/+error.tsx\n  what: this error page is not a solid component like the droplet; ignored\n",
     );
     warn.mockRestore();
     await rm(other, { recursive: true, force: true });

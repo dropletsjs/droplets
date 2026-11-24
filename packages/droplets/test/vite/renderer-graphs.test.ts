@@ -138,8 +138,7 @@ describe("checkDropletGraphs", () => {
       "/app/src/lib/index.ts": ["/app/node_modules/.pnpm/react@19/node_modules/react/index.js"],
     };
     expect(() => checkDropletGraphs({ state: state, moduleIds: Object.keys(edges), getModule: graph(edges) })).toThrow(
-      "droplets: a svelte droplet imports react code: src/droplets/s/+droplet.svelte -> src/lib/index.ts -> " +
-        "react/index.js. A droplet uses its own framework's modules and neutral code only.",
+      "droplets error droplet-imports-other-framework\n  what: a svelte droplet imports react code: src/droplets/s/+droplet.svelte -> src/lib/index.ts -> react/index.js\n",
     );
   });
 
@@ -150,8 +149,7 @@ describe("checkDropletGraphs", () => {
       "/app/src/lib/index.ts": ["/app/node_modules/.pnpm/react@19/node_modules/react/index.js"],
     };
     expect(() => checkDropletGraphs({ state: state, moduleIds: Object.keys(edges), getModule: graph(edges) })).toThrow(
-      "droplets: a svelte droplet imports react code: src/droplets/s/+droplet.svelte -> src/lib/index.ts -> " +
-        "react/index.js. A droplet uses its own framework's modules and neutral code only.",
+      "droplets error droplet-imports-other-framework\n  what: a svelte droplet imports react code: src/droplets/s/+droplet.svelte -> src/lib/index.ts -> react/index.js\n",
     );
   });
 
@@ -220,7 +218,7 @@ describe("checkDropletGraphs, for styles", () => {
     const importedIds = edges[id];
     return importedIds === undefined ? null : { importedIds, dynamicallyImportedIds: [] };
   };
-  const advice = "Styles belong to the component: import them from +droplet.<ext> or +error.<ext> (or a <style> block).";
+  const advice = "styles belong to the component: import them from +droplet.<ext> or +error.<ext> (or a <style> block)";
 
   it("accepts CSS the component imports, and strings of CSS anywhere", () => {
     const edges = {
@@ -234,7 +232,7 @@ describe("checkDropletGraphs, for styles", () => {
   it("fails on CSS +droplet.ts imports", () => {
     const edges = { "/app/src/droplets/card/+droplet.ts": ["/app/src/droplets/card/style.css"] };
     expect(() => checkDropletGraphs({ state: state, moduleIds: Object.keys(edges), getModule: graph(edges) })).toThrow(
-      `droplets: src/droplets/card/+droplet.ts imports CSS: src/droplets/card/+droplet.ts -> src/droplets/card/style.css. ${advice}`,
+      `droplets error load-file-imports-css\n  what: src/droplets/card/+droplet.ts imports CSS: src/droplets/card/+droplet.ts -> src/droplets/card/style.css\n  fix: ${advice}`,
     );
   });
 
@@ -244,7 +242,7 @@ describe("checkDropletGraphs, for styles", () => {
       "/app/src/lib/x.ts": ["/app/node_modules/ui/a.css"],
     };
     expect(() => checkDropletGraphs({ state: state, moduleIds: Object.keys(edges), getModule: graph(edges) })).toThrow(
-      "droplets: src/droplets/card/+droplet.server.ts imports CSS: src/droplets/card/+droplet.server.ts -> src/lib/x.ts -> ui/a.css.",
+      "droplets error load-file-imports-css\n  what: src/droplets/card/+droplet.server.ts imports CSS: src/droplets/card/+droplet.server.ts -> src/lib/x.ts -> ui/a.css\n",
     );
   });
 });

@@ -11,6 +11,7 @@ import {
   resolveConfig,
   setRuntimeEnv,
 } from "@dropletsjs/droplets";
+import { CLOUDFLARE_ASSETS_BINDING_MISSING, dropletsError } from "@dropletsjs/droplets/errors";
 
 /** Injected by the adapter at build time (`rolldownOptions.output.intro`). */
 declare const __DROPLETS_ASSETS_BINDING__: string;
@@ -123,9 +124,7 @@ function loadConfig(): Promise<ResolvedDropletsConfig> {
 function appOf({ env }: AppOfInput): Promise<DropletsApp> {
   const assets = env[__DROPLETS_ASSETS_BINDING__] as AssetsFetcher | undefined;
   if (!assets) {
-    throw new Error(
-      `droplets: no "${__DROPLETS_ASSETS_BINDING__}" binding; add assets.directory and assets.binding to the wrangler config`,
-    );
+    throw dropletsError({ message: CLOUDFLARE_ASSETS_BINDING_MISSING, params: { binding: __DROPLETS_ASSETS_BINDING__ } });
   }
   let app = apps.get(assets);
   if (!app) {

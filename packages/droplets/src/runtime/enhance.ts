@@ -18,6 +18,8 @@
 
 import { serverCredentials, serverKey } from "./server-records.ts";
 import { reportStale } from "./stale.ts";
+import { formatMessage } from "../errors/format.ts";
+import { ACTION_ANSWER_NOT_RESULT, ACTION_REDIRECT_UNANSWERABLE, ACTION_REQUEST_FAILED } from "../errors/browser.ts";
 
 /** The encodings an action takes; a `text/plain` form is left to the browser (the server answers `415`). */
 const ENCTYPES = new Set(["application/x-www-form-urlencoded", "multipart/form-data"]);
@@ -363,9 +365,17 @@ async function send({ host, droplet, build, action, body, options }: SendInput):
       return;
     }
     answer = actionAnswer(await response.text());
-    if (!answer) console.error(`[droplets] ${droplet}: action ${action.name} answered ${response.status || response.type}, not a result`);
+    if (!answer) {
+      console.error(
+        formatMessage({
+          message: ACTION_ANSWER_NOT_RESULT,
+          params: { action: action.name, answer: String(response.status || response.type) },
+          droplet,
+        }),
+      );
+    }
   } catch (error) {
-    console.error(`[droplets] ${droplet}: action ${action.name} failed`, error);
+    console.error(formatMessage({ message: ACTION_REQUEST_FAILED, params: { action: action.name }, droplet }), error);
   }
   if (!answer) return;
 
@@ -383,7 +393,7 @@ async function send({ host, droplet, build, action, body, options }: SendInput):
     if (settled.type !== "redirect") return host.updateForm({ form: settled.data, action: action.url });
     const location = redirectTarget(settled.location);
     if (location) globalThis.location.assign(location);
-    else console.error(`[droplets] ${droplet}: action ${action.name} redirected to a URL the server never answers; not followed`);
+    else console.error(formatMessage({ message: ACTION_REDIRECT_UNANSWERABLE, params: { action: action.name }, droplet }));
   };
   const onResult = options.onResult as ((result: EnhanceResult) => void | Promise<void>) | undefined;
   if (!onResult) return update();

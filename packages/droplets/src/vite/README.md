@@ -115,7 +115,7 @@ restarts the server.
 - `server.origin` is corrected to the real port once the dev server listens on another one. `plugin.ts:393`
 - `optimizeDeps.exclude` gets the plain package names of the client build's `external`. `plugin.ts:364`
 - `config` hook under `vite build` requires an adapter, sets `experimental.renderBuiltUrl` and the `client`, `ssr` and `server` environments. `plugin.ts:368`, `plugin.ts:369`, `plugin.ts:376`
-- `vite build` with no droplet found warns `no droplets found` and builds. `plugin.ts:371`
+- `vite build` with no droplet found warns `no-droplets-found` (`no droplets found in <folder>`) and builds. `plugin.ts:371`
 - `vite dev` ssr environment bundles `SERVER_NO_EXTERNAL` (`resolve.noExternal`). `plugin.ts:379`
 - `vite dev` sets the runtime env store from the `.env` values. `plugin.ts:403`
 - `vite dev` middleware is added after Vite's own and registered before the first scan; an early request waits for it. `plugin.ts:422`
@@ -143,7 +143,7 @@ restarts the server.
 - `vite build` without an adapter throws, naming `node()` from `@dropletsjs/adapter-node`. `build.ts:98`
 - `vite build` with `index` naming a file that does not exist throws in the `config` hook, before anything is built. `plugin.ts:373`, `index-html.ts:40`
 - `buildApp` empties `<outDir>` before the first environment builds, by Vite's `build.emptyOutDir` rule (always when `true`, never when `false`, else only inside the project), `.git` kept; an outDir outside the project warns and stays. `build.ts:102`, `plugin.ts:524`
-- `vite build` must run through the builder (`vite build`, `createBuilder().buildApp()`): Vite's plain `build()` never calls `buildApp`, and the first `buildStart` throws `vite build (the builder) is required`. `plugin.ts:397`
+- `vite build` must run through the builder (`vite build`, `createBuilder().buildApp()`): Vite's plain `build()` never calls `buildApp`, and the first `buildStart` throws `builder-required` (`vite build (the builder) is required; build() alone builds one environment`). `plugin.ts:397`
 - Build `client` writes to `<outDir>/client` and empties it; `ssr` writes to `<outDir>/server` and empties it; `server` writes to `<outDir>` with `emptyOutDir: false`. `build.ts:138`, `build.ts:162`, `build.ts:126`
 - Build environments all set `copyPublicDir: false`. `build.ts:128`, `build.ts:141`, `build.ts:164`
 - Build `client` writes Vite's manifest and keeps entry signatures (`exports-only`). `build.ts:142`, `build.ts:144`
@@ -265,7 +265,7 @@ restarts the server.
 - `css.path` default is `./src/app.css` when it exists; `false` turns it off. `css.ts:55`, `css.ts:62`
 - `css` defaults: `scoped` true, `tailwind` false, `twPreflight` true. `css.ts:67`, `css.ts:68`, `css.ts:69`
 - `css.scoped` adds the scoping PostCSS plugin after the user's own: an inline `css.postcss`'s plugins, else the project's PostCSS config file's, loaded with `postcss-load-config` as Vite loads it (from `css.postcss` when that is a directory, else the root, up to the workspace root), its options kept. `css.ts:171`, `css.ts:198`
-- `css.postcss` config file that fails to load throws `the PostCSS config <file> failed to load`, naming the file postcss-load-config would read. `css.ts:177`
+- `css.postcss` config file that fails to load throws `postcss-config-failed` (`the PostCSS config failed to load: <reason>`). `css.ts:177`
 - `css.tailwind` adds `@tailwindcss/vite` unless a plugin named `@tailwindcss/vite*` is already there; without Tailwind installed it throws. `css.ts:222`, `css.ts:223`, `css.ts:225`
 - `css.twPreflight: false` rewrites `@import "tailwindcss"` to theme and utilities and drops the preflight import; a preflight that still shows up warns. `css.ts:89`, `css.ts:147`
 - Prerender requests go to `http://droplets.build/droplets/<id>` as a POST of `{ props, host? }`, through `handle`, with `building` set. `prerender.ts:30`, `prerender.ts:189`, `prerender.ts:191`
@@ -276,13 +276,13 @@ restarts the server.
 - Prerender file: `<id>/<16 hex of sha256(key)>.json`, listed in `<id>/index.json`. `prerender.ts:39`, `prerender.ts:227`
 - Prerender: a render that read `host` without one stops the build. `prerender.ts:193`
 - Prerender: an entry's `host` outside the bound a request's host passes at runtime (the origin of `host` of the config when set, else `trustedOrigins` with `DROPLETS_TRUSTED_ORIGINS` from `process.env`, the origin of `location` counting as the server's own) fails the build before any render, naming the entry and the bound. `prerender.ts:79`, `prerender.ts:181`
-- Prerender: a non-2xx answer warns `not stored, it renders live`, and with `location` and `host` both set adds `, and assets/prerendered/<id>/<file>.html is not written` for an entry with a `file`. `prerender.ts:204`
+- Prerender: a non-2xx answer warns `prerender-render-not-stored` (`prerendering with <props> answered <status>; not stored, it renders live`), and with `location` and `host` both set adds `, and assets/prerendered/<id>/<file>.html is not written` for an entry with a `file`. `prerender.ts:204`
 - Prerender removes `dist/client/assets/prerendered/` with the renders, before the early return without prerendered droplets. `prerender.ts:149`
 - Prerender files are written only with `location` and `host` both set in the config: `dist/client/assets/prerendered/<id>/<file>.html`, one per entry with a `file`, in both adapter families. `prerender.ts:160`, `prerender.ts:240`, `prerender.ts:269`, `../server/prerendered.ts:25`, `../../test/integration/prerender-files.test.ts:127`
 - Prerender file body is what a non-building app over the stored renders answers to a POST of `{ props, host? }` (the worker's `file` call), a `200` only, read after the droplet's `index.json` is written; that app never renders live and has `render.timeout` `Infinity`. `prerender.ts:248`, `prerender.ts:259`, `prerender-worker.ts:76`, `prerender-worker.ts:80`, `prerender-worker.ts:96`
 - Prerender: two entries the schema makes the same props share one stored render, and each entry's `file` is written from it. `prerender.ts:210`, `prerender.ts:214`
-- Prerender: an entry with a `file` whose render failed (stored `+error`) writes no file and warns `prerendering <id> with <props> failed and stored its +error page; assets/prerendered/<id>/<file>.html is not written`; a file answer other than `200` warns `… the fragment answered <status>; … is not written`. `prerender.ts:242`, `prerender.ts:259`
-- Prerender: a file whose load set headers with `setHeaders` warns `<id>: the load set <names> with setHeaders; assets/prerendered/<id>/<file>.html is served with fragmentCacheControl and _headers only, without them`. `prerender.ts:271`
+- Prerender: an entry with a `file` whose render failed (stored `+error`) writes no file and warns `prerender-file-error-page` (`prerendering with <props> failed and stored its +error page; assets/prerendered/<id>/<file>.html is not written`); a file answer other than `200` warns `prerender-file-not-written` (`prerendering with <props>: the fragment answered <status>; … is not written`). `prerender.ts:242`, `prerender.ts:259`
+- Prerender: a file whose load set headers with `setHeaders` warns `prerender-file-headers-dropped` (`the load set <names> with setHeaders; assets/prerendered/<id>/<file>.html is served with fragmentCacheControl and _headers only, without them`). `prerender.ts:271`
 - Prerender without both `location` and `host`: entries' files are checked, none is written, and one warning after the pass lists up to five `<id>/<file>` and what is not set. `prerender.ts:108`, `prerender.ts:236`, `prerender.ts:280`
 - `vite build` logs `prerendered { renders, files }`. `plugin.ts:552`
 - Prerender: a failed load is stored with `failed: true` and `error`, without headers. `prerender.ts:224`

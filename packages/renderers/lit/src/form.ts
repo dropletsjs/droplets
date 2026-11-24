@@ -33,6 +33,7 @@ import {
   type AnyEnhanceOptions,
   type EnhanceOptions,
 } from "@dropletsjs/droplets/enhance";
+import { dropletsError, LIT_ENHANCE_NOT_ON_FORM } from "@dropletsjs/droplets/errors";
 
 // A class: a Lit directive that outlives a render is an `AsyncDirective` subclass.
 class EnhanceDirective extends AsyncDirective {
@@ -42,7 +43,8 @@ class EnhanceDirective extends AsyncDirective {
 
   constructor(part: PartInfo) {
     super(part);
-    if (part.type !== PartType.ELEMENT) throw new Error("enhance() goes on a <form> element: <form ${enhance()}>");
+    if (part.type !== PartType.ELEMENT)
+      throw dropletsError({ message: LIT_ENHANCE_NOT_ON_FORM, params: { tag: "an attribute or a text part" } });
   }
 
   render(_options?: EnhanceOptions): unknown {
@@ -52,7 +54,8 @@ class EnhanceDirective extends AsyncDirective {
   override update(part: ElementPart, [options]: [EnhanceOptions?]): unknown {
     this.#options = options;
     const form = part.element;
-    if (!(form instanceof HTMLFormElement)) throw new Error(`enhance() goes on a <form> element, not <${form.localName}>`);
+    if (!(form instanceof HTMLFormElement))
+      throw dropletsError({ message: LIT_ENHANCE_NOT_ON_FORM, params: { tag: `<${form.localName}>` } });
     if (form !== this.#form) {
       this.#release?.();
       this.#form = form;

@@ -44,6 +44,18 @@ import type {
 import { withoutFormResults } from "./form.ts";
 import { settle } from "./load.ts";
 import { serverBuilds } from "./server-records.ts";
+import { formatMessage } from "../errors/format.ts";
+import {
+  DEV_STRATEGY_PARAM_INVALID,
+  DEV_TOOL_LOAD_FAILED,
+  DEV_TOOL_MISSING,
+  ELEMENT_DEFINED_BY_OTHER_BUILD,
+  HMR_EVENT_FAILED,
+  HYDRATE_ATTRIBUTE_INVALID,
+  HYDRATE_FALSE_ON_SCRIPT_DROPLET,
+  LOOSE_CHILD_REMOVED,
+  REMOUNT_FAILED,
+} from "../errors/browser.ts";
 
 /**
  * Sent by the Vite plugin over Vite's own HMR channel in dev, once per edit
@@ -187,9 +199,7 @@ function warnAboutOtherBuild({ DropletElement, env }: WarnAboutOtherBuildInput):
   const others = serverBuilds({ element: env.elementName }).filter((build) => build !== env.buildHash);
   const other = others.length > 0 ? `build ${others.join(", ")}` : "another build";
   console.warn(
-    `[droplets] <${env.elementName}> is already defined by another build of this server (${other}); ` +
-      `build ${env.buildHash} adopts its elements, and the first build's code runs them all. ` +
-      "Load one /index.js per element name, or give each server its own element.",
+    formatMessage({ message: ELEMENT_DEFINED_BY_OTHER_BUILD, params: { element: env.elementName, other, build: env.buildHash } }),
   );
 }
 
@@ -253,7 +263,7 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
     const asked = new URL(env.url).searchParams.get("strategy");
     if (isStrategy(asked)) return asked;
     if (asked !== null) {
-      console.warn(`[droplets] index.js?strategy=${asked}: use hmr, remount, reload or manual; using ${configStrategy}`);
+      console.warn(formatMessage({ message: DEV_STRATEGY_PARAM_INVALID, params: { asked, strategy: configStrategy } }));
     }
     return configStrategy;
   }
@@ -365,11 +375,22 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
       if (node.nodeType === Node.ELEMENT_NODE) {
         if ((node as Element).matches(env.allowedChildren)) continue;
         console.warn(
-          `[droplets] <${env.elementName}> takes its children in one <div data-droplet-slot>; removed a loose <${(node as Element).localName}>`,
+          formatMessage({
+            message: LOOSE_CHILD_REMOVED,
+            params: { element: env.elementName, child: `a loose <${(node as Element).localName}>` },
+            droplet: this.dataset["droplet"],
+          }),
           node,
         );
       } else if (node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").trim() !== "") {
-        console.warn(`[droplets] <${env.elementName}> takes its children in one <div data-droplet-slot>; removed loose text`, node);
+        console.warn(
+          formatMessage({
+            message: LOOSE_CHILD_REMOVED,
+            params: { element: env.elementName, child: "loose text" },
+            droplet: this.dataset["droplet"],
+          }),
+          node,
+        );
       }
     }
     original.pruneChildren.call(this);
@@ -378,12 +399,10 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
   proto._modeOf = function (this: DjsDropletElement, input: ModeOfInput): HydrateMode {
     const asked = this.dataset["dropletHydrate"];
     if (input.flag !== false && asked !== undefined && !["", "true", "false", "visible", "interactive"].includes(asked)) {
-      console.warn(`[droplets] data-droplet-hydrate="${asked}": use true, false, visible or interactive; using the droplet's own`);
+      console.warn(formatMessage({ message: HYDRATE_ATTRIBUTE_INVALID, params: { asked }, droplet: this.dataset["droplet"] }));
     }
     if (asked === "false" && env.scripts.has(this.dataset["droplet"] ?? "")) {
-      console.warn(
-        `[droplets] data-droplet-hydrate="false" on the script droplet "${this.dataset["droplet"]}" is ignored: a script droplet only runs in the browser`,
-      );
+      console.warn(formatMessage({ message: HYDRATE_FALSE_ON_SCRIPT_DROPLET, droplet: this.dataset["droplet"] }));
     }
     return original.modeOf.call(this, input);
   };
@@ -513,7 +532,7 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
     } catch (error) {
       if (run !== element._run) return;
       if (error instanceof env.nothingToRender) {
-        if (!(error instanceof env.staleBuild)) console.error(`[droplets] ${droplet}:`, (error as Error).message);
+        if (!(error instanceof env.staleBuild)) console.error((error as Error).message);
         return;
       }
       // A load that throws: the remount shows the error page.
@@ -573,7 +592,7 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
       const strategy = activeStrategy();
       if (strategy === "reload") return reloadPage();
       if (strategy === "manual") {
-        if (!noted.has(droplet)) console.info(`[droplets] ${droplet} changed; reload the page to see it`);
+        if (!noted.has(droplet)) console.info(`droplets: ${droplet} changed; reload the page to see it`);
         noted.add(droplet);
         queueMicrotask(() => noted.delete(droplet));
         changed.add(droplet);
@@ -582,7 +601,7 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
       }
       const done = strategy === "hmr" && payload.kind ? hotUpdate({ element: dev, droplet, payload }) : dev.update(payload);
       done.catch((error: unknown) => {
-        console.error("[droplets] failed to handle hmr event", error);
+        console.error(formatMessage({ message: HMR_EVENT_FAILED, droplet }), error);
       });
     };
     stateOf(element).listener = listener;
@@ -611,7 +630,9 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
     for (const element of live) {
       if (element.dataset["droplet"] !== droplet || !element._hydrated) continue;
       count++;
-      (element as DevDropletElement).update({ droplet }).catch((error: unknown) => console.error("[droplets] remount failed", error));
+      (element as DevDropletElement)
+        .update({ droplet })
+        .catch((error: unknown) => console.error(formatMessage({ message: REMOUNT_FAILED, droplet }), error));
     }
     return count;
   }
@@ -638,7 +659,9 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
       remount: (element) => {
         const droplet = element.dataset["droplet"];
         if (droplet && element instanceof DropletElement) {
-          (element as DevDropletElement).update({ droplet }).catch((error: unknown) => console.error("[droplets] remount failed", error));
+          (element as DevDropletElement)
+            .update({ droplet })
+            .catch((error: unknown) => console.error(formatMessage({ message: REMOUNT_FAILED, droplet }), error));
         }
       },
       reload: () => globalThis.location.reload(),
@@ -659,7 +682,7 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
     const notice = contractNotice({ droplet, before, after });
     if (!notice) return;
     if (!notice.toast) {
-      console.info(`[droplets] ${notice.message}. ${notice.detail}`);
+      console.info(`droplets: ${notice.message}. ${notice.detail}`);
       return;
     }
     // A later change of the same flags replaces this notice (ssr off, then on
@@ -719,7 +742,7 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
     hot.on("droplets:hooks-client", (raw) => {
       if (!isObject(raw) || raw["reason"] !== "hooks.client") return;
       const strategy = activeStrategy();
-      if (strategy === "manual") return console.info("[droplets] src/hooks.client.ts changed; reload the page to run its init again");
+      if (strategy === "manual") return console.info("droplets: src/hooks.client.ts changed; reload the page to run its init again");
       if (strategy !== "hmr") return reloadPage();
       notify({
         notification: {
@@ -739,7 +762,7 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
       if (typeof droplet !== "string" || !env.droplets.has(droplet) || origin !== own) return;
       if (activeStrategy() !== "hmr") return;
       if (remountLive({ droplet }) > 0) {
-        console.info(`[droplets] ${droplet}: no HMR of its framework took this edit; remounted in place`);
+        console.info(`droplets: ${droplet}: no HMR of its framework took this edit; remounted in place`);
       }
     });
   }
@@ -751,14 +774,14 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
    */
   async function injectDevTool(): Promise<void> {
     if (!toolUrl) {
-      console.warn("[droplets] injectTool: the dev tool comes with @dropletsjs/devtools; add dropletsDevtools() to the Vite plugins");
+      console.warn(formatMessage({ message: DEV_TOOL_MISSING }));
       return;
     }
     try {
       await import(/* @vite-ignore */ new URL(toolUrl, env.url).href);
       (globalThis as { DropletsDevTools?: DropletsDevTools }).DropletsDevTools?.register(toolSource());
     } catch (error) {
-      console.error("[droplets] could not load the dev tool", error);
+      console.error(formatMessage({ message: DEV_TOOL_LOAD_FAILED }), error);
     }
   }
 

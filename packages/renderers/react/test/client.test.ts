@@ -161,7 +161,9 @@ describe("hydrate()", () => {
     );
     expect(byTestId({ root: target, id: "greeting" }).textContent).toBe("Fresh");
     expect(error).toHaveBeenCalled();
-    expect(error.mock.calls.some((call) => String(call[0]).includes("[droplets] hello (droplet, react)"))).toBe(true);
+    expect(error.mock.calls.some((call) => String(call[0]).includes("droplets error react-recoverable-error\n  droplet: hello\n"))).toBe(
+      true,
+    );
     unmount(root);
   });
 });

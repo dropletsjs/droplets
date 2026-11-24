@@ -15,7 +15,7 @@
 - `discoverDroplets` is the one list of droplets: the plugin, the build and the dev server all read it.
 - `trustedOrigins` accepts `"*"` on the owner's explicit opt-in and never refuses it; the warning is the runtime's. `location` and `host` are one value each and never `"*"`.
   Checked by: `../../test/core/config.test.ts`.
-- A config mistake throws when the config is resolved, with a `droplets:` message that names the fix.
+- A config mistake throws when the config is resolved, with a registry message (`droplets error <code>`) that names the fix.
   Checked by: `../../test/core/config.test.ts`.
 - Config keys and types are named for what they are (`dropletsFolder`, `fragmentCacheControl`, `trustedOrigins`), never for one host or framework.
 

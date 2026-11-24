@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import type { DropletEntry } from "../core/discover.ts";
 import { logger } from "../core/logger.ts";
+import { TYPES_NOT_WRITTEN } from "../errors/build.ts";
 import { SCRIPT_RENDERER, type DropletRenderer } from "../renderer.ts";
 
 /** Where `./$types` live, next to the project's `tsconfig.json`: `.droplets/`. */
@@ -261,6 +262,9 @@ export async function syncTypes(input: SyncTypesInput): Promise<void> {
   try {
     await syncDropletTypes(input);
   } catch (error) {
-    logger.warn("framework", `could not write ${TYPES_DIR}/: ${error instanceof Error ? error.message : String(error)}`);
+    logger.report({
+      message: TYPES_NOT_WRITTEN,
+      params: { dir: TYPES_DIR, reason: error instanceof Error ? error.message : String(error) },
+    });
   }
 }

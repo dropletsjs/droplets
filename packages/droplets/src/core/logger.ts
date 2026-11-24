@@ -4,12 +4,14 @@
  * so production bundles hold none of it: in production the runtime logs only
  * errors, with `console.error`.
  *
+ * An error or a warning is a registry entry, written in the realm's
+ * `errorFormat`; `info` and `debug` are progress notes, with no code.
+ *
  * @module
  */
-export type LogLevel = "error" | "warn" | "info" | "debug";
+import { type AnyMessage, formatMessage, type MessageInput } from "../errors/format.ts";
 
-/** Where a message came from: the framework itself, or user droplet code. */
-export type LogSource = "framework" | "drop";
+export type LogLevel = "error" | "warn" | "info" | "debug";
 
 const LEVELS: Record<LogLevel, number> = {
   error: 0,
@@ -22,7 +24,7 @@ const DEFAULT_LEVEL: LogLevel = "info";
 
 export type ResolveLevelInput = { raw: string | undefined };
 
-type EmitInput = { level: LogLevel; source: LogSource; message: string; meta?: unknown };
+type EmitInput = { level: LogLevel; text: string; meta?: unknown };
 
 /** Reads `DEV_DROPLETS_LOG`; anything unrecognised falls back to `info`. */
 export function resolveLevel({ raw }: ResolveLevelInput): LogLevel {
@@ -43,19 +45,22 @@ export function getLogLevel(): LogLevel {
   return currentLevel;
 }
 
-function emit({ level, source, message, meta }: EmitInput): void {
+function emit({ level, text, meta }: EmitInput): void {
   if (LEVELS[level] > LEVELS[getLogLevel()]) return;
-  const prefix = `[droplets:${source}]`;
   if (meta === undefined) {
-    console[level](`${prefix} ${message}`);
+    console[level](text);
   } else {
-    console[level](`${prefix} ${message}`, meta);
+    console[level](text, meta);
   }
 }
 
+/** A registry entry with its parameters, and what to log after it. */
+export type LogReportInput<M extends AnyMessage> = MessageInput<M> & { meta?: unknown };
+
 export const logger = {
-  error: (source: LogSource, message: string, meta?: unknown): void => emit({ level: "error", source, message, meta }),
-  warn: (source: LogSource, message: string, meta?: unknown): void => emit({ level: "warn", source, message, meta }),
-  info: (source: LogSource, message: string, meta?: unknown): void => emit({ level: "info", source, message, meta }),
-  debug: (source: LogSource, message: string, meta?: unknown): void => emit({ level: "debug", source, message, meta }),
+  /** An error or a warning, by the entry's `level`. */
+  report: <M extends AnyMessage>(input: LogReportInput<M>): void =>
+    emit({ level: input.message.level === "error" ? "error" : "warn", text: formatMessage(input), meta: input.meta }),
+  info: (message: string, meta?: unknown): void => emit({ level: "info", text: `droplets: ${message}`, meta }),
+  debug: (message: string, meta?: unknown): void => emit({ level: "debug", text: `droplets: ${message}`, meta }),
 };

@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { formatMessage, MANIFEST_MALFORMED } from "@dropletsjs/droplets/errors";
 
 type IsNotFoundInput = { error: unknown };
 
@@ -11,9 +12,15 @@ type MalformedJsonErrorInput = { path: string; cause: unknown };
 // An error thrown for the one failure a caller tells apart from a missing file.
 export class MalformedJsonError extends Error {
   readonly path: string;
+  readonly code = MANIFEST_MALFORMED.code;
 
   constructor({ path, cause }: MalformedJsonErrorInput) {
-    super(`${path} is not valid JSON: ${cause instanceof Error ? cause.message : String(cause)}`, { cause });
+    super(
+      formatMessage({ message: MANIFEST_MALFORMED, params: { path, reason: cause instanceof Error ? cause.message : String(cause) } }),
+      {
+        cause,
+      },
+    );
     this.name = "MalformedJsonError";
     this.path = path;
   }

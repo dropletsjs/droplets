@@ -15,6 +15,7 @@ import type { ClientRenderContext, ComponentModule, RenderProps } from "@droplet
 import { type App, type Component, createApp, createSSRApp, defineComponent, h, onErrorCaptured, shallowRef } from "vue";
 import { CHILDREN_KEY } from "./children.ts";
 import { type Live, liveStates, suspended } from "./live-props.ts";
+import { COMPONENT_NOT_RENDERABLE, dropletsError } from "@dropletsjs/droplets/errors";
 
 type WithStyles = { styles?: string[] };
 
@@ -46,7 +47,7 @@ const injectedStyles = new WeakMap<App, Injected>();
 function componentOf({ module, context }: ComponentOfInput): Component {
   const component = module.default;
   if (!component || (typeof component !== "object" && typeof component !== "function")) {
-    throw new Error(`${context.droplet}: the ${context.kind} component is not a Vue component`);
+    throw dropletsError({ message: COMPONENT_NOT_RENDERABLE, params: { kind: context.kind, framework: "Vue" }, droplet: context.droplet });
   }
   return component as Component;
 }

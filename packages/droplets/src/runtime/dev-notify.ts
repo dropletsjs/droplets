@@ -108,7 +108,7 @@ function toasts(): Toasts {
 type NotifyInput = { notification: DevNotification; reload?: () => void };
 
 export function notify({ notification, reload = () => globalThis.location.reload() }: NotifyInput): void {
-  console.info(`[droplets] ${notification.message}${notification.detail ? ` ${notification.detail}` : ""}`);
+  console.info(`droplets: ${notification.message}${notification.detail ? ` ${notification.detail}` : ""}`);
   const tool = (globalThis as { DropletsDevTools?: DropletsDevTools }).DropletsDevTools;
   if (typeof tool?.notify === "function") {
     tool.notify(notification, reload);

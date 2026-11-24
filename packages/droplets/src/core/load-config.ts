@@ -5,6 +5,8 @@ import { resolveConfig, resolveDevConfig } from "./config.ts";
 import type { DropletsConfig, ResolvedDevConfig, ResolvedDropletsConfig } from "./config.ts";
 import { ensureTypesTsconfig } from "../vite/sync-types.ts";
 import { fileExists } from "./fs.ts";
+import { dropletsError, formatterOf, setErrorFormatter } from "../errors/format.ts";
+import { CONFIG_FILE_NOT_FOUND } from "../errors/config.ts";
 
 /** Looked up in this order when no `configFile` is given. */
 export const CONFIG_FILE_CANDIDATES = ["droplets.config.ts", "droplets.config.mts", "droplets.config.js", "droplets.config.mjs"] as const;
@@ -26,7 +28,7 @@ export async function findConfigFile({ root, configFile }: FindConfigFileInput):
   if (configFile) {
     const path = resolve(root, configFile);
     if (!(await fileExists({ path }))) {
-      throw new Error(`droplets: config file not found at ${path}`);
+      throw dropletsError({ message: CONFIG_FILE_NOT_FOUND, params: { path } });
     }
     return path;
   }
@@ -56,5 +58,7 @@ export async function loadDropletsConfig({ root, configEnv, configFile }: LoadDr
     }
   }
 
+  // Before resolveConfig, so its own messages come in the format asked for.
+  setErrorFormatter(formatterOf({ format: user.errorFormat === "human" ? "human" : "agent" }));
   return { config: resolveConfig(user), dev: resolveDevConfig({ user }), path, dependencies };
 }

@@ -125,8 +125,10 @@ describe("createCssConfig", () => {
     const project = join(root, "broken");
     await mkdir(project, { recursive: true });
     await writeFile(join(project, "postcss.config.js"), 'throw new Error("not today");\n');
-    await expect(createCssConfig({ userConfig: {}, state: createInitialState(), root: project })).rejects.toThrow(
-      `droplets: the PostCSS config ${join(project, "postcss.config.js")} failed to load: not today`,
+    const failure = createCssConfig({ userConfig: {}, state: createInitialState(), root: project });
+    await expect(failure).rejects.toMatchObject({ code: "postcss-config-failed" });
+    await expect(failure).rejects.toThrow(
+      `  file: ${join(project, "postcss.config.js")}\n  what: the PostCSS config failed to load: not today`,
     );
   });
 });

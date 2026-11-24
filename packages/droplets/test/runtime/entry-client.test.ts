@@ -286,7 +286,7 @@ describe("<djs-droplet>", () => {
     }) as never;
     const el = mount('<djs-droplet data-droplet="hello"></djs-droplet>');
     await tick();
-    expect(String(error.mock.calls[0]?.[0])).toContain("failed to render droplet");
+    expect(String(error.mock.calls[0]?.[0])).toContain("droplets error client-module-failed\n  droplet: hello");
     expect(el.querySelector("[data-droplet-entry]")?.childNodes.length).toBe(0);
   });
 
@@ -368,7 +368,8 @@ describe("<djs-droplet>", () => {
     expect(fake.default).not.toHaveBeenCalled();
     expect(fake.handleError).not.toHaveBeenCalled();
     expect(fake.renderError).not.toHaveBeenCalled();
-    expect(String(error.mock.calls[0]?.[1])).toContain("Invalid props");
+    expect(String(error.mock.calls[0]?.[0])).toContain("droplets error props-refused-in-browser");
+    expect(String(error.mock.calls[0]?.[0])).toContain("Invalid props");
     expect(el.querySelector("[data-droplet-entry]")?.childNodes.length).toBe(0);
   });
 
@@ -2001,7 +2002,7 @@ describe("dev remount", () => {
     await el.update({ droplet: "plain" });
     expect(fake.unmount).not.toHaveBeenCalled();
     expect(el.querySelector("p")?.textContent).toBe("v1");
-    expect(String(error.mock.calls[0]?.[0])).toContain("plain: could not fetch the fragment again");
+    expect(String(error.mock.calls[0]?.[0])).toContain("droplets error fragment-refetch-failed\n  droplet: plain");
   });
 
   it("mounts an element the host wrote in the browser again, without asking for a fragment", async () => {
@@ -2122,7 +2123,9 @@ describe("lazy hydrate", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     mount(`${ssrWithMarker({ droplet: "plain", extra: ' data-droplet-hydrate="idle"' })}</djs-droplet>`);
     await tick();
-    expect(String(warn.mock.calls[0]?.[0])).toContain('data-droplet-hydrate="idle": use true, false, visible or interactive');
+    expect(String(warn.mock.calls[0]?.[0])).toContain(
+      'droplets warning hydrate-attribute-invalid\n  droplet: plain\n  what: data-droplet-hydrate="idle" is no hydrate mode',
+    );
     expect(fake.default).toHaveBeenCalledOnce();
   });
 
@@ -2138,7 +2141,7 @@ describe("lazy hydrate", () => {
     expect(mod.DjsDropletElement.importModule).toHaveBeenCalledWith(expect.stringContaining("/droplets/beacon/client.js"));
     expect(fake.default).toHaveBeenCalledOnce();
     expect(warn.mock.calls.map((call) => String(call[0]))).toContainEqual(
-      '[droplets] data-droplet-hydrate="false" on the script droplet "beacon" is ignored: a script droplet only runs in the browser',
+      expect.stringMatching(/^droplets warning hydrate-false-on-script-droplet\n {2}droplet: beacon\n/),
     );
 
     const observers = fakeObserver();

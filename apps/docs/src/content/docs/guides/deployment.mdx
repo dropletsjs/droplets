@@ -464,15 +464,17 @@ first request that needs it.
 
 ## Logging
 
-A production server logs errors only, with `console.error`: a message, then
-the error itself, nothing else. Those are:
+A production server logs errors only, with `console.error`: a message
+(a `droplets error <code>` block, see [Error codes](/errors/)), then the
+error itself, nothing else. Those are:
 
-- a droplet's load failed (`<droplet>: droplet load failed`);
-- a form action failed;
+- a droplet's load failed ([`droplet-load-failed`](/errors/droplet-load-failed/));
+- a form action failed ([`action-failed`](/errors/action-failed/));
 - an action's `redirect()` points off this server and its trusted origins,
   answered `400`;
-- a request failed (`<where> failed: <path>`, such as `droplet failed:
-  /droplets/cart`);
+- a request failed ([`request-failed`](/errors/request-failed/),
+  `<where> failed: <path>; the error follows`, such as `droplet failed:
+  /droplets/cart; the error follows`);
 - `handleError` in `hooks.server.ts` failed, or could not be loaded;
 - on Node, Bun and Deno, `dist/client/droplets.json` is missing (not built)
   or not valid JSON (the build did not finish), once per failure.

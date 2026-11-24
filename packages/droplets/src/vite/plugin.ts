@@ -16,6 +16,17 @@ import { setRuntimeEnv } from "../runtime/env-store.ts";
 import { fileHeaderTable } from "../runtime/file-headers.ts";
 import { loadDropletsConfig } from "../core/load-config.ts";
 import { logger } from "../core/logger.ts";
+import {
+  ADAPTER_PREVIEW_MISSING,
+  BUILD_ENVIRONMENT_MISSING,
+  BUILDER_REQUIRED,
+  CLIENT_BUILD_MISSING,
+  NO_DROPLETS_FOUND,
+  PLUGIN_FETCH_OUTSIDE_DEV,
+  PREVIEW_ADAPTER_MISSING,
+  STATIC_ENV_MISSING,
+} from "../errors/build.ts";
+import { dropletsError } from "../errors/format.ts";
 import { packageRoot } from "../core/paths.ts";
 import type { DropletsAdapter } from "../adapters.ts";
 import type { DevStrategy } from "../core/config.ts";
@@ -308,7 +319,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
     dropletsRoot: () => state.dropletsRoot,
     importMapPath: () => (state.config.importMap ? state.config.importMap.path : false),
     fetch: async (request) => {
-      if (!devApp) throw new Error("droplets: fetch is only available under vite dev");
+      if (!devApp) throw dropletsError({ message: PLUGIN_FETCH_OUTSIDE_DEV });
       // A request may arrive before the first scan is done: wait for it.
       return (await devApp).fetch(request);
     },
@@ -335,10 +346,10 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
       state.configDependencies = [...loaded.dependencies, ...state.env.dependencies];
       const missing = missingStatic(state.env);
       if (missing.length) {
-        const message = `static environment variables without a value: ${missing.join(", ")} (set them in .env or the environment)`;
+        const report = { message: STATIC_ENV_MISSING, params: { names: missing.join(", ") } };
         // A build would inline `undefined`; dev keeps running so it can be fixed live.
-        if (env.command === "build") throw new Error(`droplets: ${message}`);
-        logger.warn("framework", message);
+        if (env.command === "build") throw dropletsError(report);
+        logger.report(report);
       }
       state.outDir = resolve(root, userConfig.build?.outDir ?? "dist");
       state.entries = await discoverDroplets({
@@ -379,9 +390,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
         await loadIndexHtml({ root, index: state.config.index });
         result.experimental = { renderBuiltUrl: builtUrl({ user: userConfig.experimental?.renderBuiltUrl }) };
         if (state.entries.length === 0) {
-          logger.warn("framework", "no droplets found", {
-            folder: state.config.dropletsFolder,
-          });
+          logger.report({ message: NO_DROPLETS_FOUND, params: { folder: state.config.dropletsFolder } });
         }
         result.builder = {};
         result.environments = createBuildEnvironments(state);
@@ -401,9 +410,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
 
     buildStart() {
       if (command === "build" && !isAppBuild) {
-        throw new Error(
-          "droplets: vite build (the builder) is required; build() alone builds one environment; use createBuilder() or the vite build command",
-        );
+        throw dropletsError({ message: BUILDER_REQUIRED });
       }
     },
 
@@ -447,7 +454,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
 
     async hotUpdate({ file, modules, server, timestamp, type }) {
       if (state.configDependencies.includes(file)) {
-        logger.info("framework", "droplets config changed; restarting");
+        logger.info("droplets config changed; restarting");
         void server.restart();
         return [];
       }
@@ -528,7 +535,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
       isAppBuild = true;
       const adapter = requireAdapter(state);
       await emptyOutDir({ root: state.root, outDir: state.outDir, emptyOutDir: builder.config.build.emptyOutDir });
-      logger.info("framework", "build starting", {
+      logger.info("build starting", {
         droplets: state.entries.map((e) => e.id),
         buildHash: state.buildHash,
         adapter: adapter.name,
@@ -537,7 +544,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
       for (const name of buildOrder(state)) {
         const environment = builder.environments[name];
         if (!environment) {
-          throw new Error(`droplets: missing build environment "${name}"`);
+          throw dropletsError({ message: BUILD_ENVIRONMENT_MISSING, params: { name } });
         }
         await builder.build(environment);
         // The manifest exists before the server builds, so an adapter's entry
@@ -549,7 +556,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
         // Before the server: a Worker reads the renders through its assets.
         if (name === "ssr") {
           const { renders, files } = await prerender({ state, ssrEntry: resolve(state.outDir, "server/entry-server.js") });
-          if (renders > 0) logger.info("framework", "prerendered", { renders, files });
+          if (renders > 0) logger.info("prerendered", { renders, files });
           // Built only to prerender: an adapter that inlines the renderer
           // does not ship it.
           if (!adapter.separateSsrBundle) {
@@ -557,7 +564,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
           }
         }
       }
-      if (!manifestPath) throw new Error("droplets: the client environment did not build");
+      if (!manifestPath) throw dropletsError({ message: CLIENT_BUILD_MISSING });
       await adapter.afterBuild?.({
         root: state.root,
         outDir: state.outDir,
@@ -566,19 +573,15 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
         config: state.config,
         fileHeaders: fileHeaderTable(state.config),
       });
-      logger.info("framework", "build finished", { manifest: manifestPath });
+      logger.info("build finished", { manifest: manifestPath });
     },
 
     configurePreviewServer(server) {
       const adapter = state.adapter;
       const preview = adapter?.preview?.bind(adapter);
       if (!preview) {
-        logger.warn(
-          "framework",
-          adapter
-            ? `the ${adapter.name} adapter has no preview; use its own tooling to run the build`
-            : "vite preview needs an adapter with preview support, e.g. node() from @dropletsjs/adapter-node",
-        );
+        if (adapter) logger.report({ message: ADAPTER_PREVIEW_MISSING, params: { adapter: adapter.name } });
+        else logger.report({ message: PREVIEW_ADAPTER_MISSING });
         return;
       }
       return async () => {

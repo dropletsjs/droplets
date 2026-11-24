@@ -21,8 +21,9 @@ const fakeAdapter: DropletsAdapter = {
   separateSsrBundle: true,
 };
 
-const MESSAGE =
-  "[droplets:framework] These droplet folders do not match the naming convention (lowercase kebab-case) and are ignored: ProductCard, my_card";
+const MESSAGE = expect.stringContaining(
+  "droplets warning droplet-folders-misnamed\n  what: these droplet folders do not match the naming convention (lowercase kebab-case) and are ignored: ProductCard, my_card\n",
+);
 
 const roots: string[] = [];
 

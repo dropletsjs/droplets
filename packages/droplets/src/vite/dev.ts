@@ -3,6 +3,8 @@ import { isRunnableDevEnvironment } from "vite";
 import type { DevEnvironment, EnvironmentModuleNode, ViteDevServer } from "vite";
 import { type DropletEntry, discoverDroplets, dropletId } from "../core/discover.ts";
 import { logger } from "../core/logger.ts";
+import { CLIENT_ENVIRONMENT_MISSING, DROPLET_SCAN_FAILED, PRERENDER_FILE_IN_DEV } from "../errors/build.ts";
+import { dropletsError } from "../errors/format.ts";
 import { entryServerPath, toViteFsPath } from "../core/paths.ts";
 import { CORE_SUFFIXES } from "../renderer.ts";
 import {
@@ -22,7 +24,7 @@ import { withoutRequestInfo } from "../runtime/request-store.ts";
 import { locationScript, publicEnvScript, serverKey } from "../runtime/server-records.ts";
 import { PUBLIC_PATH, publicFileHandler } from "./assets.ts";
 import { withViteIdAliases } from "./externalize.ts";
-import { checkImportMap } from "./importmap-check.ts";
+import { checkImportMap, type ImportMapWarning } from "./importmap-check.ts";
 import { loadIndexHtml } from "./index-html.ts";
 import { externalsList, type PluginState } from "./state.ts";
 import { syncTypes } from "./sync-types.ts";
@@ -299,13 +301,13 @@ export function createDevRuntime({ server, state }: DevRuntimeOptions): DevRunti
     } catch (error) {
       // A folder in a bad state (two components, an unknown extension):
       // keep serving what was there and say what is wrong.
-      logger.error("framework", error instanceof Error ? error.message : String(error));
+      logger.report({ message: DROPLET_SCAN_FAILED, meta: error instanceof Error ? error.message : String(error) });
       return;
     }
     state.entries = entries;
     await syncTypes(state);
     folderById = new Map(entries.map((e) => [e.id, e.name]));
-    logger.debug("framework", "droplet map", [...folderById.keys()]);
+    logger.debug("droplet map", [...folderById.keys()]);
   };
 
   return {
@@ -317,13 +319,18 @@ export function createDevRuntime({ server, state }: DevRuntimeOptions): DevRunti
 
 type PrerenderedFileNoticeInput = { path: string };
 
+/** The droplet a prerender file's URL names, `<id>` when it names none. */
+function prerenderedFileDroplet({ path }: PrerenderedFileNoticeInput): string {
+  const segment = path.slice(`/${PRERENDERED_FILES_DIR}/`.length).split("/")[0];
+  return segment !== undefined && isKebabName({ name: segment }) ? segment : "<id>";
+}
+
 /**
  * What `vite dev` says for a prerender file's URL, which it never serves:
  * where the files come from, and what to ask for instead.
  */
 export function prerenderedFileNotice({ path }: PrerenderedFileNoticeInput): string {
-  const segment = path.slice(`/${PRERENDERED_FILES_DIR}/`.length).split("/")[0];
-  const id = isKebabName({ name: segment }) ? segment : "<id>";
+  const id = prerenderedFileDroplet({ path });
   return `${path}: prerender files are written by vite build only, with location and host set in droplets.config.ts; vite dev writes and serves none. In dev, ask for the live fragment /droplets/${id}; to test the files, run vite build and vite preview (with location set, the URLs inside a file point at that location).`;
 }
 
@@ -354,7 +361,7 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
 
   const clientEnvironment = () => {
     const env = server.environments["client"];
-    if (!env) throw new Error("droplets: Vite has no client environment");
+    if (!env) throw dropletsError({ message: CLIENT_ENVIRONMENT_MISSING });
     return env;
   };
 
@@ -401,6 +408,7 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
 
   const app = createDropletsApp({
     devLog: createDevLog(),
+    errorFormat: config.errorFormat,
     element: config.element,
     health: config.health,
     importMap: config.importMap,
@@ -411,9 +419,10 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
         transform: ({ map, externals }) => {
           if (config.warnImportMap) {
             for (const warning of checkImportMap({ map, externals, root: state.root })) {
-              if (warned.has(warning)) continue;
-              warned.add(warning);
-              logger.warn("framework", `importmap: ${warning} (warnImportMap: false hides this)`);
+              const key = `${warning.message.code} ${JSON.stringify(warning.params)}`;
+              if (warned.has(key)) continue;
+              warned.add(key);
+              logger.report<ImportMapWarning["message"]>(warning);
             }
           }
           return { ...map, imports: withViteIdAliases({ importMap: map.imports }) ?? {} };
@@ -485,7 +494,7 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
     const notice = prerenderedFileNotice({ path: c.req.path });
     if (!noticed.has(c.req.path)) {
       noticed.add(c.req.path);
-      logger.warn("framework", notice);
+      logger.report({ message: PRERENDER_FILE_IN_DEV, params: { path: c.req.path, id: prerenderedFileDroplet({ path: c.req.path }) } });
     }
     return c.text(`Not Found\n\n${notice}\n`, 404, { "cache-control": "no-store" });
   });

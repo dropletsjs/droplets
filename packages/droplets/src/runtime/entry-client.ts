@@ -7,10 +7,30 @@ import {
   dropletsServerLoadById,
   dropletsStylesById,
   elementName,
+  errorFormatter,
 } from "virtual:droplets";
 import { serverCredentials, serverKey, serverLocation, serverRecord } from "./server-records.ts";
 import { reportStale } from "./stale.ts";
 import { installDevElement } from "./dev-element.ts";
+import { type DropletsError, dropletsError, formatMessage, setErrorFormatter } from "../errors/format.ts";
+import {
+  BUILD_MISMATCH,
+  CLIENT_MODULE_FAILED,
+  CONTEXT_ATTRIBUTE_UNREADABLE,
+  DATA_ANSWER_UNUSABLE,
+  DROPLET_FAILED_IN_BROWSER,
+  ERROR_PAGE_MOUNT_FAILED,
+  FRAGMENT_ANSWER_INVALID,
+  FRAGMENT_REFETCH_FAILED,
+  HANDLE_ERROR_THREW_IN_BROWSER,
+  INLINE_PAYLOAD_UNREADABLE,
+  PROPS_ATTRIBUTE_NOT_OBJECT,
+  PROPS_ATTRIBUTE_UNREADABLE,
+  PROPS_REFUSED_IN_BROWSER,
+  UNMOUNT_FAILED,
+} from "../errors/browser.ts";
+
+setErrorFormatter(errorFormatter);
 
 // In the record, for `enhanceDropletForm` too: it is bundled apart from this loader.
 if (corsCredentials) serverRecord(serverKey(elementName, buildHash)).credentials = "include";
@@ -137,7 +157,14 @@ export type DropletClientModule = {
  * Logged, and the droplet stays empty.
  */
 // A class: an error the element branches on, the stale build one included.
-class NothingToRender extends Error {}
+class NothingToRender extends Error {
+  readonly code: string;
+
+  constructor({ message, code }: Pick<DropletsError, "message" | "code">) {
+    super(message);
+    this.code = code;
+  }
+}
 
 /** The server answered from another build; already reported, not a droplet error. A class: the element branches on it. */
 class StaleBuildError extends NothingToRender {}
@@ -467,7 +494,7 @@ export class DjsDropletElement extends HTMLElement {
     try {
       return { found: true, data: decodeBase64Json<T>({ encoded: raw }) };
     } catch (error) {
-      console.error(`[droplets] failed to parse ${selector}`, error);
+      console.error(formatMessage({ message: INLINE_PAYLOAD_UNREADABLE, params: { selector }, droplet: this.dataset["droplet"] }), error);
       return { found: true, data: undefined };
     }
   }
@@ -499,7 +526,7 @@ export class DjsDropletElement extends HTMLElement {
       try {
         return complete(decodeBase64Json({ encoded: attr })) ?? { host: here, props: {} };
       } catch (error) {
-        console.error("[droplets] failed to parse data-droplet-context", error);
+        console.error(formatMessage({ message: CONTEXT_ATTRIBUTE_UNREADABLE, droplet: this.dataset["droplet"] }), error);
       }
     }
 
@@ -508,9 +535,9 @@ export class DjsDropletElement extends HTMLElement {
       try {
         const props: unknown = JSON.parse(params);
         if (isObject(props)) return { host: here, props };
-        console.error("[droplets] data-droplet-props must be a JSON object");
+        console.error(formatMessage({ message: PROPS_ATTRIBUTE_NOT_OBJECT, droplet: this.dataset["droplet"] }));
       } catch (error) {
-        console.error("[droplets] failed to parse data-droplet-props", error);
+        console.error(formatMessage({ message: PROPS_ATTRIBUTE_UNREADABLE, droplet: this.dataset["droplet"] }), error);
       }
     }
     return { host: here, props: {} };
@@ -810,7 +837,7 @@ export class DjsDropletElement extends HTMLElement {
     const served = response.headers.get("x-droplets-build");
     if (buildHash && served && served !== buildHash) {
       this.#reportStale({ droplet, served });
-      throw new StaleBuildError(`${droplet}: served by build ${served}, this page runs ${buildHash}`);
+      throw new StaleBuildError(dropletsError({ message: BUILD_MISMATCH, params: { served, loaded: buildHash }, droplet }));
     }
     const payload: unknown = await response.json().catch(() => undefined);
     if (response.ok && isObject(payload)) {
@@ -820,9 +847,13 @@ export class DjsDropletElement extends HTMLElement {
       return { failed: true, error: payload["error"] };
     }
     throw new NothingToRender(
-      `${droplet}: _data answered ${response.status || response.type}${
-        isObject(payload) && typeof payload["message"] === "string" ? `: ${payload["message"]}` : ""
-      }`,
+      dropletsError({
+        message: DATA_ANSWER_UNUSABLE,
+        params: {
+          answer: `${response.status || response.type}${isObject(payload) && typeof payload["message"] === "string" ? `: ${payload["message"]}` : ""}`,
+        },
+        droplet,
+      }),
     );
   }
 
@@ -861,7 +892,7 @@ export class DjsDropletElement extends HTMLElement {
       });
       return await DjsDropletElement.importModule(clientUrl);
     } catch (error) {
-      console.error("[droplets] failed to render droplet", error);
+      console.error(formatMessage({ message: CLIENT_MODULE_FAILED, droplet }), error);
       return null;
     }
   }
@@ -904,7 +935,13 @@ export class DjsDropletElement extends HTMLElement {
         try {
           props = await mod.validate(props);
         } catch (error) {
-          throw new NothingToRender(`${droplet}: ${error instanceof Error ? error.message : String(error)}`);
+          throw new NothingToRender(
+            dropletsError({
+              message: PROPS_REFUSED_IN_BROWSER,
+              params: { reason: error instanceof Error ? error.message : String(error) },
+              droplet,
+            }),
+          );
         }
         if (run !== this._run) return false;
       }
@@ -964,7 +1001,7 @@ export class DjsDropletElement extends HTMLElement {
           if (!(error instanceof NothingToRender)) throw error;
           // Nothing the component could show (a stale build, an answer that is
           // no payload): the droplet goes, and `data` never settles.
-          if (!(error instanceof StaleBuildError)) console.error(`[droplets] ${droplet}:`, error.message);
+          if (!(error instanceof StaleBuildError)) console.error(error.message);
           void this.#giveUp({ contentRoot, mod, run, mounted: () => mounted });
           return new Promise<never>(() => {});
         });
@@ -988,12 +1025,12 @@ export class DjsDropletElement extends HTMLElement {
     } catch (error) {
       if (run !== this._run) return false;
       if (error instanceof NothingToRender) {
-        if (!(error instanceof StaleBuildError)) console.error(`[droplets] ${droplet}:`, error.message);
+        if (!(error instanceof StaleBuildError)) console.error(error.message);
         await this.#destroyInstance({ fallbackUnmount: mod.unmount });
         contentRoot.replaceChildren();
         return false;
       }
-      console.error(`[droplets] ${droplet} failed`, error);
+      console.error(formatMessage({ message: DROPLET_FAILED_IN_BROWSER, droplet }), error);
       return this.#showError({ droplet, contentRoot, mod, error, reset: true, run });
     }
     return true;
@@ -1008,11 +1045,11 @@ export class DjsDropletElement extends HTMLElement {
   #boundaryHandler({ droplet, contentRoot, mod, run, mounted }: BoundaryHandlerInput): (error: unknown) => Promise<unknown> {
     return async (error) => {
       if (run !== this._run) throw error;
-      console.error(`[droplets] ${droplet} failed`, error);
+      console.error(formatMessage({ message: DROPLET_FAILED_IN_BROWSER, droplet }), error);
       try {
         return mod.handleError ? await mod.handleError(error) : error;
       } catch (handleError) {
-        console.error(`[droplets] ${droplet}: handleError threw`, handleError);
+        console.error(formatMessage({ message: HANDLE_ERROR_THREW_IN_BROWSER, droplet }), handleError);
         void this.#giveUp({ contentRoot, mod, run, mounted });
         throw handleError;
       }
@@ -1054,7 +1091,7 @@ export class DjsDropletElement extends HTMLElement {
       shown = mod.handleError ? await mod.handleError(error) : error;
     } catch (handleError) {
       if (run !== this._run) return false;
-      console.error(`[droplets] ${droplet}: handleError threw`, handleError);
+      console.error(formatMessage({ message: HANDLE_ERROR_THREW_IN_BROWSER, droplet }), handleError);
       contentRoot.replaceChildren();
       return false;
     }
@@ -1066,7 +1103,7 @@ export class DjsDropletElement extends HTMLElement {
       this._instance = instance;
       this.#unmount = this._instance ? (mod.unmount ?? null) : null;
     } catch (renderError) {
-      console.error("[droplets] the error page failed", renderError);
+      console.error(formatMessage({ message: ERROR_PAGE_MOUNT_FAILED, droplet }), renderError);
       this._instance = null;
     }
     if (!this._instance) {
@@ -1098,7 +1135,7 @@ export class DjsDropletElement extends HTMLElement {
     try {
       await unmount?.(instance);
     } catch (error) {
-      console.error("[droplets] failed to unmount droplet", error);
+      console.error(formatMessage({ message: UNMOUNT_FAILED, droplet: this.dataset["droplet"] }), error);
     }
     return false;
   }
@@ -1111,7 +1148,7 @@ export class DjsDropletElement extends HTMLElement {
     try {
       if (unmount) await unmount(this._instance);
     } catch (error) {
-      console.error("[droplets] failed to unmount droplet", error);
+      console.error(formatMessage({ message: UNMOUNT_FAILED, droplet: this.dataset["droplet"] }), error);
     } finally {
       this._instance = null;
       this.#unmount = null;
@@ -1399,15 +1436,20 @@ export class DjsDropletElement extends HTMLElement {
         return null;
       }
       if (!(response.headers.get("content-type") ?? "").includes("text/html")) {
-        throw new Error(`answered ${response.status || response.type}`);
+        throw dropletsError({
+          message: FRAGMENT_ANSWER_INVALID,
+          params: { answer: `${response.status || response.type}, not HTML` },
+          droplet,
+        });
       }
       const template = document.createElement("template");
       template.innerHTML = await response.text();
       const fresh = template.content.querySelector("[data-droplet]");
-      if (!fresh || fresh.getAttribute("data-droplet") !== droplet) throw new Error("answered no droplet");
+      if (!fresh || fresh.getAttribute("data-droplet") !== droplet)
+        throw dropletsError({ message: FRAGMENT_ANSWER_INVALID, params: { answer: "no droplet" }, droplet });
       return fresh;
     } catch (error) {
-      console.error(`[droplets] ${droplet}: could not fetch the fragment again`, error);
+      console.error(formatMessage({ message: FRAGMENT_REFETCH_FAILED, droplet }), error);
       return null;
     }
   }

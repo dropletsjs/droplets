@@ -10,6 +10,10 @@
 import { pascalCase } from "case-anything";
 import type { Framework } from "./catalog.ts";
 import type { Flags } from "./flags.ts";
+import { ADD_JSX_IMPORT_SOURCE_MISSING, ADD_OPTION_NOT_FOR_SCRIPT } from "../errors/cli.ts";
+import { dropletsError } from "../errors/format.ts";
+
+const SCRIPT_ERROR_PAGE = { option: "--with error", why: "a script droplet has no error page, it renders nothing on either side" };
 
 export type DropletFile = "server" | "universal" | "error" | "css";
 
@@ -65,7 +69,7 @@ export function dropletFiles(spec: DropletSpec): Record<string, string> {
   const { extension } = spec.framework;
   const script = spec.framework.name === "script";
   if (script && spec.files.has("error")) {
-    throw new Error("a script droplet has no error page: it renders nothing, on either side");
+    throw dropletsError({ message: ADD_OPTION_NOT_FOR_SCRIPT, params: SCRIPT_ERROR_PAGE });
   }
   const files: Record<string, string> = { [`+droplet${extension}`]: component(context) };
   if (spec.files.has("server")) files["+droplet.server.ts"] = serverModule(context);
@@ -168,7 +172,7 @@ function component(context: Context): string {
 function errorComponent(context: Context): string {
   switch (context.framework.name) {
     case "script":
-      throw new Error("a script droplet has no error page");
+      throw dropletsError({ message: ADD_OPTION_NOT_FOR_SCRIPT, params: SCRIPT_ERROR_PAGE });
     case "svelte":
       return svelteError(context);
     case "vue":
@@ -303,7 +307,7 @@ function vueError(context: Context): string {
  */
 function hooksComponent(context: Context): string {
   const source = context.framework.jsxImportSource;
-  if (source === undefined) throw new Error(`droplets: ${context.framework.name} has no jsxImportSource`);
+  if (source === undefined) throw dropletsError({ message: ADD_JSX_IMPORT_SOURCE_MISSING, params: { framework: context.framework.name } });
   const classAttribute = context.framework.name === "react" ? "className" : "class";
   const waits = context.hasData && context.framework.name !== "preact";
   return [
@@ -336,7 +340,7 @@ function hooksComponent(context: Context): string {
 
 function hooksError(context: Context): string {
   const source = context.framework.jsxImportSource;
-  if (source === undefined) throw new Error(`droplets: ${context.framework.name} has no jsxImportSource`);
+  if (source === undefined) throw dropletsError({ message: ADD_JSX_IMPORT_SOURCE_MISSING, params: { framework: context.framework.name } });
   const classAttribute = context.framework.name === "react" ? "className" : "class";
   return [
     `/** @jsxImportSource ${source} */`,

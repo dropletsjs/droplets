@@ -133,10 +133,10 @@ Vite).
 - `droplets:preact` resolves `@prefresh/core` and `@prefresh/utils` per module, since the pre-bundled URL changes when Vite optimizes again. `src/plugin.ts:110`
 - `droplets:preact` warns and turns Prefresh off when the Prefresh runtime does not resolve: Preact droplets then remount on an edit. `src/plugin.ts:112`
 - `droplets:preact` adds the Prefresh prelude to a module with `$RefreshReg$` or `$RefreshSig$` calls, and the accepting footer only with `$RefreshReg$`. `src/plugin.ts:106`, `src/plugin.ts:119`
-- Prefresh footer logs `[droplets] Prefresh could not apply the update` when its flush throws. `src/plugin.ts:67`
+- Prefresh footer logs `prefresh-update-failed` (`Prefresh could not apply the update; the error follows`) when its flush throws. `src/plugin.ts:67`
 - Prefresh prelude is one line, so the source map stays in step. `src/plugin.ts:43`
 - Server `render` returns `renderToString` of the component with the props and the children vnode; never a `head`. `src/server.ts:29`
-- Server `render` throws `<droplet>: the <kind> component is not a Preact component` for a default export that is not a function. `src/server.ts:22`
+- Server `render` throws `component-not-renderable` (`the <kind> component is not a Preact component`, for the droplet) for a default export that is not a function. `src/server.ts:22`
 - Server module imports no Node modules: it runs on Node, Bun, Deno and Workers. `src/server.ts:4`
 - Children marker is `<div data-droplet-children style="display: contents">`, rendered by `DropletChildren`. `src/children.ts:35`
 - Children host reaches `DropletChildren` through `ChildrenHostContext`, `null` on the server. `src/children.ts:21`, `src/tree.ts:65`

@@ -4,6 +4,7 @@ import type { Connect, Plugin } from "vite";
 import type { DropletsPluginApi } from "@dropletsjs/droplets/vite";
 import { renderDevtoolsPage, withPageStyles, type ServerRender } from "./page.tsx";
 import { fragmentRequest, readToolState } from "./shared.ts";
+import { DEVTOOLS_WITHOUT_DROPLETS, dropletsError } from "@dropletsjs/droplets/errors";
 
 export type { DevtoolsPageInput, ServerRender } from "./page.tsx";
 
@@ -102,7 +103,7 @@ export function dropletsDevtools(): Plugin {
       const core = config.plugins.find((plugin) => plugin.name === "droplets");
       api = core?.api as DropletsPluginApi | undefined;
       if (!api) {
-        throw new Error("@dropletsjs/devtools: add droplets() from @dropletsjs/droplets/vite to the plugins too");
+        throw dropletsError({ message: DEVTOOLS_WITHOUT_DROPLETS });
       }
       api.setDevTool(fsUrl({ path: toolFile }));
     },

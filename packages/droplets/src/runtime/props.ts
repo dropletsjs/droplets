@@ -2,6 +2,8 @@
  * Props validation and the key a prop set is stored under at build. Shared
  * by the server and the browser: no Node APIs, no framework imports.
  */
+import { dropletsError } from "../errors/format.ts";
+import { PROPS_SCHEMA_INVALID, PROPS_SCHEMA_NOT_OBJECT } from "../errors/runtime.ts";
 
 /** The part of Standard Schema (`~standard`) the framework calls. */
 export type StandardSchema = {
@@ -71,13 +73,13 @@ function formatIssues({ issues }: FormatIssuesInput): string {
 export async function validateProps(droplet: string, schema: unknown, props: Record<string, unknown>): Promise<Record<string, unknown>> {
   if (schema === undefined) return props;
   if (!isStandardSchema(schema)) {
-    throw new Error(`${droplet}: \`props\` in +droplet.ts must be a Standard Schema (zod, valibot, arktype…)`);
+    throw dropletsError({ message: PROPS_SCHEMA_INVALID, droplet, file: "+droplet.ts" });
   }
   const result = await schema["~standard"].validate(props);
   if (result.issues) throw new PropsError({ issues: result.issues });
   const value = result.value;
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error(`${droplet}: the props schema must produce an object`);
+    throw dropletsError({ message: PROPS_SCHEMA_NOT_OBJECT, droplet, file: "+droplet.ts" });
   }
   return value as Record<string, unknown>;
 }

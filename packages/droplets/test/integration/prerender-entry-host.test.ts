@@ -73,7 +73,7 @@ describe("an entry's host at build, with host fixed", () => {
       config: '{ host: "https://shop.example" }',
     });
     await expect(build({ root })).rejects.toThrow(
-      `droplets: testimonials: the entry {"page":2} names host https://abc.example/blog, outside host in droplets.config.ts (https://shop.example); drop the entry's host or change it to that origin`,
+      `droplets error prerender-host-outside-host\n  droplet: testimonials\n  what: the entry {"page":2} names host https://abc.example/blog, outside host in droplets.config.ts (https://shop.example)\n  fix: drop the entry's host or change it to that origin`,
     );
   }, 90_000);
 
@@ -94,7 +94,7 @@ describe("an entry's host at build, with trustedOrigins", () => {
       config: '{ trustedOrigins: ["https://shop.example"] }',
     });
     await expect(build({ root })).rejects.toThrow(
-      `droplets: testimonials: the entry {"page":2} names host https://abc.example/blog, outside trustedOrigins in droplets.config.ts (https://shop.example); add the origin there or drop the entry's host`,
+      `droplets error prerender-host-untrusted\n  droplet: testimonials\n  what: the entry {"page":2} names host https://abc.example/blog, outside trustedOrigins in droplets.config.ts (https://shop.example)\n  fix: add the origin there or drop the entry's host`,
     );
   }, 90_000);
 
@@ -136,7 +136,7 @@ describe("an entry's host at build, with trustedOrigins", () => {
       config: '{ trustedOrigins: ["https://shop.example"] }',
     });
     await expect(build({ root })).rejects.toThrow(
-      `droplets: testimonials: the entry {"text":"${"x".repeat(70)}… names host https://abc.example/blog, outside trustedOrigins in droplets.config.ts and DROPLETS_TRUSTED_ORIGINS (https://shop.example, https://a.example, https://b.example, https://c.example, https://d.example and 1 more); add the origin there or drop the entry's host`,
+      `  what: the entry {"text":"${"x".repeat(70)}… names host https://abc.example/blog, outside trustedOrigins in droplets.config.ts and DROPLETS_TRUSTED_ORIGINS (https://shop.example, https://a.example, https://b.example, https://c.example, https://d.example and 1 more)\n  fix: add the origin there or drop the entry's host`,
     );
   }, 90_000);
 });

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { type FileHeaderRule, resolveConfig } from "@dropletsjs/droplets";
 import { logger } from "@dropletsjs/droplets/vite";
+import { formatMessage } from "@dropletsjs/droplets/errors";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
 import { cloudflare } from "../src/index.ts";
 import { buildFixture, FIXTURE_ROOT } from "./build-fixture.ts";
@@ -132,13 +133,13 @@ const DEFAULT_HEADERS = adapterHeaders("/assets/public/*\n  ! Cache-Control\n  C
 
 describe("cloudflare: afterBuild", () => {
   let root: string;
-  let warn: MockInstance<typeof logger.warn>;
+  let warn: MockInstance<typeof logger.report>;
   let info: MockInstance<typeof logger.info>;
 
   beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), "droplets-wrangler-"));
     await mkdir(join(root, "dist/client"), { recursive: true });
-    warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    warn = vi.spyOn(logger, "report").mockImplementation(() => {});
     info = vi.spyOn(logger, "info").mockImplementation(() => {});
   });
   afterEach(async () => {
@@ -162,7 +163,7 @@ describe("cloudflare: afterBuild", () => {
     });
   };
   const headers = () => readFile(join(root, "dist/client/_headers"), "utf8");
-  const messages = () => warn.mock.calls.map((call) => String(call[1]));
+  const messages = () => warn.mock.calls.map(([report]) => formatMessage(report));
 
   describe("_headers", () => {
     it("gives the build's files their CORS and Cache-Control, publicCacheControl on /assets/public/*", async () => {
@@ -260,7 +261,7 @@ describe("cloudflare: afterBuild", () => {
       expect(messages()).toEqual([
         expect.stringContaining("public/_headers lands at /assets/public/_headers, where Cloudflare never reads it"),
       ]);
-      expect(messages()[0]).toContain("https://dropletsjs.dev/guides/deployment/#_headers");
+      expect(messages()[0]).toContain("droplets warning cloudflare-public-headers-ignored");
     });
 
     it("warns, never fails, over Cloudflare's limits: 100 rules, 2,000 characters a line", async () => {
@@ -279,7 +280,8 @@ describe("cloudflare: afterBuild", () => {
   });
 
   describe("run_worker_first", () => {
-    const WARNING = "go through the Worker, billed per request; dist/client/_headers already gives them their CORS and cache headers";
+    const WARNING =
+      "go through the Worker, billed per request\n  fix: leave run_worker_first out: dist/client/_headers already gives the build files their CORS and cache headers";
 
     it("stays silent when it is unset, false, or a list that leaves the build's files to static assets", async () => {
       for (const assets of [
@@ -335,9 +337,9 @@ describe("cloudflare: afterBuild", () => {
         await expect(afterBuild(), text).resolves.toBeUndefined();
         await rm(join(root, file));
         expect(messages(), text).toHaveLength(1);
-        expect(messages()[0], text).toContain(`${file}: assets.run_worker_first is ${value}, so build files (${path}`);
+        expect(messages()[0], text).toContain(`file: ${file}\n  what: assets.run_worker_first is ${value}, so build files (${path}`);
         expect(messages()[0], text).toContain(WARNING);
-        expect(messages()[0], text).toContain("https://dropletsjs.dev/guides/deployment/#run_worker_first");
+        expect(messages()[0], text).toContain("droplets warning cloudflare-run-worker-first");
       }
     });
 
@@ -367,14 +369,14 @@ describe("cloudflare: afterBuild", () => {
 
     it("says what to set without a config, and warns when the config does not parse", async () => {
       await afterBuild();
-      const said = String(info.mock.calls[0]?.[1]);
+      const said = String(info.mock.calls[0]?.[0]);
       expect(said).toContain('point "main" at dist/worker.js and "assets.directory" at dist/client');
       expect(said).not.toContain("run_worker_first");
       await writeFile(join(root, "wrangler.jsonc"), "{ not json");
       await afterBuild();
       expect(messages()).toEqual([
         expect.stringContaining(
-          "could not read wrangler.jsonc (assets.run_worker_first, compatibility_flags); leave run_worker_first out so static assets serve the build's files",
+          "file: wrangler.jsonc\n  what: could not read the wrangler config (assets.run_worker_first, compatibility_flags)\n  fix: leave run_worker_first out so static assets serve the build's files",
         ),
       ]);
     });
@@ -396,7 +398,9 @@ describe("cloudflare: afterBuild", () => {
         await mkdir(join(root, "dist/client/assets/prerendered/testimonials"), { recursive: true });
         await afterBuild();
         expect(messages(), value).toEqual([
-          `wrangler.json: assets.html_handling is "${value}", so /assets/prerendered/<id>/<file> ${said}; leave html_handling out, see https://dropletsjs.dev/guides/prerendering/#static-files`,
+          expect.stringContaining(
+            `file: wrangler.json\n  what: assets.html_handling is "${value}", so /assets/prerendered/<id>/<file> ${said}\n  fix: leave html_handling out`,
+          ),
         ]);
         await rm(join(root, "dist/client/assets/prerendered"), { recursive: true });
       }
@@ -405,7 +409,7 @@ describe("cloudflare: afterBuild", () => {
       await mkdir(join(root, "dist/client/assets/prerendered/testimonials"), { recursive: true });
       warn.mockClear();
       await afterBuild();
-      expect(messages()).toEqual([expect.stringContaining('wrangler.toml: assets.html_handling is "none"')]);
+      expect(messages()).toEqual([expect.stringContaining('file: wrangler.toml\n  what: assets.html_handling is "none"')]);
     });
 
     it("stays silent with the default, or the other values that serve <file> from <file>.html", async () => {
@@ -435,9 +439,9 @@ describe("cloudflare: afterBuild", () => {
         await writeFile(join(root, file), text);
         await expect(afterBuild(), text).resolves.toBeUndefined();
         await rm(join(root, file));
-        expect(messages(), text).toEqual([expect.stringContaining(`${file}: ${WARNING}`)]);
+        expect(messages(), text).toEqual([expect.stringContaining(`file: ${file}\n  what: ${WARNING}`)]);
         expect(messages()[0], text).toContain('set "compatibility_flags": ["nodejs_compat"]');
-        expect(messages()[0], text).toContain("https://dropletsjs.dev/guides/deployment/#cloudflare-workers");
+        expect(messages()[0], text).toContain("droplets warning cloudflare-nodejs-compat-missing");
       }
     });
 

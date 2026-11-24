@@ -131,7 +131,7 @@ import only `vue` and `@dropletsjs/droplets/enhance`.
 - Server `render` uses `createSSRApp(component, props)` and `renderToString` of `vue/server-renderer`. `src/server.ts:26`, `src/server.ts:28`
 - Server `render` provides `null` as the children host: `DropletChildren` renders the bare marker. `src/server.ts:27`
 - Server `render` of an error page returns `{ html, head }` with one `<style>` per entry of the component's `styles`; plain HTML when it has none. `src/server.ts:33`
-- Server `render` throws `<droplet>: the <kind> component is not a Vue component` when the default export is neither an object nor a function. `src/server.ts:18`
+- Server `render` throws `component-not-renderable` (`the <kind> component is not a Vue component`, for the droplet) when the default export is neither an object nor a function. `src/server.ts:18`
 - Children marker is `<div data-droplet-children style="display: contents">`, inside a fragment root, so it never inherits a scoped-style attribute. `src/children.ts:38`, `src/children.ts:49`
 - Children host reaches `DropletChildren` through app-level `provide`, under `Symbol.for("droplets:vue:children")`. `src/children.ts:30`, `src/client.ts:111`
 - `DropletChildren` calls `host.fill(marker)` in `onMounted` and `host.empty(marker)` in `onBeforeUnmount`, before Vue removes the DOM. `src/children.ts:42`, `src/children.ts:46`

@@ -6,6 +6,7 @@
  */
 import { parseAst, type ESTree } from "vite";
 import { logger } from "./logger.ts";
+import { FLAG_NOT_BOOLEAN, HYDRATE_FLAG_INVALID } from "../errors/config.ts";
 import type { HydrateMode, RenderFlags } from "../renderer.ts";
 
 /** The language a source is parsed as. */
@@ -124,10 +125,7 @@ function readBoolean({ source, exports, name, where }: ReadBooleanInput): boolea
   if (!flag) return undefined;
   const value = literalOf({ init: flag.init });
   if (typeof value === "boolean") return value;
-  logger.warn("framework", `\`export const ${name}\` must be a literal true or false; ignoring it`, {
-    droplet: where,
-    found: sourceTextOf({ source, flag }),
-  });
+  logger.report({ message: FLAG_NOT_BOOLEAN, params: { name, found: sourceTextOf({ source, flag }) }, droplet: where });
   return undefined;
 }
 
@@ -136,10 +134,7 @@ function readHydrate({ source, exports, where }: ReadHydrateInput): HydrateMode 
   if (!flag) return undefined;
   const value = literalOf({ init: flag.init });
   if (typeof value === "boolean" || value === "visible" || value === "interactive") return value;
-  logger.warn("framework", '`export const hydrate` must be true, false, "visible" or "interactive"; ignoring it', {
-    droplet: where,
-    found: sourceTextOf({ source, flag }),
-  });
+  logger.report({ message: HYDRATE_FLAG_INVALID, params: { found: sourceTextOf({ source, flag }) }, droplet: where });
   return undefined;
 }
 

@@ -33,10 +33,10 @@ describe("checkImportMap", () => {
       externals: ["case-anything", "ag-grid"],
       root,
     });
-    expect(warnings).toEqual([
-      "ag-grid is external but the import map does not map it; the browser cannot load it",
-      `case-anything: the import map loads 0.0.1 in the browser, the server renders with ${installed}; hydration may not match`,
-      "the import map maps not-external, which is not external; it is bundled and the entry is unused",
+    expect(warnings.map(({ message, params }) => ({ code: message.code, params }))).toEqual([
+      { code: "import-map-external-unmapped", params: { name: "ag-grid" } },
+      { code: "import-map-version-mismatch", params: { name: "case-anything", wanted: "0.0.1", installed } },
+      { code: "import-map-entry-unused", params: { name: "not-external" } },
     ]);
   });
 

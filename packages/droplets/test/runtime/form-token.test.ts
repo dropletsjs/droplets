@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { logger } from "../../src/core/logger.ts";
+import { formatMessage } from "../../src/errors/format.ts";
 import { createDevLog } from "../../src/runtime/dev-log.ts";
 import {
   FORM_RESULT_MAX_LENGTH,
@@ -166,7 +167,7 @@ describe("the no-JavaScript form result", () => {
 
 describe("DROPLETS_SECRET", () => {
   it("needs 32 bytes, and says so once under vite dev", () => {
-    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const warn = vi.spyOn(logger, "report").mockImplementation(() => {});
     const devLog = createDevLog();
     expect(formSecret({ raw: SECRET, devLog })).toBe(SECRET);
     expect(formSecret({ raw: undefined, devLog })).toBeNull();
@@ -177,16 +178,16 @@ describe("DROPLETS_SECRET", () => {
     expect(formSecret({ raw: "é".repeat(16), devLog })).toBe("é".repeat(16));
     expect(formSecret({ raw: `${"é".repeat(15)}x`, devLog })).toBeNull();
     expect(warn).toHaveBeenCalledTimes(2);
-    expect(warn.mock.calls.map((call) => call[1])).toEqual([
+    expect(warn.mock.calls.map((call) => formatMessage(call[0]))).toEqual([
       expect.stringContaining("DROPLETS_SECRET is not set"),
       expect.stringContaining("DROPLETS_SECRET is shorter than 32 bytes"),
     ]);
     // Both say what to set it to.
-    for (const call of warn.mock.calls) expect(String(call[1])).toContain("openssl rand -base64 32");
+    for (const call of warn.mock.calls) expect(formatMessage(call[0])).toContain("openssl rand -base64 32");
   });
 
   it("says nothing without a dev log, as in production", () => {
-    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const warn = vi.spyOn(logger, "report").mockImplementation(() => {});
     expect(formSecret({ raw: undefined })).toBeNull();
     expect(formSecret({ raw: "x".repeat(31) })).toBeNull();
     expect(warn).not.toHaveBeenCalled();

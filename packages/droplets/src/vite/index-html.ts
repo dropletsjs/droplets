@@ -1,5 +1,7 @@
 import { resolve } from "node:path";
 import { loadTextFile } from "../core/fs.ts";
+import { INDEX_FILE_MISSING } from "../errors/build.ts";
+import { dropletsError } from "../errors/format.ts";
 
 /** What `/` serves when the project has no `index.html` of its own. */
 export const DEFAULT_INDEX_HTML = `<!doctype html>
@@ -37,7 +39,7 @@ export async function loadIndexHtml({ root, index }: LoadIndexHtmlInput): Promis
   if (typeof index === "string") {
     const html = await loadTextFile({ path: resolve(root, index) });
     if (html === null) {
-      throw new Error(`droplets: index points at ${index}, which does not exist`);
+      throw dropletsError({ message: INDEX_FILE_MISSING, params: { index } });
     }
     return html;
   }

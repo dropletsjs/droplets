@@ -45,7 +45,7 @@ describe("render", () => {
 
   it("throws a clear error for a module without a template", () => {
     expect(() => render({ default: "nope" }, { data: {} }, { ...context, kind: "error" })).toThrow(
-      "hello: +error.hbs did not compile to a template function",
+      "droplet: hello\n  what: +error.hbs did not compile to a template function",
     );
   });
 });

@@ -6,6 +6,7 @@
 import type { ComponentModule, RenderProps, ServerRenderContext } from "@dropletsjs/droplets";
 import { createComponent, type Component } from "solid-js";
 import { renderToString, ssr } from "solid-js/web";
+import { COMPONENT_NOT_RENDERABLE, dropletsError } from "@dropletsjs/droplets/errors";
 
 /**
  * The empty children marker in the HTML, for the element to fill in the
@@ -22,7 +23,11 @@ type ComponentOfInput = { module: ComponentModule; context: Pick<ServerRenderCon
 function componentOf({ module, context }: ComponentOfInput): Component<Record<string, unknown>> {
   const component = module.default;
   if (typeof component !== "function") {
-    throw new Error(`${context.droplet}: the ${context.kind} component is not a Solid component`);
+    throw dropletsError({
+      message: COMPONENT_NOT_RENDERABLE,
+      params: { kind: context.kind, framework: "Solid" },
+      droplet: context.droplet,
+    });
   }
   return component as Component<Record<string, unknown>>;
 }

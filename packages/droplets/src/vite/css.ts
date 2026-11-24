@@ -4,6 +4,8 @@ import postcssrc from "postcss-load-config";
 import { isCSSRequest, type Plugin, searchForWorkspaceRoot, type UserConfig } from "vite";
 import { fileExists } from "../core/fs.ts";
 import { logger } from "../core/logger.ts";
+import { POSTCSS_CONFIG_FAILED, TAILWIND_NOT_INSTALLED, TAILWIND_PREFLIGHT_LEFT } from "../errors/build.ts";
+import { dropletsError } from "../errors/format.ts";
 import { scopeStylesPlugin } from "../css/scope.ts";
 import type { PluginState } from "./state.ts";
 
@@ -165,7 +167,7 @@ async function loadPostcssConfig({ searchPath, root }: LoadPostcssConfigInput): 
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes("No PostCSS Config found")) return null;
     const file = (await findPostcssConfigFile({ dir: searchPath, stopDir })) ?? searchPath;
-    throw new Error(`droplets: the PostCSS config ${file} failed to load: ${message}`);
+    throw dropletsError({ message: POSTCSS_CONFIG_FAILED, params: { reason: message }, file, cause: error });
   }
 }
 
@@ -189,10 +191,7 @@ export async function createCssConfig({ userConfig, state, root }: CreateCssConf
         const file = root.source?.input.file ?? "a stylesheet";
         if (warned.has(file) || !hasPreflight({ root })) return;
         warned.add(file);
-        logger.warn(
-          "framework",
-          `${file} still has Tailwind's preflight with css.twPreflight off: it is imported where Vite does not see it; import "tailwindcss/theme.css" and "tailwindcss/utilities.css" there instead`,
-        );
+        logger.report({ message: TAILWIND_PREFLIGHT_LEFT, file });
       },
     });
   }
@@ -265,7 +264,7 @@ export async function tailwindPlugins(state: PluginState): Promise<Plugin[]> {
       state.tailwind.user = config.plugins.some((plugin) => plugin.name.startsWith(TAILWIND_PLUGIN));
       state.tailwind.ours = state.css.tailwind && !state.tailwind.user;
       if (state.tailwind.ours && !plugins) {
-        throw new Error("droplets: css.tailwind needs Tailwind installed: pnpm add -D tailwindcss @tailwindcss/vite (or npm install -D …)");
+        throw dropletsError({ message: TAILWIND_NOT_INSTALLED });
       }
     },
     // Ahead of Tailwind's compile, whoever added Tailwind: once compiled and

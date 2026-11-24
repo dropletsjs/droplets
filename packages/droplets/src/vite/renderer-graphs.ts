@@ -1,6 +1,8 @@
 import { resolve } from "node:path";
 import type { Plugin } from "vite";
 import type { DropletEntry } from "../core/discover.ts";
+import { DROPLET_IMPORTS_OTHER_FRAMEWORK, LOAD_FILE_IMPORTS_CSS } from "../errors/build.ts";
+import { type DropletsError, dropletsError } from "../errors/format.ts";
 import { RENDERER_QUERY, type DropletRenderer } from "../renderer.ts";
 import { isScriptDroplet, userRenderers } from "../script/index.ts";
 import type { PluginState } from "./state.ts";
@@ -168,12 +170,9 @@ type CrossImportErrorInput = {
   owners: readonly string[];
 };
 
-function crossImportError({ root, renderer, chain, owners }: CrossImportErrorInput): Error {
+function crossImportError({ root, renderer, chain, owners }: CrossImportErrorInput): DropletsError {
   const path = chainText({ root, chain });
-  return new Error(
-    `droplets: a ${renderer} droplet imports ${owners.join("/")} code: ${path}. ` +
-      `A droplet uses its own framework's modules and neutral code only.`,
-  );
+  return dropletsError({ message: DROPLET_IMPORTS_OTHER_FRAMEWORK, params: { renderer, owners: owners.join("/"), path } });
 }
 
 /** Absolute load module paths (`+droplet.ts`, `+droplet.server.ts`) to their droplet folder. */
@@ -190,12 +189,9 @@ function loadModules(state: PluginState): Map<string, string> {
 
 type LoadCssErrorInput = { root: string; chain: readonly [string, ...string[]] };
 
-function loadCssError({ root, chain }: LoadCssErrorInput): Error {
+function loadCssError({ root, chain }: LoadCssErrorInput): DropletsError {
   const path = chainText({ root, chain });
-  return new Error(
-    `droplets: ${short({ root, id: chain[0] })} imports CSS: ${path}. ` +
-      `Styles belong to the component: import them from +droplet.<ext> or +error.<ext> (or a <style> block).`,
-  );
+  return dropletsError({ message: LOAD_FILE_IMPORTS_CSS, params: { file: short({ root, id: chain[0] }), path } });
 }
 
 type GraphModule = { importedIds: readonly string[]; dynamicallyImportedIds: readonly string[] };
@@ -335,7 +331,7 @@ export function rendererGraphsPlugin(state: PluginState): Plugin {
           const load = reachingLoad({ loads: loadModules(state), start: module, id: importer });
           if (load) {
             const chain: [string, ...string[]] = load === importer ? [importer, source] : [load, importer, source];
-            this.error(loadCssError({ root: state.root, chain }).message);
+            this.error(loadCssError({ root: state.root, chain }));
           }
         }
         if (source.includes("?")) return null;
@@ -354,7 +350,7 @@ export function rendererGraphsPlugin(state: PluginState): Plugin {
             for (const renderer of renderers) {
               if (!owners.includes(renderer)) {
                 const target = packageOf({ specifier: source }) ? source : resolved.id;
-                this.error(crossImportError({ root: state.root, renderer, chain: [importer, target], owners }).message);
+                this.error(crossImportError({ root: state.root, renderer, chain: [importer, target], owners }));
               }
             }
           }

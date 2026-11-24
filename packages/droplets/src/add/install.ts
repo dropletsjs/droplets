@@ -7,6 +7,8 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ADD_INSTALL_FAILED } from "../errors/cli.ts";
+import { dropletsError } from "../errors/format.ts";
 
 export type PackageManager = "npm" | "pnpm" | "yarn" | "bun" | "deno";
 
@@ -119,6 +121,10 @@ export function run({ argv: [command, ...args], root }: RunInput): Promise<void>
   return new Promise((done, fail) => {
     const child = spawn(command, quoted, { cwd: root, stdio: "inherit", shell: windows });
     child.on("error", fail);
-    child.on("exit", (code) => (code === 0 ? done() : fail(new Error(`${command} ${args.join(" ")} exited with ${code}`))));
+    child.on("exit", (code) =>
+      code === 0
+        ? done()
+        : fail(dropletsError({ message: ADD_INSTALL_FAILED, params: { command: [command, ...args].join(" "), code: String(code) } })),
+    );
   });
 }

@@ -12,6 +12,8 @@ export default defineConfig({
     "./src/runtime/server.ts",
     "./src/runtime/enhance.ts",
     "./src/cli.ts",
+    // Internal: the message registry, for the other packages and the docs.
+    "./src/errors.ts",
     // Resolved by path (src/core/paths.ts, src/script, src/testing), so their names stay fixed.
     "./src/runtime/entry-client.ts",
     "./src/runtime/entry-server.ts",
@@ -49,6 +51,7 @@ export default defineConfig({
         "runtime/dev-element",
         "script/client",
         "testing/fake-renderer/client",
+        "errors",
       ],
       server: [
         "runtime/app",

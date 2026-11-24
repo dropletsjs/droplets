@@ -5,6 +5,15 @@
  *
  * Runtime-neutral, so the same module runs on Node, Workers, Deno and Bun.
  */
+import { dropletsError, formatMessage } from "../errors/format.ts";
+import {
+  COOKIES_IN_PRERENDER,
+  ERROR_STATUS_INVALID,
+  FAIL_STATUS_INVALID,
+  HOST_UNKNOWN_IN_PRERENDER,
+  REDIRECT_STATUS_INVALID,
+  REDIRECT_TARGET_INVALID,
+} from "../errors/runtime.ts";
 import { requestInfo } from "./request-store.ts";
 import { webUrl, withinTrusted } from "./web-url.ts";
 
@@ -384,7 +393,7 @@ export class Redirect {
  */
 export function error(status: number, message?: string): never {
   if (!Number.isInteger(status) || status < 400 || status > 599) {
-    throw new Error(`error() needs a status between 400 and 599, got ${status}`);
+    throw dropletsError({ message: ERROR_STATUS_INVALID, params: { status } });
   }
   throw new HttpError(status, message);
 }
@@ -396,11 +405,11 @@ export function error(status: number, message?: string): never {
  */
 export function redirect(status: 300 | 301 | 302 | 303 | 307 | 308, location: string | URL): never {
   if (!Number.isInteger(status) || status < 300 || status > 308) {
-    throw new Error(`redirect() needs a status between 300 and 308, got ${status}`);
+    throw dropletsError({ message: REDIRECT_STATUS_INVALID, params: { status } });
   }
   const target = String(location);
   if (!isRedirectTarget({ target })) {
-    throw new Error(`redirect() needs an http(s) URL or a path on this site, got ${JSON.stringify(target.slice(0, 200))}`);
+    throw dropletsError({ message: REDIRECT_TARGET_INVALID, params: { target } });
   }
   throw new Redirect(status, target);
 }
@@ -446,7 +455,7 @@ export function fail(status: number): ActionFailure<undefined>;
 export function fail<Data>(status: number, data: Data): ActionFailure<Data>;
 export function fail(status: number, data?: unknown): ActionFailure<unknown> {
   if (!Number.isInteger(status) || status < 400 || status > 599) {
-    throw new Error(`fail() needs a status between 400 and 599, got ${status}`);
+    throw dropletsError({ message: FAIL_STATUS_INVALID, params: { status } });
   }
   return new ActionFailure(status, data);
 }
@@ -482,11 +491,10 @@ export class HostUrlPropsErrorInPrerender extends Error {
   readonly droplet: string;
   readonly entry: string;
   readonly property: string;
+  readonly code = HOST_UNKNOWN_IN_PRERENDER.code;
 
   constructor(droplet: string, entry: string, property: string) {
-    super(
-      `${droplet}: host.${property} is not known while prerendering entry ${entry}; only host.origin, host.pathname and host.href are. Give \`host\` in the entry or in droplets.config.ts, or render it live`,
-    );
+    super(formatMessage({ message: HOST_UNKNOWN_IN_PRERENDER, params: { property, entry }, droplet }));
     this.name = "HostUrlPropsErrorInPrerender";
     this.droplet = droplet;
     this.entry = entry;
@@ -498,7 +506,7 @@ export function isHostUrlPropsErrorInPrerender(value: unknown): value is HostUrl
   return typeof value === "object" && value !== null && HOST_IN_PRERENDER in value;
 }
 
-const COOKIES_IN_PRERENDER = Symbol.for("droplets.cookies-in-prerender");
+const COOKIES_BRAND = Symbol.for("droplets.cookies-in-prerender");
 
 /**
  * Thrown while prerendering when anything uses `event.cookies`: a build-time
@@ -507,20 +515,19 @@ const COOKIES_IN_PRERENDER = Symbol.for("droplets.cookies-in-prerender");
  * An `Error` subclass, recognised by its brand across bundles.
  */
 export class CookiesInPrerenderError extends Error {
-  readonly [COOKIES_IN_PRERENDER] = true;
+  readonly [COOKIES_BRAND] = true;
   readonly method: string;
+  readonly code = COOKIES_IN_PRERENDER.code;
 
   constructor(where: string, method: string) {
-    super(
-      `${where}: cookies.${method}() is not available while prerendering: there is no request at build. In handle, skip it when \`building\` from $droplets/env is true; in a droplet, render it live`,
-    );
+    super(formatMessage({ message: COOKIES_IN_PRERENDER, params: { where, method } }));
     this.name = "CookiesInPrerenderError";
     this.method = method;
   }
 }
 
 export function isCookiesInPrerenderError(value: unknown): value is CookiesInPrerenderError {
-  return typeof value === "object" && value !== null && COOKIES_IN_PRERENDER in value;
+  return typeof value === "object" && value !== null && COOKIES_BRAND in value;
 }
 
 type WithHeaderInput = { init: ResponseInit | undefined; name: string; value: string };

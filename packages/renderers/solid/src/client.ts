@@ -25,6 +25,7 @@ import {
 import { hydrate as solidHydrate, render as solidRender } from "solid-js/web";
 import { ensureHydrationState } from "./client-setup.ts";
 import { liveProps, setters, type Handle } from "./live-props.ts";
+import { COMPONENT_NOT_RENDERABLE, dropletsError } from "@dropletsjs/droplets/errors";
 
 /** A fresh marker, as the server prints it. */
 function createMarker(): HTMLElement {
@@ -63,7 +64,11 @@ type ComponentOfInput = { module: ComponentModule; context: Pick<ClientRenderCon
 function componentOf({ module, context }: ComponentOfInput): Component<Record<string, unknown>> {
   const component = module.default;
   if (typeof component !== "function") {
-    throw new Error(`${context.droplet}: the ${context.kind} component is not a Solid component`);
+    throw dropletsError({
+      message: COMPONENT_NOT_RENDERABLE,
+      params: { kind: context.kind, framework: "Solid" },
+      droplet: context.droplet,
+    });
   }
   return component as Component<Record<string, unknown>>;
 }

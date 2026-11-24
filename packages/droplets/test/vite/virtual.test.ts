@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DropletEntry } from "../../src/core/discover.ts";
 import type { DropletRenderer } from "../../src/renderer.ts";
+import { errorsModulePath } from "../../src/core/paths.ts";
 import { locationScript, serverKey } from "../../src/runtime/server-records.ts";
 import { createInitialState, type PluginState } from "../../src/vite/state.ts";
 import {
@@ -232,7 +233,7 @@ describe("buildClientCode", () => {
     // Dev: Vite injects the shared stylesheet with the registry. A build lists it per droplet.
     expect(code).toMatch(/^import "virtual:droplets-css";\n/);
     const built = buildClientCode({ entries: [entry({ id: "a" })], buildHash: "h", elementName: "djs-droplet", isBuilding: true });
-    expect(built).not.toContain("import ");
+    expect(built).not.toContain("virtual:droplets-css");
     expect(code).not.toContain("clientHooks");
   });
 
@@ -254,6 +255,15 @@ describe("buildClientCode", () => {
     expect(buildClientCode({ entries: [], buildHash: "h", hasCredentials: true })).toContain("export const corsCredentials = true;");
   });
 
+  it("re-exports the formatter of errorFormat alone, so the bundle holds no other", () => {
+    expect(buildClientCode({ entries: [], buildHash: "h" })).toContain(
+      `import { formatAgent as errorFormatter, setErrorFormatter } from ${JSON.stringify(errorsModulePath)};\nsetErrorFormatter(errorFormatter);`,
+    );
+    const human = buildClientCode({ entries: [], buildHash: "h", errorFormat: "human" });
+    expect(human).toContain(`import { formatHuman as errorFormatter, setErrorFormatter } from ${JSON.stringify(errorsModulePath)};`);
+    expect(human).not.toContain("formatAgent");
+  });
+
   it("is the same module as ever without src/hooks.client.ts", () => {
     const built = [
       "const droplets = {};",
@@ -261,6 +271,9 @@ describe("buildClientCode", () => {
       'export const buildHash = "h";',
       'export const elementName = "djs-droplet";',
       "export const corsCredentials = false;",
+      `import { formatAgent as errorFormatter, setErrorFormatter } from ${JSON.stringify(errorsModulePath)};`,
+      "setErrorFormatter(errorFormatter);",
+      "export { errorFormatter };",
       "export const dropletsById = {",
       '  "a": true,',
       "};",
@@ -397,7 +410,9 @@ describe("buildConfigCode", () => {
   const configEnv = { command: "build", mode: "production", isSsrBuild: false, isPreview: false } as const;
 
   it("imports the user's config or exports an empty object", () => {
-    expect(buildConfigCode({ configPath: null, configEnv })).toBe("export default {};\nexport const tokens = undefined;\n");
+    expect(buildConfigCode({ configPath: null, configEnv })).toBe(
+      'export default {};\nexport const tokens = undefined;\nexport const errorFormat = "agent";\n',
+    );
     expect(buildConfigCode({ configPath: "/p/droplets.config.ts", configEnv })).toContain(
       'import userConfig from "/p/droplets.config.ts";',
     );
@@ -414,9 +429,13 @@ describe("buildConfigCode", () => {
     expect(buildConfigCode({ configPath: null, configEnv })).not.toContain("typeof");
   });
 
+  it("exports the resolved errorFormat, which the SSR bundle writes its messages in", () => {
+    expect(buildConfigCode({ configPath: null, configEnv, errorFormat: "human" })).toContain('export const errorFormat = "human";\n');
+  });
+
   it("exports the token replacers only when given their module", () => {
     expect(buildConfigCode({ configPath: null, configEnv, hostTokensModule: "/d/runtime/host-tokens.js" })).toBe(
-      'export default {};\nexport { replacers as tokens } from "/d/runtime/host-tokens.js";\n',
+      'export default {};\nexport { replacers as tokens } from "/d/runtime/host-tokens.js";\nexport const errorFormat = "agent";\n',
     );
     expect(buildConfigCode({ configPath: "/p/droplets.config.ts", configEnv })).not.toContain("host-tokens");
   });
@@ -486,7 +505,7 @@ describe("virtualModulesPlugin", () => {
   it("resolves $droplets/server for server code and refuses it in the browser", () => {
     expect(resolveId("$droplets/server")).toMatch(/runtime[\\/]server\.js$/);
     expect(() => resolveIdIn.call(withConsumer("client"), "$droplets/server", "/src/droplets/x/+droplet.svelte")).toThrow(
-      /can only be imported by server files.*\+droplet\.svelte/,
+      /file: .*\+droplet\.svelte\n {2}what: \$droplets\/server can only be imported by server files/,
     );
   });
 
@@ -498,7 +517,7 @@ describe("virtualModulesPlugin", () => {
     expect(onServer("$droplets/server", "/proj/src/droplets/x/+droplet.server.ts")).toMatch(/server\.js$/);
     expect(onServer("$droplets/env/private", "/proj/src/lib/server/db.ts")).toBe("\0$droplets/env/private");
     expect(() => onServer("$droplets/server", "/proj/src/droplets/x/+droplet.ts")).toThrow(
-      /can only be imported by server files: names with \.server\. in them.*under a server\/ folder; imported by \/proj\/src\/droplets\/x\/\+droplet\.ts/,
+      /droplets error server-module-import\n {2}file: \/proj\/src\/droplets\/x\/\+droplet\.ts\n {2}what: \$droplets\/server can only be imported by server files: names with \.server\. in them.*under a server\/ folder\n/,
     );
     expect(() => onServer("$droplets/env/private", "/proj/src/droplets/x/+droplet.svelte")).toThrow(/server files/);
     expect(() => onServer("$droplets/server", "/proj/src/lib/observer.ts")).toThrow(/server files/);
@@ -655,6 +674,7 @@ describe("$droplets/form", () => {
     );
     // Outside a render it needs the droplet.
     expect(() => actionUrl("add")).toThrow(/knows the droplet only while one renders/);
+    expect(() => actionUrl("add")).toThrow(expect.objectContaining({ code: "action-url-outside-render" }));
     expect(actionUrl("add", { droplet: "cart" })).toBe(`${TOKEN}/droplets/cart?/add`);
     const info = { origin: "https://drops.example/mfe", render: { droplet: "cart", props: { id: "p1" } } };
     withRequestInfo(info, () => {

@@ -8,6 +8,7 @@ import { ErrorBoundary, Suspense, use, useLayoutEffect, useRef, type Child, type
 // The automatic runtime's `jsx(type, props)`: `children` in `props`. The
 // `jsx` of `hono/jsx/dom` is `createElement`, which takes them as arguments.
 import { Fragment, jsx } from "hono/jsx/dom/jsx-runtime";
+import { COMPONENT_NOT_RENDERABLE, dropletsError } from "@dropletsjs/droplets/errors";
 
 /**
  * What a `<Suspense>` shows while waiting: nothing. Not `null`, which Hono
@@ -23,7 +24,11 @@ type ComponentOfInput = { module: ComponentModule; context: Pick<ClientRenderCon
 export function componentOf({ module, context }: ComponentOfInput): FC<Record<string, unknown>> {
   const component = module.default;
   if (typeof component !== "function") {
-    throw new Error(`${context.droplet}: the ${context.kind} component is not a Hono JSX component`);
+    throw dropletsError({
+      message: COMPONENT_NOT_RENDERABLE,
+      params: { kind: context.kind, framework: "Hono JSX" },
+      droplet: context.droplet,
+    });
   }
   return component as FC<Record<string, unknown>>;
 }

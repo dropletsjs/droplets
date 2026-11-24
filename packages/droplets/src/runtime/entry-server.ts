@@ -1,4 +1,21 @@
 import droplets, { api, hooks, importMapModule, publicEnvNames, tokenNonce } from "virtual:droplets";
+import { errorFormat } from "virtual:droplets-config";
+import { dropletsError, formatMessage, formatterOf, setErrorFormatter } from "../errors/format.ts";
+import {
+  ACTIONS_NOT_OBJECT,
+  DROPLET_LOAD_FAILED,
+  ENTRIES_NOT_ARRAY,
+  ENTRY_FILE_DUPLICATE,
+  ENTRY_FILE_INVALID,
+  ENTRY_HOST_INVALID,
+  ENTRY_PROPS_NOT_OBJECT,
+  ENTRY_SHAPE_INVALID,
+  ERROR_PAGE_MISSING,
+  HANDLE_ERROR_THREW,
+  RENDERER_MISSING,
+  RENDERER_OUTPUT_INVALID,
+  TRANSFORM_RESULT_NOT_STRING,
+} from "../errors/runtime.ts";
 import { readRuntimeEnv } from "./env-store.ts";
 import { logger } from "../core/logger.ts";
 import type { ComponentKind, ComponentModule, HydrateMode, RendererServerModule, RenderProps, ServerRenderOutput } from "../renderer.ts";
@@ -25,6 +42,9 @@ import {
   type TransformEvent,
   type TransformInput,
 } from "./server.ts";
+
+// The SSR bundle is a realm of its own (a module runner under `vite dev`, its own file on Node).
+setErrorFormatter(formatterOf({ format: errorFormat }));
 
 type ServerLoad = (event: LoadEvent) => unknown;
 
@@ -89,7 +109,7 @@ type RenderedComponent = { html: string; head: string | undefined; renderId: str
  */
 async function renderWith({ renderer, module, props, droplet, kind, dropletProps }: RenderWithInput): Promise<RenderedComponent> {
   if (!renderer || typeof renderer.render !== "function") {
-    throw new Error(`${droplet}: the ${kind} component has no renderer; the server registry is stale`);
+    throw dropletsError({ message: RENDERER_MISSING, params: { kind }, droplet });
   }
   const renderId = createRenderId();
   // The request's public location, never an untrusted header's; a token at build.
@@ -102,7 +122,7 @@ async function renderWith({ renderer, module, props, droplet, kind, dropletProps
     : await renderer.render(module, props, context);
   if (typeof output === "string") return { html: output, head: undefined, renderId };
   if (typeof output?.html !== "string") {
-    throw new Error(`${droplet}: the renderer must return HTML as a string or { html, head }`);
+    throw dropletsError({ message: RENDERER_OUTPUT_INVALID, droplet });
   }
   return { html: output.html, head: output.head, renderId };
 }
@@ -123,7 +143,7 @@ function isAnswer({ error, event }: IsAnswerInput): boolean {
 export function getDropletMeta(name: string): DropletMeta {
   const entry = findEntry({ name });
   if (!entry?.component) {
-    if (import.meta.env.DEV) logger.debug("framework", "unknown droplet", { droplet: name, known: [...registry.keys()] });
+    if (import.meta.env.DEV) logger.debug("unknown droplet", { droplet: name, known: [...registry.keys()] });
     return { exists: false, ssr: true };
   }
   return {
@@ -164,7 +184,7 @@ export async function getEntries(name: string): Promise<BuildEntry[]> {
   if (typeof mod?.entries !== "function") return [{ props: {} }];
   const entries: unknown = await mod.entries();
   if (!Array.isArray(entries)) {
-    throw new Error(`droplets: ${name}: entries() must return an array of events, e.g. [{ props: { page: 1 } }]`);
+    throw dropletsError({ message: ENTRIES_NOT_ARRAY, droplet: name, file: "+droplet.server.ts" });
   }
   const files = new Set<string>();
   return entries.map((entry: unknown): BuildEntry => {
@@ -173,26 +193,22 @@ export async function getEntries(name: string): Promise<BuildEntry[]> {
         ? Object.keys(entry).filter((key) => !ENTRY_KEYS.has(key))
         : null;
     if (!shape || shape.length > 0) {
-      throw new Error(
-        `droplets: ${name}: entries() returns events, { props?, host?, file? }; got ${JSON.stringify(entry)}. Props go under props: [{ props: { page: 1 } }]`,
-      );
+      throw dropletsError({ message: ENTRY_SHAPE_INVALID, params: { entry: String(JSON.stringify(entry)) }, droplet: name });
     }
     const { props, host, file } = entry as { props?: unknown; host?: unknown; file?: unknown };
     if (props !== undefined && (typeof props !== "object" || props === null || Array.isArray(props))) {
-      throw new Error(`droplets: ${name}: an entry's props must be an object, got ${JSON.stringify(props)}`);
+      throw dropletsError({ message: ENTRY_PROPS_NOT_OBJECT, params: { props: String(JSON.stringify(props)) }, droplet: name });
     }
     let url: URL | null = null;
     if (host !== undefined) {
       url = parseHost({ value: host });
-      if (!url) throw new Error(`droplets: ${name}: an entry's host must be an absolute URL, got ${JSON.stringify(String(host))}`);
+      if (!url) throw dropletsError({ message: ENTRY_HOST_INVALID, params: { host: String(host) }, droplet: name });
     }
     if (file !== undefined) {
       if (typeof file !== "string" || !isKebabName({ name: file })) {
-        throw new Error(
-          `droplets: ${name}: an entry's file is a lowercase kebab-case name such as "page-2" (letters, digits, single hyphens), got ${JSON.stringify(file) ?? String(file)}`,
-        );
+        throw dropletsError({ message: ENTRY_FILE_INVALID, params: { file: JSON.stringify(file) ?? String(file) }, droplet: name });
       }
-      if (files.has(file)) throw new Error(`droplets: ${name}: two entries name the file "${file}"; give each entry its own file`);
+      if (files.has(file)) throw dropletsError({ message: ENTRY_FILE_DUPLICATE, params: { file }, droplet: name });
       files.add(file);
     }
     return {
@@ -215,7 +231,7 @@ export async function transformDroplet(name: string, event: TransformEvent): Pro
   for (const step of Array.isArray(transform) ? transform : [transform]) {
     const result: unknown = await step({ ...event, html });
     if (typeof result !== "string") {
-      throw new Error(`${name}: transform must return the HTML as a string`);
+      throw dropletsError({ message: TRANSFORM_RESULT_NOT_STRING, droplet: name, file: "+droplet.server.ts" });
     }
     html = result;
   }
@@ -244,10 +260,10 @@ type ServerFailure = { failed: true; error: unknown };
  * `handleError` throws, there is nothing to show: unhandled.
  */
 async function serverFailure({ name, error }: ServerFailureInput): Promise<ServerFailure> {
-  console.error(`${name}: droplet load failed`, error);
+  console.error(formatMessage({ message: DROPLET_LOAD_FAILED, droplet: name, file: "+droplet.server.ts" }), error);
   const entry = findEntry({ name });
   if (!entry?.error) {
-    throw new UnhandledDropletError({ droplet: name, reason: "load failed and there is no error page (+error.*)", cause: error });
+    throw new UnhandledDropletError({ droplet: name, message: ERROR_PAGE_MISSING, cause: error });
   }
   try {
     const mod = await entry.serverLoad?.();
@@ -259,7 +275,7 @@ async function serverFailure({ name, error }: ServerFailureInput): Promise<Serve
         : await runHandleError(name, "+droplet.server.ts", mod?.handleError, error);
     return { failed: true, error: toWireError(shown) };
   } catch (handleError) {
-    throw new UnhandledDropletError({ droplet: name, reason: "handleError in +droplet.server.ts threw", cause: handleError });
+    throw new UnhandledDropletError({ droplet: name, message: HANDLE_ERROR_THREW, file: "+droplet.server.ts", cause: handleError });
   }
 }
 
@@ -331,7 +347,7 @@ export async function findAction(name: string, action: string): Promise<Action |
   if (mod?.actions === undefined) return "none";
   const actions = plainObjectOf({ value: mod.actions });
   if (!actions) {
-    throw new Error(`${name}: actions in +droplet.server.ts must be a plain object of functions, { default, add, … }`);
+    throw dropletsError({ message: ACTIONS_NOT_OBJECT, droplet: name, file: "+droplet.server.ts" });
   }
   if (!ACTION_NAME.test(action) || FORBIDDEN_ACTION_NAMES.has(action) || !Object.hasOwn(actions, action)) {
     return "missing";
@@ -368,7 +384,7 @@ export async function renderDroplet(name: string, event: LoadEvent, options: Ren
       kind: "droplet",
       dropletProps: event.props,
     });
-    if (import.meta.env.DEV) logger.debug("framework", "rendered droplet", { droplet: name, bodyLength: html.length });
+    if (import.meta.env.DEV) logger.debug("rendered droplet", { droplet: name, bodyLength: html.length });
     return { body: html, html, data, serverData, renderId, ...(head === undefined ? {} : { head }) };
   } catch (error) {
     if (isAnswer({ error, event })) throw error;
@@ -390,7 +406,7 @@ export async function renderError(name: string, error: unknown, props: Record<st
     const mod = await entry.load?.();
     shown = await runHandleError(name, "+droplet.ts", mod?.handleError, error);
   } catch (handleError) {
-    throw new UnhandledDropletError({ droplet: name, reason: "handleError in +droplet.ts threw", cause: handleError });
+    throw new UnhandledDropletError({ droplet: name, message: HANDLE_ERROR_THREW, file: "+droplet.ts", cause: handleError });
   }
   const { html, head, renderId } = await renderWith({
     renderer: entry.renderer,

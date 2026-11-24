@@ -57,6 +57,10 @@
       "types": "./dist/runtime/enhance.d.ts",
       "default": "./dist/runtime/enhance.js"
     },
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "default": "./dist/errors.js"
+    },
     "./ambient": {
       "types": "./ambient.d.ts"
     },

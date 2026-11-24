@@ -33,7 +33,7 @@ describe("runClientInit", () => {
         FILE,
       ),
     ).not.toThrow();
-    expect(error).toHaveBeenCalledWith("[droplets] init() in src/hooks.client.ts failed; starting the droplets anyway", failure);
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("droplets error client-init-threw"), failure);
   });
 
   it("does not wait for a promise init returns, and logs its rejection", async () => {
@@ -44,12 +44,7 @@ describe("runClientInit", () => {
     expect(error).not.toHaveBeenCalled();
     const failure = new Error("later");
     fail(failure);
-    await vi.waitFor(() =>
-      expect(error).toHaveBeenCalledWith(
-        "[droplets] init() in src/hooks.client.ts returned a promise that rejected; init is not waited for",
-        failure,
-      ),
-    );
+    await vi.waitFor(() => expect(error).toHaveBeenCalledWith(expect.stringContaining("droplets error client-init-rejected"), failure));
     expect(then).toHaveBeenCalled();
   });
 
@@ -66,7 +61,7 @@ describe("runClientInit", () => {
     expect(steps).toEqual(["started", "carried on"]);
     await vi.waitFor(() =>
       expect(error).toHaveBeenCalledWith(
-        "[droplets] init() in src/hooks.client.ts returned a promise that rejected; init is not waited for",
+        expect.stringContaining("droplets error client-init-rejected"),
         expect.objectContaining({ message: "async boom" }),
       ),
     );
@@ -83,6 +78,7 @@ describe("runClientInit", () => {
     runClientInit({}, FILE);
     expect(error).not.toHaveBeenCalled();
     runClientInit({ init: "soon" }, FILE);
-    expect(error).toHaveBeenCalledWith("[droplets] init in src/hooks.client.ts is not a function; starting the droplets without it");
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("droplets error client-init-not-function"));
+    expect(String(error.mock.calls[0]?.[0])).toContain("file: src/hooks.client.ts");
   });
 });

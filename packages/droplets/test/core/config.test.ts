@@ -49,10 +49,13 @@ describe("normalizeDropletsFolder", () => {
 
   it("refuses a folder above the project root, naming the option and the value", () => {
     expect(() => normalizeDropletsFolder({ folder: "../elsewhere", option: "dropletsFolder" })).toThrow(
-      'droplets: dropletsFolder must be a folder inside the project, got "../elsewhere"',
+      expect.objectContaining({
+        code: "folder-outside-project",
+        message: expect.stringContaining('what: dropletsFolder must be a folder inside the project, got "../elsewhere"'),
+      }),
     );
     expect(() => resolveConfig({ dropletsFolder: "src/../../widgets" })).toThrow(/dropletsFolder must be a folder inside the project/);
-    expect(() => resolveConfig({ apiFolder: "../api" })).toThrow('droplets: apiFolder must be a folder inside the project, got "../api"');
+    expect(() => resolveConfig({ apiFolder: "../api" })).toThrow('apiFolder must be a folder inside the project, got "../api"');
     expect(normalizeDropletsFolder({ folder: "src/x/../droplets" })).toBe("src/droplets");
   });
 });
@@ -72,6 +75,7 @@ describe("resolveConfig", () => {
       csrf: { checkOrigin: true },
       limits: DEFAULTS.limits,
       render: { timeout: 5000 },
+      errorFormat: "agent",
       server: { port: DEFAULTS.serverPort },
     });
     // `dev` apart, for the Vite plugin: a production server never resolves it.
@@ -152,20 +156,38 @@ describe("resolveConfig", () => {
   it("refuses any other render or render.timeout, naming the range", () => {
     const range = "use 0 (wait for no promise) up to 2147483647 ms, or Infinity (wait forever)";
     expect(() => resolveConfig({ render: 5000 as never })).toThrow(
-      new Error("droplets: render must be an object such as { timeout: 10000 }, got 5000"),
+      expect.objectContaining({
+        code: "render-not-object",
+        message: expect.stringContaining("what: render must be an object such as { timeout: 10000 }, got 5000\n"),
+      }),
     );
-    const cases: Array<[unknown, string]> = [
-      ["5s", `droplets: render.timeout must be a number of milliseconds; ${range}, got "5s"`],
-      [Number.NaN, `droplets: render.timeout must be a number of milliseconds; ${range}, got NaN`],
-      [null, `droplets: render.timeout must be a number of milliseconds; ${range}, got null`],
-      [true, `droplets: render.timeout must be a number of milliseconds; ${range}, got true`],
-      [-5, `droplets: render.timeout cannot be negative; ${range}, got -5`],
-      [Number.NEGATIVE_INFINITY, `droplets: render.timeout cannot be negative; ${range}, got -Infinity`],
-      [2.5, `droplets: render.timeout must be a whole number of milliseconds; ${range}, got 2.5`],
-      [2147483648, `droplets: render.timeout is longer than a timer can wait; ${range}, got 2147483648`],
+    const cases: Array<[unknown, string, string]> = [
+      ["5s", "render-timeout-not-number", 'render.timeout must be a number of milliseconds, got "5s"'],
+      [Number.NaN, "render-timeout-not-number", "render.timeout must be a number of milliseconds, got NaN"],
+      [null, "render-timeout-not-number", "render.timeout must be a number of milliseconds, got null"],
+      [true, "render-timeout-not-number", "render.timeout must be a number of milliseconds, got true"],
+      [-5, "render-timeout-negative", "render.timeout cannot be negative, got -5"],
+      [Number.NEGATIVE_INFINITY, "render-timeout-negative", "render.timeout cannot be negative, got -Infinity"],
+      [2.5, "render-timeout-not-whole", "render.timeout must be a whole number of milliseconds, got 2.5"],
+      [2147483648, "render-timeout-too-long", "render.timeout is longer than a timer can wait, got 2147483648"],
     ];
-    for (const [timeout, message] of cases) {
-      expect(() => resolveConfig({ render: { timeout: timeout as never } }), String(timeout)).toThrow(new Error(message));
+    for (const [timeout, code, what] of cases) {
+      expect(() => resolveConfig({ render: { timeout: timeout as never } }), String(timeout)).toThrow(
+        expect.objectContaining({ code, message: expect.stringContaining(`  what: ${what}\n  fix: ${range}\n`) }),
+      );
+    }
+  });
+
+  it('takes errorFormat "agent" or "human", "agent" by default, and refuses anything else with its own code', () => {
+    expect(resolveConfig({}).errorFormat).toBe("agent");
+    expect(resolveConfig({ errorFormat: "human" }).errorFormat).toBe("human");
+    for (const value of ["Human", "json", 1, null]) {
+      expect(() => resolveConfig({ errorFormat: value as never }), String(value)).toThrow(
+        expect.objectContaining({
+          code: "error-format-invalid",
+          message: expect.stringContaining(`errorFormat is ${typeof value === "string" ? JSON.stringify(value) : String(value)}`),
+        }),
+      );
     }
   });
 
@@ -179,7 +201,10 @@ describe("resolveConfig", () => {
     expect(resolveDevConfig({ user: { dev: { strategy: "reload" } } }).strategy).toBe("reload");
     expect(resolveDevConfig({ user: { dev: { strategy: "manual" } } }).strategy).toBe("manual");
     expect(() => resolveDevConfig({ user: { dev: { strategy: "hot" as never } } })).toThrow(
-      'droplets: dev.strategy is "hot"; use "hmr", "remount", "reload", "manual"',
+      expect.objectContaining({
+        code: "dev-strategy-invalid",
+        message: expect.stringContaining('  what: dev.strategy is "hot"\n  fix: use "hmr", "remount", "reload", "manual"\n'),
+      }),
     );
   });
 

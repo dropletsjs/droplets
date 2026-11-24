@@ -13,6 +13,7 @@
  * gets `<tag>--v2` (`--v3`, …), a name no kebab-case droplet id produces.
  */
 import type { ComponentKind, ComponentModule } from "@dropletsjs/droplets";
+import { dropletsError, LIT_COMPONENT_NOT_ELEMENT, LIT_TAG_INVALID } from "@dropletsjs/droplets/errors";
 
 /** What the renderer needs of a `CustomElementRegistry`: the page's, or Lit's server shim. */
 export type Registry = {
@@ -30,10 +31,7 @@ type TagNameInput = { prefix: string; droplet: string; kind: ComponentKind };
 export function tagName({ prefix, droplet, kind }: TagNameInput): string {
   const tag = `${prefix}-${droplet}${kind === "error" ? "--error" : ""}`;
   if (!VALID_TAG.test(tag)) {
-    throw new Error(
-      `${droplet}: "${tag}" is not a valid custom element name for the Lit ${kind}; ` +
-        "rename the droplet folder (lowercase letters, digits, hyphens) or set lit({ prefix })",
-    );
+    throw dropletsError({ message: LIT_TAG_INVALID, params: { tag, kind }, droplet });
   }
   return tag;
 }
@@ -44,10 +42,7 @@ type ComponentOfInput = { module: ComponentModule; droplet: string; kind: Compon
 export function componentOf({ module, droplet, kind, base }: ComponentOfInput): CustomElementConstructor {
   const component = module.default;
   if (typeof component !== "function" || !(component.prototype instanceof base)) {
-    throw new Error(
-      `${droplet}: the ${kind} component must default-export a LitElement class ` +
-        "(`export default class Hello extends DropletElement { … }`); the renderer defines it",
-    );
+    throw dropletsError({ message: LIT_COMPONENT_NOT_ELEMENT, params: { kind }, droplet });
   }
   return component as CustomElementConstructor;
 }

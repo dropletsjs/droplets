@@ -25,6 +25,7 @@ import {
   type Props,
   type Row,
 } from "../shared.ts";
+import { DEVTOOLS_PAGE_ELEMENT_MISSING, dropletsError } from "@dropletsjs/droplets/errors";
 
 type PageData = {
   element: string;
@@ -47,7 +48,7 @@ type ByIdInput = { id: string };
 
 function byId<T extends HTMLElement>({ id }: ByIdInput): T {
   const el = document.getElementById(id);
-  if (!el) throw new Error(`devtools: #${id} is missing`);
+  if (!el) throw dropletsError({ message: DEVTOOLS_PAGE_ELEMENT_MISSING, params: { id } });
   return el as T;
 }
 
