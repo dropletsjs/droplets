@@ -100,7 +100,7 @@ describe("readTemplateFlags", () => {
   });
 
   it("refuses flags anywhere but the first thing in the template", () => {
-    const message = "flags go in the comment the template starts with, before anything else";
+    const message = "move every flag line into the comment the template starts with, before anything else";
     expect(() => readTemplateFlags("<p/>\n{{!-- export ssr = false --}}", where)).toThrow(message);
     expect(() => readTemplateFlags("{{!-- A card --}}\n{{!-- export ssr = false --}}<p/>", where)).toThrow(message);
     expect(() => readTemplateFlags("{{#if x}}{{! export hydrate = false }}{{/if}}", where)).toThrow(message);
@@ -108,7 +108,7 @@ describe("readTemplateFlags", () => {
 
   it("refuses anything but flag lines in a flags comment", () => {
     expect(() => readTemplateFlags("{{!--\nexport ssr = false\nShows the card\n--}}", where)).toThrow(
-      'expected `export <flag> = true|false` in the flags comment, found "Shows the card"',
+      'the flags comment holds "Shows the card"',
     );
     expect(() => readTemplateFlags("{{!-- export hydrat = false --}}", where)).toThrow('unknown flag "hydrat"');
     expect(() => readTemplateFlags("{{!-- export ssr = no --}}", where)).toThrow('flag "ssr" must be true or false, found "no"');
@@ -116,7 +116,9 @@ describe("readTemplateFlags", () => {
   });
 
   it("names the file in its errors and leaves a broken template to the compiler", () => {
-    expect(() => readTemplateFlags("{{!-- export nope = true --}}", where)).toThrow(/^droplets: hello\/\+droplet\.hbs: /);
+    expect(() => readTemplateFlags("{{!-- export nope = true --}}", where)).toThrow(
+      /^droplets error handlebars-flag-unknown\n {2}file: hello\/\+droplet\.hbs\n/,
+    );
     expect(readTemplateFlags("{{!-- export ssr = false --}}{{#if}}", where)).toBeUndefined();
   });
 });

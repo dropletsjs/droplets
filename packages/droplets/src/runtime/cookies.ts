@@ -2,6 +2,19 @@
  * `event.cookies`, as in SvelteKit. Runtime-neutral: plain strings in, the
  * `Set-Cookie` values out, added to the response by the app.
  */
+import { dropletsError } from "../errors/format.ts";
+import {
+  COOKIES_READ_ONLY,
+  COOKIE_DOMAIN_INVALID,
+  COOKIE_MAX_AGE_INVALID,
+  COOKIE_NAME_INVALID,
+  COOKIE_PATH_INVALID,
+  COOKIE_PATH_MISSING,
+  COOKIE_PATH_NOT_ABSOLUTE,
+  COOKIE_SAME_SITE_INVALID,
+  COOKIE_SAME_SITE_NONE_INSECURE,
+  COOKIE_VALUE_INVALID,
+} from "../errors/runtime.ts";
 import { CookiesInPrerenderError, type Cookies, type CookieSerializeOptions, type ReadonlyCookies } from "./server.ts";
 
 /** RFC 6265 token: the characters a cookie name may have. */
@@ -44,20 +57,20 @@ export type SerializeCookieInput = { name: string; value: string; options: Cooki
 
 /** One `Set-Cookie` value. Throws for a name, value or attribute a header cannot carry. */
 export function serializeCookie({ name, value, options }: SerializeCookieInput): string {
-  if (!COOKIE_NAME.test(name)) throw new TypeError(`cookie name ${JSON.stringify(name)} is not a valid token`);
+  if (!COOKIE_NAME.test(name)) throw dropletsError({ message: COOKIE_NAME_INVALID, params: { name } });
   const encoded = (options.encode ?? encodeURIComponent)(value);
-  if (!COOKIE_VALUE.test(encoded)) throw new TypeError(`cookie ${name}: the encoded value has characters a cookie cannot carry`);
+  if (!COOKIE_VALUE.test(encoded)) throw dropletsError({ message: COOKIE_VALUE_INVALID, params: { name } });
 
   let cookie = `${name}=${encoded}`;
   if (options.maxAge !== undefined) {
-    if (!Number.isFinite(options.maxAge)) throw new TypeError(`cookie ${name}: maxAge must be a number of seconds`);
+    if (!Number.isFinite(options.maxAge)) throw dropletsError({ message: COOKIE_MAX_AGE_INVALID, params: { name } });
     cookie += `; Max-Age=${Math.floor(options.maxAge)}`;
   }
   if (options.domain) {
-    if (!ATTRIBUTE.test(options.domain)) throw new TypeError(`cookie ${name}: invalid domain`);
+    if (!ATTRIBUTE.test(options.domain)) throw dropletsError({ message: COOKIE_DOMAIN_INVALID, params: { name } });
     cookie += `; Domain=${options.domain}`;
   }
-  if (!ATTRIBUTE.test(options.path)) throw new TypeError(`cookie ${name}: invalid path`);
+  if (!ATTRIBUTE.test(options.path)) throw dropletsError({ message: COOKIE_PATH_INVALID, params: { name } });
   cookie += `; Path=${options.path}`;
   if (options.expires) cookie += `; Expires=${options.expires.toUTCString()}`;
   if (options.httpOnly) cookie += "; HttpOnly";
@@ -66,10 +79,10 @@ export function serializeCookie({ name, value, options }: SerializeCookieInput):
   if (options.priority) cookie += `; Priority=${PRIORITY[options.priority]}`;
   if (options.sameSite) {
     const sameSite = options.sameSite === true ? "strict" : options.sameSite;
-    if (!Object.hasOwn(SAME_SITE, sameSite)) throw new TypeError(`cookie ${name}: sameSite must be "lax", "strict" or "none"`);
+    if (!Object.hasOwn(SAME_SITE, sameSite)) throw dropletsError({ message: COOKIE_SAME_SITE_INVALID, params: { name } });
     // Browsers drop it: a cross-site cookie must be Secure.
     if (sameSite === "none" && !options.secure) {
-      throw new TypeError(`cookie ${name}: sameSite "none" needs secure: true`);
+      throw dropletsError({ message: COOKIE_SAME_SITE_NONE_INSECURE, params: { name } });
     }
     cookie += `; SameSite=${SAME_SITE[sameSite]}`;
   }
@@ -81,10 +94,10 @@ type CheckedOptionsInput = { options: CookieSerializeOptions | undefined };
 /** `options`, once `path` is there and absolute: the response may reach the browser through a host, under its URLs. */
 function checkedOptions({ options }: CheckedOptionsInput): CookieSerializeOptions {
   if (typeof options?.path !== "string") {
-    throw new Error("You must specify a `path` when setting, deleting or serializing cookies");
+    throw dropletsError({ message: COOKIE_PATH_MISSING });
   }
   if (!options.path.startsWith("/")) {
-    throw new Error(`cookie path must be absolute ("/" or "/admin"), got ${JSON.stringify(options.path)}`);
+    throw dropletsError({ message: COOKIE_PATH_NOT_ABSOLUTE, params: { path: options.path } });
   }
   return options;
 }
@@ -175,9 +188,7 @@ type RefuseInput = { method: string };
 export function readonlyCookies({ cookies }: ReadonlyCookiesInput): ReadonlyCookies {
   function refuse({ method }: RefuseInput): () => never {
     return () => {
-      throw new Error(
-        `cookies.${method}() is not available in a droplet's load or transform: cookies are read there, and set in form actions, handle or +server.ts`,
-      );
+      throw dropletsError({ message: COOKIES_READ_ONLY, params: { method } });
     };
   }
   return {

@@ -83,7 +83,8 @@ describe("createAssetLoaders", () => {
       expect(manifest.__entryClient).toBe("index.js");
       expect(await assets.loadManifest()).toBe(manifest);
       expect(error).toHaveBeenCalledOnce();
-      expect(error.mock.calls[0]).toEqual([`droplets.json not found at ${path}; did you build?`]);
+      expect(error.mock.calls[0]).toEqual([expect.stringContaining("droplets error manifest-not-found")]);
+      expect(error.mock.calls[0]?.[0]).toContain(`droplets.json not found at ${path}`);
 
       // The fallback is never kept: the next request reads the file again.
       await writeFile(path, JSON.stringify({ __hash: "built", __entryClient: "index.js", __globalStyle: "index.css", droplets: {} }));
@@ -108,7 +109,7 @@ describe("createAssetLoaders", () => {
       expect(await assets.loadClientModule("hello")).toBeNull();
       expect(error).toHaveBeenCalledOnce();
       const [message] = error.mock.calls[0] ?? [];
-      expect(message).toMatch(/is not valid JSON: /);
+      expect(message).toMatch(/droplets error manifest-malformed[\s\S]*is not valid JSON: /);
       expect(message).toContain(path);
       expect(message).not.toContain("not found");
 
@@ -117,7 +118,7 @@ describe("createAssetLoaders", () => {
       expect((await assets.loadManifest()).droplets).toEqual({});
       expect((await assets.loadManifest()).droplets).toEqual({});
       expect(error).toHaveBeenCalledTimes(2);
-      expect(error.mock.calls[1]).toEqual([`droplets.json not found at ${path}; did you build?`]);
+      expect(error.mock.calls[1]?.[0]).toContain(`droplets.json not found at ${path}`);
 
       // Once it loads, it is kept, and a later failure logs anew.
       await writeFile(path, JSON.stringify({ __hash: "fixed", __entryClient: "index.js", __globalStyle: "index.css", droplets: {} }));

@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { logger } from "../../src/core/logger.ts";
+import { formatMessage } from "../../src/errors/format.ts";
+import { REDIRECT_OFF_SITE } from "../../src/errors/runtime.ts";
 import {
   backTarget,
   createDropletsApp,
@@ -672,8 +674,14 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
     }
     expect(error).toHaveBeenCalledTimes(12);
     expect(error.mock.calls[0]).toEqual([
-      'guestbook: action away redirects to "https://evil.example/x", which is not on this server or a trusted origin; answered 400',
+      formatMessage({
+        message: REDIRECT_OFF_SITE,
+        params: { label: "guestbook: action away", target: "https://evil.example/x", path: "" },
+      }),
     ]);
+    expect(error.mock.calls[0]?.[0]).toContain(
+      'guestbook: action away redirects to "https://evil.example/x", which is not on this server or a trusted origin; answered 400',
+    );
 
     // "*" trusts every Origin for the CSRF check, never a redirect target, in JSON too.
     const star = actionsApp({ actions, overrides: { trustedOrigins: ["*"] } }).app;
@@ -755,7 +763,7 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
   });
 
   it("falls back to the fragment without a usable DROPLETS_SECRET, with one warning naming it", async () => {
-    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const warn = vi.spyOn(logger, "report").mockImplementation(() => {});
     vi.stubEnv("DROPLETS_SECRET", "too-short");
     const { app } = actionsApp({ actions: { default: sign } });
     for (let i = 0; i < 2; i += 1) {
@@ -765,7 +773,7 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
     }
     vi.stubEnv("DROPLETS_SECRET", "");
     expect((await app.request(submit({ path: "/droplets/guestbook", body: "name=Ana", headers: native }))).status).toBe(200);
-    const messages = warn.mock.calls.map((call) => String(call[1]));
+    const messages = warn.mock.calls.map((call) => formatMessage(call[0]));
     expect(messages.filter((m) => m.includes("DROPLETS_SECRET"))).toHaveLength(2);
     // A result is never read without it either.
     const token = await mint({ result: { action: "default", status: 200, data: { message: "Thanks, Ana" } } });
@@ -893,7 +901,7 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
 
   it("warns about nothing without a dev log, as in production: no secret, a result over 2 KB", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const logged = vi.spyOn(logger, "warn");
+    const logged = vi.spyOn(logger, "report");
     vi.stubEnv("DROPLETS_SECRET", "too-short");
     const quiet = actionsApp({ actions: { default: sign }, overrides: { devLog: undefined } }).app;
     expect((await quiet.request(submit({ path: "/droplets/guestbook", body: "name=Ana", headers: native }))).status).toBe(200);
@@ -905,13 +913,13 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
   });
 
   it("sends a result over 2 KB without its data, with a warning", async () => {
-    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const warn = vi.spyOn(logger, "report").mockImplementation(() => {});
     const { app, renderDroplet } = actionsApp({ actions: { default: () => fail(409, { message: "x".repeat(3000) }) } });
     const res = await app.request(submit({ path: "/droplets/guestbook", body: "", headers: native }));
     expect(res.status).toBe(303);
     const location = res.headers.get("location") ?? expect.unreachable("a location header");
     expect((tokenOf(location) ?? expect.unreachable("a form token")).length).toBeLessThanOrEqual(2048);
-    expect(warn.mock.calls.some((call) => String(call[1]).includes("over 2 KB"))).toBe(true);
+    expect(warn.mock.calls.some((call) => formatMessage(call[0]).includes("over 2 KB"))).toBe(true);
     // Status and action only: the droplet renders, without form.
     await renderOn({ app, host: location });
     expect(renderDroplet).toHaveBeenCalledTimes(1);

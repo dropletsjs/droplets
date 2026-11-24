@@ -30,7 +30,9 @@ describe("lit()", () => {
 
   it("refuses a prefix outside lowercase letters, digits and hyphens, as its message says", () => {
     for (const prefix of ["My Shop", "1shop", "my.shop", "my_shop", "my-shop!", ""]) {
-      expect(() => lit({ prefix }), prefix).toThrow(/must start with a lowercase letter: lowercase letters, digits, hyphens/);
+      expect(() => lit({ prefix }), prefix).toThrow(
+        /must start with a lowercase letter\n {2}fix: use lowercase letters, digits and hyphens/,
+      );
     }
     for (const prefix of ["shop", "my-shop", "shop2", "a"]) {
       expect(() => lit({ prefix }), prefix).not.toThrow();

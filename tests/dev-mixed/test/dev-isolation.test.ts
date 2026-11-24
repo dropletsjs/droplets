@@ -82,7 +82,9 @@ describe("a droplet that fails to import under vite dev", () => {
   it("fails alone: the other droplet, its client.js and /index.js keep answering", async () => {
     const broken = await get("/droplets/broken");
     expect(broken.status).toBe(500);
-    expect(output).toMatch(/\$droplets\/server can only be imported by server files.*src\/droplets\/broken\/\+droplet\.tsx/);
+    expect(output).toMatch(
+      /server-module-import[\s\S]*?src\/droplets\/broken\/\+droplet\.tsx[\s\S]*?\$droplets\/server can only be imported by server files/,
+    );
     // Vite serves modules one by one: the droplet's client module is the
     // registry's entry, and the component it imports is what is refused.
     expect((await get("/droplets/broken/client.js")).status).toBe(200);

@@ -15,6 +15,7 @@ import Boundary from "./boundary.svelte";
 import { marker } from "./children.svelte";
 import { CHILDREN_KEY } from "./children.ts";
 import { keep, liveProps } from "./live-props.ts";
+import { COMPONENT_NOT_RENDERABLE, dropletsError } from "@dropletsjs/droplets/errors";
 
 type SvelteComponent = Component<Record<string, unknown>>;
 
@@ -39,7 +40,11 @@ function contextOf({ children }: ContextOfInput): Map<symbol, unknown> {
 function componentOf({ module, context }: ComponentOfInput): SvelteComponent {
   const component = module.default;
   if (typeof component !== "function") {
-    throw new Error(`${context.droplet}: the ${context.kind} component is not a Svelte component`);
+    throw dropletsError({
+      message: COMPONENT_NOT_RENDERABLE,
+      params: { kind: context.kind, framework: "Svelte" },
+      droplet: context.droplet,
+    });
   }
   return component as SvelteComponent;
 }

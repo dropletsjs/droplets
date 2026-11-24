@@ -86,13 +86,20 @@ too, each with a message that says what to change:
   extension:
 
   ```
-  droplets: counter/+droplet.tsx: react, solid, preact and hono-jsx all handle this file and it imports none of them; import from react, solid-js, preact or hono/jsx, or add a /** @jsxImportSource <package> */ comment
+  droplets error component-renderer-ambiguous
+    file: counter/+droplet.tsx
+    what: react, solid, preact and hono-jsx all handle this file and it imports none of them
+    fix: import from react, solid-js, preact or hono/jsx, or add a /** @jsxImportSource <package> */ comment
+    docs: https://dropletsjs.dev/errors/component-renderer-ambiguous.md
   ```
 
 - importing another framework, even through a neutral file:
 
   ```
-  droplets: a solid droplet imports preact code: src/droplets/counter/+droplet.tsx -> src/droplets/counter/lib.ts -> preact/hooks/dist/hooks.mjs. A droplet uses its own framework's modules and neutral code only.
+  droplets error droplet-imports-other-framework
+    what: a solid droplet imports preact code: src/droplets/counter/+droplet.tsx -> src/droplets/counter/lib.ts -> preact/hooks/dist/hooks.mjs
+    fix: a droplet uses its own framework's modules and neutral code only: move the shared part into plain TypeScript, or render it from a droplet of that framework
+    docs: https://dropletsjs.dev/errors/droplet-imports-other-framework.md
   ```
 
 Flags are read from `+droplet.tsx` alone. A flag that is not a literal

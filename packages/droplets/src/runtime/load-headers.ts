@@ -3,6 +3,14 @@
  * fragment and `_data` answers carry. Plain strings only, each header once,
  * never `set-cookie` (cookies go through `cookies`).
  */
+import { dropletsError } from "../errors/format.ts";
+import {
+  SET_HEADERS_DUPLICATE,
+  SET_HEADERS_NAME_INVALID,
+  SET_HEADERS_NOT_OBJECT,
+  SET_HEADERS_SET_COOKIE,
+  SET_HEADERS_VALUE_INVALID,
+} from "../errors/runtime.ts";
 import type { SetHeaders } from "./server.ts";
 
 /** RFC 9110 `token`. */
@@ -23,19 +31,19 @@ export function createLoadHeaders({ droplet }: CreateLoadHeadersInput): LoadHead
   const headers = new Headers();
   const setHeaders: SetHeaders = (values) => {
     if (typeof values !== "object" || values === null || Array.isArray(values)) {
-      throw new TypeError(`${droplet}: setHeaders takes an object of header names and string values`);
+      throw dropletsError({ message: SET_HEADERS_NOT_OBJECT, droplet });
     }
     for (const name of Object.keys(values)) {
       const value: unknown = values[name];
-      if (!FIELD_NAME.test(name)) throw new TypeError(`${droplet}: setHeaders: ${JSON.stringify(name)} is not a header name`);
+      if (!FIELD_NAME.test(name)) throw dropletsError({ message: SET_HEADERS_NAME_INVALID, params: { name }, droplet });
       if (typeof value !== "string" || FORBIDDEN_VALUE.test(value)) {
-        throw new TypeError(`${droplet}: setHeaders: the value of ${name} must be a string without line breaks`);
+        throw dropletsError({ message: SET_HEADERS_VALUE_INVALID, params: { name }, droplet });
       }
       const lower = name.toLowerCase();
       if (lower === "set-cookie") {
-        throw new Error(`${droplet}: setHeaders cannot set set-cookie; cookies are set in form actions, handle or +server.ts`);
+        throw dropletsError({ message: SET_HEADERS_SET_COOKIE, droplet });
       }
-      if (headers.has(lower)) throw new Error(`${droplet}: setHeaders: ${name} is already set`);
+      if (headers.has(lower)) throw dropletsError({ message: SET_HEADERS_DUPLICATE, params: { name }, droplet });
       headers.set(lower, value);
     }
   };

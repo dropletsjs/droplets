@@ -3,6 +3,8 @@
  * asks when to hydrate; the other targets imply it, and `--hydrate` changes
  * it, with a warning where the result is not what the target suggests.
  */
+import { ADD_BLANK_COMPONENT, ADD_CLIENT_ONLY_INTERACTIVE, ADD_FULL_WITHOUT_HYDRATION } from "../errors/cli.ts";
+import { dropletsError, formatMessage } from "../errors/format.ts";
 import type { HydrateMode } from "../renderer.ts";
 
 export type Target = "full" | "ssr" | "client" | "ssg";
@@ -26,8 +28,8 @@ export const HYDRATE_CHOICES: readonly HydrateChoice[] = ["always", "visible", "
 
 export type Flags = { ssr: boolean; hydrate: HydrateMode; prerender: boolean };
 
-/** `warn` needs a confirmation (or `--yes`); `info` is only printed. */
-export type Note = { level: "warn" | "info"; message: string };
+/** `warn` needs a confirmation (or `--yes`), its message a formatted warning; `info` is only printed. */
+export type Note = { level: "info"; message: string } | { level: "warn"; message: string; code: string };
 
 const MODES: Record<HydrateChoice, HydrateMode> = {
   always: true,
@@ -57,22 +59,16 @@ export function flagsFor({ target, hydrate }: FlagsForInput): TargetFlags {
   const choice = hydrate ?? DEFAULT_HYDRATE[target];
   const notes: Note[] = [];
   if (target === "full" && choice === "none") {
-    throw new Error("--target full always hydrates; for HTML without JavaScript use --target ssr");
+    throw dropletsError({ message: ADD_FULL_WITHOUT_HYDRATION });
   }
   if (target === "ssr" && choice !== "none") {
     notes.push({ level: "info", message: `ssr with --hydrate ${choice} is the same as --target full --hydrate ${choice}` });
   }
   if (target === "client" && choice === "none") {
-    notes.push({
-      level: "warn",
-      message: "this will result in a blank component: nothing is rendered on the server, nothing is rendered in the browser",
-    });
+    notes.push({ level: "warn", message: formatMessage({ message: ADD_BLANK_COMPONENT }), code: ADD_BLANK_COMPONENT.code });
   }
   if (target === "client" && choice === "interactive") {
-    notes.push({
-      level: "warn",
-      message: "a client-only droplet has no server markup to interact with: it mounts at once, as with --hydrate always",
-    });
+    notes.push({ level: "warn", message: formatMessage({ message: ADD_CLIENT_ONLY_INTERACTIVE }), code: ADD_CLIENT_ONLY_INTERACTIVE.code });
   }
   return {
     flags: { ssr: target !== "client", hydrate: MODES[choice], prerender: target === "ssg" },

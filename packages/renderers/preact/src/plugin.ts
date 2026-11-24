@@ -21,6 +21,7 @@
  */
 import { fileURLToPath } from "node:url";
 import { type Plugin, transformWithOxc } from "vite";
+import { formatMessage, PREFRESH_RUNTIME_MISSING, PREFRESH_UPDATE_FAILED } from "@dropletsjs/droplets/errors";
 
 type PreludeInput = { core: string; utils: string; file: string };
 
@@ -55,8 +56,13 @@ const prelude = ({ core, utils, file }: PreludeInput): string =>
   "  return type; }; };" +
   "}";
 
-/** Puts the globals back and accepts the module's own update: Prefresh re-renders what changed. */
-const footer = `
+/**
+ * Puts the globals back and accepts the module's own update: Prefresh
+ * re-renders what changed. Written per module, so the message is in the
+ * project's `errorFormat`.
+ */
+function footer(): string {
+  return `
 if (import.meta.hot) {
   self.$RefreshReg$ = __prefresh_reg__;
   self.$RefreshSig$ = __prefresh_sig__;
@@ -64,11 +70,12 @@ if (import.meta.hot) {
     try {
       __prefresh_flush__();
     } catch (error) {
-      console.error("[droplets] Prefresh could not apply the update", error);
+      console.error(${JSON.stringify(formatMessage({ message: PREFRESH_UPDATE_FAILED }))}, error);
     }
   });
 }
 `;
+}
 
 /** A module compiled for Preact's automatic JSX runtime, with oxc's refresh transform when `refresh`. */
 function compile({ code, file, refresh }: CompileInput): ReturnType<typeof transformWithOxc> {
@@ -109,7 +116,7 @@ export function preactPlugin({ include }: PreactPluginInput = {}): Plugin {
       // when Vite optimizes them again.
       const [core, utils] = await Promise.all([this.resolve("@prefresh/core", here), this.resolve("@prefresh/utils", here)]);
       if (!core || !utils) {
-        this.warn("Prefresh's runtime (@prefresh/core, @prefresh/utils) did not resolve: Preact droplets remount on an edit");
+        this.warn(formatMessage({ message: PREFRESH_RUNTIME_MISSING }));
         refresh = false;
         const plain = await compile({ code, file, refresh: false });
         return { code: plain.code, map: plain.map ?? null };
@@ -117,7 +124,7 @@ export function preactPlugin({ include }: PreactPluginInput = {}): Plugin {
       // A module with hooks only (`$RefreshSig$`) is no boundary of its own:
       // its update reaches the component that uses it.
       const registers = /\$RefreshReg\$\(/.test(result.code);
-      return { code: `${prelude({ core: core.id, utils: utils.id, file })}${result.code}${registers ? footer : ""}`, map };
+      return { code: `${prelude({ core: core.id, utils: utils.id, file })}${result.code}${registers ? footer() : ""}`, map };
     },
   };
 }

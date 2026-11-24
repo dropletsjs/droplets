@@ -195,6 +195,9 @@ importers:
       '@astrojs/check':
         specifier: ^0.9.6
         version: 0.9.12(prettier@3.10.1)(typescript@6.0.3)
+      '@dropletsjs/droplets':
+        specifier: workspace:*
+        version: link:../../packages/droplets
       '@dropletsjs/shared':
         specifier: workspace:*
         version: link:../../packages/shared

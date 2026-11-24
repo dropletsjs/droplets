@@ -112,9 +112,9 @@ describe("cookies: the jar", () => {
 
   it("needs an absolute path", () => {
     const { cookies } = jar();
-    expect(() => cookies.set("a", "1", {} as never)).toThrow("You must specify a `path`");
+    expect(() => cookies.set("a", "1", {} as never)).toThrow("you must specify a `path`");
     expect(() => cookies.set("a", "1", { path: "admin" })).toThrow("must be absolute");
-    expect(() => cookies.delete("a", undefined as never)).toThrow("You must specify a `path`");
+    expect(() => cookies.delete("a", undefined as never)).toThrow("you must specify a `path`");
     expect(cookies.serialize("a", "1", { path: "/" })).toBe("a=1; Path=/; HttpOnly; Secure; SameSite=Lax");
   });
 });
@@ -189,7 +189,7 @@ describe("cookies: on the response", () => {
     const res = await setting.request("https://drops.example/droplets/cart/_data");
     expect(res.headers.getSetCookie()).toEqual([]);
     expect(tried).toHaveLength(3);
-    for (const message of tried) expect(message).toContain("set in form actions, handle or +server.ts");
+    for (const message of tried) expect(message).toContain("set cookies in form actions, handle or +server.ts");
   });
 
   it("refuses sameSite none without secure: browsers drop it", () => {

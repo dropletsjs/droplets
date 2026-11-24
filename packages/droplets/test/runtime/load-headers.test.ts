@@ -15,7 +15,7 @@ describe("setHeaders", () => {
   it("refuses a header set twice, in any case", () => {
     const { setHeaders } = createLoadHeaders({ droplet: "card" });
     setHeaders({ "cache-control": "no-cache" });
-    expect(() => setHeaders({ "Cache-Control": "public" })).toThrow(/card: setHeaders: Cache-Control is already set/);
+    expect(() => setHeaders({ "Cache-Control": "public" })).toThrow(/droplet: card[\s\S]*setHeaders: Cache-Control is already set/);
   });
 
   it("refuses set-cookie: cookies go through cookies", () => {

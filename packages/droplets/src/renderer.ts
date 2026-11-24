@@ -272,6 +272,19 @@
  */
 import type { PluginOption } from "vite";
 import type { ActionUrl } from "./runtime/form.ts";
+import {
+  COMPONENT_RENDERER_AMBIGUOUS,
+  RENDERER_EXTENSION_INVALID,
+  RENDERER_EXTENSION_RESERVED,
+  RENDERER_EXTENSION_SHARED,
+  RENDERER_EXTENSIONS_MISSING,
+  RENDERER_MODULE_MISSING,
+  RENDERER_NAME_DUPLICATE,
+  RENDERER_NAME_MISSING,
+  RENDERER_NAME_RESERVED,
+  RENDERER_PACKAGES_MISSING,
+} from "./errors/config.ts";
+import { dropletsError } from "./errors/format.ts";
 
 export type { ActionUrl } from "./runtime/form.ts";
 
@@ -633,44 +646,45 @@ export function validateRenderers(renderers: DropletRenderer[]): Map<string, Dro
   const byExtension = new Map<string, DropletRenderer[]>();
   for (const renderer of renderers) {
     if (!renderer || typeof renderer.name !== "string" || !renderer.name) {
-      throw new Error("droplets: every renderer needs a name");
+      throw dropletsError({ message: RENDERER_NAME_MISSING });
     }
     if (names.has(renderer.name)) {
       if (renderer.name === SCRIPT_RENDERER) {
-        throw new Error(`droplets: "${SCRIPT_RENDERER}" is the built-in renderer of +droplet.script.ts; name yours otherwise`);
+        throw dropletsError({ message: RENDERER_NAME_RESERVED });
       }
-      throw new Error(`droplets: two renderers are named "${renderer.name}"`);
+      throw dropletsError({ message: RENDERER_NAME_DUPLICATE, params: { name: renderer.name } });
     }
     names.add(renderer.name);
     if (!Array.isArray(renderer.extensions) || renderer.extensions.length === 0) {
-      throw new Error(`droplets: renderer "${renderer.name}" lists no extensions`);
+      throw dropletsError({ message: RENDERER_EXTENSIONS_MISSING, params: { name: renderer.name } });
     }
     for (const extension of renderer.extensions) {
       if (!extension.startsWith(".") || extension.length < 2) {
-        throw new Error(`droplets: renderer "${renderer.name}": extension "${extension}" must start with a dot`);
+        throw dropletsError({ message: RENDERER_EXTENSION_INVALID, params: { name: renderer.name, extension } });
       }
       if (CORE_SUFFIXES.has(extension)) {
-        throw new Error(`droplets: renderer "${renderer.name}" cannot claim "${extension}"; +droplet${extension} is a load file`);
+        throw dropletsError({ message: RENDERER_EXTENSION_RESERVED, params: { name: renderer.name, extension, owner: "a load file" } });
       }
       if (SCRIPT_SUFFIXES.includes(extension) && renderer.name !== SCRIPT_RENDERER) {
-        throw new Error(
-          `droplets: renderer "${renderer.name}" cannot claim "${extension}"; +droplet${extension} is a script droplet, built in`,
-        );
+        throw dropletsError({
+          message: RENDERER_EXTENSION_RESERVED,
+          params: { name: renderer.name, extension, owner: "a script droplet, built in" },
+        });
       }
       const others = byExtension.get(extension) ?? [];
       const unpackaged = [...others, renderer].find((r) => !r.packages?.length);
       const [other] = others;
       if (other !== undefined && unpackaged) {
-        throw new Error(
-          `droplets: renderers "${other.name}" and "${renderer.name}" both claim ${extension}, ` +
-            `and "${unpackaged.name}" lists no packages to tell its components apart; keep one of them`,
-        );
+        throw dropletsError({
+          message: RENDERER_EXTENSION_SHARED,
+          params: { other: other.name, name: renderer.name, extension, unpackaged: unpackaged.name },
+        });
       }
       byExtension.set(extension, [...others, renderer]);
     }
     for (const field of ["server", "client"] as const) {
       if (typeof renderer[field] !== "string" || !renderer[field]) {
-        throw new Error(`droplets: renderer "${renderer.name}" needs a ${field} module path`);
+        throw dropletsError({ message: RENDERER_MODULE_MISSING, params: { name: renderer.name, field } });
       }
     }
   }
@@ -730,7 +744,7 @@ export function pickRenderer({ candidates, source, file, fallback }: PickRendere
   const hints = listOf({
     items: candidates.map((r) => {
       const pkg = r.packages?.[0];
-      if (pkg === undefined) throw new Error(`droplets: renderer "${r.name}" shares an extension and lists no packages`);
+      if (pkg === undefined) throw dropletsError({ message: RENDERER_PACKAGES_MISSING, params: { name: r.name } });
       return pkg;
     }),
     word: "or",
@@ -743,10 +757,7 @@ export function pickRenderer({ candidates, source, file, fallback }: PickRendere
       : two
         ? "imports from both"
         : `imports from ${listOf({ items: matching.map((r) => r.name), word: "and" })}`;
-  throw new Error(
-    `droplets: ${file}: ${names} ${two ? "both" : "all"} handle this file and it ${imports}; ` +
-      `import from ${hints}, or add a /** @jsxImportSource <package> */ comment`,
-  );
+  throw dropletsError({ message: COMPONENT_RENDERER_AMBIGUOUS, params: { names, all: two ? "both" : "all", imports, hints }, file });
 }
 
 type ListOfInput = { items: string[]; word: "and" | "or" };
@@ -768,14 +779,12 @@ const KNOWN_RENDERERS: Record<string, { pkg: string; factory: string; rename?: s
   ".lit.js": { pkg: "@dropletsjs/renderer-lit", factory: "lit()" },
 };
 
-type NoRendererMessageInput = { file: string; extension: string };
+type NoRendererHintInput = { extension: string };
 
-/** The message for a component file no configured renderer handles. */
-export function noRendererMessage({ file, extension }: NoRendererMessageInput): string {
+/** The fix for a component file no configured renderer handles. */
+export function noRendererHint({ extension }: NoRendererHintInput): string {
   const last = extension.slice(extension.lastIndexOf("."));
   const known = (Object.hasOwn(KNOWN_RENDERERS, extension) ? KNOWN_RENDERERS[extension] : undefined) ?? KNOWN_RENDERERS[last];
-  if (known?.rename) return `${file}: no renderer for ${extension}; ${known.pkg} handles +droplet${known.rename}, rename the file`;
-  return known
-    ? `${file}: no renderer for ${extension}; install ${known.pkg} and add ${known.factory} to renderers`
-    : `${file}: no renderer for ${extension}; add a renderer that handles it to renderers`;
+  if (known?.rename) return `${known.pkg} handles +droplet${known.rename}, rename the file`;
+  return known ? `install ${known.pkg} and add ${known.factory} to renderers` : "add a renderer that handles it to renderers";
 }

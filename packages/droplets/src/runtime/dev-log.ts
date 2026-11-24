@@ -8,9 +8,18 @@
  * @module
  */
 import { logger } from "../core/logger.ts";
-
-/** Where "Trusting any location" is explained, for the warning `"*"` gets. */
-const ANY_LOCATION_DOCS = "https://dropletsjs.dev/guides/security/#trusting-any-location";
+import {
+  ANY_LOCATION_TRUSTED,
+  CORS_ANY_ORIGIN,
+  ENV_MAX_AGE_INVALID,
+  FORM_RESULT_TOO_LARGE,
+  FORM_SECRET_MISSING,
+  FORM_SECRET_SHORT,
+  LOCATION_UNTRUSTED,
+  PROPS_HEADER_MALFORMED,
+  RENDER_TIMED_OUT,
+  TRUSTED_ORIGIN_ENV_INVALID,
+} from "../errors/runtime.ts";
 
 export type DevLog = {
   /** A location header whose origin is not trusted, once per header. */
@@ -43,53 +52,34 @@ export function createDevLog(): DevLog {
   return {
     untrustedLocation({ location, source }) {
       if (!first(`location:${source}`)) return;
-      logger.warn(
-        "framework",
-        `ignoring the location ${JSON.stringify(location.slice(0, 200))} from ${source}: its origin must be this server's or listed in trustedOrigins (or DROPLETS_TRUSTED_ORIGINS)`,
-      );
+      logger.report({ message: LOCATION_UNTRUSTED, params: { location, source } });
     },
     anyLocation({ option }) {
-      logger.warn("framework", `${option}: "*" trusts any forwarded location; see ${ANY_LOCATION_DOCS}`);
+      logger.report({ message: ANY_LOCATION_TRUSTED, params: { option } });
     },
     badEnvEntry({ variable, entry }) {
-      logger.warn("framework", `${variable}: ignoring ${JSON.stringify(entry)}, not an origin such as https://shop.example`);
+      logger.report({ message: TRUSTED_ORIGIN_ENV_INVALID, params: { variable, entry } });
     },
     secret({ problem, minBytes }) {
       if (!first(`secret:${problem}`)) return;
-      logger.warn(
-        "framework",
-        problem === "missing"
-          ? "DROPLETS_SECRET is not set: a form posted without JavaScript gets the droplet's fragment instead of a redirect back to the page (Post/Redirect/Get). Set it to 32 or more random bytes, e.g. the output of `openssl rand -base64 32`."
-          : `DROPLETS_SECRET is shorter than ${minBytes} bytes and is ignored: forms posted without JavaScript get the droplet's fragment instead of a redirect back to the page. It should be ${minBytes} or more random bytes, e.g. the output of \`openssl rand -base64 32\`.`,
-      );
+      if (problem === "missing") logger.report({ message: FORM_SECRET_MISSING });
+      else logger.report({ message: FORM_SECRET_SHORT, params: { minBytes } });
     },
     corsAny() {
       if (!first("cors")) return;
-      logger.warn(
-        "framework",
-        "cors allows every origin: Access-Control-Allow-Origin: * on every route (/api/*, _data, /index.js included); list the hosts' origins instead ({ origin: [...] }) for anything not public",
-      );
+      logger.report({ message: CORS_ANY_ORIGIN });
     },
     malformedProps() {
-      logger.warn("framework", "ignoring malformed x-droplet-props header");
+      logger.report({ message: PROPS_HEADER_MALFORMED });
     },
     badEnvMaxAge({ value, fallback }) {
-      logger.warn(
-        "framework",
-        `DROPLETS_ENV_MAX_AGE: ignoring ${JSON.stringify(value.slice(0, 200))}, not a whole number of seconds (0 or more); /env.js is sent with ${fallback}`,
-      );
+      logger.report({ message: ENV_MAX_AGE_INVALID, params: { value, fallback } });
     },
     resultTooLarge({ droplet, action }) {
-      logger.warn(
-        "framework",
-        `${droplet}: the result of action ${action} is over 2 KB as a URL value; it goes back to the page without its data (status and action only). Return less: field names and messages.`,
-      );
+      logger.report({ message: FORM_RESULT_TOO_LARGE, params: { action }, droplet });
     },
     renderTimeout({ droplet, timeout }) {
-      logger.warn(
-        "framework",
-        `${droplet}: answered 504 after render.timeout (${timeout} ms), its loads or render still running; pass event.request.signal to what the load waits on, make it faster, or raise render.timeout in droplets.config.ts`,
-      );
+      logger.report({ message: RENDER_TIMED_OUT, params: { timeout }, droplet });
     },
   };
 }

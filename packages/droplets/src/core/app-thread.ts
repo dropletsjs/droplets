@@ -8,6 +8,8 @@
  * plain data (`plainRequest`, `plainResponse`).
  */
 import { parentPort, SHARE_ENV, Worker } from "node:worker_threads";
+import { THREAD_METHOD_UNKNOWN, THREAD_NOT_WORKER } from "../errors/config.ts";
+import { dropletsError } from "../errors/format.ts";
 
 /** A request as it crosses the thread boundary: the kit and the build send text bodies. */
 export type PlainRequest = { url: string; method: string; headers: [string, string][]; body: string | null };
@@ -15,21 +17,26 @@ export type PlainRequest = { url: string; method: string; headers: [string, stri
 export type PlainResponse = { status: number; headers: [string, string][]; body: string };
 
 type Call = { id: number; method: string; args: unknown[] };
-type Answer = { id: number; result: unknown } | { id: number; error: string };
+type Answer = { id: number; result: unknown } | { id: number; error: string; code?: string | undefined };
 
 export type Handlers = Record<string, (...args: never[]) => Promise<unknown>>;
 
 /** The thread's side: answers each call with the named handler's result. */
 export function answer(handlers: Handlers): void {
   const port = parentPort;
-  if (!port) throw new Error("droplets: answer() runs in a worker thread");
+  if (!port) throw dropletsError({ message: THREAD_NOT_WORKER });
   port.on("message", async ({ id, method, args }: Call) => {
     try {
       const handler = Object.hasOwn(handlers, method) ? handlers[method] : undefined;
-      if (!handler) throw new Error(`droplets: the thread has no "${method}"`);
+      if (!handler) throw dropletsError({ message: THREAD_METHOD_UNKNOWN, params: { method } });
       port.postMessage({ id, result: await handler(...(args as never[])) } satisfies Answer);
     } catch (error) {
-      port.postMessage({ id, error: error instanceof Error ? error.message : String(error) } satisfies Answer);
+      const code = (error as { code?: unknown } | null)?.code;
+      port.postMessage({
+        id,
+        error: error instanceof Error ? error.message : String(error),
+        code: typeof code === "string" ? code : undefined,
+      } satisfies Answer);
     }
   });
 }
@@ -85,7 +92,8 @@ export function connect({ file, workerData }: ConnectInput): AppThread {
     const waiting = pending.get(message.id);
     pending.delete(message.id);
     if (!waiting) return;
-    if ("error" in message) waiting.reject(new Error(message.error));
+    if ("error" in message)
+      waiting.reject(Object.assign(new Error(message.error), message.code === undefined ? {} : { code: message.code }));
     else waiting.resolve(message.result);
   });
   worker.on("error", (error) => {

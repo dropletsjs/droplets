@@ -50,6 +50,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { DropletRenderer } from "@dropletsjs/droplets";
 import { litPlugin } from "./plugin.ts";
+import { dropletsError, LIT_PREFIX_INVALID } from "@dropletsjs/droplets/errors";
 
 /**
  * The props of `+droplet.lit.ts`, as element properties: `data` from the
@@ -81,7 +82,7 @@ const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 /** The Lit renderer, for `droplets({ renderers: [lit()] })`. */
 export function lit(options: LitRendererOptions = {}): DropletRenderer {
   if (options.prefix !== undefined && !/^[a-z][a-z0-9-]*$/.test(options.prefix)) {
-    throw new Error(`lit({ prefix }): "${options.prefix}" must start with a lowercase letter: lowercase letters, digits, hyphens`);
+    throw dropletsError({ message: LIT_PREFIX_INVALID, params: { prefix: options.prefix } });
   }
   return {
     name: "lit",

@@ -8,6 +8,8 @@
  * else the request's origin), at build a token replaced per request, in the browser
  * the location `/index.js` was loaded from.
  */
+import { dropletsError } from "../errors/format.ts";
+import { ACTION_NAME_INVALID } from "../errors/runtime.ts";
 
 /**
  * The query key of an action URL that names the page the form is on
@@ -160,7 +162,7 @@ export function actionHref(
   page?: string,
 ): string {
   if (name !== undefined && !ACTION_NAME.test(name)) {
-    throw new Error(`${droplet}: ${JSON.stringify(String(name).slice(0, 100))} is not an action name; actionUrl("add") names one`);
+    throw dropletsError({ message: ACTION_NAME_INVALID, params: { name: String(name) }, droplet });
   }
   const query: string[] = [];
   if (name !== undefined && name !== "default") query.push(`/${name}`);

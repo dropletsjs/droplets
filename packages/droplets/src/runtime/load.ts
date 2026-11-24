@@ -4,6 +4,15 @@
  * engine code.
  */
 
+import { dropletsError, formatMessage } from "../errors/format.ts";
+import {
+  type ERROR_PAGE_MISSING,
+  HANDLE_ERROR_RESULT_INVALID,
+  type HANDLE_ERROR_THREW,
+  LOAD_RESULT_NOT_OBJECT,
+  LOAD_RETURNED_RESPONSE,
+} from "../errors/runtime.ts";
+
 /**
  * The props of a droplet component: `data` from the loads, and `children`,
  * whatever the renderer uses to render the children marker in light DOM (a
@@ -46,7 +55,12 @@ export class DropletRenderError extends Error {
 
 const UNHANDLED = Symbol.for("droplets.unhandled");
 
-type UnhandledDropletErrorInput = { droplet: string; reason: string; cause: unknown };
+type UnhandledDropletErrorInput = {
+  droplet: string;
+  message: typeof ERROR_PAGE_MISSING | typeof HANDLE_ERROR_THREW;
+  file?: string | undefined;
+  cause: unknown;
+};
 
 /**
  * A failure the droplet cannot show: it has no error page, or its
@@ -57,9 +71,15 @@ type UnhandledDropletErrorInput = { droplet: string; reason: string; cause: unkn
 export class UnhandledDropletError extends Error {
   readonly [UNHANDLED] = true;
 
-  constructor({ droplet, reason, cause }: UnhandledDropletErrorInput) {
-    super(`${droplet}: ${reason}`, { cause });
+  readonly code: string;
+  /** What went wrong, unformatted: the request's log line names it. */
+  readonly reason: string;
+
+  constructor({ droplet, message, file, cause }: UnhandledDropletErrorInput) {
+    super(formatMessage({ message, droplet, file }), { cause });
     this.name = "UnhandledDropletError";
+    this.code = message.code;
+    this.reason = message.what;
   }
 }
 
@@ -76,13 +96,11 @@ export function isUnhandled(value: unknown): value is UnhandledDropletError {
 export function checkLoadResult(droplet: string, file: string, value: unknown): unknown {
   if (value === undefined || value === null) return value;
   if (typeof Response !== "undefined" && value instanceof Response) {
-    throw new Error(
-      `${droplet}: load in ${file} returned a Response; a load returns a plain object (json() and text() are for +server.ts)`,
-    );
+    throw dropletsError({ message: LOAD_RETURNED_RESPONSE, droplet, file });
   }
   const proto = typeof value === "object" ? Object.getPrototypeOf(value) : undefined;
   if (proto !== Object.prototype && proto !== null) {
-    throw new Error(`${droplet}: load in ${file} must return a plain object, e.g. return { … }`);
+    throw dropletsError({ message: LOAD_RESULT_NOT_OBJECT, droplet, file });
   }
   return value;
 }
@@ -125,7 +143,7 @@ export async function runHandleError(droplet: string, file: string, handleError:
   if (typeof handleError !== "function") return error ?? new DropletRenderError();
   const result: unknown = await (handleError as HandleDropletErrorFn)({ error });
   if (typeof result !== "object" || result === null || !("error" in result)) {
-    throw new Error(`${droplet}: handleError in ${file} must return { error }`);
+    throw dropletsError({ message: HANDLE_ERROR_RESULT_INVALID, droplet, file });
   }
   return (result as { error: unknown }).error;
 }

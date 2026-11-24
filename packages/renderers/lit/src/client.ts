@@ -34,6 +34,7 @@ import { LitElement, render } from "lit";
 import { prefix } from "virtual:droplets-renderer-lit";
 import { adoptTag, claimTag, componentOf, tagName } from "./tags.ts";
 import { hostTemplate } from "./template.ts";
+import { formatMessage, LIT_TAG_TAKEN } from "@dropletsjs/droplets/errors";
 
 /** What `mount` and `hydrate` return; with the host tag it rendered, for `update` in dev. */
 export type Instance = { target: HTMLElement; tag?: string; actionUrl?: ClientRenderContext["actionUrl"] };
@@ -118,10 +119,7 @@ export function hydrate(
   const element = target.firstElementChild;
   if (!element || !adoptTag({ registry: customElements, component, tag: element.localName })) {
     if (element) {
-      console.warn(
-        `[droplets] ${context.droplet}: <${element.localName}> is defined by another class on this page ` +
-          "(an edited module, or another droplets server with the same element name); rendering it afresh",
-      );
+      console.warn(formatMessage({ message: LIT_TAG_TAKEN, params: { tag: element.localName }, droplet: context.droplet }));
     }
     (target as LitContainer)._$litPart$ = undefined;
     target.replaceChildren();

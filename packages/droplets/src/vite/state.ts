@@ -2,11 +2,14 @@ import { randomBytes } from "node:crypto";
 import { resolve } from "node:path";
 import type { ResolvedDevConfig, ResolvedDropletsConfig } from "../core/config.ts";
 import { DEFAULTS, normalizeDropletsFolder } from "../core/config.ts";
-import { type DropletEntry, reportOnce } from "../core/discover.ts";
+import type { DropletEntry } from "../core/discover.ts";
 import { fileExists } from "../core/fs.ts";
+import { logger } from "../core/logger.ts";
 import { entryClientPath } from "../core/paths.ts";
 import type { DropletsAdapter } from "../adapters.ts";
 import type { EnvState } from "../core/env.ts";
+import { MODULE_FILE_MISNAMED, RENDERER_NOT_CONFIGURED } from "../errors/build.ts";
+import { dropletsError } from "../errors/format.ts";
 import { type DropletRenderer, MODULE_EXTENSIONS } from "../renderer.ts";
 import type { ResolvedCss } from "./css.ts";
 import { hostTokens, tokenNonce } from "../runtime/host-tokens.ts";
@@ -105,6 +108,7 @@ export function createInitialState(): PluginState {
       limits: { ...DEFAULTS.limits },
       render: { ...DEFAULTS.render },
       server: { port: 8000 },
+      errorFormat: "agent",
     },
     dev: { server: { port: 5173 }, strategy: "hmr", injectTool: false },
     css: { scoped: true, tailwind: false, twPreflight: true },
@@ -135,7 +139,7 @@ type RendererNamedInput = { renderers: readonly DropletRenderer[]; name: string 
 /** The renderer by name, or a clear error for a stale registry. */
 export function rendererNamed({ renderers, name }: RendererNamedInput): DropletRenderer {
   const renderer = renderers.find((r) => r.name === name);
-  if (!renderer) throw new Error(`droplets: no renderer named "${name}" is configured`);
+  if (!renderer) throw dropletsError({ message: RENDERER_NOT_CONFIGURED, params: { name } });
   return renderer;
 }
 
@@ -170,6 +174,9 @@ export const IMPORTMAP_FILES = MODULE_EXTENSIONS.map((extension) => `src/importm
 /** Extensions a module found by name is never looked up with; one spelled so is warned about. */
 const MISNAMED_EXTENSIONS = [".mts", ".mjs", ".cts", ".cjs"];
 
+/** The files already warned about, so the next environment's build stays quiet. */
+const misnamedWarned = new Set<string>();
+
 export type WarnMisnamedModulesInput = { root: string };
 
 /** Warns once about a `hooks.server` or `importmap.server` file core does not load, naming the names it does. */
@@ -180,7 +187,9 @@ export async function warnMisnamedModules({ root }: WarnMisnamedModulesInput): P
   ] as const) {
     for (const file of MISNAMED_EXTENSIONS.map((extension) => `${name}${extension}`)) {
       if (!(await fileExists({ path: resolve(root, file) }))) continue;
-      reportOnce({ key: `${resolve(root, file)}:misnamed`, message: `${file} is not loaded; name it ${files.join(" or ")}` });
+      if (misnamedWarned.has(resolve(root, file))) continue;
+      misnamedWarned.add(resolve(root, file));
+      logger.report({ message: MODULE_FILE_MISNAMED, params: { names: files.join(" or ") }, file });
     }
   }
 }

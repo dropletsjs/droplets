@@ -8,6 +8,7 @@ import {
   type DropletsManifest,
 } from "@dropletsjs/droplets";
 import { loadJsonFile, loadTextFile, MalformedJsonError } from "./fs.ts";
+import { formatMessage, MANIFEST_NOT_FOUND } from "@dropletsjs/droplets/errors";
 
 export type AssetLoadersOptions = {
   clientRoot: string;
@@ -65,11 +66,11 @@ export function createAssetLoaders({
           return manifest;
         }
         cached = null;
-        return fallback({ message: `droplets.json not found at ${manifestPath}; did you build?` });
+        return fallback({ message: formatMessage({ message: MANIFEST_NOT_FOUND, params: { path: manifestPath } }) });
       },
       (error: unknown) => {
         cached = null;
-        if (error instanceof MalformedJsonError) return fallback({ message: `${error.message}; did the build finish?` });
+        if (error instanceof MalformedJsonError) return fallback({ message: error.message });
         throw error;
       },
     );

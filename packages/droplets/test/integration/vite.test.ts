@@ -406,7 +406,9 @@ describe("vite build", () => {
         build: { outDir: resolve(root, "dist-no-renderer") },
         plugins: [droplets({ adapter: fakeAdapter })],
       }),
-    ).rejects.toThrow(/[a-z-]+\/\+droplet\.fake\.js: no renderer for \.fake\.js; add a renderer that handles it to renderers/);
+    ).rejects.toThrow(
+      /file: [a-z-]+\/\+droplet\.fake\.js\n {2}what: no renderer for \.fake\.js\n {2}fix: add a renderer that handles it to renderers/,
+    );
   });
 });
 

@@ -3,6 +3,8 @@
  * whose default export is `(props) => string`. See `../index.ts`.
  */
 import type { ComponentModule, RenderProps, ServerRenderContext, ServerRenderOutput } from "../../renderer.ts";
+import { FAKE_COMPONENT_NOT_FUNCTION } from "../../errors/browser.ts";
+import { dropletsError } from "../../errors/format.ts";
 
 /**
  * A component: its props, `children()` for the marker, and `actionUrl` for
@@ -18,7 +20,7 @@ export const MARKER = '<div data-droplet-children style="display: contents"></di
 export function render(module: ComponentModule, props: RenderProps, context: ServerRenderContext): ServerRenderOutput {
   const component = module.default as FakeComponent | undefined;
   if (typeof component !== "function") {
-    throw new Error(`${context.droplet}: a .fake.js ${context.kind} must export a default function`);
+    throw dropletsError({ message: FAKE_COMPONENT_NOT_FUNCTION, params: { kind: context.kind }, droplet: context.droplet });
   }
   // `children` outputs the marker the element fills; nothing else.
   const html = component({ ...props, children: () => MARKER, actionUrl: context.actionUrl });

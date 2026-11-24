@@ -121,6 +121,8 @@ import { createBuilder } from "vite";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DropletsAdapter } from "../adapters.ts";
 import { packageDist } from "../core/paths.ts";
+import { CONFORMANCE_CLIENT_BUNDLE_MISSING } from "../errors/build.ts";
+import { dropletsError } from "../errors/format.ts";
 import type { DropletRenderer } from "../renderer.ts";
 import type { DropletsManifest } from "../server/manifest.ts";
 import { PRERENDER_DIR } from "../server/prerendered.ts";
@@ -484,7 +486,10 @@ export function rendererConformance({
         });
         // The answer the build stops on.
         expect(res.headers.get("x-droplets-prerender-error")).toBe("host");
-        expect(((await res.json()) as { message: string }).message).toContain("docs: host.searchParams is not known");
+        const { message } = (await res.json()) as { message: string };
+        expect(message).toContain("host-unknown-in-prerender");
+        expect(message).toContain("droplet: docs");
+        expect(message).toContain("host.searchParams is not known");
       });
 
       it("runs form actions and renders their result as form, for a native submit without DROPLETS_SECRET", async () => {
@@ -837,7 +842,7 @@ export function rendererConformance({
         entry.DjsDropletElement.importModule = async (url) => {
           const id = new URL(url).pathname.match(/\/droplets\/([^/]+)\/client\.js$/)?.[1];
           const file = manifest.droplets[id ?? ""]?.client;
-          if (!file) throw new Error(`no client bundle for ${url}`);
+          if (!file) throw dropletsError({ message: CONFORMANCE_CLIENT_BUNDLE_MISSING, params: { url } });
           imported.push(id ?? "");
           await bundles;
           return import(pathToFileURL(resolve(clientRoot, file)).href);

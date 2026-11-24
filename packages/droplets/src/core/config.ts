@@ -1,5 +1,25 @@
 import type { cors } from "hono/cors";
 import { isLocationPrefix } from "../runtime/web-url.ts";
+import {
+  CACHE_CONTROL_INVALID,
+  DEV_STRATEGY_INVALID,
+  ELEMENT_NAME_INVALID,
+  ERROR_FORMAT_INVALID,
+  FOLDER_OUTSIDE_PROJECT,
+  HEALTH_IMPORT_MAP_SAME_PATH,
+  HOST_INVALID,
+  LIMIT_INVALID,
+  LOCATION_INVALID,
+  PATH_RESERVED,
+  RENDER_NOT_OBJECT,
+  RENDER_TIMEOUT_NEGATIVE,
+  RENDER_TIMEOUT_NOT_NUMBER,
+  RENDER_TIMEOUT_NOT_WHOLE,
+  RENDER_TIMEOUT_TOO_LONG,
+  TRUSTED_ORIGIN_INVALID,
+  TRUSTED_ORIGINS_NOT_LIST,
+} from "../errors/config.ts";
+import { dropletsError, ERROR_FORMATS, type ErrorFormat } from "../errors/format.ts";
 
 /** Options accepted by Hono's `cors()` middleware. */
 export type DropletsCorsOptions = NonNullable<Parameters<typeof cors>[0]>;
@@ -140,6 +160,15 @@ export type DropletsConfig = {
      */
     timeout?: number;
   };
+  /**
+   * How every error and warning of the framework reads: in `vite build`,
+   * `vite dev`, the browser and the production server. `"agent"`: a block
+   * of labelled lines (`droplets error <code>`, then the droplet, the file,
+   * what happened, the fix and the link to its page). `"human"`: one line
+   * that ends with the link. Every message has a code and a page at
+   * `https://dropletsjs.dev/errors/<code>/` either way. Default: `"agent"`.
+   */
+  errorFormat?: ErrorFormat;
   dev?: {
     /** Dev server port. Vite's own `server.port` takes precedence. */
     server?: { port?: number };
@@ -214,6 +243,7 @@ export type ResolvedDropletsConfig = {
   limits: BodyLimits;
   /** `timeout`: `Infinity` sets no deadline. */
   render: { timeout: number };
+  errorFormat: ErrorFormat;
   server: { port: number };
 };
 
@@ -284,7 +314,7 @@ export function normalizeDropletsFolder({
     if (segment === "" || segment === ".") continue;
     if (segment === "..") {
       if (segments.pop() === undefined) {
-        throw new Error(`droplets: ${option} must be a folder inside the project, got ${JSON.stringify(folder)}`);
+        throw dropletsError({ message: FOLDER_OUTSIDE_PROJECT, params: { option, folder: JSON.stringify(folder) } });
       }
       continue;
     }
@@ -301,9 +331,7 @@ const RESERVED_PREFIXES = ["/droplets", "/assets", "/api"];
 function validateOwnPath({ option, path, example }: ValidateOwnPathInput): string {
   const reserved = RESERVED_EXACT.has(path) || RESERVED_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
   if (!path.startsWith("/") || /[?#\s]/.test(path) || reserved) {
-    throw new Error(
-      `droplets: ${option} must be a path such as "${example}", outside /, /index.js, /env.js, /index.css, /droplets/, /assets/ and /api/; got "${path}"`,
-    );
+    throw dropletsError({ message: PATH_RESERVED, params: { option, example, path } });
   }
   return path;
 }
@@ -338,13 +366,13 @@ function originOf({ value }: OriginOfInput): string | null {
 export function normalizeTrustedOrigins({ origins }: NormalizeTrustedOriginsInput): string[] {
   if (origins === undefined) return [];
   if (!Array.isArray(origins)) {
-    throw new Error(`droplets: trustedOrigins must be a list of origins such as ["https://shop.example"]`);
+    throw dropletsError({ message: TRUSTED_ORIGINS_NOT_LIST });
   }
   return origins.map((origin) => {
     if (origin === "*") return origin;
     const normalized = originOf({ value: origin });
     if (normalized === null) {
-      throw new Error(`droplets: trustedOrigins takes origins such as "https://shop.example" (no path), got ${JSON.stringify(origin)}`);
+      throw dropletsError({ message: TRUSTED_ORIGIN_INVALID, params: { origin: String(JSON.stringify(origin)) } });
     }
     return normalized;
   });
@@ -371,9 +399,7 @@ function normalizeLocation({ value }: NormalizeLocationInput): string | undefine
   if (value === undefined) return undefined;
   const location = locationOf({ value });
   if (location === null) {
-    throw new Error(
-      `droplets: location takes this server's public URL, an origin with an optional path prefix such as "https://droplets.example" or "https://shop.example/mfe", got ${JSON.stringify(value)}`,
-    );
+    throw dropletsError({ message: LOCATION_INVALID, params: { value: String(JSON.stringify(value)) } });
   }
   return location;
 }
@@ -383,9 +409,7 @@ function normalizeHost({ value }: NormalizeHostInput): string | undefined {
   if (value === undefined) return undefined;
   const origin = originOf({ value });
   if (origin === null) {
-    throw new Error(
-      `droplets: host takes the origin of the page the droplets render on, such as "https://shop.example" (no path), got ${JSON.stringify(value)}`,
-    );
+    throw dropletsError({ message: HOST_INVALID, params: { value: String(JSON.stringify(value)) } });
   }
   return origin;
 }
@@ -394,7 +418,7 @@ function resolveCacheControl({ option, value, fallback }: ResolveCacheControlInp
   if (value === undefined) return fallback;
   if (value === false) return false;
   if (typeof value !== "string" || !value.trim() || /[\r\n]/.test(value)) {
-    throw new Error(`droplets: ${option} must be a Cache-Control value such as "${fallback}", or false; got ${JSON.stringify(value)}`);
+    throw dropletsError({ message: CACHE_CONTROL_INVALID, params: { option, fallback, value: String(JSON.stringify(value)) } });
   }
   return value.trim();
 }
@@ -403,7 +427,7 @@ function resolveLimits({ limits }: ResolveLimitsInput): BodyLimits {
   const resolved: BodyLimits = { ...DEFAULTS.limits, ...limits };
   for (const [name, value] of Object.entries(resolved)) {
     if (typeof value !== "number" || !(value > 0)) {
-      throw new Error(`droplets: limits.${name} must be a positive number of bytes, got ${String(value)}`);
+      throw dropletsError({ message: LIMIT_INVALID, params: { name, value: String(value) } });
     }
   }
   return resolved;
@@ -415,26 +439,33 @@ function shownValue({ value }: ShownValueInput): string {
   return typeof value === "string" ? JSON.stringify(value) : String(value);
 }
 
-const TIMEOUT_RANGE = `use 0 (wait for no promise) up to ${TIMER_MAX_MS} ms, or Infinity (wait forever)`;
-
 function resolveRender({ value }: ResolveRenderInput): ResolvedDropletsConfig["render"] {
   if (value === undefined) return { ...DEFAULTS.render };
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error(`droplets: render must be an object such as { timeout: 10000 }, got ${shownValue({ value })}`);
+    throw dropletsError({ message: RENDER_NOT_OBJECT, params: { value: shownValue({ value }) } });
   }
   const timeout = "timeout" in value ? value.timeout : undefined;
   if (timeout === undefined) return { ...DEFAULTS.render };
   if (timeout === Number.POSITIVE_INFINITY) return { timeout };
   const got = shownValue({ value: timeout });
   if (typeof timeout !== "number" || Number.isNaN(timeout)) {
-    throw new Error(`droplets: render.timeout must be a number of milliseconds; ${TIMEOUT_RANGE}, got ${got}`);
+    throw dropletsError({ message: RENDER_TIMEOUT_NOT_NUMBER, params: { value: got } });
   }
-  if (timeout < 0) throw new Error(`droplets: render.timeout cannot be negative; ${TIMEOUT_RANGE}, got ${got}`);
+  if (timeout < 0) throw dropletsError({ message: RENDER_TIMEOUT_NEGATIVE, params: { value: got } });
   if (!Number.isInteger(timeout)) {
-    throw new Error(`droplets: render.timeout must be a whole number of milliseconds; ${TIMEOUT_RANGE}, got ${got}`);
+    throw dropletsError({ message: RENDER_TIMEOUT_NOT_WHOLE, params: { value: got } });
   }
-  if (timeout > TIMER_MAX_MS) throw new Error(`droplets: render.timeout is longer than a timer can wait; ${TIMEOUT_RANGE}, got ${got}`);
+  if (timeout > TIMER_MAX_MS) throw dropletsError({ message: RENDER_TIMEOUT_TOO_LONG, params: { value: got } });
   return { timeout };
+}
+
+type ResolveErrorFormatInput = { value: unknown };
+
+function resolveErrorFormat({ value }: ResolveErrorFormatInput): ErrorFormat {
+  if (value === undefined) return "agent";
+  const format = ERROR_FORMATS.find((f) => f === value);
+  if (format === undefined) throw dropletsError({ message: ERROR_FORMAT_INVALID, params: { value: shownValue({ value }) } });
+  return format;
 }
 
 export type ResolveConfigEnv = {
@@ -453,11 +484,12 @@ export function portOf({ value }: PortOfInput): number | undefined {
 
 /** Fills in defaults. Pure, so the same code runs at build time and at runtime. */
 export function resolveConfig(user: DropletsConfig, env: ResolveConfigEnv = {}): ResolvedDropletsConfig {
+  const errorFormat = resolveErrorFormat({ value: user.errorFormat });
   const dropletsFolder = normalizeDropletsFolder({ folder: user.dropletsFolder ?? DEFAULTS.dropletsFolder });
 
   const element = user.element ?? DEFAULTS.element;
   if (!isValidElementName(element)) {
-    throw new Error(`droplets: "${element}" is not a valid custom element name; use lowercase letters and a hyphen, e.g. "my-droplet"`);
+    throw dropletsError({ message: ELEMENT_NAME_INVALID, params: { element } });
   }
 
   const envPort = portOf({ value: env.port }) ?? 0;
@@ -473,9 +505,7 @@ export function resolveConfig(user: DropletsConfig, env: ResolveConfigEnv = {}):
           auto: user.importMap === undefined,
         };
   if (importMap && health && (health === importMap.path || health === `${importMap.path}.js`)) {
-    throw new Error(
-      `droplets: health (${health}) and importMap (${importMap.path}, ${importMap.path}.js) answer the same path; move one of them`,
-    );
+    throw dropletsError({ message: HEALTH_IMPORT_MAP_SAME_PATH, params: { health, importMap: importMap.path } });
   }
 
   const location = normalizeLocation({ value: user.location });
@@ -506,6 +536,7 @@ export function resolveConfig(user: DropletsConfig, env: ResolveConfigEnv = {}):
     csrf: { checkOrigin: user.csrf?.checkOrigin ?? true },
     limits: resolveLimits({ limits: user.limits }),
     render: resolveRender({ value: user.render }),
+    errorFormat,
     server: { port: envPort || user.server?.port || DEFAULTS.serverPort },
   };
 }
@@ -514,7 +545,10 @@ export function resolveConfig(user: DropletsConfig, env: ResolveConfigEnv = {}):
 export function resolveDevConfig({ user }: ResolveDevConfigInput): ResolvedDevConfig {
   const strategy = user.dev?.strategy ?? "hmr";
   if (!DEV_STRATEGIES.includes(strategy)) {
-    throw new Error(`droplets: dev.strategy is "${String(strategy)}"; use ${DEV_STRATEGIES.map((s) => `"${s}"`).join(", ")}`);
+    throw dropletsError({
+      message: DEV_STRATEGY_INVALID,
+      params: { value: String(strategy), strategies: DEV_STRATEGIES.map((s) => `"${s}"`).join(", ") },
+    });
   }
   return {
     server: { port: user.dev?.server?.port || DEFAULTS.devPort },

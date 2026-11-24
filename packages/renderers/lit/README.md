@@ -167,14 +167,14 @@ inside it) is checked in Chromium by `tests/examples/e2e/lit.spec.ts`.
 - Tag that is no valid custom element name throws, naming the droplet and `lit({ prefix })`. `src/tags.ts:32`, `src/tags.ts:35`
 - Tag of a second class for a name already held is the first free `<tag>--v<n>`, from `--v2`; a name is never defined twice. `src/tags.ts:85`, `src/tags.ts:87`
 - Tag a class already defined itself (`@customElement`) is kept, when the registry can name it. `src/tags.ts:70`
-- Component that is not a `LitElement` subclass throws `<droplet>: the <kind> component must default-export a LitElement class`. `src/tags.ts:46`, `src/tags.ts:48`
+- Component that is not a `LitElement` subclass throws `lit-component-not-element` (`the <kind> component must default-export a LitElement class`, for the droplet). `src/tags.ts:46`, `src/tags.ts:48`
 - Server render prints the host template with `render` of `@lit-labs/ssr`, collected to a string, with `deferHydration: true`. `src/render.ts:36`
 - Server registry is the `customElements` Lit's DOM shim puts on `globalThis`, read at render time. `src/render.ts:27`
 - Host template sets `data`, `form` and `actionUrl` (droplet) or `error` (error page) as properties, never attributes. `src/template.ts:23`, `src/template.ts:25`
 - Host template puts the children marker `<div data-droplet-children style="display: contents">` in the element's light DOM. `src/template.ts:25`
 - Client hydrate attaches inert `<template shadowrootmode>` roots itself (`attachShadowRoots`), innermost first; a browser without native declarative shadow DOM needs no polyfill for it. `src/client.ts:116`, `src/client.ts:47`
 - Client hydrate defines the class under the tag the server markup carries, hydrates with `@lit-labs/ssr-client`, then removes `defer-hydration`. `src/client.ts:123`, `src/client.ts:134`, `src/client.ts:135`
-- Client hydrate of a tag another class holds warns `[droplets] <droplet>: <tag> is defined by another class on this page` and mounts afresh. `src/client.ts:125`, `src/client.ts:132`
+- Client hydrate of a tag another class holds warns `lit-tag-taken` (`<<tag>> is defined by another class on this page (an edited module, or another droplets server with the same element name); rendering it afresh`, for the droplet) and mounts afresh. `src/client.ts:125`, `src/client.ts:132`
 - Client mount awaits `data`; when it rejects it renders the error page from `handle` (the droplet's `handleError`), nothing when `handle` rejects, and rethrows without an error page. `src/client.ts:79`, `src/client.ts:83`, `src/client.ts:85`, `src/client.ts:81`
 - Client mount renders inside `context.rendering` when core gives one, so `actionUrl()` of `$droplets/form` knows the droplet after the await. `src/client.ts:106`
 - Client markers skip those of a droplet nested in the children. `src/client.ts:64`

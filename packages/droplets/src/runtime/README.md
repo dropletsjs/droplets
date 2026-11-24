@@ -97,7 +97,7 @@ Then the route.
 - With `location`, every request's location is it and no location header is read. `app.ts:926`
 - With `location`, the request info's origin is `location` at build too. `app.ts:943`
 - `DROPLETS_TRUSTED_ORIGINS` adds to `trustedOrigins`, read per request. `app.ts:841`
-- `"*"` in `trustedOrigins` or `DROPLETS_TRUSTED_ORIGINS` is never refused; under `vite dev` it warns `"*" trusts any forwarded location`. `app.ts:847`, `security.ts:73`, `dev-log.ts:49`
+- `"*"` in `trustedOrigins` or `DROPLETS_TRUSTED_ORIGINS` is never refused; under `vite dev` it warns `any-location-trusted` (`<option>: "*" trusts any forwarded location`). `app.ts:847`, `security.ts:73`, `dev-log.ts:49`
 - A malformed `DROPLETS_TRUSTED_ORIGINS` entry is skipped; under `vite dev` it warns once per raw value. `security.ts:70`, `dev-log.ts:52`
 - `Vary` on fragments and `_data` lists `x-droplet-location`, `forwarded`, `x-forwarded-host`, `x-forwarded-proto`, `x-forwarded-port`, `x-forwarded-prefix` and `origin`; with `location`, `origin` alone; then `accept-encoding` (not on a redirect or a form action's JSON); each name once, case ignored, after what `cors()` appended (`perRequest` is the outermost middleware of both routes). `app.ts:442`, `app.ts:453`, `app.ts:947`
 - CORS exposes `Link` and `x-droplets-build`. `app.ts:287`
@@ -141,14 +141,14 @@ Then the route.
 - An internal request carries, each unless `init` sets it, the incoming `cookie` and `authorization` (not with `credentials: "omit"`) and `x-droplet-location`, `forwarded`, `x-forwarded-host`, `x-forwarded-proto`, `x-forwarded-port`, `x-forwarded-prefix` and `origin` (`CONTEXT_HEADERS`, the headers fragments vary on). `event-fetch.ts:16`, `event-fetch.ts:27`, `event-fetch.ts:73`
 - A `Request` input's method, headers and body (read as bytes) make the internal request; `init` overrides each. `event-fetch.ts:70`
 - A `Set-Cookie` an internal answer carries stays on that response; the outer response gets none of it. `app.ts:1102`
-- The depth of internal requests is kept per `Request` in a `WeakMap`; the request that would be the fifth throws `droplets: event.fetch("<url>") would be 5 internal requests deep (the limit is 4)`, cut to 200 characters of URL, answered as any other thrown error (500 through `handleError`). `event-fetch.ts:30`, `event-fetch.ts:97`
+- The depth of internal requests is kept per `Request` in a `WeakMap`; the request that would be the fifth throws `event-fetch-too-deep` (`event.fetch("<url>") would be 5 internal requests deep (the limit is 4): a request is fetching itself`), cut to 200 characters of URL, answered as any other thrown error (500 through `handleError`). `event-fetch.ts:30`, `event-fetch.ts:97`
 - While prerendering an internal request works the same, with no cookie to carry; an endpoint that reads cookies answers the build's 500 on that inner response without stopping the build. `event-fetch.test.ts`
 - A location header on an internal request is trusted only against `trustedOrigins`, as on any request; `__proto__` as a header name is a header and nothing else (`Headers`, never an object). `event-fetch.test.ts`
 
 ### Props
 
 - Fragment props come from the query minus the reserved keys, else from the base64 `x-droplet-props` header. `app.ts:387`
-- A malformed `x-droplet-props` (bad base64 or JSON, not an object, not plain JSON, nested past 64 levels) is ignored; under `vite dev` it warns `ignoring malformed x-droplet-props header`. `app.ts:406`, `app.ts:412`, `dev-log.ts:69`
+- A malformed `x-droplet-props` (bad base64 or JSON, not an object, not plain JSON, nested past 64 levels) is ignored; under `vite dev` it warns `props-header-malformed` (`ignoring malformed x-droplet-props header`). `app.ts:406`, `app.ts:412`, `dev-log.ts:69`
 - Props from a JSON body or `x-droplet-props`, and `form` from a JSON body, reach user code through `plainJson` (`plain-json.ts`): a copy with ordinary prototypes and no own `__proto__` key, refused past 64 levels or for anything `JSON.parse` could not produce. `plain-json.ts:13`, `app.ts:343`, `app.ts:412`
 - POST props for a render come from the JSON body (`props`, `context`); an action POST takes them from the query. `app.ts:799`
 - The JSON body is read only for POST whose parsed media type `isJsonType` takes (`application/json` or `+json`, the reading `limitFor` uses; `text/xml; a=application/json` is not one); malformed JSON gives no props. `app.ts:335`, `security.ts:135`
@@ -164,7 +164,7 @@ Then the route.
 - A path no route matches answers 404 through one `app.notFound`: `{ "message": "Not Found" }` under `_data` and `/api` (`wantsJson`), text elsewhere; a trailing slash (`/droplets/x/`) is such a path, and its body is never read (`RENDER_ROUTE`). `app.ts:361`, `app.ts:865`, `security.ts:92`
 - A droplet name in the URL is decoded; a malformed escape names no droplet. `app.ts:767`
 - The droplet registry is a `Map`, so `__proto__` names no droplet. `entry-server.ts:58`
-- `getEntries` takes events with `props`, `host` and `file` only; `file` is lowercase kebab-case (`isKebabName` of `web-url.ts`) and unique among the droplet's entries, `undefined` counting as absent; every error it throws starts with `droplets: <id>:`. It runs at build and, through `prerenderKeys`, on every `vite dev` request to a `prerender` droplet. `entry-server.ts:154`, `entry-server.ts:190`, `entry-server.ts:195`, `web-url.ts:59`, `../../test/runtime/entry-server.test.ts:140`
+- `getEntries` takes events with `props`, `host` and `file` only; `file` is lowercase kebab-case (`isKebabName` of `web-url.ts`) and unique among the droplet's entries, `undefined` counting as absent; every error it throws names the droplet (`droplet: <id>`). It runs at build and, through `prerenderKeys`, on every `vite dev` request to a `prerender` droplet. `entry-server.ts:154`, `entry-server.ts:190`, `entry-server.ts:195`, `web-url.ts:59`, `../../test/runtime/entry-server.test.ts:140`
 - A registry entry's `component` and `error` are thunks, like `load` and `serverLoad`: `renderDroplet` and `renderError` await them before anything else, so a component that fails to import is answered as an error of its own, never through the error page. `entry-server.ts:45`, `entry-server.ts:354`, `entry-server.ts:385`
 - A POST with a form body runs an action, `text/plain` answers 415, and a `?/name` key with a non-form body answers 400. `app.ts:1686`
 - A prerendered fragment is looked up by host key (origin and path), then, with `host`, by the origin-only key, then by props key. `app.ts:1240`, `app.ts:1243`, `app.ts:1244`
@@ -311,7 +311,7 @@ Then the route.
 - The element's module writes `credentials: "include"` into its server's record when the client build's `corsCredentials` is true, before any element runs. `entry-client.ts:16`
 - The runtime env falls back to `process.env` where `process` exists. `env-store.ts:26`
 - Request info uses `AsyncLocalStorage` through `process.getBuiltinModule`, never a Node import. `request-store.ts:39`
-- A production server logs errors only, with `console.error`: a plain message, then the error as it is. `app.ts:708`, `app.ts:716`, `app.ts:739`, `app.ts:1612`, `app.ts:1624`, `entry-server.ts:245`
+- A production server logs errors only, with `console.error`: the registry entry formatted in the configured `errorFormat` (`formatMessage`), then the error as it is. `app.ts:708`, `app.ts:716`, `app.ts:739`, `app.ts:1612`, `app.ts:1624`, `entry-server.ts:245`
 - Runtime warnings reach the logger only through `devLog` (`vite dev`, the build's prerender) or behind `import.meta.env.DEV` (`entry-server.ts`), so a production bundle holds neither. `app.ts:175`, `entry-server.ts:124`, `entry-server.ts:366`
 - `DEV_DROPLETS_LOG` sets the level of the dev and build log; a production server ignores it. `../core/logger.ts:41`
 

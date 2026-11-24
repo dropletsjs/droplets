@@ -43,6 +43,20 @@ import {
 } from "./server.ts";
 import type { DevLog } from "./dev-log.ts";
 import { DEFAULTS, type BodyLimits, type DropletsCorsOptions } from "../core/config.ts";
+import { dropletsError, type ErrorFormat, formatMessage, formatterOf, setErrorFormatter } from "../errors/format.ts";
+import {
+  ACTION_DATA_NOT_JSON,
+  ACTION_FAILED,
+  DROPLET_MIDDLEWARE_MISSING,
+  ENDPOINT_RESULT_NOT_RESPONSE,
+  FORM_PAGE_WITHOUT_ORIGIN,
+  HANDLE_RESULT_NOT_RESPONSE,
+  HOOK_HANDLE_ERROR_LOAD_FAILED,
+  HOOK_HANDLE_ERROR_THREW,
+  IMPORT_MAP_INVALID,
+  REDIRECT_OFF_SITE,
+  REQUEST_FAILED,
+} from "../errors/runtime.ts";
 import type { HydrateMode } from "../renderer.ts";
 
 export type RenderResult = {
@@ -187,6 +201,8 @@ export type DropletsAppOptions = {
   fileHeaders?: readonly FileHeaderRule[] | undefined;
   /** The warnings of `vite dev` and the build (`createDevLog`); a production server has none and warns about nothing. */
   devLog?: DevLog | undefined;
+  /** How this app's messages read, those of the modules it runs included; see `DropletsConfig.errorFormat`. Default: `"agent"`. */
+  errorFormat?: ErrorFormat | undefined;
   /**
    * Origins allowed to send form submissions besides this server's, also
    * bounding `event.host` and trusted when a location header names them
@@ -296,7 +312,7 @@ type DropletContextInput = { c: AppContext };
 /** Reads what the droplet middleware resolved; only valid behind it. */
 function dropletContext({ c }: DropletContextInput): DropletContext {
   const ctx = c.get("droplet");
-  if (!ctx) throw new Error("Route is missing the droplet middleware.");
+  if (!ctx) throw dropletsError({ message: DROPLET_MIDDLEWARE_MISSING });
   return ctx;
 }
 
@@ -532,7 +548,9 @@ function publicOrigin({ c }: PublicOriginInput): string {
 }
 
 /** Thrown when an action returns data that cannot travel as plain JSON; answered as a 500. */
-class ActionDataError extends Error {}
+class ActionDataError extends Error {
+  readonly code = ACTION_DATA_NOT_JSON.code;
+}
 
 export function isActionDataError(error: unknown): error is Error {
   return error instanceof ActionDataError;
@@ -571,7 +589,7 @@ function actionOutcome({ droplet, name, result, host }: ActionOutcomeInput): Act
   const data: unknown = failed ? result.data : result;
   if (data !== undefined && !isPlainJson({ value: data })) {
     throw new ActionDataError(
-      `${droplet}: action ${name} ${failed ? "failed with" : "returned"} data that is not plain JSON (object literals, arrays, strings, finite numbers, booleans, null)`,
+      formatMessage({ message: ACTION_DATA_NOT_JSON, params: { action: name, verb: failed ? "failed with" : "returned" }, droplet }),
     );
   }
   const shown = data === undefined ? {} : { data };
@@ -694,9 +712,7 @@ type OffSiteRedirectInput = { c: Context; as: "text" | "json"; label: string; wh
  * without a `location`.
  */
 function offSiteRedirect({ c, as, label, what, location, path }: OffSiteRedirectInput): Response {
-  console.error(
-    `${label} redirects to ${JSON.stringify(String(location).slice(0, 200))}, which is not on this server or a trusted origin; answered 400${path === undefined ? "" : `: ${path}`}`,
-  );
+  console.error(formatMessage({ message: REDIRECT_OFF_SITE, params: { label, target: String(location), path: path ?? "" } }));
   const message = `Bad Request: ${what} redirects off this site`;
   return as === "json" ? c.json({ message }, 400) : c.text(message, 400);
 }
@@ -782,7 +798,8 @@ type HostInPrerenderInput = { c: Context; error: unknown };
 function hostInPrerender({ c, error }: HostInPrerenderInput): Response {
   const message = error instanceof Error ? error.message : String(error);
   const kind = isCookiesInPrerenderError(error) ? "cookies" : "host";
-  return c.json({ message }, 500, { [PRERENDER_ERROR_HEADER]: kind });
+  const code = (error as { code?: unknown } | null)?.code;
+  return c.json({ message, ...(typeof code === "string" ? { code } : {}) }, 500, { [PRERENDER_ERROR_HEADER]: kind });
 }
 
 const INTERNAL_ERROR = "Internal Server Error";
@@ -799,7 +816,7 @@ async function unexpectedMessage({ c, options, error }: UnexpectedMessageInput):
   try {
     handleError = options.getHandleError ? await options.getHandleError() : undefined;
   } catch (hookError) {
-    console.error("loading handleError from hooks.server.ts failed", hookError);
+    console.error(formatMessage({ message: HOOK_HANDLE_ERROR_LOAD_FAILED, file: "src/hooks.server.ts" }), hookError);
   }
   if (!handleError) return INTERNAL_ERROR;
   const event = (c.get("event") as RequestEvent | undefined) ?? createRequestEvent({ c });
@@ -807,7 +824,7 @@ async function unexpectedMessage({ c, options, error }: UnexpectedMessageInput):
     const result: unknown = await handleError({ error, event, status: 500, message: INTERNAL_ERROR });
     return isObject(result) && typeof result["message"] === "string" ? result["message"] : INTERNAL_ERROR;
   } catch (hookError) {
-    console.error("handleError in hooks.server.ts failed", hookError);
+    console.error(formatMessage({ message: HOOK_HANDLE_ERROR_THREW, file: "src/hooks.server.ts" }), hookError);
     return INTERNAL_ERROR;
   }
 }
@@ -846,7 +863,10 @@ async function failure({ c, options, error, as, where, base }: FailureInput): Pr
   }
   // A droplet that could not show its error: what went wrong is the cause.
   const cause = isUnhandled(error) ? error.cause : error;
-  console.error(`${where} failed: ${c.req.path}${isUnhandled(error) ? ` (${error.message})` : ""}`, cause);
+  console.error(
+    formatMessage({ message: REQUEST_FAILED, params: { where, path: c.req.path, reason: isUnhandled(error) ? error.reason : "" } }),
+    cause,
+  );
   const message = await unexpectedMessage({ c, options, error: cause });
   if (as === "text") return c.text(message, 500);
   return c.json({ message }, 500);
@@ -942,6 +962,7 @@ function createDropletMiddleware(options: DropletsAppOptions): MiddlewareHandler
 
 /** The core Hono app over render and asset callbacks: `createServerApp`, `createNodeServerApp` and `createDevApp` build one for production, Node and `vite dev`. */
 export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
+  setErrorFormatter(formatterOf({ format: options.errorFormat ?? "agent" }));
   const app = new Hono<AppEnv>();
   // What no handler caught leaves the same way as everything else: through `handleError`.
   app.onError((error, c) => failure({ c, options, error, as: wantsJson({ path: c.req.path }) ? "json" : "text", where: "request" }));
@@ -1208,7 +1229,13 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
       return failure({ c, options, error, as: wantsJson({ path: c.req.path }) ? "json" : "text", where: "handle", base: event.host });
     }
     if (!isResponse(response)) {
-      return failure({ c, options, error: new Error("handle must return a Response"), as: "text", where: "handle" });
+      return failure({
+        c,
+        options,
+        error: dropletsError({ message: HANDLE_RESULT_NOT_RESPONSE, file: "src/hooks.server.ts" }),
+        as: "text",
+        where: "handle",
+      });
     }
     // Answered without resolving: that response is final.
     if (!resolved) return response;
@@ -1248,7 +1275,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
       if (!handler) return null;
       const { request, url } = c.get("event");
       const map: unknown = await handler({ request, url, externals: [...externals] });
-      if (!isObject(map)) throw new Error("importmap must return an import map, e.g. { imports: { ... } }");
+      if (!isObject(map)) throw dropletsError({ message: IMPORT_MAP_INVALID, file: "src/importmap.server.ts" });
       return map as ImportMap;
     }
 
@@ -1827,7 +1854,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
       outcome = actionOutcome({ droplet: ctx.droplet, name, result, host: ctx.event.host });
     } catch (error) {
       if (error instanceof ActionDataError) {
-        console.error(`form action failed: ${c.req.path}`, error);
+        console.error(formatMessage({ message: ACTION_FAILED, params: { path: c.req.path }, droplet: ctx.droplet }), error);
         const message = await unexpectedMessage({ c, options, error });
         return wantsJson ? c.json({ message }, 500) : c.text(message, 500);
       }
@@ -1860,7 +1887,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
       return fragment({ c, action: { form: outcome.data, status: outcome.status } });
     }
     const page = pageOf({ url: back });
-    if (page === undefined) throw new Error("droplets: the page a form goes back to has no origin");
+    if (page === undefined) throw dropletsError({ message: FORM_PAGE_WITHOUT_ORIGIN });
     const minted = await mintFormResult({
       secret,
       scope: { droplet: ctx.droplet, build, page },
@@ -1935,7 +1962,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     try {
       const response: unknown = await handler(event);
       if (!isResponse(response)) {
-        throw new Error(`${match.route.id} ${upper} must return a Response`);
+        throw dropletsError({ message: ENDPOINT_RESULT_NOT_RESPONSE, params: { route: match.route.id, method: upper } });
       }
       return isHead ? new Response(null, response) : response;
     } catch (error) {

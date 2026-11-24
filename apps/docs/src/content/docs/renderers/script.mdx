@@ -45,7 +45,11 @@ npx djs add counter --framework script --with server,css --yes
   under `vite dev`:
 
   ```
-  [droplets:framework] counter/+error.script.ts is ignored: a script droplet has no error page
+  droplets warning script-error-page-ignored
+    file: counter/+error.script.ts
+    what: this error page is ignored: a script droplet has no error page
+    fix: remove the file: a script droplet renders nothing, on either side
+    docs: https://dropletsjs.dev/errors/script-error-page-ignored.md
   ```
 
 ## The files
@@ -103,14 +107,24 @@ build: in `vite build` and `vite dev` each one warns once per file and is
 ignored. `hydrate = true` is what it already is:
 
 ```
-[droplets:framework] counter/+droplet.script.ts exports hydrate = true; a script droplet is always hydrated (locked to true)
+droplets warning script-hydrate-locked
+  droplet: counter
+  file: +droplet.script.ts
+  what: exports hydrate = true; a script droplet is always hydrated (locked to true)
+  fix: remove the export
+  docs: https://dropletsjs.dev/errors/script-hydrate-locked.md
 ```
 
 Any other flag (`ssr` with any value, `prerender` with any value, `hydrate`
 with `false`, `"visible"` or `"interactive"`):
 
 ```
-[droplets:framework] counter/+droplet.script.ts exports hydrate = false; this is ignored, a script droplet is client only
+droplets warning script-flag-ignored
+  droplet: counter
+  file: +droplet.script.ts
+  what: exports hydrate = false; this is ignored, a script droplet is client only
+  fix: remove the export
+  docs: https://dropletsjs.dev/errors/script-flag-ignored.md
 ```
 
 Other named exports are the script's own business and say nothing.
@@ -120,7 +134,11 @@ script droplet only runs in the browser, so there is nothing to keep. Under
 `vite dev` the browser console says so:
 
 ```
-[droplets] data-droplet-hydrate="false" on the script droplet "counter" is ignored: a script droplet only runs in the browser
+droplets warning hydrate-false-on-script-droplet
+  droplet: counter
+  what: data-droplet-hydrate="false" is ignored: a script droplet only runs in the browser
+  fix: remove data-droplet-hydrate from the element, or write the droplet as a component to render it without JavaScript
+  docs: https://dropletsjs.dev/errors/hydrate-false-on-script-droplet.md
 ```
 
 `data-droplet-hydrate="visible"` still defers it until the element nears the
@@ -145,7 +163,8 @@ markup to interact with.
 
 - **In the browser it always runs:** the element imports its bundle and
   calls the default export once per element, each with its own `el`. A
-  script that throws is logged (`[droplets] <id> failed`), whatever it added
+  script that throws is logged
+  ([`droplet-failed-in-browser`](/errors/droplet-failed-in-browser/)), whatever it added
   to `el` goes, and the other droplets on the page are not affected. A file
   whose default export is no function fails the same way, with
   `<id>: +droplet.script.ts must export a default function (data, el)`.

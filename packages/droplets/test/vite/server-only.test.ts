@@ -8,11 +8,12 @@ describe("serverOnlyError", () => {
       root: "/proj",
       chain: ["\0virtual:droplet-client?name=card", "/proj/src/droplets/card/+droplet.ts?v=1", "/proj/src/lib/db.server.ts"],
     });
-    expect(error.message).toBe(
-      "droplets: src/lib/db.server.ts is server code and cannot reach the browser: " +
-        "virtual:droplet-client?name=card -> src/droplets/card/+droplet.ts -> src/lib/db.server.ts. " +
-        "Files named *.server.* or under a server/ folder run on the server only: " +
-        "read them from +droplet.server.ts and pass what the browser needs as data.",
+    expect(error.code).toBe("server-code-in-client");
+    expect(error.message).toContain(
+      "  what: src/lib/db.server.ts is server code and cannot reach the browser: " +
+        "virtual:droplet-client?name=card -> src/droplets/card/+droplet.ts -> src/lib/db.server.ts\n" +
+        "  fix: files named *.server.* or under a server/ folder run on the server only: " +
+        "read them from +droplet.server.ts and pass what the browser needs as data\n",
     );
     expect(error.message).not.toContain("\0");
   });
@@ -72,7 +73,7 @@ describe("serverOnlyPlugin: the package's server entry", () => {
     for (const command of ["build", "serve"] as const) {
       (plugin.configResolved as (config: unknown) => void)({ command, environments: {} });
       await expect(handler.call(withConsumer("client"), bare, "/proj/src/droplets/x/+droplet.svelte"), command).rejects.toThrow(
-        /@dropletsjs\/droplets\/server can only be imported by server files.*\+droplet\.svelte/,
+        /file: .*\+droplet\.svelte\n {2}what: @dropletsjs\/droplets\/server can only be imported by server files/,
       );
       await expect(handler.call(withConsumer("server"), bare, "/proj/src/droplets/x/+droplet.ts"), command).rejects.toThrow(/server files/);
       await expect(handler.call(withConsumer("server"), bare, "/proj/src/droplets/x/+droplet.server.ts"), command).resolves.toBeNull();

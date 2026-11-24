@@ -154,7 +154,7 @@ templates import `dist/runtime.js` by path.
 - `{{action}}` outside a renderer's render (no `actionUrl` in the data frame) throws. `src/runtime.ts:41`
 - `registerHelpers` registers each exported function, plus the entries of a `default` object; named exports win. `src/runtime.ts:73`
 - `registerHelpers` never registers `children` or `action` from a project. `src/runtime.ts:46`, `src/runtime.ts:75`
-- Template missing from a module throws `<droplet>: +<kind>.hbs did not compile to a template function`. `src/runtime.ts:54`
+- Template missing from a module throws `handlebars-template-not-compiled` (`+<kind>.hbs did not compile to a template function`, for the droplet). `src/runtime.ts:54`
 - Server render calls the template with the props as context and `droplet`, `kind`, `renderId`, `actionUrl` as data variables. `src/server.ts:14`, `src/server.ts:15`
 - Client hydrate keeps the server HTML and fills `context.markers()`, or the template's own markers when there are none. `src/client.ts:80`, `src/client.ts:81`
 - Client mount awaits `data`, then writes the template into `innerHTML` and fills the markers. `src/client.ts:66`, `src/client.ts:69`

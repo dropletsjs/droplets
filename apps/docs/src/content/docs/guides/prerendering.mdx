@@ -77,8 +77,17 @@ export const entries = (() =>
   with or without `location` and `host`:
 
   ```
-  droplets: testimonials: an entry's file is a lowercase kebab-case name such as "page-2" (letters, digits, single hyphens), got "Page 2"
-  droplets: testimonials: two entries name the file "page-2"; give each entry its own file
+  droplets error entry-file-invalid
+    droplet: testimonials
+    what: an entry's file is a lowercase kebab-case name, got "Page 2"
+    fix: name the file like "page-2": lowercase letters, digits and single hyphens
+    docs: https://dropletsjs.dev/errors/entry-file-invalid.md
+
+  droplets error entry-file-duplicate
+    droplet: testimonials
+    what: two entries name the file "page-2"
+    fix: give each entry its own file
+    docs: https://dropletsjs.dev/errors/entry-file-duplicate.md
   ```
 - **Only what rendered.** A render that fails at build (its `+error` page),
   `error()` and `redirect()` write no file, and the build warns.

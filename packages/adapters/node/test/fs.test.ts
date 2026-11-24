@@ -32,7 +32,8 @@ describe("fs", () => {
     );
     expect(failure).toBeInstanceOf(MalformedJsonError);
     expect(failure).toMatchObject({ name: "MalformedJsonError", path: join(root, "bad.json") });
-    expect((failure as Error).message.startsWith(`${join(root, "bad.json")} is not valid JSON: `)).toBe(true);
+    expect((failure as Error).message).toContain(`what: ${join(root, "bad.json")} is not valid JSON: `);
+    expect((failure as MalformedJsonError).code).toBe("manifest-malformed");
     expect((failure as Error).cause).toBeInstanceOf(SyntaxError);
   });
 });

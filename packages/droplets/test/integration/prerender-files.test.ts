@@ -108,10 +108,10 @@ async function serverAnswer({ root, renders, config, props }: ServerAnswerInput)
 }
 
 const roots: string[] = [];
-let warn: MockInstance<typeof logger.warn>;
+let report: MockInstance<typeof logger.report>;
 
 beforeEach(() => {
-  warn = vi.spyOn(logger, "warn");
+  report = vi.spyOn(logger, "report");
 });
 afterEach(() => {
   vi.restoreAllMocks();
@@ -120,8 +120,8 @@ afterAll(async () => {
   await Promise.all(roots.map((root) => rm(root, { recursive: true, force: true })));
 });
 
-/** The warnings the build gave, as text. */
-const warnings = () => warn.mock.calls.map((call) => String(call[1]));
+/** The warnings the build gave: code, droplet and parameters. */
+const warnings = () => report.mock.calls.map(([{ message, droplet, params }]) => ({ code: message.code, droplet, params }));
 
 describe("prerender files, with location and host fixed", () => {
   it("writes an entry's file as the server's answer for its props, with no token, and nothing for an entry without one", async () => {
@@ -199,8 +199,16 @@ describe("prerender files, with location and host fixed", () => {
     await build({ root });
     expect(await prerenderFiles({ root })).toEqual(["page/fine.html"]);
     expect(warnings()).toEqual([
-      'prerendering page with {"page":404} answered 404; not stored, it renders live, and assets/prerendered/page/gone.html is not written',
-      'prerendering page with {"page":500} failed and stored its +error page; assets/prerendered/page/broken.html is not written',
+      {
+        code: "prerender-render-not-stored",
+        droplet: "page",
+        params: { props: '{"page":404}', status: 404, path: "assets/prerendered/page/gone.html" },
+      },
+      {
+        code: "prerender-file-error-page",
+        droplet: "page",
+        params: { props: '{"page":500}', path: "assets/prerendered/page/broken.html" },
+      },
     ]);
   }, 90_000);
 
@@ -217,7 +225,7 @@ describe("prerender files, with location and host fixed", () => {
     await build({ root });
     expect(await prerenderFiles({ root })).toEqual(["page/one.html"]);
     expect(warnings()).toEqual([
-      "page: the load set x-page with setHeaders; assets/prerendered/page/one.html is served with fragmentCacheControl and _headers only, without them",
+      { code: "prerender-file-headers-dropped", droplet: "page", params: { headers: "x-page", path: "assets/prerendered/page/one.html" } },
     ]);
   }, 90_000);
 
@@ -250,11 +258,11 @@ describe("prerender files, with location and host fixed", () => {
 
 describe("prerender files, without location and host both set", () => {
   for (const [config, missing] of [
-    ['export default { location: "https://cdn.test/mfe" };\n', "host is not set"],
-    ['export default { host: "https://shop.test" };\n', "location is not set"],
-    [undefined, "location and host are not set"],
+    ['export default { location: "https://cdn.test/mfe" };\n', "host is"],
+    ['export default { host: "https://shop.test" };\n', "location is"],
+    [undefined, "location and host are"],
   ] as const) {
-    it(`writes none and warns once: ${missing}`, async () => {
+    it(`writes none and warns once: ${missing} not set`, async () => {
       const root = await project({
         server: `${LOAD}export const entries = () => [1, 2, 3, 4, 5, 6].map((page) => ({ props: { page }, file: \`page-\${page}\` }));\n`,
         ...(config ? { config } : {}),
@@ -262,16 +270,18 @@ describe("prerender files, without location and host both set", () => {
       await build({ root });
       expect(await prerenderFiles({ root })).toEqual([]);
       expect(warnings()).toEqual([
-        `prerender entries name files (page/page-1, page/page-2, page/page-3, page/page-4, page/page-5, …), but files are written only with both location and host set in droplets.config.ts (${missing}); no file is written, and these renders are served by the server as before`,
+        {
+          code: "prerender-files-need-location-and-host",
+          droplet: undefined,
+          params: { listed: "page/page-1, page/page-2, page/page-3, page/page-4, page/page-5, …", missing },
+        },
       ]);
     }, 90_000);
   }
 
   it("still fails the build for a bad file, naming the droplet", async () => {
     const root = await project({ server: `${LOAD}export const entries = () => [{ props: { page: 2 }, file: "Page 2" }];\n` });
-    await expect(build({ root })).rejects.toThrow(
-      `droplets: page: an entry's file is a lowercase kebab-case name such as "page-2" (letters, digits, single hyphens), got "Page 2"`,
-    );
+    await expect(build({ root })).rejects.toThrow(/droplet: page\n[\s\S]*an entry's file is a lowercase kebab-case name, got "Page 2"/);
   }, 90_000);
 
   it("still fails it for a file two entries name", async () => {
@@ -279,6 +289,6 @@ describe("prerender files, without location and host both set", () => {
       server: `${LOAD}export const entries = () => [{ props: { page: 1 }, file: "page" }, { props: { page: 2 }, file: "page" }];\n`,
       config: FIXED,
     });
-    await expect(build({ root })).rejects.toThrow(`droplets: page: two entries name the file "page"; give each entry its own file`);
+    await expect(build({ root })).rejects.toThrow(/droplet: page\n[\s\S]*two entries name the file "page"/);
   }, 90_000);
 });

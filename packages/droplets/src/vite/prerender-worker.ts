@@ -14,6 +14,8 @@ import { createDropletsApp, type DropletsApp } from "../runtime/app.ts";
 import { createDevLog } from "../runtime/dev-log.ts";
 import { setRuntimeEnv } from "../runtime/env-store.ts";
 import type { SsrModule } from "../server/app.ts";
+import { PRERENDER_FILE_RENDER_MISSING, SSR_BUNDLE_CANNOT_PRERENDER } from "../errors/build.ts";
+import { dropletsError, type ErrorFormat } from "../errors/format.ts";
 import { createPrerenderedLoader } from "../server/prerendered.ts";
 
 /** Read by `building` in `$droplets/env` when the SSR bundle loads. */
@@ -33,20 +35,23 @@ export type PrerenderWorkerData = {
   styles: Record<string, string[]>;
   /** `fragmentCacheControl` of the config, as the server answers with it. */
   fragmentCacheControl: string | false;
+  errorFormat: ErrorFormat;
 };
 
-const { ssrEntry, element, buildHash, location, host, env, renders, styles, fragmentCacheControl } = workerData as PrerenderWorkerData;
+const { ssrEntry, element, buildHash, location, host, env, renders, styles, fragmentCacheControl, errorFormat } =
+  workerData as PrerenderWorkerData;
 
 (globalThis as { [BUILDING]?: boolean })[BUILDING] = true;
 setRuntimeEnv(env);
 const ssr = (await import(pathToFileURL(ssrEntry).href)) as SsrModule;
 const renderDroplet = ssr.renderDroplet ?? ssr.default;
 if (!renderDroplet || !ssr.getEntries) {
-  throw new Error("droplets: the SSR bundle cannot prerender (no renderDroplet or getEntries)");
+  throw dropletsError({ message: SSR_BUNDLE_CANNOT_PRERENDER });
 }
 const entries = ssr.getEntries;
 const app = createDropletsApp({
   devLog: createDevLog(),
+  errorFormat,
   element,
   health: false,
   renderDroplet,
@@ -75,9 +80,10 @@ let serving: DropletsApp | undefined;
 function servingApp(): DropletsApp {
   serving ??= createDropletsApp({
     devLog: createDevLog(),
+    errorFormat,
     element,
     health: false,
-    renderDroplet: (name) => Promise.reject(new Error(`droplets: ${name} has no stored render to write as a file`)),
+    renderDroplet: (name) => Promise.reject(dropletsError({ message: PRERENDER_FILE_RENDER_MISSING, droplet: name })),
     ...(ssr.getDropletMeta ? { getDropletMeta: ssr.getDropletMeta } : {}),
     ...(ssr.getHandle ? { getHandle: ssr.getHandle } : {}),
     ...(ssr.getHandleError ? { getHandleError: ssr.getHandleError } : {}),

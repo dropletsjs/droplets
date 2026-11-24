@@ -6,6 +6,8 @@
 import { resolve } from "node:path";
 import { resolveConfig } from "vite";
 import type { DropletsPluginApi } from "../vite/plugin.ts";
+import { ADD_NO_DROPLETS_PLUGIN } from "../errors/cli.ts";
+import { dropletsError } from "../errors/format.ts";
 
 export type ProjectOptions = { root?: string; config?: string; mode?: string };
 
@@ -19,6 +21,6 @@ export async function loadProject({ root: rootOption, config: configOption, mode
     mode,
   );
   const plugin = config.plugins.find((p) => p.name === "droplets") as { api?: DropletsPluginApi } | undefined;
-  if (!plugin?.api) throw new Error("no droplets() plugin in the Vite config");
+  if (!plugin?.api) throw dropletsError({ message: ADD_NO_DROPLETS_PLUGIN });
   return { root, configFile: config.configFile, api: plugin.api };
 }

@@ -70,7 +70,7 @@ describe("host while prerendering", () => {
     const root = await project({ server: 'export const load = ({ host }) => ({ q: host.searchParams.get("q") });\n' });
     roots.push(root);
     await expect(build({ root: root })).rejects.toThrow(
-      "droplets: page: host.searchParams is not known while prerendering entry {}; only host.origin, host.pathname and host.href are.",
+      /droplet: page\n[\s\S]*host\.searchParams is not known while prerendering entry \{\}; only host\.origin, host\.pathname and host\.href are/,
     );
   }, 90_000);
 
@@ -79,7 +79,13 @@ describe("host while prerendering", () => {
       server: "export const load = ({ host }) => {\n  try {\n    return { port: host.port };\n  } catch {\n    return {};\n  }\n};\n",
     });
     roots.push(root);
-    await expect(build({ root: root })).rejects.toThrow("host.port is not known while prerendering");
+    const failure = await build({ root: root }).then(
+      () => undefined,
+      (error: unknown) => error as { message: string; code?: string; pluginCode?: string },
+    );
+    expect(failure?.message).toContain("host.port is not known while prerendering");
+    // The code survives the runtime's answer to the build: rolldown moves a plugin's `code` to `pluginCode`.
+    expect(failure?.pluginCode ?? failure?.code).toBe("host-unknown-in-prerender");
   }, 90_000);
 
   it("renders for the entry's host, else host of the config, keyed by that host", async () => {
@@ -175,6 +181,6 @@ describe("host while prerendering", () => {
   it("refuses entries that are bare props", async () => {
     const root = await project({ server: `${LOAD}export const entries = () => [{ page: 1 }];\n` });
     roots.push(root);
-    await expect(build({ root: root })).rejects.toThrow("droplets: page: entries() returns events, { props?, host?, file? }");
+    await expect(build({ root: root })).rejects.toThrow(/droplet: page\n[\s\S]*entries\(\) returns events, \{ props\?, host\?, file\? \}/);
   }, 90_000);
 });

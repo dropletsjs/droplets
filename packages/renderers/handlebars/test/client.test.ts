@@ -87,7 +87,7 @@ describe("mount", () => {
 
   it("throws a clear error for a module without a template", async () => {
     await expect(mount({}, document.createElement("div"), { data: {} }, contextOf())).rejects.toThrow(
-      "hello: +droplet.hbs did not compile to a template function",
+      "droplet: hello\n  what: +droplet.hbs did not compile to a template function",
     );
   });
 });

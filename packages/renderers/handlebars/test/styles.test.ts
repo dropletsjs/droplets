@@ -24,7 +24,7 @@ describe("extractStyles()", () => {
 
   it("refuses a block that is not static", () => {
     expect(() => extractStyles({ source: "{{#if x}}<style>.a{}</style>{{/if}}", where: "t.hbs" })).toThrow(
-      /t\.hbs:1: a <style> block goes at the top/,
+      /file: t\.hbs:1\n {2}what: a <style> block goes at the top/,
     );
     expect(() => extractStyles({ source: "<style>.a { color: {{c}} }</style>", where: "t.hbs" })).toThrow(/cannot contain \{\{…\}\}/);
     expect(() => extractStyles({ source: '<style src="./a.css">.b{}</style>', where: "t.hbs" })).toThrow(/leave the block empty/);

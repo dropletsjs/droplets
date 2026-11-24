@@ -133,6 +133,11 @@ describe("the flags of a script droplet", () => {
     setLogLevel("warn");
     return vi.spyOn(console, "warn").mockImplementation(() => {});
   };
+  /** A warning as the agent format writes it, up to its fix. */
+  const warning = (code: string, droplet: string, what: string) =>
+    expect.stringContaining(
+      [`droplets warning ${code}`, `  droplet: ${droplet}`, "  file: +droplet.script.ts", `  what: ${what}`].join("\n"),
+    );
 
   it("are locked: ssr false, hydrate true, prerender false, with nothing exported", () => {
     const warn = warnings();
@@ -144,7 +149,7 @@ describe("the flags of a script droplet", () => {
     const warn = warnings();
     expect(read(`export const hydrate = true;\n${RUN}`)).toEqual(CLIENT_ONLY);
     expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
-      `[droplets:framework] tracker${file}/+droplet.script.ts exports hydrate = true; a script droplet is always hydrated (locked to true)`,
+      warning("script-hydrate-locked", `tracker${file}`, "exports hydrate = true; a script droplet is always hydrated (locked to true)"),
     ]);
   });
 
@@ -165,7 +170,7 @@ describe("the flags of a script droplet", () => {
     const warn = warnings();
     expect(read(`${line}\n${RUN}`)).toEqual(CLIENT_ONLY);
     expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
-      `[droplets:framework] tracker${file}/+droplet.script.ts exports ${shown}; this is ignored, a script droplet is client only`,
+      warning("script-flag-ignored", `tracker${file}`, `exports ${shown}; this is ignored, a script droplet is client only`),
     ]);
   });
 
@@ -175,10 +180,10 @@ describe("the flags of a script droplet", () => {
     const once = (droplet: string) => readScriptFlags({ source, file: "+droplet.script.ts", droplet });
     for (const droplet of ["twice", "twice", "again"]) expect(once(droplet)).toEqual(CLIENT_ONLY);
     expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
-      "[droplets:framework] twice/+droplet.script.ts exports ssr = true; this is ignored, a script droplet is client only",
-      "[droplets:framework] twice/+droplet.script.ts exports hydrate = false; this is ignored, a script droplet is client only",
-      "[droplets:framework] again/+droplet.script.ts exports ssr = true; this is ignored, a script droplet is client only",
-      "[droplets:framework] again/+droplet.script.ts exports hydrate = false; this is ignored, a script droplet is client only",
+      warning("script-flag-ignored", "twice", "exports ssr = true; this is ignored, a script droplet is client only"),
+      warning("script-flag-ignored", "twice", "exports hydrate = false; this is ignored, a script droplet is client only"),
+      warning("script-flag-ignored", "again", "exports ssr = true; this is ignored, a script droplet is client only"),
+      warning("script-flag-ignored", "again", "exports hydrate = false; this is ignored, a script droplet is client only"),
     ]);
   });
 

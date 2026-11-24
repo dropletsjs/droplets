@@ -9,6 +9,9 @@ import { pathToFileURL } from "node:url";
 import { workerData } from "node:worker_threads";
 import { answer, type PlainRequest, plainResponse } from "../core/app-thread.ts";
 import { resolveConfig } from "../core/config.ts";
+import { CONFORMANCE_MANIFEST_MISSING } from "../errors/build.ts";
+import { SSR_BUNDLE_WITHOUT_RENDER } from "../errors/runtime.ts";
+import { dropletsError } from "../errors/format.ts";
 import { createDropletsApp } from "../runtime/app.ts";
 import { createServerApp, type SsrModule } from "../server/app.ts";
 import type { DropletsManifest } from "../server/manifest.ts";
@@ -20,7 +23,7 @@ const { outDir, element } = workerData as ServerWorkerData;
 const read = readFrom({ dir: resolve(outDir, "client") });
 const readRendered = readFrom({ dir: resolve(outDir, "server", PRERENDER_DIR) });
 const manifest = JSON.parse((await read("droplets.json")) ?? "null") as DropletsManifest | null;
-if (!manifest) throw new Error("dist/client/droplets.json: the build wrote no manifest");
+if (!manifest) throw dropletsError({ message: CONFORMANCE_MANIFEST_MISSING });
 const ssr = (await import(pathToFileURL(resolve(outDir, "server/entry-server.js")).href)) as SsrModule;
 const server = createServerApp({
   ssr,
@@ -45,7 +48,7 @@ const server = createServerApp({
   },
 });
 const renderDroplet = ssr.renderDroplet ?? ssr.default;
-if (!renderDroplet) throw new Error("the SSR bundle exports no renderDroplet");
+if (!renderDroplet) throw dropletsError({ message: SSR_BUNDLE_WITHOUT_RENDER });
 const building = createDropletsApp({
   element,
   health: false,

@@ -128,7 +128,7 @@ Vite); `client-setup` is a client entry.
 - `DropletProps` has `data` (a promise when mounted, the value when hydrated), `form?` and `children?`. `src/index.ts:49`
 - `DropletErrorProps` has `error` and `children?`. `src/index.ts:57`
 - Server `render` returns `renderToString` of the component with the props and the children element; never a `head`. `src/server.ts:33`
-- Server `render` throws `<droplet>: the <kind> component is not a React component` for a default export that is neither a function nor a `$$typeof` object. `src/server.ts:26`
+- Server `render` throws `component-not-renderable` (`the <kind> component is not a React component`, for the droplet) for a default export that is neither a function nor a `$$typeof` object. `src/server.ts:26`
 - `react-dom/server` resolves through its `exports` conditions: the Node build under Node, the edge build under `workerd` / `worker`. `src/server.ts:5`
 - Children marker is `<div data-droplet-children style="display: contents">`, rendered by `DropletChildren`. `src/children.ts:32`
 - Children host reaches `DropletChildren` through `ChildrenHostContext`, `null` on the server. `src/children.ts:20`, `src/tree.ts:69`
@@ -136,7 +136,7 @@ Vite); `client-setup` is a client entry.
 - Under StrictMode the double effect fills, empties and fills again. `test/client.test.ts:72`
 - Client `mount` uses `createRoot(...).render` and `hydrate` uses `hydrateRoot`, both inside `flushSync`: the component is committed when they return. `src/client.ts:52`, `src/client.ts:61`
 - Client instance is `{ root, component, context }`; `unmount` calls `root.unmount()`. `src/client.ts:30`, `src/client.ts:66`
-- Client root options log `onRecoverableError`, `onUncaughtError` and `onCaughtError` to `console.error` as `[droplets] <droplet> (<kind>, react)`. `src/client.ts:33`
+- Client root options log `onRecoverableError`, `onUncaughtError` and `onCaughtError` to `console.error` as `react-recoverable-error`, `react-uncaught-error` and `react-caught-error`, for the droplet, followed by the error and the component stack. `src/client.ts:33`
 - Client `onCaughtError` stays quiet for the droplet's own boundary: core reports what it shows. `src/client.ts:43`
 - Client tree with an error page wraps the component in `<Suspense fallback={null}>` inside `DropletBoundary`. `src/tree.ts:61`
 - `DropletBoundary` passes the error through `handle`, then renders the error page with the result and `children`; nothing while it runs or when it rejects. `src/tree.ts:43`, `src/tree.ts:51`

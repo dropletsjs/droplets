@@ -9,6 +9,7 @@ import {
   enhanceModulePath,
   entryServerPath,
   envStorePath,
+  errorsModulePath,
   formModulePath,
   hostTokensModulePath,
   loadModulePath,
@@ -19,10 +20,12 @@ import {
   toViteFsPath,
 } from "../core/paths.ts";
 import type { DevStrategy, DropletsCorsOptions } from "../core/config.ts";
+import { ACTION_URL_OUTSIDE_RENDER, RENDERER_NOT_CONFIGURED } from "../errors/build.ts";
+import { dropletsError, type ErrorFormat, formatMessage } from "../errors/format.ts";
 import { sharingRenderers, type DropletRenderer } from "../renderer.ts";
 import { isScriptDroplet } from "../script/index.ts";
 import { tailwindActive } from "./css.ts";
-import { mayImportServerOnly, serverOnlyImportMessage } from "./server-only.ts";
+import { mayImportServerOnly, serverOnlyImportError } from "./server-only.ts";
 import { componentSpecifier } from "./renderer-graphs.ts";
 import { locationScript, publicEnvScript, serverKey } from "../runtime/server-records.ts";
 import { bundleLocation, CLIENT_HOOKS_FILES, isFixed, HOOKS_FILES, IMPORTMAP_FILES, rendererNamed, type PluginState } from "./state.ts";
@@ -157,7 +160,7 @@ function rendererImports({ entries, renderers, pick }: RendererImportsInput): { 
     imports,
     variable: (name) => {
       const variable = variables.get(name);
-      if (!variable) throw new Error(`droplets: no renderer named "${name}" is configured`);
+      if (!variable) throw dropletsError({ message: RENDERER_NOT_CONFIGURED, params: { name } });
       return variable;
     },
   };
@@ -343,10 +346,6 @@ export function buildDropServerCode({ requestStore, location, isFixed = false }:
   ].join("\n");
 }
 
-/** What `actionUrl()` of `$droplets/form` says outside a render, without `{ droplet }`. */
-const NO_RENDER =
-  "actionUrl() of $droplets/form knows the droplet only while one renders: call it as the component sets up (React, Preact and Hono JSX: useState(() => actionUrl(...))), or pass { droplet }";
-
 /** Expressions in the generated module, and the module `enhanceDropletForm` comes from. */
 type ActionUrlCodeInput = { current: string; location: string; page: string; enhanceModule: string };
 
@@ -361,7 +360,7 @@ function actionUrlCode({ current, location, page, enhanceModule }: ActionUrlCode
     "export function actionUrl(name, options = {}) {",
     `  const render = ${current};`,
     "  const droplet = options.droplet ?? render?.droplet;",
-    `  if (typeof droplet !== "string" || droplet === "") throw new Error(${JSON.stringify(NO_RENDER)});`,
+    `  if (typeof droplet !== "string" || droplet === "") throw Object.assign(new Error(${JSON.stringify(formatMessage({ message: ACTION_URL_OUTSIDE_RENDER }))}), { code: ${JSON.stringify(ACTION_URL_OUTSIDE_RENDER.code)} });`,
     "  const props = options.props ?? (render?.droplet === droplet ? render.props : undefined);",
     `  return actionHref(${location}, droplet, props, name, ${page});`,
     "}",
@@ -472,6 +471,9 @@ export type BuildClientCodeInput = {
   clientHooksFile?: string | null;
   /** The runtime's requests carry cookies cross-origin (`credentials: "include"`); see `corsCredentials()`. */
   hasCredentials?: boolean;
+  /** `errorFormat`: the registry re-exports that formatter alone, so the bundle holds no other. */
+  errorFormat?: ErrorFormat;
+  errorsModule?: string;
 };
 
 export function buildClientCode({
@@ -481,6 +483,8 @@ export function buildClientCode({
   isBuilding = false,
   clientHooksFile = null,
   hasCredentials = false,
+  errorFormat = "agent",
+  errorsModule = errorsModulePath,
 }: BuildClientCodeInput): string {
   const flag = (e: DropletEntry) => `  ${JSON.stringify(e.id)}: true,`;
   const ids = entries.map(flag);
@@ -499,6 +503,10 @@ export function buildClientCode({
     `export const buildHash = ${JSON.stringify(buildHash)};`,
     `export const elementName = ${JSON.stringify(elementName)};`,
     `export const corsCredentials = ${hasCredentials};`,
+    // Set here as well as in the element: `init` of hooks.client runs in this module, before the element's.
+    `import { ${errorFormat === "human" ? "formatHuman" : "formatAgent"} as errorFormatter, setErrorFormatter } from ${modulePath({ file: errorsModule })};`,
+    "setErrorFormatter(errorFormatter);",
+    "export { errorFormatter };",
     "export const dropletsById = {",
     ...ids,
     "};",
@@ -705,13 +713,19 @@ if (import.meta.hot) {
  * the server sees the config the build saw, functions inside it included,
  * and the adapter awaits what it returns.
  */
-type BuildConfigCodeInput = { configPath: string | null; configEnv: ConfigEnv; hostTokensModule?: string | undefined };
+type BuildConfigCodeInput = {
+  configPath: string | null;
+  configEnv: ConfigEnv;
+  hostTokensModule?: string | undefined;
+  errorFormat?: ErrorFormat;
+};
 
-export function buildConfigCode({ configPath, configEnv, hostTokensModule }: BuildConfigCodeInput): string {
-  const tokens =
+export function buildConfigCode({ configPath, configEnv, hostTokensModule, errorFormat = "agent" }: BuildConfigCodeInput): string {
+  const tokens = `${
     hostTokensModule === undefined
       ? "export const tokens = undefined;\n"
-      : `export { replacers as tokens } from ${modulePath({ file: hostTokensModule })};\n`;
+      : `export { replacers as tokens } from ${modulePath({ file: hostTokensModule })};\n`
+  }export const errorFormat = ${JSON.stringify(errorFormat)};\n`;
   if (!configPath) return `export default {};\n${tokens}`;
   return `import userConfig from ${JSON.stringify(configPath)};\nexport default typeof userConfig === "function" ? userConfig(${JSON.stringify(configEnv)}) : (userConfig ?? {});\n${tokens}`;
 }
@@ -770,7 +784,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
         SERVER_ONLY.has(id) &&
         (this.environment.config.consumer === "client" || (importer && !mayImportServerOnly({ root: state.root, importer })))
       ) {
-        this.error(serverOnlyImportMessage({ id, importer }));
+        this.error(serverOnlyImportError({ id, importer }));
       }
       if (id === VIRTUAL_SERVER) return serverModulePath;
       if (id === VIRTUAL_ENV_PUBLIC) return RESOLVED_ENV_PUBLIC;
@@ -798,6 +812,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
             elementName: state.config.element,
             isBuilding: command === "build",
             clientHooksFile: await findFile(CLIENT_HOOKS_FILES),
+            errorFormat: state.config.errorFormat,
             hasCredentials: corsCredentials({ cors: state.config.cors }),
           });
         }
@@ -879,6 +894,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
           configPath: state.configPath,
           configEnv,
           hostTokensModule: isFixed({ state, isBuilding: command === "build" }) ? undefined : hostTokensModulePath,
+          errorFormat: state.config.errorFormat,
         });
       }
 

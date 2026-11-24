@@ -11,6 +11,12 @@
  * singletons), so nothing is duplicated per droplet.
  */
 import Handlebars from "handlebars/runtime";
+import {
+  dropletsError,
+  HANDLEBARS_ACTION_NAME_INVALID,
+  HANDLEBARS_ACTION_OUTSIDE_DROPLET,
+  HANDLEBARS_TEMPLATE_NOT_COMPILED,
+} from "@dropletsjs/droplets/errors";
 
 export type HandlebarsEnvironment = typeof Handlebars;
 
@@ -36,9 +42,9 @@ env.registerHelper("children", () => new env.SafeString(MARKER));
 env.registerHelper("action", function (this: unknown, ...args: unknown[]) {
   const options = args.pop() as Handlebars.HelperOptions;
   const name = args[0];
-  if (name !== undefined && typeof name !== "string") throw new Error('{{action}} takes an action name: {{action "add"}}');
+  if (name !== undefined && typeof name !== "string") throw dropletsError({ message: HANDLEBARS_ACTION_NAME_INVALID });
   const actionUrl = (options.data as { actionUrl?: unknown } | undefined)?.actionUrl;
-  if (typeof actionUrl !== "function") throw new Error("{{action}} runs in a droplet's template, rendered by the renderer");
+  if (typeof actionUrl !== "function") throw dropletsError({ message: HANDLEBARS_ACTION_OUTSIDE_DROPLET });
   return (actionUrl as (name?: string) => string)(name);
 });
 
@@ -51,7 +57,7 @@ type TemplateOfInput = { module: { default?: unknown }; where: { droplet: string
 export function templateOf({ module, where }: TemplateOfInput): Template {
   const template = module.default;
   if (typeof template !== "function") {
-    throw new Error(`${where.droplet}: +${where.kind}.hbs did not compile to a template function`);
+    throw dropletsError({ message: HANDLEBARS_TEMPLATE_NOT_COMPILED, params: { kind: where.kind }, droplet: where.droplet });
   }
   return template as Template;
 }

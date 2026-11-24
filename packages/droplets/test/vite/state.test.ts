@@ -33,8 +33,10 @@ describe("warnMisnamedModules", () => {
     await warnMisnamedModules({ root });
     await warnMisnamedModules({ root });
     expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
-      "[droplets:framework] src/hooks.server.mts is not loaded; name it src/hooks.server.ts or src/hooks.server.js",
-      "[droplets:framework] src/importmap.server.cjs is not loaded; name it src/importmap.server.ts or src/importmap.server.js",
+      expect.stringContaining(
+        "droplets warning module-file-misnamed\n  file: src/hooks.server.mts\n  what: the file is not loaded: its extension is not one the framework looks up\n  fix: name it src/hooks.server.ts or src/hooks.server.js\n",
+      ),
+      expect.stringContaining("  file: src/importmap.server.cjs\n  what: the file is not loaded"),
     ]);
     warn.mockRestore();
   });

@@ -5,6 +5,15 @@ import { fileURLToPath } from "node:url";
 import type { DropletsAdapter, DropletsManifest, FileHeaderRule } from "@dropletsjs/droplets";
 import { logger } from "@dropletsjs/droplets/vite";
 import { defaultServerConditions } from "vite";
+import {
+  CLOUDFLARE_HEADERS_OVER_LIMITS,
+  CLOUDFLARE_HTML_HANDLING_NONE,
+  CLOUDFLARE_HTML_HANDLING_TRAILING_SLASH,
+  CLOUDFLARE_NODEJS_COMPAT_MISSING,
+  CLOUDFLARE_PUBLIC_HEADERS_IGNORED,
+  CLOUDFLARE_RUN_WORKER_FIRST,
+  CLOUDFLARE_WRANGLER_UNREADABLE,
+} from "@dropletsjs/droplets/errors";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -88,10 +97,6 @@ type HasNodeCompatInput = { flags: unknown };
 function hasNodeCompat({ flags }: HasNodeCompatInput): boolean {
   return Array.isArray(flags) && flags.some((flag) => typeof flag === "string" && flag.startsWith("nodejs_compat"));
 }
-
-const DEPLOYMENT_DOCS = "https://dropletsjs.dev/guides/deployment/";
-
-const PRERENDER_FILES_DOCS = "https://dropletsjs.dev/guides/prerendering/#static-files";
 
 /** Where `vite build` writes the prerender files an entry's `file` names, in `dist/client`. */
 const PRERENDERED_FILES = "assets/prerendered";
@@ -316,22 +321,15 @@ export function cloudflare(options: CloudflareAdapterOptions = {}): DropletsAdap
       await writeFile(resolve(client, "_headers"), headers);
       const over = headersOverLimits({ text: headers });
       if (over) {
-        logger.warn(
-          "framework",
-          `dist/client/_headers has ${over}: Cloudflare takes up to ${MAX_RULES} rules and ${MAX_LINE} characters per line; trim ${USER_HEADERS}, see ${DEPLOYMENT_DOCS}#_headers`,
-        );
+        logger.report({ message: CLOUDFLARE_HEADERS_OVER_LIMITS, params: { over, rules: MAX_RULES, line: MAX_LINE, file: USER_HEADERS } });
       }
       if (existsSync(resolve(client, "assets/public/_headers"))) {
-        logger.warn(
-          "framework",
-          `public/_headers lands at /assets/public/_headers, where Cloudflare never reads it; move your rules to ${USER_HEADERS} in the project root, which the adapter appends to dist/client/_headers, see ${DEPLOYMENT_DOCS}#_headers`,
-        );
+        logger.report({ message: CLOUDFLARE_PUBLIC_HEADERS_IGNORED, params: { file: USER_HEADERS } });
       }
 
       const file = WRANGLER_CONFIGS.find((name) => existsSync(resolve(root, name)));
       if (!file) {
         logger.info(
-          "framework",
           `no wrangler config found; point "main" at ${serverPath} and "assets.directory" at dist/client, with "assets.binding": ${JSON.stringify(assetsBinding)}`,
         );
         return;
@@ -341,39 +339,24 @@ export function cloudflare(options: CloudflareAdapterOptions = {}): DropletsAdap
         read = readWranglerConfig({ file, text: await readFile(resolve(root, file), "utf8") });
       } catch {
         // Text this reader does not parse (broken JSON, a TOML value JSON does not take): warn, never fail the build.
-        logger.warn(
-          "framework",
-          `could not read ${file} (assets.run_worker_first, compatibility_flags); leave run_worker_first out so static assets serve the build's files with dist/client/_headers, and set compatibility_flags to ["nodejs_compat"], see ${DEPLOYMENT_DOCS}#cloudflare-workers`,
-        );
+        logger.report({ message: CLOUDFLARE_WRANGLER_UNREADABLE, file });
         return;
       }
       if (!hasNodeCompat({ flags: read.compatibilityFlags })) {
-        logger.warn(
-          "framework",
-          `${file}: compatibility_flags has no "nodejs_compat", so the Worker has no AsyncLocalStorage and requests that overlap share one request store; set "compatibility_flags": ["nodejs_compat"], see ${DEPLOYMENT_DOCS}#cloudflare-workers`,
-        );
+        logger.report({ message: CLOUDFLARE_NODEJS_COMPAT_MISSING, file });
       }
       const files = "/assets/prerendered/<id>/<file>";
       if (read.htmlHandling === "none" && existsSync(resolve(client, PRERENDERED_FILES))) {
-        logger.warn(
-          "framework",
-          `${file}: assets.html_handling is "none", so ${files} answers 404 (only <file>.html is served); leave html_handling out, see ${PRERENDER_FILES_DOCS}`,
-        );
+        logger.report({ message: CLOUDFLARE_HTML_HANDLING_NONE, params: { files }, file });
       }
       if (read.htmlHandling === "force-trailing-slash" && existsSync(resolve(client, PRERENDERED_FILES))) {
-        logger.warn(
-          "framework",
-          `${file}: assets.html_handling is "force-trailing-slash", so ${files} redirects to ${files}/; leave html_handling out, see ${PRERENDER_FILES_DOCS}`,
-        );
+        logger.report({ message: CLOUDFLARE_HTML_HANDLING_TRAILING_SLASH, params: { files }, file });
       }
       const value = read.runWorkerFirst;
       const matched = workerFirstPaths({ value, paths: await filePaths({ manifestPath }) });
       if (matched.length > 0) {
         const shown = matched.length > 5 ? `${matched.slice(0, 5).join(", ")}, …` : matched.join(", ");
-        logger.warn(
-          "framework",
-          `${file}: assets.run_worker_first is ${JSON.stringify(value)}, so build files (${shown}) go through the Worker, billed per request; dist/client/_headers already gives them their CORS and cache headers, so leave run_worker_first out, see ${DEPLOYMENT_DOCS}#run_worker_first`,
-        );
+        logger.report({ message: CLOUDFLARE_RUN_WORKER_FIRST, params: { value: JSON.stringify(value), shown }, file });
       }
     },
   };

@@ -1,6 +1,8 @@
 import { relative, resolve } from "node:path";
 import type { Plugin, ResolvedConfig } from "vite";
 import { packageRoot } from "../core/paths.ts";
+import { IMPORT_CHAIN_EMPTY, SERVER_CODE_IN_CLIENT, SERVER_MODULE_IMPORT } from "../errors/build.ts";
+import { type DropletsError, dropletsError } from "../errors/format.ts";
 import type { PluginState } from "./state.ts";
 
 /**
@@ -79,13 +81,10 @@ export function mayImportServerOnly({ root, importer }: MayImportServerOnlyInput
 /** The package's server entry, what `$droplets/server` resolves to: refused wherever that one is. */
 export const PACKAGE_SERVER = "@dropletsjs/droplets/server";
 
-export type ServerOnlyImportMessageInput = { id: string; importer: string | undefined };
+export type ServerOnlyImportErrorInput = { id: string; importer: string | undefined };
 
-export function serverOnlyImportMessage({ id, importer }: ServerOnlyImportMessageInput): string {
-  return (
-    `${id} can only be imported by server files: names with .server. in them (+droplet.server.ts, hooks.server.ts, *.server.*), ` +
-    `+server.* routes or files under a server/ folder${importer ? `; imported by ${importer}` : ""}`
-  );
+export function serverOnlyImportError({ id, importer }: ServerOnlyImportErrorInput): DropletsError {
+  return dropletsError({ message: SERVER_MODULE_IMPORT, params: { id }, file: importer });
 }
 
 type ShortInput = { root: string; id: string };
@@ -100,17 +99,13 @@ function short({ root, id }: ShortInput): string {
 
 type ServerOnlyErrorInput = { root: string; chain: readonly string[]; asFile?: boolean };
 
-export function serverOnlyError({ root, chain, asFile = false }: ServerOnlyErrorInput): Error {
+export function serverOnlyError({ root, chain, asFile = false }: ServerOnlyErrorInput): DropletsError {
   const file = chain.at(-1);
-  if (file === undefined) throw new Error("droplets: an empty import chain");
+  if (file === undefined) throw dropletsError({ message: IMPORT_CHAIN_EMPTY });
   const path = asFile
     ? "referenced as a file (new URL(…, import.meta.url), ?url, ?raw or a CSS url())"
     : chain.map((id) => short({ root, id })).join(" -> ");
-  return new Error(
-    `droplets: ${short({ root, id: file })} is server code and cannot reach the browser: ${path}. ` +
-      `Files named *.server.* or under a server/ folder run on the server only: ` +
-      `read them from +droplet.server.ts and pass what the browser needs as data.`,
-  );
+  return dropletsError({ message: SERVER_CODE_IN_CLIENT, params: { file: short({ root, id: file }), path } });
 }
 
 type GraphModule = { isEntry?: boolean; importedIds: readonly string[]; dynamicallyImportedIds: readonly string[] };
@@ -248,7 +243,7 @@ export function serverOnlyPlugin(state: PluginState): Plugin {
           source === PACKAGE_SERVER &&
           (this.environment.config.consumer === "client" || !mayImportServerOnly({ root: state.root, importer }))
         ) {
-          this.error(serverOnlyImportMessage({ id: source, importer }));
+          this.error(serverOnlyImportError({ id: source, importer }));
         }
         if (command !== "serve" || this.environment.config.consumer !== "client" || source.startsWith("\0")) return null;
         const resolved = await this.resolve(source, importer, { ...options, skipSelf: true });
@@ -258,16 +253,16 @@ export function serverOnlyPlugin(state: PluginState): Plugin {
         const graph = "moduleGraph" in environment ? environment.moduleGraph : undefined;
         const module = graph?.getModuleById(importer) as DevModule | undefined;
         const chain = [...importerChain({ start: module, importer }), resolved.id];
-        this.error(serverOnlyError({ root: state.root, chain }).message);
+        this.error(serverOnlyError({ root: state.root, chain }));
       },
     },
 
     buildEnd(error) {
       if (error || command !== "build" || this.environment.config.consumer !== "client") return;
       const [asFile] = reachedAsFiles;
-      if (asFile !== undefined) this.error(serverOnlyError({ root: state.root, chain: [asFile], asFile: true }).message);
+      if (asFile !== undefined) this.error(serverOnlyError({ root: state.root, chain: [asFile], asFile: true }));
       const chain = findServerFile({ root: state.root, moduleIds: this.getModuleIds(), getModule: (id) => this.getModuleInfo(id) });
-      if (chain) this.error(serverOnlyError({ root: state.root, chain }).message);
+      if (chain) this.error(serverOnlyError({ root: state.root, chain }));
     },
 
     generateBundle(_options, bundle) {
@@ -275,7 +270,7 @@ export function serverOnlyPlugin(state: PluginState): Plugin {
       for (const output of Object.values(bundle)) {
         if (output.type !== "asset") continue;
         const file = output.originalFileNames.find((name) => isServerOnlyFile({ root: state.root, id: resolve(state.root, name) }));
-        if (file !== undefined) this.error(serverOnlyError({ root: state.root, chain: [resolve(state.root, file)], asFile: true }).message);
+        if (file !== undefined) this.error(serverOnlyError({ root: state.root, chain: [resolve(state.root, file)], asFile: true }));
       }
     },
   };

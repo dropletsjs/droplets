@@ -4,6 +4,14 @@ import { join, relative, sep } from "node:path";
 import { compareRoutes, type RouteSegment } from "../runtime/routes.ts";
 import { MODULE_EXTENSIONS } from "../renderer.ts";
 import { reportOnce } from "./discover.ts";
+import {
+  ROUTE_CLASH,
+  ROUTE_FILE_MISNAMED,
+  ROUTE_PARAM_DUPLICATE,
+  ROUTE_REST_NOT_LAST,
+  ROUTE_SEGMENT_UNSUPPORTED,
+} from "../errors/config.ts";
+import { dropletsError } from "../errors/format.ts";
 
 /** A `+server.ts` found on disk, before its module is loaded. */
 export type ApiRouteEntry = {
@@ -43,9 +51,7 @@ export function parseSegment({ folder, file }: ParseSegmentInput): RouteSegment 
   if (param?.[1]) return { type: "param", name: param[1] };
 
   if (/[[\]]/.test(folder)) {
-    throw new Error(
-      `droplets: unsupported route segment "${folder}" in ${file}; use [name] or [...name] (matchers and optional parameters are not supported yet)`,
-    );
+    throw dropletsError({ message: ROUTE_SEGMENT_UNSUPPORTED, params: { segment: folder }, file });
   }
   return { type: "static", value: folder };
 }
@@ -59,12 +65,12 @@ export function routeFromFolders({ folders, file }: RouteFromFoldersInput): ApiR
     if (!segment) continue;
     if (segment.type !== "static") {
       if (names.has(segment.name)) {
-        throw new Error(`droplets: parameter "${segment.name}" appears twice in ${file}`);
+        throw dropletsError({ message: ROUTE_PARAM_DUPLICATE, params: { name: segment.name }, file });
       }
       names.add(segment.name);
     }
     if (segments.at(-1)?.type === "rest") {
-      throw new Error(`droplets: a [...rest] segment must be the last one, in ${file}`);
+      throw dropletsError({ message: ROUTE_REST_NOT_LAST, file });
     }
     segments.push(segment);
   }
@@ -87,7 +93,7 @@ async function walk({ dir, apiRoot, found }: WalkInput): Promise<void> {
     else if (SERVER_FILES.includes(entry.name)) found.push(full);
     else if (MISNAMED_SERVER.test(entry.name)) {
       const file = relative(apiRoot, full).split(sep).join("/");
-      reportOnce({ key: `${full}:misnamed`, message: `${file} is not a route; name it ${SERVER_FILES.join(" or ")}` });
+      reportOnce({ key: `${full}:misnamed`, message: ROUTE_FILE_MISNAMED, params: { names: SERVER_FILES.join(" or ") }, file });
     }
   }
 }
@@ -111,7 +117,7 @@ export async function discoverApiRoutes({ apiRoot }: DiscoverApiRoutesInput): Pr
     const shape = route.segments.map((s) => (s.type === "static" ? s.value : s.type === "param" ? "[]" : "[...]")).join("/");
     const clash = byShape.get(shape);
     if (clash) {
-      throw new Error(`droplets: ${clash} and ${file} both answer ${route.id}`);
+      throw dropletsError({ message: ROUTE_CLASH, params: { first: clash, second: file, route: route.id } });
     }
     byShape.set(shape, file);
     routes.push(route);

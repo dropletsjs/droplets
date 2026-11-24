@@ -21,6 +21,13 @@
  * for every droplet.
  */
 import Handlebars from "handlebars";
+import {
+  dropletsError,
+  HANDLEBARS_STYLE_DYNAMIC,
+  HANDLEBARS_STYLE_LINE_MISSING,
+  HANDLEBARS_STYLE_NESTED,
+  HANDLEBARS_STYLE_SRC_WITH_CSS,
+} from "@dropletsjs/droplets/errors";
 
 export type StyleBlock = { kind: "inline"; css: string; lang: string } | { kind: "src"; src: string };
 
@@ -86,7 +93,7 @@ export function extractStyles({ source, where }: ExtractStylesInput): ExtractedS
   const starts = lineStarts({ source });
   function offset(position: hbs.AST.Position): number {
     const start = starts[position.line - 1];
-    if (start === undefined) throw new Error(`droplets: ${where}: no line ${position.line}`);
+    if (start === undefined) throw dropletsError({ message: HANDLEBARS_STYLE_LINE_MISSING, params: { line: position.line }, file: where });
     return start + position.column;
   }
   const topLevel = new Set(program.body.filter((node) => node.type === "ContentStatement"));
@@ -96,9 +103,7 @@ export function extractStyles({ source, where }: ExtractStylesInput): ExtractedS
   class Nested extends Handlebars.Visitor {
     override ContentStatement(node: hbs.AST.ContentStatement): void {
       if (!topLevel.has(node) && OPEN.test(node.value)) {
-        throw new Error(
-          `droplets: ${where}:${node.loc.start.line}: a <style> block goes at the top of the template, outside {{#…}} blocks`,
-        );
+        throw dropletsError({ message: HANDLEBARS_STYLE_NESTED, file: `${where}:${node.loc.start.line}` });
       }
     }
   }
@@ -116,7 +121,7 @@ export function extractStyles({ source, where }: ExtractStylesInput): ExtractedS
       const found = attributes({ source: attrs });
       const src = found.get("src");
       if (src !== undefined) {
-        if (css.trim()) throw new Error(`droplets: ${where}: <style src="${src}"> takes its CSS from the file; leave the block empty`);
+        if (css.trim()) throw dropletsError({ message: HANDLEBARS_STYLE_SRC_WITH_CSS, params: { src }, file: where });
         styles.push({ kind: "src", src });
       } else {
         styles.push({ kind: "inline", css, lang: found.get("lang") ?? "css" });
@@ -125,7 +130,7 @@ export function extractStyles({ source, where }: ExtractStylesInput): ExtractedS
     }
     // An opening tag without its closing one here: `{{…}}` inside the block split it.
     if ((text.match(/<style\b/gi) ?? []).length !== matched) {
-      throw new Error(`droplets: ${where}:${node.loc.start.line}: a <style> block cannot contain {{…}}: CSS is static`);
+      throw dropletsError({ message: HANDLEBARS_STYLE_DYNAMIC, file: `${where}:${node.loc.start.line}` });
     }
   }
 

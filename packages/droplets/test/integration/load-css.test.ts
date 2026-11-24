@@ -50,8 +50,8 @@ describe("CSS from +droplet.ts", () => {
     const root = await project("./card.css");
     roots.push(root);
     await expect(build(root)).rejects.toThrow(
-      "droplets: src/droplets/card/+droplet.ts imports CSS: src/droplets/card/+droplet.ts -> src/droplets/card/card.css. " +
-        "Styles belong to the component",
+      "droplets error load-file-imports-css\n  what: src/droplets/card/+droplet.ts imports CSS: src/droplets/card/+droplet.ts -> src/droplets/card/card.css\n" +
+        "  fix: styles belong to the component",
     );
   }, 90_000);
 
@@ -91,7 +91,7 @@ describe("CSS from +droplet.ts", () => {
 
     it("is an error as the import resolves", async () => {
       await expect(server.environments.client.transformRequest("/src/droplets/card/+droplet.ts")).rejects.toThrow(
-        "droplets: src/droplets/card/+droplet.ts imports CSS: src/droplets/card/+droplet.ts -> ./card.css.",
+        "  what: src/droplets/card/+droplet.ts imports CSS: src/droplets/card/+droplet.ts -> ./card.css\n",
       );
     });
   });

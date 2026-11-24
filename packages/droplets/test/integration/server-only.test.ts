@@ -94,7 +94,7 @@ describe("server files in the client build", () => {
       "src/droplets/card/db.server.ts": SECRET,
     });
     await expect(build(root)).rejects.toThrow(
-      /droplets: src\/droplets\/card\/db\.server\.ts is server code and cannot reach the browser: .*src\/droplets\/card\/\+droplet\.ts -> src\/droplets\/card\/db\.server\.ts/,
+      /droplets error server-code-in-client\n {2}what: src\/droplets\/card\/db\.server\.ts is server code and cannot reach the browser: .*src\/droplets\/card\/\+droplet\.ts -> src\/droplets\/card\/db\.server\.ts/,
     );
   }, 90_000);
 
@@ -149,7 +149,9 @@ describe("server files in the client build", () => {
         "import { reply } from '../../lib/observer.ts';\nexport const load = () => ({ ok: typeof reply });\n",
       "src/lib/observer.ts": USES_SERVER,
     });
-    await expect(build(root)).rejects.toThrow(/\$droplets\/server can only be imported by server files.*src\/lib\/observer\.ts/);
+    await expect(build(root)).rejects.toThrow(
+      /file: .*src\/lib\/observer\.ts\n {2}what: \$droplets\/server can only be imported by server files/,
+    );
   }, 90_000);
 
   it("fails when a component imports the bare @dropletsjs/droplets/server, naming the importer", async () => {
@@ -158,7 +160,7 @@ describe("server files in the client build", () => {
         "import { error } from '@dropletsjs/droplets/server';\nexport default () => `<p>${typeof error}</p>`;\n",
     });
     await expect(build(root)).rejects.toThrow(
-      /@dropletsjs\/droplets\/server can only be imported by server files.*src\/droplets\/card\/\+droplet\.fake\.js/,
+      /file: .*src\/droplets\/card\/\+droplet\.fake\.js\n {2}what: @dropletsjs\/droplets\/server can only be imported by server files/,
     );
   }, 90_000);
 
@@ -210,7 +212,7 @@ describe("server files in the client build", () => {
       "src/lib/session.server.ts": SECRET,
     });
     await expect(build(root)).rejects.toThrow(
-      /droplets: src\/lib\/session\.server\.ts is server code and cannot reach the browser: .*src\/hooks\.client\.ts -> src\/lib\/session\.server\.ts/,
+      /droplets error server-code-in-client\n {2}what: src\/lib\/session\.server\.ts is server code and cannot reach the browser: .*src\/hooks\.client\.ts -> src\/lib\/session\.server\.ts/,
     );
   }, 90_000);
 
@@ -326,7 +328,7 @@ describe("server files in the client build", () => {
 
     it("refuses the bare @dropletsjs/droplets/server from a client module as it resolves", async () => {
       await expect(server.environments.client.transformRequest("/src/droplets/card/bare.js")).rejects.toThrow(
-        /@dropletsjs\/droplets\/server can only be imported by server files.*src\/droplets\/card\/bare\.js/,
+        /file: .*src\/droplets\/card\/bare\.js\n {2}what: @dropletsjs\/droplets\/server can only be imported by server files/,
       );
     });
 

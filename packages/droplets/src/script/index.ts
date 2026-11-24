@@ -34,6 +34,7 @@
 import { resolve } from "node:path";
 import { langOfFile, readFlagExports } from "../core/flags.ts";
 import { logger } from "../core/logger.ts";
+import { SCRIPT_FLAG_IGNORED, SCRIPT_HYDRATE_LOCKED } from "../errors/config.ts";
 import { packageDist } from "../core/paths.ts";
 import { SCRIPT_RENDERER, SCRIPT_SUFFIXES, type DropletRenderer, type ReadFlagsInput, type RenderFlags } from "../renderer.ts";
 
@@ -55,12 +56,8 @@ export function readScriptFlags({ source, file, droplet }: ReadScriptFlagsInput)
     if (reported.has(key)) continue;
     reported.add(key);
     const shown = value === undefined ? written : `${name} = ${JSON.stringify(value)}`;
-    logger.warn(
-      "framework",
-      name === "hydrate" && value === true
-        ? `${where} exports hydrate = true; a script droplet is always hydrated (locked to true)`
-        : `${where} exports ${shown}; this is ignored, a script droplet is client only`,
-    );
+    if (name === "hydrate" && value === true) logger.report({ message: SCRIPT_HYDRATE_LOCKED, droplet, file });
+    else logger.report({ message: SCRIPT_FLAG_IGNORED, params: { flag: shown }, droplet, file });
   }
   return { ...CLIENT_ONLY };
 }

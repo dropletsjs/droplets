@@ -1,4 +1,4 @@
-import { readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import { HOSTS, hostsByLanguage } from "@dropletsjs/shared/hosts";
@@ -36,6 +36,15 @@ const hostGroups = hostsByLanguage().map(({ language, hosts }) => ({
       : { label: host.name, link: `${base.replace(/\/?$/, "/")}${host.docs}/` },
   ),
 }));
+
+// One page per error code, written by scripts/errors.mjs before astro runs.
+const errorsDir = new URL("./src/content/docs/errors/", import.meta.url);
+const errorCodes = existsSync(errorsDir)
+  ? readdirSync(errorsDir)
+      .filter((file) => file.endsWith(".md") && file !== "index.md")
+      .map((file) => `errors/${file.slice(0, -3)}`)
+      .sort()
+  : [];
 
 // In reading order: the pages' "Next" links follow it, and so does llms-full.txt.
 const sidebar = [
@@ -90,7 +99,16 @@ const sidebar = [
   { label: "In the browser", items: ["guides/in-the-browser"] },
   { label: "Deployment", items: ["guides/deployment"] },
   { label: "Security", items: ["guides/security"] },
-  { label: "Reference", items: ["reference/api", "reference/contributing"] },
+  {
+    label: "Reference",
+    items: [
+      "reference/api",
+      ...(errorCodes.length
+        ? [{ label: "Error codes", collapsed: true, items: [{ label: "Overview", slug: "errors" }, ...errorCodes] }]
+        : []),
+      "reference/contributing",
+    ],
+  },
 ];
 
 /** Every page's slug, in the sidebar's order; a link item's page is listed where its slug is. */
@@ -149,7 +167,7 @@ export default defineConfig({
           promote: ["index", ...slugs(sidebar)],
           pageSeparator: LLMS_PAGE_BREAK,
           // llms-small.txt: the core pages; the renderer and host pages are in the sets below.
-          exclude: ["renderers/*", "integrate/hosts/**", "integrate/wordpress"],
+          exclude: ["renderers/*", "integrate/hosts/**", "integrate/wordpress", "errors", "errors/*"],
           // Keeps llms-small.txt in lines, headings and tables, and the one <details>, the fragment's parts.
           minify: { whitespace: false, details: false },
           customSets: [
@@ -158,6 +176,11 @@ export default defineConfig({
               paths: ["renderers", "renderers/*"],
               description:
                 "the overview and one page per renderer: Svelte, Vue, React, Preact, Solid, Hono JSX, Handlebars, Lit and plain scripts",
+            },
+            {
+              label: "Error codes",
+              paths: ["errors", "errors/*"],
+              description: "one page per error and warning code Droplets writes: what happened, when, and the fix",
             },
             {
               label: "Hosts",

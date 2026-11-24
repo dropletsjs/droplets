@@ -86,7 +86,7 @@ droplets with their flags, which the tool reads from each server.
 ## Facts
 
 - `dropletsDevtools()` applies only when Vite's command is `serve` and it is not a preview. `src/index.ts:92`
-- `dropletsDevtools()` throws `@dropletsjs/devtools: add droplets() from @dropletsjs/droplets/vite to the plugins too` when no plugin is named `droplets`. `src/index.ts:100`
+- `dropletsDevtools()` throws `devtools-without-droplets` (`dropletsDevtools() is in the Vite config without droplets()`, fix `add droplets() from @dropletsjs/droplets/vite to the plugins too`) when no plugin is named `droplets`. `src/index.ts:100`
 - `dropletsDevtools()` reads the core plugin's `api` (`DropletsPluginApi`) in `configResolved`. `src/index.ts:97`
 - `dropletsDevtools()` adds the package root to Vite's `server.fs.allow`. `src/index.ts:94`
 - `dropletsDevtools()` hands the dev tool's URL, `/@fs/<package>/dist/tool/panel.js`, to the core with `api.setDevTool`. `src/index.ts:102`
@@ -143,7 +143,7 @@ droplets with their flags, which the tool reads from each server.
 - Dev tool notification without a reload button leaves after 10 s; one with it is an `alertdialog`. `src/tool/panel.ts:23`, `src/tool/panel.ts:112`
 - Dev tool notification with the same `key` replaces the earlier one. `src/tool/panel.ts:105`
 - `index.js` imports the dev tool when `?injectTool` is set to anything but `false`, else when `dev.injectTool` is on. `../droplets/src/runtime/dev-element.ts:704`
-- `index.js` warns `the dev tool comes with @dropletsjs/devtools` when the tool is asked for without this plugin. `../droplets/src/runtime/dev-element.ts:693`
+- `index.js` warns `dev-tool-missing` (`injectTool: the dev tool comes with @dropletsjs/devtools, which is not in the Vite config`) when the tool is asked for without this plugin. `../droplets/src/runtime/dev-element.ts:693`
 - The package exports `.` and `./package.json`. `package.json:21`
 - Peer dependencies: `@dropletsjs/droplets` and `vite ^8.0.0`; `hono` is a dependency. `package.json:43`, `package.json:56`
 - Build script runs tsdown, then the tests. `package.json:36`

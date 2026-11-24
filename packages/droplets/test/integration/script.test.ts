@@ -176,11 +176,14 @@ describe("a script droplet's flags", () => {
     } finally {
       setLogLevel("error");
     }
-    const ignored = "this is ignored, a script droplet is client only";
-    expect(warn.mock.calls.map((call) => String(call[0])).filter((message) => message.includes("+droplet.script.ts exports"))).toEqual([
-      `[droplets:framework] tracker/+droplet.script.ts exports ssr = true; ${ignored}`,
-      `[droplets:framework] tracker/+droplet.script.ts exports hydrate = false; ${ignored}`,
-      `[droplets:framework] tracker/+droplet.script.ts exports prerender = true; ${ignored}`,
+    const ignored = (flag: string) =>
+      expect.stringContaining(
+        `droplets warning script-flag-ignored\n  droplet: tracker\n  file: +droplet.script.ts\n  what: exports ${flag}; this is ignored, a script droplet is client only\n`,
+      );
+    expect(warn.mock.calls.map((call) => String(call[0])).filter((message) => message.includes("script-flag-ignored"))).toEqual([
+      ignored("ssr = true"),
+      ignored("hydrate = false"),
+      ignored("prerender = true"),
     ]);
     const manifest = JSON.parse(await readFile(join(root, "dist/client/droplets.json"), "utf8"));
     expect(manifest.droplets.tracker.client).toBeTruthy();

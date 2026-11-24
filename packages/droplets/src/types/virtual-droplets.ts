@@ -8,6 +8,7 @@
  * tsconfig.json).
  */
 import type { ApiRoute } from "../runtime/routes.ts";
+import { formatAgent, type Formatter } from "../errors/format.ts";
 
 export type DropletLoadModule = {
   load?: (event: never) => unknown;
@@ -49,6 +50,8 @@ export const buildHash = "";
 export const elementName = "djs-droplet";
 /** Client build: `cors.credentials` with an explicit origin, so the runtime's requests send `credentials: "include"`. */
 export const corsCredentials: boolean = false;
+/** Client build: the formatter of `errorFormat`, the only one the bundle holds. */
+export const errorFormatter: Formatter = formatAgent;
 export const dropletsById: Record<string, boolean> = {};
 /** Client build: the droplets that hydrate, and when (`true`, `"visible"`, `"interactive"`). */
 export const dropletsHydrateById: Record<string, true | "visible" | "interactive"> = {};

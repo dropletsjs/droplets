@@ -24,6 +24,7 @@ import { fileURLToPath } from "node:url";
 import Handlebars from "handlebars";
 import type { Plugin } from "vite";
 import { extractStyles, parseStyleId, styleId, type StyleBlock } from "./styles.ts";
+import { dropletsError, HANDLEBARS_PARTIAL_STYLE, HANDLEBARS_PARTIALS_FOLDER_MISSING } from "@dropletsjs/droplets/errors";
 
 /** What `Handlebars.precompile` accepts as options. */
 export type PrecompileOptions = NonNullable<Parameters<typeof Handlebars.precompile>[1]>;
@@ -148,7 +149,7 @@ export function setupModuleCode({ partialsDir, partials, helpers, runtime = runt
   for (const [i, file] of partials.entries()) lines.push(`import partial_${i} from ${specifier({ file })};`);
   if (helpers) lines.push(`import * as helpers from ${specifier({ file: helpers })};`);
   for (const [i, file] of partials.entries()) {
-    if (partialsDir === null) throw new Error("droplets: Handlebars partials without a partials folder");
+    if (partialsDir === null) throw dropletsError({ message: HANDLEBARS_PARTIALS_FOLDER_MISSING });
     lines.push(`env.registerPartial(${JSON.stringify(partialName({ dir: partialsDir, file }))}, partial_${i});`);
   }
   if (helpers) lines.push("registerHelpers({ target: env, module: helpers });");
@@ -220,7 +221,7 @@ export function handlebarsPlugin(options: HandlebarsRendererOptions = {}): Plugi
       const where = relative(root, file);
       const { template, styles } = extractStyles({ source: code, where });
       if (partial && styles.length > 0) {
-        throw new Error(`droplets: ${where}: a partial has no <style>: put it in the droplet templates that use it`);
+        throw dropletsError({ message: HANDLEBARS_PARTIAL_STYLE, file: where });
       }
       return { code: compileTemplate({ source: template, file, setup: !partial, styles, compile: options.compile }), map: null };
     },

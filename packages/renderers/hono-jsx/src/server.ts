@@ -11,13 +11,18 @@ import type { ComponentModule, RenderProps, ServerRenderContext } from "@droplet
 import type { FC } from "hono/jsx";
 // The automatic runtime's `jsx(type, props)`, with `children` in `props`.
 import { jsx } from "hono/jsx/jsx-runtime";
+import { COMPONENT_NOT_RENDERABLE, dropletsError } from "@dropletsjs/droplets/errors";
 
 type ComponentOfInput = { module: ComponentModule; context: Pick<ServerRenderContext, "droplet" | "kind"> };
 
 function componentOf({ module, context }: ComponentOfInput): FC<Record<string, unknown>> {
   const component = module.default;
   if (typeof component !== "function") {
-    throw new Error(`${context.droplet}: the ${context.kind} component is not a Hono JSX component`);
+    throw dropletsError({
+      message: COMPONENT_NOT_RENDERABLE,
+      params: { kind: context.kind, framework: "Hono JSX" },
+      droplet: context.droplet,
+    });
   }
   return component as FC<Record<string, unknown>>;
 }

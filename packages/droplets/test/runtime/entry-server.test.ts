@@ -170,7 +170,7 @@ describe("entry-server: entries", () => {
     ] as const) {
       const { getEntries } = await withEntries({ entries: [{ props: {}, file }] });
       await expect(getEntries("testimonials"), String(file)).rejects.toThrow(
-        `droplets: testimonials: an entry's file is a lowercase kebab-case name such as "page-2" (letters, digits, single hyphens), got ${shown}`,
+        `an entry's file is a lowercase kebab-case name, got ${shown}`,
       );
     }
   });
@@ -182,24 +182,22 @@ describe("entry-server: entries", () => {
         { props: { page: 2 }, file: "page" },
       ],
     });
-    await expect(getEntries("testimonials")).rejects.toThrow(
-      `droplets: testimonials: two entries name the file "page"; give each entry its own file`,
-    );
+    await expect(getEntries("testimonials")).rejects.toThrow('two entries name the file "page"');
   });
 
-  it("names file in the shape of an event, and starts every message with droplets: and the id", async () => {
-    const cases: Array<[unknown, string]> = [
-      [{ props: {} }, "droplets: testimonials: entries() must return an array of events, e.g. [{ props: { page: 1 } }]"],
-      [
-        [{ page: 1 }],
-        'droplets: testimonials: entries() returns events, { props?, host?, file? }; got {"page":1}. Props go under props: [{ props: { page: 1 } }]',
-      ],
-      [[{ props: [] }], "droplets: testimonials: an entry's props must be an object, got []"],
-      [[{ host: "/docs" }], 'droplets: testimonials: an entry\'s host must be an absolute URL, got "/docs"'],
+  it("names file in the shape of an event, and every message the droplet and its code", async () => {
+    const cases: Array<[unknown, string, string]> = [
+      [{ props: {} }, "entries-not-array", "entries() must return an array of events"],
+      [[{ page: 1 }], "entry-shape-invalid", 'entries() returns events, { props?, host?, file? }; got {"page":1}'],
+      [[{ props: [] }], "entry-props-not-object", "an entry's props must be an object, got []"],
+      [[{ host: "/docs" }], "entry-host-invalid", 'an entry\'s host must be an absolute URL, got "/docs"'],
     ];
-    for (const [entries, message] of cases) {
+    for (const [entries, code, message] of cases) {
       const { getEntries } = await withEntries({ entries });
-      await expect(getEntries("testimonials")).rejects.toThrow(message);
+      const thrown = await getEntries("testimonials").catch((error: unknown) => error);
+      expect(thrown, code).toMatchObject({ code });
+      expect((thrown as Error).message, code).toContain(message);
+      expect((thrown as Error).message, code).toContain("testimonials");
     }
   });
 });

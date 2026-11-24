@@ -5,6 +5,7 @@
 import type { ClientRenderContext, ComponentModule, RenderProps } from "@dropletsjs/droplets";
 import { Component, type ComponentType, createElement, type ReactElement, type ReactNode, Suspense } from "react";
 import { ChildrenHostContext, childrenElement } from "./children.ts";
+import { COMPONENT_NOT_RENDERABLE, dropletsError } from "@dropletsjs/droplets/errors";
 
 export type AnyComponent = ComponentType<Record<string, unknown>>;
 
@@ -22,7 +23,11 @@ type BoundaryState = { failed: boolean; shown?: { error: unknown } };
 export function componentOf({ module, context }: ComponentOfInput): AnyComponent {
   const component = module.default;
   if (typeof component !== "function" && !(component && typeof component === "object" && "$$typeof" in component)) {
-    throw new Error(`${context.droplet}: the ${context.kind} component is not a React component`);
+    throw dropletsError({
+      message: COMPONENT_NOT_RENDERABLE,
+      params: { kind: context.kind, framework: "React" },
+      droplet: context.droplet,
+    });
   }
   return component as AnyComponent;
 }

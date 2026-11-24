@@ -9,6 +9,8 @@
  */
 import { parseArgs } from "node:util";
 import { loadProject, type ProjectOptions } from "./add/project.ts";
+import { DJS_COMMAND_FAILED, DJS_COMMAND_UNKNOWN } from "./errors/cli.ts";
+import { formatMessage } from "./errors/format.ts";
 
 const USAGE = `Usage: djs <command> [--root <dir>] [--config <vite config>] [--mode <mode>]
 
@@ -67,14 +69,20 @@ async function main({ argv }: MainInput): Promise<number> {
     await runAdd({ name: rest[0], flags: values });
     return 0;
   }
-  console.error(`djs: unknown command "${command}"\n\n${USAGE}`);
+  console.error(`${formatMessage({ message: DJS_COMMAND_UNKNOWN, params: { command } })}\n\n${USAGE}`);
   return 1;
 }
 
 main({ argv: process.argv.slice(2) }).then(
   (code) => process.exit(code),
   (error: unknown) => {
-    console.error(`djs: ${error instanceof Error ? error.message : String(error)}`);
+    // A framework error is already formatted with its code; Node's own codes (ERR_*, ENOENT) are upper case.
+    const coded = error instanceof Error && "code" in error && typeof error.code === "string" && /^[a-z][a-z0-9-]*$/.test(error.code);
+    console.error(
+      coded
+        ? error.message
+        : formatMessage({ message: DJS_COMMAND_FAILED, params: { reason: error instanceof Error ? error.message : String(error) } }),
+    );
     process.exit(1);
   },
 );

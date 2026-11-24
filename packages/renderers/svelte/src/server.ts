@@ -7,11 +7,16 @@ import type { ComponentModule, RenderProps, ServerRenderContext, ServerRenderOut
 import type { Component } from "svelte";
 import { render as renderToString } from "svelte/server";
 import { marker as children } from "./children.svelte";
+import { COMPONENT_NOT_RENDERABLE, dropletsError } from "@dropletsjs/droplets/errors";
 
 export async function render(module: ComponentModule, props: RenderProps, context: ServerRenderContext): Promise<ServerRenderOutput> {
   const component = module.default as Component | undefined;
   if (typeof component !== "function") {
-    throw new Error(`${context.droplet}: the ${context.kind} component is not a Svelte component`);
+    throw dropletsError({
+      message: COMPONENT_NOT_RENDERABLE,
+      params: { kind: context.kind, framework: "Svelte" },
+      droplet: context.droplet,
+    });
   }
   // `render()` is PromiseLike in Svelte 5: awaiting it supports components
   // that use top-level `await`, and is a no-op for synchronous ones.

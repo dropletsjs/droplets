@@ -3,7 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { CONFIG_FILE_CANDIDATES, findConfigFile, loadDropletsConfig } from "../../src/core/load-config.ts";
-import { setLogLevel } from "../../src/core/logger.ts";
+import { logger, setLogLevel } from "../../src/core/logger.ts";
+import { SCRIPT_HYDRATE_LOCKED } from "../../src/errors/config.ts";
+import { formatAgent, setErrorFormatter } from "../../src/errors/format.ts";
+import { validateRenderers } from "../../src/renderer.ts";
 
 const env = { command: "serve", mode: "development" } as const;
 
@@ -97,5 +100,56 @@ describe("loadDropletsConfig", () => {
     await writeFile(join(root, "other.config.ts"), 'export default { dropletsFolder: "widgets" };\n');
     const loaded = await loadDropletsConfig({ root, configEnv: env, configFile: "other.config.ts" });
     expect(loaded.config.dropletsFolder).toBe("widgets");
+  });
+});
+
+describe('errorFormat "human" in droplets.config.ts', () => {
+  let root: string;
+
+  beforeAll(async () => {
+    root = await mkdtemp(join(tmpdir(), "droplets-config-human-"));
+  });
+  afterEach(() => {
+    setErrorFormatter(formatAgent);
+    setLogLevel("error");
+    vi.restoreAllMocks();
+  });
+  afterAll(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it("writes the plugin's thrown errors and logged warnings on one line from then on", async () => {
+    await writeFile(join(root, "droplets.config.ts"), 'export default { errorFormat: "human" };');
+    expect((await loadDropletsConfig({ root, configEnv: env })).config.errorFormat).toBe("human");
+
+    expect(() => validateRenderers([{ name: "" } as never])).toThrow(
+      expect.objectContaining({
+        code: "renderer-name-missing",
+        message:
+          "droplets: every renderer needs a name; give the renderer a name, as the first-party factories do (https://dropletsjs.dev/errors/renderer-name-missing/)",
+      }),
+    );
+    setLogLevel("warn");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    logger.report({ message: SCRIPT_HYDRATE_LOCKED, droplet: "tracker", file: "+droplet.script.ts" });
+    expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
+      "droplets: tracker: +droplet.script.ts: exports hydrate = true; a script droplet is always hydrated (locked to true); remove the export (https://dropletsjs.dev/errors/script-hydrate-locked/)",
+    ]);
+  });
+
+  it("writes the config's own errors in that format too", async () => {
+    await writeFile(join(root, "droplets.config.ts"), 'export default { errorFormat: "human", render: { timeout: -5 } };');
+    await expect(loadDropletsConfig({ root, configEnv: env })).rejects.toThrow(
+      expect.objectContaining({
+        code: "render-timeout-negative",
+        message: expect.stringMatching(/^droplets: render\.timeout cannot be negative, got -5; use 0 /),
+      }),
+    );
+  });
+
+  it("stays with labelled lines by default", async () => {
+    await writeFile(join(root, "droplets.config.ts"), "export default {};");
+    await loadDropletsConfig({ root, configEnv: env });
+    expect(() => validateRenderers([{ name: "" } as never])).toThrow(/^droplets error renderer-name-missing\n/);
   });
 });

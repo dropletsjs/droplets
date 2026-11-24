@@ -2,6 +2,7 @@
 export const buildHash = "test01";
 export const elementName = "djs-droplet";
 export const corsCredentials: boolean = false;
+export { formatAgent as errorFormatter } from "../../src/errors/format.ts";
 export const dropletsById: Record<string, boolean> = { hello: true, clock: true, plain: true, beacon: true };
 export const dropletsHydrateById: Record<string, boolean> = { hello: true, plain: true, beacon: true };
 export const dropletsServerLoadById: Record<string, boolean> = { hello: true };
