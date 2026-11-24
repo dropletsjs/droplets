@@ -11,7 +11,7 @@
   ```txt
   droplets error load-result-not-object
     droplet: product-card
-    file: src/droplets/product-card/+droplet.ts
+    file: +droplet.ts
     what: load must return a plain object
     fix: return an object literal from load, e.g. return { … }, or nothing
     docs: https://dropletsjs.dev/errors/load-result-not-object.md
