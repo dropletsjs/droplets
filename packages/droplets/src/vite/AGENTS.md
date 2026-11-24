@@ -32,6 +32,8 @@
   Checked by: `test/vite/virtual.test.ts`, `test/integration/prerender-host.test.ts`, `tests/dev-mixed/test/production.test.ts`.
 - The prerender pass evaluates the SSR bundle in a worker thread (`prerender-worker.ts`, through `../core/app-thread.ts`): the bundle finds a server's globals, not the build process's, and what it installs stays with it.
   Checked by: `test/integration/prerender-host.test.ts`, `packages/renderers/lit/test/conformance.test.ts`.
+- A prerender entry's `host` passes the bound a request's host passes at runtime, checked in `prerender.ts` with the runtime's own `withinTrusted` and `trustedOriginsWith`: the origin of `host` of the config when it is set, else `trustedOrigins` with `DROPLETS_TRUSTED_ORIGINS` from `process.env` (the origin of `location` is the server's own); outside it the build fails before any render, naming the entry and the bound.
+  Checked by: `test/integration/prerender-entry-host.test.ts`.
 - `vite build` requires an adapter; `vite dev` runs without one.
   Checked by: `test/vite/build.test.ts`, `test/integration/vite.test.ts`.
 - Code generated as strings calls the runtime entries in `dist/runtime/` with their exported signatures; a change to one of those signatures changes the template in the same commit.

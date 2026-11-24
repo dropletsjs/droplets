@@ -219,7 +219,7 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - `/index.js` and `/index.css` answer `cache-control: no-store`. `test/worker.test.ts:170`, `test/worker.test.ts:178`
 - Droplet styles and the entry module name come from the inlined manifest, not the binding. `src/worker.ts:66`, `src/worker.ts:76`
 - Prerendered renders are read through the binding from `_prerendered/<random>`; they are never in the bundle. `src/worker.ts:72`, `test/worker.test.ts:129`
-- Prerendered folder name is `_prerendered/` plus 32 hex characters, new every build, and only `droplets.json` holds it. `../../droplets/src/vite/prerender.ts:52`, `test/worker.test.ts:130`
+- Prerendered folder name is `_prerendered/` plus 32 hex characters, new every build, and only `droplets.json` holds it. `../../droplets/src/vite/prerender.ts:51`, `test/worker.test.ts:130`
 - Prerendered renders, `droplets.json` and `/.vite/manifest.json` answer 404 from the Worker. `test/worker.test.ts:140`
 - `/assets/*` forwards the original request to the binding. `src/worker.ts:81`
 - `/assets/*` binding 404 answers the text `Not Found`, `404`, `cache-control: no-store`, the same answer as the Node adapter's, never the binding's own page. `src/worker.ts:83`, `test/worker.test.ts:193`

@@ -72,7 +72,10 @@ export const transform: Transform | Transform[];       // ({ html, ...event }) =
   `prototype` are never actions.
 - `entries` returns the renders to make at build when `prerender = true`;
   without it, one render with `{}`. Each event has only `props` (an object)
-  and `host` (an absolute URL); anything else fails the build.
+  and `host` (an absolute URL); anything else fails the build. An entry's
+  `host` passes the bound a request's host page passes, or the build fails:
+  the origin of `host` in `droplets.config.ts` when it is set, else an
+  origin in `trustedOrigins` when that list is set.
 - `transform` rewrites the droplet's HTML on every request, prerendered or
   live; a list runs in order and each step must return a string.
 

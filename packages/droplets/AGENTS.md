@@ -28,6 +28,8 @@
   Checked by: `test/core/script.test.ts`, `test/integration/script.test.ts`.
 - The build fails for server code in a client bundle and for another framework's files or packages in a droplet, naming the import chain.
   Checked by: `test/integration/server-only.test.ts`, `test/vite/renderer-graphs.test.ts`, `tests/dev-mixed`.
+- The build fails for a prerender entry whose `host` is outside `host` or `trustedOrigins` of `droplets.config.ts` (with `DROPLETS_TRUSTED_ORIGINS`), naming the entry and the bound; `vite dev` renders entries live and checks none.
+  Checked by: `test/integration/prerender-entry-host.test.ts`.
 - Every URL a droplet emits for its own files (`client.js`, `style.css`, its stylesheets, built and public files) is on the droplet location, so it works under any origin or prefix.
   Checked by: `test/integration/assets.test.ts`, `test/runtime/app.test.ts`.
 - `handle` never runs for `/index.js`, `/index.css`, `/env.js` and `/assets/*`, and the health check answers before `handle`.

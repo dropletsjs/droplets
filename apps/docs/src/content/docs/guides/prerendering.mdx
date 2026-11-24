@@ -61,6 +61,17 @@ Each entry renders for the first host page it can have:
 2. [`host`](/guides/configuration/#a-fixed-host) in `droplets.config.ts` (`host: "https://shop.example"`);
 3. none: the render is **host-agnostic**.
 
+An entry's `host` passes the same bound as a request's host page, or
+`vite build` fails, naming the entry and the bound: with
+[`host`](/guides/configuration/#a-fixed-host) in `droplets.config.ts` it is
+on that origin (any page of it); without it, with
+[`trustedOrigins`](/guides/configuration/#trusted-origins) or
+`DROPLETS_TRUSTED_ORIGINS` (read from the build's environment) set, its
+origin is listed (`"*"` lists every origin) or is the origin of
+[`location`](/guides/configuration/#a-fixed-location); with neither, any
+origin passes. A render for a host the server never gives the droplet would
+never be served.
+
 - **For the entry's `host`**, the loads get a real `URL`, and the render is
   stored under its props and that page's origin and path. A request gets it
   only when its own `host` matches.

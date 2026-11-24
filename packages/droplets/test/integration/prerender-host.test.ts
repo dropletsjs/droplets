@@ -84,13 +84,13 @@ describe("host while prerendering", () => {
 
   it("renders for the entry's host, else host of the config, keyed by that host", async () => {
     const root = await project({
-      server: `${LOAD}export const entries = () => [{ props: { a: 1 }, host: "https://entry.test/docs?q=1" }, { props: { a: 2 } }];\n`,
+      server: `${LOAD}export const entries = () => [{ props: { a: 1 }, host: "https://config.test/docs?q=1" }, { props: { a: 2 } }];\n`,
       config: 'export default { host: "https://config.test" };\n',
     });
     roots.push(root);
     await build({ root });
     expect(await stored(root)).toEqual({
-      '{"a":1} https://entry.test/docs': { home: "https://entry.test/home", path: "/docs" },
+      '{"a":1} https://config.test/docs': { home: "https://config.test/home", path: "/docs" },
       '{"a":2} https://config.test': { home: "https://config.test/home", path: "__$DROPLET_PATH_<nonce>$__" },
     });
   }, 90_000);
