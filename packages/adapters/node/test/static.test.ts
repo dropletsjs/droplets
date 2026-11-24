@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { FileHeaderRule } from "@dropletsjs/droplets";
 import { createStaticHandler } from "../src/static.ts";
 
 describe("createStaticHandler", () => {
@@ -105,6 +106,30 @@ describe("createStaticHandler", () => {
     expect(bare.headers.get("cache-control")).toBeNull();
     expect(bare.headers.get("etag")).toBe(etag);
     expect((await none.request("/assets/style-abc.css")).headers.get("cache-control")).toBe("public, max-age=2592000, immutable");
+  });
+
+  it("sends the headers of the last rule of its table that matches, and the ETag for public/ alone", async () => {
+    const table: FileHeaderRule[] = [
+      { path: "/assets/*", headers: { "Cache-Control": "one", "X-Kind": "file" } },
+      { path: "/assets/public/*", headers: { "Cache-Control": "two" } },
+      { path: "/assets/public/img/*", headers: { "X-Kind": "img" } },
+    ];
+    const own = new Hono();
+    own.get("/assets/*", createStaticHandler({ clientRoot: root, fileHeaders: table }));
+    const headersOf = async (path: string) => {
+      const res = await own.request(path);
+      return {
+        cache: res.headers.get("cache-control"),
+        kind: res.headers.get("x-kind"),
+        nosniff: res.headers.get("x-content-type-options"),
+      };
+    };
+    expect(await headersOf("/assets/style-abc.css")).toEqual({ cache: "one", kind: "file", nosniff: null });
+    await writeFile(join(root, "assets/public/robots.txt"), "User-agent: *\n");
+    expect(await headersOf("/assets/public/robots.txt")).toEqual({ cache: "two", kind: null, nosniff: null });
+    expect(await headersOf("/assets/public/img/logo.svg")).toEqual({ cache: null, kind: "img", nosniff: null });
+    expect((await own.request("/assets/public/img/logo.svg")).headers.get("etag")).toMatch(/^"[\w-]+"$/);
+    expect((await own.request("/assets/style-abc.css")).headers.get("etag")).toBeNull();
   });
 
   it("404s missing files with a text Not Found that is never cached", async () => {

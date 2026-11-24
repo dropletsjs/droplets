@@ -33,11 +33,11 @@ const apps = new WeakMap<AssetsFetcher, Promise<DropletsApp>>();
 
 type DropletEntryInput = { droplet: string };
 
-type AssetLoadersOptions = { assets: AssetsFetcher; config: ResolvedDropletsConfig };
+type AssetLoadersOptions = { assets: AssetsFetcher };
 
 type LoadFileInput = { path: string };
 
-type RevalidatedInput = { response: Response; ifNoneMatch: string | undefined; cacheControl: string | false };
+type RevalidatedInput = { response: Response; ifNoneMatch: string | undefined };
 
 type UncachedInput = { response: Response };
 
@@ -49,7 +49,7 @@ function dropletEntry({ droplet }: DropletEntryInput): DropletManifestEntry | un
 }
 
 /** The client build's files, read through the assets binding. */
-function createAssetLoaders({ assets, config }: AssetLoadersOptions): AssetLoaders {
+function createAssetLoaders({ assets }: AssetLoadersOptions): AssetLoaders {
   const loadFile = async ({ path }: LoadFileInput): Promise<string | null> => {
     // Only the pathname matters to the binding; the origin is a placeholder.
     const response = await assets.fetch(new URL(`/${path}`, "https://assets.invalid"));
@@ -74,23 +74,16 @@ function createAssetLoaders({ assets, config }: AssetLoadersOptions): AssetLoade
       : {}),
     externals: manifest.__externals ?? [],
     dropletStyles: (droplet) => Promise.resolve(dropletEntry({ droplet })?.css ?? []),
-    // The entry, shared chunks and assets, from the binding, named by
-    // their content and cached for good; `public/` under `/assets/public/`
-    // keeps its names: `publicCacheControl`, with the binding's ETag and 304.
+    // The entry, shared chunks and assets, from the binding; the server
+    // sets their headers (`fileHeaderTable`). `public/` under
+    // `/assets/public/` keeps its names, so it has an ETag and a 304.
     assetHandler: async (c) => {
       const response = await assets.fetch(c.req.raw);
       // A missing file answers as it does on Node, never with the binding's own page.
       if (response.status === 404) return c.text("Not Found", 404, { "cache-control": "no-store" });
       if (response.status >= 400) return uncached({ response });
-      if (!c.req.path.startsWith("/assets/public/")) {
-        if (!response.ok) return response;
-        const cached = new Response(response.body, response);
-        cached.headers.set("cache-control", "public, max-age=2592000, immutable");
-        cached.headers.set("x-content-type-options", "nosniff");
-        return cached;
-      }
-      if (!response.ok && response.status !== 304) return response;
-      return revalidated({ response, ifNoneMatch: c.req.header("if-none-match"), cacheControl: config.publicCacheControl });
+      if (!c.req.path.startsWith("/assets/public/") || (!response.ok && response.status !== 304)) return response;
+      return revalidated({ response, ifNoneMatch: c.req.header("if-none-match") });
     },
   };
 }
@@ -102,12 +95,9 @@ function uncached({ response }: UncachedInput): Response {
   return new Response(response.body, { status: response.status, headers });
 }
 
-/** `cacheControl` (none for `false`) with an `ETag`: the binding's, else one from the content, answered 304 when it matches. */
-async function revalidated({ response, ifNoneMatch, cacheControl }: RevalidatedInput): Promise<Response> {
+/** The answer with an `ETag`: the binding's, else one from the content, answered 304 when it matches. */
+async function revalidated({ response, ifNoneMatch }: RevalidatedInput): Promise<Response> {
   const headers = new Headers(response.headers);
-  headers.set("x-content-type-options", "nosniff");
-  if (cacheControl === false) headers.delete("cache-control");
-  else headers.set("cache-control", cacheControl);
   if (response.status === 304 || headers.has("etag")) return new Response(response.body, { status: response.status, headers });
   const body = await response.arrayBuffer();
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-1", body));
@@ -137,7 +127,7 @@ function appOf({ env }: AppOfInput): Promise<DropletsApp> {
   }
   let app = apps.get(assets);
   if (!app) {
-    app = loadConfig().then((config) => createServerApp({ ssr, config, assets: createAssetLoaders({ assets, config }) }));
+    app = loadConfig().then((config) => createServerApp({ ssr, config, assets: createAssetLoaders({ assets }) }));
     apps.set(assets, app);
   }
   return app;

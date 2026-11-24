@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { resolveConfig } from "@dropletsjs/droplets";
+import { type FileHeaderRule, fileHeadersFor, fileHeaderTable, resolveConfig } from "@dropletsjs/droplets";
 import { logger } from "@dropletsjs/droplets/vite";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
 import { cloudflare } from "../src/index.ts";
@@ -63,6 +63,45 @@ function adapterHeaders(publicRule: string): string {
   );
 }
 
+type CloudflarePatternInput = { pattern: string; path: string };
+
+/** Cloudflare's `_headers` URL match: `:name` one segment, `*` anything. */
+function cloudflareMatches({ pattern, path }: CloudflarePatternInput): boolean {
+  const source = pattern
+    .split(/(:\w+|\*)/)
+    .map((part) => (part === "*" ? ".*" : part.startsWith(":") ? "[^/]+" : part.replace(/[.+?^${}()|[\]\\]/g, "\\$&")))
+    .join("");
+  return new RegExp(`^${source}$`).test(path);
+}
+
+type CloudflareHeadersInput = { text: string; path: string };
+
+/**
+ * What Cloudflare's static assets send for `path` under a `_headers` text:
+ * every matching rule in order, a header joined to one already set, `! Name`
+ * detaching it, over the platform's own `Cache-Control`.
+ */
+function cloudflareHeaders({ text, path }: CloudflareHeadersInput): Headers {
+  const headers = new Headers({ "cache-control": "public, max-age=0, must-revalidate" });
+  let matches = false;
+  for (const line of text.split("\n")) {
+    if (line.trim() === "") continue;
+    if (!/^\s/.test(line)) {
+      matches = cloudflareMatches({ pattern: line.trim(), path });
+      continue;
+    }
+    if (!matches) continue;
+    const entry = line.trim();
+    if (entry.startsWith("! ")) {
+      headers.delete(entry.slice(2));
+      continue;
+    }
+    const colon = entry.indexOf(":");
+    headers.append(entry.slice(0, colon), entry.slice(colon + 1).trim());
+  }
+  return headers;
+}
+
 const DEFAULT_HEADERS = adapterHeaders("/assets/public/*\n  ! Cache-Control\n  Cache-Control: no-cache\n");
 
 describe("cloudflare: afterBuild", () => {
@@ -81,17 +120,19 @@ describe("cloudflare: afterBuild", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  type AfterBuildInput = { config?: Parameters<typeof resolveConfig>[0] };
+  type AfterBuildInput = { config?: Parameters<typeof resolveConfig>[0]; table?: FileHeaderRule[] };
 
-  const afterBuild = ({ config = {} }: AfterBuildInput = {}) => {
+  const afterBuild = ({ config = {}, table }: AfterBuildInput = {}) => {
     const adapter = cloudflare();
     if (adapter.afterBuild === undefined) expect.unreachable("cloudflare().afterBuild");
+    const resolved = resolveConfig(config);
     return adapter.afterBuild({
       root,
       outDir: join(root, "dist"),
       manifestPath: join(root, "dist/client/droplets.json"),
       serverPath: "dist/worker.js",
-      config: resolveConfig(config),
+      config: resolved,
+      fileHeaders: table ?? fileHeaderTable(resolved),
     });
   };
   const headers = () => readFile(join(root, "dist/client/_headers"), "utf8");
@@ -106,6 +147,33 @@ describe("cloudflare: afterBuild", () => {
       await afterBuild({ config: { publicCacheControl: false } });
       expect(await headers()).toBe(adapterHeaders("/assets/public/*\n  ! Cache-Control\n"));
       expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("writes the table it is given, so that Cloudflare gives each path the headers of its last matching rule", async () => {
+      const files = { "Access-Control-Allow-Origin": "*", "X-Content-Type-Options": "nosniff" };
+      const table: FileHeaderRule[] = [
+        { path: "/index.js", headers: { ...files, "Cache-Control": "no-store" } },
+        { path: "/assets/*", headers: { ...files, "Cache-Control": "one", "X-Kind": "file" } },
+        { path: "/assets/public/*", headers: { ...files, "Cache-Control": "two" } },
+        { path: "/assets/public/img/*", headers: { ...files, "X-Kind": "img" } },
+        // Under /assets/*, and across /assets/public/* for one directory only.
+        { path: "/assets/:dir/x.js", headers: { ...files, "X-Kind": "x" } },
+        { path: "/droplets/:id/client.js", headers: { ...files, "Cache-Control": "three" } },
+      ];
+      await afterBuild({ table });
+      const text = await headers();
+      for (const path of [
+        "/index.js",
+        "/assets/a.js",
+        "/assets/chunks/a.js",
+        "/assets/public/robots.txt",
+        "/assets/public/img/logo.svg",
+        "/assets/public/x.js",
+        "/assets/other/x.js",
+        "/droplets/hello/client.js",
+      ]) {
+        expect([...cloudflareHeaders({ text, path })], path).toEqual([...new Headers(fileHeadersFor({ table, path }))]);
+      }
     });
 
     it("appends the project's own _headers after the adapter's rules", async () => {

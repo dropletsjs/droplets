@@ -3,6 +3,7 @@ import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { gunzipSync } from "node:zlib";
+import { fileHeadersFor, fileHeaderTable, resolveConfig } from "@dropletsjs/droplets";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildFixture, FIXTURE_ROOT } from "./build-fixture.ts";
 
@@ -235,6 +236,29 @@ describe("worker", () => {
     const matched = await own({ init: { headers: { "if-none-match": '"cf"' } } });
     expect(matched.status).toBe(304);
     expect(matched.headers.get("cache-control")).toBe("no-cache");
+  });
+
+  it("answers every build file that reaches it with the headers of fileHeaderTable(config), and no other of the table's", async () => {
+    const manifest = JSON.parse(await readFile(resolve(outDir, "client/droplets.json"), "utf8"));
+    // The fixture's config leaves publicCacheControl at its default.
+    const table = fileHeaderTable(resolveConfig({}));
+    const names = [...new Set(table.flatMap((rule) => Object.keys(rule.headers).map((name) => name.toLowerCase())))];
+    for (const path of [
+      "/index.js",
+      "/index.css",
+      `/${manifest.__entryModule}`,
+      "/assets/public/robots.txt",
+      "/droplets/hello/client.js",
+      "/droplets/static-note/style.css",
+    ]) {
+      const res = await call({ path });
+      expect(res.status, path).toBe(200);
+      const expected = new Headers(fileHeadersFor({ table, path }));
+      expect(
+        names.map((name) => [name, res.headers.get(name)]),
+        path,
+      ).toEqual(names.map((name) => [name, expected.get(name)]));
+    }
   });
 
   it("never runs handle for /index.js or /assets/*, and runs it for /droplets/*", async () => {

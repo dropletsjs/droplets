@@ -9,6 +9,7 @@ import { entryClientPath } from "../../src/core/paths.ts";
 import { locationScript } from "../../src/runtime/server-records.ts";
 import { fakeRenderer } from "../../src/testing/index.ts";
 import type { AdapterBuildContext } from "../../src/adapters.ts";
+import { fileHeaderTable } from "../../src/runtime/file-headers.ts";
 import { droplets, type DropletsAdapter } from "../../src/vite.ts";
 
 const root = fileURLToPath(new URL("../fixtures/app/", import.meta.url));
@@ -255,6 +256,7 @@ describe("vite build", () => {
       serverPath: resolve(outDir, "server.js"),
     });
     expect(context?.config).toMatchObject({ element: "test-droplet", server: { port: 8123 }, publicCacheControl: "no-cache" });
+    expect(context?.fileHeaders).toEqual(fileHeaderTable(context?.config ?? expect.unreachable("a config")));
   });
 
   it("bundles API routes, hooks and the index page", async () => {

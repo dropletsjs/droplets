@@ -1,5 +1,6 @@
 import type { EnvironmentOptions } from "vite";
 import type { ResolvedDropletsConfig } from "./core/config.ts";
+import type { FileHeaderRule } from "./runtime/file-headers.ts";
 
 /**
  * An adapter decides what `vite build` emits for the runtime that will host
@@ -55,6 +56,12 @@ export type AdapterBuildContext = {
   serverPath: string;
   /** The resolved `droplets.config.ts`, as the server bundle has it. */
   config: ResolvedDropletsConfig;
+  /**
+   * The headers of the build's files, `fileHeaderTable(config)`: the table
+   * the server applies to what it answers, for an adapter to write into its
+   * platform's own header rules.
+   */
+  fileHeaders: FileHeaderRule[];
 };
 
 export type AdapterPreviewContext = {

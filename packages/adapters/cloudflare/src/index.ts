@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { DropletsAdapter, DropletsManifest } from "@dropletsjs/droplets";
+import type { DropletsAdapter, DropletsManifest, FileHeaderRule } from "@dropletsjs/droplets";
 import { logger } from "@dropletsjs/droplets/vite";
 import { defaultServerConditions } from "vite";
 
@@ -83,28 +83,86 @@ function hasNodeCompat({ flags }: HasNodeCompatInput): boolean {
 
 const DEPLOYMENT_DOCS = "https://dropletsjs.dev/guides/deployment/";
 
-const IMMUTABLE = "public, max-age=2592000, immutable";
+type PatternsInput = { wider: string; narrower: string };
 
-type HeadersBlockInput = { publicCacheControl: string | false };
+/** Whether every path the `narrower` pattern matches, the `wider` one matches too. */
+function covers({ wider, narrower }: PatternsInput): boolean {
+  const outer = wider.split("/");
+  const inner = narrower.split("/");
+  for (const [index, segment] of outer.entries()) {
+    if (segment === "*" && index === outer.length - 1) return inner.length > index;
+    const part = inner[index];
+    if (part === undefined || part === "*") return false;
+    if (!segment.startsWith(":") && part !== segment) return false;
+  }
+  return inner.length === outer.length;
+}
+
+type OverlapInput = { a: string; b: string };
+
+/** Whether some path matches both patterns. */
+function overlaps({ a, b }: OverlapInput): boolean {
+  const left = a.split("/");
+  const right = b.split("/");
+  for (let index = 0; ; index++) {
+    const l = left[index];
+    const r = right[index];
+    if (l === undefined || r === undefined) return l === r;
+    if ((l === "*" && index === left.length - 1) || (r === "*" && index === right.length - 1)) return true;
+    if (!l.startsWith(":") && !r.startsWith(":") && l !== r) return false;
+  }
+}
+
+/** What static assets send on their own, whatever `_headers` says: detached before a rule sets it. */
+const PLATFORM_HEADERS = ["Cache-Control"];
+
+// Every file of the build has had these on Cloudflare.
+const CLOUDFLARE_FILE_HEADERS = { "Access-Control-Allow-Origin": "*", "X-Content-Type-Options": "nosniff" };
+
+type RuleLinesInput = { rule: FileHeaderRule; earlier: readonly FileHeaderRule[] };
 
 /**
- * The adapter's rules for `dist/client/_headers`. Cloudflare applies every
- * rule that matches and joins repeated headers, so each rule detaches
- * `Cache-Control` first: the default of static assets, and on
- * `/assets/public/*` the immutable one `/assets/*` gave it.
+ * The header lines of one rule. Cloudflare applies every rule that matches
+ * and joins repeated headers, where the table gives a path its last matching
+ * rule alone: a rule sets only what differs from the last wider rule before
+ * it, and detaches (`! Name`) what it replaces or leaves out.
  */
-function headersBlock({ publicCacheControl }: HeadersBlockInput): string {
-  const files = (path: string, cacheControl: string) =>
-    `${path}\n  Access-Control-Allow-Origin: *\n  X-Content-Type-Options: nosniff\n  ! Cache-Control\n  Cache-Control: ${cacheControl}\n`;
-  const publicRule = `/assets/public/*\n  ! Cache-Control\n${publicCacheControl === false ? "" : `  Cache-Control: ${publicCacheControl}\n`}`;
-  return [
-    files("/index.js", "no-store"),
-    files("/index.css", "no-store"),
-    files("/assets/*", IMMUTABLE),
-    publicRule,
-    files("/droplets/:id/client.js", IMMUTABLE),
-    files("/droplets/:id/style.css", IMMUTABLE),
-  ].join("");
+function ruleLines({ rule, earlier }: RuleLinesInput): string[] {
+  const parentIndex = earlier.findLastIndex((before) => covers({ wider: before.path, narrower: rule.path }));
+  const inherited = Object.entries(earlier[parentIndex]?.headers ?? {});
+  // Lowercase name to name: headers whose value on this rule's paths is not known here.
+  const unknown = new Map(PLATFORM_HEADERS.map((name) => [name.toLowerCase(), name]));
+  for (const before of earlier.slice(parentIndex + 1)) {
+    if (!overlaps({ a: before.path, b: rule.path })) continue;
+    for (const name of Object.keys(before.headers)) unknown.set(name.toLowerCase(), name);
+  }
+  const parent = new Map(inherited.map(([name, value]) => [name.toLowerCase(), value]));
+  const own = new Set(Object.keys(rule.headers).map((name) => name.toLowerCase()));
+  const lines: string[] = [];
+  for (const [name, value] of Object.entries(rule.headers)) {
+    const key = name.toLowerCase();
+    if (!unknown.has(key) && parent.get(key) === value) continue;
+    if (unknown.has(key) || parent.has(key)) lines.push(`! ${name}`);
+    lines.push(`${name}: ${value}`);
+  }
+  const left = new Map([...inherited.map(([name]) => [name.toLowerCase(), name] as const), ...unknown]);
+  for (const [key, name] of left) if (!own.has(key)) lines.push(`! ${name}`);
+  return lines;
+}
+
+type HeadersBlockInput = { table: readonly FileHeaderRule[] };
+
+/** The adapter's rules for `dist/client/_headers`, from the file-header table, in its order. */
+function headersBlock({ table }: HeadersBlockInput): string {
+  const rules = table.map((rule) => ({ path: rule.path, headers: { ...CLOUDFLARE_FILE_HEADERS, ...rule.headers } }));
+  return rules
+    .map(
+      (rule, index) =>
+        `${rule.path}\n${ruleLines({ rule, earlier: rules.slice(0, index) })
+          .map((line) => `  ${line}\n`)
+          .join("")}`,
+    )
+    .join("");
 }
 
 const MAX_RULES = 100;
@@ -240,11 +298,11 @@ export function cloudflare(options: CloudflareAdapterOptions = {}): DropletsAdap
         },
       },
     },
-    async afterBuild({ root, outDir, manifestPath, serverPath, config }) {
+    async afterBuild({ root, outDir, manifestPath, serverPath, fileHeaders }) {
       const client = resolve(outDir, "client");
       await writeFile(resolve(client, ".assetsignore"), ASSETS_IGNORE);
       const own = existsSync(resolve(root, USER_HEADERS)) ? await readFile(resolve(root, USER_HEADERS), "utf8") : "";
-      const headers = `${headersBlock({ publicCacheControl: config.publicCacheControl })}${own ? `\n${own}` : ""}`;
+      const headers = `${headersBlock({ table: fileHeaders })}${own ? `\n${own}` : ""}`;
       await writeFile(resolve(client, "_headers"), headers);
       const over = headersOverLimits({ text: headers });
       if (over) {

@@ -13,6 +13,7 @@ import { discoverDroplets } from "../core/discover.ts";
 import { syncTypes } from "./sync-types.ts";
 import { loadEnvState, missingStatic } from "../core/env.ts";
 import { setRuntimeEnv } from "../runtime/env-store.ts";
+import { fileHeaderTable } from "../runtime/file-headers.ts";
 import { loadDropletsConfig } from "../core/load-config.ts";
 import { logger } from "../core/logger.ts";
 import { packageRoot } from "../core/paths.ts";
@@ -563,6 +564,7 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
         manifestPath,
         serverPath: resolve(state.outDir, adapter.serverFile),
         config: state.config,
+        fileHeaders: fileHeaderTable(state.config),
       });
       logger.info("framework", "build finished", { manifest: manifestPath });
     },

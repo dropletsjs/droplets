@@ -86,6 +86,8 @@ that resolves outside that folder, a missing file and a directory all answer
 there after the next build). `handle` from your hooks never runs for these
 files.
 
+- The headers come from `fileHeaderTable(config)` in `@dropletsjs/droplets`,
+  the same table the Cloudflare adapter writes into `_headers`.
 - Every file Vite emits there is content-hashed: `cache-control: public,
   max-age=2592000, immutable`.
 - Every file answered carries `x-content-type-options: nosniff` with its
@@ -164,17 +166,19 @@ by path.
 - `loadJsonFile` throws `MalformedJsonError` (`name`, `path`, `cause`: the `SyntaxError`) for a file that does not parse; a missing file is `null`. `src/fs.ts:12`, `src/fs.ts:43`
 - `/assets/*` is the only route that serves files from `dist/client`. `../../droplets/src/server/app.ts:125`
 - `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:338`, `../../droplets/src/runtime/app.ts:900`
-- `/assets/*` serves from `dist/client/assets`. `src/static.ts:48`
-- `/assets/*` path resolving outside `dist/client/assets` answers the text `404 Not Found` with `cache-control: no-store` before any read. `src/static.ts:64`, `src/static.ts:98`
-- `/assets/*` missing file or directory answers the text `404 Not Found` with `cache-control: no-store`, the same answer as the Cloudflare adapter's. `src/static.ts:106`, `test/static.test.ts:111`
-- `/assets/*` cache-control for hashed files is `public, max-age=2592000, immutable` (30 days). `src/static.ts:70`
+- `/assets/*` serves from `dist/client/assets`. `src/static.ts:94`
+- `/assets/*` path resolving outside `dist/client/assets` answers the text `404 Not Found` with `cache-control: no-store` before any read. `src/static.ts:65`, `src/static.ts:104`
+- `/assets/*` missing file or directory answers the text `404 Not Found` with `cache-control: no-store`, the same answer as the Cloudflare adapter's. `src/static.ts:112`, `test/static.test.ts:135`
+- `/assets/*` sends the headers of the last rule of `fileHeaderTable(config)` whose pattern matches the path, which `createNodeServerApp` passes to the static handler. `src/app.ts:41`, `src/static.ts:115`, `../../droplets/src/runtime/file-headers.ts:26`
+- `/assets/*` cache-control for hashed files is `public, max-age=2592000, immutable` (30 days). `../../droplets/src/runtime/file-headers.ts:31`
 - `/assets/*` content type comes from a fixed extension table, case-insensitive: scripts, styles, JSON, source maps, web manifests, HTML, XML, text, Markdown, CSV, WebVTT, iCalendar and YAML with `; charset=utf-8`; the image, font, WebAssembly, PDF, ZIP, gzip, video and audio types without; any other extension is `application/octet-stream`. `src/static.ts:6`, `src/static.ts:72`, `test/static.test.ts:47`
-- `/assets/*` sends `x-content-type-options: nosniff` on every file answered, hashed and `public/` alike. `src/static.ts:69`, `test/static.test.ts:32`
-- `/assets/*` reads the whole file into memory per request: no streaming, no range requests. `src/static.ts:63`
+- `/assets/*` sends `x-content-type-options: nosniff` on every file answered, hashed and `public/` alike. `../../droplets/src/runtime/file-headers.ts:31`, `../../droplets/src/runtime/file-headers.ts:36`, `test/static.test.ts:35`
+- `/assets/*` reads the whole file into memory per request: no streaming, no range requests. `src/static.ts:109`
 - `public/` is copied into `dist/client/assets/public/` only; Vite's own `copyPublicDir` is off. `../../droplets/src/vite/build.ts:137`, `../../droplets/src/vite/assets.ts:95`
-- `/assets/public/*` cache-control is `publicCacheControl` from the config (`no-cache` by default, none for `false`), with an `ETag` of the file's SHA-1 in base64url. `src/app.ts:41`, `src/static.ts:73`, `src/static.ts:74`
-- `/assets/public/*` answers `304` with no body when any `If-None-Match` tag equals the `ETag`. `src/static.ts:76`
-- `/assets/public/*` is the only path with an `ETag`; hashed files never revalidate. `src/static.ts:69`, `test/static.test.ts:61`
+- `/assets/public/*` cache-control is `publicCacheControl` from the config (`no-cache` by default, none for `false`), with an `ETag` of the file's SHA-1 in base64url. `../../droplets/src/runtime/file-headers.ts:36`, `src/static.ts:119`, `src/static.ts:120`
+- `/assets/public/*` answers `304` with no body when any `If-None-Match` tag equals the `ETag`. `src/static.ts:127`
+- `/assets/public/*` is the only path with an `ETag`; hashed files never revalidate. `src/static.ts:118`, `test/static.test.ts:89`
+- `/index.js`, `/index.css`, `/droplets/<id>/client.js` and `style.css` get the same table's headers from `createServerApp`, on a 2xx answer. `../../droplets/src/server/app.ts:123`, `../../droplets/src/runtime/app.ts:1225`, `test/app.test.ts:167`
 - `public/robots.txt` is not served at `/robots.txt`: it answers 404. `test/app.test.ts:126`
 - Runtime env comes from `process.env`: `DROPLETS_SECRET`, `DROPLETS_TRUSTED_ORIGINS`, `DROPLETS_ENV_MAX_AGE` and private variables, per read. `../../droplets/src/runtime/env-store.ts:26`
 - Node engine is `>=22`. `package.json:35`

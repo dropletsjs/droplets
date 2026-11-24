@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { resolve, sep } from "node:path";
 import { readFile } from "node:fs/promises";
+import { type FileHeaderRule, fileHeadersFor, fileHeaderTable } from "@dropletsjs/droplets";
 import type { Handler } from "hono";
 
 // Text types carry the charset; anything else is `application/octet-stream`.
@@ -65,8 +66,10 @@ const NOT_FOUND_HEADERS = { "cache-control": "no-store" };
 
 export type StaticHandlerOptions = {
   clientRoot: string;
-  /** `Cache-Control` of `/assets/public/*`, `false` for none (`publicCacheControl`). Default: `no-cache`. */
+  /** `Cache-Control` of `/assets/public/*`, `false` for none (`publicCacheControl`). Default: `no-cache`. Read when `fileHeaders` is not given. */
   publicCacheControl?: string | false;
+  /** The headers of the build's files. Default: `fileHeaderTable({ publicCacheControl })`. */
+  fileHeaders?: readonly FileHeaderRule[];
 };
 
 type ContentTypeOfInput = { path: string };
@@ -79,12 +82,15 @@ function contentTypeOf({ path }: ContentTypeOfInput): string {
 
 /**
  * Serves the shared chunks and assets Vite emits alongside the droplet
- * bundles, content-hashed and so cached for good, and the project's
- * `public/` under `/assets/public/`, whose names stay: `publicCacheControl`,
- * by default revalidated on every use (`no-cache`), with an `ETag` and 304
- * when it matches.
+ * bundles, and the project's `public/` under `/assets/public/`, with the
+ * headers `fileHeaders` gives their path. `public/` keeps its names, so its
+ * files also carry an `ETag` and answer 304 when it matches.
  */
-export function createStaticHandler({ clientRoot, publicCacheControl = "no-cache" }: StaticHandlerOptions): Handler {
+export function createStaticHandler({
+  clientRoot,
+  publicCacheControl = "no-cache",
+  fileHeaders = fileHeaderTable({ publicCacheControl }),
+}: StaticHandlerOptions): Handler {
   const assetsRoot = resolve(clientRoot, "assets");
   const assetsPrefix = assetsRoot + sep;
   const publicPrefix = resolve(assetsRoot, "public") + sep;
@@ -106,13 +112,11 @@ export function createStaticHandler({ clientRoot, publicCacheControl = "no-cache
       return c.text("Not Found", 404, NOT_FOUND_HEADERS);
     }
     c.header("content-type", contentTypeOf({ path: filePath }));
-    c.header("x-content-type-options", "nosniff");
-    if (!filePath.startsWith(publicPrefix)) {
-      c.header("cache-control", "public, max-age=2592000, immutable");
-      return c.body(new Uint8Array(body));
+    for (const [name, value] of Object.entries(fileHeadersFor({ table: fileHeaders, path: c.req.path }) ?? {})) {
+      c.header(name, value);
     }
+    if (!filePath.startsWith(publicPrefix)) return c.body(new Uint8Array(body));
     const etag = `"${createHash("sha1").update(body).digest("base64url")}"`;
-    if (publicCacheControl !== false) c.header("cache-control", publicCacheControl);
     c.header("etag", etag);
     if (
       c.req

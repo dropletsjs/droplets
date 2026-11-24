@@ -74,7 +74,11 @@ with loaders for its platform, and gets the config, the renderer and the
 manifest through `virtual:droplets-config`, `virtual:droplets-ssr` and
 `virtual:droplets-manifest`. The shipped adapters are the reference:
 `packages/adapters/node` and `packages/adapters/cloudflare` in the repository;
-`bun` and `deno` only change how `node`'s app is served. Prerendered renders
+`bun` and `deno` only change how `node`'s app is served. The headers of the
+build's files come from one table, `fileHeaderTable(config)`:
+`createServerApp` sets it on what the server answers, and `afterBuild` gets
+it as `fileHeaders` for a platform that serves the files itself (see
+[the file-header table](/reference/api/#the-file-header-table)). Prerendered renders
 are server-only: an adapter with `separateSsrBundle` reads them from
 `dist/server/_prerendered/`; one without finds them in the client build under
 the manifest's `__prerendered`, a directory named anew every build, and must

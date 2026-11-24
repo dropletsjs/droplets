@@ -1,4 +1,4 @@
-import { createServerApp, type ResolvedDropletsConfig, type SsrModule } from "@dropletsjs/droplets";
+import { createServerApp, fileHeaderTable, type ResolvedDropletsConfig, type SsrModule } from "@dropletsjs/droplets";
 import { createAssetLoaders } from "./assets.ts";
 import { createStaticHandler } from "./static.ts";
 
@@ -38,7 +38,7 @@ export async function createNodeServerApp(paths: NodeServerPaths, config: Resolv
       loadIndex: loaders.loadIndex,
       loadPrerendered: loaders.loadPrerendered,
       externals: manifest.__externals ?? [],
-      assetHandler: createStaticHandler({ clientRoot, publicCacheControl: config.publicCacheControl }),
+      assetHandler: createStaticHandler({ clientRoot, fileHeaders: fileHeaderTable(config) }),
     },
   });
 }
