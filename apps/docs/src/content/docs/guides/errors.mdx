@@ -99,6 +99,86 @@ shows the second, the `500` fragment with `data-droplet-error`, whose
 A throw with nothing to say (`throw undefined`, no `handleError`) reaches the
 error page as a `DropletRenderError`.
 
+## Timeouts
+
+A droplet's loads and its render on the server have a deadline:
+[`render.timeout`](/guides/configuration/#options) in `droplets.config.ts`,
+`5000` ms by default.
+
+```ts
+// droplets.config.ts
+import { config } from "@dropletsjs/droplets";
+
+export default config({
+  render: { timeout: 10_000 }, // ms; Infinity: no deadline
+});
+```
+
+The deadline starts when the fragment or `_data` request starts the
+droplet's work: after `handle`, the props schema and any form action. It
+covers the load of `+droplet.server.ts`, the load of `+droplet.ts` and the
+component's render; it does not cover `transform` or the error page.
+
+Past it, the answer is a `504`, and the `error` is
+`{ status: 504, message: "Gateway Timeout" }`:
+
+- The fragment renders the droplet's [`+error.*`](#errors-handleerror-and-error)
+  page with that `error`, carries `data-droplet-error` and holds
+  `{ "error": … }` in its inline data, as for a load that failed.
+  `handleError` of `+droplet.ts` runs over it; `handleError` of
+  `+droplet.server.ts` does not, because the timeout is the framework's
+  answer, not the load's error.
+- A droplet without `+error.*` answers the same `504` with no markup; the
+  element shows the host's children. With `ssr = false` there is no server
+  markup either: the browser renders the error page from the inline data.
+- `_data` answers `504` with `{ "error": … }`, and the element renders the
+  error page from it, as it does for a `500`.
+- What the load set with [`setHeaders`](/guides/server/#setheaders) is not
+  sent.
+
+The server load sees the deadline in `event.request.signal`, which aborts
+with a `TimeoutError` when it passes. Pass it on to what the load waits for,
+so that work stops too:
+
+```ts
+// +droplet.server.ts
+import type { LoadEvent } from "$droplets/server";
+
+export const load = async ({ request, fetch }: LoadEvent) => {
+  const response = await fetch("https://api.example.com/reviews", { signal: request.signal });
+  return { reviews: await response.json() };
+};
+```
+
+`event.fetch` does not pass the signal by itself: give it
+`{ signal: event.request.signal }` as above. Do the same with a database
+client that takes an `AbortSignal`. A load that ignores the signal keeps
+running after the `504` (JavaScript cannot stop it); whatever it returns or
+throws then is dropped, and nothing is logged.
+
+On Node, Bun and Deno, the same signal also aborts when the client goes away
+before the answer; on Cloudflare Workers that is not verified, so do not
+rely on it there. Such an abort is not a timeout: what the load throws then
+is its own failure, as without a deadline.
+
+`event.request` in a load is a copy of the request with that signal, not
+the object `handle` saw: its URL, method and headers are the same, and its
+body, when nothing read it, is readable there. After a form action read
+the body, the copy has none.
+
+- `0` waits for no promise: a load that returns at once, or only settled
+  promises, renders; one that waits on real I/O almost always lands on
+  `+error.*` (Node rounds a 0 ms timer up to 1 ms, so a fast local read can
+  win).
+- `Infinity` sets no deadline, and the load gets the request itself.
+- Renders prerendered by `vite build` have no deadline.
+- `vite dev` warns about every timeout in the terminal; a production server
+  logs nothing for it.
+
+A host that fetches fragments on its server should treat a `504` `text/html`
+answer like a `500` one (paste it: it is the error page) and wait longer
+than `render.timeout` before it gives up on its own.
+
 ## In the browser
 
 When a droplet loads in the browser (client-only, or a load in `+droplet.ts`

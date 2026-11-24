@@ -98,6 +98,11 @@ export type SetHeaders = (headers: Record<string, string>) => void;
 
 /** What `handle`, `+server.ts` handlers and droplet loads receive. */
 export type RequestEvent<Params extends Record<string, string> = Record<string, string>> = {
+  /**
+   * The incoming request. Unless `render.timeout` is `Infinity`, a
+   * droplet's load gets a copy whose `signal` also aborts at the deadline,
+   * with the body when nothing read it yet.
+   */
   request: Request;
   /** The request URL, on the droplet location: `location` of the config, else a trusted location header's origin, else the request's own. */
   url: URL;
@@ -326,6 +331,7 @@ const STATUS_TEXT: Record<number, string> = {
   501: "Not Implemented",
   502: "Bad Gateway",
   503: "Service Unavailable",
+  504: "Gateway Timeout",
 };
 
 /**

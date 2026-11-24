@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createDeadline } from "../../src/runtime/render-timeout.ts";
 import type { LoadEvent } from "../../src/runtime/server.ts";
 
 const leaky = () => {
@@ -13,6 +14,9 @@ async function entryServer({ droplets }: EntryServerInput): Promise<typeof impor
   vi.doMock("virtual:droplets", async (original) => ({ ...(await original<object>()), default: droplets }));
   return import("../../src/runtime/entry-server.ts");
 }
+
+/** A load event with a request, as the app hands it. */
+const loadEvent = () => ({ request: new Request("http://drops.test/droplets/failing") }) as LoadEvent;
 
 const failing = {
   component: async () => ({}),
@@ -39,7 +43,7 @@ describe("entry-server: a failed load without handleError", () => {
   it("shows only Internal Error in production: the cause stays in the log", async () => {
     vi.stubEnv("DEV", false);
     const { loadDropletData } = await entryServer({ droplets: { failing } });
-    expect(await loadDropletData("failing", {} as LoadEvent)).toEqual({
+    expect(await loadDropletData("failing", loadEvent())).toEqual({
       failed: true,
       error: { name: "DropletRenderError", message: "Internal Error" },
     });
@@ -48,7 +52,7 @@ describe("entry-server: a failed load without handleError", () => {
   it("shows the message in dev", async () => {
     vi.stubEnv("DEV", true);
     const { loadDropletData } = await entryServer({ droplets: { failing } });
-    expect(await loadDropletData("failing", {} as LoadEvent)).toEqual({
+    expect(await loadDropletData("failing", loadEvent())).toEqual({
       failed: true,
       error: { name: "Error", message: "connect ECONNREFUSED db.internal:5432 (user=shop)" },
     });
@@ -61,7 +65,29 @@ describe("entry-server: a failed load without handleError", () => {
         failing: { ...failing, serverLoad: async () => ({ load: leaky, handleError: () => ({ error: { message: "Try later" } }) }) },
       },
     });
-    expect(await loadDropletData("failing", {} as LoadEvent)).toEqual({ failed: true, error: { message: "Try later" } });
+    expect(await loadDropletData("failing", loadEvent())).toEqual({ failed: true, error: { message: "Try later" } });
+  });
+});
+
+describe("entry-server: a load that fails past render.timeout", () => {
+  it("is rethrown as it is: no console.error, no handleError, from the render and the server load alike", async () => {
+    const deadline = createDeadline({ timeout: 0 });
+    await new Promise((resolve) => deadline.signal.addEventListener("abort", resolve));
+    const event = { request: new Request("http://drops.test/droplets/failing", { signal: deadline.signal }), props: {} } as LoadEvent;
+    const handleError = vi.fn(() => ({ error: { message: "Try later" } }));
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const cause = new Error("aborted by the deadline");
+    const load = () => {
+      throw cause;
+    };
+    const { loadDropletData, renderDroplet } = await entryServer({
+      droplets: { failing: { ...failing, serverLoad: async () => ({ load, handleError }) } },
+    });
+    await expect(loadDropletData("failing", event)).rejects.toBe(cause);
+    await expect(renderDroplet("failing", event)).rejects.toBe(cause);
+    expect(logged).not.toHaveBeenCalled();
+    expect(handleError).not.toHaveBeenCalled();
+    logged.mockRestore();
   });
 });
 

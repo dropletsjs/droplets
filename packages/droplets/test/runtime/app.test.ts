@@ -1760,7 +1760,8 @@ describe("createDropletsApp: the query as it came", () => {
     });
     const res = await app.fetch(raw);
     expect(res.status).toBe(200);
-    expect(request).toBe(raw);
+    // A copy with the deadline's signal: the same URL.
+    expect(request?.url).toBe(raw.url);
     expect(seen).toEqual(["handle ?who=Ana&compact&x=a%20b", 'load {"who":"Ana","compact":"","x":"a b"}']);
   });
 
@@ -2716,6 +2717,284 @@ describe("createDropletsApp: a fixed location", () => {
   });
 });
 
+describe("createDropletsApp: render.timeout", () => {
+  const render = { timeout: 20 };
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  const errorPage = async (_name: string, e: unknown) => ({ html: `<p>${JSON.stringify(e)}</p>` });
+  const GATEWAY_TIMEOUT = { status: 504, message: "Gateway Timeout" };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("answers 504 with the error page and { error } inline when the render is slower", async () => {
+    const renderError = vi.fn(errorPage);
+    const { app } = fakeApp({
+      render,
+      renderError,
+      renderDroplet: async () => {
+        await sleep(200);
+        return { html: "<p>late</p>", serverData: null };
+      },
+    });
+    const res = await app.request("http://drops.test/droplets/hello");
+    expect(res.status).toBe(504);
+    const html = await res.text();
+    expect(html.startsWith('<djs-droplet data-droplet="hello" data-droplet-build="abc123" data-droplet-error>')).toBe(true);
+    expect(html).toContain('<p>{"status":504,"message":"Gateway Timeout"}</p>');
+    expect(html).not.toContain("late");
+    expect(payload({ html, payload: "data" })).toEqual({ error: GATEWAY_TIMEOUT });
+    expect(renderError).toHaveBeenCalledWith("hello", GATEWAY_TIMEOUT, {});
+  });
+
+  it("answers _data with 504 { error } when the server load is slower", async () => {
+    const { app } = fakeApp({
+      render,
+      loadDropletData: async () => {
+        await sleep(200);
+        return { data: "late" };
+      },
+    });
+    const res = await app.request("/droplets/hello/_data");
+    expect(res.status).toBe(504);
+    expect(await res.json()).toEqual({ error: GATEWAY_TIMEOUT });
+  });
+
+  it("answers 504 with no markup for a droplet that does not render on the server", async () => {
+    const renderError = vi.fn(errorPage);
+    const { app } = fakeApp({
+      render,
+      renderError,
+      loadDropletData: async () => {
+        await sleep(200);
+        return { data: "late" };
+      },
+    });
+    const res = await app.request("http://drops.test/droplets/spa");
+    expect(res.status).toBe(504);
+    const html = await res.text();
+    expect(html).toContain("data-droplet-error");
+    expect(html).not.toContain("<p>");
+    expect(payload({ html, payload: "data" })).toEqual({ error: GATEWAY_TIMEOUT });
+    expect(renderError).not.toHaveBeenCalled();
+  });
+
+  it("answers at the deadline for a render that never settles, and leaves a late rejection handled", async () => {
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    try {
+      const never = fakeApp({ render, renderDroplet: () => new Promise(() => {}) });
+      const started = Date.now();
+      expect((await never.app.request("/droplets/hello")).status).toBe(504);
+      expect(Date.now() - started).toBeLessThan(1000);
+
+      const late = fakeApp({
+        render,
+        renderDroplet: async () => {
+          await sleep(60);
+          throw new Error("too late");
+        },
+      });
+      expect((await late.app.request("/droplets/hello")).status).toBe(504);
+      await sleep(100);
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off("unhandledRejection", unhandled);
+    }
+  });
+
+  it("hands the load a request with the deadline's signal: open first, then aborted with its brand", async () => {
+    const { isRenderTimeout } = await import("../../src/runtime/render-timeout.ts");
+    let seen: { request: Request; isOpen: boolean; body: unknown } | undefined;
+    const { app } = fakeApp({
+      render,
+      renderDroplet: async (_name, event) => {
+        seen = { request: event.request, isOpen: !event.request.signal.aborted, body: await event.request.json() };
+        await sleep(200);
+        return { html: "late", serverData: null };
+      },
+    });
+    const res = await app.request("http://drops.test/droplets/hello?x=1", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-test": "Ada" },
+      body: JSON.stringify({ props: { who: "Ada" } }),
+    });
+    expect(res.status).toBe(504);
+    expect(seen?.isOpen).toBe(true);
+    expect(seen?.body).toEqual({ props: { who: "Ada" } });
+    expect(seen?.request.url).toBe("http://drops.test/droplets/hello?x=1");
+    expect(seen?.request.method).toBe("POST");
+    expect(seen?.request.headers.get("x-test")).toBe("Ada");
+    expect(seen?.request.signal.aborted).toBe(true);
+    expect(isRenderTimeout(seen?.request.signal.reason)).toBe(true);
+  });
+
+  it("waits for no promise at 0: a settled result passes, one that waits on a timer does not", async () => {
+    const { settle } = await import("../../src/runtime/load.ts");
+    const instant = fakeApp({ render: { timeout: 0 } });
+    expect((await instant.app.request("/droplets/hello")).status).toBe(200);
+
+    const settled = fakeApp({
+      render: { timeout: 0 },
+      renderDroplet: async () => ({ html: "<p>ok</p>", serverData: await settle({ a: Promise.resolve(1) }) }),
+    });
+    expect((await settled.app.request("/droplets/hello")).status).toBe(200);
+
+    const waits = fakeApp({
+      render: { timeout: 0 },
+      renderDroplet: async () => {
+        await sleep(5);
+        return { html: "<p>ok</p>", serverData: null };
+      },
+    });
+    expect((await waits.app.request("/droplets/hello")).status).toBe(504);
+  });
+
+  it("drops what the load sets after the deadline", async () => {
+    const { app } = fakeApp({
+      render,
+      renderDroplet: async (_name, event) => {
+        await sleep(60);
+        event.setHeaders({ "cache-control": "public, max-age=60", "x-late": "1" });
+        return { html: "late", serverData: null };
+      },
+    });
+    const res = await app.request("/droplets/hello");
+    expect(res.status).toBe(504);
+    await sleep(100);
+    expect(res.headers.get("x-late")).toBeNull();
+    expect(res.headers.get("cache-control")).not.toContain("max-age=60");
+  });
+
+  it("warns through the dev log with the droplet and the timeout", async () => {
+    const devLog = createDevLog();
+    const warned = vi.spyOn(devLog, "renderTimeout").mockImplementation(() => {});
+    const { app } = fakeApp({ render, devLog, renderDroplet: () => new Promise(() => {}) });
+    await app.request("/droplets/hello");
+    expect(warned).toHaveBeenCalledWith({ droplet: "hello", timeout: 20 });
+  });
+
+  it("leaves an abort that is not the deadline to the load: a client gone, an author's own timeout", async () => {
+    const aborted = (signal: AbortSignal) =>
+      new Promise<{ failed: true; error: unknown }>((resolve) =>
+        signal.addEventListener("abort", () => resolve({ failed: true, error: { message: String(signal.reason) } })),
+      );
+    const platform = new AbortController();
+    const gone = fakeApp({ render: { timeout: 1000 }, renderDroplet: (_name, event) => aborted(event.request.signal) });
+    const pending = gone.app.fetch(new Request("http://drops.test/droplets/hello", { signal: platform.signal }));
+    await sleep(5);
+    platform.abort("Client connection prematurely closed.");
+    const res = await pending;
+    expect(res.status).toBe(500);
+    expect(payload({ html: await res.text(), payload: "data" })).toEqual({
+      error: { message: "Client connection prematurely closed." },
+    });
+
+    const own = fakeApp({ render: { timeout: 1000 }, renderDroplet: () => aborted(AbortSignal.timeout(1)) });
+    expect((await own.app.request("/droplets/hello")).status).toBe(500);
+  });
+
+  it("leaves the JSON body readable for handle after resolve and for transform once the load read its copy", async () => {
+    const reads: Array<[string, unknown]> = [];
+    const { app } = fakeApp({
+      getHandle:
+        () =>
+        async ({ event, resolve }) => {
+          const response = await resolve(event);
+          reads.push(["handle", await event.request.json()]);
+          return response;
+        },
+      renderDroplet: async (name, event) => {
+        reads.push(["load", await event.request.json()]);
+        return { html: `<p>${name}</p>`, serverData: null };
+      },
+      transformDroplet: async (_name, event) => {
+        reads.push(["transform", await event.request.clone().json()]);
+        return event.html;
+      },
+    });
+    const body = { props: { who: "Ada" } };
+    const res = await app.request("http://drops.test/droplets/hello", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    expect(res.status).toBe(200);
+    expect(reads).toEqual([
+      ["load", body],
+      ["transform", body],
+      ["handle", body],
+    ]);
+  });
+
+  it("hands the load the very request handle saw with Infinity", async () => {
+    let handled: Request | undefined;
+    let loaded: Request | undefined;
+    const { app } = fakeApp({
+      render: { timeout: Number.POSITIVE_INFINITY },
+      getHandle:
+        () =>
+        ({ event, resolve }) => {
+          handled = event.request;
+          return resolve(event);
+        },
+      renderDroplet: async (name, event) => {
+        loaded = event.request;
+        return { html: name, serverData: null };
+      },
+    });
+    expect((await app.request("/droplets/hello")).status).toBe(200);
+    expect(loaded).toBeDefined();
+    expect(loaded).toBe(handled);
+  });
+
+  it("sets no deadline while building", async () => {
+    const { app } = fakeApp({
+      render,
+      building: true,
+      renderDroplet: async () => {
+        await sleep(60);
+        return { html: "<p>built</p>", serverData: null };
+      },
+    });
+    const res = await app.request("http://droplets.build/droplets/hello", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ props: {} }),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ html: "<p>built</p>" });
+  });
+
+  const actionPost = () =>
+    new Request("http://drops.test/droplets/hello", {
+      method: "POST",
+      headers: { origin: "http://drops.test", "content-type": "application/x-www-form-urlencoded" },
+      body: "who=Ada",
+    });
+  const readingAction = async () => async (event: { request: Request }) => {
+    const who = (await event.request.formData()).get("who");
+    await sleep(50);
+    return { who };
+  };
+
+  it("starts the deadline after a form action: a slow action and a fast render answer 200", async () => {
+    const { app } = fakeApp({ render, findAction: readingAction });
+    expect((await app.request(actionPost())).status).toBe(200);
+  });
+
+  it("hands the render after a form action a copy without the body the action read", async () => {
+    const { app } = fakeApp({
+      render,
+      findAction: readingAction,
+      renderDroplet: async (_name, event) => ({ html: `<p>${String(event.request.body === null)}</p>`, serverData: null }),
+    });
+    const res = await app.request(actionPost());
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("<p>true</p>");
+  });
+});
+
 describe("createDropletsApp: what a production server logs", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -2761,6 +3040,16 @@ describe("createDropletsApp: what a production server logs", () => {
       ["handleError in hooks.server.ts failed", new Error("hook broke")],
     ]);
     for (const [message] of error.mock.calls) expect(String(message)).not.toMatch(/^\[droplets/);
+  });
+
+  it("logs nothing for a render past render.timeout", async () => {
+    const quiet = vi.fn();
+    for (const level of ["error", "warn", "info", "debug", "log"] as const) vi.spyOn(console, level).mockImplementation(quiet);
+    const logged = vi.spyOn(logger, "warn");
+    const { app } = fakeApp({ devLog: undefined, render: { timeout: 20 }, renderDroplet: () => new Promise(() => {}) });
+    expect((await app.request("/droplets/hello")).status).toBe(504);
+    expect(quiet).not.toHaveBeenCalled();
+    expect(logged).not.toHaveBeenCalled();
   });
 
   it("names an endpoint's path once", async () => {

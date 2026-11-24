@@ -103,6 +103,7 @@ export function createInitialState(): PluginState {
       publicCacheControl: DEFAULTS.publicCacheControl,
       csrf: { checkOrigin: true },
       limits: { ...DEFAULTS.limits },
+      render: { ...DEFAULTS.render },
       server: { port: 8000 },
     },
     dev: { server: { port: 5173 }, strategy: "hmr", injectTool: false },

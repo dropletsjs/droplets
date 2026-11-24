@@ -41,6 +41,7 @@ export default config({
   trustedOrigins: ["https://shop.example"],
   csrf: { checkOrigin: true },      // the default
   limits: { multipart: 20 * 1024 * 1024 }, // bytes; the others keep their defaults
+  render: { timeout: 5000 },        // ms for a droplet's loads and render; Infinity: no deadline
 
   // Fragments and _data: "private, no-store, no-transform" by default; false sends none.
   // no-transform is added to whatever they send.
@@ -79,6 +80,7 @@ export default config({
 | `limits.form` | 1 MB | Largest form-urlencoded or `text/plain` body. |
 | `limits.multipart` | 10 MB | Largest multipart body, and body of any other type (uploads). A body without a `content-length` is held in memory while it is counted, up to the limit, so mind it times your concurrency. |
 | `limits.props` | 8 KB | Largest `x-droplet-props` header; bigger answers `431`. `Infinity` lifts any limit. |
+| `render.timeout` | `5000` | How long, in milliseconds, a droplet's loads and render may take on the server, from when the fragment or `_data` request starts them (after `handle`, the props schema and any form action). Past it the fragment answers `504` with the droplet's error page, `_data` `504` with `{ error }`. The load sees it in `event.request.signal`. An integer from `0` (wait for no promise) to `2147483647`, or `Infinity` (no deadline); anything else fails the build. Prerendering has none. See [Timeouts](/guides/errors/#timeouts). |
 | `health` | `"/health"` | Path answering `ok`, before `handle` runs, so an auth hook cannot break it. `false` turns it off. |
 | `index` | `index.html` in the root, else a placeholder | What `/` serves in `vite preview` and production: an HTML file, served as written. A path that does not exist fails `vite build`. `false` answers `404`. In `vite dev`, `/` belongs to the [devtools](/guides/development/#the-devtools-page). |
 | `importMap` | `"/importmap"`, when the client build has externals | Where the [import map](/guides/import-maps/) is served; `<path>.js` answers the inserting script. `false` turns both off. |
