@@ -47,25 +47,25 @@ repository, and removes it afterwards.
 
 ## Facts
 
-- Frameworks covered: svelte, vue, react, preact, solid, hono-jsx, handlebars, lit. `test/create.test.ts:26`
-- Starter droplet name is `hello-<framework>`, `hello-hono` for hono-jsx. `test/create.test.ts:27`
-- Cases: `only-<framework>` per framework, `everything` (all frameworks, adapters node,cloudflare,bun,deno, `--tailwind`), `pair` (react,svelte, `--no-tailwind --inject-tool --claude`). `test/create.test.ts:31`
-- Bins run from this suite's `node_modules/.bin`. `test/create.test.ts:20`
-- `npm_config_user_agent` is set to `pnpm/10` for every run. `test/create.test.ts:21`
-- No `--frameworks` with `--yes` fails, names `--frameworks svelte,vue`, and writes no folder. `test/create.test.ts:51`
-- No folder name fails with `name the folder`. `test/create.test.ts:56`
-- A folder with files fails with `<name> is not empty` and keeps its files. `test/create.test.ts:60`
-- Git first commit message is `Initial commit from create-droplets`, made outside any repository. `test/create.test.ts:80`
-- Git: inside an existing repository it prints `already inside a git repository` and makes no `.git`. `test/create.test.ts:88`
-- Git cases set `GIT_AUTHOR_*` and `GIT_COMMITTER_*` to a test identity. `test/create.test.ts:73`
-- Projects are created with `--yes --no-install --no-git` in `.tmp/`. `test/create.test.ts:103`
-- `CLAUDE.md` is written only for the `pair` case (`--claude`). `test/create.test.ts:105`
+- Frameworks covered: svelte, vue, react, preact, solid, hono-jsx, handlebars, lit. `test/create.test.ts:27`
+- Starter droplet name is `hello-<framework>`, `hello-hono` for hono-jsx. `test/create.test.ts:28`
+- Cases: `only-<framework>` per framework, `everything` (all frameworks, adapters node,cloudflare,bun,deno, `--tailwind`), `pair` (react,svelte, `--no-tailwind --inject-tool --claude`). `test/create.test.ts:32`
+- Bins run from this suite's `node_modules/.bin`. `test/create.test.ts:21`
+- `npm_config_user_agent` is set to `pnpm/10` for every run. `test/create.test.ts:22`
+- No `--frameworks` with `--yes` fails, names `--frameworks svelte,vue`, and writes no folder. `test/create.test.ts:52`
+- No folder name fails with `name the folder`. `test/create.test.ts:57`
+- A folder with files fails with `<name> is not empty` and keeps its files. `test/create.test.ts:61`
+- Git first commit message is `Initial commit from create-droplets`, made outside any repository. `test/create.test.ts:81`
+- Git: inside an existing repository it prints `already inside a git repository` and makes no `.git`. `test/create.test.ts:89`
+- Git cases set `GIT_AUTHOR_*` and `GIT_COMMITTER_*` to a test identity. `test/create.test.ts:74`
+- Projects are created with `--yes --no-install --no-git` in `.tmp/`. `test/create.test.ts:102`
+- `CLAUDE.md` is written only for the `pair` case (`--claude`). `test/create.test.ts:104`
 - `--inject-tool` writes `dev: { injectTool: true }` into `droplets.config.ts`. `test/create.test.ts:106`
 - `djs sync` writes `.droplets/tsconfig.json`; then `tsc -p tsconfig.json` runs. `test/create.test.ts:109`
 - Cloudflare build: `everything` with `DROPLETS_ADAPTER=cloudflare` writes `dist/worker.js`. `test/create.test.ts:116`
 - Node build writes `dist/server.js`, started with `PORT` set and waited for (`waitForServer`) on the first starter droplet until its `x-droplets-build` is this build's (`fromBuild`). `test/create.test.ts:132`
 - Ports come from `onFreePort()` of `@dropletsjs/shared/vitest`, one per case, a new one when another process takes it before the server binds it. `test/create.test.ts:126`
-- Starter droplet answers 200 with `<h1>Hello Ana!</h1>` for `?who=Ana`, HTML comments stripped. `test/create.test.ts:146`
+- Starter droplet answers 200 with `<h1>Hello Ana!</h1>` for `?who=Ana`, HTML comments stripped. `test/create.test.ts:148`
 - Test and hook timeout 300 s. `vitest.config.ts:7`
 - Test script is `vitest run`. `package.json:9`
-- `.tmp/` is gitignored. `../../.gitignore:50`
+- `.tmp/` is gitignored. `../../.gitignore:56`

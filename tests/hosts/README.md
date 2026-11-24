@@ -168,33 +168,33 @@ its own install. The hosts are outside the pnpm workspace, so
 
 - `HOSTS` is built from `examples/hosts/hosts.json` (the built hosts with a `runner`): each id's URL is `http://localhost:` 8000 plus its offset: express 8003, nginx 8081, fastapi 8001, django 8012, sinatra 8002, php 8009, wordpress 8008, react-vite 8004, astro 8005, sveltekit 8006, nextjs 8007, htmx 8010, static 8011, aspnet 8014, rails 8015, spring 8016, go 8017, laravel 8013. `run.mjs:68`, `../../examples/hosts/hosts.json`
 - Hosts run only by name (`byName`): wordpress and htmx. `../../examples/hosts/hosts.json`
-- No host named, or `all`: every host without `byName`. `run.mjs:89`
+- No host named, or `all`: every host without `byName`. `run.mjs:93`
 - htmx runs `e2e/htmx.spec.ts` only, waits on `/`, reaches the Svelte example on `http://localhost:8000` (`direct: "svelte"`). `../../examples/hosts/hosts.json`
 - static runs the shop flow and `e2e/static.spec.ts`, and reaches the shop itself on `http://localhost:8000` (`direct: "shop"`): its ready check asks the shop for `/droplets/product-filter` directly, and `shop.spec.ts` asks the shop's `/api` there (`DROPLETS_URL`). `../../examples/hosts/hosts.json`, `run.mjs:145`, `e2e/shop.spec.ts:25`
-- `--https` is set up for express only, on `https://127-0-0-1.sslip.io:8443`. `run.mjs:79`, `run.mjs:122`
-- Flags: `--https`, `--docs`, `--human`, `--tour`, `--keep`; any other flag or host exits 2. `run.mjs:86`
-- `HOSTS_PORT_BASE` must be an integer from 1024 to 65435. `run.mjs:98`
-- `HOSTS_PORT_BASE` sets `WEB_PORT`, `WEB_URL`, `DROPLETS_PORT`, `DROPLETS_URL` for compose: host on base plus its offset, droplets on the base. `run.mjs:114`
-- `.env.local` at the repository root is loaded first; set variables win. `run.mjs:49`, `../../packages/shared/env.ts:4`
-- `SHOP_SECRET`, `DROPLETS_SECRET`, `WP_SHOP_HOST_SECRET` and `WP_SHOP_SERVICE_SECRET` get 32 random bytes (hex) for the run when unset or empty; set ones win. `run.mjs:53`
-- Ready check: the host page answers 200 and `/droplets/product-filter` through the host returns `<djs-shop`, polled every 2 s for up to 10 minutes. `run.mjs:138`, `run.mjs:263`
-- Compose project name is `droplets-<host>`, run in `examples/hosts/<host>`. `run.mjs:235`
-- Compose env is the process environment plus the port variables; the runner sets no Docker variables. `run.mjs:238`
-- Stack start: `docker compose up --build -d`. `run.mjs:260`
-- Stack teardown: `docker compose down -v --remove-orphans` after each host, unless `--keep` on the last. `run.mjs:287`
-- Stack teardown on SIGINT or SIGTERM. `run.mjs:242`
-- A failed start prints the last 40 lines of `docker compose logs`. `run.mjs:285`
-- Playwright runs with `HOST_NAME` and `HOST_URL`; `--docs`/`--human` add `RECORD_PACE=human`. `run.mjs:229`, `run.mjs:279`
-- `--tour` runs the tour first with `TOUR=1`; htmx has none. `run.mjs:266`
-- `--docs` video copy: 720p H.264, CRF 28 up to 34 to stay within 1 MB. `run.mjs:173`, `run.mjs:179`
-- `--docs` screenshots: WebP at quality 78, in `apps/docs/public/hosts/<host>/`. `run.mjs:208`
-- Shop flow screenshots: `1-gallery`, `2-cart`, `3-admin`, `4-out-of-stock`. `run.mjs:82`
-- `--https` sets `NODE_TLS_REJECT_UNAUTHORIZED=0` for the run. `run.mjs:258`
-- Exit code 1 when any host fails; a table of host, result and video is printed. `run.mjs:297`
+- `--https` is set up for express only, on `https://127-0-0-1.sslip.io:8443`. `run.mjs:83`, `run.mjs:126`
+- Flags: `--https`, `--docs`, `--human`, `--tour`, `--keep`; any other flag or host exits 2. `run.mjs:90`
+- `HOSTS_PORT_BASE` must be an integer from 1024 to 65435. `run.mjs:102`
+- `HOSTS_PORT_BASE` sets `WEB_PORT`, `WEB_URL`, `DROPLETS_PORT`, `DROPLETS_URL` for compose: host on base plus its offset, droplets on the base. `run.mjs:113`
+- `.env.local` at the repository root is loaded first; set variables win. `run.mjs:50`, `../../packages/shared/env.ts:4`
+- `SHOP_SECRET`, `DROPLETS_SECRET`, `WP_SHOP_HOST_SECRET` and `WP_SHOP_SERVICE_SECRET` get 32 random bytes (hex) for the run when unset or empty; set ones win. `run.mjs:54`
+- Ready check: the host page answers 200 and `/droplets/product-filter` through the host returns `<djs-shop`, polled every 2 s for up to 10 minutes. `run.mjs:143`, `run.mjs:269`
+- Compose project name is `droplets-<host>`, run in `examples/hosts/<host>`. `run.mjs:241`
+- Compose env is the process environment plus the port variables; the runner sets no Docker variables. `run.mjs:244`
+- Stack start: `docker compose up --build -d`. `run.mjs:266`
+- Stack teardown: `docker compose down -v --remove-orphans` after each host, unless `--keep` on the last. `run.mjs:293`
+- Stack teardown on SIGINT or SIGTERM. `run.mjs:248`
+- A failed start prints the last 40 lines of `docker compose logs`. `run.mjs:291`
+- Playwright runs with `HOST_NAME` and `HOST_URL`; `--docs`/`--human` add `RECORD_PACE=human`. `run.mjs:235`, `run.mjs:287`
+- `--tour` runs the tour first with `TOUR=1`; htmx has none. `run.mjs:272`
+- `--docs` video copy: 720p H.264, CRF 28 up to 34 to stay within 1 MB. `run.mjs:179`, `run.mjs:186`
+- `--docs` screenshots: WebP at quality 78, in `apps/docs/public/hosts/<host>/`. `run.mjs:214`
+- Shop flow screenshots: `1-gallery`, `2-cart`, `3-admin`, `4-out-of-stock`. `run.mjs:86`
+- `--https` sets `NODE_TLS_REJECT_UNAUTHORIZED=0` for the run. `run.mjs:264`
+- Exit code 1 when any host fails; a table of host, result and video is printed. `run.mjs:305`
 - Playwright: one worker, no retries, 180 s per test, 15 s per expect. `playwright.config.ts:13`
 - Playwright `baseURL` is `HOST_URL`; HTTPS errors are ignored for Caddy's internal CA. `playwright.config.ts:23`
 - `tour.spec.ts` runs only with `TOUR`, and is ignored otherwise. `playwright.config.ts:11`
-- Recordings directory is `recordings/`, gitignored. `e2e/record.ts:8`, `../../.gitignore:53`
+- Recordings directory is `recordings/`, gitignored. `e2e/record.ts:8`, `../../.gitignore:59`
 - `HOST_NAME` defaults to `host`; `RECORD_PACE=human` paces as a person. `e2e/record.ts:11`, `e2e/record.ts:18`
 - Recordings convert WebM to MP4 with ffmpeg; without it the WebM is kept with a warning. `e2e/record.ts:66`
 - `shop.spec.ts` main flow is skipped on WordPress. `e2e/shop.spec.ts:83`
@@ -202,17 +202,17 @@ its own install. The hosts are outside the pnpm workspace, so
 - `shop.spec.ts` new-visitor check asks `/api/cart` and `/api/auth/me` on the host's origin, on static on `DROPLETS_URL`. `e2e/shop.spec.ts:291`
 - Shop admin login is `admin` / `droplets`, session cookie `shop_admin`, `httpOnly`. `e2e/shop.spec.ts:36`, `e2e/shop.spec.ts:42`
 - `nginx-basic.spec.ts` runs only for nginx, against `DROPLETS_URL` (default `http://localhost:8080`): `/env.js` and `/index.css` answer 200 through the proxy and the three droplets hydrate as their mode says. `e2e/nginx-basic.spec.ts:9`, `e2e/nginx-basic.spec.ts:12`, `e2e/nginx-basic.spec.ts:22`, `e2e/nginx-basic.spec.ts:30`
-- `shop-wordpress.spec.ts` and `wordpress-service.spec.ts` run only for wordpress. `e2e/shop-wordpress.spec.ts:13`, `e2e/wordpress-service.spec.ts:16`
+- `shop-wordpress.spec.ts` and `wordpress-service.spec.ts` run only for wordpress. `e2e/shop-wordpress.spec.ts:13`, `e2e/wordpress-service.spec.ts:18`
 - WordPress Shop screen is `/wp-admin/admin.php?page=droplets-shop`. `e2e/wordpress.ts:8`
 - `wordpress-service.spec.ts` signs with the run's `WP_SHOP_SERVICE_SECRET` and `WP_SHOP_HOST_SECRET` from the environment, after checking `examples/hosts/wordpress/docker-compose.yml` requires each from that one variable on both services. `e2e/wordpress-service.spec.ts:20`
 - `static.spec.ts` runs only for static; the shop from `DROPLETS_URL`, default `http://localhost:8000`. `e2e/static.spec.ts:11`, `e2e/static.spec.ts:14`
 - `htmx.spec.ts` runs only for htmx; droplets server from `DROPLETS_URL`, default `http://localhost:8000`. `e2e/htmx.spec.ts:13`, `e2e/htmx.spec.ts:16`
-- `htmx.spec.ts` checks an `hx-get` to a third origin is refused with `htmx:invalidPath` and sends nothing. `e2e/htmx.spec.ts:290`, `e2e/htmx.spec.ts:301`
-- `htmx.spec.ts` flow: a card's link and the header's links swap `<main>` alone, the header element and the window kept, `/index.js` requested once. `e2e/htmx.spec.ts:43`, `e2e/htmx.spec.ts:61`
-- `htmx.spec.ts` flow: Back restores the admin's `<main>` from htmx's history, Forward the gallery, the header the same throughout. `e2e/htmx.spec.ts:158`, `e2e/htmx.spec.ts:168`
-- `htmx.spec.ts` loads `/gallery?category=mugs&ignored=1` and `/product/<slug>` directly: the droplets get only the props they list; an unknown product gets the unavailable note. `e2e/htmx.spec.ts:178`
-- `htmx.spec.ts` turns JavaScript off: a shop page keeps its header, links and `<noscript>` note. `e2e/htmx.spec.ts:204`
-- htmx screenshots: `1-gallery`, `2-added`, `3-login`, `4-lazy`. `run.mjs:80`
+- `htmx.spec.ts` checks an `hx-get` to a third origin is refused with `htmx:invalidPath` and sends nothing. `e2e/htmx.spec.ts:304`, `e2e/htmx.spec.ts:301`
+- `htmx.spec.ts` flow: a card's link and the header's links swap `<main>` alone, the header element and the window kept, `/index.js` requested once. `e2e/htmx.spec.ts:64`, `e2e/htmx.spec.ts:131`
+- `htmx.spec.ts` flow: Back restores the admin's `<main>` from htmx's history, Forward the gallery, the header the same throughout. `e2e/htmx.spec.ts:178`, `e2e/htmx.spec.ts:183`
+- `htmx.spec.ts` loads `/gallery?category=mugs&ignored=1` and `/product/<slug>` directly: the droplets get only the props they list; an unknown product gets the unavailable note. `e2e/htmx.spec.ts:204`
+- `htmx.spec.ts` turns JavaScript off: a shop page keeps its header, links and `<noscript>` note. `e2e/htmx.spec.ts:227`
+- htmx screenshots: `1-gallery`, `2-added`, `3-login`, `4-lazy`. `run.mjs:76`
 - `htmx.test.ts` compares the four shop pages with title, `aria-current` and `<main>`'s content taken out. `test/htmx.test.ts:18`, `test/htmx.test.ts:29`
 - `htmx.test.ts` expects each shop page's body and `<main>` attributes, one module script (`/index.js`) and `/shop.js`. `test/htmx.test.ts:34`
 - `htmx.test.ts` expects every `hx-get` of a shop page inside `<main>` and on `/droplets/`. `test/htmx.test.ts:47`
@@ -222,16 +222,16 @@ its own install. The hosts are outside the pnpm workspace, so
 - Typecheck of a named host without a `typecheck` script exits 2. `typecheck.mjs:25`
 - Typecheck strips `npm_config_*` and `node_modules/.bin` from the environment. `typecheck.mjs:36`
 - Typecheck runs `npm ci --no-audit --no-fund`, then `npm run typecheck`. `typecheck.mjs:46`
-- CI runs the typecheck in its own job, no Docker. `../../.github/workflows/ci.yml:100`
+- CI runs the typecheck in its own job, no Docker. `../../.github/workflows/ci.yml:203`
 - Scripts: `e2e` is `node run.mjs`, `test` is `vitest run`, `typecheck:hosts` is `node typecheck.mjs`. `package.json:8`
 - vitest runs `test/**/*.test.ts` in the Node environment. `vitest.config.ts:5`
 - `shop-css.test.ts` lists the committed copies of `shop.css` under `examples/hosts` (`git ls-files`), expects one per shop host and WordPress, and all but WordPress's byte-equal to express's. `test/shop-css.test.ts:16`, `test/shop-css.test.ts:21`, `test/shop-css.test.ts:46`
 - `shop-css.test.ts` expects WordPress's `shop.css` to name the theme (Twenty Twenty-Five) and use `--wp--preset--` values. `test/shop-css.test.ts:50`
-- `location.test.ts` lists per host the files that send `x-droplet-location`, the value a line may give it and the environment read it comes from. `test/location.test.ts:24`
-- `location.test.ts` fails on a host-header read (`.headers.host`, `req.hostname`, `request.host`, `HTTP_HOST`, `$host`, `$http_host`, `{HTTP_HOST}` and the like) in those files, comments left out. `test/location.test.ts:95`, `test/location.test.ts:123`
-- `fragment-answers.test.ts` lists per host the files that fetch fragments or `_data`, how many lines accept a 500 and a 504, and how many response timers they set. `test/fragment-answers.test.ts:28`
-- `fragment-answers.test.ts` fails on a line naming 500 (`500`, `StatusInternalServerError`) without 504 (`504`, `StatusGatewayTimeout`), and on a response timer under 10 s (`AbortSignal.timeout`, httpx `timeout=`, `read_timeout:`, `'timeout' =>`, `->timeout()`, `TimeSpan.FromSeconds`, `restClient(Duration.ofSeconds())`, `* time.Second` and the like), comments left out; connect timeouts are not read. `test/fragment-answers.test.ts:58`, `test/fragment-answers.test.ts:62`, `test/fragment-answers.test.ts:99`, `test/fragment-answers.test.ts:105`
-- `fragment-answers.test.ts` expects nginx's `/_fragment/` location to list no 5xx in `error_page`, intercept errors, wait 10 s and pass to an upstream of `shop:8300 max_fails=0` and a loopback `backup` that answers the note. `test/fragment-answers.test.ts:123`, `test/fragment-answers.test.ts:130`
-- `standalone.test.ts` takes `examples/shop`, `examples/wp-shop`, every `examples/frameworks/*` and every `examples/hosts/*` as a root, skipping `node_modules`, `dist`, `build`, `.next`, `.svelte-kit`, `.astro`, `.venv`, `.droplets`, `.tmp` and `__pycache__`. `test/standalone.test.ts:16`, `test/standalone.test.ts:27`
-- `standalone.test.ts` fails on a `file:` or `link:` range in any `package.json`, a relative import resolving above the root in a `.js`/`.ts`/`.svelte`/`.vue`/`.astro` file, or a relative `extends` above the root in a `tsconfig*.json`. `test/standalone.test.ts:49`, `test/standalone.test.ts:62`, `test/standalone.test.ts:72`
+- `location.test.ts` lists per host the files that send `x-droplet-location`, the value a line may give it and the environment read it comes from. `test/location.test.ts:25`
+- `location.test.ts` fails on a host-header read (`.headers.host`, `req.hostname`, `request.host`, `HTTP_HOST`, `$host`, `$http_host`, `{HTTP_HOST}` and the like) in those files, comments left out. `test/location.test.ts:159`, `test/location.test.ts:187`
+- `fragment-answers.test.ts` lists per host the files that fetch fragments or `_data`, how many lines accept a 500 and a 504, and how many response timers they set. `test/fragment-answers.test.ts:27`
+- `fragment-answers.test.ts` fails on a line naming 500 (`500`, `StatusInternalServerError`) without 504 (`504`, `StatusGatewayTimeout`), and on a response timer under 10 s (`AbortSignal.timeout`, httpx `timeout=`, `read_timeout:`, `'timeout' =>`, `->timeout()`, `TimeSpan.FromSeconds`, `restClient(Duration.ofSeconds())`, `* time.Second` and the like), comments left out; connect timeouts are not read. `test/fragment-answers.test.ts:57`, `test/fragment-answers.test.ts:58`, `test/fragment-answers.test.ts:98`, `test/fragment-answers.test.ts:104`
+- `fragment-answers.test.ts` expects nginx's `/_fragment/` location to list no 5xx in `error_page`, intercept errors, wait 10 s and pass to an upstream of `shop:8300 max_fails=0` and a loopback `backup` that answers the note. `test/fragment-answers.test.ts:122`, `test/fragment-answers.test.ts:129`
+- `standalone.test.ts` takes `examples/shop`, `examples/wp-shop`, every `examples/frameworks/*` and every `examples/hosts/*` as a root, skipping `node_modules`, `dist`, `build`, `.next`, `.svelte-kit`, `.astro`, `.venv`, `.droplets`, `.tmp` and `__pycache__`. `test/standalone.test.ts:15`, `test/standalone.test.ts:26`
+- `standalone.test.ts` fails on a `file:` or `link:` range in any `package.json`, a relative import resolving above the root in a `.js`/`.ts`/`.svelte`/`.vue`/`.astro` file, or a relative `extends` above the root in a `tsconfig*.json`. `test/standalone.test.ts:48`, `test/standalone.test.ts:61`, `test/standalone.test.ts:71`
 - Root `test:hosts` and `typecheck:hosts` run this folder's scripts. `../../package.json:40`

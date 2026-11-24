@@ -184,7 +184,7 @@ first). `pnpm typecheck:hosts` covers the Node hosts only. The guide's page:
 - Shop layout speculation rules prefetch `/product/*`, eagerness `moderate`. `src/Pages/Shared/_ShopLayout.cshtml:13`
 - Shop layout puts the toasts fragment first in the body. `src/Pages/Shared/_ShopLayout.cshtml:17`
 - Shop layout prints fragments with `Html.Raw`; everything else Razor encodes. `src/Pages/Shared/_ShopLayout.cshtml:17`, `src/Pages/Shared/_ShopLayout.cshtml:22`
-- Tests run the app on Kestrel on a free loopback port, the shop client's handler replaced. `test/FakeShop.cs:46`, `test/FakeShop.cs:54`
+- Tests run the app on Kestrel on a free loopback port, the shop client's handler replaced. `test/FakeShop.cs:48`, `test/FakeShop.cs:54`
 - Tests check the location header against a spoofed `Host`, `X-Forwarded-Host`, `Forwarded` and `x-droplet-location`, and that `authorization` is not forwarded. `test/ProxyTests.cs:12`
 - Tests check dot segments (`..`, `%2e%2e`, `.`), an absolute-form target and a body over 4 MB are refused before the shop is asked. `test/ProxyTests.cs:52`, `test/ProxyTests.cs:69`
 - Tests check a non-HTML answer echoing a `<script>` is never inserted. `test/PageTests.cs:36`

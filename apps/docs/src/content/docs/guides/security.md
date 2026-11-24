@@ -391,8 +391,10 @@ What that token is, and is not:
 
 - **Signed, not encrypted.** `base64url(JSON { status, data, exp, action })`,
   a `.`, and an HMAC-SHA256 keyed with `DROPLETS_SECRET`. Anyone with the
-  URL can read it: it is in history, logs and `Referer`s. Return field
-  names and message codes, never the submitted values or secrets.
+  URL can read it: it is in history, logs and `Referer`s. It holds only
+  what the action returns, never the submitted fields on their own: return
+  field names, message codes and what the form must show again, never a
+  password or a secret.
 - **Bound to one droplet, one build and one page.** The MAC covers the
   droplet, the build, the page's origin and path, and the JSON. A result
   minted for one page is ignored on any other.
@@ -401,7 +403,7 @@ What that token is, and is not:
 - **Checked before it is read.** Length and shape, then the MAC
   (`crypto.subtle.verify`), then plain `JSON.parse` into objects without
   prototypes, then the expiry and an action the droplet still exports.
-  Anything else is ignored, as if there were none.
+  Anything else is ignored, as if there were none, without a log line.
 - **Display only.** Anyone who can post the form can make a URL that shows a
   result to someone else for five minutes, and a reload shows it again.
   Never decide access from `form`, and do what must happen once in the

@@ -136,6 +136,6 @@ http://localhost:8002 and takes the stack down. It needs Docker.
 - Shop layout loads `/shop.css`, the preloads, speculation rules and `/index.js`. `views/shop/layout.erb:7`, `views/shop/layout.erb:10`
 - Gems: `sinatra ~> 4.1`, `rackup ~> 2.2`, `webrick ~> 1.9`. `Gemfile:3`, `Gemfile:4`, `Gemfile:6`
 - Docker image is `ruby:3.3-slim`, started with `bundle exec ruby app.rb`. `Dockerfile:1`, `Dockerfile:7`
-- `pnpm test:hosts sinatra` expects this host on `http://localhost:8002`. `../../../tests/hosts/run.mjs:61`
-- `pnpm test:hosts` runs `shop.spec.ts` for this host; the other specs skip themselves. `../../../tests/hosts/run.mjs:265`
+- `pnpm test:hosts sinatra` expects this host on `http://localhost:8002`. `../../../tests/hosts/run.mjs:71`
+- `pnpm test:hosts` runs `shop.spec.ts` for this host; the other specs skip themselves. `../../../tests/hosts/run.mjs:271`
 - Host is outside the pnpm workspace: `examples/hosts/*` is not listed. `../../../pnpm-workspace.yaml:5`

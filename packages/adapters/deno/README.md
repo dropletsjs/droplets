@@ -91,18 +91,18 @@ tsdown entry: `deno()` finds `dist/entry.js` by path.
 - `vite preview` serves `dist/client` and `dist/server/entry-server.js` through `createNodeServerApp` of `@dropletsjs/adapter-node`. `src/index.ts:30`
 - `dist/server.js` resolves `client/` and `server/entry-server.js` relative to its own file, not the working directory. `src/entry.ts:10`
 - `droplets.config.ts` is bundled into `dist/server.js` through `virtual:droplets-config`; it is not read at runtime. `src/entry.ts:3`
-- `droplets.config.ts` that exports a function is called in `dist/server.js` with the build's `{ command, mode, isSsrBuild, isPreview }` and awaited before `resolveConfig`, as on Node. `src/entry.ts:17`, `../node/test/index.test.ts:82`
-- `PORT` and `server.port` are not read: the config is resolved with no environment and `deno serve` owns the port. `src/entry.ts:17`
-- Default export of `dist/server.js` is `{ fetch }` only. `src/entry.ts:26`
-- `deno serve -A --port <port> dist/server.js` listens and logs `Listening on`. `test/entry.test.ts:28`, `test/entry.test.ts:50`
-- Importing `dist/server.js` does not listen; `default.fetch` is a function. `test/entry.test.ts:79`, `test/entry.test.ts:80`
-- App creation is lazy and once per process: the first request creates it, later requests reuse the same promise. `src/entry.ts:22`
-- App creation that fails stays cached: every later request gets the same rejection. `src/entry.ts:22`
-- Runtime env comes from the process environment: a secret set there reaches the droplet. `test/entry.test.ts:59`
-- `/index.js` answers `cache-control: no-store`. `test/entry.test.ts:63`
+- `droplets.config.ts` that exports a function is called in `dist/server.js` with the build's `{ command, mode, isSsrBuild, isPreview }` and awaited before `resolveConfig`, as on Node. `src/entry.ts:17`, `../node/test/index.test.ts:115`
+- `PORT` and `server.port` are not read: the config is resolved with no environment and `deno serve` owns the port. `src/entry.ts:18`
+- Default export of `dist/server.js` is `{ fetch }` only. `src/entry.ts:27`
+- `deno serve -A --port <port> dist/server.js` listens and logs `Listening on`. `test/entry.test.ts:29`, `test/entry.test.ts:51`
+- Importing `dist/server.js` does not listen; `default.fetch` is a function. `test/entry.test.ts:94`, `test/entry.test.ts:94`
+- App creation is lazy and once per process: the first request creates it, later requests reuse the same promise. `src/entry.ts:23`
+- App creation that fails stays cached: every later request gets the same rejection. `src/entry.ts:23`
+- Runtime env comes from the process environment: a secret set there reaches the droplet. `test/entry.test.ts:60`
+- `/index.js` answers `cache-control: no-store`. `test/entry.test.ts:64`
 - Deno engine is `>=2.0`. `package.json:35`
 - Build script runs the tests before tsdown. `package.json:38`
-- `DENO` names the deno binary for the tests; default `deno` on the `PATH`. `test/entry.test.ts:14`
+- `DENO` names the deno binary for the tests; default `deno` on the `PATH`. `test/entry.test.ts:15`
 - `DENO` may come from the root `.env.local`; a variable already set wins. `vitest.config.ts:5`, `../../shared/env.ts:6`
-- Entry tests are skipped when `deno --version` does not succeed; the build test still runs. `test/entry.test.ts:15`, `test/entry.test.ts:17`
-- Tests build the framework's fixture app with `buildFixtureApp()` from `@dropletsjs/shared/vitest`, which fails when `@dropletsjs/droplets` is not built. `test/build-fixture.ts:12`, `../../shared/vitest.ts:32`
+- Entry tests are skipped when `deno --version` does not succeed; the build test still runs. `test/entry.test.ts:16`, `test/entry.test.ts:18`
+- Tests build the framework's fixture app with `buildFixtureApp()` from `@dropletsjs/shared/vitest`, which fails when `@dropletsjs/droplets` is not built. `test/build-fixture.ts:12`, `../../shared/vitest.ts:34`

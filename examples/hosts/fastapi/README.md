@@ -156,5 +156,5 @@ Node hosts only. The guide's page:
 - Shop layout speculation rules prefetch `/product/*`, eagerness `moderate`. `templates/shop/layout.html:11`
 - Shop layout puts the toasts fragment first in the body. `templates/shop/layout.html:15`
 - Typecheck: no `package.json`, so `pnpm typecheck:hosts` does not cover this host. `../../../tests/hosts/typecheck.mjs:20`
-- Host test URL is `http://localhost:8001`; `pnpm test:hosts fastapi` runs the shop flow. `../../../tests/hosts/run.mjs:60`
-- Host test checks a new visitor gets nobody else's cart or session. `../../../tests/hosts/e2e/shop.spec.ts:280`
+- Host test URL is `http://localhost:8001`; `pnpm test:hosts fastapi` runs the shop flow. `../../../tests/hosts/run.mjs:71`
+- Host test checks a new visitor gets nobody else's cart or session. `../../../tests/hosts/e2e/shop.spec.ts:288`

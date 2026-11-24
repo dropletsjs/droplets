@@ -155,6 +155,6 @@ flow against the compose stack (needs Docker).
 - Vite proxy covers `^/index\.js$`, `^/env\.js$`, `^/index\.css$`, `/droplets/`, `/assets/`, `/api/`. `vite.config.ts:56`
 - Vite `build.assetsDir` is `app`, so `/assets/*` stays the shop's. `vite.config.ts:61`
 - Vite dev and preview listen on 8004 with `strictPort`. `vite.config.ts:62`, `vite.config.ts:63`
-- No-JavaScript host test skips this host (`react*`). `../../../tests/hosts/e2e/shop.spec.ts:247`
-- `pnpm test:hosts react-vite` tests `http://localhost:8004`. `../../../tests/hosts/run.mjs:64`
+- No-JavaScript host test skips this host (`react*`). `../../../tests/hosts/e2e/shop.spec.ts:254`
+- `pnpm test:hosts react-vite` tests `http://localhost:8004`. `../../../tests/hosts/run.mjs:71`
 - `examples/hosts/*` is outside the pnpm workspace. `../../../pnpm-workspace.yaml:5`

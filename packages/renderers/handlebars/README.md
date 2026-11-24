@@ -118,42 +118,42 @@ templates import `dist/runtime.js` by path.
 
 ## Facts
 
-- `handlebars()` returns the renderer named `handlebars`, claiming `.hbs` only. `src/index.ts:164`, `src/index.ts:165`
-- `handlebars()` packages are `handlebars` and `@dropletsjs/renderer-handlebars`. `src/index.ts:166`
-- `handlebars()` sets no `componentTypes` and no `clientSetup`. `src/index.ts:163`
-- `handlebars()` server, client and clientDev are `dist/server.js`, `dist/client.js` and `dist/client-dev.js`, found by path. `src/index.ts:168`, `src/index.ts:170`
-- `handlebars()` readFlags reads the template's leading comment, naming errors `<droplet>/<file>`. `src/index.ts:171`, `src/index.ts:158`
-- Flags comment is the comment the template opens with, whitespace aside. `src/index.ts:87`
-- Flags comment declarations are split by line, by `;` or before the next `export`. `src/index.ts:121`
-- Flags comment without any `export` line is an ordinary comment: no flags declared, core's defaults apply. `src/index.ts:124`
-- Flags comment with an `export` line takes nothing else: any other line fails the build. `src/index.ts:130`
-- Flags comment typo: an unknown flag name fails the build with `unknown flag "<name>"`. `src/index.ts:133`
-- Flags comment: a flag declared twice fails the build. `src/index.ts:135`
-- Flags `ssr` and `prerender` take `true` or `false` only; anything else fails the build. `src/index.ts:144`
-- Flags `hydrate` takes `true`, `false`, `"visible"` or `"interactive"` (through `parseHydrateMode`); anything else fails the build. `src/index.ts:137`, `src/index.ts:139`
-- Flags in any comment but the leading one (a known flag name after `export`) fail the build. `src/index.ts:113`
-- Flags: a template Handlebars cannot parse declares none; the compiler reports it. `src/index.ts:108`
-- Flags exported from `+droplet.ts` or `+droplet.server.ts` are ignored, in a build and in `vite dev`. `test/index.test.ts:188`
-- Flags `+error.hbs` declares are ignored, with a warning under `vite dev` only: it follows the droplet's flags. `../../droplets/src/core/discover.ts:181`
-- `readTemplateFlags(source, where)` and `readFlags` live in `src/flags.ts`; the package entry exports `handlebars()` and its types alone, and `readFlags` reaches core on the renderer object. `src/flags.ts:43`, `src/flags.ts:98`, `src/index.ts:73`
-- Plugin is named `droplets:handlebars` and runs with `enforce: "pre"`. `src/plugin.ts:178`, `src/plugin.ts:181`
-- Plugin bundles `handlebars` and `handlebars/*` into the `ssr` and `server` builds (`noExternal`). `src/plugin.ts:189`, `src/plugin.ts:192`
-- Partials folder defaults to `src/partials`; `partials: false` registers none. `src/plugin.ts:201`
-- Helpers module defaults to `src/handlebars.ts`, then `src/handlebars.js`, when it exists; `helpers: false` registers none. `src/plugin.ts:168`, `src/plugin.ts:204`
-- Partials are every `.hbs` under the folder, sorted, named by path without `.hbs` (`layout/header`). `src/plugin.ts:83`, `src/plugin.ts:74`
-- Partials are compiled without the setup import; droplet templates import `virtual:droplets-handlebars/setup` first. `src/plugin.ts:236`, `src/plugin.ts:138`
-- Partials with a `<style>` block fail the build. `src/plugin.ts:233`
-- Setup module registers each partial and calls `registerHelpers` on the renderer's environment, once per bundle. `src/plugin.ts:161`, `src/plugin.ts:163`
-- Setup module is invalidated when a partial or the helpers module is added or removed. `src/plugin.ts:243`, `src/plugin.ts:248`
-- Compiled template module: `export default env.template(<spec>)`, importing `env` from `dist/runtime.js`. `src/plugin.ts:141`, `src/plugin.ts:57`
-- Compiled template module accepts no HMR update of its own, so an edit propagates to the droplet's client module: a hydrated droplet remounts in place (`droplets:hot-fallback`), one that is not gets its fragment again. `src/plugin.ts:126`, `../../../tests/dev-mixed/test/dev.test.ts:345`, `../../../tests/dev-mixed/test/dev.test.ts:366`
-- `compile` options go to `Handlebars.precompile`, with `srcName` always unset. `src/plugin.ts:135`
-- Environment is one `Handlebars.create()` of `handlebars/runtime`, never the global `Handlebars`. `src/runtime.ts:21`
-- `{{{children}}}` helper outputs `<div data-droplet-children style="display: contents"></div>`. `src/runtime.ts:24`, `src/runtime.ts:28`
-- `{{action}}` helper outputs the render's `actionUrl(name)`, escaped; a non-string name throws. `src/runtime.ts:36`, `src/runtime.ts:39`
-- `{{action}}` outside a renderer's render (no `actionUrl` in the data frame) throws. `src/runtime.ts:41`
-- `registerHelpers` registers each exported function, plus the entries of a `default` object; named exports win. `src/runtime.ts:73`
-- `registerHelpers` never registers `children` or `action` from a project. `src/runtime.ts:46`, `src/runtime.ts:75`
+- `handlebars()` returns the renderer named `handlebars`, claiming `.hbs` only. `src/index.ts:66`, `src/index.ts:67`
+- `handlebars()` packages are `handlebars` and `@dropletsjs/renderer-handlebars`. `src/index.ts:68`
+- `handlebars()` sets no `componentTypes` and no `clientSetup`. `src/index.ts:65`
+- `handlebars()` server, client and clientDev are `dist/server.js`, `dist/client.js` and `dist/client-dev.js`, found by path. `src/index.ts:70`, `src/index.ts:72`
+- `handlebars()` readFlags reads the template's leading comment, naming errors `<droplet>/<file>`. `src/index.ts:73`, `src/index.ts:73`
+- Flags comment is the comment the template opens with, whitespace aside. `src/index.ts:73`
+- Flags comment declarations are split by line, by `;` or before the next `export`. `src/index.ts:73`
+- Flags comment without any `export` line is an ordinary comment: no flags declared, core's defaults apply. `src/index.ts:73`
+- Flags comment with an `export` line takes nothing else: any other line fails the build. `src/index.ts:73`
+- Flags comment typo: an unknown flag name fails the build with `unknown flag "<name>"`. `src/index.ts:73`
+- Flags comment: a flag declared twice fails the build. `src/index.ts:73`
+- Flags `ssr` and `prerender` take `true` or `false` only; anything else fails the build. `src/index.ts:73`
+- Flags `hydrate` takes `true`, `false`, `"visible"` or `"interactive"` (through `parseHydrateMode`); anything else fails the build. `src/index.ts:73`, `src/index.ts:73`
+- Flags in any comment but the leading one (a known flag name after `export`) fail the build. `src/index.ts:73`
+- Flags: a template Handlebars cannot parse declares none; the compiler reports it. `src/index.ts:73`
+- Flags exported from `+droplet.ts` or `+droplet.server.ts` are ignored, in a build and in `vite dev`. `test/index.test.ts:191`
+- Flags `+error.hbs` declares are ignored, with a warning under `vite dev` only: it follows the droplet's flags. `../../droplets/src/core/discover.ts:222`
+- `readTemplateFlags(source, where)` and `readFlags` live in `src/flags.ts`; the package entry exports `handlebars()` and its types alone, and `readFlags` reaches core on the renderer object. `src/flags.ts:51`, `src/flags.ts:110`, `src/index.ts:73`
+- Plugin is named `droplets:handlebars` and runs with `enforce: "pre"`. `src/plugin.ts:169`, `src/plugin.ts:172`
+- Plugin bundles `handlebars` and `handlebars/*` into the `ssr` and `server` builds (`noExternal`). `src/plugin.ts:180`, `src/plugin.ts:183`
+- Partials folder defaults to `src/partials`; `partials: false` registers none. `src/plugin.ts:191`
+- Helpers module defaults to `src/handlebars.ts`, then `src/handlebars.js`, when it exists; `helpers: false` registers none. `src/plugin.ts:160`, `src/plugin.ts:194`
+- Partials are every `.hbs` under the folder, sorted, named by path without `.hbs` (`layout/header`). `src/plugin.ts:84`, `src/plugin.ts:75`
+- Partials are compiled without the setup import; droplet templates import `virtual:droplets-handlebars/setup` first. `src/plugin.ts:226`, `src/plugin.ts:131`
+- Partials with a `<style>` block fail the build. `src/plugin.ts:223`
+- Setup module registers each partial and calls `registerHelpers` on the renderer's environment, once per bundle. `src/plugin.ts:153`, `src/plugin.ts:155`
+- Setup module is invalidated when a partial or the helpers module is added or removed. `src/plugin.ts:233`, `src/plugin.ts:238`
+- Compiled template module: `export default env.template(<spec>)`, importing `env` from `dist/runtime.js`. `src/plugin.ts:134`, `src/plugin.ts:58`
+- Compiled template module accepts no HMR update of its own, so an edit propagates to the droplet's client module: a hydrated droplet remounts in place (`droplets:hot-fallback`), one that is not gets its fragment again. `src/plugin.ts:127`, `../../../tests/dev-mixed/test/dev.test.ts:404`, `../../../tests/dev-mixed/test/dev.test.ts:394`
+- `compile` options go to `Handlebars.precompile`, with `srcName` always unset. `src/plugin.ts:128`
+- Environment is one `Handlebars.create()` of `handlebars/runtime`, never the global `Handlebars`. `src/runtime.ts:27`
+- `{{{children}}}` helper outputs `<div data-droplet-children style="display: contents"></div>`. `src/runtime.ts:30`, `src/runtime.ts:34`
+- `{{action}}` helper outputs the render's `actionUrl(name)`, escaped; a non-string name throws. `src/runtime.ts:42`, `src/runtime.ts:45`
+- `{{action}}` outside a renderer's render (no `actionUrl` in the data frame) throws. `src/runtime.ts:47`
+- `registerHelpers` registers each exported function, plus the entries of a `default` object; named exports win. `src/runtime.ts:79`
+- `registerHelpers` never registers `children` or `action` from a project. `src/runtime.ts:52`, `src/runtime.ts:81`
 - Template missing from a module throws `handlebars-template-not-compiled` (`+<kind>.hbs did not compile to a template function`, for the droplet). `src/runtime.ts:54`
 - Server render calls the template with the props as context and `droplet`, `kind`, `renderId`, `actionUrl` as data variables. `src/server.ts:14`, `src/server.ts:15`
 - Client hydrate keeps the server HTML and fills `context.markers()`, or the template's own markers when there are none. `src/client.ts:80`, `src/client.ts:81`
@@ -162,10 +162,10 @@ templates import `dist/runtime.js` by path.
 - Client markers skip those of a droplet nested in the template's markup. `src/client.ts:27`
 - Client unmount empties every marker while it is still in the document, then clears the target. `src/client.ts:88`, `src/client.ts:89`
 - `update` (clientDev) renders a droplet template again with the new data; an error page or props without `data` answer false. `src/client-dev.ts:13`, `src/client-dev.ts:17`
-- Styles: `<style>` blocks are taken out of the template, each replaced by as many line breaks as it spanned. `src/styles.ts:133`, `src/styles.ts:135`
-- Styles: an inline block becomes `<template>?droplets-style=<n>&lang.<lang>` (`lang` default `css`), a `src` block an import of that file. `src/styles.ts:38`, `src/styles.ts:122`, `src/plugin.ts:103`
-- Styles: a block inside `{{#…}}` or containing `{{…}}` fails the build. `src/styles.ts:100`, `src/styles.ts:128`
-- Styles: a `src` block with CSS inside fails the build. `src/styles.ts:119`
+- Styles: `<style>` blocks are taken out of the template, each replaced by as many line breaks as it spanned. `src/styles.ts:140`, `src/styles.ts:140`
+- Styles: an inline block becomes `<template>?droplets-style=<n>&lang.<lang>` (`lang` default `css`), a `src` block an import of that file. `src/styles.ts:45`, `src/styles.ts:127`, `src/plugin.ts:104`
+- Styles: a block inside `{{#…}}` or containing `{{…}}` fails the build. `src/styles.ts:106`, `src/styles.ts:133`
+- Styles: a `src` block with CSS inside fails the build. `src/styles.ts:124`
 - Styles in a commented-out block are left as they are. `test/styles.test.ts:21`
 - Forms enhancement is the `data-droplet-enhance` attribute, which `/index.js` applies; the package has no `./form` export. `test/conformance.test.ts:17`, `package.json:23`
 - Package exports are `.`, `./server` and `./client`. `package.json:23`

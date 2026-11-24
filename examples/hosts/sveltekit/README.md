@@ -146,7 +146,7 @@ From the repository root:
 - Shop product comments props: `order`, `page`, `showing` from the query, plus `productId`. `src/routes/(shop)/product/[slug]/+page.server.ts:10`
 - Shop product page props: `slug`, plus `v` from the query. `src/routes/(shop)/product/[slug]/+page.server.ts:14`
 - Shop login passes `next`; shop admin passes `view` and `id`. `src/routes/(shop)/login/+page.server.ts:7`, `src/routes/(shop)/admin/+page.server.ts:7`
-- Docker image is `node:24-alpine`, built with `npm ci`, started with `node build`. `Dockerfile:1`, `Dockerfile:4`, `Dockerfile:17`
+- Docker image is `node:24-alpine`, built with `npm ci`, started with `node build`. `Dockerfile:1`, `Dockerfile:4`, `Dockerfile:20`
 - Docker image sets `HOST=0.0.0.0`, `PORT=8006`, `ORIGIN=http://localhost:8006` and `BODY_SIZE_LIMIT=4M`, so it runs without compose. `Dockerfile:10`, `Dockerfile:11`, `Dockerfile:14`, `Dockerfile:16`
 - Web `ORIGIN` is `WEB_URL`, default `http://localhost:8006`. `docker-compose.yml:45`
 - Web `BODY_SIZE_LIMIT` is `4M`. `docker-compose.yml:48`
@@ -160,6 +160,6 @@ From the repository root:
 - Shop demo login is `admin` / `droplets`. `docker-compose.yml:26`, `docker-compose.yml:27`
 - Published ports bind `127.0.0.1`: droplets `DROPLETS_PORT` (8000), web `WEB_PORT` (8006). `docker-compose.yml:11`, `docker-compose.yml:37`
 - `pnpm typecheck:hosts` covers this host: it has a `typecheck` script. `../../../tests/hosts/typecheck.mjs:21`, `package.json:10`
-- `pnpm test:hosts sveltekit` expects this host on `http://localhost:8006`. `../../../tests/hosts/run.mjs:66`
-- `pnpm test:hosts` runs `shop.spec.ts` for this host; the other specs skip themselves. `../../../tests/hosts/run.mjs:265`
+- `pnpm test:hosts sveltekit` expects this host on `http://localhost:8006`. `../../../tests/hosts/run.mjs:71`
+- `pnpm test:hosts` runs `shop.spec.ts` for this host; the other specs skip themselves. `../../../tests/hosts/run.mjs:271`
 - Host is outside the pnpm workspace: `examples/hosts/*` is not listed. `../../../pnpm-workspace.yaml:5`

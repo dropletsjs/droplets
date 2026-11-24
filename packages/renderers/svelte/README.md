@@ -119,47 +119,47 @@ mode and without it, on a copy of the fixture in `test/fixtures/.app-sync`.
 
 ## Facts
 
-- `svelte()` name is `"svelte"`. `src/index.ts:136`
-- `svelte()` extensions are `[".svelte"]`: it claims `+droplet.svelte` and `+error.svelte`. `src/index.ts:137`
-- `svelte()` packages are `svelte` and `@dropletsjs/renderer-svelte`: another renderer's droplet that imports either fails the build. `src/index.ts:139`, `../../droplets/src/vite/renderer-graphs.ts:62`
-- `svelte()` suffixes are `.svelte.ts` and `.svelte.js` (rune modules): another renderer's droplet that imports one fails the build. `src/index.ts:142`, `../../droplets/src/vite/renderer-graphs.ts:62`
-- `svelte()` componentTypes is `@dropletsjs/renderer-svelte`: `./$types` takes `DropletProps` and `DropletErrorProps` from it. `src/index.ts:140`, `../../droplets/src/vite/sync-types.ts:37`
-- `svelte()` server, client and clientDev are `dist/server.js`, `dist/client.js`, `dist/client-dev.js` under the package root. `src/index.ts:144`
-- `svelte()` sets no `clientSetup`. `src/index.ts:135`
-- `svelte()` plugins are `@sveltejs/vite-plugin-svelte` then `droplets:svelte-options`; `plugin: false` leaves only `droplets:svelte-options`. `src/index.ts:143`, `test/index.test.ts:33`
-- `vitePlugin` keys other than `compilerOptions`, `preprocess` and `dynamicCompileOptions` replace the renderer's defaults. `src/index.ts:123`
-- `vitePlugin.compilerOptions` is spread over `{ runes: true }`: runes mode is on unless set otherwise. `src/index.ts:124`
-- `vitePlugin.preprocess` runs after `vitePreprocess()`, as an array or a single preprocessor. `src/index.ts:115`
-- `+error.svelte` (or `+Error.svelte`) compiles with `css: "injected"`; the user's `dynamicCompileOptions` result is spread after it. `src/index.ts:84`, `src/index.ts:129`
+- `svelte()` name is `"svelte"`. `src/index.ts:116`
+- `svelte()` extensions are `[".svelte"]`: it claims `+droplet.svelte` and `+error.svelte`. `src/index.ts:117`
+- `svelte()` packages are `svelte` and `@dropletsjs/renderer-svelte`: another renderer's droplet that imports either fails the build. `src/index.ts:119`, `../../droplets/src/vite/renderer-graphs.ts:74`
+- `svelte()` suffixes are `.svelte.ts` and `.svelte.js` (rune modules): another renderer's droplet that imports one fails the build. `src/index.ts:122`, `../../droplets/src/vite/renderer-graphs.ts:73`
+- `svelte()` componentTypes is `@dropletsjs/renderer-svelte`: `./$types` takes `DropletProps` and `DropletErrorProps` from it. `src/index.ts:120`, `../../droplets/src/vite/sync-types.ts:47`
+- `svelte()` server, client and clientDev are `dist/server.js`, `dist/client.js`, `dist/client-dev.js` under the package root. `src/index.ts:124`
+- `svelte()` sets no `clientSetup`. `src/index.ts:115`
+- `svelte()` plugins are `@sveltejs/vite-plugin-svelte` then `droplets:svelte-options`; `plugin: false` leaves only `droplets:svelte-options`. `src/index.ts:123`, `test/index.test.ts:34`
+- `vitePlugin` keys other than `compilerOptions`, `preprocess` and `dynamicCompileOptions` replace the renderer's defaults. `src/index.ts:103`
+- `vitePlugin.compilerOptions` is spread over `{ runes: true }`: runes mode is on unless set otherwise. `src/index.ts:104`
+- `vitePlugin.preprocess` runs after `vitePreprocess()`, as an array or a single preprocessor. `src/index.ts:95`
+- `+error.svelte` (or `+Error.svelte`) compiles with `css: "injected"`; the user's `dynamicCompileOptions` result is spread after it. `src/index.ts:110`, `src/index.ts:109`
 - `readFlags` lives in `src/flags.ts` and reaches core on the renderer object; the package entry does not export it. `src/flags.ts:9`, `src/index.ts:118`
 - `readFlags` reads only the `<script module>` or `<script context="module">` block, split by Svelte's `preprocess`. `src/flags.ts:13`, `src/flags.ts:17`
 - `readFlags` parses the module block as TypeScript, whatever its `lang`. `src/flags.ts:27`
 - `readFlags` returns `undefined` for a component without a module block. `src/flags.ts:24`
-- `readFlags` ignores flags in HTML comments, JS comments, the instance `<script>`, the markup and `<style>`. `test/index.test.ts:47`
+- `readFlags` ignores flags in HTML comments, JS comments, the instance `<script>`, the markup and `<style>`. `test/index.test.ts:48`
 - Flags exported from `+droplet.ts` or `+droplet.server.ts` are ignored, in a build and in `vite dev`. `test/integration/flags.test.ts:77`
-- `experimental.async` is never set by the renderer; `droplets:svelte-options` reads it in `configResolved` from the `vite-plugin-svelte:config` plugin's `api.options`. `src/index.ts:103`
-- Async mode reaches the browser as `asyncMode`, exported by `virtual:droplets-renderer-svelte/options`. `src/index.ts:87`, `src/index.ts:109`
-- Server `render` awaits `svelte/server`'s `render`, so components with top-level `await` render. `src/server.ts:18`
-- Server `render` passes the `marker` snippet of `children.svelte` as `children`. `src/server.ts:9`, `src/server.ts:18`
-- Server `render` of an error page returns `{ html, head }`, with the injected `<style>` in `head`. `src/server.ts:22`
-- Server `render` of a droplet returns the body only: `<svelte:head>` is dropped. `src/server.ts:22`
+- `experimental.async` is never set by the renderer; `droplets:svelte-options` reads it in `configResolved` from the `vite-plugin-svelte:config` plugin's `api.options`. `src/index.ts:83`
+- Async mode reaches the browser as `asyncMode`, exported by `virtual:droplets-renderer-svelte/options`. `src/index.ts:67`, `src/index.ts:89`
+- Server `render` awaits `svelte/server`'s `render`, so components with top-level `await` render. `src/server.ts:23`
+- Server `render` passes the `marker` snippet of `children.svelte` as `children`. `src/server.ts:9`, `src/server.ts:23`
+- Server `render` of an error page returns `{ html, head }`, with the injected `<style>` in `head`. `src/server.ts:27`
+- Server `render` of a droplet returns the body only: `<svelte:head>` is dropped. `src/server.ts:27`
 - Server `render` throws `component-not-renderable` (`the <kind> component is not a Svelte component`, for the droplet) when the default export is not a function. `src/server.ts:13`
 - Children marker is `<div data-droplet-children style="display: contents" use:fill out:release|global>`. `src/children.svelte:15`
-- Children host reaches the marker through Svelte's context, under `Symbol.for("droplets:svelte:children")`. `src/children.ts:20`, `src/client.ts:35`
+- Children host reaches the marker through Svelte's context, under `Symbol.for("droplets:svelte:children")`. `src/children.ts:20`, `src/client.ts:36`
 - Children `use:fill` calls `host.fill(marker)`; the `out:release|global` transition calls `host.empty(marker)` with duration 0, before Svelte removes the marker. `src/children.ts:28`, `src/children.ts:37`
-- Client `mount` without async mode awaits `data` before it mounts the droplet. `src/client.ts:49`, `src/client.ts:76`
-- Client `mount` without async mode, `data` rejected and an error page: mounts `+error.svelte` with `{ error: await handle(error) }`; `null` and nothing mounted when `handle` rejects. `src/client.ts:81`, `src/client.ts:84`
-- Client `mount` without async mode, `data` rejected and no error page: the returned promise rejects with the error. `src/client.ts:78`
-- Client `mount` after the await runs inside `context.rendering` when it is set. `src/client.ts:100`
-- Client `mount` in async mode with an error page renders the droplet under `boundary.svelte`'s `<svelte:boundary>`; a failure shows `+error.svelte` with `handle(error)`, nothing while `handle` runs or when it rejects. `src/client.ts:54`, `src/boundary.svelte:41`, `src/boundary.svelte:44`
-- Client `mount` in async mode without an error page hands the component `data` as the promise. `src/client.ts:65`
+- Client `mount` without async mode awaits `data` before it mounts the droplet. `src/client.ts:54`, `src/client.ts:81`
+- Client `mount` without async mode, `data` rejected and an error page: mounts `+error.svelte` with `{ error: await handle(error) }`; `null` and nothing mounted when `handle` rejects. `src/client.ts:86`, `src/client.ts:89`
+- Client `mount` without async mode, `data` rejected and no error page: the returned promise rejects with the error. `src/client.ts:83`
+- Client `mount` after the await runs inside `context.rendering` when it is set. `src/client.ts:105`
+- Client `mount` in async mode with an error page renders the droplet under `boundary.svelte`'s `<svelte:boundary>`; a failure shows `+error.svelte` with `handle(error)`, nothing while `handle` runs or when it rejects. `src/client.ts:59`, `src/boundary.svelte:41`, `src/boundary.svelte:44`
+- Client `mount` in async mode without an error page hands the component `data` as the promise. `src/client.ts:70`
 - Boundary: a rejected `data` takes the host's container out of the marker first, and puts it back on the next task when the marker is still connected. `src/boundary.svelte:35`, `src/children.ts:50`
-- Client `mount` of an error page (`{ error }` props) mounts it directly, with no live props. `src/client.ts:50`
-- Client `hydrate` uses `svelte`'s `hydrate`; `data` is the value the server rendered with. `src/client.ts:104`
+- Client `mount` of an error page (`{ error }` props) mounts it directly, with no live props. `src/client.ts:55`
+- Client `hydrate` uses `svelte`'s `hydrate`; `data` is the value the server rendered with. `src/client.ts:109`
 - Live props: `data` and `form` are getters over a `SvelteMap`; an update sets them in place and deletes one the new props lack. `src/live-props.ts:27`, `src/live-props.ts:38`
 - Client dev `update` returns `false` for an instance without live props (an error page), and core remounts. `src/client-dev.ts:13`
 - Client dev `update` without async mode awaits the new `data` before setting it. `src/client-dev.ts:14`
-- Client `unmount` calls `svelte`'s `unmount`, and skips `null`. `src/client.ts:117`
+- Client `unmount` calls `svelte`'s `unmount`, and skips `null`. `src/client.ts:122`
 - `./form` exports `enhanceDropletForm`, a Svelte action over `enhanceDropletForm` of `@dropletsjs/droplets/enhance`; its options follow the action's `update`. `src/form.svelte.js:28`, `src/form.svelte.js:39`
 - `./form` without `onResult` calls `result.update()`. `src/form.svelte.js:35`
 - `./form` ships as source with a `svelte` export condition. `package.json:36`
@@ -172,6 +172,6 @@ mode and without it, on a copy of the fixture in `test/fixtures/.app-sync`.
 - Build script runs tsdown, then the tests. `package.json:51`
 - Typecheck is `svelte-check --fail-on-warnings`. `package.json:55`
 - `svelte.config.js` in this package turns async mode on for `svelte-check` only; Vite reads none of it. `svelte.config.js:3`
-- `DropletProps.data` is `Data`, the value; `test/types/droplet-props.svelte` reads it directly, with `await` and with `{#await}`, under `svelte-check`. `src/index.ts:63`, `test/types/droplet-props.svelte:9`
+- `DropletProps.data` is `Data`, the value; `test/types/droplet-props.svelte` reads it directly, with `await` and with `{#await}`, under `svelte-check`. `src/index.ts:37`, `test/types/droplet-props.svelte:9`
 - Conformance runs with async mode in `test/conformance.test.ts` and without it in `test/conformance-sync.test.ts`, on a copy of the fixture in `test/fixtures/.app-sync`. `test/conformance.test.ts:11`, `test/conformance-sync.test.ts:11`
 - Suite runs on `rendererTests` from `@dropletsjs/shared/vitest` (happy-dom). `vitest.config.ts:1`

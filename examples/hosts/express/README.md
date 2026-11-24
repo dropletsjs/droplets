@@ -203,6 +203,6 @@ stack; `--https` for the Caddy variant). The guide's page:
 - Dependencies are `express` ^5.1.0 and `@hono/node-server` ^2.1.6 (for `embedded.js`); no `@dropletsjs/*` package. `package.json:12`, `package.json:13`
 - Tsconfig checks the JavaScript in `src` (`allowJs`, `checkJs`, `strict`). `tsconfig.json:6`, `tsconfig.json:7`, `tsconfig.json:9`, `tsconfig.json:14`
 - Typecheck run by `pnpm typecheck:hosts`: `npm ci`, then `npm run typecheck`. `../../../tests/hosts/typecheck.mjs:47`, `../../../tests/hosts/typecheck.mjs:48`
-- Host test URL is `http://localhost:8003`; `pnpm test:hosts express` runs the shop flow. `../../../tests/hosts/run.mjs:58`
-- Host test `--https` runs on `https://127-0-0-1.sslip.io:8443`, express only. `../../../tests/hosts/run.mjs:79`
-- Host test checks the cart and admin cookies are `HttpOnly`, and `Secure` exactly when the URL is https. `../../../tests/hosts/e2e/shop.spec.ts:35`, `../../../tests/hosts/e2e/shop.spec.ts:36`, `../../../tests/hosts/e2e/shop.spec.ts:129`, `../../../tests/hosts/e2e/shop.spec.ts:130`
+- Host test URL is `http://localhost:8003`; `pnpm test:hosts express` runs the shop flow. `../../../tests/hosts/run.mjs:71`
+- Host test `--https` runs on `https://127-0-0-1.sslip.io:8443`, express only. `../../../tests/hosts/run.mjs:83`
+- Host test checks the cart and admin cookies are `HttpOnly`, and `Secure` exactly when the URL is https. `../../../tests/hosts/e2e/shop.spec.ts:42`, `../../../tests/hosts/e2e/shop.spec.ts:43`, `../../../tests/hosts/e2e/shop.spec.ts:136`, `../../../tests/hosts/e2e/shop.spec.ts:137`

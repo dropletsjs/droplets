@@ -123,29 +123,29 @@ server tests under Node. Every module core finds by path is a tsdown entry.
 ## Facts
 
 - `solid()` returns the renderer named `solid`, claiming `.tsx` and `.jsx`. `src/index.ts:61`, `src/index.ts:62`
-- `solid()` packages are `solid-js` and `@dropletsjs/renderer-solid`: a shared-extension file is Solid's when it imports one of them or names it in `@jsxImportSource`. `src/index.ts:63`, `../../droplets/src/renderer.ts:692`
-- `solid()` componentTypes is `@dropletsjs/renderer-solid`: `./$types` takes `DropletProps` and `DropletErrorProps` from this package. `src/index.ts:64`, `../../droplets/src/vite/sync-types.ts:37`
+- `solid()` packages are `solid-js` and `@dropletsjs/renderer-solid`: a shared-extension file is Solid's when it imports one of them or names it in `@jsxImportSource`. `src/index.ts:63`, `../../droplets/src/renderer.ts:714`
+- `solid()` componentTypes is `@dropletsjs/renderer-solid`: `./$types` takes `DropletProps` and `DropletErrorProps` from this package. `src/index.ts:64`, `../../droplets/src/vite/sync-types.ts:47`
 - `solid()` forces `ssr: true` over the `vitePlugin` options. `src/index.ts:59`
 - `solid({ plugin: false })` adds no Vite plugin. `src/index.ts:66`
 - `solid()` passes core's scope filter as vite-plugin-solid's `include` when core sets one (another renderer shares `.tsx`). `src/index.ts:68`
 - `solid()` server, client, clientDev and clientSetup are `dist/server.js`, `dist/client.js`, `dist/client-dev.js` and `dist/client-setup.js`, found by path. `src/index.ts:69`, `src/index.ts:73`
-- `solid()` has no `readFlags`: core's default reader takes flags from the component's literal named exports. `../../droplets/src/core/discover.ts:144`
+- `solid()` has no `readFlags`: core's default reader takes flags from the component's literal named exports. `../../droplets/src/core/discover.ts:155`
 - `DropletProps` data is `Data | Promise<Data>`: a promise when mounted, the value when hydrated. `src/index.ts:30`
-- Server render is `renderToString` with `renderId: context.renderId`. `src/server.ts:35`
-- Server children is a raw `ssr()` node printing `<div data-droplet-children style="display: contents"></div>`, with no hydration key. `src/server.ts:16`
-- Server and client throw `<droplet>: the <kind> component is not a Solid component` when the default export is not a function. `src/server.ts:25`, `src/client.ts:66`
-- Client mount uses `render` of `solid-js/web`; the instance is Solid's dispose function. `src/client.ts:132`, `src/live-props.ts:6`
-- Client mount wraps the component in `<ErrorBoundary>` and `<Suspense>` only when the droplet has an error page. `src/client.ts:132`, `src/client.ts:100`
-- Error boundary passes what was thrown to `handle` (the droplet's `handleError`), unwrapping Solid's `new Error("Unknown error", { cause })`. `src/client.ts:103`, `src/client.ts:78`
-- Error boundary renders nothing while `handle` runs or when it rejects. `src/client.ts:105`, `src/client.ts:107`
-- Client hydrate uses `hydrate` of `solid-js/web` with `renderId: context.renderId`. `src/client.ts:152`
-- Client hydrate resets `_$HY.done` and `sharedConfig.done` to false before each droplet. `src/client.ts:147`, `src/client.ts:148`
-- Client hydrate hands out the server's children markers in document order; after hydration every new marker is fresh. `src/client.ts:140`, `src/client.ts:160`
-- Children marker is filled in `onMount` and emptied in `onCleanup`, while still connected. `src/client.ts:55`, `src/client.ts:56`
-- Children marker created in the browser is a `div` with `data-droplet-children` and `display: contents`. `src/client.ts:30`
+- Server render is `renderToString` with `renderId: context.renderId`. `src/server.ts:40`
+- Server children is a raw `ssr()` node printing `<div data-droplet-children style="display: contents"></div>`, with no hydration key. `src/server.ts:17`
+- Server and client throw `<droplet>: the <kind> component is not a Solid component` when the default export is not a function. `src/server.ts:25`, `src/client.ts:67`
+- Client mount uses `render` of `solid-js/web`; the instance is Solid's dispose function. `src/client.ts:137`, `src/live-props.ts:6`
+- Client mount wraps the component in `<ErrorBoundary>` and `<Suspense>` only when the droplet has an error page. `src/client.ts:137`, `src/client.ts:105`
+- Error boundary passes what was thrown to `handle` (the droplet's `handleError`), unwrapping Solid's `new Error("Unknown error", { cause })`. `src/client.ts:108`, `src/client.ts:83`
+- Error boundary renders nothing while `handle` runs or when it rejects. `src/client.ts:110`, `src/client.ts:112`
+- Client hydrate uses `hydrate` of `solid-js/web` with `renderId: context.renderId`. `src/client.ts:157`
+- Client hydrate resets `_$HY.done` and `sharedConfig.done` to false before each droplet. `src/client.ts:152`, `src/client.ts:153`
+- Client hydrate hands out the server's children markers in document order; after hydration every new marker is fresh. `src/client.ts:145`, `src/client.ts:165`
+- Children marker is filled in `onMount` and emptied in `onCleanup`, while still connected. `src/client.ts:56`, `src/client.ts:57`
+- Children marker created in the browser is a `div` with `data-droplet-children` and `display: contents`. `src/client.ts:31`
 - Component props are getters over one signal; a `form` getter is added when the props have `data` and no `form`. `src/live-props.ts:20`, `src/live-props.ts:25`
 - `update` (clientDev) sets the props signal: same instance, state kept; it answers false for a handle it does not know. `src/client-dev.ts:6`, `src/client-dev.ts:8`
-- `unmount` calls the dispose function. `src/client.ts:165`
+- `unmount` calls the dispose function. `src/client.ts:170`
 - `_$HY` is defined by `client-setup.ts` on import as `{ events: null, completed: null, r: {}, fe() {} }`, only when the page has none. `src/client-setup.ts:29`, `src/client-setup.ts:33`
 - `_$HY` events stay `null`: Solid's own replay of early events is off; core replays held clicks. `src/client-setup.ts:9`
 - `enhanceDropletForm` of `./form` is a Solid directive, `use:enhanceDropletForm`; `true` or no value means no options. `src/form.ts:25`, `src/form.ts:28`
