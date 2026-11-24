@@ -175,6 +175,6 @@ describe("host while prerendering", () => {
   it("refuses entries that are bare props", async () => {
     const root = await project({ server: `${LOAD}export const entries = () => [{ page: 1 }];\n` });
     roots.push(root);
-    await expect(build({ root: root })).rejects.toThrow("entries() returns events, { props?, host? }");
+    await expect(build({ root: root })).rejects.toThrow("droplets: page: entries() returns events, { props?, host?, file? }");
   }, 90_000);
 });

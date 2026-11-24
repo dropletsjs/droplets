@@ -1,6 +1,7 @@
 /**
  * What a URL a client sent may be: a web URL, and a host within
- * `trustedOrigins`. Shared by the runtime and `$droplets/server`, with no
+ * `trustedOrigins`; and the names that become one path segment of the
+ * droplets' URLs. Shared by the runtime and `$droplets/server`, with no
  * imports of its own.
  */
 
@@ -45,4 +46,16 @@ export type IsLocationPrefixInput = { prefix: string };
  */
 export function isLocationPrefix({ prefix }: IsLocationPrefixInput): boolean {
   return prefix.startsWith("/") && prefix.length <= 256 && !/\/\/|\\|\.\.|[?#\u0000-\u001f\u007f]/.test(prefix);
+}
+
+export type IsKebabNameInput = { name: unknown };
+
+/**
+ * Whether `name` is lowercase kebab-case (`hello-world`, `page-2`): letters,
+ * digits and single hyphens between them. A droplet folder's name, its id,
+ * and a prerender entry's `file` follow it, so either is one URL segment as
+ * it is.
+ */
+export function isKebabName({ name }: IsKebabNameInput): boolean {
+  return typeof name === "string" && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(name);
 }

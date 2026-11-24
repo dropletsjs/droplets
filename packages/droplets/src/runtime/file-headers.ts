@@ -1,4 +1,5 @@
 import type { ResolvedDropletsConfig } from "../core/config.ts";
+import { withNoTransform } from "./compress.ts";
 
 /**
  * The headers of the build's files under one URL path pattern. `path` is a
@@ -14,7 +15,7 @@ export type FileHeaderRule = {
 };
 
 /** What `fileHeaderTable` reads of the resolved config. */
-export type FileHeaderConfig = Pick<ResolvedDropletsConfig, "publicCacheControl">;
+export type FileHeaderConfig = Pick<ResolvedDropletsConfig, "publicCacheControl" | "fragmentCacheControl">;
 
 const IMMUTABLE = "public, max-age=2592000, immutable";
 
@@ -27,7 +28,7 @@ const FILE = { "Access-Control-Allow-Origin": "*", "X-Content-Type-Options": "no
  * wider one it refines, so for a path the last rule that matches wins.
  */
 export function fileHeaderTable(config: FileHeaderConfig): FileHeaderRule[] {
-  const { publicCacheControl } = config;
+  const { publicCacheControl, fragmentCacheControl } = config;
   return [
     { path: "/index.js", headers: { ...FILE, "Cache-Control": "no-store" } },
     { path: "/index.css", headers: { ...FILE, "Cache-Control": "no-store" } },
@@ -35,6 +36,11 @@ export function fileHeaderTable(config: FileHeaderConfig): FileHeaderRule[] {
     {
       path: "/assets/public/*",
       headers: { ...FILE, ...(publicCacheControl === false ? {} : { "Cache-Control": publicCacheControl }) },
+    },
+    // A prerender file is a fragment: the live one's `Cache-Control`, `no-transform` included.
+    {
+      path: "/assets/prerendered/*",
+      headers: { ...FILE, "Cache-Control": withNoTransform({ cacheControl: fragmentCacheControl || null }) },
     },
     { path: "/droplets/:id/client.js", headers: { ...FILE, "Cache-Control": IMMUTABLE } },
     { path: "/droplets/:id/style.css", headers: { ...FILE, "Cache-Control": IMMUTABLE } },

@@ -129,7 +129,7 @@ server tests under Node. Every module core finds by path is a tsdown entry.
 - `solid({ plugin: false })` adds no Vite plugin. `src/index.ts:66`
 - `solid()` passes core's scope filter as vite-plugin-solid's `include` when core sets one (another renderer shares `.tsx`). `src/index.ts:68`
 - `solid()` server, client, clientDev and clientSetup are `dist/server.js`, `dist/client.js`, `dist/client-dev.js` and `dist/client-setup.js`, found by path. `src/index.ts:69`, `src/index.ts:73`
-- `solid()` has no `readFlags`: core's default reader takes flags from the component's literal named exports. `../../droplets/src/core/discover.ts:146`
+- `solid()` has no `readFlags`: core's default reader takes flags from the component's literal named exports. `../../droplets/src/core/discover.ts:144`
 - `DropletProps` data is `Data | Promise<Data>`: a promise when mounted, the value when hydrated. `src/index.ts:30`
 - Server render is `renderToString` with `renderId: context.renderId`. `src/server.ts:35`
 - Server children is a raw `ssr()` node printing `<div data-droplet-children style="display: contents"></div>`, with no hydration key. `src/server.ts:16`

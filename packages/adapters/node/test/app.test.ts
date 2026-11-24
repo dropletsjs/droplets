@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { readFile, rm } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { resolveConfig } from "@dropletsjs/droplets";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -205,6 +205,49 @@ describe("createNodeServerApp", () => {
           `${path} ${publicCacheControl}`,
         ).toEqual({ cache, cors: "*", nosniff: "nosniff" });
       }
+    }
+  });
+
+  it("answers a prerender file with the live fragment's Cache-Control, revalidated, and never through handle", async () => {
+    await mkdir(resolve(outDir, "client/assets/prerendered/hello"), { recursive: true });
+    await writeFile(resolve(outDir, "client/assets/prerendered/hello/home.html"), "<test-droplet>home</test-droplet>");
+    for (const [fragmentCacheControl, cache] of [
+      [undefined, "private, no-store, no-transform"],
+      ["public, max-age=60", "public, max-age=60, no-transform"],
+      ["no-transform, max-age=5", "no-transform, max-age=5"],
+      [false, "no-transform"],
+    ] as const) {
+      const config = resolveConfig({ element: "test-droplet", ...(fragmentCacheControl === undefined ? {} : { fragmentCacheControl }) });
+      const app = await createNodeServerApp(paths, config);
+      const live = await app.request("/droplets/hello?who=ana");
+      expect(live.headers.get("cache-control")).toBe(cache);
+      const res = await app.request("/assets/prerendered/hello/home");
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe("<test-droplet>home</test-droplet>");
+      const etag = res.headers.get("etag") ?? expect.unreachable("an etag");
+      const again = await app.request("/assets/prerendered/hello/home.html", { headers: { "if-none-match": etag } });
+      expect(again.status).toBe(304);
+      for (const answer of [res, again]) {
+        expect({
+          type: answer.headers.get("content-type"),
+          cache: answer.headers.get("cache-control"),
+          cors: answer.headers.get("access-control-allow-origin"),
+          nosniff: answer.headers.get("x-content-type-options"),
+          hook: answer.headers.get("x-fixture-hook"),
+          etag: answer.headers.get("etag"),
+        }).toEqual({
+          type: "text/html; charset=utf-8",
+          cache,
+          cors: "*",
+          nosniff: "nosniff",
+          hook: null,
+          etag,
+        });
+      }
+      const missing = await app.request("/assets/prerendered/hello/away");
+      expect(missing.status).toBe(404);
+      expect(missing.headers.get("cache-control")).toBe("no-store");
+      expect(missing.headers.get("access-control-allow-origin")).toBeNull();
     }
   });
 

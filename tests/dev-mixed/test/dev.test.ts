@@ -200,6 +200,22 @@ describe("every renderer under vite dev", () => {
     expect(output).not.toContain("$RefreshSig$");
   });
 
+  it("answers a prerender file's URL 404, past Vite's own middleware, and warns once per path", async () => {
+    for (const path of [
+      "/assets/prerendered/contract/home",
+      "/assets/prerendered/contract/home",
+      "/assets/prerendered/contract/home.html",
+    ]) {
+      const response = await get(path);
+      expect(response.status, path).toBe(404);
+      expect(await response.text(), path).toContain(
+        `${path}: prerender files are written by vite build only, with location and host set in droplets.config.ts;`,
+      );
+    }
+    await expect.poll(() => output).toContain("/assets/prerendered/contract/home.html: prerender files");
+    expect(output.split("/assets/prerendered/contract/home: prerender files").length).toBe(2);
+  });
+
   it("gives React's refresh to React's modules alone, and Prefresh to Preact's", async () => {
     const vue = await (await get("/src/droplets/vue-hello/+droplet.vue")).text();
     expect(vue).toContain("useGreeting");

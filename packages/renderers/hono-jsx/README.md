@@ -136,7 +136,7 @@ through `mount`).
 - `honoJsx({ plugin: false })` adds no Vite plugin. `src/index.ts:78`
 - `honoJsx()` passes core's scope filter to its plugin as `include` (another renderer shares `.tsx`). `src/index.ts:78`
 - `honoJsx()` server, client and clientDev are `dist/server.js`, `dist/client.js` and `dist/client-dev.js`, found by path; no clientSetup. `src/index.ts:79`, `src/index.ts:81`
-- `honoJsx()` has no `readFlags`: core's default reader takes flags from the component's literal named exports. `../../droplets/src/core/discover.ts:146`, `test/index.test.ts:29`
+- `honoJsx()` has no `readFlags`: core's default reader takes flags from the component's literal named exports. `../../droplets/src/core/discover.ts:144`, `test/index.test.ts:29`
 - `DropletProps` data is `Data | Promise<Data>`; children is a Hono `Child`. `src/index.ts:48`, `src/index.ts:51`
 - Plugin is named `droplets:hono-jsx` and runs with `enforce: "pre"`. `src/plugin.ts:32`, `src/plugin.ts:33`
 - Plugin resolveId maps `hono/jsx`, `hono/jsx/jsx-runtime` and `hono/jsx/jsx-dev-runtime` to their `hono/jsx/dom` builds, in the client environment only. `src/plugin.ts:17`, `src/plugin.ts:39`

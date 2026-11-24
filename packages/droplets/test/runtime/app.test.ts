@@ -936,7 +936,14 @@ describe("createDropletsApp: handle", () => {
     });
     // As createServerApp mounts the adapter's static files.
     app.get("/assets/*", (c) => c.text(`file ${c.req.path}`));
-    for (const path of ["/index.js", "/index.css", "/assets/index.abc.js", "/assets/logo.abc.png", "/assets/public/robots.txt"]) {
+    for (const path of [
+      "/index.js",
+      "/index.css",
+      "/assets/index.abc.js",
+      "/assets/logo.abc.png",
+      "/assets/public/robots.txt",
+      "/assets/prerendered/hello/page-2",
+    ]) {
       const res = await app.request(path);
       expect(res.status, path).toBe(200);
     }

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { resolve, sep } from "node:path";
+import { basename, resolve, sep } from "node:path";
 import { readFile } from "node:fs/promises";
 import type { Handler } from "hono";
 
@@ -77,24 +77,29 @@ function contentTypeOf({ path }: ContentTypeOfInput): string {
 
 /**
  * Serves the shared chunks and assets Vite emits alongside the droplet
- * bundles, and the project's `public/` under `/assets/public/`, with their
- * content type; `createServerApp` adds the headers of the build's files.
- * `public/` keeps its names, so its files also carry an `ETag` and answer
- * 304 when it matches.
+ * bundles, the project's `public/` under `/assets/public/`, and the
+ * prerender files under `/assets/prerendered/`, with their content type;
+ * `createServerApp` adds the headers of the build's files. `public/` and
+ * the prerender files keep their names, so they also carry an `ETag` and
+ * answer 304 when it matches. A prerender file is asked for without its
+ * `.html`, as static hosts serve it; with it, it is served too.
  */
 export function createStaticHandler({ clientRoot }: StaticHandlerOptions): Handler {
   const assetsRoot = resolve(clientRoot, "assets");
   const assetsPrefix = assetsRoot + sep;
   const publicPrefix = resolve(assetsRoot, "public") + sep;
+  const prerenderedPrefix = resolve(assetsRoot, "prerendered") + sep;
 
   return async (c) => {
     const relativePath = c.req.path.replace(/^\/assets\//, "");
-    const filePath = resolve(assetsRoot, relativePath);
+    let filePath = resolve(assetsRoot, relativePath);
 
     // The path comes from the URL and `resolve` has applied its `..`: outside the folder, read nothing.
     if (filePath !== assetsRoot && !filePath.startsWith(assetsPrefix)) {
       return c.text("Not Found", 404, NOT_FOUND_HEADERS);
     }
+    const isPrerendered = filePath.startsWith(prerenderedPrefix);
+    if (isPrerendered && !basename(filePath).includes(".")) filePath += ".html";
 
     let body: Buffer;
     try {
@@ -104,7 +109,7 @@ export function createStaticHandler({ clientRoot }: StaticHandlerOptions): Handl
       return c.text("Not Found", 404, NOT_FOUND_HEADERS);
     }
     c.header("content-type", contentTypeOf({ path: filePath }));
-    if (!filePath.startsWith(publicPrefix)) return c.body(new Uint8Array(body));
+    if (!isPrerendered && !filePath.startsWith(publicPrefix)) return c.body(new Uint8Array(body));
     const etag = `"${createHash("sha1").update(body).digest("base64url")}"`;
     c.header("etag", etag);
     if (

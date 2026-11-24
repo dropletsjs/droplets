@@ -1,6 +1,7 @@
 import { gzipSync } from "node:zlib";
 import { describe, expect, it, vi } from "vitest";
 import type { EnvironmentModuleNode, ViteDevServer } from "vite";
+import { logger } from "../../src/core/logger.ts";
 import { propsKey } from "../../src/runtime/props.ts";
 import type { SsrModule } from "../../src/server/app.ts";
 import { createInitialState } from "../../src/vite/state.ts";
@@ -169,6 +170,42 @@ describe("createDevApp: the error page gets the request's props", () => {
     }).request("http://localhost/droplets/hello?who=me");
     expect(await result.text()).toContain("<p>failed</p>");
     expect(renderError).toHaveBeenCalledWith("hello", error, { who: "me" });
+  });
+});
+
+describe("createDevApp: prerender files", () => {
+  const app = (module: SsrModule = {}) =>
+    createDevApp({
+      server: { environments: {} } as unknown as ViteDevServer,
+      state: createInitialState(),
+      runtime: { loadSsrModule: async () => module, refreshDropletMap: async () => {}, folderById: () => new Map() },
+    });
+
+  it("answers a file's URL 404 in plain text, warning once per path, and names the live fragment", async () => {
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    try {
+      const dev = app();
+      const notice =
+        "/assets/prerendered/testimonials/page-2: prerender files are written by vite build only, with location and host set in droplets.config.ts; vite dev writes and serves none. In dev, ask for the live fragment /droplets/testimonials; to test the files, run vite build and vite preview (with location set, the URLs inside a file point at that location).";
+      for (let i = 0; i < 2; i++) {
+        const response = await dev.request("http://localhost/assets/prerendered/testimonials/page-2");
+        expect(response.status).toBe(404);
+        expect(response.headers.get("content-type")).toBe("text/plain; charset=UTF-8");
+        expect(response.headers.get("cache-control")).toBe("no-store");
+        expect(await response.text()).toBe(`Not Found\n\n${notice}\n`);
+      }
+      expect((await dev.request("http://localhost/assets/prerendered/testimonials/page-2.html")).status).toBe(404);
+      expect(await (await dev.request("http://localhost/assets/prerendered/Bad_Id/x")).text()).toContain(
+        "the live fragment /droplets/<id>;",
+      );
+      expect(warn.mock.calls.map((call) => call[1])).toEqual([
+        notice,
+        notice.replace("page-2:", "page-2.html:"),
+        expect.stringContaining("/assets/prerendered/Bad_Id/x: prerender files"),
+      ]);
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 

@@ -113,29 +113,31 @@ droplet lists of both tests.
 
 ## Facts
 
-- `DEV_MARKERS` lists the text only HMR or `vite dev` code holds. `test/production.test.ts:26`
-- `DEV_MARKERS` is checked in every emitted `.js`/`.mjs` file of the Node build. `test/production.test.ts:209`
-- `DEV_MARKERS` is checked in the Cloudflare `worker.js`. `test/production.test.ts:271`
-- `DEV_MODULE` matches the dev modules by file name: `dev-element`, `dev-notify`, `dev-contract`, `dev-tool`, `client-dev`, `devtools/`. `test/production.test.ts:78`
-- Dev module code rendered into any chunk of any environment fails the production test. `test/production.test.ts:231`
-- Production `dist/` holds no file with `dev` in its name (case-insensitive). `test/production.test.ts:241`
-- Droplet `client.js` in production exports no `update` hook. `test/production.test.ts:221`
-- Production build runs `vite build` with `NODE_ENV` removed, since vitest's `NODE_ENV=test` builds for development. `test/production.test.ts:147`
+- `DEV_MARKERS` lists the text only HMR or `vite dev` code holds. `test/production.test.ts:29`
+- `DEV_MARKERS` is checked in every emitted `.js`/`.mjs` file of the Node build. `test/production.test.ts:226`
+- `DEV_MARKERS` is checked in the Cloudflare `worker.js`. `test/production.test.ts:288`
+- `DEV_MODULE` matches the dev modules by file name: `dev-element`, `dev-notify`, `dev-contract`, `dev-tool`, `client-dev`, `devtools/`. `test/production.test.ts:81`
+- Dev module code rendered into any chunk of any environment fails the production test. `test/production.test.ts:248`
+- Production `dist/` holds no file with `dev` in its name (case-insensitive). `test/production.test.ts:258`
+- Droplet `client.js` in production exports no `update` hook. `test/production.test.ts:238`
+- Production build runs `vite build` with `NODE_ENV` removed, since vitest's `NODE_ENV=test` builds for development. `test/production.test.ts:164`
 - Dev gate test reads the sources of `packages/droplets/src` and `packages/renderers/*/src`, `node_modules` and `dist` left out. `test/dev-gate.test.ts:22`, `test/dev-gate.test.ts:29`
 - Dev gate test counts `runtime/dev-*.ts` and `client-dev.ts` as dev modules and `packages/droplets/src/vite/` as build tooling, free to import them. `test/dev-gate.test.ts:33`, `test/dev-gate.test.ts:35`
 - Dev gate test takes `if (import.meta.env.DEV)` as the gate; a value import of a dev module must have every use inside one, and a dynamic `import()` of one must sit inside one. `test/dev-gate.test.ts:40`, `test/dev-gate.test.ts:87`, `test/dev-gate.test.ts:115`
 - Dev gate test fails on an `installDev…` call outside the gate or twice for one class, and expects `entry-client.ts`'s `installDevElement(DjsDropletElement)`. `test/dev-gate.test.ts:134`, `test/dev-gate.test.ts:153`
 - Dev gate test fails on an expression statement at a dev module's top level. `test/dev-gate.test.ts:156`
-- Production build recorder plugin writes `rendered-<environment>.json` per Vite environment. `test/production.test.ts:106`
-- Node production build has the environments `client`, `server` and `ssr`. `test/production.test.ts:188`
-- Cloudflare production build has the environments `client` and `server`; `worker.js` is the only file outside `client/`. `test/production.test.ts:250`
-- Cloudflare `worker.js` contains no `process.env.NODE_ENV`. `test/production.test.ts:259`
-- Cloudflare `worker.js` bundles no `*.development.js` module and none of `jsxDEV`, `react-stack-bottom-frame`, `[Vue warn]`. `test/production.test.ts:81`, `test/production.test.ts:267`
-- Hono modules are exempt from the `jsxDEV` check: Hono's JSX runtime is named `jsxDEV` in production too. `test/production.test.ts:87`
-- Cloudflare `worker.js` renders the React, Preact, Vue, Solid, Svelte, Lit and Hono JSX droplets with 200; Handlebars is not in that list. `test/production.test.ts:281`
-- Production builds are copied to `.tmp/production-node` and `.tmp/production-cloudflare`, and with `location` and `host` fixed to `.tmp/production-node-fixed` and `.tmp/production-cloudflare-fixed`. `test/production.test.ts:144`
-- `TOKEN_MARKERS` (`DROPLET_LOCATION`, `DROPLET_HOST`, `DROPLET_PATH`, `droplets.invalid`, `host-tokens`) are absent from `dist/server*`, `dist/worker.js`, the stored renders and the server modules of a build with `location` and `host` fixed, and present in the builds that compute them per request. `test/production.test.ts:122`, `test/production.test.ts:309`
-- The fixed builds add a prerendered React droplet `where` that writes `droplet.url()` and `host`. `test/production.test.ts:125`
+- Production build recorder plugin writes `rendered-<environment>.json` per Vite environment. `test/production.test.ts:109`
+- Node production build has the environments `client`, `server` and `ssr`. `test/production.test.ts:205`
+- Cloudflare production build has the environments `client` and `server`; `worker.js` is the only file outside `client/`. `test/production.test.ts:267`
+- Cloudflare `worker.js` contains no `process.env.NODE_ENV`. `test/production.test.ts:276`
+- Cloudflare `worker.js` bundles no `*.development.js` module and none of `jsxDEV`, `react-stack-bottom-frame`, `[Vue warn]`. `test/production.test.ts:84`, `test/production.test.ts:284`
+- Hono modules are exempt from the `jsxDEV` check: Hono's JSX runtime is named `jsxDEV` in production too. `test/production.test.ts:90`
+- Cloudflare `worker.js` renders the React, Preact, Vue, Solid, Svelte, Lit and Hono JSX droplets with 200; Handlebars is not in that list. `test/production.test.ts:298`
+- Production builds are copied to `.tmp/production-node` and `.tmp/production-cloudflare`, and with `location` and `host` fixed to `.tmp/production-node-fixed` and `.tmp/production-cloudflare-fixed`. `test/production.test.ts:147`
+- `TOKEN_MARKERS` (`DROPLET_LOCATION`, `DROPLET_HOST`, `DROPLET_PATH`, `droplets.invalid`, `host-tokens`) are absent from `dist/server*`, `dist/worker.js`, the stored renders, the prerender files and the server modules of a build with `location` and `host` fixed, and present in the builds that compute them per request. `test/production.test.ts:131`, `test/production.test.ts:330`
+- The fixed builds add a prerendered React droplet `where` that writes `droplet.url()` and `host`, with one entry whose `file` is `home`. `test/production.test.ts:134`, `test/production.test.ts:146`
+- Both fixed builds write `client/assets/prerendered/where/home.html`, byte for byte the built Node server's or Worker's answer to `POST /droplets/where` with `{ props: {} }`; the live builds write none. `test/production.test.ts:365`
+- `vite dev` answers `/assets/prerendered/<id>/<file>` and its `.html` `404`, past Vite's own middleware, warning once per path. `test/dev.test.ts:203`
 - Fixture adapter is Cloudflare when `DROPLETS_ADAPTER=cloudflare`, Node otherwise. `test/fixture/vite.config.ts:19`
 - Fixture registers every renderer and `dropletsDevtools()`. `test/fixture/vite.config.ts:23`
 - Fixture element is `djs-mixed`, `cors: true`; `trustedOrigins` holds `DEV_MIXED_HOST` (the host page's origin) and `dev.server.port` is `DEV_MIXED_PORT`, each only when set. `test/fixture/droplets.config.ts:3`
@@ -152,19 +154,19 @@ droplet lists of both tests.
 - Isolation test: with the import removed, `broken` answers 200 within 15 s, with no restart. `test/dev-isolation.test.ts:95`
 - Dev test warms up once so Vite's dependency optimization reload happens before the tests. `test/dev.test.ts:144`
 - `$RefreshSig$`/`$RefreshReg$` only in React modules, `__PREFRESH__` only in Preact modules under `vite dev`. `test/dev.test.ts:178`
-- React, Preact and Vue keep the count through a component edit. `test/dev.test.ts:221`
-- A Vue template edit saved in two writes (the file emptied, 400 ms, then written) keeps the count. `test/dev.test.ts:310`
-- Svelte and Solid swap in place; their count starts over and no fragment is fetched again. `test/dev.test.ts:250`
-- Lit and Hono JSX remount and log `<id>: no HMR of its framework took this edit; remounted in place`. `test/dev.test.ts:296`, `test/dev.test.ts:324`
-- Handlebars edit fetches the fragment again for a template that does not hydrate (`POST /droplets/hbs-hello`); a hydrated one (`hbs-live`) remounts in place and logs `hbs-live: no HMR of its framework took this edit; remounted in place`. `test/dev.test.ts:344`, `test/dev.test.ts:355`
-- Script droplet edit runs the cleanup, then the function again on the same element. `test/dev.test.ts:343`
-- Load edit updates data and keeps the count without a fragment request. `test/dev.test.ts:363`
-- Render contract `hydrate` false to true hydrates live, with a `status` toast and no Reload button. `test/dev.test.ts:394`
-- Render contract `hydrate` on to false and `ssr` false to true show an `alertdialog` toast with Reload page. `test/dev.test.ts:411`, `test/dev.test.ts:426`
-- Render contract toasts: never more than three at once; a newer notice for the same flag replaces the older. `test/dev.test.ts:430`, `test/dev.test.ts:442`
-- Render contract notice goes to the dev tool, not a toast, with `?injectTool=true`. `test/dev.test.ts:454`
-- `index.js?strategy=remount` remounts React from a fresh fragment. `test/dev.test.ts:468`
-- `dev.strategy` defaults to `"hmr"`. `../../packages/droplets/src/core/config.ts:367`
+- React, Preact and Vue keep the count through a component edit. `test/dev.test.ts:233`
+- A Vue template edit saved in two writes (the file emptied, 400 ms, then written) keeps the count. `test/dev.test.ts:322`
+- Svelte and Solid swap in place; their count starts over and no fragment is fetched again. `test/dev.test.ts:262`
+- Lit and Hono JSX remount and log `<id>: no HMR of its framework took this edit; remounted in place`. `test/dev.test.ts:308`, `test/dev.test.ts:336`
+- Handlebars edit fetches the fragment again for a template that does not hydrate (`POST /droplets/hbs-hello`); a hydrated one (`hbs-live`) remounts in place and logs `hbs-live: no HMR of its framework took this edit; remounted in place`. `test/dev.test.ts:356`, `test/dev.test.ts:367`
+- Script droplet edit runs the cleanup, then the function again on the same element. `test/dev.test.ts:355`
+- Load edit updates data and keeps the count without a fragment request. `test/dev.test.ts:375`
+- Render contract `hydrate` false to true hydrates live, with a `status` toast and no Reload button. `test/dev.test.ts:406`
+- Render contract `hydrate` on to false and `ssr` false to true show an `alertdialog` toast with Reload page. `test/dev.test.ts:423`, `test/dev.test.ts:438`
+- Render contract toasts: never more than three at once; a newer notice for the same flag replaces the older. `test/dev.test.ts:442`, `test/dev.test.ts:454`
+- Render contract notice goes to the dev tool, not a toast, with `?injectTool=true`. `test/dev.test.ts:466`
+- `index.js?strategy=remount` remounts React from a fresh fragment. `test/dev.test.ts:480`
+- `dev.strategy` defaults to `"hmr"`. `../../packages/droplets/src/core/config.ts:368`
 - Test timeout 60 s, hook timeout 120 s. `vitest.config.ts:7`
 - Test script is `vitest run`. `package.json:9`
 - `.tmp/` is gitignored. `../../.gitignore:44`

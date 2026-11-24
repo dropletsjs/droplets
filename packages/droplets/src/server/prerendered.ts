@@ -11,8 +11,18 @@ import type { PrerenderedDroplet } from "../runtime/app.ts";
  *   its assets) finds them in `dist/client/_prerendered/<random>/`, a name
  *   new every build and kept only in the manifest it inlines
  *   (`__prerendered`), never at a path one could guess.
+ *
+ * The public files an entry's `file` asks for are another thing, written
+ * beside the client build's files (`PRERENDERED_FILES_DIR`).
  */
 export const PRERENDER_DIR = "_prerendered";
+
+/**
+ * Where `vite build` writes the renders an entry's `file` names, relative to
+ * `dist/client`: `<id>/<file>.html`, public, served at
+ * `<location>/assets/prerendered/<id>/<file>`.
+ */
+export const PRERENDERED_FILES_DIR = "assets/prerendered";
 
 /** `<droplet>/index.json`: `propsKey` -> file, both relative to the renders' directory. */
 export type PrerenderIndex = Record<string, string>;

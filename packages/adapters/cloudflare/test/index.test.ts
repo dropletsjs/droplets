@@ -51,10 +51,12 @@ const IMMUTABLE = "public, max-age=2592000, immutable";
 
 const FILES = { "Access-Control-Allow-Origin": "*", "X-Content-Type-Options": "nosniff" };
 
-type FileTableInput = { publicCacheControl: string | false };
+type FileTableInput = { publicCacheControl: string | false; prerendered?: string };
 
-/** The file-header table the plugin passes as `fileHeaders` for `publicCacheControl`. */
-function fileTable({ publicCacheControl }: FileTableInput): FileHeaderRule[] {
+const PRERENDERED = "private, no-store, no-transform";
+
+/** The file-header table the plugin passes as `fileHeaders` for `publicCacheControl`, and `prerendered` the prerender files' Cache-Control. */
+function fileTable({ publicCacheControl, prerendered = PRERENDERED }: FileTableInput): FileHeaderRule[] {
   return [
     { path: "/index.js", headers: { ...FILES, "Cache-Control": "no-store" } },
     { path: "/index.css", headers: { ...FILES, "Cache-Control": "no-store" } },
@@ -63,13 +65,17 @@ function fileTable({ publicCacheControl }: FileTableInput): FileHeaderRule[] {
       path: "/assets/public/*",
       headers: { ...FILES, ...(publicCacheControl === false ? {} : { "Cache-Control": publicCacheControl }) },
     },
+    { path: "/assets/prerendered/*", headers: { ...FILES, "Cache-Control": prerendered } },
     { path: "/droplets/:id/client.js", headers: { ...FILES, "Cache-Control": IMMUTABLE } },
     { path: "/droplets/:id/style.css", headers: { ...FILES, "Cache-Control": IMMUTABLE } },
   ];
 }
 
-/** What the adapter writes first in `dist/client/_headers`, for a `/assets/public/*` rule. */
-function adapterHeaders(publicRule: string): string {
+/** The `/assets/prerendered/*` rule the adapter writes for the prerender files' Cache-Control. */
+const prerenderedRule = (cacheControl: string) => `/assets/prerendered/*\n  ! Cache-Control\n  Cache-Control: ${cacheControl}\n`;
+
+/** What the adapter writes first in `dist/client/_headers`, for a `/assets/public/*` rule and a `/assets/prerendered/*` one. */
+function adapterHeaders(publicRule: string, prerendered = prerenderedRule(PRERENDERED)): string {
   const files = (path: string, cacheControl: string) =>
     `${path}\n  Access-Control-Allow-Origin: *\n  X-Content-Type-Options: nosniff\n  ! Cache-Control\n  Cache-Control: ${cacheControl}\n`;
   return (
@@ -77,6 +83,7 @@ function adapterHeaders(publicRule: string): string {
     files("/index.css", "no-store") +
     files("/assets/*", IMMUTABLE) +
     publicRule +
+    prerendered +
     files("/droplets/:id/client.js", IMMUTABLE) +
     files("/droplets/:id/style.css", IMMUTABLE)
   );
@@ -203,6 +210,7 @@ describe("cloudflare: afterBuild", () => {
           ["/index.css", "no-store"],
           ["/assets/index.abc.js", IMMUTABLE],
           ["/assets/public/robots.txt", publicCacheControl],
+          ["/assets/prerendered/cart/page-2", PRERENDERED],
           ["/droplets/cart/client.js", IMMUTABLE],
           ["/droplets/cart/style.css", IMMUTABLE],
         ] as const) {
@@ -211,6 +219,31 @@ describe("cloudflare: afterBuild", () => {
           ]);
         }
       }
+    });
+
+    it("gives /assets/prerendered/* the live fragment's Cache-Control, its CORS and nosniff once, from /assets/*", async () => {
+      for (const [fragmentCacheControl, cache] of [
+        [undefined, PRERENDERED],
+        ["public, max-age=60", "public, max-age=60, no-transform"],
+        [false, "no-transform"],
+      ] as const) {
+        const config = fragmentCacheControl === undefined ? {} : { fragmentCacheControl };
+        const resolved = resolveConfig(config);
+        await afterBuild({ config, table: fileTable({ publicCacheControl: resolved.publicCacheControl, prerendered: cache }) });
+        const text = await headers();
+        expect(text).toBe(adapterHeaders("/assets/public/*\n  ! Cache-Control\n  Cache-Control: no-cache\n", prerenderedRule(cache)));
+        expect([...cloudflareHeaders({ text, path: "/assets/prerendered/testimonials/page-2" })]).toEqual([
+          ...new Headers({ ...FILES, "Cache-Control": cache }),
+        ]);
+      }
+    });
+
+    it("lets the project's own _headers give the prerender files another Cache-Control, starting with ! Cache-Control", async () => {
+      await writeFile(join(root, "_headers"), "/assets/prerendered/*\n  ! Cache-Control\n  Cache-Control: public, max-age=300\n");
+      await afterBuild();
+      expect([...cloudflareHeaders({ text: await headers(), path: "/assets/prerendered/testimonials/page-2" })]).toEqual([
+        ...new Headers({ ...FILES, "Cache-Control": "public, max-age=300" }),
+      ]);
     });
 
     it("appends the project's own _headers after the adapter's rules", async () => {
@@ -231,11 +264,11 @@ describe("cloudflare: afterBuild", () => {
     });
 
     it("warns, never fails, over Cloudflare's limits: 100 rules, 2,000 characters a line", async () => {
-      // The adapter's own six rules count.
-      await writeFile(join(root, "_headers"), Array.from({ length: 94 }, (_, i) => `/r${i}\n  X-Rule: ${i}\n`).join(""));
+      // The adapter's own seven rules count.
+      await writeFile(join(root, "_headers"), Array.from({ length: 93 }, (_, i) => `/r${i}\n  X-Rule: ${i}\n`).join(""));
       await expect(afterBuild()).resolves.toBeUndefined();
       expect(messages()).toEqual([]);
-      await writeFile(join(root, "_headers"), Array.from({ length: 95 }, (_, i) => `/r${i}\n  X-Rule: ${i}\n`).join(""));
+      await writeFile(join(root, "_headers"), Array.from({ length: 94 }, (_, i) => `/r${i}\n  X-Rule: ${i}\n`).join(""));
       await expect(afterBuild()).resolves.toBeUndefined();
       expect(messages()).toEqual([expect.stringContaining("dist/client/_headers has 101 rules: Cloudflare takes up to 100 rules")]);
       warn.mockClear();
@@ -320,6 +353,7 @@ describe("cloudflare: afterBuild", () => {
         ['["/assets/index-a1.js"]', "/assets/index-a1.js"],
         ['["/droplets/card/client.js"]', "/droplets/card/client.js"],
         ['["/droplets/card/style.css"]', "/droplets/card/style.css"],
+        ['["/assets/prerendered/*"]', "/assets/prerendered/x/y"],
       ] as const) {
         warn.mockClear();
         await writeFile(
@@ -343,6 +377,44 @@ describe("cloudflare: afterBuild", () => {
           "could not read wrangler.jsonc (assets.run_worker_first, compatibility_flags); leave run_worker_first out so static assets serve the build's files",
         ),
       ]);
+    });
+  });
+
+  describe("html_handling", () => {
+    const FLAGS = '"compatibility_flags": ["nodejs_compat"], ';
+
+    it("warns once when it keeps the extensionless URL of the prerender files from being served, and only with files", async () => {
+      const cases = [
+        ["none", "answers 404 (only <file>.html is served)"],
+        ["force-trailing-slash", "redirects to /assets/prerendered/<id>/<file>/"],
+      ] as const;
+      for (const [value, said] of cases) {
+        await writeFile(join(root, "wrangler.json"), `{ ${FLAGS}"assets": { "html_handling": "${value}" } }`);
+        warn.mockClear();
+        await afterBuild();
+        expect(messages(), value).toEqual([]);
+        await mkdir(join(root, "dist/client/assets/prerendered/testimonials"), { recursive: true });
+        await afterBuild();
+        expect(messages(), value).toEqual([
+          `wrangler.json: assets.html_handling is "${value}", so /assets/prerendered/<id>/<file> ${said}; leave html_handling out, see https://dropletsjs.dev/guides/prerendering/#static-files`,
+        ]);
+        await rm(join(root, "dist/client/assets/prerendered"), { recursive: true });
+      }
+      await writeFile(join(root, "wrangler.toml"), 'compatibility_flags = ["nodejs_compat"]\n[assets]\nhtml_handling = "none"\n');
+      await rm(join(root, "wrangler.json"));
+      await mkdir(join(root, "dist/client/assets/prerendered/testimonials"), { recursive: true });
+      warn.mockClear();
+      await afterBuild();
+      expect(messages()).toEqual([expect.stringContaining('wrangler.toml: assets.html_handling is "none"')]);
+    });
+
+    it("stays silent with the default, or the other values that serve <file> from <file>.html", async () => {
+      await mkdir(join(root, "dist/client/assets/prerendered/testimonials"), { recursive: true });
+      for (const assets of ["{}", '{ "html_handling": "auto-trailing-slash" }', '{ "html_handling": "drop-trailing-slash" }']) {
+        await writeFile(join(root, "wrangler.json"), `{ ${FLAGS}"assets": ${assets} }`);
+        await afterBuild();
+      }
+      expect(warn).not.toHaveBeenCalled();
     });
   });
 

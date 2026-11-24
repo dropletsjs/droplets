@@ -29,7 +29,7 @@ export type SsrModule = {
   getHandleError?: () => HandleServerError | undefined;
   validateDropletProps?: (name: string, props: Record<string, unknown>) => Promise<Record<string, unknown>>;
   transformDroplet?: (name: string, event: TransformEvent) => Promise<string>;
-  getEntries?: (name: string) => Promise<Array<{ props: Record<string, unknown>; host?: string }>>;
+  getEntries?: (name: string) => Promise<Array<{ props: Record<string, unknown>; host?: string; file?: string }>>;
   prerenderKeys?: (name: string) => Promise<string[]>;
   publicEnv?: () => Record<string, string | undefined>;
   findAction?: FindAction;

@@ -89,8 +89,8 @@ Then the route.
 - `X-Forwarded-Prefix` supplies the prefix for `Forwarded` and `X-Forwarded-Host` (its first value only). `host.ts:87`
 - `X-Forwarded-Port` is used only when it is 1-65535 and `X-Forwarded-Host` has no port. `host.ts:98`
 - `Forwarded` is read from its first element only, with quotes stripped. `host.ts:111`
-- A location prefix is accepted only if it starts with `/`, is at most 256 characters and has no `//`, `\`, `..`, `?`, `#` or control characters. `web-url.ts:46`
-- `webUrl` accepts only `http:`/`https:` URLs and strips credentials and the hash. `web-url.ts:10`
+- A location prefix is accepted only if it starts with `/`, is at most 256 characters and has no `//`, `\`, `..`, `?`, `#` or control characters. `web-url.ts:47`
+- `webUrl` accepts only `http:`/`https:` URLs and strips credentials and the hash. `web-url.ts:11`
 - A header location is trusted only when its origin is the request's own or a `trustedOrigins` entry; `"*"` in `trustedOrigins` trusts any. `app.ts:483`, `app.ts:486`
 - An untrusted location header is ignored; under `vite dev` it warns once per source, the value cut to 200 characters. `app.ts:487`, `dev-log.ts:42`
 - Without a trusted header the location is the request's own origin. `app.ts:489`
@@ -125,7 +125,7 @@ Then the route.
 - The origin check lets an untyped request without `Origin` through. `security.ts:126`
 - The origin check lets every request through when `trustedOrigins` has `"*"`. `security.ts:124`
 - The origin check guards `/api`, `/api/`, `/droplets/` and the import map paths. `security.ts:85`
-- Body limits default to 1 MB JSON, 1 MB form, 10 MB multipart and 8 KB `x-droplet-props`. `../core/config.ts:210`
+- Body limits default to 1 MB JSON, 1 MB form, 10 MB multipart and 8 KB `x-droplet-props`. `../core/config.ts:211`
 - A body over its type's limit answers 413 `Payload Too Large`. `security.ts:149`
 - An `x-droplet-props` header over its limit answers 431 `x-droplet-props is too large; send the props in a POST body`. `security.ts:155`
 - A limit of `Infinity` turns that check off. `security.ts:158`
@@ -154,7 +154,7 @@ Then the route.
 - The JSON body is read only for POST whose parsed media type `isJsonType` takes (`application/json` or `+json`, the reading `limitFor` uses; `text/xml; a=application/json` is not one); malformed JSON gives no props. `app.ts:335`, `security.ts:135`
 - Reserved query keys are `__cb`, `c`, `t`, `noSSR`, `clientOnly`, `__droplet_return`, every key starting with `/` and every key starting with `__droplet_form_`. `form.ts:26`
 - `clientOnly` and `noSSR` in the query count by presence. `app.ts:788`
-- Props validation errors (`PropsError`) answer 400 with `Invalid props: …`. `entry-server.ts:143`
+- Props validation errors (`PropsError`) answer 400 with `Invalid props: …`. `entry-server.ts:144`
 - `propsKey` sorts keys, so props differing only in key order share a prerender entry. `props.ts:90`
 
 ### Fragments: `GET|POST /droplets/:id`
@@ -163,15 +163,16 @@ Then the route.
 - A method other than GET and POST (HEAD is Hono's GET without a body, OPTIONS is `cors()`'s) on a known droplet answers 405 with `allow: GET, POST`, text on the fragment and `{ "message": "Method Not Allowed" }` on `_data`, before any body is read (`renderMethods`). `app.ts:373`, `app.ts:1327`
 - A path no route matches answers 404 through one `app.notFound`: `{ "message": "Not Found" }` under `_data` and `/api` (`wantsJson`), text elsewhere; a trailing slash (`/droplets/x/`) is such a path, and its body is never read (`RENDER_ROUTE`). `app.ts:361`, `app.ts:865`, `security.ts:92`
 - A droplet name in the URL is decoded; a malformed escape names no droplet. `app.ts:767`
-- The droplet registry is a `Map`, so `__proto__` names no droplet. `entry-server.ts:57`
-- A registry entry's `component` and `error` are thunks, like `load` and `serverLoad`: `renderDroplet` and `renderError` await them before anything else, so a component that fails to import is answered as an error of its own, never through the error page. `entry-server.ts:44`, `entry-server.ts:336`, `entry-server.ts:367`
+- The droplet registry is a `Map`, so `__proto__` names no droplet. `entry-server.ts:58`
+- `getEntries` takes events with `props`, `host` and `file` only; `file` is lowercase kebab-case (`isKebabName` of `web-url.ts`) and unique among the droplet's entries, `undefined` counting as absent; every error it throws starts with `droplets: <id>:`. It runs at build and, through `prerenderKeys`, on every `vite dev` request to a `prerender` droplet. `entry-server.ts:154`, `entry-server.ts:190`, `entry-server.ts:195`, `web-url.ts:59`, `../../test/runtime/entry-server.test.ts:140`
+- A registry entry's `component` and `error` are thunks, like `load` and `serverLoad`: `renderDroplet` and `renderError` await them before anything else, so a component that fails to import is answered as an error of its own, never through the error page. `entry-server.ts:45`, `entry-server.ts:354`, `entry-server.ts:385`
 - A POST with a form body runs an action, `text/plain` answers 415, and a `?/name` key with a non-form body answers 400. `app.ts:1686`
 - A prerendered fragment is looked up by host key (origin and path), then, with `host`, by the origin-only key, then by props key. `app.ts:1240`, `app.ts:1243`, `app.ts:1244`
 - `prerenderKey` is `<propsKey> <origin><path>`, `<propsKey> <origin>` for a render for `host` of the config, or `<propsKey>` for a host-agnostic one. `props.ts:103`
 - A prerendered lookup for a droplet with `ssr = false` and no entry for these props answers 404. `app.ts:1245`
 - The fragment's context script is written only when the answer has server markup, rendered live or stored at build whatever `ssr` says; without markup (`ssr = false`, `?noSSR`, `?clientOnly`) the context goes on `data-droplet-context`. `app.ts:1597`
 - A fragment of a droplet with `hydrate = false` carries no context, neither the script nor `data-droplet-context`, its error page included; only its markup (and its stylesheet link). `app.ts:1596`
-- Under `vite dev`, `withDevContext` in `vite/dev.ts` writes `data-droplet-context` onto a fragment that carries no context, from the host and props its `transform` ran with, for the dev remount; the runtime app knows nothing of it, so a production server bundles none of it. An `ssr = false`, `hydrate = false` fragment has no markup, so no `transform` runs and it stays bare. `../vite/dev.ts:52`
+- Under `vite dev`, `withDevContext` in `vite/dev.ts` writes `data-droplet-context` onto a fragment that carries no context, from the host and props its `transform` ran with, for the dev remount; the runtime app knows nothing of it, so a production server bundles none of it. An `ssr = false`, `hydrate = false` fragment has no markup, so no `transform` runs and it stays bare. `../vite/dev.ts:54`
 - `data-droplet-payload="data"` is written only when the droplet hydrates and the request is not `clientOnly`. `app.ts:1504`
 - `data-droplet-render` is written only when there is server HTML. `app.ts:1503`
 - A failed render answers 500 with the error component, else the action's status, else 200. `app.ts:1512`
@@ -179,11 +180,11 @@ Then the route.
 - The deadline covers only the live call: `renderDroplet` (server load, `+droplet.ts` load, the component) or, without server markup, the server load; it starts after `handle`, the props schema, a form action, the carried form result and the prerendered lookup, and covers neither `transform` nor the error page. `app.ts:1422`
 - With a deadline, the loads' event gets a copy of `event.request` with `AbortSignal.any([request.signal, deadline])`; an unread body goes to the copy as a clone (`request.clone()`), so the original stays readable, an already read one (after a form action) is left out. `handle`, the action and `transform` keep the original. `app.ts:1422`, `render-timeout.ts:44`
 - The deadline aborts with a `TimeoutError` `DOMException` that carries `Symbol.for("droplets.render-timeout")`; only that brand ends the race, so a client that went away or an author's own `AbortSignal.timeout` stays the load's own failure (500). The timer is cleared at the answer. `render-timeout.ts:10`, `render-timeout.ts:27`
-- A result or a failure that comes after the deadline is dropped, and always has a handler; `entry-server.ts` rethrows whatever a load throws once the request's signal carries the brand, with no `console.error` and no `handleError` of `+droplet.server.ts`. `app.ts:1422`, `entry-server.ts:119`
+- A result or a failure that comes after the deadline is dropped, and always has a handler; `entry-server.ts` rethrows whatever a load throws once the request's signal carries the brand, with no `console.error` and no `handleError` of `+droplet.server.ts`. `app.ts:1422`, `entry-server.ts:120`
 - `render.timeout` `Infinity` sets no timer and no request copy; `building` has no deadline whatever the option says. `app.ts:955`
 - A timeout warns through `devLog.renderTimeout` every time (`vite dev`); a production server logs nothing for it. `dev-log.ts:88`
 - A response carrying a form result gets `cache-control: private, no-store`. `app.ts:1495`
-- `fragmentCacheControl` defaults to `private, no-store, no-transform` and is set only on a 2xx answer that has none; an error, a 404, a 405 and a redirect carry no default (`perRequest`). `../core/config.ts:213`, `app.ts:1051`
+- `fragmentCacheControl` defaults to `private, no-store, no-transform` and is set only on a 2xx answer that has none; an error, a 404, a 405 and a redirect carry no default (`perRequest`). `../core/config.ts:214`, `app.ts:1051`
 - `perRequest` adds `no-transform` to the `Cache-Control` of every fragment and `_data` answer but a redirect and a form action's JSON (`isAction`), and gzips them through `gzipAnswer` (`compress.ts`), never at build. `app.ts:1057`, `app.ts:1065`, `app.ts:1692`, `compress.ts:100`
 - The 303 of a native post that carries the signed result back to the page is `private, no-store`. `app.ts:1704`
 - The `Link` header preloads `style.css` (only with styles), each CSS file and the entry, and modulepreloads `client.js` only when `hydrate === true`. `app.ts:1335`
@@ -205,7 +206,7 @@ Then the route.
 - `/index.js` answers 404 without `loadEntryClient` or code, and is `no-store`. `app.ts:1121`, `app.ts:1126`
 - `/index.js` answers what `loadEntryClient` returns, with nothing added. `app.ts:1127`
 - `/env.js` answers 404 without `publicEnv` or when it has no names (no `public: true` variable without `static`). `app.ts:1136`, `app.ts:1139`
-- `/env.js` is `publicEnvScript` of `publicEnv()` under `<element>:<build>`, read through `readRuntimeEnv`, nothing taken from the request. `app.ts:1142`, `entry-server.ts:386`
+- `/env.js` is `publicEnvScript` of `publicEnv()` under `<element>:<build>`, read through `readRuntimeEnv`, nothing taken from the request. `app.ts:1142`, `entry-server.ts:404`
 - `/env.js` cache-control is `public, max-age=600`; `DROPLETS_ENV_MAX_AGE` sets the seconds, `0` gives `no-store`. `app.ts:361`, `app.ts:379`, `app.ts:1141`
 - `DROPLETS_ENV_MAX_AGE` is parsed once per raw value (a `Map`); anything but a non-negative integer of seconds keeps 600, with a warning once per value under `vite dev` only. `app.ts:364`, `app.ts:378`, `dev-log.ts:74`
 - `/index.css` answers 404 when there is no global CSS or it is empty. `app.ts:1152`
@@ -214,7 +215,7 @@ Then the route.
 - A fragment links and preloads `style.css` only when the droplet has stylesheets. `app.ts:1339`
 - `client.js` answers 404 for an unknown droplet, `hydrate === false` or no loader. `app.ts:1180`
 - Cached files get `public, max-age=2592000, immutable`. `app.ts:1025`
-- With `fileHeaders` (`fileHeaderTable(config)`, what `createServerApp` passes), every 2xx or 304 answer to a path the table matches gets that rule's headers, with the other headers the table names removed, set inside `handle`; without it (`vite dev`, the prerender) each route keeps its own. `app.ts:187`, `app.ts:1223`, `file-headers.ts:74`
+- With `fileHeaders` (`fileHeaderTable(config)`, what `createServerApp` passes), every 2xx or 304 answer to a path the table matches gets that rule's headers, with the other headers the table names removed, set inside `handle`; without it (`vite dev`, the prerender) each route keeps its own. `app.ts:187`, `app.ts:1223`, `file-headers.ts:80`
 - With `fileHeaders`, the `cors` middleware is skipped for every path the table matches (a preflight there included): a build file's only `Access-Control-Allow-Origin` is the table's `*`. Without `fileHeaders`, `cors` covers every route. `app.ts:1087`
 - The import map answers 404 when none is configured, is `no-store`, and escapes `<`. `app.ts:1099`
 - `/` answers `loadIndex()`'s HTML, else 404. `app.ts:1113`
@@ -225,7 +226,7 @@ Then the route.
 - A droplet without `actions` answers 405 with `allow: GET`. `app.ts:1584`
 - An unknown action answers 404 `No action named "<name>"`, the name cut to 100 characters, when the name matches `ACTION_NAME`; any other name answers 404 `No such action` without echoing it. `app.ts:1588`
 - Action names match `^[A-Za-z_][\w-]*$`. `form.ts:141`
-- An action is found only through `ACTION_NAME`, a deny list (`__proto__`, `constructor`, `prototype`) and `Object.hasOwn`. `entry-server.ts:316`
+- An action is found only through `ACTION_NAME`, a deny list (`__proto__`, `constructor`, `prototype`) and `Object.hasOwn`. `entry-server.ts:334`
 - An action answers JSON when `accept` prefers it over HTML (`prefersJson`): `application/json` or `application/*` with a weight at least `text/html`'s, never through `*/*` alone. `app.ts:1594`, `accept.ts:47`
 - A JSON action answer is the outcome with the failure's status, else 200. `app.ts:1636`
 - An action redirect, native or JSON, goes only to this server or a trusted origin (`redirectTarget`, the same check in both modes and the same as a load's or `handle`'s), else 400 `Bad Request: the action redirects off this site` (as `{ message }` in JSON) and a `console.error` (`offSiteRedirect`). `app.ts:678`, `app.ts:1696`
@@ -261,11 +262,11 @@ Then the route.
 
 ### `$droplets/server` (`server.ts`)
 
-- `error(status)` takes 400-599. `server.ts:354`
-- `redirect(status, location)` takes 300-308 and an http(s) or on-site target. `server.ts:365`
-- `fail(status)` takes 400-599. `server.ts:416`
-- `json()` sets `content-type: application/json`. `server.ts:503`
-- `text()` sets `text/plain; charset=utf-8`. `server.ts:508`
+- `error(status)` takes 400-599. `server.ts:365`
+- `redirect(status, location)` takes 300-308 and an http(s) or on-site target. `server.ts:376`
+- `fail(status)` takes 400-599. `server.ts:427`
+- `json()` sets `content-type: application/json`. `server.ts:514`
+- `text()` sets `text/plain; charset=utf-8`. `server.ts:519`
 - A thrown `HttpError` answers its status and message; a thrown `Redirect` answers its target absolute, resolved against `event.host` for a load, `transform` or `handle` and against `event.url` for a `+server` route, only when its origin is the request's own, the location's, a trusted origin or `host` (`redirectTarget` over `redirectOrigins`, `"*"` never counts), else 400 `Bad Request: the droplet redirects off this site` (`handle`, `the endpoint` for those) as text or `{ message }` by the route, logged once with `console.error`. `app.ts:647`, `app.ts:678`, `app.ts:812`
 - Any other thrown error is logged and answers 500 with `handleError`'s message, never a stack. `app.ts:728`
 - What no handler caught goes to Hono's `onError`, which answers through `failure` and `handleError` too: JSON for `_data` and `/api/*`, text elsewhere, logged as `request failed: <path>`. `app.ts:848`
@@ -290,7 +291,7 @@ Then the route.
 - At build, an entry without `host` under `host` of the config renders for a real URL of that origin, `pathname` and `href` the path token; it is stored under the origin-only key. `app.ts:992`, `host.ts:175`, `app.ts:1400`
 - Host tokens are replaced HTML-escaped in markup and JSON-escaped in data. `host-tokens.ts:137`
 - `tokenNonce` also replaces tokens in live renders. `app.ts:853`, `app.ts:1268`
-- `app.ts` imports `host-tokens.ts` for its types only: the replacers come in as the internal `tokens` option, from the SSR bundle (`virtual:droplets-config`), the prerender or `vite dev`. `app.ts:10`, `app.ts:850`, `../server/app.ts:115`, `entry-server.ts:383`
+- `app.ts` imports `host-tokens.ts` for its types only: the replacers come in as the internal `tokens` option, from the SSR bundle (`virtual:droplets-config`), the prerender or `vite dev`. `app.ts:10`, `app.ts:850`, `../server/app.ts:115`, `entry-server.ts:401`
 - Without `tokens`, a stored render is served as stored, a live one as rendered, and a build stores renders without a nonce. `app.ts:1247`, `app.ts:1267`, `app.ts:1404`
 
 ### Fragment markup (`element.ts`)
@@ -310,8 +311,8 @@ Then the route.
 - The element's module writes `credentials: "include"` into its server's record when the client build's `corsCredentials` is true, before any element runs. `entry-client.ts:16`
 - The runtime env falls back to `process.env` where `process` exists. `env-store.ts:26`
 - Request info uses `AsyncLocalStorage` through `process.getBuiltinModule`, never a Node import. `request-store.ts:39`
-- A production server logs errors only, with `console.error`: a plain message, then the error as it is. `app.ts:708`, `app.ts:716`, `app.ts:739`, `app.ts:1612`, `app.ts:1624`, `entry-server.ts:227`
-- Runtime warnings reach the logger only through `devLog` (`vite dev`, the build's prerender) or behind `import.meta.env.DEV` (`entry-server.ts`), so a production bundle holds neither. `app.ts:175`, `entry-server.ts:123`, `entry-server.ts:348`
+- A production server logs errors only, with `console.error`: a plain message, then the error as it is. `app.ts:708`, `app.ts:716`, `app.ts:739`, `app.ts:1612`, `app.ts:1624`, `entry-server.ts:245`
+- Runtime warnings reach the logger only through `devLog` (`vite dev`, the build's prerender) or behind `import.meta.env.DEV` (`entry-server.ts`), so a production bundle holds neither. `app.ts:175`, `entry-server.ts:124`, `entry-server.ts:366`
 - `DEV_DROPLETS_LOG` sets the level of the dev and build log; a production server ignores it. `../core/logger.ts:41`
 
 ### The element (`entry-client.ts`)

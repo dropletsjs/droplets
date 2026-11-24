@@ -548,8 +548,8 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
         }
         // Before the server: a Worker reads the renders through its assets.
         if (name === "ssr") {
-          const renders = await prerender({ state, ssrEntry: resolve(state.outDir, "server/entry-server.js") });
-          if (renders > 0) logger.info("framework", "prerendered", { renders });
+          const { renders, files } = await prerender({ state, ssrEntry: resolve(state.outDir, "server/entry-server.js") });
+          if (renders > 0) logger.info("framework", "prerendered", { renders, files });
           // Built only to prerender: an adapter that inlines the renderer
           // does not ship it.
           if (!adapter.separateSsrBundle) {

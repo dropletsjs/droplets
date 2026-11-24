@@ -3,15 +3,18 @@
  * worker thread (`core/app-thread.ts`), so the bundle finds the globals a
  * server has, not the build process's, and leaves nothing behind in it.
  * `prerender.ts` drives it: `entries` for a droplet's events, `request`
- * for each render.
+ * for each render, `file` for each render an entry writes as a file.
  */
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { workerData } from "node:worker_threads";
 import { answer, type PlainRequest, plainResponse } from "../core/app-thread.ts";
-import { createDropletsApp } from "../runtime/app.ts";
+import { createDropletsApp, type DropletsApp } from "../runtime/app.ts";
 import { createDevLog } from "../runtime/dev-log.ts";
 import { setRuntimeEnv } from "../runtime/env-store.ts";
 import type { SsrModule } from "../server/app.ts";
+import { createPrerenderedLoader } from "../server/prerendered.ts";
 
 /** Read by `building` in `$droplets/env` when the SSR bundle loads. */
 const BUILDING = Symbol.for("droplets.building");
@@ -24,9 +27,15 @@ export type PrerenderWorkerData = {
   host: string | undefined;
   /** Private variables read at runtime come from the mode's `.env`. */
   env: Record<string, unknown>;
+  /** The renders' directory (`prerenderRoot`), read back for the files. */
+  renders: string;
+  /** Each droplet's stylesheets, `css` of `droplets.json`. */
+  styles: Record<string, string[]>;
+  /** `fragmentCacheControl` of the config, as the server answers with it. */
+  fragmentCacheControl: string | false;
 };
 
-const { ssrEntry, element, buildHash, location, host, env } = workerData as PrerenderWorkerData;
+const { ssrEntry, element, buildHash, location, host, env, renders, styles, fragmentCacheControl } = workerData as PrerenderWorkerData;
 
 (globalThis as { [BUILDING]?: boolean })[BUILDING] = true;
 setRuntimeEnv(env);
@@ -56,8 +65,43 @@ const app = createDropletsApp({
   host,
 });
 
+let serving: DropletsApp | undefined;
+
+/**
+ * A server over the renders just stored, as a production server answers
+ * with them: a file holds what the fragment answers, by construction. It
+ * never renders live, and nothing it reads waits on `render.timeout`.
+ */
+function servingApp(): DropletsApp {
+  serving ??= createDropletsApp({
+    devLog: createDevLog(),
+    element,
+    health: false,
+    renderDroplet: (name) => Promise.reject(new Error(`droplets: ${name} has no stored render to write as a file`)),
+    ...(ssr.getDropletMeta ? { getDropletMeta: ssr.getDropletMeta } : {}),
+    ...(ssr.getHandle ? { getHandle: ssr.getHandle } : {}),
+    ...(ssr.getHandleError ? { getHandleError: ssr.getHandleError } : {}),
+    ...(ssr.validateDropletProps ? { validateProps: ssr.validateDropletProps } : {}),
+    ...(ssr.renderError ? { renderError: ssr.renderError } : {}),
+    ...(ssr.transformDroplet ? { transformDroplet: ssr.transformDroplet } : {}),
+    loadPrerendered: createPrerenderedLoader((path) => readFile(resolve(renders, path), "utf8").catch(() => null)),
+    dropletStyles: (name) => (Object.hasOwn(styles, name) ? (styles[name] ?? []) : []),
+    linkHeader: false,
+    buildHash,
+    ...(ssr.tokenNonce === undefined ? {} : { tokenNonce: ssr.tokenNonce }),
+    ...(ssr.tokens === undefined ? {} : { tokens: ssr.tokens }),
+    location,
+    host,
+    fragmentCacheControl,
+    render: { timeout: Number.POSITIVE_INFINITY },
+  });
+  return serving;
+}
+
 answer({
   entries: (droplet: string) => entries(droplet),
   request: async ({ url, method, headers, body }: PlainRequest) =>
     plainResponse({ response: await app.request(url, { method, headers, body }) }),
+  file: async ({ url, method, headers, body }: PlainRequest) =>
+    plainResponse({ response: await servingApp().request(url, { method, headers, body }) }),
 });

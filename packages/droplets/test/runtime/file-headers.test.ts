@@ -12,6 +12,7 @@ describe("fileHeaderTable", () => {
       { path: "/index.css", headers: { ...file, "Cache-Control": "no-store" } },
       { path: "/assets/*", headers: { ...file, "Cache-Control": IMMUTABLE } },
       { path: "/assets/public/*", headers: { ...file, "Cache-Control": "no-cache" } },
+      { path: "/assets/prerendered/*", headers: { ...file, "Cache-Control": "private, no-store, no-transform" } },
       { path: "/droplets/:id/client.js", headers: { ...file, "Cache-Control": IMMUTABLE } },
       { path: "/droplets/:id/style.css", headers: { ...file, "Cache-Control": IMMUTABLE } },
     ]);
@@ -32,6 +33,22 @@ describe("fileHeaderTable", () => {
   });
 });
 
+describe("fileHeaderTable: the prerender files", () => {
+  const cacheOf = (fragmentCacheControl: string | false | undefined) =>
+    fileHeadersFor({
+      table: fileHeaderTable(resolveConfig(fragmentCacheControl === undefined ? {} : { fragmentCacheControl })),
+      path: "/assets/prerendered/testimonials/page-2",
+    });
+
+  it("takes fragmentCacheControl with no-transform, as the live fragment does", () => {
+    const file = { "Access-Control-Allow-Origin": "*", "X-Content-Type-Options": "nosniff" };
+    expect(cacheOf(undefined)).toEqual({ ...file, "Cache-Control": "private, no-store, no-transform" });
+    expect(cacheOf("public, max-age=60")).toEqual({ ...file, "Cache-Control": "public, max-age=60, no-transform" });
+    expect(cacheOf("max-age=5, No-Transform")).toEqual({ ...file, "Cache-Control": "max-age=5, No-Transform" });
+    expect(cacheOf(false)).toEqual({ ...file, "Cache-Control": "no-transform" });
+  });
+});
+
 describe("fileHeadersFor", () => {
   const table = fileHeaderTable(resolveConfig({}));
   const cacheOf = (path: string) => fileHeadersFor({ table, path })?.["Cache-Control"];
@@ -42,6 +59,8 @@ describe("fileHeadersFor", () => {
     expect(cacheOf("/assets/chunks/a/b.js")).toBe(IMMUTABLE);
     expect(cacheOf("/assets/public/img/logo.svg")).toBe("no-cache");
     expect(cacheOf("/assets//public/logo.svg")).toBe("no-cache");
+    expect(cacheOf("/assets/prerendered/testimonials/page-2")).toBe("private, no-store, no-transform");
+    expect(cacheOf("/assets/prerendered/testimonials/page-2.html")).toBe("private, no-store, no-transform");
     expect(cacheOf("/droplets/hello/client.js")).toBe(IMMUTABLE);
     expect(cacheOf("/droplets/hello/style.css")).toBe(IMMUTABLE);
   });

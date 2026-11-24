@@ -1,14 +1,14 @@
 import { createHash, randomBytes } from "node:crypto";
 import { rm } from "node:fs/promises";
 import { resolve } from "node:path";
-import { connect } from "../core/app-thread.ts";
+import { connect, type PlainResponse, plainRequest, toResponse } from "../core/app-thread.ts";
 import { loadJsonFile, writeTextFile } from "../core/fs.ts";
 import { logger } from "../core/logger.ts";
 import { packageDist } from "../core/paths.ts";
 import { trustedOriginsWith } from "../runtime/security.ts";
 import { withinTrusted } from "../runtime/web-url.ts";
 import type { DropletsManifest } from "../server/manifest.ts";
-import { PRERENDER_DIR, prerenderIndexPath, type PrerenderIndex } from "../server/prerendered.ts";
+import { PRERENDER_DIR, PRERENDERED_FILES_DIR, prerenderIndexPath, type PrerenderIndex } from "../server/prerendered.ts";
 import type { PrerenderWorkerData } from "./prerender-worker.ts";
 import type { PluginState } from "./state.ts";
 
@@ -52,7 +52,7 @@ export function prerenderRoot(state: PluginState): { dir: string; assets?: strin
   return { dir: resolve(state.outDir, "client", assets), assets };
 }
 
-type BuildEntry = { props: Record<string, unknown>; host?: string };
+type BuildEntry = { props: Record<string, unknown>; host?: string; file?: string };
 
 type ShortInput = { text: string; max: number };
 
@@ -102,6 +102,22 @@ function checkEntryHosts({ state, droplet, entries }: CheckEntryHostsInput): voi
   }
 }
 
+type IgnoredFilesInput = { state: PluginState; files: readonly string[] };
+
+/** The one warning of a build whose entries name files it does not write, `null` when there is nothing to say. */
+function ignoredFilesWarning({ state, files }: IgnoredFilesInput): string | null {
+  if (files.length === 0) return null;
+  const missing = [state.config.location === undefined ? "location" : "", state.config.host === undefined ? "host" : ""].filter(Boolean);
+  const listed = files.length > 5 ? `${files.slice(0, 5).join(", ")}, …` : files.join(", ");
+  return `prerender entries name files (${listed}), but files are written only with both location and host set in droplets.config.ts (${missing.join(" and ")} ${missing.length > 1 ? "are" : "is"} not set); no file is written, and these renders are served by the server as before`;
+}
+
+/** What became of one entry's render: its key once stored (or met again), and what the build kept of it. */
+type EntryRender = { event: BuildEntry; key?: string; failed?: boolean; headers?: Record<string, string> };
+
+/** What `prerender` wrote: the stored renders, and the files entries asked for. */
+export type PrerenderResult = { renders: number; files: number };
+
 /**
  * Renders every droplet with `prerender = true` for each event its
  * `entries` lists, and stores HTML and server data in the renders'
@@ -112,8 +128,12 @@ function checkEntryHosts({ state, droplet, entries }: CheckEntryHostsInput): voi
  * through `handle`, with `building` true. An entry renders for its `host`,
  * else `host` of the config, else host-agnostic; an entry's `host` outside
  * the runtime's bound stops the build first (`checkEntryHosts`); a render
- * that reads more of `host` than it can have stops the build. Returns how
- * many renders it wrote.
+ * that reads more of `host` than it can have stops the build.
+ *
+ * With `location` and `host` both set, an entry's `file` also writes its
+ * render as `dist/client/assets/prerendered/<id>/<file>.html`: the body a
+ * server over the stored renders answers for its props, a `200` only;
+ * without both, `file` is checked, not written, and the build warns once.
  *
  * The bundle is evaluated in a worker thread (`prerender-worker.ts`): it
  * finds the globals a server has, not the build process's, and what it
@@ -121,21 +141,23 @@ function checkEntryHosts({ state, droplet, entries }: CheckEntryHostsInput): voi
  */
 type PrerenderInput = { state: PluginState; ssrEntry: string };
 
-export async function prerender({ state, ssrEntry }: PrerenderInput): Promise<number> {
+export async function prerender({ state, ssrEntry }: PrerenderInput): Promise<PrerenderResult> {
   const targets = state.entries.filter((entry) => entry.prerender);
   const clientRoot = resolve(state.outDir, "client");
   await rm(resolve(clientRoot, PRERENDER_DIR), { recursive: true, force: true });
   await rm(resolve(state.outDir, "server", PRERENDER_DIR), { recursive: true, force: true });
-  if (targets.length === 0) return 0;
+  await rm(resolve(clientRoot, PRERENDERED_FILES_DIR), { recursive: true, force: true });
+  if (targets.length === 0) return { renders: 0, files: 0 };
   const root = prerenderRoot(state);
+  const manifestPath = resolve(clientRoot, "droplets.json");
+  const manifest = await loadJsonFile<DropletsManifest>({ path: manifestPath });
+  if (!manifest) throw new Error("droplets: cannot prerender before droplets.json is written");
   if (root.assets) {
     // The client is built and the server, which inlines the manifest, is
     // not yet: the name is written there and nowhere else.
-    const manifestPath = resolve(clientRoot, "droplets.json");
-    const manifest = await loadJsonFile<DropletsManifest>({ path: manifestPath });
-    if (!manifest) throw new Error("droplets: cannot prerender before droplets.json is written");
     await writeTextFile({ path: manifestPath, contents: `${JSON.stringify({ ...manifest, __prerendered: root.assets }, null, 2)}\n` });
   }
+  const isFixed = state.config.location !== undefined && state.config.host !== undefined;
 
   const workerData: PrerenderWorkerData = {
     ssrEntry,
@@ -144,17 +166,25 @@ export async function prerender({ state, ssrEntry }: PrerenderInput): Promise<nu
     location: state.config.location,
     host: state.config.host,
     env: state.env.values,
+    renders: root.dir,
+    styles: Object.fromEntries(Object.entries(manifest.droplets ?? {}).map(([id, entry]) => [id, entry.css ?? []])),
+    fragmentCacheControl: state.config.fragmentCacheControl,
   };
   const app = connect({ file: resolve(packageDist, "vite/prerender-worker.js"), workerData });
   try {
     let count = 0;
+    let files = 0;
+    const ignored: string[] = [];
     for (const entry of targets) {
       const index: PrerenderIndex = {};
       const events = await app.call<BuildEntry[]>("entries", entry.id);
       checkEntryHosts({ state, droplet: entry.id, entries: events });
+      const outcomes: EntryRender[] = [];
       for (const event of events) {
         const host = event.host;
         const props = event.props;
+        const outcome: EntryRender = { event };
+        outcomes.push(outcome);
         const response = await app.request(`${PRERENDER_ORIGIN}/droplets/${entry.id}`, {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -168,14 +198,18 @@ export async function prerender({ state, ssrEntry }: PrerenderInput): Promise<nu
         // stored, those props render live.
         if (!response.ok) {
           const body = (await response.text()).slice(0, 200);
+          const file = isFixed && event.file ? `, and ${PRERENDERED_FILES_DIR}/${entry.id}/${event.file}.html is not written` : "";
           logger.warn(
             "framework",
-            `prerendering ${entry.id} with ${JSON.stringify(props)} answered ${response.status}; not stored, it renders live`,
+            `prerendering ${entry.id} with ${JSON.stringify(props)} answered ${response.status}; not stored, it renders live${file}`,
             { body },
           );
           continue;
         }
         const render = (await response.json()) as BuildRender;
+        outcome.key = render.key;
+        if (render.failed) outcome.failed = true;
+        if (render.headers) outcome.headers = render.headers;
         // Two entries the schema turned into the same props: one render.
         if (index[render.key]) continue;
         // A load that failed is stored as the render of +error.*, the
@@ -195,8 +229,56 @@ export async function prerender({ state, ssrEntry }: PrerenderInput): Promise<nu
       }
       await writeTextFile({ path: resolve(root.dir, prerenderIndexPath({ droplet: entry.id })), contents: JSON.stringify(index) });
       logger.debug("framework", "prerendered droplet", { droplet: entry.id, renders: Object.keys(index).length });
+      // After the index: the server that answers for the files reads it once.
+      for (const { event, key, failed, headers } of outcomes) {
+        if (!event.file) continue;
+        if (!isFixed) {
+          ignored.push(`${entry.id}/${event.file}`);
+          continue;
+        }
+        if (key === undefined) continue;
+        const path = `${PRERENDERED_FILES_DIR}/${entry.id}/${event.file}.html`;
+        const props = JSON.stringify(event.props);
+        if (failed) {
+          logger.warn("framework", `prerendering ${entry.id} with ${props} failed and stored its +error page; ${path} is not written`);
+          continue;
+        }
+        const response = toResponse({
+          plain: await app.call<PlainResponse>(
+            "file",
+            plainRequest({
+              url: `${PRERENDER_ORIGIN}/droplets/${entry.id}`,
+              init: {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ props: event.props, ...(event.host ? { host: event.host } : {}) }),
+              },
+            }),
+          ),
+        });
+        if (response.status !== 200) {
+          logger.warn(
+            "framework",
+            `prerendering ${entry.id} with ${props}: the fragment answered ${response.status}; ${path} is not written`,
+            {
+              body: (await response.text()).slice(0, 200),
+            },
+          );
+          continue;
+        }
+        await writeTextFile({ path: resolve(clientRoot, path), contents: await response.text() });
+        files += 1;
+        if (headers) {
+          logger.warn(
+            "framework",
+            `${entry.id}: the load set ${Object.keys(headers).join(", ")} with setHeaders; ${path} is served with fragmentCacheControl and _headers only, without them`,
+          );
+        }
+      }
     }
-    return count;
+    const warning = ignoredFilesWarning({ state, files: ignored });
+    if (warning) logger.warn("framework", warning);
+    return { renders: count, files };
   } finally {
     await app.stop();
   }
