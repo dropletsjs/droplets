@@ -87,7 +87,8 @@ server {
 - The answer's body goes into the page where the include was. The error
   statuses listed in `error_page` become a fixed note instead, since their
   text may echo the query; a 500 or a 504 is pasted, because it carries the
-  droplet's error page.
+  droplet's error page (a 504 when the render ran past the shop's
+  [`render.timeout`](/guides/errors/#timeouts)).
 - nginx's own failures are not in that list: `error_page` applies to the
   errors nginx generates whatever `proxy_intercept_errors` says, so listing
   504 there would replace the shop's error page too, and leaving it out

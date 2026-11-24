@@ -1,10 +1,10 @@
 /**
- * Every host treats a fragment's 504 as it treats a 500: both carry the
- * droplet's error page (`+error.*`, `text/html`). So wherever a host
- * accepts a 500 it accepts a 504 on the same line, and every timer that
- * bounds a wait for a fragment or a `_data` read is 10 s or more: the host
- * gives the droplets server time to answer, and gets its error page.
- * Connect timeouts race no render and are not read.
+ * Every host treats a fragment's 504 as it treats a 500: both carry the droplet's error
+ * page (`+error.*`, `text/html`), the 504 when the render ran past the server's
+ * `render.timeout` (5 s by default). So wherever a host accepts a 500 it accepts a 504 on
+ * the same line, and every timer that bounds a wait for a fragment or a `_data` read is
+ * 10 s or more: the host waits longer than the droplets server does, and gets its error
+ * page. Connect timeouts race no render and are not read.
  */
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
