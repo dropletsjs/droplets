@@ -92,7 +92,7 @@ Then the route.
 - A location prefix is accepted only if it starts with `/`, is at most 256 characters and has no `//`, `\`, `..`, `?`, `#` or control characters. `web-url.ts:48`
 - `webUrl` accepts only `http:`/`https:` URLs and strips credentials and the hash. `web-url.ts:11`
 - A header location is trusted only when its origin is the request's own or a `trustedOrigins` entry; `"*"` in `trustedOrigins` trusts any. `app.ts:538`, `app.ts:535`
-- An untrusted location header is ignored; under `vite dev` it warns once per source, the value cut to 200 characters. `app.ts:539`, `dev-log.ts:55`
+- An untrusted location header is ignored; under `vite dev` it warns once per source, the value cut to 200 characters in the `location-untrusted` message. `app.ts:539`, `dev-log.ts:55`, `../errors/runtime.ts:394`
 - Without a trusted header the location is the request's own origin. `app.ts:541`
 - With `location`, every request's location is it and no location header is read. `app.ts:946`
 - With `location`, the request info's origin is `location` at build too. `app.ts:963`

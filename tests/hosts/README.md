@@ -212,7 +212,7 @@ its own install. The hosts are outside the pnpm workspace, so
 - `htmx.spec.ts` flow: Back restores the admin's `<main>` from htmx's history, Forward the gallery, the header the same throughout. `e2e/htmx.spec.ts:178`, `e2e/htmx.spec.ts:183`
 - `htmx.spec.ts` loads `/gallery?category=mugs&ignored=1` and `/product/<slug>` directly: the droplets get only the props they list; an unknown product gets the unavailable note. `e2e/htmx.spec.ts:204`
 - `htmx.spec.ts` turns JavaScript off: a shop page keeps its header, links and `<noscript>` note. `e2e/htmx.spec.ts:227`
-- htmx screenshots: `1-gallery`, `2-added`, `3-login`, `4-lazy`. `run.mjs:76`
+- htmx screenshots: `1-gallery`, `2-added`, `3-login`, `4-lazy`, the `runner.shots` of its `hosts.json` entry, which `run.mjs` passes on. `../../examples/hosts/hosts.json:227`, `run.mjs:76`
 - `htmx.test.ts` compares the four shop pages with title, `aria-current` and `<main>`'s content taken out. `test/htmx.test.ts:18`, `test/htmx.test.ts:29`
 - `htmx.test.ts` expects each shop page's body and `<main>` attributes, one module script (`/index.js`) and `/shop.js`. `test/htmx.test.ts:34`
 - `htmx.test.ts` expects every `hx-get` of a shop page inside `<main>` and on `/droplets/`. `test/htmx.test.ts:47`
