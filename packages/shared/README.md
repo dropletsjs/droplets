@@ -57,9 +57,10 @@ server modules when you add or rename one.
 
 ### Changing this package
 
-`pnpm --filter @dropletsjs/shared typecheck` is its only script. The tsdown
-plugins are tested from `packages/droplets/test/build/tsdown.test.ts`, and
-`isServerPath` from `tests/packages`. A change here reaches every package's
+`pnpm --filter @dropletsjs/shared typecheck` and `test` are its scripts;
+`test/vitest.test.ts` tests `freePort()`. The tsdown plugins are tested from
+`packages/droplets/test/build/tsdown.test.ts`, and `isServerPath` from
+`tests/packages`. A change here reaches every package's
 build, so run `pnpm build` after it.
 
 ## Facts
@@ -69,7 +70,7 @@ build, so run `pnpm build` after it.
 - `hosts.ts` imports `examples/hosts/hosts.json` (an import attribute, `type: "json"`); `HOSTS` is every entry with `status: "built"`, `ALL_HOSTS` the planned ones too. `hosts.ts:6`, `hosts.ts:56`
 - `hostsByLanguage()` groups the built hosts by the manifest's `languages`, in order, leaving out a language without one. `hosts.ts:72`
 - `catalogRanges({ yaml })` reads the `catalog:` block of a pnpm-workspace.yaml, one `name: range` per line, quoted names included; `workspaceCatalog()` reads the root file. create-droplets bakes those ranges in and `tests/packages` checks the examples declare them. `catalog.ts:15`, `catalog.ts:34`
-- `@dropletsjs/shared` has no build script; `typecheck` (`tsc -p tsconfig.json`) is its only script. `package.json:15`
+- `@dropletsjs/shared` has no build script; its scripts are `test` (`vitest run`, `test/**/*.test.ts`) and `typecheck` (`tsc -p tsconfig.json`, the tests included). `package.json:17`
 - `@dropletsjs/shared` has no dependencies; `@types/node`, `tsdown`, `typescript`, `vite` and `vitest` are devDependencies. `package.json:18`
 - `tsdown.ts` imports only types from tsdown, because the Dockerfiles install filtered, without the workspace root. `tsdown.ts:1`
 - `bareImport` matches any specifier that does not start with `.`, `/` or a Windows drive (`C:\`, `C:/`). `tsdown.ts:9`
@@ -101,12 +102,13 @@ build, so run `pnpm build` after it.
 - `FIXTURE_ROOT` is `packages/droplets/test/fixtures/app/`, the fake-renderer fixture app every adapter's tests build. `vitest.ts:27`
 - `buildFixtureApp({ outDir, plugins })` empties `outDir`, then builds the fixture app with Vite's `createBuilder` and `plugins`, silently; it throws when `packages/droplets/dist/vite.js` is missing. `vitest.ts:32`
 - `freePort()` resolves a port the OS has free on every interface (a probe listens on port 0, then closes): never a fixed port another run may hold. `vitest.ts:43`
-- `onFreePort({ start })` calls `start(port)` with a `freePort()` and resolves what it resolves; when `start` throws because the port was taken between the probe and the bind (`EADDRINUSE`, `AddrInUse`, `already in use`, Bun's `is port <n> in use`, in the error's code or message), it tries a new port, five times in all; any other error is thrown at once. Every suite that starts a server on a port of its own starts it through `onFreePort`. `vitest.ts:65`, `vitest.ts:76`
-- `listensOn({ output, port })` is whether a server's output names `:<port>` (not followed by a digit), ANSI colours stripped: Vite's `Local:` line, Bun's `Started server:`, `deno serve`'s `Listening on`, wrangler's `Ready on`. `vitest.ts:88`
-- `fromBuild({ outDir })` reads `__hash` from `<outDir>/client/droplets.json` and returns an `isOurs` that holds when a response's `x-droplets-build` is that hash: the word of a built server that prints nothing (every fragment carries the header, `/health` does not). `vitest.ts:100`
-- `waitForServer({ url, child, name, isOurs, output })` polls `url` every 100 ms, up to 100 times, until it answers ok and `isOurs(response)` holds (when given); it throws as soon as `child` exits, naming `name` and the exit code, followed by `output()` when given (so `onFreePort` sees a server's own words for a taken port). `vitest.ts:116`
-- `stopServer({ child, timeout })` sends `child` SIGTERM and resolves once it has exited, sending SIGKILL after `timeout` ms (default 5000); it resolves at once for a missing or exited child. `vitest.ts:133`
-- `rawGet({ url, headers })` is a GET over `node:http` that resolves `{ status, headers, body }` with the body as the server sent it, a `Content-Encoding` left as it is (`fetch` would decode it). `vitest.ts:147`
+- `freePort()` takes a new port, up to 100 times, while another socket listens on that port on `127.0.0.1` or `::1` alone: macOS hands such a port to the probe and lets a server bind it on every interface, and a `localhost` fetch then reaches the other process. A loopback address the machine lacks holds nothing. `vitest.ts:49`, `vitest.ts:68`
+- `onFreePort({ start })` calls `start(port)` with a `freePort()` and resolves what it resolves; when `start` throws because the port was taken between the probe and the bind (`EADDRINUSE`, `AddrInUse`, `already in use`, Bun's `is port <n> in use`, in the error's code or message), it tries a new port, five times in all; any other error is thrown at once. Every suite that starts a server on a port of its own starts it through `onFreePort`. `vitest.ts:90`, `vitest.ts:101`
+- `listensOn({ output, port })` is whether a server's output names `:<port>` (not followed by a digit), ANSI colours stripped: Vite's `Local:` line, Bun's `Started server:`, `deno serve`'s `Listening on`, wrangler's `Ready on`. `vitest.ts:113`
+- `fromBuild({ outDir })` reads `__hash` from `<outDir>/client/droplets.json` and returns an `isOurs` that holds when a response's `x-droplets-build` is that hash: the word of a built server that prints nothing (every fragment carries the header, `/health` does not). `vitest.ts:125`
+- `waitForServer({ url, child, name, isOurs, output })` polls `url` every 100 ms, up to 100 times, until it answers ok and `isOurs(response)` holds (when given); it throws as soon as `child` exits, naming `name` and the exit code, followed by `output()` when given (so `onFreePort` sees a server's own words for a taken port). `vitest.ts:141`
+- `stopServer({ child, timeout })` sends `child` SIGTERM and resolves once it has exited, sending SIGKILL after `timeout` ms (default 5000); it resolves at once for a missing or exited child. `vitest.ts:158`
+- `rawGet({ url, headers })` is a GET over `node:http` that resolves `{ status, headers, body }` with the body as the server sent it, a `Content-Encoding` left as it is (`fetch` would decode it). `vitest.ts:172`
 - `loadEnvLocal()` loads the repository root's `.env.local` with `process.loadEnvFile`, only when the file exists. `env.ts:4`
 - `loadEnvLocal()` finds `.env.local` two folders above `env.ts`, the repository root. `env.ts:5`
 - `tsconfig.base.json` targets ES2023 with `lib` ES2023, DOM and DOM.Iterable, `module` ESNext and `moduleResolution` bundler. `tsconfig.base.json:4`

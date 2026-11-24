@@ -39,16 +39,41 @@ export async function buildFixtureApp({ outDir, plugins }: BuildFixtureAppInput)
   await builder.buildApp();
 }
 
-/** A port the OS has free now, for a server that must be told its port before it starts. */
-export function freePort(): Promise<number> {
+/** A port the OS has free now, on every interface and on each loopback address, for a server that must be told its port before it starts. */
+export async function freePort(): Promise<number> {
+  for (let attempt = 1; attempt <= 100; attempt++) {
+    const port = await anyPort();
+    // macOS hands a probe on every interface a port another process holds on
+    // 127.0.0.1 or ::1 alone, and lets the server bind it too; a `localhost`
+    // fetch then reaches that process, never the server.
+    if (!(await isTaken({ port, host: "127.0.0.1" })) && !(await isTaken({ port, host: "::1" }))) return port;
+  }
+  throw new Error("no port free on every interface and loopback address after 100 tries");
+}
+
+function anyPort(): Promise<number> {
   return new Promise((done, fail) => {
     const probe = createServer();
     probe.once("error", fail);
-    // Every interface, so the port is free on IPv4 and IPv6 alike.
     probe.listen(0, () => {
       const { port } = probe.address() as AddressInfo;
       probe.close(() => done(port));
     });
+  });
+}
+
+type IsTakenInput = { port: number; host: string };
+
+/** Whether another socket listens on `host:port`; a host the machine lacks (no IPv6) holds nothing. */
+function isTaken({ port, host }: IsTakenInput): Promise<boolean> {
+  return new Promise((done, fail) => {
+    const probe = createServer();
+    probe.once("error", (error: NodeJS.ErrnoException) => {
+      if (error.code === "EADDRINUSE") done(true);
+      else if (error.code === "EADDRNOTAVAIL" || error.code === "EAFNOSUPPORT") done(false);
+      else fail(error);
+    });
+    probe.listen(port, host, () => probe.close(() => done(false)));
   });
 }
 
