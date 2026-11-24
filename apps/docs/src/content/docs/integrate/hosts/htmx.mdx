@@ -261,9 +261,10 @@ out; the end-to-end test checks it with an `hx-get` to a third origin.
 **The droplets server.** htmx sends its own headers (`HX-Request`,
 `HX-Current-URL`, `HX-Target`, `HX-Trigger`), so the browser asks first,
 with a preflight. [`cors`](/guides/security/#cors) answers it:
-`cors: true` allows every origin and echoes the headers asked for, which is
-also what lets the elements import their bundles cross-origin. The Svelte
-example has it.
+`cors: true` allows every origin and echoes the headers asked for, which
+the elements' own `_data` requests need too (their bundles carry
+`Access-Control-Allow-Origin: *` whatever `cors` says). The Svelte example
+has it.
 
 With only that, Chrome's console shows "Refused to get unsafe header
 `HX-Trigger`" (and the other `HX-*` response headers) after each swap: htmx

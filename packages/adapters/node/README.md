@@ -90,6 +90,9 @@ files.
   the same table the Cloudflare adapter writes into `_headers`.
 - Every file Vite emits there is content-hashed: `cache-control: public,
   max-age=2592000, immutable`.
+- Every build file (`/index.js`, `/index.css`, `/assets/*`, `client.js`,
+  `style.css`) carries `access-control-allow-origin: *`, whatever `cors`
+  says, so any page can import it as a module; `cors` never answers for it.
 - Every file answered carries `x-content-type-options: nosniff` with its
   content type, from a table of the common script, style, data, text, image,
   font, WebAssembly, document, archive, video and audio extensions (text
@@ -139,9 +142,9 @@ by path.
 - `dist/server.js` resolves `client/` and `server/entry-server.js` relative to its own file, not the working directory. `src/entry.ts:10`
 - `droplets.config.ts` is bundled into `dist/server.js` through `virtual:droplets-config`; it is not read at runtime. `src/entry.ts:4`, `test/index.test.ts:27`
 - `droplets.config.ts` that exports a function is called in `dist/server.js` with the build's `{ command, mode, isSsrBuild, isPreview }`, a literal in the bundle, and awaited before `resolveConfig`; functions inside the config it returns are kept. `src/entry.ts:19`, `../../droplets/src/vite/virtual.ts:697`, `test/index.test.ts:82`
-- `PORT` is read once at startup and overrides `server.port` from the config. `src/entry.ts:17`, `../../droplets/src/core/config.ts:408`
-- `PORT` is converted with `Number()`; empty, `0` or not a number falls back to `server.port`, then 8000. `../../droplets/src/core/config.ts:374`
-- `server.port` defaults to 8000. `../../droplets/src/core/config.ts:205`
+- `PORT` is read once at startup and overrides `server.port` from the config. `src/entry.ts:17`, `../../droplets/src/core/config.ts:411`
+- `PORT` is converted with `Number()`; empty, `0` or not a number falls back to `server.port`, then 8000. `../../droplets/src/core/config.ts:377`
+- `server.port` defaults to 8000. `../../droplets/src/core/config.ts:208`
 - Listening starts when `process.argv[1]` names this file: as given, with `.js` or `.mjs` added, or through a symlink, compared as real paths (`isMainModule`). `src/entry.ts:44`, `src/main-module.ts:27`
 - Listening does not start for another file, a missing one, or no argument. `src/main-module.ts:28`, `test/main-module.test.ts:34`
 - Importing `dist/server.js` does not listen; the default export is `{ fetch }`. `src/entry.ts:35`
@@ -165,23 +168,24 @@ by path.
 - File read errors other than ENOENT are thrown, not turned into null. `src/fs.ts:31`
 - `loadJsonFile` throws `MalformedJsonError` (`name`, `path`, `cause`: the `SyntaxError`) for a file that does not parse; a missing file is `null`. `src/fs.ts:12`, `src/fs.ts:43`
 - `/assets/*` is the only route that serves files from `dist/client`. `../../droplets/src/server/app.ts:125`
-- `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:338`, `../../droplets/src/runtime/app.ts:900`
+- `/assets/*` and `/index.js` never pass through `handle`. `../../droplets/src/runtime/app.ts:339`, `../../droplets/src/runtime/app.ts:901`
 - `/assets/*` serves from `dist/client/assets`. `src/static.ts:94`
 - `/assets/*` path resolving outside `dist/client/assets` answers the text `404 Not Found` with `cache-control: no-store` before any read. `src/static.ts:65`, `src/static.ts:104`
 - `/assets/*` missing file or directory answers the text `404 Not Found` with `cache-control: no-store`, the same answer as the Cloudflare adapter's. `src/static.ts:112`, `test/static.test.ts:135`
-- `/assets/*` sends the headers of the last rule of `fileHeaderTable(config)` whose pattern matches the path, which `createNodeServerApp` passes to the static handler. `src/app.ts:41`, `src/static.ts:115`, `../../droplets/src/runtime/file-headers.ts:26`
-- `/assets/*` cache-control for hashed files is `public, max-age=2592000, immutable` (30 days). `../../droplets/src/runtime/file-headers.ts:31`
+- `/assets/*` sends the headers of the last rule of `fileHeaderTable(config)` whose pattern matches the path, which `createNodeServerApp` passes to the static handler. `src/app.ts:41`, `src/static.ts:115`, `../../droplets/src/runtime/file-headers.ts:29`
+- `/assets/*` cache-control for hashed files is `public, max-age=2592000, immutable` (30 days). `../../droplets/src/runtime/file-headers.ts:34`
 - `/assets/*` content type comes from a fixed extension table, case-insensitive: scripts, styles, JSON, source maps, web manifests, HTML, XML, text, Markdown, CSV, WebVTT, iCalendar and YAML with `; charset=utf-8`; the image, font, WebAssembly, PDF, ZIP, gzip, video and audio types without; any other extension is `application/octet-stream`. `src/static.ts:6`, `src/static.ts:72`, `test/static.test.ts:47`
-- `/assets/*` sends `x-content-type-options: nosniff` on every file answered, hashed and `public/` alike. `../../droplets/src/runtime/file-headers.ts:31`, `../../droplets/src/runtime/file-headers.ts:36`, `test/static.test.ts:35`
+- `/assets/*` sends `x-content-type-options: nosniff` on every file answered, hashed and `public/` alike, as every build file does. `../../droplets/src/runtime/file-headers.ts:22`, `test/static.test.ts:35`
+- Every build file answers `access-control-allow-origin: *` with or without `cors`; with a restricted `cors` (an origin list, `credentials`) it is still exactly `*`, with no `access-control-allow-credentials`, `access-control-expose-headers` or `vary: origin`, while fragments, `_data` and `/env.js` keep the restricted answer. `../../droplets/src/runtime/file-headers.ts:22`, `../../droplets/src/runtime/app.ts:1087`, `test/app.test.ts:194`, `test/app.test.ts:212`
 - `/assets/*` reads the whole file into memory per request: no streaming, no range requests. `src/static.ts:109`
 - `public/` is copied into `dist/client/assets/public/` only; Vite's own `copyPublicDir` is off. `../../droplets/src/vite/build.ts:137`, `../../droplets/src/vite/assets.ts:95`
-- `/assets/public/*` cache-control is `publicCacheControl` from the config (`no-cache` by default, none for `false`), with an `ETag` of the file's SHA-1 in base64url. `../../droplets/src/runtime/file-headers.ts:36`, `src/static.ts:119`, `src/static.ts:120`
+- `/assets/public/*` cache-control is `publicCacheControl` from the config (`no-cache` by default, none for `false`), with an `ETag` of the file's SHA-1 in base64url. `../../droplets/src/runtime/file-headers.ts:37`, `src/static.ts:119`, `src/static.ts:120`
 - `/assets/public/*` answers `304` with no body when any `If-None-Match` tag equals the `ETag`. `src/static.ts:127`
 - `/assets/public/*` is the only path with an `ETag`; hashed files never revalidate. `src/static.ts:118`, `test/static.test.ts:89`
-- `/index.js`, `/index.css`, `/droplets/<id>/client.js` and `style.css` get the same table's headers from `createServerApp`, on a 2xx answer. `../../droplets/src/server/app.ts:123`, `../../droplets/src/runtime/app.ts:1225`, `test/app.test.ts:167`
+- `/index.js`, `/index.css`, `/droplets/<id>/client.js` and `style.css` get the same table's headers from `createServerApp`, on a 2xx answer. `../../droplets/src/server/app.ts:123`, `../../droplets/src/runtime/app.ts:1231`, `test/app.test.ts:167`
 - `public/robots.txt` is not served at `/robots.txt`: it answers 404. `test/app.test.ts:126`
 - Runtime env comes from `process.env`: `DROPLETS_SECRET`, `DROPLETS_TRUSTED_ORIGINS`, `DROPLETS_ENV_MAX_AGE` and private variables, per read. `../../droplets/src/runtime/env-store.ts:26`
 - Node engine is `>=22`. `package.json:35`
 - Build script runs the tests before tsdown. `package.json:38`
 - Tests build the framework's fixture app with `buildFixtureApp()` from `@dropletsjs/shared/vitest`, which fails when `@dropletsjs/droplets` is not built. `test/build-fixture.ts:15`, `../../shared/vitest.ts:32`
-- A droplet without stylesheets has no `style.css` (404), and `/index.css` answers 404 without a shared stylesheet: its stub is not written then. `../../droplets/src/runtime/app.ts:1162`, `test/app.test.ts:187`
+- A droplet without stylesheets has no `style.css` (404), and `/index.css` answers 404 without a shared stylesheet: its stub is not written then. `../../droplets/src/runtime/app.ts:1168`, `test/app.test.ts:187`

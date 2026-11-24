@@ -253,7 +253,8 @@ app.get("/", async (req, res) => {
 
 This page loads `/index.js` from the droplets server's public URL
 (`http://localhost:8000`), so the browser fetches each droplet's JavaScript
-across origins: the Svelte example's `droplets.config.ts` sets `cors: true`,
+and data across origins: the JavaScript carries `Access-Control-Allow-Origin: *`
+on its own, and for the data the Svelte example's `droplets.config.ts` sets `cors: true`,
 and the compose file lists both public URLs in the `droplets` service's
 `DROPLETS_TRUSTED_ORIGINS`.
 

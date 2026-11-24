@@ -174,9 +174,10 @@ The `/assets/public/*` rule carries
 [`publicCacheControl`](/guides/configuration/) (`no-cache` by default); with
 `publicCacheControl: false` it keeps only `! Cache-Control`. These files are
 public, so they are sent with `Access-Control-Allow-Origin: *` whatever
-`cors` says; `cors` applies to what the Worker answers. Every file is sent
-with `X-Content-Type-Options: nosniff`, as the Node adapter sends it, so a
-browser takes it for what its `Content-Type` says and nothing else. Cloudflare reads
+`cors` says, as on every adapter; `cors` applies to what the Worker answers.
+Every file is sent with `X-Content-Type-Options: nosniff`, as on every
+adapter, so a browser takes it for what its `Content-Type` says and nothing
+else. Cloudflare reads
 `_headers` and never serves it as a file
 ([Headers](https://developers.cloudflare.com/workers/static-assets/headers/)),
 so `.assetsignore` does not list it.

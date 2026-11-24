@@ -92,7 +92,7 @@ in Chromium, each embedded in a host page on another origin
 - Framework examples: `svelte`, `vue`, `react`, `solid`, `hono-jsx`, `handlebars`, `preact`, `lit`, the list the e2e run uses. `../../tests/examples/e2e/examples.ts:2`
 - Example package names are `@dropletsjs/example-<folder>`. `svelte/package.json:2`
 - Custom element per example is `djs-<folder>` (`djs-svelte`, `djs-vue`, …). `svelte/droplets.config.ts:9`, `vue/droplets.config.ts:9`
-- Every example sets `cors: true`, so host pages on other origins can import the droplet bundles. `svelte/droplets.config.ts:16`
+- Every example sets `cors: true`, so host pages on other origins can fetch fragments and `_data` (the bundles carry `Access-Control-Allow-Origin: *` without it). `svelte/droplets.config.ts:16`
 - Dev server port is 5173 and the production server port 8000 in every example. `svelte/droplets.config.ts:18`, `svelte/droplets.config.ts:19`
 - Adapter is picked by `DROPLETS_ADAPTER` (`node`, `cloudflare`, `bun`, `deno`), Node when unset. `svelte/vite.config.ts:13`, `svelte/vite.config.ts:14`
 - Tailwind compiles `src/app.css` in every example except Lit (`css: { tailwind: true }`). `svelte/vite.config.ts:25`, `lit/vite.config.ts:21`

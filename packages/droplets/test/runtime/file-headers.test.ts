@@ -6,23 +6,28 @@ const IMMUTABLE = "public, max-age=2592000, immutable";
 
 describe("fileHeaderTable", () => {
   it("lists every build file, a narrower pattern after the wider one it refines", () => {
+    const file = { "Access-Control-Allow-Origin": "*", "X-Content-Type-Options": "nosniff" };
     expect(fileHeaderTable(resolveConfig({}))).toEqual([
-      { path: "/index.js", headers: { "Cache-Control": "no-store" } },
-      { path: "/index.css", headers: { "Cache-Control": "no-store" } },
-      { path: "/assets/*", headers: { "X-Content-Type-Options": "nosniff", "Cache-Control": IMMUTABLE } },
-      { path: "/assets/public/*", headers: { "X-Content-Type-Options": "nosniff", "Cache-Control": "no-cache" } },
-      { path: "/droplets/:id/client.js", headers: { "Cache-Control": IMMUTABLE } },
-      { path: "/droplets/:id/style.css", headers: { "Cache-Control": IMMUTABLE } },
+      { path: "/index.js", headers: { ...file, "Cache-Control": "no-store" } },
+      { path: "/index.css", headers: { ...file, "Cache-Control": "no-store" } },
+      { path: "/assets/*", headers: { ...file, "Cache-Control": IMMUTABLE } },
+      { path: "/assets/public/*", headers: { ...file, "Cache-Control": "no-cache" } },
+      { path: "/droplets/:id/client.js", headers: { ...file, "Cache-Control": IMMUTABLE } },
+      { path: "/droplets/:id/style.css", headers: { ...file, "Cache-Control": IMMUTABLE } },
     ]);
   });
 
   it("takes publicCacheControl for /assets/public/*, and no Cache-Control there for false", () => {
     const table = (publicCacheControl: string | false) => fileHeaderTable(resolveConfig({ publicCacheControl }));
     expect(fileHeadersFor({ table: table("public, max-age=60"), path: "/assets/public/a.txt" })).toEqual({
+      "Access-Control-Allow-Origin": "*",
       "X-Content-Type-Options": "nosniff",
       "Cache-Control": "public, max-age=60",
     });
-    expect(fileHeadersFor({ table: table(false), path: "/assets/public/a.txt" })).toEqual({ "X-Content-Type-Options": "nosniff" });
+    expect(fileHeadersFor({ table: table(false), path: "/assets/public/a.txt" })).toEqual({
+      "Access-Control-Allow-Origin": "*",
+      "X-Content-Type-Options": "nosniff",
+    });
     expect(fileHeadersFor({ table: table(false), path: "/assets/a.js" })?.["Cache-Control"]).toBe(IMMUTABLE);
   });
 });

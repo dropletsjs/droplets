@@ -6,7 +6,7 @@ import { decodeBase64Json, encodeBase64 } from "./base64.ts";
 import { gzipAnswer, withNoTransform } from "./compress.ts";
 import { createCookies, prerenderCookies, readonlyCookies } from "./cookies.ts";
 import { readRuntimeEnv } from "./env-store.ts";
-import { applyFileHeaders, type FileHeaderRule } from "./file-headers.ts";
+import { applyFileHeaders, type FileHeaderRule, fileHeadersFor } from "./file-headers.ts";
 import { CONTEXT_HEADERS, createEventFetch } from "./event-fetch.ts";
 import { ACTION_NAME, backUrl, formResultKey, isReservedQueryKey, RETURN_KEY, splitFormResults } from "./form.ts";
 import { formSecret, mintFormResult, readFormResult } from "./form-token.server.ts";
@@ -180,8 +180,9 @@ export type DropletsAppOptions = {
   cors?: DropletsCorsOptions | undefined;
   /**
    * The headers of the build's files (`fileHeaderTable`), set on every
-   * answer to a path it matches: what a production server passes. Without
-   * it (`vite dev`), the routes keep their own.
+   * answer to a path it matches, which `cors` then leaves alone: what a
+   * production server passes. Without it (`vite dev`), the routes keep
+   * their own and `cors` covers them.
    */
   fileHeaders?: readonly FileHeaderRule[] | undefined;
   /** The warnings of `vite dev` and the build (`createDevLog`); a production server has none and warns about nothing. */
@@ -1078,8 +1079,13 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
   app.use("/droplets/:droplet", perRequest);
   app.use("/droplets/:droplet/_data", perRequest);
 
-  // CORS first, so even a failing hook answers with the headers.
-  if (options.cors) app.use("*", cors(withExposedHeaders({ options: options.cors })));
+  // CORS first, so even a failing hook answers with the headers. The
+  // build's files carry their own (`fileHeaders`): `cors` never touches them.
+  if (options.cors) {
+    const corsAnswer = cors(withExposedHeaders({ options: options.cors }));
+    const files = options.fileHeaders;
+    app.use("*", (c, next) => (files && fileHeadersFor({ table: files, path: c.req.path }) ? next() : corsAnswer(c, next)));
+  }
 
   // Before `handle`: an auth hook must not take the health check down.
   if (health) app.get(health, (c) => c.text("ok"));

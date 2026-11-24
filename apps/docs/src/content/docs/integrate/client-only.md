@@ -28,8 +28,10 @@ export default config({
 
 - `element` is the custom element's tag name (`djs-droplet` by default). The
   page writes it, so it has to know it.
-- `cors` lets a page on another origin import `/index.js` and the droplet
-  bundles, and request `_data` and `/api/*`. `true` allows any origin; Hono
+- `cors` lets a page on another origin request `_data`, fragments and
+  `/api/*` and post forms. `/index.js` and the droplet bundles need none of
+  it: the build's files are sent with `Access-Control-Allow-Origin: *`
+  whatever `cors` says. `true` allows any origin; Hono
   `cors()` options (`{ origin: ["https://app.example.com"] }`) restrict it.
   Without `cors`, the page must reach the droplets routes on its own origin
   (see [Same origin through a proxy](#same-origin-through-a-proxy)).

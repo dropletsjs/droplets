@@ -158,7 +158,8 @@ export const load = ({ props }: LoadEvent) => {
 
 A host fetching fragments through an internal address sends the public
 location in `x-droplet-location`, with its origin listed in `trustedOrigins`
-(or `DROPLETS_TRUSTED_ORIGINS`). Pages on other origins need `cors: true`. Every URL a
+(or `DROPLETS_TRUSTED_ORIGINS`). Pages on other origins need `cors: true` to fetch fragments and data; the
+build's files carry `Access-Control-Allow-Origin: *` without it. Every URL a
 droplet emits for its own files is on that droplet location, so a fragment
 works under any origin or path prefix the server is reached through. `handle`
 in `src/hooks.server.ts` never runs for `/index.js`, `/index.css`, `/env.js` and `/assets/*`.
@@ -300,11 +301,11 @@ renderer under `testing/`.
 - `rendererConformance` takes the host's children as out of sight when their container is hidden under the element, or sits in a marker a shadow-DOM component leaves unslotted. `src/testing/conformance.ts:901`
 - `fakeRenderer()` is named `fake` and handles `.fake.js`. `src/testing/fake-renderer/index.ts:31`
 - `createServerApp` throws when the SSR bundle exports neither `renderDroplet` nor a default. `src/server/app.ts:91`
-- `cors` allowing every origin warns once under `vite dev` (`devLog`); `createServerApp` warns about nothing. `src/runtime/app.ts:847`, `src/runtime/dev-log.ts:62`
+- `cors` allowing every origin warns once under `vite dev` (`devLog`); `createServerApp` warns about nothing. `src/runtime/app.ts:848`, `src/runtime/dev-log.ts:62`
 - `createServerApp` mounts `/assets/*` on the adapter's `assetHandler`. `src/server/app.ts:133`
-- `createServerApp` passes `fileHeaderTable(config)` to the app, which sets the matching rule's headers on every 2xx or 304 answer to a build file: `/index.js`, `/index.css`, `/assets/*`, `/droplets/<id>/client.js` and `style.css`. `src/server/app.ts:123`, `src/runtime/app.ts:1217`
-- `fileHeaderTable(config)` is an ordered list of `{ path, headers }`: a `:name` segment matches one non-empty segment, a final `*` a non-empty rest; a narrower pattern comes after the wider one it refines, and a path takes the last rule that matches, all its headers and no other header the table names. `src/runtime/file-headers.ts:11`, `src/runtime/file-headers.ts:26`, `src/runtime/file-headers.ts:47`, `src/runtime/file-headers.ts:63`, `src/runtime/file-headers.ts:74`
-- `fileHeaderTable(config)` reads `publicCacheControl` alone; `/index.js` and `/index.css` are `no-store`, `/assets/*`, `client.js` and `style.css` `public, max-age=2592000, immutable`, `/assets/*` and `/assets/public/*` `nosniff`. `src/runtime/file-headers.ts:17`, `src/runtime/file-headers.ts:29`
+- `createServerApp` passes `fileHeaderTable(config)` to the app, which sets the matching rule's headers on every 2xx or 304 answer to a build file: `/index.js`, `/index.css`, `/assets/*`, `/droplets/<id>/client.js` and `style.css`. `src/server/app.ts:123`, `src/runtime/app.ts:1223`
+- `fileHeaderTable(config)` is an ordered list of `{ path, headers }`: a `:name` segment matches one non-empty segment, a final `*` a non-empty rest; a narrower pattern comes after the wider one it refines, and a path takes the last rule that matches, all its headers and no other header the table names. `src/runtime/file-headers.ts:11`, `src/runtime/file-headers.ts:29`, `src/runtime/file-headers.ts:47`, `src/runtime/file-headers.ts:63`, `src/runtime/file-headers.ts:74`
+- `fileHeaderTable(config)` reads `publicCacheControl` alone; `/index.js` and `/index.css` are `no-store`, `/assets/*`, `client.js` and `style.css` `public, max-age=2592000, immutable`; every rule carries `Access-Control-Allow-Origin: *` and `X-Content-Type-Options: nosniff`. `src/runtime/file-headers.ts:17`, `src/runtime/file-headers.ts:22`, `src/runtime/file-headers.ts:29`
 - `fileHeaderTable`, `fileHeadersFor` and the `FileHeaderRule` type are exported from `@dropletsjs/droplets` for adapters. `src/index.ts:85`
 - `AssetLoaders`: every loader returns `null` for something that does not exist. `src/server/app.ts:46`
 - `FALLBACK_MANIFEST` is the manifest a runtime answers with before the build is found: no droplets, `__entryClient` `index.js`. `src/server/manifest.ts:42`
@@ -327,19 +328,19 @@ renderer under `testing/`.
 - Adapter contract `DropletsAdapter`: `name`, `serverEntry`, `serverFile`, `separateSsrBundle`, optional `noExternal`, `environment`, `afterBuild`, `preview`. `src/adapters.ts:10`
 - `AdapterBuildContext`, what `afterBuild` gets: `root`, `outDir`, `manifestPath`, `serverPath`, the resolved `config` and `fileHeaders`, the file-header table of that config. `src/adapters.ts:48`, `src/adapters.ts:58`, `src/adapters.ts:64`
 - `vite build` without an adapter throws, naming `@dropletsjs/adapter-node`. `src/vite/build.ts:96`
-- Health route answers `ok` and is mounted before `handle`. `src/runtime/app.ts:934`
-- `handle` never runs for `/index.js`, `/index.css`, `/env.js` and `/assets/*`. `src/runtime/app.ts:356`, `src/runtime/app.ts:982`
-- Routes: `/` `src/runtime/app.ts:1107`, `/index.js` `src/runtime/app.ts:1114`, `/index.css` `src/runtime/app.ts:1142`, `style.css` `src/runtime/app.ts:1155`, `client.js` `src/runtime/app.ts:1171`, `_data` `src/runtime/app.ts:1288`, the fragment `src/runtime/app.ts:1676`, `/api` `src/runtime/app.ts:1717`
-- `_data` answers `405` with `allow: GET, POST` for `PUT`, `PATCH`, `DELETE`. `src/runtime/app.ts:1284`
-- `fragmentCacheControl` defaults to `private, no-store, no-transform`. `src/core/config.ts:210`
-- Every fragment and `_data` answer but a redirect and a form action's JSON carries `no-transform` in `Cache-Control`: added once (any case) to the value it has, alone when it has none, an error answer included. `src/runtime/app.ts:1056`, `src/runtime/compress.ts:40`
+- Health route answers `ok` and is mounted before `handle`. `src/runtime/app.ts:935`
+- `handle` never runs for `/index.js`, `/index.css`, `/env.js` and `/assets/*`. `src/runtime/app.ts:357`, `src/runtime/app.ts:983`
+- Routes: `/` `src/runtime/app.ts:1113`, `/index.js` `src/runtime/app.ts:1120`, `/index.css` `src/runtime/app.ts:1148`, `style.css` `src/runtime/app.ts:1161`, `client.js` `src/runtime/app.ts:1177`, `_data` `src/runtime/app.ts:1294`, the fragment `src/runtime/app.ts:1682`, `/api` `src/runtime/app.ts:1723`
+- `_data` answers `405` with `allow: GET, POST` for `PUT`, `PATCH`, `DELETE`. `src/runtime/app.ts:1290`
+- `fragmentCacheControl` defaults to `private, no-store, no-transform`. `src/core/config.ts:213`
+- Every fragment and `_data` answer but a redirect and a form action's JSON carries `no-transform` in `Cache-Control`: added once (any case) to the value it has, alone when it has none, an error answer included. `src/runtime/app.ts:1057`, `src/runtime/compress.ts:40`
 - Those answers are gzipped with `CompressionStream` when `Accept-Encoding` takes gzip (`gzip`, `x-gzip` or `*` with a weight above 0; `gzip;q=0` refuses) and the body is 1024 bytes or more, by `Content-Length` or else by reading its first 1024 bytes; never for `HEAD`, a `204`/`205`/`304`, or an answer with a `Content-Encoding`; `Content-Length` is dropped and a streamed body stays streamed. `src/runtime/compress.ts:9`, `src/runtime/compress.ts:17`, `src/runtime/compress.ts:100`
-- They vary on `accept-encoding`, after the host headers, compressed or not. `src/runtime/app.ts:1058`
+- They vary on `accept-encoding`, after the host headers, compressed or not. `src/runtime/app.ts:1059`
 - A gzipped answer is built with `encodeBody: "manual"`: Workers would gzip it again by its `Content-Encoding`; other runtimes ignore the option. `src/runtime/compress.ts:125`
 - `event.fetch` sends an internal request without `Accept-Encoding`, so a fragment comes back decoded as from `fetch`. `src/runtime/event-fetch.ts:76`
 - Under `vite dev`, a gzipped fragment that gets `data-droplet-context` is decoded first and answered plain. `src/vite/dev.ts:56`
-- Droplet file URLs (the stylesheet, `client.js`, the `Link` preloads) are built on the request's droplet location. `src/runtime/app.ts:1331`
-- `style.css` imports each stylesheet as `../../<file>`, relative to itself. `src/runtime/app.ts:306`
+- Droplet file URLs (the stylesheet, `client.js`, the `Link` preloads) are built on the request's droplet location. `src/runtime/app.ts:1337`
+- `style.css` imports each stylesheet as `../../<file>`, relative to itself. `src/runtime/app.ts:307`
 - Dev element code enters production code through one gate: `if (import.meta.env.DEV) installDevElement(...)`. `src/runtime/entry-client.ts:1374`
 - Client module dev hooks (`update`, the HMR fallback) are emitted only under `vite dev` or a non-production build. `src/vite/virtual.ts:736`
 - Build hash is random per plugin instance, so per build environment; the entry module is named `assets/index.[hash].js`, not after it. `src/vite/state.ts:79`, `src/vite/build.ts:33`

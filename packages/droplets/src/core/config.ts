@@ -48,9 +48,12 @@ export type DropletsConfig = {
    */
   element?: string;
   /**
-   * Cross-origin access to every route. Pages served by another process
-   * need this to import `/droplets/<id>/client.js` and to call `/droplets/<id>/_data`.
-   * `true` allows any origin; pass Hono `cors()` options to restrict it.
+   * Cross-origin access to the server's routes. Pages served by another
+   * process need this to fetch fragments, call `/droplets/<id>/_data`, post
+   * actions and reach `/env.js` and `/api/*`. The build's files (`/index.js`,
+   * `/index.css`, `/assets/*`, `client.js`, `style.css`) of a built server are
+   * sent with `Access-Control-Allow-Origin: *` whatever this says, so any page
+   * can import them; under `vite dev` this answers for them too. `true` allows any origin; pass Hono `cors()` options to restrict it.
    * With `credentials: true` and an `origin` other than `"*"`, the browser
    * runtime's own requests (an enhanced form's post, `_data`, a fragment
    * rendered again after a post) send `credentials: "include"`, so they
