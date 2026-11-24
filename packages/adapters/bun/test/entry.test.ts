@@ -2,7 +2,7 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
-import { freePort, listensOn, onFreePort, rawGet, waitForServer } from "@dropletsjs/shared/vitest";
+import { freePort, listensOn, onFreePort, rawGet, renderTimeoutProbe, waitForServer } from "@dropletsjs/shared/vitest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildFixture, FIXTURE_ROOT } from "./build-fixture.ts";
 
@@ -94,5 +94,21 @@ describe.skipIf(!hasBun)("bun entry", () => {
     const run = spawnSync(bunBin, ["-e", script], { env: { ...process.env, PORT: String(await freePort()) }, timeout: 10_000 });
     expect(run.stdout.toString().trim()).toBe("function");
     expect(run.status).toBe(0);
+  });
+});
+
+describe.skipIf(!hasBun)("render.timeout on Bun", () => {
+  it("keeps the deadline's brand through AbortSignal.any and both request copies, the copy's body and the original's readable", () => {
+    const run = spawnSync(bunBin, ["-e", renderTimeoutProbe()], { timeout: 10_000 });
+    expect(run.status, run.stderr.toString()).toBe(0);
+    expect(JSON.parse(run.stdout.toString())).toEqual({
+      any: true,
+      moved: true,
+      bodyless: true,
+      name: "TimeoutError",
+      body: '{"a":1}',
+      originalBody: '{"a":1}',
+      hasBody: false,
+    });
   });
 });

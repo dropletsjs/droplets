@@ -463,6 +463,7 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
     fragmentCacheControl: config.fragmentCacheControl,
     csrf: config.csrf,
     limits: config.limits,
+    render: config.render,
   });
   if (state.publicDir) app.get(`/${PUBLIC_PATH}/*`, publicFileHandler({ publicDir: state.publicDir }));
   // `request()` goes through `fetch` too.

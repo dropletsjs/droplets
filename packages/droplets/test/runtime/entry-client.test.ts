@@ -388,6 +388,21 @@ describe("<djs-droplet>", () => {
     expect(fake.renderError.mock.calls[0]?.[1]).toEqual({ message: "[hello] Sorry" });
   });
 
+  it("shows +error.svelte for a 504 { error } from _data, past render.timeout", async () => {
+    const timeout = { status: 504, message: "Gateway Timeout" };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => json({ body: { error: timeout }, init: { status: 504 } })),
+    );
+    const fake = fakeModule({ handleError: vi.fn(async (error: unknown) => error) });
+    mount(`<djs-droplet data-droplet="hello" data-droplet-context="${encode({ props: {} })}"></djs-droplet>`);
+    await tick();
+    await tick();
+    expect(fake.unmount).not.toHaveBeenCalled();
+    expect(fake.handleError).toHaveBeenCalledWith(timeout);
+    expect(fake.renderError.mock.calls[0]?.[1]).toEqual(timeout);
+  });
+
   it("renders nothing for error(), a redirect or an unhandled answer from _data", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     for (const response of [

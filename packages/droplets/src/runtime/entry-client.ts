@@ -787,9 +787,10 @@ export class DjsDropletElement extends HTMLElement {
   }
 
   /**
-   * `{ data }`, or `{ error }` with a 500 when a load failed on the server.
-   * Anything else (`error()`, a redirect, an unhandled failure) is an
-   * endpoint's answer, not something the droplet can show.
+   * `{ data }`, or `{ error }` with a 500 when a load failed on the server,
+   * a 504 past `render.timeout`. Anything else (`error()`, a redirect, an
+   * unhandled failure) is an endpoint's answer, not something the droplet
+   * can show.
    */
   async #fetchServerData({ droplet, context }: FetchServerDataInput): Promise<Payload> {
     const base = this.#location().replace(/\/$/, "");
@@ -815,7 +816,7 @@ export class DjsDropletElement extends HTMLElement {
     if (response.ok && isObject(payload)) {
       return Object.hasOwn(payload, "form") ? { data: payload["data"], form: payload["form"] } : { data: payload["data"] };
     }
-    if (response.status === 500 && isObject(payload) && "error" in payload) {
+    if ((response.status === 500 || response.status === 504) && isObject(payload) && "error" in payload) {
       return { failed: true, error: payload["error"] };
     }
     throw new NothingToRender(

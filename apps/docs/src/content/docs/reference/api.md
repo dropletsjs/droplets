@@ -177,6 +177,7 @@ dropped without a warning. A value that fails its check throws a
 | `limits` | `{ json?, form?, multipart?, props? }` | `1 MB`, `1 MB`, `10 MB`, `8 KB` | Largest bodies in bytes: JSON, form-urlencoded and `text/plain`, multipart and any other type (`413`), and the `x-droplet-props` header (`431`). Positive numbers; `Infinity` lifts one. |
 | `fragmentCacheControl` | `string \| false` | `"private, no-store, no-transform"` | The `Cache-Control` of fragments and `_data` when neither the load (`setHeaders`) nor `handle` set one. `false` sends none of it. A non-empty value without line breaks. `no-transform` is added to every fragment and `_data` answer that lacks it. |
 | `publicCacheControl` | `string \| false` | `"no-cache"` | The `Cache-Control` of `/assets/public/*`, on every adapter, with an `ETag` and `304`. `false` sends none. Same check as `fragmentCacheControl`. |
+| `render` | `{ timeout? }` | `{ timeout: 5000 }` | `timeout`: milliseconds a droplet's loads and render may take for a fragment or `_data`, from after `handle`, the props schema and any form action; past it `504`, with `error` `{ status: 504, message: "Gateway Timeout" }`. The load sees it in `event.request.signal`. An integer from `0` to `2147483647`, or `Infinity` (none). Not applied while prerendering. |
 | `health` | `string \| false` | `"/health"` | The path answering `ok`, before `handle`. `false` turns it off. |
 | `index` | `string \| false` | `index.html` in the root, else a placeholder page | What `/` serves in a build and `vite preview`: an HTML file relative to the root, served as written. `false` answers `404`; a path that does not exist fails the build. Under `vite dev`, `/` is the devtools page when they are installed. |
 | `importMap` | `string \| false` | `"/importmap"`, only while the client build has externals | Where the import map is served: `<path>` as a `<script type="importmap">` block, `<path>.js` as a script that inserts it. Set explicitly, it is always routed. `false` turns both off. |
@@ -257,7 +258,7 @@ routes from a host's side.
 | `GET /droplets/:id/style.css` | An `@import` of each of the droplet's stylesheets; `404` when it has none, and always under `vite dev`. | `public, max-age=2592000, immutable` |
 | `GET /droplets/:id` | The fragment: the element with the markup, its inline data and context. Props from the query, else the base64 JSON `x-droplet-props` header. | `fragmentCacheControl` |
 | `POST /droplets/:id` | With a JSON body `{ props?, host? }` (or `{ context: { props, host } }`): the fragment. With a form body: an [action](#form-actions). `text/plain` answers `415`; a JSON body with `?/name` answers `400`. | `fragmentCacheControl` |
-| `GET`, `POST /droplets/:id/_data` | `{ data }`, plus `form` when a no-JavaScript result is carried; a failed load is `500 { error }`. `PUT`, `PATCH`, `DELETE` answer `405` with `allow: GET, POST`. | `fragmentCacheControl` |
+| `GET`, `POST /droplets/:id/_data` | `{ data }`, plus `form` when a no-JavaScript result is carried; a failed load is `500 { error }`, and `504 { error }` past `render.timeout`. `PUT`, `PATCH`, `DELETE` answer `405` with `allow: GET, POST`. | `fragmentCacheControl` |
 | `ALL /api`, `/api/*` | `+server.ts` endpoints; `404 { "message": "Not Found" }` without a match. | the handler's |
 | `GET /health` | `ok`, before `handle` (the `health` option). | none |
 | `GET`, `POST /importmap`, `/importmap.js` | The import map, as a block or as a script that inserts it; `404` when there is none (the `importMap` option). | `no-store` |
@@ -285,8 +286,9 @@ headers when `cors` is set.
 | `Content-Encoding` | `gzip` when the request's `Accept-Encoding` takes gzip and the body is 1024 bytes or more. |
 | `x-droplets-build` | The build hash, on every fragment and `_data` answer, `404` and `405` included. |
 
-A fragment answers `200`, the action's status after an action, or `500`
-with the error page when a load failed. A no-JavaScript result carried back
+A fragment answers `200`, the action's status after an action, `500`
+with the error page when a load failed, or `504` with the error page past
+`render.timeout`. A no-JavaScript result carried back
 makes the answer `private, no-store, no-transform`.
 
 ### Form actions
@@ -448,7 +450,7 @@ Types:
 | Type | What it is |
 | --- | --- |
 | `RequestEvent<Params>` | `{ request, url, host, params, locals, platform, cookies, fetch }`. `url` is the request on the droplet location's origin; `host` is the page the droplet renders on; `fetch` answers a URL on this server in-process, with the request's cookies, and sends any other to the global `fetch` ([`event.fetch`](/guides/server/#eventfetch)). |
-| `LoadEvent` | A server load's event: `{ request, host, locals, platform, cookies, setHeaders, droplet, props, fetch }`; `cookies` are `ReadonlyCookies`. |
+| `LoadEvent` | A server load's event: `{ request, host, locals, platform, cookies, setHeaders, droplet, props, fetch }`; `cookies` are `ReadonlyCookies`; `request` is a copy whose `signal` also aborts at `render.timeout` (the request itself with `Infinity`). |
 | `ActionEvent` | An action's event: as `LoadEvent`, with full `cookies` and the body unread. `props` come from the action URL's query, never the body. |
 | `DropletLoadEvent` | A universal load's event: `{ host, props, data }`; in the browser `host` is `window.location`. |
 | `Action`, `Actions`, `ActionResult` | One action, the `actions` export, and an action's JSON answer. |
