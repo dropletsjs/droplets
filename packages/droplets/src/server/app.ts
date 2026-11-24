@@ -13,6 +13,7 @@ import {
 } from "../runtime/app.ts";
 import type { HandleServerError, ImportMapHandler, TransformEvent } from "../runtime/server.ts";
 import type { ResolvedDropletsConfig } from "../core/config.ts";
+import { fileHeaderTable } from "../runtime/file-headers.ts";
 import type { HostTokenReplacers } from "../runtime/host-tokens.ts";
 
 /** What the built SSR bundle exports. */
@@ -65,7 +66,11 @@ export type AssetLoaders = {
    * `PRERENDER_DIR`); `null` when there is none.
    */
   loadPrerendered?(droplet: string, key: string): Promise<PrerenderedDroplet | null>;
-  /** Serves `/assets/*`: the entry, shared chunks, stylesheets, fonts. Cached for good. */
+  /**
+   * Serves `/assets/*`: the entry, shared chunks, stylesheets, fonts and
+   * `public/` under `/assets/public/`. The app sets the headers of
+   * `fileHeaderTable` on what it answers with a 2xx or 304.
+   */
   assetHandler: Handler;
 };
 
@@ -115,6 +120,7 @@ export function createServerApp({ ssr, assets, config }: ServerAppOptions): Drop
     ...(ssr.tokenNonce === undefined ? {} : { tokenNonce: ssr.tokenNonce }),
     ...(ssr.tokens === undefined ? {} : { tokens: ssr.tokens }),
     cors: config.cors,
+    fileHeaders: fileHeaderTable(config),
     trustedOrigins: config.trustedOrigins,
     location: config.location,
     host: config.host,

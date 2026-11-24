@@ -213,7 +213,8 @@ Then the route.
 - `styleImports` is `style.css`: one `@import url("../../<file>")` per stylesheet, relative to `/droplets/<id>/style.css`; `vite build` writes the same as a file. `app.ts:305`, `../vite/build.ts:327`
 - A fragment links and preloads `style.css` only when the droplet has stylesheets. `app.ts:1333`
 - `client.js` answers 404 for an unknown droplet, `hydrate === false` or no loader. `app.ts:1174`
-- Cached files get `public, max-age=2592000, immutable`. `app.ts:918`
+- Cached files get `public, max-age=2592000, immutable`. `app.ts:1024`
+- With `fileHeaders` (`fileHeaderTable(config)`, what `createServerApp` passes), every 2xx or 304 answer to a path the table matches gets that rule's headers, with the other headers the table names removed, set inside `handle`; without it (`vite dev`, the prerender) each route keeps its own. `app.ts:186`, `app.ts:1217`, `file-headers.ts:74`
 - The import map answers 404 when none is configured, is `no-store`, and escapes `<`. `app.ts:1093`
 - `/` answers `loadIndex()`'s HTML, else 404. `app.ts:1107`
 

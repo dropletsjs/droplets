@@ -132,8 +132,8 @@ restarts the server.
 - `generateBundle` of the client build records every bare import left external, for `importmap`'s `externals`. `plugin.ts:495`
 - `buildApp` writes the manifest and copies `public/` right after the client build. `plugin.ts:524`, `plugin.ts:525`
 - `buildApp` prerenders right after the ssr build, then removes `dist/server/` unless the adapter has `separateSsrBundle`. `plugin.ts:529`, `plugin.ts:533`
-- `adapter.afterBuild` runs last, with `root`, `outDir`, `manifestPath`, `serverPath` and the resolved `config`. `plugin.ts:539`, `plugin.ts:544`, `../../test/integration/vite.test.ts:241`
-- `vite preview` runs `adapter.preview`; without it the plugin warns and serves nothing. `plugin.ts:552`
+- `adapter.afterBuild` runs last, with `root`, `outDir`, `manifestPath`, `serverPath`, the resolved `config` and `fileHeaders`, `fileHeaderTable(config)`. `plugin.ts:561`, `plugin.ts:567`, `../../test/integration/vite.test.ts:249`
+- `vite preview` runs `adapter.preview`; without it the plugin warns and serves nothing. `plugin.ts:574`
 - `DropletsPluginApi` (`plugin.api`) gives `element`, `strategy`, `droplets`, `renderers`, `dropletsRoot`, `importMapPath`, `fetch`, `loaderUrl`, `syncTypes` and `setDevTool`. `plugin.ts:105`, `plugin.ts:294`
 - `DropletsPluginApi.renderers()` never lists the built-in `script` renderer. `plugin.ts:298`
 - `DropletsPluginApi.fetch` throws outside `vite dev`. `plugin.ts:302`

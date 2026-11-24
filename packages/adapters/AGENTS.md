@@ -8,8 +8,10 @@
   Checked by: `tests/packages/test/packed.test.ts`.
 - What `vite build` writes for an adapter holds no dev or HMR code, Cloudflare's single `worker.js` included.
   Checked by: `tests/dev-mixed/test/production.test.ts`.
-- `/assets/*` serves only the client build's `assets/` folder: hashed files `public, max-age=2592000, immutable`, `public/` under `/assets/public/` with `publicCacheControl` (`no-cache` by default), an `ETag` and 304; a missing file or a path outside answers the text `Not Found`, 404, `no-store`, on every adapter. On Cloudflare, `dist/client/_headers` carries the same `Cache-Control` for the static assets that answer first.
-  Checked by: `node/test/static.test.ts`, `node/test/app.test.ts`, `cloudflare/test/worker.test.ts`, `cloudflare/test/index.test.ts`.
+- `/assets/*` serves only the client build's `assets/` folder, `public/` under `/assets/public/` with an `ETag` and 304; a missing file or a path outside answers the text `Not Found`, 404, `no-store`, on every adapter.
+  Checked by: `node/test/static.test.ts`, `node/test/app.test.ts`, `cloudflare/test/worker.test.ts`.
+- The headers of the build's files (`/index.js`, `/index.css`, `/assets/*`, `/assets/public/*`, `client.js`, `style.css`) are written once, in `fileHeaderTable(config)` (`packages/droplets/src/runtime/file-headers.ts`): an adapter applies or translates the table it gets (`fileHeaders` in `afterBuild`, `createServerApp` at runtime), never a header value of its own (Cloudflare's `_headers` also gives every rule `Access-Control-Allow-Origin: *` and `X-Content-Type-Options: nosniff`, as it always has).
+  Checked by: `node/test/app.test.ts`, `node/test/static.test.ts`, `cloudflare/test/worker.test.ts` (each "the headers of fileHeaderTable(config)" or "of its table"), `cloudflare/test/index.test.ts` ("writes the table it is given").
 - A droplet name from the URL reaches a manifest only through `Object.hasOwn`.
   Checked by: `node/test/assets.test.ts`, `cloudflare/test/worker.test.ts`.
 - Bun and Deno run on the Node adapter's `createNodeServerApp`; a serving change goes there.

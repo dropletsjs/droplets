@@ -6,6 +6,7 @@ import { decodeBase64Json, encodeBase64 } from "./base64.ts";
 import { gzipAnswer, withNoTransform } from "./compress.ts";
 import { createCookies, prerenderCookies, readonlyCookies } from "./cookies.ts";
 import { readRuntimeEnv } from "./env-store.ts";
+import { applyFileHeaders, type FileHeaderRule } from "./file-headers.ts";
 import { CONTEXT_HEADERS, createEventFetch } from "./event-fetch.ts";
 import { ACTION_NAME, backUrl, formResultKey, isReservedQueryKey, RETURN_KEY, splitFormResults } from "./form.ts";
 import { formSecret, mintFormResult, readFormResult } from "./form-token.server.ts";
@@ -177,6 +178,12 @@ export type DropletsAppOptions = {
   externals?: () => MaybePromise<string[]>;
   /** Enables cross-origin access to every route; see `DropletsConfig.cors`. */
   cors?: DropletsCorsOptions | undefined;
+  /**
+   * The headers of the build's files (`fileHeaderTable`), set on every
+   * answer to a path it matches: what a production server passes. Without
+   * it (`vite dev`), the routes keep their own.
+   */
+  fileHeaders?: readonly FileHeaderRule[] | undefined;
   /** The warnings of `vite dev` and the build (`createDevLog`); a production server has none and warns about nothing. */
   devLog?: DevLog | undefined;
   /**
@@ -1206,6 +1213,21 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     }
     return;
   });
+
+  const fileHeaders = options.fileHeaders;
+  if (fileHeaders) {
+    // Inside `handle`, as each route's own headers were. An error answer keeps its own.
+    app.use("*", async (c, next) => {
+      await next();
+      const status = c.res.status;
+      if (!((status >= 200 && status < 300) || status === 304)) return;
+      const headers = new Headers(c.res.headers);
+      if (!applyFileHeaders({ table: fileHeaders, path: c.req.path, headers })) return;
+      const response = c.res;
+      c.res = undefined;
+      c.res = new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+    });
+  }
 
   if (options.importMap) {
     const { path, auto } = options.importMap;

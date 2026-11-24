@@ -299,9 +299,13 @@ renderer under `testing/`.
 - `rendererConformance` HTML checks ignore comments (`bare`), and read the server markup inert, parsed in a `<template>` (`parse`). `src/testing/conformance.ts:185`, `src/testing/composed.ts:99`
 - `rendererConformance` takes the host's children as out of sight when their container is hidden under the element, or sits in a marker a shadow-DOM component leaves unslotted. `src/testing/conformance.ts:901`
 - `fakeRenderer()` is named `fake` and handles `.fake.js`. `src/testing/fake-renderer/index.ts:31`
-- `createServerApp` throws when the SSR bundle exports neither `renderDroplet` nor a default. `src/server/app.ts:84`
+- `createServerApp` throws when the SSR bundle exports neither `renderDroplet` nor a default. `src/server/app.ts:91`
 - `cors` allowing every origin warns once under `vite dev` (`devLog`); `createServerApp` warns about nothing. `src/runtime/app.ts:847`, `src/runtime/dev-log.ts:62`
-- `createServerApp` mounts `/assets/*` on the adapter's `assetHandler`. `src/server/app.ts:125`
+- `createServerApp` mounts `/assets/*` on the adapter's `assetHandler`. `src/server/app.ts:133`
+- `createServerApp` passes `fileHeaderTable(config)` to the app, which sets the matching rule's headers on every 2xx or 304 answer to a build file: `/index.js`, `/index.css`, `/assets/*`, `/droplets/<id>/client.js` and `style.css`. `src/server/app.ts:123`, `src/runtime/app.ts:1217`
+- `fileHeaderTable(config)` is an ordered list of `{ path, headers }`: a `:name` segment matches one non-empty segment, a final `*` a non-empty rest; a narrower pattern comes after the wider one it refines, and a path takes the last rule that matches, all its headers and no other header the table names. `src/runtime/file-headers.ts:11`, `src/runtime/file-headers.ts:26`, `src/runtime/file-headers.ts:47`, `src/runtime/file-headers.ts:63`, `src/runtime/file-headers.ts:74`
+- `fileHeaderTable(config)` reads `publicCacheControl` alone; `/index.js` and `/index.css` are `no-store`, `/assets/*`, `client.js` and `style.css` `public, max-age=2592000, immutable`, `/assets/*` and `/assets/public/*` `nosniff`. `src/runtime/file-headers.ts:17`, `src/runtime/file-headers.ts:29`
+- `fileHeaderTable`, `fileHeadersFor` and the `FileHeaderRule` type are exported from `@dropletsjs/droplets` for adapters. `src/index.ts:85`
 - `AssetLoaders`: every loader returns `null` for something that does not exist. `src/server/app.ts:46`
 - `FALLBACK_MANIFEST` is the manifest a runtime answers with before the build is found: no droplets, `__entryClient` `index.js`. `src/server/manifest.ts:42`
 - `PRERENDER_DIR` is `_prerendered`: `dist/server/_prerendered/` with a separate SSR bundle, else `dist/client/_prerendered/<random>/` named only in the manifest. `src/server/prerendered.ts:15`, `src/server/prerendered.ts:3`
@@ -321,7 +325,7 @@ renderer under `testing/`.
 - `validateRenderers` throws for a missing name, a duplicate name, no extensions, an extension without a dot, a core or script suffix, a shared extension where a renderer lists no `packages`, a missing `server`/`client` path. `src/renderer.ts:623`
 - `RENDERER_QUERY` is `droplets-renderer`: `…/Button.tsx?droplets-renderer=solid` marks a module for one renderer. `src/renderer.ts:576`
 - Adapter contract `DropletsAdapter`: `name`, `serverEntry`, `serverFile`, `separateSsrBundle`, optional `noExternal`, `environment`, `afterBuild`, `preview`. `src/adapters.ts:10`
-- `AdapterBuildContext`, what `afterBuild` gets: `root`, `outDir`, `manifestPath`, `serverPath` and the resolved `config`. `src/adapters.ts:47`, `src/adapters.ts:57`
+- `AdapterBuildContext`, what `afterBuild` gets: `root`, `outDir`, `manifestPath`, `serverPath`, the resolved `config` and `fileHeaders`, the file-header table of that config. `src/adapters.ts:48`, `src/adapters.ts:58`, `src/adapters.ts:64`
 - `vite build` without an adapter throws, naming `@dropletsjs/adapter-node`. `src/vite/build.ts:96`
 - Health route answers `ok` and is mounted before `handle`. `src/runtime/app.ts:934`
 - `handle` never runs for `/index.js`, `/index.css`, `/env.js` and `/assets/*`. `src/runtime/app.ts:356`, `src/runtime/app.ts:982`

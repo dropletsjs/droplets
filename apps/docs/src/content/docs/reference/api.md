@@ -511,6 +511,8 @@ adapters. The Vite plugin is in [`./vite`](#dropletsjsdropletsvite).
 | `ActionFailure`, `HostUrlPropsErrorInPrerender`, `CookiesInPrerenderError` | The classes of `./server`, for code that is not a server file. |
 | `createServerApp({ ssr, assets, config })` | The production app (a Hono app, `DropletsApp`) over the SSR bundle and an adapter's asset loaders. Throws when the SSR bundle exports no `renderDroplet`. |
 | `createPrerenderedLoader(read)` | Looks up prerendered renders through `read(path) => Promise<string \| null>`. |
+| `fileHeaderTable(config)` | The headers of the build's files, from the resolved config: the [file-header table](#the-file-header-table). |
+| `fileHeadersFor({ table, path })` | The headers of the table's last rule that matches `path`; `undefined` when none does. |
 | `PRERENDER_DIR` | `"_prerendered"`: `dist/server/_prerendered/`, or `dist/client/_prerendered/<random>/` (named only in the manifest) for an adapter without `dist/server`. |
 | `setRuntimeEnv(values)` | Hands the runtime environment to the framework and `$droplets/env/*`; where it is not called, `process.env` is read. |
 | `FALLBACK_MANIFEST` | The manifest a runtime answers with before it finds a build: no droplets. |
@@ -533,6 +535,7 @@ Types:
 | `DropletsManifest`, `DropletManifestEntry` | `dist/client/droplets.json`. |
 | `AssetLoaders`, `ServerAppOptions`, `SsrModule` | `createServerApp`'s types. |
 | `DropletsAdapter`, `AdapterBuildContext`, `AdapterPreviewContext` | The [adapter contract](#adapter-contract). |
+| `FileHeaderRule`, `FileHeaderConfig` | A row of the [file-header table](#the-file-header-table): `{ path, headers }`; what `fileHeaderTable` reads of the config. |
 
 ### Renderer contract
 
@@ -586,9 +589,11 @@ type DropletsAdapter = {
 
 `afterBuild` runs once every environment is built, with
 `AdapterBuildContext`: `root`, `outDir`, `manifestPath` (the emitted
-`droplets.json`), `serverPath` (the emitted server file) and `config` (the
-resolved `droplets.config.ts`). `preview` gets `root`, `outDir` and `config`;
-without it, `vite preview` warns and serves nothing.
+`droplets.json`), `serverPath` (the emitted server file), `config` (the
+resolved `droplets.config.ts`) and `fileHeaders` (the
+[file-header table](#the-file-header-table) of that config). `preview` gets
+`root`, `outDir` and `config`; without it, `vite preview` warns and serves
+nothing.
 
 An adapter entry imports `virtual:droplets-config` (the config),
 `virtual:droplets-ssr` (the SSR bundle, when it inlines it) and
@@ -596,6 +601,64 @@ An adapter entry imports `virtual:droplets-config` (the config),
 `@dropletsjs/droplets/ambient`, and serves `createServerApp` with its
 `AssetLoaders`. `packages/adapters/node` and `packages/adapters/cloudflare`
 are the reference.
+
+#### The file-header table
+
+The headers of every file `vite build` writes for the browser are decided in
+one place, `fileHeaderTable(config)`, and every adapter takes them from
+there. It is an ordered list of `FileHeaderRule`s:
+
+```ts
+type FileHeaderRule = {
+  readonly path: string;                              // a URL path pattern
+  readonly headers: Readonly<Record<string, string>>; // all the headers a matching file gets
+};
+```
+
+- **Patterns.** A pathname, where a `:name` segment matches any one
+  non-empty segment and a final `*` matches whatever follows the slash
+  before it: `/assets/*` matches `/assets/a.js` and `/assets/chunks/a.js`,
+  not `/assets/`; `/droplets/:id/client.js` matches
+  `/droplets/cart/client.js`.
+- **Precedence.** A narrower pattern comes after the wider one it refines
+  (`/assets/public/*` after `/assets/*`), so a path takes the last rule that
+  matches, and that rule alone: `fileHeadersFor({ table, path })`.
+- **Leaving a header out.** A rule's `headers` are all the headers of the
+  table a matching file gets. A header another rule sets and the matching
+  one leaves out is not sent: with `publicCacheControl: false`,
+  `/assets/public/*` has no `Cache-Control`, and an adapter removes its
+  platform's default for it.
+
+| Rule | Headers |
+| --- | --- |
+| `/index.js`, `/index.css` | `Cache-Control: no-store` |
+| `/assets/*` | `X-Content-Type-Options: nosniff`, `Cache-Control: public, max-age=2592000, immutable` |
+| `/assets/public/*` | `X-Content-Type-Options: nosniff`, `Cache-Control` from [`publicCacheControl`](/guides/configuration/#options) (`no-cache`; none for `false`) |
+| `/droplets/:id/client.js`, `/droplets/:id/style.css` | `Cache-Control: public, max-age=2592000, immutable` |
+
+A server built on `createServerApp` sets the table itself on every 2xx or
+304 answer to a path it matches, so an `assetHandler` only serves the file
+(and, for `public/`, an `ETag` and 304). A platform that serves the files
+without the server writes the table into its own configuration in
+`afterBuild`, from `fileHeaders`: the Cloudflare adapter writes
+`dist/client/_headers` that way. For a CDN that applies the first block that
+matches a path, reverse the list:
+
+```ts
+import { writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import type { DropletsAdapter } from "@dropletsjs/droplets";
+
+export function myCdn(): DropletsAdapter {
+  return {
+    // name, serverEntry, serverFile, separateSsrBundle, …
+    async afterBuild({ outDir, fileHeaders }) {
+      const blocks = fileHeaders.toReversed().map(({ path, headers }) => ({ match: path, headers }));
+      await writeFile(resolve(outDir, "client/cdn-headers.json"), `${JSON.stringify(blocks, null, 2)}\n`);
+    },
+  };
+}
+```
 
 ## `@dropletsjs/droplets/postcss`
 

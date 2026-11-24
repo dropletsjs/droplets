@@ -58,6 +58,7 @@ export default defineConfig({
         "runtime/request-store",
         "runtime/host-tokens",
         "runtime/render-timeout",
+        "runtime/file-headers",
         "runtime/security",
         "runtime/compress",
         "runtime/event-fetch",

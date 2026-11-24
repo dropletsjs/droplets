@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
-import { resolveConfig } from "@dropletsjs/droplets";
+import { fileHeadersFor, fileHeaderTable, resolveConfig } from "@dropletsjs/droplets";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createNodeServerApp, type NodeServerPaths } from "../src/app.ts";
 import { buildFixture, FIXTURE_ROOT } from "./build-fixture.ts";
@@ -162,6 +162,33 @@ describe("createNodeServerApp", () => {
     const app = await createNodeServerApp(paths, resolveConfig({ element: "test-droplet", publicCacheControl: "public, max-age=60" }));
     expect((await app.request("/assets/public/robots.txt")).headers.get("cache-control")).toBe("public, max-age=60");
     expect((await app.request("/index.js")).headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("answers every build file with the headers of fileHeaderTable(config), and no other of the table's", async () => {
+    const manifest = JSON.parse(await readFile(resolve(outDir, "client/droplets.json"), "utf8"));
+    const files = [
+      "/index.js",
+      "/index.css",
+      `/${manifest.__entryModule}`,
+      "/assets/public/robots.txt",
+      "/droplets/hello/client.js",
+      "/droplets/static-note/style.css",
+    ];
+    for (const publicCacheControl of ["no-cache", false] as const) {
+      const config = resolveConfig({ element: "test-droplet", publicCacheControl });
+      const app = await createNodeServerApp(paths, config);
+      const table = fileHeaderTable(config);
+      const names = [...new Set(table.flatMap((rule) => Object.keys(rule.headers).map((name) => name.toLowerCase())))];
+      for (const path of files) {
+        const res = await app.request(path);
+        expect(res.status, path).toBe(200);
+        const expected = new Headers(fileHeadersFor({ table, path }));
+        expect(
+          names.map((name) => [name, res.headers.get(name)]),
+          `${path} ${publicCacheControl}`,
+        ).toEqual(names.map((name) => [name, expected.get(name)]));
+      }
+    }
   });
 
   it("reads runtime secrets from process.env", async () => {

@@ -225,9 +225,9 @@ right after `deploy-demo`.
 - Worker assets: `dist/client` through the `ASSETS` binding. `wrangler.jsonc:13`, `wrangler.jsonc:14`
 - Worker sets no `run_worker_first`: static assets answer the build's files with `_headers` (`Access-Control-Allow-Origin: *`), the rest reaches the Worker. `wrangler.jsonc:12`, `test/worker.test.ts:113`, `test/worker.test.ts:117`, `test/worker.test.ts:157`
 - Worker assets `html_handling` is `none`: `/assets/public/testimonials/page-1.html` answers 200, not a 307 to `/page-1`. `wrangler.jsonc:17`, `test/worker.test.ts:141`
-- `/assets/public/*` gets `Access-Control-Allow-Origin: *` from the adapter's `/assets/*` rule in `_headers`, `Cache-Control: no-cache` from its own. `../../packages/adapters/cloudflare/src/index.ts:103`, `../../packages/adapters/cloudflare/src/index.ts:104`
+- `/assets/public/*` gets `Access-Control-Allow-Origin: *` from the adapter's `/assets/*` rule in `_headers`, `Cache-Control: no-cache` from its own. `../../packages/adapters/cloudflare/src/index.ts:120`, `../../packages/droplets/src/runtime/file-headers.ts:36`
 - `handle` (`src/hooks.server.ts`) sets `x-robots-tag: noindex` on every answer it resolves: renders, `_data`, actions, `/api/*`, errors. `src/hooks.server.ts:11`, `test/server.test.ts:420`
-- Root `_headers` gives every static asset `X-Robots-Tag: noindex` (`/*`), appended after the adapter's rules in `dist/client/_headers`. `_headers:3`, `../../packages/adapters/cloudflare/src/index.ts:246`, `test/worker.test.ts:147`
+- Root `_headers` gives every static asset `X-Robots-Tag: noindex` (`/*`), appended after the adapter's rules in `dist/client/_headers`. `_headers:3`, `../../packages/adapters/cloudflare/src/index.ts:305`, `test/worker.test.ts:147`
 - `/health` and the Worker's 404 for a missing build file are answered before `handle`, without `x-robots-tag`. `../../packages/droplets/src/runtime/app.ts:1061`, `../../packages/droplets/src/runtime/app.ts:1109`
 - No `robots.txt`: crawlers may fetch the demo's files to render the docs' live droplets. `test/worker.test.ts:160`
 - Worker runs only on the custom domain `demo.dropletsjs.dev`; no `*.workers.dev` or preview URLs. `wrangler.jsonc:20`, `wrangler.jsonc:21`, `wrangler.jsonc:22`

@@ -6,8 +6,8 @@
   Checked by: `packages/droplets/test/portability.test.ts`.
 - `/assets/*` serves only files inside `dist/client/assets`; any other path answers 404.
   Checked by: `test/static.test.ts`, `test/app.test.ts`.
-- Hashed files under `/assets/*` are `public, max-age=2592000, immutable`; `public/` under `/assets/public/*` is revalidated (`no-cache`, an `ETag`, 304).
-  Checked by: `test/static.test.ts`, `test/app.test.ts`.
+- The headers of the build's files come from `fileHeaderTable(config)` alone (hashed files under `/assets/*` `public, max-age=2592000, immutable`, `public/` under `/assets/public/*` `publicCacheControl`); the static handler adds only the content type, and the `ETag` and 304 of `public/`.
+  Checked by: `test/static.test.ts`, `test/app.test.ts` ("answers every build file with the headers of fileHeaderTable(config)").
 - `build` runs the tests before tsdown (`vitest run && tsdown`); `build:dist` only compiles.
   Checked by: `package.json`.
 - The suite runs on `adapterTests` from `@dropletsjs/shared/vitest`.
