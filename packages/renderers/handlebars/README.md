@@ -122,17 +122,17 @@ templates import `dist/runtime.js` by path.
 - `handlebars()` packages are `handlebars` and `@dropletsjs/renderer-handlebars`. `src/index.ts:68`
 - `handlebars()` sets no `componentTypes` and no `clientSetup`. `src/index.ts:65`
 - `handlebars()` server, client and clientDev are `dist/server.js`, `dist/client.js` and `dist/client-dev.js`, found by path. `src/index.ts:70`, `src/index.ts:72`
-- `handlebars()` readFlags reads the template's leading comment, naming errors `<droplet>/<file>`. `src/index.ts:73`, `src/index.ts:73`
-- Flags comment is the comment the template opens with, whitespace aside. `src/index.ts:73`
-- Flags comment declarations are split by line, by `;` or before the next `export`. `src/index.ts:73`
-- Flags comment without any `export` line is an ordinary comment: no flags declared, core's defaults apply. `src/index.ts:73`
-- Flags comment with an `export` line takes nothing else: any other line fails the build. `src/index.ts:73`
-- Flags comment typo: an unknown flag name fails the build with `unknown flag "<name>"`. `src/index.ts:73`
-- Flags comment: a flag declared twice fails the build. `src/index.ts:73`
-- Flags `ssr` and `prerender` take `true` or `false` only; anything else fails the build. `src/index.ts:73`
-- Flags `hydrate` takes `true`, `false`, `"visible"` or `"interactive"` (through `parseHydrateMode`); anything else fails the build. `src/index.ts:73`, `src/index.ts:73`
-- Flags in any comment but the leading one (a known flag name after `export`) fail the build. `src/index.ts:73`
-- Flags: a template Handlebars cannot parse declares none; the compiler reports it. `src/index.ts:73`
+- `handlebars()` readFlags reads the template's leading comment, naming errors `<droplet>/<file>`. `src/flags.ts:110`, `src/flags.ts:111`
+- Flags comment is the comment the template opens with, whitespace aside. `src/flags.ts:36`
+- Flags comment declarations are split by line, by `;` or before the next `export`. `src/flags.ts:70`
+- Flags comment without any `export` line is an ordinary comment: no flags declared, core's defaults apply. `src/flags.ts:73`
+- Flags comment with an `export` line takes nothing else: any other line fails the build. `src/flags.ts:78`
+- Flags comment typo: an unknown flag name fails the build with `unknown flag "<name>"`. `src/flags.ts:81`
+- Flags comment: a flag declared twice fails the build. `src/flags.ts:84`
+- Flags `ssr` and `prerender` take `true` or `false` only; anything else fails the build. `src/flags.ts:97`
+- Flags `hydrate` takes `true`, `false`, `"visible"` or `"interactive"` (through `parseHydrateMode`); anything else fails the build. `src/flags.ts:85`, `src/flags.ts:86`
+- Flags in any comment but the leading one (a known flag name after `export`) fail the build. `src/flags.ts:62`
+- Flags: a template Handlebars cannot parse declares none; the compiler reports it. `src/flags.ts:55`
 - Flags exported from `+droplet.ts` or `+droplet.server.ts` are ignored, in a build and in `vite dev`. `test/index.test.ts:191`
 - Flags `+error.hbs` declares are ignored, with a warning under `vite dev` only: it follows the droplet's flags. `../../droplets/src/core/discover.ts:222`
 - `readTemplateFlags(source, where)` and `readFlags` live in `src/flags.ts`; the package entry exports `handlebars()` and its types alone, and `readFlags` reaches core on the renderer object. `src/flags.ts:51`, `src/flags.ts:110`, `src/index.ts:73`

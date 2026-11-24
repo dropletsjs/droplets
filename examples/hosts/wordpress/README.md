@@ -203,7 +203,7 @@ product write only) and the WordPress cases of
 - Shop proxy refuses a path with a `.` or `..` segment, once decoded, with 400. `plugin/droplets-embed/shop.php:259`, `plugin/droplets-embed/shop.php:278`
 - Shop proxy adds `x-wp-shop-user` on `/droplets/*` and `/api/*` only. `plugin/droplets-embed/shop.php:204`
 - Shop proxy rebuilds a multipart body from `$_POST` and `$_FILES` when `php://input` is empty. `plugin/droplets-embed/shop.php:216`, `plugin/droplets-embed/shop.php:147`
-- Shop proxy concatenates the path onto `SHOP_INTERNAL_URL`, never follows redirects, 110 second timeout. `plugin/droplets-embed/shop.php:223`, `plugin/droplets-embed/shop.php:227`
+- Shop proxy concatenates the path onto `SHOP_INTERNAL_URL`, never follows redirects, 15 second timeout. `plugin/droplets-embed/shop.php:223`, `plugin/droplets-embed/shop.php:227`, `plugin/droplets-embed/shop.php:228`
 - Shop proxy answers 502 `The shop is unreachable.` when wp-shop fails. `plugin/droplets-embed/shop.php:232`
 - Shop fragments are fetched in parallel with `Requests::request_multiple`, no redirects followed, 10 second timeout. `plugin/droplets-embed/shop.php:323`, `plugin/droplets-embed/shop.php:326`
 - Shop fragment fetch sends `accept: text/html`, `x-droplet-location`, the page URL as `referer` and the visitor's `cookie` filtered to `cart_id`. `plugin/droplets-embed/shop.php:302`, `plugin/droplets-embed/shop.php:307`

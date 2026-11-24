@@ -257,8 +257,8 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 
 ## Facts
 
-- `pnpm docs:dev` runs `node scripts/dev.mjs` in this package. `../../package.json:21`, `package.json:8`
-- `pnpm docs:build` runs `node scripts/with-demo.mjs astro build`. `../../package.json:22`, `package.json:9`
+- `pnpm docs:dev` runs `node scripts/errors.mjs`, then `node scripts/dev.mjs`, in this package. `../../package.json:21`, `package.json:8`
+- `pnpm docs:build` runs `node scripts/errors.mjs`, then `node scripts/with-demo.mjs astro build`. `../../package.json:22`, `package.json:9`
 - `pnpm docs:check-csp` runs `scripts/csp-hashes.mjs`. `../../package.json:24`
 - Docs `typecheck` is `astro check`. `package.json:13`
 - Docs `deploy:cloudflare` runs `wrangler deploy` (the declared `wrangler` dev dependency) and builds nothing. `package.json:11`

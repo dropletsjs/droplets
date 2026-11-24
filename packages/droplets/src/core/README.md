@@ -202,7 +202,7 @@ builds and runs them.
 - `DEV_DROPLETS_LOG` is read once, on the first message (not when the module loads), guarded for runtimes without `process`. `logger.ts:35`, `logger.ts:44`
 - `DEV_DROPLETS_LOG` is case-insensitive; an unknown value falls back to `info`. `logger.ts:31`, `logger.ts:32`
 - Logger has no top-level work, so it tree-shakes out of a bundle that never calls it. `logger.ts:36`
-- Logger messages print through `console[level]` with the prefix `[droplets:<source>]`, source `framework` or `drop`. `logger.ts:51`, `logger.ts:49`
+- Logger messages print through `console[level]`: `info` and `debug` as `droplets: <message>`, an error or a warning as its registry entry in the configured `errorFormat`. `logger.ts:51`, `logger.ts:63`, `logger.ts:64`
 - `setLogLevel` changes the level for the process; `logger` and `setLogLevel` are exported from `@dropletsjs/droplets/vite` for adapters and plugins at build time. `logger.ts:38`, `../vite.ts:16`
 - `logger.ts` is Node-free: it touches `process` only behind `typeof process`. `logger.ts:44`
 - Package root is found by walking up from the compiled module to the nearest `package.json`. `paths.ts:14`, `paths.ts:24`
