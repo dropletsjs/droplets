@@ -21,6 +21,7 @@ dist/
     droplets/<id>/style.css  # what /droplets/<id>/style.css answers, for a droplet with stylesheets
     assets/                # entry client (index.<hash>.js), stylesheets, shared chunks, imported files
     assets/public/         # a copy of public/, served at /assets/public/*
+    assets/prerendered/    # the renders an entry's file names, with location and host set
   server/entry-server.js   # the SSR renderer
   server/_prerendered/     # build-time renders, for droplets with prerender = true; never served
   server.js                # the HTTP server, with droplets.config.ts baked in
@@ -130,7 +131,9 @@ Worker writes under `wrangler dev` point at that location.
 
 Workers Static Assets answer every request for a file in `dist/client`
 before the Worker runs: `/index.js`, `/index.css`, the entry and the chunks under
-`/assets/*`, `public/` under `/assets/public/*`, and each droplet's
+`/assets/*`, `public/` under `/assets/public/*`, the
+[prerender files](/guides/prerendering/#static-files) under
+`/assets/prerendered/*`, and each droplet's
 `/droplets/<id>/client.js` and `/droplets/<id>/style.css`. Those requests
 are not Worker invocations, so they are not billed as such. Everything else
 reaches the Worker: renders at `/droplets/<id>`, `/droplets/<id>/_data`,
@@ -158,6 +161,9 @@ headers:
 /assets/public/*
   ! Cache-Control
   Cache-Control: no-cache
+/assets/prerendered/*
+  ! Cache-Control
+  Cache-Control: private, no-store, no-transform
 /droplets/:id/client.js
   Access-Control-Allow-Origin: *
   X-Content-Type-Options: nosniff
@@ -172,7 +178,11 @@ headers:
 
 The `/assets/public/*` rule carries
 [`publicCacheControl`](/guides/configuration/) (`no-cache` by default); with
-`publicCacheControl: false` it keeps only `! Cache-Control`. These files are
+`publicCacheControl: false` it keeps only `! Cache-Control`. The
+`/assets/prerendered/*` rule carries `fragmentCacheControl` with
+`no-transform`, as the live fragment; keep the default
+`assets.html_handling` for their extensionless URLs
+([Static files](/guides/prerendering/#static-files)). These files are
 public, so they are sent with `Access-Control-Allow-Origin: *` whatever
 `cors` says, as on every adapter; `cors` applies to what the Worker answers.
 Every file is sent with `X-Content-Type-Options: nosniff`, as on every
@@ -363,6 +373,7 @@ When a reverse proxy fronts the droplets server:
   fragments and `_data` are `private, no-store, no-transform` (`fragmentCacheControl`, with
   `no-transform` always added),
   `/assets/public/*` is `no-cache` (`publicCacheControl`) with an `ETag`,
+  `/assets/prerendered/*` is `fragmentCacheControl` with an `ETag`,
   everything else it serves for the browser is immutable.
 
 What a page loads through the proxy, and what `handle` sees of it:
@@ -397,7 +408,8 @@ it records its own URL. So `/index.js` must come from the droplets
 server, under its prefix: `https://shop.example/mfe/index.js` makes the
 elements load from `https://shop.example/mfe`. A CDN in front works when it
 pulls from the server at the same URL (origin pull); `/index.js` is
-`no-store`, `/assets/public/*` revalidates, the rest is immutable and caches well. Copying the files to
+`no-store`, `/assets/public/*` revalidates, `/assets/prerendered/*` follows
+`fragmentCacheControl`, the rest is immutable and caches well. Copying the files to
 another bucket under another URL works only with
 [`location`](/guides/configuration/#a-fixed-location) set to that URL: the
 server then writes every fragment's URLs there.

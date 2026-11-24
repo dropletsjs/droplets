@@ -74,7 +74,7 @@ export default config({
 | `host` | computed per request | The origin of the page every droplet renders on, fixed at build (`"https://shop.example"`, no path, never `"*"`). Prerendering renders an entry without its own `host` there. See [A fixed host](#a-fixed-host). |
 | `trustedOrigins` | `[]` | Origins, besides this server's own, that you trust: their pages may post forms and receive redirects, and a location header may name them. `"*"` trusts any origin to post. `DROPLETS_TRUSTED_ORIGINS` adds more at runtime. See [Trusted origins](#trusted-origins). |
 | `csrf.checkOrigin` | `true` | Answer `403` to a cross-site form submission (form-urlencoded, multipart or `text/plain` body, or none at all with an `Origin`) to `/droplets/*` or `/api/*` from an origin that is not trusted. `false` turns the check off. |
-| `fragmentCacheControl` | `"private, no-store, no-transform"` | The default `Cache-Control` of fragments and `_data`, when neither the droplet's load ([`setHeaders`](/guides/server/#setheaders)) nor `handle` set one. `false` sends none of it. Whatever the value, the answer carries `no-transform`: the framework adds it when it is missing (to this value, a load's, `handle`'s, an error answer's) and never twice, so no proxy rewrites a fragment. See [Caching](/guides/security/#caching) and [HTML rewriters](/guides/deployment/#html-rewriters-and-no-transform). |
+| `fragmentCacheControl` | `"private, no-store, no-transform"` | The default `Cache-Control` of fragments and `_data`, when neither the droplet's load ([`setHeaders`](/guides/server/#setheaders)) nor `handle` set one, and of the [prerender files](/guides/prerendering/#static-files). `false` sends none of it. Whatever the value, the answer carries `no-transform`: the framework adds it when it is missing (to this value, a load's, `handle`'s, an error answer's) and never twice, so no proxy rewrites a fragment. See [Caching](/guides/security/#caching) and [HTML rewriters](/guides/deployment/#html-rewriters-and-no-transform). |
 | `publicCacheControl` | `"no-cache"` | The `Cache-Control` of `public/`, served at `/assets/public/*` in a build, on every adapter. Its files keep their names, so by default the browser revalidates them each time (an `ETag`, `304`). A string replaces it (`"public, max-age=3600"`), `false` sends none; the `ETag` and `304` stay. Hashed files, `/index.js` and `/env.js` keep their own. See [Caching](/guides/security/#caching). |
 | `limits.json` | 1 MB | Largest JSON body, in bytes: render requests and `+server.ts`. Bigger answers `413`. |
 | `limits.form` | 1 MB | Largest form-urlencoded or `text/plain` body. |
@@ -215,7 +215,8 @@ will be served, and no answer is rewritten on its way out. The code that
 replaces tokens is not in the server bundle. A render for `host` then knows
 no page: `host.pathname` is `/`, and a form posted without JavaScript from
 it returns to `host`'s root page. With `location` alone, `host` and the page
-are still tokens, replaced per request.
+are still tokens, replaced per request. Only here does an entry's `file`
+write its render as a [static file](/guides/prerendering/#static-files).
 
 ### The element name
 

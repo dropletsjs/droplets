@@ -117,8 +117,9 @@ What each answer sends as `Cache-Control`:
 
 | Answer | `Cache-Control` | Set by |
 | --- | --- | --- |
-| `/assets/*` (but `public/`), `client.js`, `style.css` | `public, max-age=2592000, immutable` | fixed: files under `/assets/` are content-addressed, and the routes carry the build's hash as `?c=<hash>`, so a deploy invalidates them |
+| `/assets/*` (but `public/` and `prerendered/`), `client.js`, `style.css` | `public, max-age=2592000, immutable` | fixed: files under `/assets/` are content-addressed, and the routes carry the build's hash as `?c=<hash>`, so a deploy invalidates them |
 | `/assets/public/*`, the project's `public/` | `no-cache`, with an `ETag` (a `304` while the file is the same) | [`publicCacheControl`](/guides/configuration/#options): another value, or `false` for none; the `ETag` and `304` stay |
+| `/assets/prerendered/*`, the [prerender files](/guides/prerendering/#static-files) | `private, no-store, no-transform`, with an `ETag` | `fragmentCacheControl`, with `no-transform` always added, as on the live fragment |
 | `/index.js`, `/index.css` | `no-store` | fixed |
 | `/env.js` | `public, max-age=600` | `DROPLETS_ENV_MAX_AGE` (seconds, `0` for `no-store`) |
 | fragments and `_data` | `private, no-store, no-transform` | the load's [`setHeaders`](/guides/server/#setheaders), else `fragmentCacheControl` (`false` for none); `handle` has the last word; `no-transform` is always added |
