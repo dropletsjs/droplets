@@ -98,7 +98,8 @@ export type DropletsConfig = {
    * keeps them: `private, no-store, no-transform`. A string replaces it,
    * `false` sends none; a `Cache-Control` that `handle` sets wins. Whatever
    * the value, the answer carries `no-transform`, added when it is missing,
-   * so no proxy rewrites a fragment; the server gzips it instead.
+   * so no proxy rewrites a fragment; the server gzips it instead. The
+   * prerender files an entry's `file` writes get it too, with `no-transform`.
    */
   fragmentCacheControl?: string | false;
   /**

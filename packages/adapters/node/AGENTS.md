@@ -6,8 +6,8 @@
   Checked by: `packages/droplets/test/portability.test.ts`.
 - `/assets/*` serves only files inside `dist/client/assets`; any other path answers 404.
   Checked by: `test/static.test.ts`, `test/app.test.ts`.
-- The headers of the build's files come from the file-header table alone, set by `createServerApp` (hashed files under `/assets/*` `public, max-age=2592000, immutable`, `public/` under `/assets/public/*` `publicCacheControl`); the static handler adds only the content type, and the `ETag` and 304 of `public/`.
-  Checked by: `test/static.test.ts` ("leaves the build files' headers to createServerApp"), `test/app.test.ts` ("answers every build file with the headers of the file-header table").
+- The headers of the build's files come from the file-header table alone, set by `createServerApp` (hashed files under `/assets/*` `public, max-age=2592000, immutable`, `public/` under `/assets/public/*` `publicCacheControl`, the prerender files under `/assets/prerendered/*` `fragmentCacheControl` with `no-transform`); the static handler adds only the content type, and the `ETag` and 304 of `public/` and of the prerender files, which it serves at their extensionless URL as at `<file>.html`.
+  Checked by: `test/static.test.ts` ("leaves the build files' headers to createServerApp", "answers a prerender file without its .html and with it"), `test/app.test.ts` ("answers every build file with the headers of the file-header table", "answers a prerender file with the live fragment's Cache-Control").
 - `build` runs the tests before tsdown (`vitest run && tsdown`); `build:dist` only compiles.
   Checked by: `package.json`.
 - The suite runs on `adapterTests` from `@dropletsjs/shared/vitest`.

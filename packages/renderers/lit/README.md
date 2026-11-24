@@ -154,7 +154,7 @@ inside it) is checked in Chromium by `tests/examples/e2e/lit.spec.ts`.
 - `lit()` packages are `lit`, `lit-html`, `lit-element`, `@lit/reactive-element`, `@lit-labs/ssr-client` and `@dropletsjs/renderer-lit`. `src/index.ts:89`
 - `lit()` componentTypes is `@dropletsjs/renderer-lit`: `./$types` takes `DropletProps` and `DropletErrorProps` from this package. `src/index.ts:90`, `../../droplets/src/vite/sync-types.ts:37`
 - `lit()` server, client, clientDev and clientSetup are `dist/server.js`, `dist/client.js`, `dist/client-dev.js` and `dist/client-setup.js`, found by path. `src/index.ts:92`, `src/index.ts:96`
-- `lit()` has no `readFlags`: core's default reader takes flags from the component's literal named exports. `../../droplets/src/core/discover.ts:146`
+- `lit()` has no `readFlags`: core's default reader takes flags from the component's literal named exports. `../../droplets/src/core/discover.ts:144`
 - `lit({ prefix })` must match `^[a-z][a-z0-9-]*$` (a lowercase letter, then lowercase letters, digits and hyphens), or `lit()` throws naming that. `src/index.ts:83`, `src/index.ts:84`, `test/index.test.ts:31`
 - `DropletProps` data is always a value (`Data`), never a promise: the renderer awaits it. `src/index.ts:60`, `src/client.ts:79`
 - Prefix defaults to the droplets server's element name, read from the core plugin's `api.element()` once the config is resolved; `lit` when there is none. `src/plugin.ts:69`

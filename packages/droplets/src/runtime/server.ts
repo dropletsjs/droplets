@@ -293,6 +293,17 @@ export type TransformInput = Transform | Transform[];
 export type PrerenderEntry = {
   props?: Record<string, unknown>;
   host?: string | URL;
+  /**
+   * Also writes this render as a static file,
+   * `dist/client/assets/prerendered/<id>/<file>.html`, served at
+   * `<location>/assets/prerendered/<id>/<file>`: what the fragment answers
+   * for these props, so a CDN or the platform's static files serve it
+   * without the server. A lowercase kebab-case name (`"page-2"`), unique
+   * among the droplet's entries; another fails the build. Written only when
+   * `droplets.config.ts` sets both `location` and `host`, else ignored with a
+   * build warning. `vite dev` checks it and writes nothing.
+   */
+  file?: string;
 };
 
 /** `entries` in `+droplet.server.ts`: the renders to make at build. */

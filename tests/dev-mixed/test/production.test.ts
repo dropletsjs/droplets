@@ -11,13 +11,16 @@
  * `worker.js`: each framework's production build, never its development one.
  *
  * Built once more for each with `location` and `host` both fixed: no host or
- * location token, and no code that replaces one, in the server's output or
- * the stored renders.
+ * location token, and no code that replaces one, in the server's output, the
+ * stored renders or the prerender files; and each file an entry names is
+ * what the built server answers for its props.
  */
 import { execFileSync } from "node:child_process";
 import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { createNodeServerApp } from "@dropletsjs/adapter-node";
+import { resolveConfig } from "@dropletsjs/droplets";
 import { beforeAll, describe, expect, it } from "vitest";
 
 const here = (path: string) => fileURLToPath(new URL(path, import.meta.url));
@@ -140,8 +143,23 @@ export default function Where({ data }: { data: { page: string } }) {
   return <p data-where>{\`\${droplet.url("/api/x")} \${data.page}\`}</p>;
 }
 `,
-  "+droplet.server.ts": "export const load = ({ host }) => ({ page: host.href });\n",
+  "+droplet.server.ts":
+    'export const load = ({ host }) => ({ page: host.href });\nexport const entries = () => [{ props: {}, file: "home" }];\n',
 };
+
+/** The config of the fixed builds, as their servers resolve it. */
+const FIXED_CONFIG = { element: "djs-mixed", cors: true, location: "https://cdn.example/mfe", host: "https://shop.example" };
+
+/** The prerender file `WHERE`'s entry names. */
+const WHERE_FILE = "client/assets/prerendered/where/home.html";
+
+/** A render request for `WHERE` with its entry's props. */
+const whereRequest = () =>
+  new Request("http://drops.test/droplets/where", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ props: {} }),
+  });
 
 type BuildOptions = { isFixed?: boolean };
 
@@ -295,9 +313,13 @@ describe("a production build for Cloudflare Workers", () => {
   });
 });
 
-/** The server's output (`dist/server*`, `dist/worker.js`) and the stored renders. */
+/** The server's output (`dist/server*`, `dist/worker.js`), the stored renders and the prerender files. */
 const serverFiles = ({ files }: Build) =>
-  files.filter((name) => /^server(?:\.js$|\/)|^worker\.js$|(?:^|\/)_prerendered\//.test(name) && /\.(?:m?js|json)$/.test(name));
+  files.filter(
+    (name) =>
+      (/^server(?:\.js$|\/)|^worker\.js$|(?:^|\/)_prerendered\//.test(name) && /\.(?:m?js|json)$/.test(name)) ||
+      /^client\/assets\/prerendered\/.+\.html$/.test(name),
+  );
 
 type MarkersInput = { build: Build };
 
@@ -320,8 +342,9 @@ describe("a production build with location and host fixed", () => {
     ["Node", () => fixedNode, () => node],
     ["Cloudflare Workers", () => fixedWorkers, () => workers],
   ] as const) {
-    it(`holds no host or location token, nor their replacement, in the server output or the stored renders (${name})`, () => {
+    it(`holds no host or location token, nor their replacement, in the server output, the stored renders or the files (${name})`, () => {
       expect(serverFiles(fixed()).some((file) => file.includes("_prerendered/"))).toBe(true);
+      expect(serverFiles(fixed())).toContain(WHERE_FILE);
       expect(Object.values(tokenMarkers({ build: fixed() })).flat()).toEqual([]);
     });
 
@@ -337,5 +360,38 @@ describe("a production build with location and host fixed", () => {
     const render = JSON.parse(readFileSync(join(fixedNode.dist, stored[0]!), "utf8")) as { html: string; nonce?: string };
     expect(render.html).toContain("https://cdn.example/mfe/api/x https://shop.example/");
     expect(render.nonce).toBeUndefined();
+  });
+
+  it("writes the entry's file in both fixed builds, as the built server answers for its props, and in neither live one", async () => {
+    for (const build of [node, workers]) expect(build.files.filter((file) => file.includes("assets/prerendered"))).toEqual([]);
+    const nodeFile = readFileSync(join(fixedNode.dist, WHERE_FILE), "utf8");
+    expect(nodeFile).toContain("https://cdn.example/mfe/api/x https://shop.example/");
+    const server = await createNodeServerApp(
+      { clientRoot: join(fixedNode.dist, "client"), ssrEntryUrl: pathToFileURL(join(fixedNode.dist, "server/entry-server.js")).href },
+      resolveConfig(FIXED_CONFIG),
+    );
+    const answer = await server.request(whereRequest());
+    expect(answer.status).toBe(200);
+    expect(await answer.text()).toBe(nodeFile);
+
+    const workerFile = readFileSync(join(fixedWorkers.dist, WHERE_FILE), "utf8");
+    expect(workerFile).toContain("https://cdn.example/mfe/api/x https://shop.example/");
+    const { default: worker } = (await import(pathToFileURL(join(fixedWorkers.dist, "worker.js")).href)) as {
+      default: { fetch(request: Request, env: unknown, ctx: unknown): Promise<Response> };
+    };
+    const client = join(fixedWorkers.dist, "client");
+    const ASSETS = {
+      fetch: async (input: Request | string | URL) => {
+        const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
+        try {
+          return new Response(readFileSync(join(client, path)));
+        } catch {
+          return new Response("Not Found", { status: 404 });
+        }
+      },
+    };
+    const fromWorker = await worker.fetch(whereRequest(), { ASSETS }, {});
+    expect(fromWorker.status).toBe(200);
+    expect(await fromWorker.text()).toBe(workerFile);
   });
 });

@@ -237,6 +237,43 @@ describe("worker", () => {
     expect(matched.headers.get("cache-control")).toBe("no-cache");
   });
 
+  it("answers a prerender file with the live fragment's Cache-Control, never immutable: an ETag, 304 when it matches, never handle", async () => {
+    const live = (await call({ path: "/droplets/hello" })).headers.get("cache-control");
+    expect(live).toBe("private, no-store, no-transform");
+    // The binding serves `page-2.html` at `page-2` (`html_handling`), with no ETag of its own here.
+    const binding = {
+      fetch: async (input: Request) =>
+        new URL(input.url).pathname === "/assets/prerendered/hello/page-2"
+          ? new Response("<test-droplet>2</test-droplet>", {
+              headers: { "content-type": "text/html", "cache-control": "public, max-age=0" },
+            })
+          : new Response("<h1>binding 404</h1>", { status: 404 }),
+    };
+    const ask = ({ init }: OwnInput = {}) =>
+      worker.default.fetch(new Request("http://drops.test/assets/prerendered/hello/page-2", init), { ...env, ASSETS: binding }, {});
+    const res = await ask();
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("<test-droplet>2</test-droplet>");
+    const etag = res.headers.get("etag") ?? expect.unreachable("an etag");
+    const again = await ask({ init: { headers: { "if-none-match": etag } } });
+    expect(again.status).toBe(304);
+    for (const answer of [res, again]) {
+      expect({
+        cache: answer.headers.get("cache-control"),
+        cors: answer.headers.get("access-control-allow-origin"),
+        nosniff: answer.headers.get("x-content-type-options"),
+        hook: answer.headers.get("x-fixture-hook"),
+      }).toEqual({ cache: live, cors: "*", nosniff: "nosniff", hook: null });
+    }
+    const missing = await worker.default.fetch(
+      new Request("http://drops.test/assets/prerendered/hello/away"),
+      { ...env, ASSETS: binding },
+      {},
+    );
+    expect(missing.status).toBe(404);
+    expect(missing.headers.get("cache-control")).toBe("no-store");
+  });
+
   it("answers every build file that reaches it with the headers of the file-header table, and no other of the table's", async () => {
     const manifest = JSON.parse(await readFile(resolve(outDir, "client/droplets.json"), "utf8"));
     const immutable = "public, max-age=2592000, immutable";

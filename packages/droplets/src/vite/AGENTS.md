@@ -34,6 +34,8 @@
   Checked by: `test/integration/prerender-host.test.ts`, `packages/renderers/lit/test/conformance.test.ts`.
 - A prerender entry's `host` passes the bound a request's host passes at runtime, checked in `prerender.ts` with the runtime's own `withinTrusted` and `trustedOriginsWith`: the origin of `host` of the config when it is set, else `trustedOrigins` with `DROPLETS_TRUSTED_ORIGINS` from `process.env` (the origin of `location` is the server's own); outside it the build fails before any render, naming the entry and the bound.
   Checked by: `test/integration/prerender-entry-host.test.ts`.
+- A prerender file (`dist/client/assets/prerendered/<id>/<file>.html`) is written only with `location` and `host` both set, holds no token, and is exactly the body a server over the stored renders answers for its entry's props, a `200` only; without both, `file` is still checked and nothing is written, with one warning. `vite dev` writes none and answers its URL `404`, in `dev.ts` alone.
+  Checked by: `test/integration/prerender-files.test.ts`, `test/vite/dev.test.ts`, `tests/dev-mixed/test/production.test.ts`, `tests/dev-mixed/test/dev.test.ts`.
 - `vite build` requires an adapter; `vite dev` runs without one.
   Checked by: `test/vite/build.test.ts`, `test/integration/vite.test.ts`.
 - Code generated as strings calls the runtime entries in `dist/runtime/` with their exported signatures; a change to one of those signatures changes the template in the same commit.

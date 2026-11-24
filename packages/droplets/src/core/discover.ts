@@ -16,6 +16,7 @@ import {
   type HydrateMode,
   type RenderFlags,
 } from "../renderer.ts";
+import { isKebabName } from "../runtime/web-url.ts";
 
 export type { RenderFlags } from "../renderer.ts";
 
@@ -66,12 +67,9 @@ export type DiscoverDropletsInput = {
   renderers?: DropletRenderer[];
 };
 
-/** A droplet folder's name, which is its id: lowercase kebab-case. */
-const DROPLET_FOLDER = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-
 /** Folder name -> route id: the name itself when it is lowercase kebab-case (`hello-world`), else `null`. */
 export function dropletId({ folderName }: DropletIdInput): string | null {
-  return DROPLET_FOLDER.test(folderName) ? folderName : null;
+  return isKebabName({ name: folderName }) ? folderName : null;
 }
 
 /** Whether the droplet ships a browser bundle: it hydrates, its error page with it. */

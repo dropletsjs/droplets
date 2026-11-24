@@ -120,7 +120,7 @@ Vite).
 - `preact()` sets no `suffixes` and no `clientSetup`. `src/index.ts:71`
 - `preact()` componentTypes is `@dropletsjs/renderer-preact`: `./$types` takes `DropletProps` and `DropletErrorProps` from it. `src/index.ts:75`, `../../droplets/src/vite/sync-types.ts:37`
 - `preact()` server, client and clientDev are `dist/server.js`, `dist/client.js`, `dist/client-dev.js` under the package root. `src/index.ts:78`
-- `preact()` has no `readFlags`: core reads the named exports with `readExportedFlags`. `../../droplets/src/core/discover.ts:146`, `test/index.test.ts:31`
+- `preact()` has no `readFlags`: core reads the named exports with `readExportedFlags`. `../../droplets/src/core/discover.ts:144`, `test/index.test.ts:31`
 - `preact()` plugins are a function of core's scope: one `droplets:preact` with `scope.include`; `plugin: false` leaves `plugins` unset. `src/index.ts:77`
 - `DropletProps` has `data` (always the value), `form?` and `children?`. `src/index.ts:48`
 - `DropletErrorProps` has `error` and `children?`. `src/index.ts:56`

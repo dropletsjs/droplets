@@ -50,7 +50,7 @@ function toJson({ text }: ToJsonInput): string {
 type ReadWranglerConfigInput = { file: string; text: string };
 
 /** What the adapter reads of a wrangler config: each `undefined` when it is not set. */
-type WranglerConfig = { runWorkerFirst: unknown; compatibilityFlags: unknown };
+type WranglerConfig = { runWorkerFirst: unknown; compatibilityFlags: unknown; htmlHandling: unknown };
 
 type TomlValueInput = { section: string; key: string };
 
@@ -60,7 +60,7 @@ function tomlValue({ section, key }: TomlValueInput): unknown {
   return value === undefined ? undefined : JSON.parse(value.replace(/'/g, '"'));
 }
 
-/** `assets.run_worker_first` and the top-level `compatibility_flags` of a wrangler config's text; throws when the text does not parse. */
+/** `assets.run_worker_first`, `assets.html_handling` and the top-level `compatibility_flags` of a wrangler config's text; throws when the text does not parse. */
 function readWranglerConfig({ file, text }: ReadWranglerConfigInput): WranglerConfig {
   if (file.endsWith(".toml")) {
     const top = /^([\s\S]*?)(?=^\[|(?![\s\S]))/m.exec(text)?.[1] ?? "";
@@ -68,10 +68,18 @@ function readWranglerConfig({ file, text }: ReadWranglerConfigInput): WranglerCo
     return {
       runWorkerFirst: tomlValue({ section: assets, key: "run_worker_first" }),
       compatibilityFlags: tomlValue({ section: top, key: "compatibility_flags" }),
+      htmlHandling: tomlValue({ section: assets, key: "html_handling" }),
     };
   }
-  const config = JSON.parse(toJson({ text })) as { assets?: { run_worker_first?: unknown }; compatibility_flags?: unknown };
-  return { runWorkerFirst: config.assets?.run_worker_first, compatibilityFlags: config.compatibility_flags };
+  const config = JSON.parse(toJson({ text })) as {
+    assets?: { run_worker_first?: unknown; html_handling?: unknown };
+    compatibility_flags?: unknown;
+  };
+  return {
+    runWorkerFirst: config.assets?.run_worker_first,
+    compatibilityFlags: config.compatibility_flags,
+    htmlHandling: config.assets?.html_handling,
+  };
 }
 
 type HasNodeCompatInput = { flags: unknown };
@@ -82,6 +90,11 @@ function hasNodeCompat({ flags }: HasNodeCompatInput): boolean {
 }
 
 const DEPLOYMENT_DOCS = "https://dropletsjs.dev/guides/deployment/";
+
+const PRERENDER_FILES_DOCS = "https://dropletsjs.dev/guides/prerendering/#static-files";
+
+/** Where `vite build` writes the prerender files an entry's `file` names, in `dist/client`. */
+const PRERENDERED_FILES = "assets/prerendered";
 
 type PatternsInput = { wider: string; narrower: string };
 
@@ -215,6 +228,7 @@ async function filePaths({ manifestPath }: FilePathsInput): Promise<string[]> {
     "/index.css",
     "/assets/index.js",
     "/assets/public/index.txt",
+    "/assets/prerendered/x/y",
     "/droplets/x/client.js",
     "/droplets/x/style.css",
   ];
@@ -337,6 +351,19 @@ export function cloudflare(options: CloudflareAdapterOptions = {}): DropletsAdap
         logger.warn(
           "framework",
           `${file}: compatibility_flags has no "nodejs_compat", so the Worker has no AsyncLocalStorage and requests that overlap share one request store; set "compatibility_flags": ["nodejs_compat"], see ${DEPLOYMENT_DOCS}#cloudflare-workers`,
+        );
+      }
+      const files = "/assets/prerendered/<id>/<file>";
+      if (read.htmlHandling === "none" && existsSync(resolve(client, PRERENDERED_FILES))) {
+        logger.warn(
+          "framework",
+          `${file}: assets.html_handling is "none", so ${files} answers 404 (only <file>.html is served); leave html_handling out, see ${PRERENDER_FILES_DOCS}`,
+        );
+      }
+      if (read.htmlHandling === "force-trailing-slash" && existsSync(resolve(client, PRERENDERED_FILES))) {
+        logger.warn(
+          "framework",
+          `${file}: assets.html_handling is "force-trailing-slash", so ${files} redirects to ${files}/; leave html_handling out, see ${PRERENDER_FILES_DOCS}`,
         );
       }
       const value = read.runWorkerFirst;

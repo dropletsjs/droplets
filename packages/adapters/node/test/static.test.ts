@@ -19,6 +19,9 @@ describe("createStaticHandler", () => {
     await writeFile(join(root, "droplets.json"), "{}");
     await mkdir(join(root, "assets/public/img"), { recursive: true });
     await writeFile(join(root, "assets/public/img/logo.svg"), "<svg/>");
+    await mkdir(join(root, "assets/prerendered/testimonials"), { recursive: true });
+    await writeFile(join(root, "assets/prerendered/testimonials/page-2.html"), "<djs-droplet>2</djs-droplet>");
+    await writeFile(join(root, "prerendered.html"), "outside");
     app = new Hono();
     app.get("/assets/*", createStaticHandler({ clientRoot: root }));
   });
@@ -86,6 +89,28 @@ describe("createStaticHandler", () => {
     expect(changed.status).toBe(200);
     // Hashed files never revalidate.
     expect((await app.request("/assets/style-abc.css")).headers.get("etag")).toBeNull();
+  });
+
+  it("answers a prerender file without its .html and with it, with an ETag, 304 when it matches", async () => {
+    for (const path of ["/assets/prerendered/testimonials/page-2", "/assets/prerendered/testimonials/page-2.html"]) {
+      const res = await app.request(path);
+      expect(res.status, path).toBe(200);
+      expect(await res.text()).toBe("<djs-droplet>2</djs-droplet>");
+      expect(res.headers.get("content-type")).toBe("text/html; charset=utf-8");
+      expect(res.headers.get("cache-control")).toBeNull();
+      const etag = res.headers.get("etag") ?? expect.unreachable("an etag");
+      const again = await app.request(path, { headers: { "if-none-match": etag } });
+      expect(again.status).toBe(304);
+      expect(await again.text()).toBe("");
+    }
+    for (const path of [
+      "/assets/prerendered/testimonials/page-3",
+      "/assets/prerendered/testimonials",
+      "/assets/prerendered/testimonials/",
+      "/assets/prerendered/..%2F..%2Fprerendered",
+    ]) {
+      expect((await app.request(path)).status, path).toBe(404);
+    }
   });
 
   it("404s missing files with a text Not Found that is never cached", async () => {

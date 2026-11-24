@@ -10,6 +10,7 @@ import { PropsError, prerenderKey, propsKey, validateProps } from "./props.ts";
 import { isRenderTimeout } from "./render-timeout.ts";
 import { requestInfo, withRequestInfo } from "./request-store.ts";
 import { matchRoute, type ApiMatch, type ApiRoute } from "./routes.ts";
+import { isKebabName } from "./web-url.ts";
 import {
   HttpError,
   isHostUrlPropsErrorInPrerender,
@@ -148,22 +149,24 @@ export async function validateDropletProps(name: string, props: Record<string, u
 }
 
 /** One render to make at build, as `entries` asked for it. */
-export type BuildEntry = { props: Record<string, unknown>; host?: string };
+export type BuildEntry = { props: Record<string, unknown>; host?: string; file?: string };
 
-const ENTRY_KEYS = new Set(["props", "host"]);
+const ENTRY_KEYS = new Set(["props", "host", "file"]);
 
 /**
  * The renders to make at build: `entries` from `+droplet.server.ts`, or
- * `[{}]`. Each is an event, `{ props?, host? }`; `host` comes back as an
- * absolute URL string.
+ * `[{}]`. Each is an event, `{ props?, host?, file? }`; `host` comes back as
+ * an absolute URL string, `file` as a lowercase kebab-case name no other
+ * entry of the droplet has.
  */
 export async function getEntries(name: string): Promise<BuildEntry[]> {
   const mod = await findEntry({ name })?.serverLoad?.();
   if (typeof mod?.entries !== "function") return [{ props: {} }];
   const entries: unknown = await mod.entries();
   if (!Array.isArray(entries)) {
-    throw new Error(`${name}: entries() must return an array of events, e.g. [{ props: { page: 1 } }]`);
+    throw new Error(`droplets: ${name}: entries() must return an array of events, e.g. [{ props: { page: 1 } }]`);
   }
+  const files = new Set<string>();
   return entries.map((entry: unknown): BuildEntry => {
     const shape =
       typeof entry === "object" && entry !== null && !Array.isArray(entry)
@@ -171,17 +174,32 @@ export async function getEntries(name: string): Promise<BuildEntry[]> {
         : null;
     if (!shape || shape.length > 0) {
       throw new Error(
-        `${name}: entries() returns events, { props?, host? }; got ${JSON.stringify(entry)}. Props go under props: [{ props: { page: 1 } }]`,
+        `droplets: ${name}: entries() returns events, { props?, host?, file? }; got ${JSON.stringify(entry)}. Props go under props: [{ props: { page: 1 } }]`,
       );
     }
-    const { props, host } = entry as { props?: unknown; host?: unknown };
+    const { props, host, file } = entry as { props?: unknown; host?: unknown; file?: unknown };
     if (props !== undefined && (typeof props !== "object" || props === null || Array.isArray(props))) {
-      throw new Error(`${name}: an entry's props must be an object, got ${JSON.stringify(props)}`);
+      throw new Error(`droplets: ${name}: an entry's props must be an object, got ${JSON.stringify(props)}`);
     }
-    if (host === undefined) return { props: (props ?? {}) as Record<string, unknown> };
-    const url = parseHost({ value: host });
-    if (!url) throw new Error(`${name}: an entry's host must be an absolute URL, got ${JSON.stringify(String(host))}`);
-    return { props: (props ?? {}) as Record<string, unknown>, host: url.href };
+    let url: URL | null = null;
+    if (host !== undefined) {
+      url = parseHost({ value: host });
+      if (!url) throw new Error(`droplets: ${name}: an entry's host must be an absolute URL, got ${JSON.stringify(String(host))}`);
+    }
+    if (file !== undefined) {
+      if (typeof file !== "string" || !isKebabName({ name: file })) {
+        throw new Error(
+          `droplets: ${name}: an entry's file is a lowercase kebab-case name such as "page-2" (letters, digits, single hyphens), got ${JSON.stringify(file) ?? String(file)}`,
+        );
+      }
+      if (files.has(file)) throw new Error(`droplets: ${name}: two entries name the file "${file}"; give each entry its own file`);
+      files.add(file);
+    }
+    return {
+      props: (props ?? {}) as Record<string, unknown>,
+      ...(url ? { host: url.href } : {}),
+      ...(file === undefined ? {} : { file }),
+    };
   });
 }
 

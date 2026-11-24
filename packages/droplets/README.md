@@ -152,6 +152,7 @@ export const load = ({ props }: LoadEvent) => {
 | `GET /env.js` | The public variables read at runtime, as a script `/index.js` imports; `404` without one |
 | `GET /assets/*` | Built files, cached for good (the adapter serves them) |
 | `GET /assets/public/*` | The project's `public/` folder, `publicCacheControl` with an `ETag` |
+| `GET /assets/prerendered/<id>/<file>` | An entry's render written as a file (with `location` and `host` set), `fragmentCacheControl` with `no-transform` and an `ETag` |
 | `ALL /api`, `/api/*` | `+server.ts` endpoints |
 | `GET /health` | `ok` (the `health` option; before `handle`) |
 | `GET /` | The index page: the `index` file, by default `index.html` in the root, or a placeholder page without one; `404` with `index: false` |
@@ -303,16 +304,16 @@ renderer under `testing/`.
 - `createServerApp` throws when the SSR bundle exports neither `renderDroplet` nor a default. `src/server/app.ts:91`
 - `cors` allowing every origin warns once under `vite dev` (`devLog`); `createServerApp` warns about nothing. `src/runtime/app.ts:848`, `src/runtime/dev-log.ts:62`
 - `createServerApp` mounts `/assets/*` on the adapter's `assetHandler`. `src/server/app.ts:133`
-- `createServerApp` passes `fileHeaderTable(config)` to the app, which sets the matching rule's headers on every 2xx or 304 answer to a build file: `/index.js`, `/index.css`, `/assets/*`, `/droplets/<id>/client.js` and `style.css`. `src/server/app.ts:123`, `src/runtime/app.ts:1223`
-- `fileHeaderTable(config)` is an ordered list of `{ path, headers }`: a `:name` segment matches one non-empty segment, a final `*` a non-empty rest; a narrower pattern comes after the wider one it refines, and a path takes the last rule that matches, all its headers and no other header the table names. `src/runtime/file-headers.ts:11`, `src/runtime/file-headers.ts:29`, `src/runtime/file-headers.ts:47`, `src/runtime/file-headers.ts:63`, `src/runtime/file-headers.ts:74`
-- `fileHeaderTable(config)` reads `publicCacheControl` alone; `/index.js` and `/index.css` are `no-store`, `/assets/*`, `client.js` and `style.css` `public, max-age=2592000, immutable`; every rule carries `Access-Control-Allow-Origin: *` and `X-Content-Type-Options: nosniff`. `src/runtime/file-headers.ts:17`, `src/runtime/file-headers.ts:22`, `src/runtime/file-headers.ts:29`
+- `createServerApp` passes `fileHeaderTable(config)` to the app, which sets the matching rule's headers on every 2xx or 304 answer to a build file: `/index.js`, `/index.css`, `/assets/*` (`public/` and `prerendered/` included), `/droplets/<id>/client.js` and `style.css`. `src/server/app.ts:123`, `src/runtime/app.ts:1223`
+- `fileHeaderTable(config)` is an ordered list of `{ path, headers }`: a `:name` segment matches one non-empty segment, a final `*` a non-empty rest; a narrower pattern comes after the wider one it refines, and a path takes the last rule that matches, all its headers and no other header the table names. `src/runtime/file-headers.ts:12`, `src/runtime/file-headers.ts:30`, `src/runtime/file-headers.ts:53`, `src/runtime/file-headers.ts:69`, `src/runtime/file-headers.ts:80`
+- `fileHeaderTable(config)` reads `publicCacheControl` and `fragmentCacheControl`; `/index.js` and `/index.css` are `no-store`, `/assets/*`, `client.js` and `style.css` `public, max-age=2592000, immutable`, `/assets/prerendered/*` `fragmentCacheControl` with `no-transform` (`withNoTransform`, as the live fragment); every rule carries `Access-Control-Allow-Origin: *` and `X-Content-Type-Options: nosniff`. `src/runtime/file-headers.ts:18`, `src/runtime/file-headers.ts:23`, `src/runtime/file-headers.ts:30`, `src/runtime/file-headers.ts:43`
 - `fileHeaderTable` and `fileHeadersFor` are internal; an adapter gets the table as `fileHeaders` in `afterBuild`, and `createServerApp` applies it. Only the `FileHeaderRule` type is exported from `@dropletsjs/droplets`, as the type of that field. `src/index.ts:85`, `src/adapters.ts:64`, `src/vite/plugin.ts:567`
 - `AssetLoaders`: every loader returns `null` for something that does not exist. `src/server/app.ts:46`
 - `FALLBACK_MANIFEST` is the manifest a runtime answers with before the build is found: no droplets, `__entryClient` `index.js`. `src/server/manifest.ts:42`
-- `PRERENDER_DIR` is `_prerendered`: `dist/server/_prerendered/` with a separate SSR bundle, else `dist/client/_prerendered/<random>/` named only in the manifest. `src/server/prerendered.ts:15`, `src/server/prerendered.ts:3`
-- `createPrerenderedLoader` reads each droplet's `index.json` once and each render on demand. `src/server/prerendered.ts:57`, `src/server/prerendered.ts:62`
-- `createPrerenderedLoader` reads nothing for a droplet name that is not one path segment (`""`, `.`, `..`, `/`, `\`, NUL). `src/server/prerendered.ts:30`
-- `createPrerenderedLoader` looks a props key up with `Object.hasOwn`; a malformed file counts as no render. `src/server/prerendered.ts:68`, `src/server/prerendered.ts:44`
+- `PRERENDER_DIR` is `_prerendered`: `dist/server/_prerendered/` with a separate SSR bundle, else `dist/client/_prerendered/<random>/` named only in the manifest. `src/server/prerendered.ts:18`, `src/server/prerendered.ts:3`
+- `createPrerenderedLoader` reads each droplet's `index.json` once and each render on demand. `src/server/prerendered.ts:67`, `src/server/prerendered.ts:72`
+- `createPrerenderedLoader` reads nothing for a droplet name that is not one path segment (`""`, `.`, `..`, `/`, `\`, NUL). `src/server/prerendered.ts:40`
+- `createPrerenderedLoader` looks a props key up with `Object.hasOwn`; a malformed file counts as no render. `src/server/prerendered.ts:78`, `src/server/prerendered.ts:54`
 - Script droplet renderer is built in, named `script`, for `+droplet.script.ts` and `+droplet.script.js`; core adds it after the user's renderers. `src/renderer.ts:614`, `src/renderer.ts:616`, `src/script/index.ts:81`
 - Script droplet is client only: `ssr` false, `hydrate` true, `prerender` false, whatever the file exports. `src/script/index.ts:42`, `src/script/index.ts:64`
 - Script droplet flag never fails the build: `hydrate = true` warns `exports hydrate = true; a script droplet is always hydrated (locked to true)`, any other flag `exports <name> = <value>; this is ignored, a script droplet is client only`, with the value as the file writes it when it is no literal (`ssr = !dev`), never the generic `must be a literal` warning. `src/script/index.ts:57`, `src/script/index.ts:61`, `src/script/index.ts:62`
@@ -332,18 +333,18 @@ renderer under `testing/`.
 - `handle` never runs for `/index.js`, `/index.css`, `/env.js` and `/assets/*`. `src/runtime/app.ts:357`, `src/runtime/app.ts:983`
 - Routes: `/` `src/runtime/app.ts:1113`, `/index.js` `src/runtime/app.ts:1120`, `/index.css` `src/runtime/app.ts:1148`, `style.css` `src/runtime/app.ts:1161`, `client.js` `src/runtime/app.ts:1177`, `_data` `src/runtime/app.ts:1294`, the fragment `src/runtime/app.ts:1682`, `/api` `src/runtime/app.ts:1723`
 - `_data` answers `405` with `allow: GET, POST` for `PUT`, `PATCH`, `DELETE`. `src/runtime/app.ts:1290`
-- `fragmentCacheControl` defaults to `private, no-store, no-transform`. `src/core/config.ts:213`
+- `fragmentCacheControl` defaults to `private, no-store, no-transform`. `src/core/config.ts:214`
 - Every fragment and `_data` answer but a redirect and a form action's JSON carries `no-transform` in `Cache-Control`: added once (any case) to the value it has, alone when it has none, an error answer included. `src/runtime/app.ts:1057`, `src/runtime/compress.ts:40`
 - Those answers are gzipped with `CompressionStream` when `Accept-Encoding` takes gzip (`gzip`, `x-gzip` or `*` with a weight above 0; `gzip;q=0` refuses) and the body is 1024 bytes or more, by `Content-Length` or else by reading its first 1024 bytes; never for `HEAD`, a `204`/`205`/`304`, or an answer with a `Content-Encoding`; `Content-Length` is dropped and a streamed body stays streamed. `src/runtime/compress.ts:9`, `src/runtime/compress.ts:17`, `src/runtime/compress.ts:100`
 - They vary on `accept-encoding`, after the host headers, compressed or not. `src/runtime/app.ts:1059`
 - A gzipped answer is built with `encodeBody: "manual"`: Workers would gzip it again by its `Content-Encoding`; other runtimes ignore the option. `src/runtime/compress.ts:125`
 - `event.fetch` sends an internal request without `Accept-Encoding`, so a fragment comes back decoded as from `fetch`. `src/runtime/event-fetch.ts:76`
-- Under `vite dev`, a gzipped fragment that gets `data-droplet-context` is decoded first and answered plain. `src/vite/dev.ts:56`
+- Under `vite dev`, a gzipped fragment that gets `data-droplet-context` is decoded first and answered plain. `src/vite/dev.ts:58`
 - Droplet file URLs (the stylesheet, `client.js`, the `Link` preloads) are built on the request's droplet location. `src/runtime/app.ts:1337`
 - `style.css` imports each stylesheet as `../../<file>`, relative to itself. `src/runtime/app.ts:307`
 - Dev element code enters production code through one gate: `if (import.meta.env.DEV) installDevElement(...)`. `src/runtime/entry-client.ts:1374`
 - Client module dev hooks (`update`, the HMR fallback) are emitted only under `vite dev` or a non-production build. `src/vite/virtual.ts:736`
 - Build hash is random per plugin instance, so per build environment; the entry module is named `assets/index.[hash].js`, not after it. `src/vite/state.ts:79`, `src/vite/build.ts:33`
-- Dev serves no droplet stylesheets: a `hydrate = false` droplet renders without its component styles in dev. `src/vite/dev.ts:347`
-- Flags are read from the droplet's component only; flags `+error.*` declares warn in dev and are ignored. `src/core/discover.ts:171`, `src/core/discover.ts:180`
+- Dev serves no droplet stylesheets: a `hydrate = false` droplet renders without its component styles in dev. `src/vite/dev.ts:361`
+- Flags are read from the droplet's component only; flags `+error.*` declares warn in dev and are ignored. `src/core/discover.ts:169`, `src/core/discover.ts:178`
 - Flag not a literal: warns and is ignored. `src/core/flags.ts:127`

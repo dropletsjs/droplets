@@ -136,3 +136,70 @@ describe("entry-server: finding a form action", () => {
     }
   });
 });
+
+describe("entry-server: entries", () => {
+  type WithEntriesInput = { entries: unknown };
+
+  const withEntries = ({ entries }: WithEntriesInput) =>
+    entryServer({ droplets: { testimonials: { component: async () => ({}), serverLoad: async () => ({ entries: () => entries }) } } });
+
+  it("takes an entry's file, and leaves it out when it is undefined", async () => {
+    const { getEntries } = await withEntries({
+      entries: [{ props: { page: 2 }, file: "page-2" }, { props: { page: 3 }, file: undefined }, { file: "a1-b2-c3" }],
+    });
+    expect(await getEntries("testimonials")).toEqual([
+      { props: { page: 2 }, file: "page-2" },
+      { props: { page: 3 } },
+      { props: {}, file: "a1-b2-c3" },
+    ]);
+  });
+
+  it("refuses a file that is not lowercase kebab-case, naming the droplet and the value", async () => {
+    for (const [file, shown] of [
+      ["Page-2", '"Page-2"'],
+      ["page_2", '"page_2"'],
+      ["page--2", '"page--2"'],
+      ["-a", '"-a"'],
+      ["a-", '"a-"'],
+      ["", '""'],
+      ["a/b", '"a/b"'],
+      ["../x", '"../x"'],
+      ["page-2.html", '"page-2.html"'],
+      [2, "2"],
+      [null, "null"],
+    ] as const) {
+      const { getEntries } = await withEntries({ entries: [{ props: {}, file }] });
+      await expect(getEntries("testimonials"), String(file)).rejects.toThrow(
+        `droplets: testimonials: an entry's file is a lowercase kebab-case name such as "page-2" (letters, digits, single hyphens), got ${shown}`,
+      );
+    }
+  });
+
+  it("refuses two entries with the same file", async () => {
+    const { getEntries } = await withEntries({
+      entries: [
+        { props: { page: 1 }, file: "page" },
+        { props: { page: 2 }, file: "page" },
+      ],
+    });
+    await expect(getEntries("testimonials")).rejects.toThrow(
+      `droplets: testimonials: two entries name the file "page"; give each entry its own file`,
+    );
+  });
+
+  it("names file in the shape of an event, and starts every message with droplets: and the id", async () => {
+    const cases: Array<[unknown, string]> = [
+      [{ props: {} }, "droplets: testimonials: entries() must return an array of events, e.g. [{ props: { page: 1 } }]"],
+      [
+        [{ page: 1 }],
+        'droplets: testimonials: entries() returns events, { props?, host?, file? }; got {"page":1}. Props go under props: [{ props: { page: 1 } }]',
+      ],
+      [[{ props: [] }], "droplets: testimonials: an entry's props must be an object, got []"],
+      [[{ host: "/docs" }], 'droplets: testimonials: an entry\'s host must be an absolute URL, got "/docs"'],
+    ];
+    for (const [entries, message] of cases) {
+      const { getEntries } = await withEntries({ entries });
+      await expect(getEntries("testimonials")).rejects.toThrow(message);
+    }
+  });
+});

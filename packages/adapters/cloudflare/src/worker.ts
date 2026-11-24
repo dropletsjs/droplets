@@ -76,13 +76,15 @@ function createAssetLoaders({ assets }: AssetLoadersOptions): AssetLoaders {
     dropletStyles: (droplet) => Promise.resolve(dropletEntry({ droplet })?.css ?? []),
     // The entry, shared chunks and assets, from the binding; the server
     // sets their headers (`fileHeaderTable`). `public/` under
-    // `/assets/public/` keeps its names, so it has an ETag and a 304.
+    // `/assets/public/` and the prerender files under `/assets/prerendered/`
+    // keep their names, so they have an ETag and a 304.
     assetHandler: async (c) => {
       const response = await assets.fetch(c.req.raw);
       // A missing file answers as it does on Node, never with the binding's own page.
       if (response.status === 404) return c.text("Not Found", 404, { "cache-control": "no-store" });
       if (response.status >= 400) return uncached({ response });
-      if (!c.req.path.startsWith("/assets/public/") || (!response.ok && response.status !== 304)) return response;
+      const isRevalidated = c.req.path.startsWith("/assets/public/") || c.req.path.startsWith("/assets/prerendered/");
+      if (!isRevalidated || (!response.ok && response.status !== 304)) return response;
       return revalidated({ response, ifNoneMatch: c.req.header("if-none-match") });
     },
   };

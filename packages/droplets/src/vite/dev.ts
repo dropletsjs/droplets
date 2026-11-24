@@ -16,6 +16,7 @@ import {
 } from "../runtime/app.ts";
 import type { HandleServerError, ImportMap, ImportMapHandler } from "../runtime/server.ts";
 import type { SsrModule } from "../server/app.ts";
+import { PRERENDERED_FILES_DIR } from "../server/prerendered.ts";
 import { createDevLog } from "../runtime/dev-log.ts";
 import { withoutRequestInfo } from "../runtime/request-store.ts";
 import { locationScript, publicEnvScript, serverKey } from "../runtime/server-records.ts";
@@ -27,6 +28,7 @@ import { externalsList, type PluginState } from "./state.ts";
 import { syncTypes } from "./sync-types.ts";
 import { clientEntryId, RESOLVED_VIRTUAL_DROPLETS } from "./virtual.ts";
 import { replacers } from "../runtime/host-tokens.ts";
+import { isKebabName } from "../runtime/web-url.ts";
 
 /**
  * `handleError` under `vite dev`: a form action's data that cannot travel
@@ -313,6 +315,18 @@ export function createDevRuntime({ server, state }: DevRuntimeOptions): DevRunti
   };
 }
 
+type PrerenderedFileNoticeInput = { path: string };
+
+/**
+ * What `vite dev` says for a prerender file's URL, which it never serves:
+ * where the files come from, and what to ask for instead.
+ */
+export function prerenderedFileNotice({ path }: PrerenderedFileNoticeInput): string {
+  const segment = path.slice(`/${PRERENDERED_FILES_DIR}/`.length).split("/")[0];
+  const id = isKebabName({ name: segment }) ? segment : "<id>";
+  return `${path}: prerender files are written by vite build only, with location and host set in droplets.config.ts; vite dev writes and serves none. In dev, ask for the live fragment /droplets/${id}; to test the files, run vite build and vite preview (with location set, the URLs inside a file point at that location).`;
+}
+
 /**
  * The Hono app for `vite dev`: Vite transforms modules on demand, the SSR
  * module is re-evaluated per request so edits show up without a restart.
@@ -466,6 +480,15 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
     render: config.render,
   });
   if (state.publicDir) app.get(`/${PUBLIC_PATH}/*`, publicFileHandler({ publicDir: state.publicDir }));
+  const noticed = new Set<string>();
+  app.get(`/${PRERENDERED_FILES_DIR}/*`, (c) => {
+    const notice = prerenderedFileNotice({ path: c.req.path });
+    if (!noticed.has(c.req.path)) {
+      noticed.add(c.req.path);
+      logger.warn("framework", notice);
+    }
+    return c.text(`Not Found\n\n${notice}\n`, 404, { "cache-control": "no-store" });
+  });
   // `request()` goes through `fetch` too.
   const appFetch = app.fetch;
   app.fetch = async (request, ...rest) => {

@@ -121,7 +121,7 @@ Vite); `client-setup` is a client entry.
 - `react()` sets no `suffixes`. `src/index.ts:75`
 - `react()` componentTypes is `@dropletsjs/renderer-react`: `./$types` takes `DropletProps` and `DropletErrorProps` from it. `src/index.ts:79`, `../../droplets/src/vite/sync-types.ts:37`
 - `react()` server, client, clientDev and clientSetup are `dist/server.js`, `dist/client.js`, `dist/client-dev.js`, `dist/client-setup.js` under the package root. `src/index.ts:96`, `src/index.ts:100`
-- `react()` has no `readFlags`: core reads the named exports with `readExportedFlags`. `../../droplets/src/core/discover.ts:146`, `test/index.test.ts:46`
+- `react()` has no `readFlags`: core reads the named exports with `readExportedFlags`. `../../droplets/src/core/discover.ts:144`, `test/index.test.ts:46`
 - `react()` plugins are a function of core's scope: `@vitejs/plugin-react`, then `droplets:react-refresh`; `plugin: false` leaves `plugins` unset. `src/index.ts:87`
 - `react()` with `scope.include` (another renderer shares `.tsx`) sets plugin-react's `include` to it and `jsxImportSource` to `react`, unless `vitePlugin` names one. `src/index.ts:89`, `src/index.ts:91`
 - `vitePlugin` options are spread into plugin-react's after the scope's `jsxImportSource`, before its `include`. `src/index.ts:90`

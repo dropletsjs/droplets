@@ -171,15 +171,16 @@ restarts the server.
 - `__DROPLETS_BUILD_ROOT__` in a browser bundle becomes the way back to the build's root (`../../` from `droplets/<id>/client.js`); under `vite dev` it becomes `/`. `assets.ts:170`, `assets.ts:152`
 - `new URL("./x", import.meta.url)` of an existing file, in a universal project file of a server bundle, becomes a `?url` import on `bundleLocation`; server files keep theirs. `assets.ts:154`, `assets.ts:156`, `assets.ts:84`
 - `public/` is copied to `dist/client/assets/public/` and nowhere else. `assets.ts:100`
-- `public/` under `vite dev` is served at `/assets/public/*` with `cache-control: no-cache` and a sha1 `ETag`, 304 when it matches. `assets.ts:124`, `assets.ts:132`, `dev.ts:430`
+- `public/` under `vite dev` is served at `/assets/public/*` with `cache-control: no-cache` and a sha1 `ETag`, 304 when it matches. `assets.ts:124`, `assets.ts:132`, `dev.ts:444`
 - `public/` under `vite dev`: a path outside it, a folder or a missing file answers `404 Not Found`. `assets.ts:114`, `assets.ts:117`
+- `/assets/prerendered/*` under `vite dev` answers `404` as plain text, `no-store`, with `prerenderedFileNotice` (files are written by `vite build` only, with `location` and `host` set; the live fragment `/droplets/<id>`; `vite build` and `vite preview` to test them), and warns it once per path; nothing is written there. `dev.ts:324`, `dev.ts:484`, `dev.ts:487`, `dev.ts:490`
 - `assetUrlsPlugin` is `sharedDuringBuild`: one location token nonce for every environment of a build. `assets.ts:144`
 - `buildHash` is 6 random hex characters, created per `droplets()` instance. `state.ts:79`, `state.ts:86`
 - `tokenNonce` is created per `droplets()` instance; each server bundle exports its own, `undefined` when the build fixes `location` and `host`. `state.ts:87`, `virtual.ts:268`, `virtual.ts:790`
 - Server bundles write `location` of the config in a build, else the instance's location token; `vite dev` always writes the token. `state.ts:177`
-- The prerender app takes `location` of the config: its renders hold it, not a token. `prerender.ts:144`
-- Prerender host fallback: the app gets `host` of the config, and an entry without `host` renders for it; else none (host-agnostic renders). `prerender.ts:145`, `prerender.ts:161`
-- `vite dev` ignores `host` of the config: an entry without `host` is host-agnostic there. `dev.ts:396`, `../runtime/entry-server.ts:266`
+- The prerender app takes `location` of the config: its renders hold it, not a token. `prerender.ts:166`
+- Prerender host fallback: the app gets `host` of the config, and an entry without `host` renders for it; else none (host-agnostic renders). `prerender.ts:167`, `prerender.ts:191`
+- `vite dev` ignores `host` of the config: an entry without `host` is host-agnostic there. `dev.ts:410`, `../runtime/entry-server.ts:284`
 - `hooks.server` files looked up: `src/hooks.server.ts`, `src/hooks.server.js` (`MODULE_EXTENSIONS`). `state.ts:159`
 - `warnMisnamedModules`, from the `config` hook, warns once about a `src/hooks.server` or `src/importmap.server` spelled `.mts`, `.mjs`, `.cts` or `.cjs`: `is not loaded; name it src/hooks.server.ts or src/hooks.server.js`. `state.ts:175`, `plugin.ts:349`
 - `hooks.client` files looked up: `src/hooks.client.ts`, `.mts`, `.js`, `.mjs`. `state.ts:164`
@@ -192,7 +193,7 @@ restarts the server.
 - `@dropletsjs/droplets/server`, the bare package entry, is refused where `$droplets/server` is, by `server-only.ts` ahead of Vite's resolver (a `pre` plugin), in build and dev; `virtual.ts` keeps the two `$droplets/*` ids. `server-only.ts:84`, `server-only.ts:241`
 - `virtual:droplets-ssr` resolves to `dist/runtime/entry-server.js`, and `virtual:droplets-manifest` to `<outDir>/client/droplets.json`. `virtual.ts:762`, `virtual.ts:763`
 - `/index.js` under `vite dev` is a virtual module: the location record, the public runtime variables, then a dynamic import of the entry client. `virtual.ts:764`, `virtual.ts:868`
-- The dev app's `/index.js` is the location record, the public runtime variables, then the transformed entry client. `dev.ts:324`, `dev.ts:329`
+- The dev app's `/index.js` is the location record, the public runtime variables, then the transformed entry client. `dev.ts:338`, `dev.ts:343`
 - `virtual:droplets` is the client registry in client environments and the server registry in server environments. `virtual.ts:772`
 - Client registry exports `buildHash`, `elementName`, `corsCredentials`, `dropletsById`, `dropletsHydrateById`, `dropletsServerLoadById`, `dropletsScriptById` and `dropletsStylesById`. `virtual.ts:485`
 - `corsCredentials` is true for `cors.credentials` with an `origin` other than `"*"` (Hono's default included), and reaches the client build as that boolean alone. `virtual.ts:457`, `virtual.ts:501`
@@ -239,25 +240,25 @@ restarts the server.
 - Load CSS check: a stylesheet reached from `+droplet.ts` or `+droplet.server.ts` fails the build and the dev import. `renderer-graphs.ts:250`, `renderer-graphs.ts:321`
 - `isStylesheet` takes `.css .less .sass .scss .styl .stylus .pcss .postcss .sss`; a `?url`, `?raw` or `?inline` import is a string, not a stylesheet, and so is the `?transform-only` module a build turns `?url` into. `renderer-graphs.ts:39`, `renderer-graphs.ts:41`
 - Renderer marks: with two renderers sharing an extension, modules a droplet reaches get `?droplets-renderer=<name>`, spread to script modules outside `node_modules` and outside the renderers' packages. `renderer-graphs.ts:361`, `renderer-graphs.ts:364`
-- Flags come from `discoverDroplets`, read from the droplet's component only. `../core/discover.ts:171`, `../core/discover.ts:251`
-- Flags an error page declares are ignored (a warning in build and dev); the error page follows the droplet. `../core/discover.ts:181`
+- Flags come from `discoverDroplets`, read from the droplet's component only. `../core/discover.ts:169`, `../core/discover.ts:249`
+- Flags an error page declares are ignored (a warning in build and dev); the error page follows the droplet. `../core/discover.ts:179`
 - Script droplet flags are ignored with a warning, once per file and flag: it is always `ssr` false, `hydrate` true, `prerender` false. `../script/index.ts:51`, `../script/index.ts:64`
-- `classifyChange`: in a droplet folder, `+droplet.ts` is a universal load edit, `+droplet.server.ts` or a server file a load edit, anything else a component edit. `dev.ts:185`, `dev.ts:190`, `dev.ts:193`
-- `classifyChange`: a file outside the droplet folders is traced up the module graphs to the components and loads that import it. `dev.ts:198`
-- Dev SSR module is loaded through the ssr environment's runner (else `ssrLoadModule`), outside any request's info. `dev.ts:252`, `dev.ts:255`
-- Dev droplet rescan that fails (two components, an unknown extension) logs the error and keeps the previous list. `dev.ts:267`
-- Dev droplet rescan writes `.droplets/` again. `dev.ts:271`
+- `classifyChange`: in a droplet folder, `+droplet.ts` is a universal load edit, `+droplet.server.ts` or a server file a load edit, anything else a component edit. `dev.ts:187`, `dev.ts:192`, `dev.ts:195`
+- `classifyChange`: a file outside the droplet folders is traced up the module graphs to the components and loads that import it. `dev.ts:200`
+- Dev SSR module is loaded through the ssr environment's runner (else `ssrLoadModule`), outside any request's info. `dev.ts:254`, `dev.ts:257`
+- Dev droplet rescan that fails (two components, an unknown extension) logs the error and keeps the previous list. `dev.ts:269`
+- Dev droplet rescan writes `.droplets/` again. `dev.ts:273`
 - `dist/client/droplets/<id>/style.css` holds what `/droplets/<id>/style.css` answers (`styleImports`), written after the JavaScript of a droplet that does not hydrate is removed; a droplet without stylesheets has none. `build.ts:326`, `build.ts:327`
-- Dev app: droplets have no stylesheets of their own; `style.css` answers 404 and fragments link none. `dev.ts:348`
-- Dev app: `/index.css` answers 404 without a shared stylesheet (`css.path` false or missing). `dev.ts:335`
+- Dev app: droplets have no stylesheets of their own; `style.css` answers 404 and fragments link none. `dev.ts:362`
+- Dev app: `/index.css` answers 404 without a shared stylesheet (`css.path` false or missing). `dev.ts:349`
 - Build: an empty shared stylesheet is removed from `dist/client/assets/`, and the 0-byte `droplets-css.js` chunk of its entry is never kept. `build.ts:313`, `build.ts:316`
-- Dev app sends no `Link` header. `dev.ts:419`
-- Dev app re-reads `handle`, `+server.ts` routes and `handleError` from the SSR module per request. `dev.ts:375`, `dev.ts:376`, `dev.ts:378`
-- Dev app renders listed `entries` props live; nothing is prerendered. `dev.ts:393`
-- Dev app passes the request's props to `renderError`, for a live render and for a listed entry that failed, as the production app does. `dev.ts:378`, `dev.ts:401`
-- Dev `handleError`: a form action's data that cannot travel as JSON answers with its message. `dev.ts:39`
-- Dev import map: each bare key gets a `/@id/<name>` alias too. `dev.ts:368`, `externalize.ts:28`
-- Dev import map warnings print once each, unless `warnImportMap: false`. `dev.ts:362`, `dev.ts:364`
+- Dev app sends no `Link` header. `dev.ts:433`
+- Dev app re-reads `handle`, `+server.ts` routes and `handleError` from the SSR module per request. `dev.ts:389`, `dev.ts:390`, `dev.ts:392`
+- Dev app renders listed `entries` props live; nothing is prerendered. `dev.ts:407`
+- Dev app passes the request's props to `renderError`, for a live render and for a listed entry that failed, as the production app does. `dev.ts:392`, `dev.ts:415`
+- Dev `handleError`: a form action's data that cannot travel as JSON answers with its message. `dev.ts:41`
+- Dev import map: each bare key gets a `/@id/<name>` alias too. `dev.ts:382`, `externalize.ts:28`
+- Dev import map warnings print once each, unless `warnImportMap: false`. `dev.ts:376`, `dev.ts:378`
 - Import map check warns for an external the map does not map, a mapped name that is not external, and a version in the URL that differs from the installed one. `importmap-check.ts:53`, `importmap-check.ts:59`, `importmap-check.ts:66`
 - Client externals come from top-level `build.rolldownOptions.external` (or `rollupOptions`) and `environments.client.build`. `client-external.ts:18`, `client-external.ts:29`
 - Dev externalize plugin runs under `vite dev` only and keeps external only imports reached from a droplet's client module. `externalize.ts:57`, `externalize.ts:65`
@@ -267,16 +268,24 @@ restarts the server.
 - `css.postcss` config file that fails to load throws `the PostCSS config <file> failed to load`, naming the file postcss-load-config would read. `css.ts:177`
 - `css.tailwind` adds `@tailwindcss/vite` unless a plugin named `@tailwindcss/vite*` is already there; without Tailwind installed it throws. `css.ts:222`, `css.ts:223`, `css.ts:225`
 - `css.twPreflight: false` rewrites `@import "tailwindcss"` to theme and utilities and drops the preflight import; a preflight that still shows up warns. `css.ts:89`, `css.ts:147`
-- Prerender requests go to `http://droplets.build/droplets/<id>` as a POST of `{ props, host? }`, through `handle`, with `building` set. `prerender.ts:30`, `prerender.ts:159`, `prerender.ts:161`
-- Prerender evaluates the SSR bundle in a worker thread (`prerender-worker.ts`, `dist/vite/prerender-worker.js` by path), started with `connect` of `core/app-thread.ts` and stopped when the pass ends; `entries` and `request` are the calls. `prerender.ts:148`, `prerender.ts:153`, `prerender.ts:201`
-- Prerender worker sets `building` and the runtime env store from the mode's `.env` values before the bundle loads. `prerender-worker.ts:31`, `prerender-worker.ts:32`, `prerender-worker.ts:33`
-- Prerender root: `dist/server/_prerendered` when the adapter ships `dist/server`, else `dist/client/_prerendered/<32 hex>` with that name written into `droplets.json` as `__prerendered`. `prerender.ts:50`, `prerender.ts:51`, `prerender.ts:137`
-- Prerender removes the previous build's renders first. `prerender.ts:127`, `prerender.ts:128`
-- Prerender file: `<id>/<16 hex of sha256(key)>.json`, listed in `<id>/index.json`. `prerender.ts:39`, `prerender.ts:193`
-- Prerender: a render that read `host` without one stops the build. `prerender.ts:163`
-- Prerender: an entry's `host` outside the bound a request's host passes at runtime (the origin of `host` of the config when set, else `trustedOrigins` with `DROPLETS_TRUSTED_ORIGINS` from `process.env`, the origin of `location` counting as the server's own) fails the build before any render, naming the entry and the bound. `prerender.ts:79`, `prerender.ts:154`
-- Prerender: a non-2xx answer warns `not stored, it renders live`. `prerender.ts:173`
-- Prerender: a failed load is stored with `failed: true` and `error`, without headers. `prerender.ts:190`
+- Prerender requests go to `http://droplets.build/droplets/<id>` as a POST of `{ props, host? }`, through `handle`, with `building` set. `prerender.ts:30`, `prerender.ts:189`, `prerender.ts:191`
+- Prerender evaluates the SSR bundle in a worker thread (`prerender-worker.ts`, `dist/vite/prerender-worker.js` by path), started with `connect` of `core/app-thread.ts` and stopped when the pass ends; `entries`, `request` and `file` are the calls. `prerender.ts:173`, `prerender.ts:180`, `prerender.ts:283`
+- Prerender worker sets `building` and the runtime env store from the mode's `.env` values before the bundle loads. `prerender-worker.ts:40`, `prerender-worker.ts:41`, `prerender-worker.ts:42`
+- Prerender root: `dist/server/_prerendered` when the adapter ships `dist/server`, else `dist/client/_prerendered/<32 hex>` with that name written into `droplets.json` as `__prerendered`. `prerender.ts:50`, `prerender.ts:51`, `prerender.ts:158`
+- Prerender removes the previous build's renders first. `prerender.ts:147`, `prerender.ts:148`
+- Prerender file: `<id>/<16 hex of sha256(key)>.json`, listed in `<id>/index.json`. `prerender.ts:39`, `prerender.ts:227`
+- Prerender: a render that read `host` without one stops the build. `prerender.ts:193`
+- Prerender: an entry's `host` outside the bound a request's host passes at runtime (the origin of `host` of the config when set, else `trustedOrigins` with `DROPLETS_TRUSTED_ORIGINS` from `process.env`, the origin of `location` counting as the server's own) fails the build before any render, naming the entry and the bound. `prerender.ts:79`, `prerender.ts:181`
+- Prerender: a non-2xx answer warns `not stored, it renders live`, and with `location` and `host` both set adds `, and assets/prerendered/<id>/<file>.html is not written` for an entry with a `file`. `prerender.ts:204`
+- Prerender removes `dist/client/assets/prerendered/` with the renders, before the early return without prerendered droplets. `prerender.ts:149`
+- Prerender files are written only with `location` and `host` both set in the config: `dist/client/assets/prerendered/<id>/<file>.html`, one per entry with a `file`, in both adapter families. `prerender.ts:160`, `prerender.ts:240`, `prerender.ts:269`, `../server/prerendered.ts:25`, `../../test/integration/prerender-files.test.ts:127`
+- Prerender file body is what a non-building app over the stored renders answers to a POST of `{ props, host? }` (the worker's `file` call), a `200` only, read after the droplet's `index.json` is written; that app never renders live and has `render.timeout` `Infinity`. `prerender.ts:248`, `prerender.ts:259`, `prerender-worker.ts:76`, `prerender-worker.ts:80`, `prerender-worker.ts:96`
+- Prerender: two entries the schema makes the same props share one stored render, and each entry's `file` is written from it. `prerender.ts:210`, `prerender.ts:214`
+- Prerender: an entry with a `file` whose render failed (stored `+error`) writes no file and warns `prerendering <id> with <props> failed and stored its +error page; assets/prerendered/<id>/<file>.html is not written`; a file answer other than `200` warns `… the fragment answered <status>; … is not written`. `prerender.ts:242`, `prerender.ts:259`
+- Prerender: a file whose load set headers with `setHeaders` warns `<id>: the load set <names> with setHeaders; assets/prerendered/<id>/<file>.html is served with fragmentCacheControl and _headers only, without them`. `prerender.ts:271`
+- Prerender without both `location` and `host`: entries' files are checked, none is written, and one warning after the pass lists up to five `<id>/<file>` and what is not set. `prerender.ts:108`, `prerender.ts:236`, `prerender.ts:280`
+- `vite build` logs `prerendered { renders, files }`. `plugin.ts:552`
+- Prerender: a failed load is stored with `failed: true` and `error`, without headers. `prerender.ts:224`
 - `.droplets/` holds one `$types.d.ts` per droplet at `.droplets/types/<droplet folder from the root>/`. `sync-types.ts:8`, `sync-types.ts:221`
 - `.droplets/tsconfig.json`: `module: "esnext"`, `moduleResolution: "bundler"`, `rootDirs` of the root and `.droplets/types`; `include` and `files` only for a `x.tsx` next to `x.ts`. `sync-types.ts:127`, `sync-types.ts:131`
 - `.droplets/` files are written only when their content changed; a stale `$types.d.ts` is removed with every folder it leaves empty, up to `.droplets/types`. `sync-types.ts:186`, `sync-types.ts:238`
