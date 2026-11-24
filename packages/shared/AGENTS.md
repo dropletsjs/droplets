@@ -14,6 +14,8 @@
   Checked by: `packages/droplets/test/build/tsdown.test.ts`, `tests/packages/test/packed.test.ts`.
 - `cssInline()` gives `?inline` CSS its file text, the same in a package's tests and its build.
   Checked by: `packages/droplets/test/build/tsdown.test.ts`.
+- `freePort()` never gives a port another socket listens on, on any interface or on `127.0.0.1` or `::1` alone.
+  Checked by: `test/vitest.test.ts`.
 - The code typechecks on its own with Node types.
   Checked by: `pnpm --filter @dropletsjs/shared typecheck`.
 
