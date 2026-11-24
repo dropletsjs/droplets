@@ -2,9 +2,10 @@
  * The files of a new project, by path: package.json, the Vite and droplets
  * configs, tsconfig, the shared stylesheet, one starter droplet per
  * framework (the files `djs add` writes for `--target full --with server`),
- * AGENTS.md and the rest.
+ * AGENTS.md and the rest; and what an existing AGENTS.md or CLAUDE.md gets
+ * appended instead.
  */
-import { agentsMd } from "./agents.ts";
+import { AGENTS_SECTION, agentsMd, agentsSection } from "./agents.ts";
 import { ADAPTERS, commands, defaultAdapter, starterName, type Adapter, type Choices } from "./choices.ts";
 import { dropletFiles, flagsFor, packageName, VERSIONS, versionOf, type Framework } from "./shared.ts";
 
@@ -376,4 +377,38 @@ export function projectFiles(choices: Choices): Record<string, string> {
     for (const [file, content] of Object.entries(droplet)) files[`src/droplets/${name}/${file}`] = content;
   }
   return files;
+}
+
+type ExistingFilesInput = { choices: Choices; existing: readonly string[]; read: (input: { file: string }) => string };
+export type ExistingFiles = { appends: Record<string, string>; taken: string[] };
+
+/**
+ * What happens to the project files that exist already: AGENTS.md gets the
+ * `## Droplets` section and CLAUDE.md the `@AGENTS.md` line, each only when
+ * missing; every other file is taken, and the run refuses.
+ */
+export function existingFiles({ choices, existing, read }: ExistingFilesInput): ExistingFiles {
+  const appends: Record<string, string> = {};
+  const taken: string[] = [];
+  for (const file of existing) {
+    if (file === "AGENTS.md") {
+      const text = read({ file });
+      const lines = text.split("\n").map((line) => line.trimEnd());
+      if (!lines.includes(AGENTS_SECTION)) appends[file] = `${separator({ text, blank: true })}${agentsSection(choices)}`;
+    } else if (file === "CLAUDE.md") {
+      const text = read({ file });
+      if (!/^@(\.\/)?AGENTS\.md\s*$/m.test(text)) appends[file] = `${separator({ text, blank: false })}@AGENTS.md\n`;
+    } else {
+      taken.push(file);
+    }
+  }
+  return { appends, taken };
+}
+
+type SeparatorInput = { text: string; blank: boolean };
+
+/** What goes between a file's text and what is appended: its missing final newline, and a blank line before a heading. */
+function separator({ text, blank }: SeparatorInput): string {
+  if (text.trim() === "") return "";
+  return `${text.endsWith("\n") ? "" : "\n"}${blank ? "\n" : ""}`;
 }

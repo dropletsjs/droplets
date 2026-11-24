@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   dropletsConfig,
   editorExtensions,
+  existingFiles,
   packageJson,
   packageManagerFiles,
   projectFiles,
@@ -182,5 +183,47 @@ describe("the project files", () => {
     const jsx = parse(tsconfig(choicesWith({ frameworks: ["svelte", "react", "solid"] })));
     expect(jsx.compilerOptions).toMatchObject({ jsx: "react-jsx", jsxImportSource: "react" });
     expect(jsx.include).toContain("src/**/*.tsx");
+  });
+});
+
+describe("files that exist already", () => {
+  const choices = choicesWith({ claude: true });
+  /** Runs `existingFiles` over the given texts, then applies its appends to them. */
+  function run(texts: Record<string, string>): { texts: Record<string, string>; taken: string[] } {
+    const { appends, taken } = existingFiles({
+      choices,
+      existing: Object.keys(texts),
+      read: ({ file }) => texts[file] ?? expect.unreachable(file),
+    });
+    return { texts: Object.fromEntries(Object.entries(texts).map(([file, text]) => [file, text + (appends[file] ?? "")])), taken };
+  }
+
+  it("appends the Droplets section to an existing AGENTS.md once, keeping its own text", () => {
+    const own = "# AGENTS.md\n\nRun `make test` before every commit.";
+    const once = run({ "AGENTS.md": own }).texts["AGENTS.md"] ?? "";
+    expect(once.startsWith(`${own}\n\n## Droplets\n\n`)).toBe(true);
+    expect(once).toContain("### The first rule: one framework per droplet");
+    expect(once).not.toMatch(/^## (?!Droplets$)/m);
+    expect(once.match(/^## Droplets$/gm)).toHaveLength(1);
+    expect(run({ "AGENTS.md": once }).texts["AGENTS.md"]).toBe(once);
+    expect(run({ "AGENTS.md": "" }).texts["AGENTS.md"]?.startsWith("## Droplets\n\n")).toBe(true);
+  });
+
+  it("adds @AGENTS.md to an existing CLAUDE.md only when it is missing", () => {
+    expect(run({ "CLAUDE.md": "Answer in English." }).texts["CLAUDE.md"]).toBe("Answer in English.\n@AGENTS.md\n");
+    expect(run({ "CLAUDE.md": "Answer in English.\n" }).texts["CLAUDE.md"]).toBe("Answer in English.\n@AGENTS.md\n");
+    for (const text of ["@AGENTS.md\n", "Answer in English.\n@AGENTS.md", "@./AGENTS.md\n"]) {
+      expect(run({ "CLAUDE.md": text }).texts["CLAUDE.md"], text).toBe(text);
+    }
+  });
+
+  it("still refuses every other file that exists", () => {
+    const { taken } = run({ "AGENTS.md": "", "CLAUDE.md": "", "package.json": "{}", "src/app.css": "" });
+    expect(taken).toEqual(["package.json", "src/app.css"]);
+  });
+
+  it("links the guide's llms.txt from a new AGENTS.md and from the appended section", () => {
+    expect(projectFiles(choices)["AGENTS.md"]).toContain("https://dropletsjs.dev/llms.txt");
+    expect(run({ "AGENTS.md": "# AGENTS.md\n" }).texts["AGENTS.md"]).toContain("https://dropletsjs.dev/llms.txt");
   });
 });

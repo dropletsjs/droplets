@@ -11,8 +11,8 @@
 - `bin/create-droplets.js` is a committed launcher that imports `../dist/index.js`, so pnpm links the bin before the build.
 - `@dropletsjs/droplets` and `@dropletsjs/shared` are devDependencies only.
   Checked by: `package.json`.
-- A run never overwrites a file: a non-empty folder is refused without a terminal, and every file is written with `wx` after a check for existing ones.
-  Checked by: `tests/create-droplets/test/create.test.ts`.
+- A run never overwrites a file: a non-empty folder is refused without a terminal, and every new file is written with `wx` after a check for existing ones; an existing `AGENTS.md` or `CLAUDE.md` is only appended to, with what it lacks, and any other existing file stops the run.
+  Checked by: `tests/create-droplets/test/create.test.ts`, `test/files.test.ts` (the appends).
 - Without a terminal or with `--yes` it never prompts: a missing folder or `--frameworks` is an error that names the flag.
   Checked by: `tests/create-droplets/test/create.test.ts`.
 - A generated project installs only versions published at least 7 days ago, with `@dropletsjs/*` exempt, for every package manager.

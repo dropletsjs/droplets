@@ -1,7 +1,8 @@
 /**
  * AGENTS.md: what a coding agent needs to work in the project, first the
  * rule that keeps droplets in one framework each. Written for the project's
- * frameworks, adapters and package manager.
+ * frameworks, adapters and package manager, as a file of its own or as the
+ * `## Droplets` section added to an AGENTS.md that exists already.
  */
 import { ADAPTERS, commands, defaultAdapter, starterName, type Choices } from "./choices.ts";
 import type { Framework } from "./shared.ts";
@@ -33,7 +34,21 @@ const STYLES_WHERE: Record<Framework["name"], string> = {
 
 type AgentsMdInput = Pick<Choices, "pm" | "adapters" | "frameworks" | "tailwind">;
 
-export function agentsMd({ pm, adapters: chosen, frameworks, tailwind }: AgentsMdInput): string {
+/** The heading of the section added to an existing AGENTS.md; its presence means the section is there. */
+export const AGENTS_SECTION = "## Droplets";
+
+export function agentsMd(choices: AgentsMdInput): string {
+  return `# AGENTS.md\n\n${guidance({ ...choices, h: "##" })}`;
+}
+
+/** The same guidance as `agentsMd`, one heading level down, under `## Droplets`. */
+export function agentsSection(choices: AgentsMdInput): string {
+  return `${AGENTS_SECTION}\n\n${guidance({ ...choices, h: "###" })}`;
+}
+
+type GuidanceInput = AgentsMdInput & { h: "##" | "###" };
+
+function guidance({ pm, adapters: chosen, frameworks, tailwind, h }: GuidanceInput): string {
   const { run, djs } = commands({ pm });
   const main = defaultAdapter({ adapters: chosen });
   const labels = frameworks.map((f) => f.label).join(", ");
@@ -42,15 +57,15 @@ export function agentsMd({ pm, adapters: chosen, frameworks, tailwind }: AgentsM
   const [example] = frameworks;
   if (example === undefined) throw new Error("create-droplets: no framework chosen");
   const lines: string[] = [
-    "# AGENTS.md",
-    "",
     "A [Droplets](https://dropletsjs.dev) project: server-rendered components that",
     "any page can embed. Each droplet is one component with its own URL,",
     "`/droplets/<id>`, served by a small Hono server that Vite builds.",
     "",
     `Frameworks: ${labels}. Adapters: ${adapters.join(", ")} (\`vite build\` targets ${main}).`,
     "",
-    "## The first rule: one framework per droplet",
+    "The guide, as plain text for agents: https://dropletsjs.dev/llms.txt.",
+    "",
+    `${h} The first rule: one framework per droplet`,
     "",
     "**Always import only the droplet's own framework in its code.** When",
     "something must work across frameworks, move it into a framework-agnostic",
@@ -74,7 +89,7 @@ export function agentsMd({ pm, adapters: chosen, frameworks, tailwind }: AgentsM
         ]
       : []),
     "",
-    "## Commands",
+    `${h} Commands`,
     "",
     "| Command | Does |",
     "| --- | --- |",
@@ -85,14 +100,14 @@ export function agentsMd({ pm, adapters: chosen, frameworks, tailwind }: AgentsM
     `| \`${djs} add <name> …\` | A new droplet (see below) |`,
     `| \`${djs} sync\` | Rewrites \`.droplets/\` (each droplet's \`./$types\`) |`,
     "",
-    "## Checking your work",
+    `${h} Checking your work`,
     "",
     `1. \`${run} typecheck\`: types, each droplet's \`./$types\` included.`,
     `2. \`${run} build\`: also catches cross-framework imports and CSS in load modules.`,
     `3. \`${run} dev\`, then http://localhost:5173/: pick the droplet, set its props, watch it`,
     `   render. One fragment alone: http://localhost:5173/droplets/${starterName({ framework: example })}?who=Ana.`,
     "",
-    "## Layout",
+    `${h} Layout`,
     "",
     "```",
     "src/droplets/<name>/",
@@ -110,7 +125,7 @@ export function agentsMd({ pm, adapters: chosen, frameworks, tailwind }: AgentsM
     "",
     "The folder name is the droplet's id, in lowercase kebab-case (`hello-world`); a folder named otherwise (`HelloWorld`) is ignored, with a warning.",
     "",
-    "## Flags",
+    `${h} Flags`,
     "",
     "Three literal flags decide how a droplet is delivered:",
     "",
@@ -125,7 +140,7 @@ export function agentsMd({ pm, adapters: chosen, frameworks, tailwind }: AgentsM
     "Values must be literals (`export const ssr = !dev` is ignored, with a warning).",
     "Flags live only in the component and are read from there; one exported from `+droplet.ts` or `+droplet.server.ts` is ignored.",
     "",
-    "## Data",
+    `${h} Data`,
     "",
     "```",
     "props (query string, POST body)",
@@ -163,7 +178,7 @@ export function agentsMd({ pm, adapters: chosen, frameworks, tailwind }: AgentsM
     "  sets up. Forms post natively; `enhanceDropletForm` (or the renderer's `/form`",
     "  wrapper, `data-droplet-enhance` in Handlebars) posts by fetch and updates in place.",
     "",
-    "## Styles",
+    `${h} Styles`,
     "",
     "Styles belong to the component: `+droplet.<ext>`, `+error.<ext>`, the modules",
     "they import, or a `<style>` block. Never import CSS from `+droplet.ts` or",
@@ -173,7 +188,7 @@ export function agentsMd({ pm, adapters: chosen, frameworks, tailwind }: AgentsM
     ...frameworks.map((f) => `- ${f.label}: ${STYLES_WHERE[f.name]}`),
     ...(tailwind ? ["- Tailwind classes work in every droplet; `src/app.css` imports Tailwind."] : []),
     "",
-    "## Adding a droplet",
+    `${h} Adding a droplet`,
     "",
     "Use `djs add`; it writes the folder and its `./$types`. Without a terminal, pass",
     "everything and `--yes`:",
@@ -189,7 +204,7 @@ export function agentsMd({ pm, adapters: chosen, frameworks, tailwind }: AgentsM
     "| `--hydrate` | `always`, `visible`, `interactive`, `none`: only to override the target |",
     "| `--with` | `server`, `universal`, `error`, `css`, comma-separated |",
     "",
-    "## Do not",
+    `${h} Do not`,
     "",
     "- edit `.droplets/`: `vite` and `djs sync` write it;",
     "- import another framework, or its components, into a droplet;",

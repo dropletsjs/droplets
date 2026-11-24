@@ -909,7 +909,10 @@ Cloudflare, `.vscode/extensions.json` with Svelte, Vue or Lit (their editor
 extensions: `svelte.svelte-vscode`, `Vue.volar`, `runem.lit-plugin`), and
 the package manager's settings that install only versions published at
 least 7 days ago (`@dropletsjs/*` exempt). A file that exists
-already stops it before anything is written. See
+already stops it before anything is written, except an `AGENTS.md`, which
+keeps its text and gets the Droplets guidance as a `## Droplets` section at
+the end (once), and a `CLAUDE.md`, which gets the `@AGENTS.md` line when it
+lacks one. See
 [Getting started](/start/getting-started/).
 
 ## The droplet element
