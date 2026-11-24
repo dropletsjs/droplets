@@ -139,27 +139,27 @@ hydrates through the proxy (needs Docker).
 - Basic page includes `client`, `ssr-hydrate` and `ssr-nohydrate` with `who=nginx`. `html/index.html:21`, `html/index.html:22`, `html/index.html:23`
 - Basic page loads `/index.js` from its own origin. `html/index.html:8`
 - Basic proxy: `/index.js`, `/env.js`, `/index.css` (the names anchored: `/index.jsx` is a page), `/droplets/*`, `/assets/*`, `/api/*` go to the droplets server. `nginx.conf:40`, `nginx.conf:41`
-- Basic proxy sends `x-droplet-location: ${DROPLETS_PUBLIC_URL}` and clears `Forwarded` and `X-Forwarded-Host`/`-Proto`/`-Prefix`. `nginx.conf:42`, `nginx.conf:46`
+- Basic proxy sends `x-droplet-location: ${DROPLETS_PUBLIC_URL}` and clears `Forwarded` and `X-Forwarded-Host`/`-Proto`/`-Prefix`. `nginx.conf:43`, `nginx.conf:47`
 - Basic proxy clears `Accept-Encoding`, so an SSI include of a fragment comes back plain HTML, never gzip. `nginx.conf:49`
-- Shop server listens on 8081 with `absolute_redirect off`. `nginx.conf:82`, `nginx.conf:84`
-- Shop `/` answers 302 to `/gallery`. `nginx.conf:94`
-- Shop pages `/gallery`, `/login`, `/admin` are SSI rewrites to `gallery.html`, `login.html`, `admin.html`. `nginx.conf:96`, `nginx.conf:148`, `nginx.conf:152`
-- Shop product slug pattern is `[a-z0-9]+(?:-[a-z0-9]+)*`. `nginx.conf:108`
-- Shop product check: `auth_request /_product-check` asks the `product-page` fragment first. `nginx.conf:114`, `nginx.conf:125`
-- Shop product check: a 404 becomes 401, then `not-found.html` as 404. `nginx.conf:115`, `nginx.conf:136`, `nginx.conf:140`
-- Shop product check: a redirect (old `v`) becomes 403, then a 302 to the page without `v`. `nginx.conf:116`, `nginx.conf:137`, `nginx.conf:146`
-- Shop product check sends no `Cookie` and no body. `nginx.conf:126`, `nginx.conf:128`
-- Shop `v` query param is split off by `map` blocks into `$shop_page_v` and `$shop_query_without_v`. `nginx.conf:54`, `nginx.conf:63`
+- Shop server listens on 8081 with `absolute_redirect off`. `nginx.conf:83`, `nginx.conf:85`
+- Shop `/` answers 302 to `/gallery`. `nginx.conf:95`
+- Shop pages `/gallery`, `/login`, `/admin` are SSI rewrites to `gallery.html`, `login.html`, `admin.html`. `nginx.conf:99`, `nginx.conf:151`, `nginx.conf:155`
+- Shop product slug pattern is `[a-z0-9]+(?:-[a-z0-9]+)*`. `nginx.conf:109`
+- Shop product check: `auth_request /_product-check` asks the `product-page` fragment first. `nginx.conf:114`, `nginx.conf:126`
+- Shop product check: a 404 becomes 401, then `not-found.html` as 404. `nginx.conf:115`, `nginx.conf:137`, `nginx.conf:141`
+- Shop product check: a redirect (old `v`) becomes 403, then a 302 to the page without `v`. `nginx.conf:116`, `nginx.conf:137`, `nginx.conf:147`
+- Shop product check sends no `Cookie` and no body. `nginx.conf:126`, `nginx.conf:129`
+- Shop `v` query param is split off by `map` blocks into `$shop_page_v` and `$shop_query_without_v`. `nginx.conf:54`, `nginx.conf:64`
 - Shop product `_data` read is kept in an SSI variable, room 64k (`subrequest_output_buffer_size`). `nginx.conf:90`, `shop/product.html:1`
 - Shop product id, name and category come from named captures on the `_data` JSON. `shop/product.html:2`
 - Shop product name and category are echoed with `encoding="entity"` or `encoding="url"`. `shop/product.html:5`, `shop/product.html:13`
 - Shop any other path answers 404. `nginx.conf:164`
 - Shop proxy: `/index.js`, `/env.js`, `/index.css` (the names anchored), `/droplets/*`, `/assets/*`, `/api/*` go to the shop with `x-droplet-location: ${SHOP_PUBLIC_URL}` and the forwarded headers cleared. `nginx.conf:169`, `nginx.conf:171`
-- Shop proxy `client_max_body_size` is 4m. `nginx.conf:178`
+- Shop proxy `client_max_body_size` is 4m. `nginx.conf:180`
 - Shop fragments go through the internal `/_fragment/` location. `nginx.conf:186`, `nginx.conf:187`
 - Shop proxy and fragment subrequests send the shop only `cart_id` and `shop_admin`, from the `$shop_cookie` map. `nginx.conf:71`, `nginx.conf:173`, `nginx.conf:190`
-- Shop fragment `Referer` is `${SHOP_PUBLIC_URL}$request_uri`, the page itself. `nginx.conf:188`
-- Shop fragment sends `Accept: text/html` and no `Accept-Encoding`. `nginx.conf:189`, `nginx.conf:191`
+- Shop fragment `Referer` is `${SHOP_PUBLIC_URL}$request_uri`, the page itself. `nginx.conf:191`
+- Shop fragment sends `Accept: text/html` and no `Accept-Encoding`. `nginx.conf:192`, `nginx.conf:191`
 - Shop fragment errors 400, 401, 403, 404, 405, 413, 431 become `<p class="shop-unavailable">This droplet is unavailable.</p>`; a 500 or 504 is pasted. `nginx.conf:205`, `nginx.conf:207`
 - Shop fragments go to `upstream shop_fragments`: `shop:8300` with `max_fails=0`, and a `backup` on `127.0.0.1:8082` that answers the same note when the shop does not answer (unreachable, or 10 s `proxy_read_timeout`). `nginx.conf:189`, `nginx.conf:199`, `nginx.conf:217`, `nginx.conf:224`
 - Shop layout: `_layout/head.html`, `header.html`, `footer.html`, internal only. `nginx.conf:159`, `nginx.conf:160`
@@ -172,6 +172,6 @@ hydrates through the proxy (needs Docker).
 - `iis/web.config` sets `HTTP_X_DROPLET_LOCATION` (the `x-droplet-location` header the droplets server reads) to the site's public URL, written out, and clears the incoming `Forwarded`, `X-Forwarded-Host`, `X-Forwarded-Proto` and `X-Forwarded-Prefix`. `iis/web.config:35`, `iis/web.config:36`, `iis/web.config:39`, `iis/web.config:11`
 - `iis/web.config` needs its five server variables allowed in `applicationHost.config`. `iis/web.config:15`
 - `iis/web.config` rewrites `index.js`, `env.js`, `index.css`, `droplets/*`, `assets/*`, `api/*` to `http://localhost:8000`. `iis/web.config:32`, `iis/web.config:33`
-- `pnpm test:hosts nginx` tests the shop on `http://localhost:8081`. `../../../tests/hosts/run.mjs:59`
+- `pnpm test:hosts nginx` tests the shop on `http://localhost:8081`. `../../../tests/hosts/run.mjs:71`
 - `pnpm test:hosts nginx` also checks the basic page on `DROPLETS_URL` (`http://localhost:8080`): `/env.js` and `/index.css` come through the proxy and the three droplets hydrate. `../../../tests/hosts/e2e/nginx-basic.spec.ts:12`, `../../../tests/hosts/e2e/nginx-basic.spec.ts:22`
 - `examples/hosts/*` is outside the pnpm workspace. `../../../pnpm-workspace.yaml:5`

@@ -199,7 +199,7 @@ product write only) and the WordPress cases of
 - Shop cookies sent to wp-shop: `cart_id` only; WordPress's login cookies stay on the site. `plugin/droplets-embed/shop.php:60`, `plugin/droplets-embed/shop.php:92`
 - Shop proxy forwards only `accept`, `accept-language`, `content-type`, `if-none-match`, `origin`, `referer`, `user-agent`, `x-droplet-props`, `x-droplets-build`, plus `cookie` filtered to `cart_id` (`DROPLETS_SHOP_COOKIES`), never `x-wp-shop-user`. `plugin/droplets-embed/shop.php:33`, `plugin/droplets-embed/shop.php:92`, `plugin/droplets-embed/shop.php:197`
 - Shop proxy drops hop-by-hop response headers and passes `Set-Cookie` untouched. `plugin/droplets-embed/shop.php:46`, `plugin/droplets-embed/shop.php:243`
-- Shop proxy paths: `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`, `/api/*`, on `init` at priority 0. `plugin/droplets-embed/shop.php:276`, `plugin/droplets-embed/shop.php:287`
+- Shop proxy paths: `/index.js`, `/env.js`, `/index.css`, `/droplets/*`, `/assets/*`, `/api/*`, on `init` at priority 0. `plugin/droplets-embed/shop.php:277`, `plugin/droplets-embed/shop.php:287`
 - Shop proxy refuses a path with a `.` or `..` segment, once decoded, with 400. `plugin/droplets-embed/shop.php:259`, `plugin/droplets-embed/shop.php:278`
 - Shop proxy adds `x-wp-shop-user` on `/droplets/*` and `/api/*` only. `plugin/droplets-embed/shop.php:204`
 - Shop proxy rebuilds a multipart body from `$_POST` and `$_FILES` when `php://input` is empty. `plugin/droplets-embed/shop.php:216`, `plugin/droplets-embed/shop.php:147`
@@ -272,7 +272,7 @@ product write only) and the WordPress cases of
 - Shop secrets in compose: `WP_SHOP_HOST_SECRET` and `WP_SHOP_SERVICE_SECRET` are required from the environment (`${VAR:?…}`), the same variable on both services, different from each other. `docker-compose.yml:32`, `docker-compose.yml:33`, `docker-compose.yml:68`, `docker-compose.yml:71`
 - Published port binds `127.0.0.1`: droplets `DROPLETS_PORT` (8000), WordPress `WEB_PORT` (8008). `docker-compose.yml:11`, `docker-compose.yml:57`
 - Database is MariaDB 11 with demo credentials, in the `db` volume. `docker-compose.yml:42`, `docker-compose.yml:49`
-- `pnpm test:hosts wordpress` runs only when named, against `http://localhost:8008`. `../../../tests/hosts/run.mjs:63`
-- `pnpm test:hosts wordpress` reads the demo service and host secrets from this `docker-compose.yml`. `../../../tests/hosts/e2e/wordpress-service.spec.ts:18`
+- `pnpm test:hosts wordpress` runs only when named, against `http://localhost:8008`. `../../../tests/hosts/run.mjs:71`
+- `pnpm test:hosts wordpress` reads the demo service and host secrets from this `docker-compose.yml`. `../../../tests/hosts/e2e/wordpress-service.spec.ts:20`
 - `pnpm typecheck:hosts` skips this host: it has no `package.json`. `../../../tests/hosts/typecheck.mjs:20`
 - Host is outside the pnpm workspace: `examples/hosts/*` is not listed. `../../../pnpm-workspace.yaml:5`

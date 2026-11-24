@@ -104,7 +104,7 @@ HTML page that embeds it:
 - `dist/index.js` is one ESM file for Node 22 with a `#!/usr/bin/env node` banner; `@clack/*` and Node built-ins stay external. `vite.config.ts:13`, `vite.config.ts:16`
 - `dist/index.js` bundles the `@dropletsjs/droplets` sources it uses (`src/add/*`, `isValidElementName`). `vite.config.ts:20`, `src/shared.ts:7`
 - Versions baked in: each `@dropletsjs/*` package at `^<version>` from its `package.json`. `versions.ts:40`
-- Versions baked in: `vite`, `typescript`, `@types/node`, `tailwindcss`, `@tailwindcss/vite`, `wrangler`, `@types/react`, `@types/react-dom` from the pnpm catalog. `versions.ts:34`
+- Versions baked in: `vite`, `typescript`, `@types/node`, `tailwindcss`, `@tailwindcss/vite`, `wrangler`, `@types/react`, `@types/react-dom` from the pnpm catalog. `versions.ts:35`
 - Versions: the build throws `the pnpm catalog in pnpm-workspace.yaml has no <tool>` when a tool is missing from the catalog. `versions.ts:45`
 - `versionOf` throws `create-droplets: no version for <name>` for a package the build left out. `src/shared.ts:23`
 - Flags: one positional folder; two or more throw `one folder, not <n>`. `src/choices.ts:182`
@@ -113,10 +113,10 @@ HTML page that embeds it:
 - Flags: `-y` is `--yes`, `-h` is `--help`. `src/choices.ts:178`
 - `--help` prints the usage and exits 0. `src/index.ts:199`, `src/index.ts:246`
 - `--frameworks` and `--adapters` are comma lists; an unknown name throws `--<flag> <name>: expected <list>`, an empty one `--<flag>: name at least one of <list>`. `src/choices.ts:153`, `src/choices.ts:156`
-- `--frameworks` and `--adapters` drop repeats and end in catalog and `ADAPTERS` order, whatever order the flag gave. `src/choices.ts:157`, `src/choices.ts:203`
-- `--frameworks` accepts `hono` for `hono-jsx` and refuses `script`. `../droplets/src/add/catalog.ts:131`
-- `--pm` outside `npm`, `pnpm`, `yarn`, `bun`, `deno` throws `--pm <value>: expected …`. `src/choices.ts:193`
-- `--element` that is not a valid custom element name throws `--element <name>: lowercase letters, digits and a hyphen, starting with a letter: my-widgets`. `src/choices.ts:107`, `src/choices.ts:197`
+- `--frameworks` and `--adapters` drop repeats and end in catalog and `ADAPTERS` order, whatever order the flag gave. `src/choices.ts:157`, `src/choices.ts:208`
+- `--frameworks` accepts `hono` for `hono-jsx` and refuses `script`. `../droplets/src/add/catalog.ts:136`
+- `--pm` outside `npm`, `pnpm`, `yarn`, `bun`, `deno` throws `--pm <value>: expected …`. `src/choices.ts:198`
+- `--element` that is not a valid custom element name throws `--element <name>: lowercase letters, digits and a hyphen, starting with a letter: my-widgets`. `src/choices.ts:107`, `src/choices.ts:202`
 - Usage text says `--element` defaults to the folder name, or `<folder>-droplets` when it has no hyphen, which is what `suggestElement` does. `src/choices.ts:127`, `src/choices.ts:100`, `test/choices.test.ts:79`
 - Interactive only with a TTY on stdin and stdout and no `--yes`. `src/index.ts:202`
 - Non-interactive without a folder throws `name the folder: npm create droplets@latest <folder> (or run it in a terminal to be asked)`. `src/index.ts:55`
@@ -127,7 +127,7 @@ HTML page that embeds it:
 - Cancelling a prompt prints `Nothing written.` and exits 1. `src/index.ts:33`
 - Package name: the folder's base name lowercased, runs outside `[a-z0-9._-]` as `-`, leading `.`, `_`, `-` and trailing `-` trimmed; empty becomes `droplets`. `src/choices.ts:87`
 - Element suggestion: the package name without leading non-letters; itself when a valid element name, else `<name>-droplets`; nothing left gives `my-droplets`. `src/choices.ts:98`
-- Package manager detection: `npm_config_user_agent`, else the nearest lockfile from the working directory, else npm. `src/index.ts:126`, `../droplets/src/add/install.ts:30`
+- Package manager detection: `npm_config_user_agent`, else the nearest lockfile from the working directory, else npm. `src/index.ts:126`, `../droplets/src/add/install.ts:45`
 - Files: a file that already exists stops the run before anything is written (`these files exist already: …`), except `AGENTS.md` and `CLAUDE.md`; each new file is written with `wx`. `src/index.ts:162`, `src/index.ts:166`
 - Files: an existing `AGENTS.md` gets the `## Droplets` section appended (the same guidance, headings one level down), unless it has a `## Droplets` line already. `src/files.ts:397`, `src/agents.ts:45`
 - Files: an existing `CLAUDE.md` (with `--claude`) gets an `@AGENTS.md` line appended, unless it has `@AGENTS.md` or `@./AGENTS.md` on a line already. `src/files.ts:400`
@@ -159,7 +159,7 @@ HTML page that embeds it:
 - `wrangler.jsonc` (Cloudflare): `main` `dist/worker.js`, `nodejs_compat`, assets `dist/client` bound as `ASSETS`, no `run_worker_first`: static assets answer the build's files. `src/files.ts:227`, `test/files.test.ts:75`
 - `svelte.config.js` (Svelte) sets `compilerOptions: { runes: true }` for editor tooling. `src/files.ts:240`
 - `.vscode/extensions.json` recommends `svelte.svelte-vscode` for Svelte, `Vue.volar` for Vue and `runem.lit-plugin` for Lit, in catalog order. `src/files.ts:246`, `src/files.ts:256`
-- `.vscode/extensions.json` is not written when no chosen framework needs an extension (React, Preact, Solid, Hono JSX, Handlebars). `src/files.ts:257`, `test/files.test.ts:34`
+- `.vscode/extensions.json` is not written when no chosen framework needs an extension (React, Preact, Solid, Hono JSX, Handlebars). `src/files.ts:257`, `test/files.test.ts:35`
 - `CLAUDE.md` (with `--claude`) is `@AGENTS.md`. `src/files.ts:366`
 - Release age settings: pnpm `minimumReleaseAge: 10080`, npm `min-release-age=7`, Yarn `npmMinimalAgeGate: 10080`, Bun `minimumReleaseAge = 604800`, Deno `P7D`. `src/files.ts:303`, `src/files.ts:315`, `src/files.ts:325`, `src/files.ts:337`, `src/files.ts:345`
 - Release age exemption: `@dropletsjs/*` by pattern for pnpm, npm and Yarn; every `@dropletsjs/*` package by name for Bun and Deno. `src/files.ts:316`, `src/files.ts:338`

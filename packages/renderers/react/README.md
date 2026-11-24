@@ -117,29 +117,29 @@ Vite); `client-setup` is a client entry.
 
 - `react()` name is `"react"`. `src/index.ts:76`
 - `react()` extensions are `[".tsx", ".jsx"]`. `src/index.ts:77`
-- `react()` packages are `react`, `react-dom` and `@dropletsjs/renderer-react`: another renderer's droplet that imports one fails the build. `src/index.ts:78`, `../../droplets/src/vite/renderer-graphs.ts:62`
+- `react()` packages are `react`, `react-dom` and `@dropletsjs/renderer-react`: another renderer's droplet that imports one fails the build. `src/index.ts:78`, `../../droplets/src/vite/renderer-graphs.ts:74`
 - `react()` sets no `suffixes`. `src/index.ts:75`
-- `react()` componentTypes is `@dropletsjs/renderer-react`: `./$types` takes `DropletProps` and `DropletErrorProps` from it. `src/index.ts:79`, `../../droplets/src/vite/sync-types.ts:37`
+- `react()` componentTypes is `@dropletsjs/renderer-react`: `./$types` takes `DropletProps` and `DropletErrorProps` from it. `src/index.ts:79`, `../../droplets/src/vite/sync-types.ts:47`
 - `react()` server, client, clientDev and clientSetup are `dist/server.js`, `dist/client.js`, `dist/client-dev.js`, `dist/client-setup.js` under the package root. `src/index.ts:96`, `src/index.ts:100`
-- `react()` has no `readFlags`: core reads the named exports with `readExportedFlags`. `../../droplets/src/core/discover.ts:144`, `test/index.test.ts:46`
+- `react()` has no `readFlags`: core reads the named exports with `readExportedFlags`. `../../droplets/src/core/discover.ts:155`, `test/index.test.ts:46`
 - `react()` plugins are a function of core's scope: `@vitejs/plugin-react`, then `droplets:react-refresh`; `plugin: false` leaves `plugins` unset. `src/index.ts:87`
 - `react()` with `scope.include` (another renderer shares `.tsx`) sets plugin-react's `include` to it and `jsxImportSource` to `react`, unless `vitePlugin` names one. `src/index.ts:89`, `src/index.ts:91`
 - `vitePlugin` options are spread into plugin-react's after the scope's `jsxImportSource`, before its `include`. `src/index.ts:90`
 - `DropletProps` has `data` (a promise when mounted, the value when hydrated), `form?` and `children?`. `src/index.ts:49`
 - `DropletErrorProps` has `error` and `children?`. `src/index.ts:57`
-- Server `render` returns `renderToString` of the component with the props and the children element; never a `head`. `src/server.ts:33`
+- Server `render` returns `renderToString` of the component with the props and the children element; never a `head`. `src/server.ts:38`
 - Server `render` throws `component-not-renderable` (`the <kind> component is not a React component`, for the droplet) for a default export that is neither a function nor a `$$typeof` object. `src/server.ts:26`
 - `react-dom/server` resolves through its `exports` conditions: the Node build under Node, the edge build under `workerd` / `worker`. `src/server.ts:5`
 - Children marker is `<div data-droplet-children style="display: contents">`, rendered by `DropletChildren`. `src/children.ts:32`
-- Children host reaches `DropletChildren` through `ChildrenHostContext`, `null` on the server. `src/children.ts:20`, `src/tree.ts:69`
+- Children host reaches `DropletChildren` through `ChildrenHostContext`, `null` on the server. `src/children.ts:20`, `src/tree.ts:74`
 - `DropletChildren` calls `host.fill(marker)` in a layout effect and `host.empty(marker)` in its cleanup; it depends on the host alone. `src/children.ts:26`
 - Under StrictMode the double effect fills, empties and fills again. `test/client.test.ts:72`
 - Client `mount` uses `createRoot(...).render` and `hydrate` uses `hydrateRoot`, both inside `flushSync`: the component is committed when they return. `src/client.ts:52`, `src/client.ts:61`
-- Client instance is `{ root, component, context }`; `unmount` calls `root.unmount()`. `src/client.ts:30`, `src/client.ts:66`
+- Client instance is `{ root, component, context }`; `unmount` calls `root.unmount()`. `src/client.ts:31`, `src/client.ts:66`
 - Client root options log `onRecoverableError`, `onUncaughtError` and `onCaughtError` to `console.error` as `react-recoverable-error`, `react-uncaught-error` and `react-caught-error`, for the droplet, followed by the error and the component stack. `src/client.ts:33`
 - Client `onCaughtError` stays quiet for the droplet's own boundary: core reports what it shows. `src/client.ts:43`
-- Client tree with an error page wraps the component in `<Suspense fallback={null}>` inside `DropletBoundary`. `src/tree.ts:61`
-- `DropletBoundary` passes the error through `handle`, then renders the error page with the result and `children`; nothing while it runs or when it rejects. `src/tree.ts:43`, `src/tree.ts:51`
+- Client tree with an error page wraps the component in `<Suspense fallback={null}>` inside `DropletBoundary`. `src/tree.ts:66`
+- `DropletBoundary` passes the error through `handle`, then renders the error page with the result and `children`; nothing while it runs or when it rejects. `src/tree.ts:48`, `src/tree.ts:56`
 - Client dev `update` renders the same tree with new props inside `flushSync` and always returns `true`. `src/client-dev.ts:8`
 - `droplets:react-refresh` runs under `vite dev` only (`apply: "serve"`, `enforce: "pre"`). `src/refresh.ts:69`
 - `droplets:react-refresh` turns `oxc.jsx.refresh` off in the shared options, after plugin-react's `config` hooks. `src/refresh.ts:74`

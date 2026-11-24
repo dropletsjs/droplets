@@ -115,12 +115,12 @@ suite reads it from there.
 - Examples' ranges: every `@dropletsjs/*` dependency is `^<the package's version>` from `packages/`, hosts included. `test/examples.test.ts:70`
 - Examples' ranges: in the workspace examples every tool of the pnpm catalog is at the catalog's literal range; the hosts' toolchains are their own. `test/examples.test.ts:84`
 - `test/attributes.test.ts` scans the sources under `SCANNED` (the runtime, every renderer's `src/`, the devtools' `src/`) for `data-*` names in strings, templates, JSX attributes and `dataset` accesses, and fails on any that is not `data-droplet` or `data-droplet-*`. `test/attributes.test.ts:21`, `test/attributes.test.ts:58`
-- `KEY_FILES` names the files the attribute scan must reach, so a moved folder fails the suite. `test/attributes.test.ts:37`
-- Workflows: every `.github/workflows/*.yml` has a top-level `on` naming only `pull_request` and `push`. `test/workflows.test.ts:20`, `test/workflows.test.ts:29`
-- Workflows: every `runs-on` matches `ubuntu-*`, `macos-*` or `windows-*`; a list or an expression fails. `test/workflows.test.ts:21`, `test/workflows.test.ts:62`
-- Workflows are read line by line; an `on` form the reader does not know throws. `test/workflows.test.ts:29`
-- Workflows: `ci.yml`'s `deploy-demo` and `deploy-docs` have the job-level `if` `DEPLOY_CONDITION` (push, `refs/heads/main`, `dropletsjs/droplets`). `test/workflows.test.ts:129`
-- Workflows: a job id under `jobs:` it cannot read throws, and so does a block-list `needs`. `test/workflows.test.ts:80`, `test/workflows.test.ts:121`
+- `KEY_FILES` names the files the attribute scan must reach, so a moved folder fails the suite. `test/attributes.test.ts:36`
+- Workflows: every `.github/workflows/*.yml` has a top-level `on` naming only `pull_request` and `push`. `test/workflows.test.ts:28`, `test/workflows.test.ts:37`
+- Workflows: every `runs-on` matches `ubuntu-*`, `macos-*` or `windows-*`; a list or an expression fails. `test/workflows.test.ts:29`, `test/workflows.test.ts:70`
+- Workflows are read line by line; an `on` form the reader does not know throws. `test/workflows.test.ts:44`
+- Workflows: `ci.yml`'s `deploy-demo` and `deploy-docs` have the job-level `if` `DEPLOY_CONDITION` (push, `refs/heads/main`, `dropletsjs/droplets`). `test/workflows.test.ts:227`
+- Workflows: a job id under `jobs:` it cannot read throws, and so does a block-list `needs`. `test/workflows.test.ts:88`, `test/workflows.test.ts:129`
 - Areas: `test/areas.test.ts` pins each rule of `.github/scripts/areas.ts` to its outputs and puts every `git ls-files` path under a rule or the fallback, whose top-level names are listed (`.env.example`, `.gitignore`). `test/areas.test.ts:213`, `../../.github/scripts/areas.ts:74`
 - Workflows: the four required jobs of `ci.yml` keep their names (`REQUIRED_JOBS`), fetch depth 2, run `node .github/scripts/areas.ts` once and ungated, and gate every later step on `steps.areas.outputs.<name> != 'false'` (`AREAS_IF`). `test/workflows.test.ts:214`, `test/workflows.test.ts:319`
 - Workflows: the check and Browser jobs cache `~/.cache/ms-playwright` with `actions/cache`, keyed `playwright-<os>-<version>` on the lockfile's `@playwright/test` version and gated as the browser install. `test/workflows.test.ts:375`

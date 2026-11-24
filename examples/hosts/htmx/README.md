@@ -166,8 +166,8 @@ typecheck. The guide's page:
 - nginx sends the shop only `cart_id` and `shop_admin`, from the `$shop_cookie` map. `nginx.conf:15`, `nginx.conf:67`
 - nginx `x-droplet-location` is `SHOP_PUBLIC_URL`, never the request's Host. `nginx.conf:68`
 - nginx clears `Forwarded`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `X-Forwarded-Prefix` toward the shop. `nginx.conf:69`, `nginx.conf:72`
-- Host test runs only by name, with `e2e/htmx.spec.ts` instead of the shop flow, at `http://localhost:8010`. `../../../tests/hosts/run.mjs:68`, `../../../tests/hosts/run.mjs:70`, `../../../tests/hosts/run.mjs:71`
-- Host test waits for the droplets server's `/droplets/ssr-hydrate` on `DROPLETS_URL` too. `../../../tests/hosts/run.mjs:74`, `../../../tests/hosts/run.mjs:145`
+- Host test runs only by name, with `e2e/htmx.spec.ts` instead of the shop flow, at `http://localhost:8010`. `../../../tests/hosts/run.mjs:71`, `../../../tests/hosts/run.mjs:73`, `../../../tests/hosts/run.mjs:74`
+- Host test waits for the droplets server's `/droplets/ssr-hydrate` on `DROPLETS_URL` too. `../../../tests/hosts/run.mjs:77`, `../../../tests/hosts/run.mjs:151`
 - nginx takes request bodies up to 4 MB toward the shop. `nginx.conf:74`
 - Shop pages are `gallery.html`, `product.html`, `login.html`, `admin.html`, with the same head, header and footer. `../../../tests/hosts/test/htmx.test.ts:29`
 - Shop page head links `/shop.css` and `/site.css`, loads `/vendor/htmx.min.js`, the shop's `/index.js` from this origin and `/shop.js`. `html/gallery.html:9`, `html/gallery.html:10`, `html/gallery.html:14`, `html/gallery.html:15`
@@ -185,7 +185,7 @@ typecheck. The guide's page:
 - `shop.js` sends a plain click on a same-origin link in `<main>` through `htmx.ajax` from the body, URL pushed; not `/droplets/`, `/api/`, `/assets/`, `hx-boost="false"`, a target, a download or a same-page anchor. `html/shop.js:20`, `html/shop.js:25`, `html/shop.js:29`
 - `shop.js` writes "This droplet is unavailable." where a droplet answered an error, and loads in full a page that did. `html/shop.js:34`
 - `shop.js` moves the nav's `aria-current` on `htmx:pushedIntoHistory` and `htmx:historyRestore`. `html/shop.js:41`, `html/shop.js:47`, `html/shop.js:48`
-- `shop.css` is the shop hosts' shared file; `site.css` is this site's own. `../../../tests/hosts/test/shop-css.test.ts:22`
+- `shop.css` is the shop hosts' shared file; `site.css` is this site's own. `../../../tests/hosts/test/shop-css.test.ts:21`
 - Svelte page sets htmx `selfRequestsOnly: false`. `html/index.html:10`
 - Svelte page loads `/vendor/htmx.min.js` and the Svelte example's `/index.js` from `http://localhost:8000`, and no other `/index.js`. `html/index.html:11`, `html/index.html:15`
 - Svelte page loads `/droplet-origins.js` after the module script: an `htmx:validateUrl` listener that allows this origin and the origins the page loads an `/index.js` from, no other. `html/index.html:16`, `html/droplet-origins.js:6`, `html/droplet-origins.js:13`
@@ -193,5 +193,5 @@ typecheck. The guide's page:
 - Svelte page `ssr-hydrate?who=htmx` is swapped in on `load`. `html/index.html:34`, `html/index.html:35`
 - Svelte page `client?who=Ana` is swapped into `#on-click` on a click. `html/index.html:44`
 - Svelte page `ssr-nohydrate?who=htmx` is swapped in once `revealed`. `html/index.html:53`, `html/index.html:54`
-- Host test checks an `hx-get` to a third origin is refused (`htmx:invalidPath`) and no request goes out. `../../../tests/hosts/e2e/htmx.spec.ts:290`, `../../../tests/hosts/e2e/htmx.spec.ts:301`
-- Host test checks the preflight answers 204, `access-control-allow-origin: *`, and echoes the `hx-*` headers. `../../../tests/hosts/e2e/htmx.spec.ts:322`, `../../../tests/hosts/e2e/htmx.spec.ts:324`
+- Host test checks an `hx-get` to a third origin is refused (`htmx:invalidPath`) and no request goes out. `../../../tests/hosts/e2e/htmx.spec.ts:304`, `../../../tests/hosts/e2e/htmx.spec.ts:301`
+- Host test checks the preflight answers 204, `access-control-allow-origin: *`, and echoes the `hx-*` headers. `../../../tests/hosts/e2e/htmx.spec.ts:344`, `../../../tests/hosts/e2e/htmx.spec.ts:346`

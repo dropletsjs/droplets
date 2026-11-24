@@ -54,32 +54,32 @@ Script droplets: `script-plain` and `script-loaded` (`--hydrate visible
 
 ## Facts
 
-- Frameworks covered: svelte, vue, react, preact, solid, hono-jsx, handlebars, lit. `test/add.test.ts:18`
-- Cases: `full`, `loaded`, `static`, `browser`, `built`, with their `djs add` flags. `test/add.test.ts:24`
-- `djs add` runs with `--root .tmp/project` and `npm_config_user_agent=pnpm/10`. `test/add.test.ts:37`
-- Every droplet is added with `--yes`, as `<framework>-<case>`. `test/add.test.ts:57`
-- Script droplets `script-plain` and `script-loaded` are added with `--framework script`. `test/add.test.ts:61`
-- Vite config after the adds registers `[svelte(), vue(), react(), preact(), solid(), honoJsx(), handlebars(), lit()]` and has 11 imports. `test/add.test.ts:72`
-- Vite config keeps its comment through the edits. `test/add.test.ts:74`
-- tsconfig after the adds has `"jsx": "react-jsx", "jsxImportSource": "react"` and includes `src/**/*.tsx`. `test/add.test.ts:76`
+- Frameworks covered: svelte, vue, react, preact, solid, hono-jsx, handlebars, lit. `test/add.test.ts:19`
+- Cases: `full`, `loaded`, `static`, `browser`, `built`, with their `djs add` flags. `test/add.test.ts:25`
+- `djs add` runs with `--root .tmp/project` and `npm_config_user_agent=pnpm/10`. `test/add.test.ts:38`
+- Every droplet is added with `--yes`, as `<framework>-<case>`. `test/add.test.ts:58`
+- Script droplets `script-plain` and `script-loaded` are added with `--framework script`. `test/add.test.ts:62`
+- Vite config after the adds registers `[svelte(), vue(), react(), preact(), solid(), honoJsx(), handlebars(), lit()]` and has 11 imports. `test/add.test.ts:71`
+- Vite config keeps its comment through the edits. `test/add.test.ts:73`
+- tsconfig after the adds has `"jsx": "react-jsx", "jsxImportSource": "react"` and includes `src/**/*.tsx`. `test/add.test.ts:75`
 - A name in use is refused with `exists already`. `test/add.test.ts:81`
-- `--hydrate none` without a target is refused, pointing at `--target ssr`. `test/add.test.ts:84`
-- Script droplet file starts its function as `const run: DropletScript = (_data, el) => {`. `test/add.test.ts:90`
-- Script droplet with `--hydrate visible --with css` gets `export const hydrate = "visible";` and `import "./style.css";`, no `ssr` export. `test/add.test.ts:93`
-- Script droplet refuses `--target ssr`, `--hydrate none`, `--hydrate interactive` and `--with error`. `test/add.test.ts:97`
+- `--hydrate none` without a target is refused, pointing at `--target ssr`. `test/add.test.ts:83`
+- Script droplet file starts its function as `const run: DropletScript = (_data, el) => {`. `test/add.test.ts:89`
+- Script droplet with `--hydrate visible --with css` gets `export const hydrate = "visible";` and `import "./style.css";`, no `ssr` export. `test/add.test.ts:92`
+- Script droplet refuses `--target ssr`, `--hydrate none`, `--hydrate interactive` and `--with error`. `test/add.test.ts:95`
 - Type check runs `tsc -p tsconfig.json` in the project. `test/add.test.ts:109`
 - Build runs `vite build`, then `node dist/server.js` with `PORT`, waited for (`waitForServer`) on `svelte-full` until its `x-droplets-build` is this build's (`fromBuild`). `test/add.test.ts:123`
 - Server port comes from `onFreePort()` of `@dropletsjs/shared/vitest`, a new one when another process takes it before the server binds it. `test/add.test.ts:116`
-- `full` renders its name in an `<h1>` and serves `client.js`. `test/add.test.ts:143`
+- `full` renders its name in an `<h1>` and serves `client.js`. `test/add.test.ts:140`
 - `loaded` renders `Hello Ana!` for `?who=Ana`; its styles are in `style.css`, Lit's in a `<style>` inside the markup. `test/add.test.ts:146`
-- `style.css` is read with its `@import url(...)` rules followed. `test/add.test.ts:45`
-- `static` (`--target ssr`) renders and has no `client.js` (404). `test/add.test.ts:152`
+- `style.css` is read with its `@import url(...)` rules followed. `test/add.test.ts:46`
+- `static` (`--target ssr`) renders and has no `client.js` (404). `test/add.test.ts:150`
 - `browser` (`--target client`) renders no `<h1>` on the server and serves `client.js`. `test/add.test.ts:155`
-- `built` (`--target ssg`) renders `Hello world!`. `test/add.test.ts:158`
+- `built` (`--target ssg`) renders `Hello world!`. `test/add.test.ts:155`
 - Script droplet renders `<div style="display: contents" data-droplet-entry></div>` as its element's only content and serves `client.js`. `test/add.test.ts:161`
 - Fixture is Svelte only, Node adapter. `test/fixture/vite.config.ts:8`
 - Fixture element is `djs-add-test`. `test/fixture/droplets.config.ts:2`
 - Fixture tsconfig has no JSX and extends `./.droplets/tsconfig.json`. `test/fixture/tsconfig.json:2`
 - Test and hook timeout 300 s. `vitest.config.ts:7`
 - Test script is `vitest run`. `package.json:9`
-- `.tmp/` is gitignored. `../../.gitignore:42`
+- `.tmp/` is gitignored. `../../.gitignore:48`

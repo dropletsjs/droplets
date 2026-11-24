@@ -68,10 +68,15 @@ the form; nothing of the body is merged into anything.
   ([Redirects](/guides/security/#redirects)).
 - **`error()`**: answered as a load's `error()`.
 
-Then the droplet renders again: its load runs, and the component gets the
+Then the droplet renders again: its loads run, and the component gets the
 result as `form` (`{{form.…}}` in Handlebars), `undefined` on any other
 render. That render is always live, also for a prerendered droplet.
 
+- `form` is a prop of the component only. Neither load sees it:
+  `LoadEvent` and the event of `+droplet.ts`'s `load` have no `form`.
+- A result carries what the action returns and nothing else. The submitted
+  fields are never added to it: a form that should show a field again
+  returns it.
 - The returned data must be plain JSON (object literals, arrays, strings,
   finite numbers, booleans, `null`): a `Date`, a class instance or a
   function answers `500`.
@@ -86,6 +91,59 @@ How the result reaches the page depends on the request, not the URL. An
 place; a form posted without JavaScript is sent back to its page with the
 result ([Post/Redirect/Get](#without-javascript-postredirectget)). The
 [HTTP contract](/integrate/http-contract/#form-actions) has every status.
+
+### The loads run again
+
+After an action that does not redirect, success and `fail()` alike, the
+droplet's loads run again, with or without JavaScript. The server keeps
+nothing between the post and the render: the loads are the one source of
+what the droplet shows, so an action that changed something (a vote
+counted, a failed attempt recorded) shows in the next render.
+
+- **Without JavaScript**: the `303` brings the browser back to the page,
+  a new page load. The host page renders the droplet as on any visit:
+  `+droplet.server.ts`'s `load` and `+droplet.ts`'s `load` run, and the
+  component renders with `form`.
+- **With an [enhanced form](#enhancing-a-form)**: a droplet that hydrated
+  refreshes in place. `+droplet.server.ts`'s `load` runs through a `_data`
+  request (a droplet without one makes none), then `+droplet.ts`'s `load`
+  in the browser, and the component renders with `form`. A droplet that
+  did not hydrate (`hydrate = false`, or not yet) asks for its fragment
+  again, with `form`, and the server runs both loads.
+- **After `redirect()`**: nothing renders the droplet with a result. The
+  browser goes where the redirect points, and that page renders it as on
+  any visit.
+
+An `onResult` option on an enhanced form replaces this refresh: the loads
+run again only when it calls `update()`.
+
+### A redirect or a result
+
+Use `redirect()` for a success that matters beyond the form: a login, a
+registration, a payment, an item added to a cart that renders the new
+count. The browser lands on a page of its own, a reload does not repeat
+anything, and every droplet on that page renders fresh.
+
+Return a result, or `fail()`, for what shows on the same page next to the
+form: a missing field, a value to correct, a short confirmation. It is
+display only (see [Limits you will hit](#limits-you-will-hit)).
+
+```ts
+export const actions = {
+  login: async ({ request, cookies }) => {
+    const data = await request.formData();
+    if (typeof data.get("email") !== "string") return fail(400, { missing: true });
+    const password = data.get("password");
+    if (typeof password !== "string" || password === "") return fail(400, { email: data.get("email"), missing: true });
+    // … check the password, set the session cookie …
+    redirect(303, "/account");
+  },
+} satisfies Actions;
+```
+
+The `fail()` data sends the email back so the form can fill it in again.
+Never the password: whatever a result holds is readable by anyone who
+holds the page's URL.
 
 ## Where a form posts
 
@@ -147,8 +205,8 @@ page of its own:
 - **success or `fail()`**: back to the page the form was on, with the
   result signed in the query:
   `https://shop.example/product/mug?ref=1&__droplet_form_cart_36a187=eyJzd…Q.hT0…`.
-  The page loads again, the host page renders the droplet as always, and
-  the droplet renders with `form`;
+  The page loads again, the host page renders the droplet as always, its
+  loads run, and the droplet renders with `form`;
 - **`redirect()`**: to where it points.
 
 A reload then never posts again. The round trip, for a host page whose
@@ -169,6 +227,14 @@ its query. The browser sends it with `_data` on its own; a host page's
 server passes it as `"host"` in a render request's body, or as `Referer`
 for a `handle` that reads it with
 [`hostFrom`](/guides/server/#taking-the-page-from-referer).
+
+A result that does not match is dropped without a word: the droplet
+renders as if the URL carried none, without `form`, and nothing is logged,
+under `vite dev` or in production. That covers a result from another build
+(its key names that build, so this one never looks it up), one minted for
+another page or droplet, a bad signature, an expired one (older than five
+minutes) and one for an action the droplet no longer exports. The page
+itself answers as usual; the key stays in its URL.
 
 A form in a droplet [prerendered](/guides/prerendering/#host-at-build) for
 the configured `host` returns to the page the render was made for, not the
@@ -286,7 +352,8 @@ What an enhanced form takes over:
 Then:
 
 - **success or failure**: the droplet renders again with `form` and fresh
-  data, its loads run as a `_data` refresh. A `hydrate = false` droplet
+  data, its loads run again ([The loads run again](#the-loads-run-again)).
+  A `hydrate = false` droplet
   (Handlebars, or any that does not render in the browser) gets its
   fragment, rendered with `form` by the server (a JSON render that carries
   `form`), swapped in. Its props and page come from the form's action URL,
@@ -346,15 +413,16 @@ That shapes what an action should return:
   `undefined`. Return field names and short messages, not documents.
 - **Readable by anyone who holds the URL.** The secret signs the result; it
   does not hide it. The JSON is base64url, readable without the secret, and
-  it rides in the URL: in history, logs and `Referer`s. Return field names
-  and message codes, never the submitted values, secrets or anything used
-  for authorization:
+  it rides in the URL: in history, logs and `Referer`s. The result holds
+  only what the action returns, and all of it is readable there: return
+  field names, message codes and what the form must show again, never a
+  password, a secret or anything used for authorization:
 
   ```ts
-  // Bad: the address, the reason and a session id, readable by anyone with the URL.
-  return fail(422, { email, error: `No account for ${email}`, session: locals.sessionId });
-  // Good: which field, and a code the component turns into a message.
-  return fail(422, { field: "email", code: "unknown_account" });
+  // Bad: the password and a session id, readable by anyone with the URL.
+  return fail(400, { email: data.get("email"), password: data.get("password"), session: locals.sessionId });
+  // Good: the email to fill in again, and a flag the component turns into a message.
+  return fail(400, { email: data.get("email"), missing: true });
   ```
 
 - **Display only.** Anyone who posts the form can make a URL that shows its

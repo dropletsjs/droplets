@@ -198,7 +198,7 @@ page: [Django](https://dropletsjs.dev/integrate/hosts/django/).
 - Shop layout loads `/shop.css` and `/index.js` from this origin. `shop/templates/shop/layout.html:7`, `shop/templates/shop/layout.html:10`
 - Shop layout speculation rules prefetch `/product/*`, eagerness `moderate`. `shop/templates/shop/layout.html:9`
 - Shop layout puts the toasts fragment first in the body. `shop/templates/shop/layout.html:13`
-- Tests run against `httpx.MockTransport`, no shop needed. `shop/tests.py:22`, `shop/tests.py:40`
+- Tests run against `httpx.MockTransport`, no shop needed. `shop/tests.py:22`, `shop/tests.py:45`
 - Tests check the proxy refuses dot segments, other methods and large bodies before asking the shop. `shop/tests.py:98`, `shop/tests.py:104`, `shop/tests.py:109`
 - Tests check every `Set-Cookie` line reaches the WSGI server untouched. `shop/tests.py:125`
 - Typecheck: no `package.json`, so `pnpm typecheck:hosts` does not cover this host. `../../../tests/hosts/typecheck.mjs:20`

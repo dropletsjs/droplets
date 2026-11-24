@@ -91,20 +91,20 @@ root `.env.local`) for one off the `PATH`. `entry.ts` is a tsdown entry:
 - `vite preview` serves `dist/client` and `dist/server/entry-server.js` through `createNodeServerApp` of `@dropletsjs/adapter-node`. `src/index.ts:30`
 - `dist/server.js` resolves `client/` and `server/entry-server.js` relative to its own file, not the working directory. `src/entry.ts:9`
 - `droplets.config.ts` is bundled into `dist/server.js` through `virtual:droplets-config`; it is not read at runtime. `src/entry.ts:3`
-- `droplets.config.ts` that exports a function is called in `dist/server.js` with the build's `{ command, mode, isSsrBuild, isPreview }` and awaited before `resolveConfig`, as on Node. `src/entry.ts:17`, `../node/test/index.test.ts:82`
-- `PORT` is read once at startup and overrides `server.port` from the config. `src/entry.ts:16`
-- Default export of `dist/server.js` is `{ port, development, fetch }`. `src/entry.ts:27`
-- Default export `port` is `server.port` of the config, after `PORT`. `src/entry.ts:28`
-- Default export `development` is `false`: an error answers with the droplet's error page, not Bun's debug page. `src/entry.ts:30`, `test/entry.test.ts:74`
-- `bun dist/server.js` listens and logs `Started server: http://localhost:<port>`. `test/entry.test.ts:50`
-- Importing `dist/server.js` does not listen; `default.fetch` is a function. `test/entry.test.ts:79`, `test/entry.test.ts:81`
-- App creation is lazy and once per process: the first request creates it, later requests reuse the same promise. `src/entry.ts:21`
-- App creation that fails stays cached: every later request gets the same rejection. `src/entry.ts:21`
-- Runtime env comes from the process environment: a secret set there reaches the droplet. `test/entry.test.ts:59`
-- `/index.js` answers `cache-control: no-store`. `test/entry.test.ts:63`
+- `droplets.config.ts` that exports a function is called in `dist/server.js` with the build's `{ command, mode, isSsrBuild, isPreview }` and awaited before `resolveConfig`, as on Node. `src/entry.ts:17`, `../node/test/index.test.ts:115`
+- `PORT` is read once at startup and overrides `server.port` from the config. `src/entry.ts:17`
+- Default export of `dist/server.js` is `{ port, development, fetch }`. `src/entry.ts:28`
+- Default export `port` is `server.port` of the config, after `PORT`. `src/entry.ts:29`
+- Default export `development` is `false`: an error answers with the droplet's error page, not Bun's debug page. `src/entry.ts:30`, `test/entry.test.ts:75`
+- `bun dist/server.js` listens and logs `Started server: http://localhost:<port>`. `test/entry.test.ts:51`
+- Importing `dist/server.js` does not listen; `default.fetch` is a function. `test/entry.test.ts:93`, `test/entry.test.ts:95`
+- App creation is lazy and once per process: the first request creates it, later requests reuse the same promise. `src/entry.ts:22`
+- App creation that fails stays cached: every later request gets the same rejection. `src/entry.ts:22`
+- Runtime env comes from the process environment: a secret set there reaches the droplet. `test/entry.test.ts:60`
+- `/index.js` answers `cache-control: no-store`. `test/entry.test.ts:64`
 - Bun engine is `>=1.2`. `package.json:35`
 - Build script runs the tests before tsdown. `package.json:38`
-- `BUN` names the bun binary for the tests; default `bun` on the `PATH`. `test/entry.test.ts:14`
+- `BUN` names the bun binary for the tests; default `bun` on the `PATH`. `test/entry.test.ts:15`
 - `BUN` may come from the root `.env.local`; a variable already set wins. `vitest.config.ts:5`, `../../shared/env.ts:6`
-- Entry tests are skipped when `bun --version` does not succeed; the build test still runs. `test/entry.test.ts:15`, `test/entry.test.ts:17`
-- Tests build the framework's fixture app with `buildFixtureApp()` from `@dropletsjs/shared/vitest`, which fails when `@dropletsjs/droplets` is not built. `test/build-fixture.ts:12`, `../../shared/vitest.ts:32`
+- Entry tests are skipped when `bun --version` does not succeed; the build test still runs. `test/entry.test.ts:16`, `test/entry.test.ts:18`
+- Tests build the framework's fixture app with `buildFixtureApp()` from `@dropletsjs/shared/vitest`, which fails when `@dropletsjs/droplets` is not built. `test/build-fixture.ts:12`, `../../shared/vitest.ts:34`

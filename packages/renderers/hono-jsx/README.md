@@ -131,12 +131,12 @@ through `mount`).
 ## Facts
 
 - `honoJsx()` returns the renderer named `hono-jsx`, claiming `.tsx` and `.jsx`. `src/index.ts:72`, `src/index.ts:73`
-- `honoJsx()` packages are `hono/jsx` and `@dropletsjs/renderer-hono-jsx`, not `hono`: importing `hono` does not make a file Hono JSX's. `src/index.ts:75`, `../../droplets/src/renderer.ts:692`
-- `honoJsx()` componentTypes is `@dropletsjs/renderer-hono-jsx`: `./$types` takes `DropletProps` and `DropletErrorProps` from this package. `src/index.ts:76`, `../../droplets/src/vite/sync-types.ts:37`
+- `honoJsx()` packages are `hono/jsx` and `@dropletsjs/renderer-hono-jsx`, not `hono`: importing `hono` does not make a file Hono JSX's. `src/index.ts:75`, `../../droplets/src/renderer.ts:714`
+- `honoJsx()` componentTypes is `@dropletsjs/renderer-hono-jsx`: `./$types` takes `DropletProps` and `DropletErrorProps` from this package. `src/index.ts:76`, `../../droplets/src/vite/sync-types.ts:47`
 - `honoJsx({ plugin: false })` adds no Vite plugin. `src/index.ts:78`
 - `honoJsx()` passes core's scope filter to its plugin as `include` (another renderer shares `.tsx`). `src/index.ts:78`
 - `honoJsx()` server, client and clientDev are `dist/server.js`, `dist/client.js` and `dist/client-dev.js`, found by path; no clientSetup. `src/index.ts:79`, `src/index.ts:81`
-- `honoJsx()` has no `readFlags`: core's default reader takes flags from the component's literal named exports. `../../droplets/src/core/discover.ts:144`, `test/index.test.ts:29`
+- `honoJsx()` has no `readFlags`: core's default reader takes flags from the component's literal named exports. `../../droplets/src/core/discover.ts:155`, `test/index.test.ts:29`
 - `DropletProps` data is `Data | Promise<Data>`; children is a Hono `Child`. `src/index.ts:48`, `src/index.ts:51`
 - Plugin is named `droplets:hono-jsx` and runs with `enforce: "pre"`. `src/plugin.ts:32`, `src/plugin.ts:33`
 - Plugin resolveId maps `hono/jsx`, `hono/jsx/jsx-runtime` and `hono/jsx/jsx-dev-runtime` to their `hono/jsx/dom` builds, in the client environment only. `src/plugin.ts:17`, `src/plugin.ts:39`
@@ -144,17 +144,17 @@ through `mount`).
 - Plugin transform compiles `.tsx`/`.jsx` outside `node_modules` with oxc, automatic runtime, `hono/jsx/dom` in the browser and `hono/jsx` elsewhere. `src/plugin.ts:46`, `src/plugin.ts:51`
 - Plugin transform skips a module `include` does not match, when `include` is set. `src/plugin.ts:47`
 - Plugin transform emits a source map. `src/plugin.ts:52`
-- Server render prints `jsx(component, { ...props, children })` with `toString()`, awaiting async components. `src/server.ts:28`
-- Server children is `<div data-droplet-children="" style="display: contents"></div>`. `src/server.ts:27`, `test/server.test.ts:13`
-- Server and client throw `<droplet>: the <kind> component is not a Hono JSX component` when the default export is not a function. `src/server.ts:20`, `src/tree.ts:26`
+- Server render prints `jsx(component, { ...props, children })` with `toString()`, awaiting async components. `src/server.ts:33`
+- Server children is `<div data-droplet-children="" style="display: contents"></div>`. `src/server.ts:32`, `test/server.test.ts:13`
+- Server and client throw `<droplet>: the <kind> component is not a Hono JSX component` when the default export is not a function. `src/server.ts:22`, `src/tree.ts:28`
 - Client mount uses `createRoot` of `hono/jsx/dom/client`; the instance is `{ root, component, context }`. `src/client.ts:26`, `src/client.ts:28`
 - Client hydrate empties the target and mounts: the server's nodes are replaced, not adopted. `src/client.ts:33`, `src/client.ts:34`
 - Client unmount flushes `root.unmount()` with `flushSync`, so the target is empty when it returns. `src/client.ts:40`
-- Client tree is always under `<Suspense>` with an empty fragment as fallback, never `null`. `src/tree.ts:101`, `src/tree.ts:17`
-- Client tree adds `<ErrorBoundary>` only when the droplet has an error page. `src/tree.ts:105`, `src/tree.ts:107`
-- Error boundary passes the error to `handle` (the droplet's `handleError`) once per error; nothing renders while it runs or when it rejects. `src/tree.ts:66`, `src/tree.ts:68`, `src/tree.ts:73`
-- Data promise is wrapped so Hono's `<Suspense>` `finally` leaves no unhandled rejection. `src/tree.ts:87`, `src/tree.ts:91`
-- Children marker is filled in a layout effect and emptied in its cleanup, while still in the document. `src/tree.ts:44`, `src/tree.ts:45`
+- Client tree is always under `<Suspense>` with an empty fragment as fallback, never `null`. `src/tree.ts:106`, `src/tree.ts:18`
+- Client tree adds `<ErrorBoundary>` only when the droplet has an error page. `src/tree.ts:110`, `src/tree.ts:112`
+- Error boundary passes the error to `handle` (the droplet's `handleError`) once per error; nothing renders while it runs or when it rejects. `src/tree.ts:71`, `src/tree.ts:71`, `src/tree.ts:73`
+- Data promise is wrapped so Hono's `<Suspense>` `finally` leaves no unhandled rejection. `src/tree.ts:92`, `src/tree.ts:96`
+- Children marker is filled in a layout effect and emptied in its cleanup, while still in the document. `src/tree.ts:49`, `src/tree.ts:50`
 - `update` (clientDev) renders the tree with new props into the same root, flushed; it always answers true. `src/client-dev.ts:10`, `src/client-dev.ts:11`
 - `useEnhanceDropletForm(formRef, options?)` of `./form` enhances the form once mounted and releases it with the effect. `src/form.ts:48`, `src/form.ts:51`
 - `useEnhanceDropletForm` reads its options at each submit; without `onResult` it calls the result's `update()`. `src/form.ts:46`, `src/form.ts:56`

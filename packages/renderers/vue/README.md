@@ -112,42 +112,42 @@ import only `vue` and `@dropletsjs/droplets/enhance`.
 
 ## Facts
 
-- `vue()` name is `"vue"`. `src/index.ts:98`
-- `vue()` extensions are `[".vue"]`: it claims `+droplet.vue` and `+error.vue`. `src/index.ts:99`
-- `vue()` packages are `vue` and `@dropletsjs/renderer-vue`: another renderer's droplet that imports either fails the build. `src/index.ts:101`, `../../droplets/src/vite/renderer-graphs.ts:62`
-- `vue()` sets no `suffixes` and no `clientSetup`. `src/index.ts:97`
-- `vue()` componentTypes is `@dropletsjs/renderer-vue`: `./$types` takes `DropletProps` and `DropletErrorProps` from it. `src/index.ts:102`, `../../droplets/src/vite/sync-types.ts:37`
-- `vue()` server, client and clientDev are `dist/server.js`, `dist/client.js`, `dist/client-dev.js` under the package root. `src/index.ts:104`
-- `vue()` plugins are one `@vitejs/plugin-vue`; `plugin: false` leaves `plugins` unset. `src/index.ts:103`
-- `vitePlugin` keys other than `customElement` and `features.customElement` reach `@vitejs/plugin-vue` as given. `src/index.ts:84`
-- `vitePlugin.features.customElement` wins over the top-level `vitePlugin.customElement`, which is never passed on. `src/index.ts:84`, `src/index.ts:93`
-- Error page pattern `/[\\/]\+[Ee]rror\.vue$/` is added to the user's `customElement` patterns; `customElement: true` keeps every component in custom-element mode. `src/index.ts:69`, `src/index.ts:76`
+- `vue()` name is `"vue"`. `src/index.ts:85`
+- `vue()` extensions are `[".vue"]`: it claims `+droplet.vue` and `+error.vue`. `src/index.ts:86`
+- `vue()` packages are `vue` and `@dropletsjs/renderer-vue`: another renderer's droplet that imports either fails the build. `src/index.ts:88`, `../../droplets/src/vite/renderer-graphs.ts:74`
+- `vue()` sets no `suffixes` and no `clientSetup`. `src/index.ts:84`
+- `vue()` componentTypes is `@dropletsjs/renderer-vue`: `./$types` takes `DropletProps` and `DropletErrorProps` from it. `src/index.ts:89`, `../../droplets/src/vite/sync-types.ts:47`
+- `vue()` server, client and clientDev are `dist/server.js`, `dist/client.js`, `dist/client-dev.js` under the package root. `src/index.ts:91`
+- `vue()` plugins are one `@vitejs/plugin-vue`; `plugin: false` leaves `plugins` unset. `src/index.ts:90`
+- `vitePlugin` keys other than `customElement` and `features.customElement` reach `@vitejs/plugin-vue` as given. `src/index.ts:71`
+- `vitePlugin.features.customElement` wins over the top-level `vitePlugin.customElement`, which is never passed on. `src/index.ts:71`, `src/index.ts:80`
+- Error page pattern `/[\\/]\+[Ee]rror\.vue$/` is added to the user's `customElement` patterns; `customElement: true` keeps every component in custom-element mode. `src/index.ts:56`, `src/index.ts:65`
 - `readFlags` lives in `src/flags.ts` and reaches core on the renderer object; the package entry does not export it. `src/flags.ts:9`, `src/index.ts:87`
 - `readFlags` reads only the plain `<script>` block, from `vue/compiler-sfc`'s `parse`. `src/flags.ts:10`
 - `readFlags` parses the block as TSX for `lang="tsx"` or `lang="jsx"`, as TypeScript otherwise. `src/flags.ts:14`
 - `readFlags` returns `undefined` for a component without a plain `<script>`. `src/flags.ts:11`
-- `readFlags` ignores flags in comments, `<script setup>` and the template. `test/index.test.ts:54`
-- `DropletProps` has `data` (a promise when mounted, the value when hydrated) and `form?`; no `children`. `src/index.ts:42`
-- Server `render` uses `createSSRApp(component, props)` and `renderToString` of `vue/server-renderer`. `src/server.ts:26`, `src/server.ts:28`
-- Server `render` provides `null` as the children host: `DropletChildren` renders the bare marker. `src/server.ts:27`
-- Server `render` of an error page returns `{ html, head }` with one `<style>` per entry of the component's `styles`; plain HTML when it has none. `src/server.ts:33`
+- `readFlags` ignores flags in comments, `<script setup>` and the template. `test/index.test.ts:55`
+- `DropletProps` has `data` (a promise when mounted, the value when hydrated) and `form?`; no `children`. `src/index.ts:29`
+- Server `render` uses `createSSRApp(component, props)` and `renderToString` of `vue/server-renderer`. `src/server.ts:27`, `src/server.ts:29`
+- Server `render` provides `null` as the children host: `DropletChildren` renders the bare marker. `src/server.ts:28`
+- Server `render` of an error page returns `{ html, head }` with one `<style>` per entry of the component's `styles`; plain HTML when it has none. `src/server.ts:34`
 - Server `render` throws `component-not-renderable` (`the <kind> component is not a Vue component`, for the droplet) when the default export is neither an object nor a function. `src/server.ts:18`
 - Children marker is `<div data-droplet-children style="display: contents">`, inside a fragment root, so it never inherits a scoped-style attribute. `src/children.ts:38`, `src/children.ts:49`
-- Children host reaches `DropletChildren` through app-level `provide`, under `Symbol.for("droplets:vue:children")`. `src/children.ts:30`, `src/client.ts:111`
+- Children host reaches `DropletChildren` through app-level `provide`, under `Symbol.for("droplets:vue:children")`. `src/children.ts:30`, `src/client.ts:146`
 - `DropletChildren` calls `host.fill(marker)` in `onMounted` and `host.empty(marker)` in `onBeforeUnmount`, before Vue removes the DOM. `src/children.ts:42`, `src/children.ts:46`
-- Client `mount` uses `createApp`; `hydrate` uses `createSSRApp`; the instance is the app. `src/client.ts:110`, `src/client.ts:125`
+- Client `mount` uses `createApp`; `hydrate` uses `createSSRApp`; the instance is the app. `src/client.ts:145`, `src/client.ts:162`
 - Client root renders the component under `<Suspense>`, so `await props.data` in `<script setup>` works. `src/live-props.ts:18`
-- Client `mount` with an error page wraps the root in `DropletBoundary` (`onErrorCaptured`): the first error goes through `handle`, the error page renders with its result, nothing while it runs or when it rejects. `src/client.ts:75`, `src/client.ts:104`
-- Client `mount` and `hydrate` of an error page inject its `styles` into `document.head` as `<style data-droplet-vue="<users>">`, once per text, the attribute counting the mounted instances that use it; `unmount` takes one off and removes the element at zero. `src/client.ts:59`, `src/client.ts:89`, `src/client.ts:169`
-- Client `hydrate` moves the target's top-level `<style>` elements (an error page's `head`) into `document.head` first, so hydration finds no mismatch. `src/client.ts:56`, `src/client.ts:122`
-- Client `unmount` calls `app.unmount()`. `src/client.ts:133`
+- Client `mount` with an error page wraps the root in `DropletBoundary` (`onErrorCaptured`): the first error goes through `handle`, the error page renders with its result, nothing while it runs or when it rejects. `src/client.ts:109`, `src/client.ts:139`
+- Client `mount` and `hydrate` of an error page inject its `styles` into `document.head` as `<style data-droplet-vue="<users>">`, once per text, the attribute counting the mounted instances that use it; `unmount` takes one off and removes the element at zero. `src/client.ts:60`, `src/client.ts:98`, `src/client.ts:170`
+- Client `hydrate` moves the target's top-level `<style>` elements (an error page's `head`) into `document.head` first, so hydration finds no mismatch. `src/client.ts:90`, `src/client.ts:159`
+- Client `unmount` calls `app.unmount()`. `src/client.ts:172`
 - Client dev `update` sets the root's props and waits for `nextTick`; the component keeps its state. `src/client-dev.ts:16`
 - Client dev `update` returns `false` when the component's `setup` is async (Vue's `asyncDep`), and core remounts. `src/client-dev.ts:15`
 - Client dev `update` returns `false` for an app it did not mount. `src/client-dev.ts:12`
 - `./form` exports `useEnhanceDropletForm(formRef, options?)`: it follows the ref with `watch` (`immediate`, `flush: "post"`) and stops with the component. `src/form.ts:46`, `src/form.ts:68`
 - `./form` reads its options at each submit; without `onResult` it calls `result.update()`. `src/form.ts:63`
 - Package exports are `.`, `./server`, `./client`, `./children`, `./form`, `./package.json`. `package.json:23`
-- Dependency is `@vitejs/plugin-vue` `^6.0.0`; peers are `@dropletsjs/droplets`, `vue` `^3.5.0`, `vite` `^8.0.0`. `package.json:62`, `package.json:65`
+- Dependency is `@vitejs/plugin-vue` `^6.0.0`; peers are `@dropletsjs/droplets`, `vue` `^3.5.0`, `vite` `^8.0.0`. `package.json:63`, `package.json:66`
 - Node engine is `>=22`. `package.json:51`
 - Build script runs tsdown, then the tests. `package.json:54`
 - Typecheck is `vue-tsc`. `package.json:58`

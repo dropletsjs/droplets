@@ -110,20 +110,20 @@ rewrites their text with an LLM, a development tool run once: it needs
 - Login action `?/login` answers `fail(401)` for a wrong user or password, without echoing them. `src/droplets/login/+droplet.server.ts:21`
 - Login action answers `fail(503)` when `SHOP_SECRET` is unset or shorter than 32 characters. `src/droplets/login/+droplet.server.ts:24`, `src/lib/server/admin.ts:18`
 - `SHOP_SECRET` with `.env.example`'s `demo-only-` prefix is refused once `NODE_ENV` is `production`, said once with `console.error`: the login answers 503 and no session reads. `src/lib/server/admin.ts:19`
-- Login success sets `shop_admin` and redirects 303 to `props.next`, never a form field. `src/droplets/login/+droplet.server.ts:25`
+- Login success sets `shop_admin` and redirects 303 to `props.next`, never a form field. `src/droplets/login/+droplet.server.ts:26`
 - Logout action `?/logout` deletes `shop_admin` and redirects 303 to `/gallery`. `src/droplets/login/+droplet.server.ts:30`
-- Admin actions answer `fail(401)` without a session. `src/lib/server/admin.ts:29`
+- Admin actions answer `fail(401)` without a session. `src/lib/server/admin.ts:43`
 - Admin credentials are compared in constant time (SHA-256 hashes, `timingSafeEqual`), user and password both every time. `src/lib/server/auth.ts:19`, `src/lib/server/auth.ts:33`
 - Admin session cookie `shop_admin` is `<user>.<expiry>.<HMAC-SHA256>`, no session store. `src/lib/server/auth.ts:6`, `src/lib/server/auth.ts:40`
 - Admin session lasts 8 hours; the cookie is `HttpOnly`, `SameSite=Lax`, path `/`. `src/lib/server/auth.ts:12`, `src/lib/server/auth.ts:14`
 - Admin session MAC is checked in constant time before the expiry is checked. `src/lib/server/auth.ts:55`
 - Cart cookie `cart_id` lasts 30 days, `HttpOnly`, `SameSite=Lax`, path `/`. `src/lib/server/cart.ts:13`, `src/lib/server/cart.ts:15`
 - Cart line quantity is clamped to the stock and to 20. `src/lib/server/cart.ts:22`, `src/lib/server/cart.ts:104`
-- `handle` reads the admin session and the cart id into `locals`, except at build. `src/hooks.server.ts:26`, `src/hooks.server.ts:27`
+- `handle` reads the admin session and the cart id into `locals`, except at build. `src/hooks.server.ts:42`, `src/hooks.server.ts:43`
 - `handle` sets `locals.page` and `event.host` from the `Referer` when its origin is the shop's own or, with `DROPLETS_TRUSTED_ORIGINS` set, a trusted one; a relative redirect after an action lands on that page. `src/hooks.server.ts:28`, `src/hooks.server.ts:47`
 - A stale `v` redirects 302 to `locals.page` without `v`; without such a page the product page renders live. `src/droplets/product-page/+droplet.server.ts:57`
-- `/api/cart*` and `/api/auth*` answer `cache-control: private, no-store`. `src/hooks.server.ts:17`, `src/hooks.server.ts:34`
-- `handleError` logs the error and answers `Something broke in the shop.`. `src/hooks.server.ts:38`
+- `/api/cart*` and `/api/auth*` answer `cache-control: private, no-store`. `src/hooks.server.ts:19`, `src/hooks.server.ts:51`
+- `handleError` logs the error and answers `Something broke in the shop.`. `src/hooks.server.ts:55`
 - Client `init` installs `window.shopMessageQueue` before any droplet starts and relays `product-page` adds as toasts. `src/hooks.client.ts:7`
 - Window events: `shop:filter`, `shop:cart-changed`, `shop:product-changed`, `shop:cart-open`. `src/lib/events.ts:10`
 - `GET /api/products` `limit` is 1 to 48, default 12. `src/api/products/+server.ts:16`

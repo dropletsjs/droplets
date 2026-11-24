@@ -67,11 +67,11 @@ build, so run `pnpm build` after it.
 
 - `@dropletsjs/shared` is `private: true`: never published. `package.json:4`
 - `@dropletsjs/shared` exports `./catalog`, `./env`, `./hosts`, `./tsconfig`, `./tsconfig.base.json`, `./tsdown` and `./vitest`, as source files. `package.json:8`
-- `hosts.ts` imports `examples/hosts/hosts.json` (an import attribute, `type: "json"`); `HOSTS` is every entry with `status: "built"`, `ALL_HOSTS` the planned ones too. `hosts.ts:6`, `hosts.ts:56`
-- `hostsByLanguage()` groups the built hosts by the manifest's `languages`, in order, leaving out a language without one. `hosts.ts:72`
+- `hosts.ts` imports `examples/hosts/hosts.json` (an import attribute, `type: "json"`); `HOSTS` is every entry with `status: "built"`, `ALL_HOSTS` the planned ones too. `hosts.ts:6`, `hosts.ts:58`
+- `hostsByLanguage()` groups the built hosts by the manifest's `languages`, in order, leaving out a language without one. `hosts.ts:74`
 - `catalogRanges({ yaml })` reads the `catalog:` block of a pnpm-workspace.yaml, one `name: range` per line, quoted names included; `workspaceCatalog()` reads the root file. create-droplets bakes those ranges in and `tests/packages` checks the examples declare them. `catalog.ts:15`, `catalog.ts:34`
 - `@dropletsjs/shared` has no build script; its scripts are `test` (`vitest run`, `test/**/*.test.ts`) and `typecheck` (`tsc -p tsconfig.json`, the tests included). `package.json:17`
-- `@dropletsjs/shared` has no dependencies; `@types/node`, `tsdown`, `typescript`, `vite` and `vitest` are devDependencies. `package.json:18`
+- `@dropletsjs/shared` has no dependencies; `@types/node`, `tsdown`, `typescript`, `vite` and `vitest` are devDependencies. `package.json:21`
 - `tsdown.ts` imports only types from tsdown, because the Dockerfiles install filtered, without the workspace root. `tsdown.ts:1`
 - `bareImport` matches any specifier that does not start with `.`, `/` or a Windows drive (`C:\`, `C:/`). `tsdown.ts:9`
 - `base` builds `src/` into `dist/` as ESM, platform `neutral`, target `es2023`. `tsdown.ts:11`
@@ -110,7 +110,7 @@ build, so run `pnpm build` after it.
 - `stopServer({ child, timeout })` sends `child` SIGTERM and resolves once it has exited, sending SIGKILL after `timeout` ms (default 5000); it resolves at once for a missing or exited child. `vitest.ts:158`
 - `rawGet({ url, headers })` is a GET over `node:http` that resolves `{ status, headers, body }` with the body as the server sent it, a `Content-Encoding` left as it is (`fetch` would decode it). `vitest.ts:172`
 - `renderTimeoutProbe()` is a script for `bun -e` or `deno eval` that imports `packages/droplets/src/runtime/render-timeout.ts` and prints, as JSON, whether the deadline's brand survives `AbortSignal.any` and both `withSignal` copies, the copy's body and the original's both readable: the Bun and Deno suites run it on their runtime. `vitest.ts:191`
-- `loadEnvLocal()` loads the repository root's `.env.local` with `process.loadEnvFile`, only when the file exists. `env.ts:4`
+- `loadEnvLocal()` loads the repository root's `.env.local` with `process.loadEnvFile`, only when the file exists. `env.ts:6`
 - `loadEnvLocal()` finds `.env.local` two folders above `env.ts`, the repository root. `env.ts:5`
 - `tsconfig.base.json` targets ES2023 with `lib` ES2023, DOM and DOM.Iterable, `module` ESNext and `moduleResolution` bundler. `tsconfig.base.json:4`
 - `tsconfig.base.json` sets `strict`, `noUncheckedIndexedAccess`, `verbatimModuleSyntax`, `isolatedModules` and `noEmit`. `tsconfig.base.json:10`

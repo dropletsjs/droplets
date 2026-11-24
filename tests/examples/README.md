@@ -85,8 +85,8 @@ the error page in its shadow root, and a click replayed after
 - Proxy `/<example>/mfe/*` forwards to the droplets server with `x-droplet-location` set to the prefix. `e2e/host.mjs:48`
 - Proxy passes back `content-type`, `cache-control`, `etag`, `location`, `vary`, `link`, `set-cookie`. `e2e/host.mjs:45`
 - `/<example>/written` writes `<djs-<example> data-droplet="ssr-hydrate" data-droplet-props='{"who":"Writer"}'>`. `e2e/host.mjs:100`
-- `/<example>/inserted` fetches `ssr-hydrate` in the browser and sets it with `innerHTML`. `e2e/host.mjs:110`
-- `/<example>/one/<id>` turns `hydrate=<word>` into `data-droplet-hydrate` on the element. `e2e/host.mjs:120`
+- `/<example>/inserted` fetches `ssr-hydrate` in the browser and sets it with `innerHTML`. `e2e/host.mjs:114`
+- `/<example>/one/<id>` turns `hydrate=<word>` into `data-droplet-hydrate` on the element. `e2e/host.mjs:130`
 - `/svelte/script` embeds `page-views?page=pricing` twice. `e2e/host.mjs:95`
 - Handlebars is not interactive: no button, nothing hydrates. `e2e/examples.spec.ts:11`
 - Secret `e2e-secret-value` never appears in any script, JSON or HTML response the browser got, nor in the page. `e2e/examples.spec.ts:55`
@@ -99,11 +99,11 @@ the error page in its shadow root, and a click replayed after
 - `/api/greet/:name` answers JSON with `requestId` equal to the `x-request-id` header set by `hooks.server.ts`. `e2e/examples.spec.ts:149`
 - Script droplet tests run only for the Svelte example. `e2e/examples.spec.ts:159`
 - Script droplet fragment holds only the `data-droplet-payload="context"` and `data-droplet-payload="data"` payload scripts. `e2e/examples.spec.ts:167`
-- Script droplet `page-views` with `page=../etc` answers 400. `e2e/examples.spec.ts:174`
-- `/api/page-views` refuses arrays, `__proto__`, path-like and too-long names, non-JSON and a number. `e2e/examples.spec.ts:199`
-- `/api/page-views` with `text/plain` answers 403 or 415. `e2e/examples.spec.ts:214`
-- Imported image `src` is `<droplets server or prefix>/assets/droplet-<hash>.png` and loads. `e2e/examples.spec.ts:228`
-- Behind the prefix, every asset, droplet, API and `/index.js` request keeps the prefix. `e2e/examples.spec.ts:249`
+- Script droplet `page-views` with `page=../etc` answers 400. `e2e/examples.spec.ts:172`
+- `/api/page-views` refuses arrays, `__proto__`, path-like and too-long names, non-JSON and a number. `e2e/examples.spec.ts:197`
+- `/api/page-views` with `text/plain` answers 403 or 415. `e2e/examples.spec.ts:212`
+- Imported image `src` is `<droplets server or prefix>/assets/droplet-<hash>.png` and loads. `e2e/examples.spec.ts:226`
+- Behind the prefix, every asset, droplet, API and `/index.js` request keeps the prefix. `e2e/examples.spec.ts:247`
 - `POST /api/counter` refuses `null`, an array, a string, non-JSON and a `by` that is not an integer within ±100 (400) and a body over 64 bytes (413); `__proto__` is an own field like any other. `e2e/examples.spec.ts:274`
 - The greeting a card shows is the universal load's output, on the server (`?who=Ana`) and in the browser (a host-written element). `e2e/examples.spec.ts:122`, `e2e/examples.spec.ts:268`
 - Lit: server markup carries a declarative shadow root, hydration deferred. `e2e/lit.spec.ts:41`

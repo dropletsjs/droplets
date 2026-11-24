@@ -136,7 +136,7 @@ into a page.
 - Basic page pastes only a 2xx, 500 or 504 `text/html` answer; anything else renders an inline `<p class="error">`. `public/index.php:49`, `public/index.php:51`
 - Basic page loads `<DROPLETS_PUBLIC_URL>/index.js`. `app/views/index.php:7`
 - Droplets server's `cors: true` (the Svelte example) lets the basic page load droplets cross-origin. `../../frameworks/svelte/droplets.config.ts:16`
-- curl: requests in parallel with `curl_multi`, redirects never followed, http and https only. `app/http.php:19`, `app/http.php:39`, `app/http.php:40`
+- curl: requests in parallel with `curl_multi`, redirects never followed, http and https only. `app/http.php:21`, `app/http.php:39`, `app/http.php:40`
 - curl: connect timeout 5 s, request timeout 10 s by default. `app/http.php:19`, `app/http.php:41`
 - curl: `CURLOPT_ENCODING => ''` decodes any encoding, so the body passed on is plain. `app/http.php:45`
 - curl: no cookie file, cookie jar or share handle; each handle lives for one request. `app/http.php:6`, `app/http.php:83`
@@ -169,5 +169,5 @@ into a page.
 - Shop login page passes `next`; admin page passes `view` and `id`. `app/shop.php:384`, `app/shop.php:386`
 - Shop layout loads `/shop.css` and `/index.js` from this origin, with speculation rules for `/product/*`. `app/views/shop/layout.php:7`, `app/views/shop/layout.php:10`, `app/views/shop/layout.php:11`
 - Shop footer stack label is `PHP 8.3`. `app/shop.php:20`
-- `pnpm test:hosts php` tests `http://localhost:8009`. `../../../tests/hosts/run.mjs:62`
+- `pnpm test:hosts php` tests `http://localhost:8009`. `../../../tests/hosts/run.mjs:71`
 - `examples/hosts/*` is outside the pnpm workspace. `../../../pnpm-workspace.yaml:5`

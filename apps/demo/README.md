@@ -195,7 +195,7 @@ right after `deploy-demo`.
 - Demo CORS: only `docsOrigins()`, preflight kept for a day (`maxAge: 86_400`). `droplets.config.ts:14`
 - Demo `trustedOrigins` is `docsOrigins()`: only the docs' pages may post forms and receive Post/Redirect/Get. `droplets.config.ts:20`
 - Demo `location` is `https://demo.dropletsjs.dev` and `host` is `https://dropletsjs.dev`, both fixed at build; `vite dev` ignores both. `droplets.config.ts:29`, `droplets.config.ts:30`
-- The build holds no host or location token (`__$DROPLET_`). `test/server.test.ts:444`
+- The build holds no host or location token (`__$DROPLET_`). `test/server.test.ts:461`
 - Demo limits: JSON 16 KB, form 4 KB, multipart 8 KB, props 1024 bytes. `droplets.config.ts:33`
 - Demo dev server port 5180, production server port 8790. `droplets.config.ts:35`, `droplets.config.ts:36`
 - `DOCS_ORIGINS`: `https://dropletsjs.dev`, `http://localhost:4321`, `http://127.0.0.1:4321`. `src/lib/origins.ts:6`
@@ -210,31 +210,31 @@ right after `deploy-demo`.
 - Script `build:cloudflare` is `DROPLETS_ADAPTER=cloudflare vite build`, then `scripts/export-testimonials.mjs`. `package.json:11`
 - Script `deploy:cloudflare` is `build:cloudflare`, then `wrangler deploy`. `package.json:13`
 - `wrangler` is a dev dependency at the catalog's range; the deploy and secret commands run it through pnpm, never `npx`. `package.json:54`, `../../pnpm-workspace.yaml:32`
-- CI job `deploy-demo` runs `pnpm --filter @dropletsjs/demo deploy:cloudflare` after `pnpm build:dist`. `../../.github/workflows/ci.yml:158`, `../../.github/workflows/ci.yml:161`
-- `deploy-demo` runs only on a push to `main` of `dropletsjs/droplets`, after `check`, `e2e`, `hosts` and `docker`. `../../.github/workflows/ci.yml:136`, `../../.github/workflows/ci.yml:137`
-- `deploy-demo` runs in the GitHub environment `cloudflare`, with no dependency cache; `CLOUDFLARE_API_TOKEN` (secret) and `CLOUDFLARE_ACCOUNT_ID` (variable) reach the deploy step only. `../../.github/workflows/ci.yml:140`, `../../.github/workflows/ci.yml:163`, `../../.github/workflows/ci.yml:164`
-- `deploy-demo` passes no `--secrets-file`: `DROPLETS_SECRET` stays the Worker secret already set. `../../.github/workflows/ci.yml:161`
-- `deploy-demo` runs one at a time (concurrency group `deploy-demo`, never cancelled). `../../.github/workflows/ci.yml:144`
+- CI job `deploy-demo` runs `pnpm --filter @dropletsjs/demo deploy:cloudflare` after `pnpm build:dist`. `../../.github/workflows/ci.yml:277`, `../../.github/workflows/ci.yml:280`
+- `deploy-demo` runs only on a push to `main` of `dropletsjs/droplets`, after `check`, `e2e`, `hosts` and `docker`. `../../.github/workflows/ci.yml:253`, `../../.github/workflows/ci.yml:254`
+- `deploy-demo` runs in the GitHub environment `cloudflare`, with no dependency cache; `CLOUDFLARE_API_TOKEN` (secret) and `CLOUDFLARE_ACCOUNT_ID` (variable) reach the deploy step only. `../../.github/workflows/ci.yml:257`, `../../.github/workflows/ci.yml:282`, `../../.github/workflows/ci.yml:283`
+- `deploy-demo` passes no `--secrets-file`: `DROPLETS_SECRET` stays the Worker secret already set. `../../.github/workflows/ci.yml:280`
+- `deploy-demo` runs one at a time (concurrency group `deploy-demo`, never cancelled). `../../.github/workflows/ci.yml:261`
 - Script `start` runs `dist/server.js` with `.env.local` if it exists. `package.json:14`
 - Script `typecheck` runs `djs sync`, `vue-tsc` and `svelte-check --fail-on-warnings`. `package.json:17`
 - Script `test` is `vitest run`. `package.json:18`
 - Root `pnpm check` runs `build:demo` then `test:demo`. `../../package.json:28`
 - `dev-secret.mjs` writes a random `DROPLETS_SECRET` to `.env.local` (mode 0600) when there is none of at least 32 characters. `scripts/dev-secret.mjs:10`, `scripts/dev-secret.mjs:12`
-- `.env.local` is gitignored. `../../.gitignore:28`
+- `.env.local` is gitignored. `../../.gitignore:32`
 - Worker name `dropletsjs-demo`, entry `dist/worker.js`. `wrangler.jsonc:7`, `wrangler.jsonc:8`
 - Worker uses `nodejs_compat`: Svelte's server renderer and the request store (`AsyncLocalStorage`) need `node:async_hooks`. `wrangler.jsonc:11`
 - Worker assets: `dist/client` through the `ASSETS` binding. `wrangler.jsonc:13`, `wrangler.jsonc:14`
-- Worker sets no `run_worker_first`: static assets answer the build's files with `_headers` (`Access-Control-Allow-Origin: *`), the rest reaches the Worker. `wrangler.jsonc:12`, `test/worker.test.ts:113`, `test/worker.test.ts:117`, `test/worker.test.ts:157`
+- Worker sets no `run_worker_first`: static assets answer the build's files with `_headers` (`Access-Control-Allow-Origin: *`), the rest reaches the Worker. `wrangler.jsonc:12`, `test/worker.test.ts:113`, `test/worker.test.ts:126`, `test/worker.test.ts:163`
 - Worker assets `html_handling` is `none`: `/assets/public/testimonials/page-1.html` answers 200, not a 307 to `/page-1`. `wrangler.jsonc:17`, `test/worker.test.ts:141`
 - `/assets/public/*` gets `Access-Control-Allow-Origin: *` from the adapter's `/assets/*` rule in `_headers`, `Cache-Control: no-cache` from its own. `../../packages/droplets/src/runtime/file-headers.ts:23`, `../../packages/droplets/src/runtime/file-headers.ts:38`
-- `handle` (`src/hooks.server.ts`) sets `x-robots-tag: noindex` on every answer it resolves: renders, `_data`, actions, `/api/*`, errors. `src/hooks.server.ts:11`, `test/server.test.ts:428`
-- Root `_headers` gives every static asset `X-Robots-Tag: noindex` (`/*`), appended after the adapter's rules in `dist/client/_headers`. `_headers:3`, `../../packages/adapters/cloudflare/src/index.ts:315`, `test/worker.test.ts:147`
-- `/health` and the Worker's 404 for a missing build file are answered before `handle`, without `x-robots-tag`. `../../packages/droplets/src/runtime/app.ts:1062`, `../../packages/droplets/src/runtime/app.ts:1115`
+- `handle` (`src/hooks.server.ts`) sets `x-robots-tag: noindex` on every answer it resolves: renders, `_data`, actions, `/api/*`, errors. `src/hooks.server.ts:11`, `test/server.test.ts:429`
+- Root `_headers` gives every static asset `X-Robots-Tag: noindex` (`/*`), appended after the adapter's rules in `dist/client/_headers`. `_headers:3`, `../../packages/adapters/cloudflare/src/index.ts:320`, `test/worker.test.ts:147`
+- `/health` and the Worker's 404 for a missing build file are answered before `handle`, without `x-robots-tag`. `../../packages/droplets/src/runtime/app.ts:1112`, `../../packages/droplets/src/runtime/app.ts:1136`
 - No `robots.txt`: crawlers may fetch the demo's files to render the docs' live droplets. `test/worker.test.ts:160`
 - Worker runs only on the custom domain `demo.dropletsjs.dev`; no `*.workers.dev` or preview URLs. `wrangler.jsonc:20`, `wrangler.jsonc:21`, `wrangler.jsonc:22`
-- Cloudflare adapter warns, never fails, when `run_worker_first` sends the build's files through the Worker. `../../packages/adapters/cloudflare/src/index.ts:263`
-- Cloudflare adapter writes `client/.assetsignore` with `/droplets.json` and `/.vite/`. `../../packages/adapters/cloudflare/src/index.ts:15`, `../../packages/adapters/cloudflare/src/index.ts:220`
-- `/health` is the framework's default health route. `../../packages/droplets/src/core/config.ts:205`
+- Cloudflare adapter warns, never fails, when `run_worker_first` sends the build's files through the Worker. `../../packages/adapters/cloudflare/src/index.ts:359`
+- Cloudflare adapter writes `client/.assetsignore` with `/droplets.json` and `/.vite/`. `../../packages/adapters/cloudflare/src/index.ts:25`, `../../packages/adapters/cloudflare/src/index.ts:318`
+- `/health` is the framework's default health route. `../../packages/droplets/src/core/config.ts:234`
 - `hello` props: `who`, trimmed, 1 to 40 characters, default `world`. `src/droplets/hello/+droplet.ts:8`
 - `hello` load returns the greeting and `renderedAt`, `cache-control: public, max-age=300`. `src/droplets/hello/+droplet.server.ts:8`, `src/droplets/hello/+droplet.server.ts:9`
 - `counter` props: `start`, an integer from -1000 to 1000, default 0; its load is universal, no server file. `src/droplets/counter/+droplet.ts:6`, `src/droplets/counter/+droplet.ts:10`
@@ -254,7 +254,7 @@ right after `deploy-demo`.
 - `crash` error page is `+error.tsx`, Solid. `src/droplets/crash/+error.tsx:1`
 - `counter-<renderer>` server loads return `{ framework, start: 3 }`, cached five minutes. `src/droplets/counter-svelte/+droplet.server.ts:10`, `src/droplets/counter-handlebars/+droplet.server.ts:10`, `src/droplets/counter-script/+droplet.server.ts:10`
 - `counter-handlebars` has `hydrate = false`. `src/droplets/counter-handlebars/+droplet.hbs:3`
-- `counter-script` is a `+droplet.script.ts` that builds its markup in the browser from `data`. `src/droplets/counter-script/+droplet.script.ts:18`
+- `counter-script` is a `+droplet.script.ts` that builds its markup in the browser from `data`. `src/droplets/counter-script/+droplet.script.ts:15`
 - `counter-lit` is a `DropletElement` from `@dropletsjs/renderer-lit/element`. `src/droplets/counter-lit/+droplet.lit.ts:2`
 - `Testimonial` is `{ id, author, text }`, in a neutral module the components import. `src/lib/testimonials.ts:6`
 - Testimonials data: 100 items, ids 0 to 99, server only. `src/lib/server/testimonials.json`, `src/lib/testimonials.ts:14`
@@ -265,13 +265,13 @@ right after `deploy-demo`.
 - `?page=P` answers `{ page, pages, testimonials }`, ten in id order, `public, max-age=300`. `src/lib/server/testimonials.ts:65`, `src/api/testimonials/+server.ts:14`
 - `/api/testimonials` with both modes, `random` other than `true`, or no key answers 400 `{ message }`. `src/lib/server/testimonials.ts:42`, `src/lib/server/testimonials.ts:47`
 - `Testimonials.svelte` props: `testimonials`, `onRefresh`; the Refresh button renders only after mount and only with `onRefresh`. `src/lib/Testimonials.svelte:4`, `src/lib/Testimonials.svelte:32`
-- Browser fetches of the API go to `droplet.url("/api/testimonials?max=10&random=true")`, on the droplet location. `src/lib/testimonials-api.ts:5`, `src/lib/testimonials.ts:20`
+- Browser fetches of the API go to `droplet.url("/api/testimonials?max=10&random=true")`, on the droplet location. `src/lib/testimonials-api.ts:6`, `src/lib/testimonials.ts:20`
 - `testimonials-client-only`: `ssr = false`, `hydrate = true`, `prerender = false`; a universal load only. `src/droplets/testimonials-client-only/+droplet.svelte:2`, `src/droplets/testimonials-client-only/+droplet.ts:9`
 - `testimonials-client-only` keeps the last list in IndexedDB `djs-demo-testimonials` (the host page's origin); Refresh clears it, fetches and keeps anew. `src/droplets/testimonials-client-only/store.ts:6`, `src/droplets/testimonials-client-only/store.ts:42`
 - `testimonials-server-client`: `ssr = true`, `hydrate = true`; its server load calls `event.fetch("/api/testimonials?max=10&random=true")`. `src/droplets/testimonials-server-client/+droplet.svelte:2`, `src/droplets/testimonials-server-client/+droplet.server.ts:7`
 - `testimonials-server-only`: `ssr = true`, `hydrate = false`, the same server load; no bundle served. `src/droplets/testimonials-server-only/+droplet.svelte:3`, `src/droplets/testimonials-server-only/+droplet.server.ts:7`
 - `testimonials-prerender-only`: `ssr = false`, `hydrate = false`, `prerender = true`; `entries` are pages 1 to 10; its load reads the data module. `src/droplets/testimonials-prerender-only/+droplet.svelte:2`, `src/droplets/testimonials-prerender-only/+droplet.server.ts:7`, `src/droplets/testimonials-prerender-only/+droplet.server.ts:10`
-- `testimonials-prerender-only` props: `page`, an integer 1 to 100 (else 400); a page without an entry answers 404. `src/droplets/testimonials-prerender-only/+droplet.ts:8`, `test/server.test.ts:572`
+- `testimonials-prerender-only` props: `page`, an integer 1 to 100 (else 400); a page without an entry answers 404. `src/droplets/testimonials-prerender-only/+droplet.ts:8`, `test/server.test.ts:589`
 - `testimonials-none`: all three flags `false`; the fragment is an empty element. `src/droplets/testimonials-none/+droplet.svelte:4`
 - `export-testimonials.mjs` asks `dist/server.js`, else `dist/worker.js` with an `ASSETS` stub reading `dist/client`, for `https://demo.dropletsjs.dev/droplets/testimonials-prerender-only?page=<n>`. `scripts/export-testimonials.mjs:38`, `scripts/export-testimonials.mjs:46`, `scripts/export-testimonials.mjs:56`
 - `export-testimonials.mjs` writes `dist/client/assets/public/testimonials/page-1.html` to `page-10.html`; a non-200 or non-fragment answer fails it. `scripts/export-testimonials.mjs:59`, `scripts/export-testimonials.mjs:62`
@@ -280,11 +280,11 @@ right after `deploy-demo`.
 - `server.test.ts` fails without `dist/server.js`: run `pnpm build` first. `test/server.test.ts:20`
 - `server.test.ts` covers the droplets, every renderer's counter, and props refused before a load. `test/server.test.ts:82`, `test/server.test.ts:136`, `test/server.test.ts:191`
 - `server.test.ts` covers the poll's action: stateless, Post/Redirect/Get, plain data only, code resolved before the body, size limits, who may post. `test/server.test.ts:205`, `test/server.test.ts:226`, `test/server.test.ts:237`, `test/server.test.ts:249`, `test/server.test.ts:293`, `test/server.test.ts:334`, `test/server.test.ts:369`
-- `server.test.ts` covers CORS, the fixed droplet location, and server-only code never in a client bundle (the testimonials' texts in no script or stylesheet). `test/server.test.ts:394`, `test/server.test.ts:428`, `test/server.test.ts:626`
+- `server.test.ts` covers CORS, the fixed droplet location, and server-only code never in a client bundle (the testimonials' texts in no script or stylesheet). `test/server.test.ts:394`, `test/server.test.ts:445`, `test/server.test.ts:626`
 - `server.test.ts` covers `/api/testimonials` (both modes, 400s, `__proto__` and odd keys polluting nothing), the five testimonials droplets, and the exported pages byte-equal to the route, readable from any origin. `test/server.test.ts:470`, `test/server.test.ts:558`, `test/server.test.ts:611`
-- `worker.test.ts` builds with `DROPLETS_ADAPTER=cloudflare` into `dist-worker/` and runs `wrangler dev` on it. `test/worker.test.ts:57`, `test/worker.test.ts:60`, `test/worker.test.ts:76`
-- `worker.test.ts` runs `export-testimonials.mjs` on `dist-worker/`. `test/worker.test.ts:64`
-- `worker.test.ts` uses `wrangler.jsonc` without `routes`, pointed at its build. `test/worker.test.ts:43`, `test/worker.test.ts:48`, `test/worker.test.ts:49`
-- `worker.test.ts` covers the exported pages as static files, `text/html`, byte-equal to the Worker's render, to any origin. `test/worker.test.ts:141`
-- `worker.test.ts` covers the build's files from static assets with `_headers`, the rest from the Worker, other origins refused, nothing server-only served or uploaded. `test/worker.test.ts:112`, `test/worker.test.ts:169`, `test/worker.test.ts:207`, `test/worker.test.ts:218`, `test/worker.test.ts:236`
+- `worker.test.ts` builds with `DROPLETS_ADAPTER=cloudflare` into `dist-worker/` and runs `wrangler dev` on it. `test/worker.test.ts:47`, `test/worker.test.ts:49`, `test/worker.test.ts:66`
+- `worker.test.ts` runs `export-testimonials.mjs` on `dist-worker/`. `test/worker.test.ts:53`
+- `worker.test.ts` uses `wrangler.jsonc` without `routes`, pointed at its build. `test/worker.test.ts:34`, `test/worker.test.ts:38`, `test/worker.test.ts:40`
+- `worker.test.ts` covers the exported pages as static files, `text/html`, byte-equal to the Worker's render, to any origin. `test/worker.test.ts:131`
+- `worker.test.ts` covers the build's files from static assets with `_headers`, the rest from the Worker, other origins refused, nothing server-only served or uploaded. `test/worker.test.ts:107`, `test/worker.test.ts:169`, `test/worker.test.ts:214`, `test/worker.test.ts:225`, `test/worker.test.ts:236`
 - `origins.test.ts` covers `docsOrigins()`. `test/origins.test.ts:4`

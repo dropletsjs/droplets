@@ -86,132 +86,132 @@ builds and runs them.
 
 ## Facts
 
-- `DropletsConfig` is the shape of `droplets.config.ts`'s default export; `config()` returns its argument unchanged. `config.ts:11`, `config.ts:220`
-- `DEFAULTS` holds every default: folders, `health`, `importMap`, `element`, ports, `limits`, `fragmentCacheControl`, `publicCacheControl`, `render`. `config.ts:203`
-- `dropletsFolder` defaults to `src/droplets`. `config.ts:204`
-- `apiFolder` defaults to `src/api`. `config.ts:205`
-- `dropletsFolder` and `apiFolder` normalisation: `\` becomes `/`, empty and `.` segments drop, `..` pops a segment. `config.ts:249`
-- `dropletsFolder` or `apiFolder` with a `..` that leaves the project (`../elsewhere`, `src/../../x`) throws `folder-outside-project` (`<option> must be a folder inside the project, got <value>`). `config.ts:256`
-- `dropletsFolder` that normalises to nothing falls back to the default. `config.ts:257`
-- `health` defaults to `/health`; `false` turns it off. `config.ts:206`, `config.ts:393`
-- `health` and `importMap` paths must start with `/` and hold no `?`, `#` or whitespace, else `resolveConfig` throws. `config.ts:267`
-- `health` and `importMap` may not be `/`, `/index.js`, `/env.js`, `/index.css` or under `/droplets`, `/assets`, `/api`. `config.ts:261`, `config.ts:262`
-- `health` equal to `importMap` or to `<importMap>.js` throws. `config.ts:404`
-- `importMap` defaults to `/importmap`; `auto` is true only when the key is unset (served only when the client build has externals). `config.ts:207`, `config.ts:401`
-- `importMap: false` turns the import map routes off. `config.ts:396`
-- `index` is kept as given; absent, the resolved config has no `index` key. `config.ts:415`
-- `element` defaults to `djs-droplet`. `config.ts:208`
-- `element` must match `^[a-z][a-z0-9._]*-[a-z0-9._-]*$`, else `resolveConfig` throws. `config.ts:280`, `config.ts:386`
-- `isValidElementName` is the same check, exported from `@dropletsjs/droplets`. `config.ts:282`, `../index.ts:1`
-- `cors: true` resolves to `{ origin: "*" }`; an object passes through; anything else leaves `cors` unset. `config.ts:391`
-- `location` is one string; anything else, a list or `"*"` included, throws `location-invalid` (`location takes this server's public URL, …`). `config.ts:334`, `config.ts:336`
-- `location` is an `http:` or `https:` URL only. `config.ts:326`
-- `location` refuses credentials and a `*` in the hostname (`https://*.example`). `config.ts:328`
-- `location` refuses `\`, `#` and `?`. `config.ts:319`
-- `location` with a path keeps it as a prefix, trailing slashes trimmed, when `isLocationPrefix` accepts it. `config.ts:330`
+- `DropletsConfig` is the shape of `droplets.config.ts`'s default export; `config()` returns its argument unchanged. `config.ts:31`, `config.ts:278`
+- `DEFAULTS` holds every default: folders, `health`, `importMap`, `element`, ports, `limits`, `fragmentCacheControl`, `publicCacheControl`, `render`. `config.ts:257`
+- `dropletsFolder` defaults to `src/droplets`. `config.ts:258`
+- `apiFolder` defaults to `src/api`. `config.ts:259`
+- `dropletsFolder` and `apiFolder` normalisation: `\` becomes `/`, empty and `.` segments drop, `..` pops a segment. `config.ts:313`
+- `dropletsFolder` or `apiFolder` with a `..` that leaves the project (`../elsewhere`, `src/../../x`) throws `folder-outside-project` (`<option> must be a folder inside the project, got <value>`). `config.ts:317`
+- `dropletsFolder` that normalises to nothing falls back to the default. `config.ts:323`
+- `health` defaults to `/health`; `false` turns it off. `config.ts:260`, `config.ts:417`
+- `health` and `importMap` paths must start with `/` and hold no `?`, `#` or whitespace, else `resolveConfig` throws. `config.ts:333`
+- `health` and `importMap` may not be `/`, `/index.js`, `/env.js`, `/index.css` or under `/droplets`, `/assets`, `/api`. `config.ts:327`, `config.ts:292`
+- `health` equal to `importMap` or to `<importMap>.js` throws. `config.ts:428`
+- `importMap` defaults to `/importmap`; `auto` is true only when the key is unset (served only when the client build has externals). `config.ts:261`, `config.ts:505`
+- `importMap: false` turns the import map routes off. `config.ts:420`
+- `index` is kept as given; absent, the resolved config has no `index` key. `config.ts:439`
+- `element` defaults to `djs-droplet`. `config.ts:262`
+- `element` must match `^[a-z][a-z0-9._]*-[a-z0-9._-]*$`, else `resolveConfig` throws. `config.ts:310`, `config.ts:491`
+- `isValidElementName` is the same check, exported from `@dropletsjs/droplets`. `config.ts:312`, `../index.ts:1`
+- `cors: true` resolves to `{ origin: "*" }`; an object passes through; anything else leaves `cors` unset. `config.ts:496`
+- `location` is one string; anything else, a list or `"*"` included, throws `location-invalid` (`location takes this server's public URL, …`). `config.ts:383`, `config.ts:402`
+- `location` is an `http:` or `https:` URL only. `config.ts:354`
+- `location` refuses credentials and a `*` in the hostname (`https://*.example`). `config.ts:356`
+- `location` refuses `\`, `#` and `?`. `config.ts:347`
+- `location` with a path keeps it as a prefix, trailing slashes trimmed, when `isLocationPrefix` accepts it. `config.ts:394`
 - `isLocationPrefix` takes a prefix that starts with `/`, is at most 256 characters, and has no `//`, `\`, `..`, `?`, `#` or control character. `../runtime/web-url.ts:47`
-- `location` with the path `/` resolves to the bare origin. `config.ts:329`
-- `location` absent leaves the resolved config without a `location` key. `config.ts:420`
-- `host` is one bare origin (no path), checked as a `trustedOrigins` entry and resolved to `scheme://host[:port]`; anything else, `"*"` included, throws `host-invalid` (`host takes the origin of the page the droplets render on, …`). `config.ts:346`, `config.ts:348`, `config.ts:289`
-- `host` absent leaves the resolved config without a `host` key. `config.ts:421`
-- `trustedOrigins` must be an array, else `resolveConfig` throws. `config.ts:304`
-- `trustedOrigins` entry `"*"` is kept as is. `config.ts:308`
-- `trustedOrigins` entries are bare origins (no path), resolved to `scheme://host[:port]`. `config.ts:297`, `config.ts:298`
+- `location` with the path `/` resolves to the bare origin. `config.ts:357`
+- `location` absent leaves the resolved config without a `location` key. `config.ts:442`
+- `host` is one bare origin (no path), checked as a `trustedOrigins` entry and resolved to `scheme://host[:port]`; anything else, `"*"` included, throws `host-invalid` (`host takes the origin of the page the droplets render on, …`). `config.ts:410`, `config.ts:412`, `config.ts:361`
+- `host` absent leaves the resolved config without a `host` key. `config.ts:443`
+- `trustedOrigins` must be an array, else `resolveConfig` throws. `config.ts:368`
+- `trustedOrigins` entry `"*"` is kept as is. `config.ts:336`
+- `trustedOrigins` entries are bare origins (no path), resolved to `scheme://host[:port]`. `config.ts:373`, `config.ts:377`
 - `DROPLETS_TRUSTED_ORIGINS` is not read in core: the runtime parses it per request with `normalizeTrustedOrigins`, skipping bad entries (a warning under `vite dev`). `../runtime/security.ts:58`
-- `"*"` warning (`trusts any forwarded location`) is the runtime's dev log, not core's. `../runtime/dev-log.ts:49`
-- `fragmentCacheControl` defaults to `private, no-store, no-transform`; `false` sends none. `config.ts:214`, `config.ts:359`
-- `fragmentCacheControl` must be a non-empty string without CR or LF; it is trimmed. `config.ts:360`
-- `publicCacheControl` defaults to `no-cache`, `false` sends none, and is checked by the same `resolveCacheControl` as `fragmentCacheControl`, the error naming the option. `config.ts:213`, `config.ts:357`, `config.ts:431`
-- `csrf.checkOrigin` defaults to `true`. `config.ts:433`
-- `warnImportMap` defaults to `true`. `config.ts:418`
-- `limits` defaults: json 1 MB, form 1 MB, multipart 10 MB, props 8 KB. `config.ts:211`
-- `limits` values must be numbers greater than 0, else `resolveConfig` throws; `Infinity` passes. `config.ts:369`
-- `render.timeout` defaults to 5000 ms; `render: {}` and a missing `timeout` give the default. `config.ts:238`, `config.ts:420`
-- `render.timeout` takes an integer from 0 to 2147483647 (`TIMER_MAX_MS`, the longest delay a timer takes; Node fires a larger one after 1 ms) or `Infinity`; anything else throws, in this order: `render` not an object, not a number (NaN, null, a string, a boolean), negative (`-Infinity` too), not whole, above the maximum; the message names the range and shows the value (`JSON.stringify` for a string). `config.ts:242`, `config.ts:420`
-- `server.port` defaults to 8000. `config.ts:210`
-- `PORT` counts only as an integer from 0 to 65535 (`portOf`); anything else, and `0` or empty, leaves the config port in place. `config.ts:390`
-- `PORT` wins over `server.port`. `config.ts:435`
-- `resolveConfig` reads no environment itself: the caller passes `{ port }`. `config.ts:382`
-- `resolveConfig` reads only the known keys; unknown keys are dropped without a warning. `config.ts:411`
-- `DEV_STRATEGIES` is `hmr`, `remount`, `reload`, `manual`; `DevStrategy` is derived from it. `config.ts:166`, `config.ts:169`
-- `DevStrategy` is exported from `@dropletsjs/droplets` as a type; `DEV_STRATEGIES` is not exported. `../index.ts:6`
-- `dev.strategy` defaults to `hmr`; any other value than `DEV_STRATEGIES` throws. `config.ts:441`, `config.ts:442`
-- `dev.server.port` defaults to 5173; `resolveDevConfig` takes no environment, so `PORT` never moves `vite dev`. `config.ts:209`, `config.ts:455`
-- `dev.injectTool` defaults to `false`. `config.ts:448`
+- `"*"` warning (`trusts any forwarded location`) is the runtime's dev log, not core's. `../runtime/dev-log.ts:57`
+- `fragmentCacheControl` defaults to `private, no-store, no-transform`; `false` sends none. `config.ts:266`, `config.ts:387`
+- `fragmentCacheControl` must be a non-empty string without CR or LF; it is trimmed. `config.ts:388`
+- `publicCacheControl` defaults to `no-cache`, `false` sends none, and is checked by the same `resolveCacheControl` as `fragmentCacheControl`, the error naming the option. `config.ts:267`, `config.ts:385`, `config.ts:531`
+- `csrf.checkOrigin` defaults to `true`. `config.ts:455`
+- `warnImportMap` defaults to `true`. `config.ts:521`
+- `limits` defaults: json 1 MB, form 1 MB, multipart 10 MB, props 8 KB. `config.ts:265`
+- `limits` values must be numbers greater than 0, else `resolveConfig` throws; `Infinity` passes. `config.ts:397`
+- `render.timeout` defaults to 5000 ms; `render: {}` and a missing `timeout` give the default. `config.ts:268`, `config.ts:442`
+- `render.timeout` takes an integer from 0 to 2147483647 (`TIMER_MAX_MS`, the longest delay a timer takes; Node fires a larger one after 1 ms) or `Infinity`; anything else throws, in this order: `render` not an object, not a number (NaN, null, a string, a boolean), negative (`-Infinity` too), not whole, above the maximum; the message names the range and shows the value (`JSON.stringify` for a string). `config.ts:272`, `config.ts:442`
+- `server.port` defaults to 8000. `config.ts:264`
+- `PORT` counts only as an integer from 0 to 65535 (`portOf`); anything else, and `0` or empty, leaves the config port in place. `config.ts:480`
+- `PORT` wins over `server.port`. `config.ts:540`
+- `resolveConfig` reads no environment itself: the caller passes `{ port }`. `config.ts:408`
+- `resolveConfig` reads only the known keys; unknown keys are dropped without a warning. `config.ts:514`
+- `DEV_STRATEGIES` is `hmr`, `remount`, `reload`, `manual`; `DevStrategy` is derived from it. `config.ts:217`, `config.ts:220`
+- `DevStrategy` is exported from `@dropletsjs/droplets` as a type; `DEV_STRATEGIES` is not exported. `../index.ts:5`
+- `dev.strategy` defaults to `hmr`; any other value than `DEV_STRATEGIES` throws. `config.ts:546`, `config.ts:547`
+- `dev.server.port` defaults to 5173; `resolveDevConfig` takes no environment, so `PORT` never moves `vite dev`. `config.ts:238`, `config.ts:554`
+- `dev.injectTool` defaults to `false`. `config.ts:556`
 - `config.ts` is Node-free: it imports only `hono/cors` types and `../runtime/web-url.ts`. `config.ts:1`, `config.ts:2`
-- Config file candidates, in order: `droplets.config.ts`, `.mts`, `.js`, `.mjs`. `load-config.ts:10`
+- Config file candidates, in order: `droplets.config.ts`, `.mts`, `.js`, `.mjs`. `load-config.ts:12`
 - Config file named by `configFile` that does not exist throws `config-file-not-found` (`config file not found at <path>`). `load-config.ts:29`
-- Config file is loaded with Vite's `loadConfigFromFile`, so TypeScript and imports work and a function default export is called with Vite's `ConfigEnv`. `load-config.ts:51`
-- Config file's imports are returned as `dependencies`, for the dev server to restart on change. `load-config.ts:54`
-- `loadDropletsConfig` writes `.droplets/tsconfig.json` (through `vite/sync-types.ts`) before it loads the file. `load-config.ts:45`
-- `loadDropletsConfig` reads no environment: `PORT` is the production server's, read by the Node and Bun entries alone. `load-config.ts:59`
-- Droplet discovery scans only the immediate subfolders of the droplets folder. `discover.ts:205`, `fs.ts:61`
-- Droplet id is the folder name itself; a droplet folder's name must match `^[a-z0-9]+(-[a-z0-9]+)*$` (lowercase kebab-case, `isKebabName`). `discover.ts:72`, `../runtime/web-url.ts:59`
-- Droplet folder whose name is not lowercase kebab-case is ignored (`ProductCard/` never becomes `product-card`). `discover.ts:209`
-- Ignored droplet folders (those holding a `+droplet.*` component) are listed in one warning, `These droplet folders do not match the naming convention (lowercase kebab-case) and are ignored: …`, once per folder for the process, in `vite build` and `vite dev`. `discover.ts:211`, `discover.ts:254`
-- Droplet component file matches `^\+[Dd]roplet(\..+)$`; the error page `^\+[Ee]rror(\..+)$`. `discover.ts:82`
-- Droplet component suffixes never taken as a component (`CORE_SUFFIXES`): `.ts`, `.js`, `.server.ts`, `.server.js`, `.d.ts`, `.server.d.ts`; the first four derive from `MODULE_EXTENSIONS` (`.ts`, `.js`), the one list of what core loads by name. `../renderer.ts:606`, `discover.ts:85`
-- Droplet component suffix no renderer claims, where a first-party renderer handles another spelling (`+droplet.handlebars`): the error says the renderer handles `+droplet.hbs` and to rename the file. `../renderer.ts:769`
-- Droplet folder with no component is skipped without a word. `discover.ts:218`
-- Droplet folder with two components throws `component-files-duplicate` (`<folder>/ has 2 droplet components (…)`, fix `keep one`). `discover.ts:159`
-- Droplet component suffix no renderer claims throws, naming the renderer to install when the suffix is a known one. `discover.ts:164`
-- Droplet renderer is picked among those sharing the suffix by the component's imports. `discover.ts:167`
-- Droplet folder that cannot be read holds no component. `discover.ts:96`
-- Droplet list is returned sorted by id. `discover.ts:259`
-- Droplet `hasLoad` and `loadFile` come from `+droplet.ts`, else `+droplet.js`; `hasServerLoad` and `serverLoadFile` from `+droplet.server.ts`, else `.js` (`MODULE_EXTENSIONS` order). `discover.ts:95`, `discover.ts:252`
-- Droplet load file spelled `+droplet.mts`, `.mjs`, `.cts` or `.cjs` (or `+droplet.server.*` so) is neither a component nor loaded: one warning per file, `is not loaded; name it +droplet.ts or +droplet.js`, in build and dev. `discover.ts:82`, `discover.ts:223`
-- `reportOnce` warns once per key for the process: discovery, the API routes and the hooks lookup share it. `discover.ts:110`
-- Flags are read from the component file only: the renderer's `readFlags`, else `readExportedFlags` on the component's source. `discover.ts:169`, `discover.ts:177`
-- Flags in `+droplet.ts` or `+droplet.server.ts` are never read: discovery opens no other file for flags. `discover.ts:166`
-- Flag defaults: `ssr` true, `hydrate` true, `prerender` false. `../renderer.ts:597`
-- Flags an `+error.*` declares are ignored: the error page follows the droplet's flags. `discover.ts:189`
-- An error page in another framework, and the flags an error page declares, warn once per file in build and dev. `discover.ts:108`, `discover.ts:141`, `discover.ts:180`
-- Error page is looked for only among files the droplet's renderer handles; another framework's is ignored. `discover.ts:144`
-- Error page next to a script droplet is ignored, with a warning in build and dev. `discover.ts:224`
-- `shipsClient` is true unless `hydrate` is `false`. `discover.ts:76`
-- Flags parser reads with Vite's `parseAst`, not a text scan: a flag in a comment or a string is no flag. `flags.ts:7`, `flags.ts:40`
-- Flags parser language comes from the extension (`js`, `jsx`, `ts`, `tsx`, with `c`/`m` variants); anything else parses as TSX. `flags.ts:33`
-- Flags source that does not parse declares no flags; its compiler reports it. `flags.ts:43`, `flags.ts:176`
-- Flags count only as top-level `export const <name> = <literal>`; `let`, `function`, `export { x as ssr }` and destructuring hold no value. `flags.ts:92`, `flags.ts:98`, `flags.ts:105`
-- Flags parser skips `export type` and `declare` exports. `flags.ts:86`, `flags.ts:89`
+- Config file is loaded with Vite's `loadConfigFromFile`, so TypeScript and imports work and a function default export is called with Vite's `ConfigEnv`. `load-config.ts:54`
+- Config file's imports are returned as `dependencies`, for the dev server to restart on change. `load-config.ts:57`
+- `loadDropletsConfig` writes `.droplets/tsconfig.json` (through `vite/sync-types.ts`) before it loads the file. `load-config.ts:48`
+- `loadDropletsConfig` reads no environment: `PORT` is the production server's, read by the Node and Bun entries alone. `load-config.ts:63`
+- Droplet discovery scans only the immediate subfolders of the droplets folder. `discover.ts:227`, `fs.ts:61`
+- Droplet id is the folder name itself; a droplet folder's name must match `^[a-z0-9]+(-[a-z0-9]+)*$` (lowercase kebab-case, `isKebabName`). `discover.ts:83`, `../runtime/web-url.ts:59`
+- Droplet folder whose name is not lowercase kebab-case is ignored (`ProductCard/` never becomes `product-card`). `discover.ts:241`
+- Ignored droplet folders (those holding a `+droplet.*` component) are listed in one warning, `These droplet folders do not match the naming convention (lowercase kebab-case) and are ignored: …`, once per folder for the process, in `vite build` and `vite dev`. `discover.ts:243`, `discover.ts:278`
+- Droplet component file matches `^\+[Dd]roplet(\..+)$`; the error page `^\+[Ee]rror(\..+)$`. `discover.ts:96`
+- Droplet component suffixes never taken as a component (`CORE_SUFFIXES`): `.ts`, `.js`, `.server.ts`, `.server.js`, `.d.ts`, `.server.d.ts`; the first four derive from `MODULE_EXTENSIONS` (`.ts`, `.js`), the one list of what core loads by name. `../renderer.ts:619`, `discover.ts:99`
+- Droplet component suffix no renderer claims, where a first-party renderer handles another spelling (`+droplet.handlebars`): the error says the renderer handles `+droplet.hbs` and to rename the file. `../renderer.ts:788`
+- Droplet folder with no component is skipped without a word. `discover.ts:250`
+- Droplet folder with two components throws `component-files-duplicate` (`<folder>/ has 2 droplet components (…)`, fix `keep one`). `discover.ts:183`
+- Droplet component suffix no renderer claims throws, naming the renderer to install when the suffix is a known one. `discover.ts:193`
+- Droplet renderer is picked among those sharing the suffix by the component's imports. `discover.ts:200`
+- Droplet folder that cannot be read holds no component. `discover.ts:118`
+- Droplet list is returned sorted by id. `discover.ts:283`
+- Droplet `hasLoad` and `loadFile` come from `+droplet.ts`, else `+droplet.js`; `hasServerLoad` and `serverLoadFile` from `+droplet.server.ts`, else `.js` (`MODULE_EXTENSIONS` order). `discover.ts:106`, `discover.ts:287`
+- Droplet load file spelled `+droplet.mts`, `.mjs`, `.cts` or `.cjs` (or `+droplet.server.*` so) is neither a component nor loaded: one warning per file, `is not loaded; name it +droplet.ts or +droplet.js`, in build and dev. `discover.ts:92`, `discover.ts:245`
+- `reportOnce` warns once per key for the process: discovery, the API routes and the hooks lookup share it. `discover.ts:131`
+- Flags are read from the component file only: the renderer's `readFlags`, else `readExportedFlags` on the component's source. `discover.ts:202`, `discover.ts:199`
+- Flags in `+droplet.ts` or `+droplet.server.ts` are never read: discovery opens no other file for flags. `discover.ts:199`
+- Flag defaults: `ssr` true, `hydrate` true, `prerender` false. `../renderer.ts:612`
+- Flags an `+error.*` declares are ignored: the error page follows the droplet's flags. `discover.ts:221`
+- An error page in another framework, and the flags an error page declares, warn once per file in build and dev. `discover.ts:131`, `discover.ts:161`, `discover.ts:214`
+- Error page is looked for only among files the droplet's renderer handles; another framework's is ignored. `discover.ts:168`
+- Error page next to a script droplet is ignored, with a warning in build and dev. `discover.ts:266`
+- `shipsClient` is true unless `hydrate` is `false`. `discover.ts:87`
+- Flags parser reads with Vite's `parseAst`, not a text scan: a flag in a comment or a string is no flag. `flags.ts:7`, `flags.ts:41`
+- Flags parser language comes from the extension (`js`, `jsx`, `ts`, `tsx`, with `c`/`m` variants); anything else parses as TSX. `flags.ts:34`
+- Flags source that does not parse declares no flags; its compiler reports it. `flags.ts:44`, `flags.ts:171`
+- Flags count only as top-level `export const <name> = <literal>`; `let`, `function`, `export { x as ssr }` and destructuring hold no value. `flags.ts:93`, `flags.ts:99`, `flags.ts:106`
+- Flags parser skips `export type` and `declare` exports. `flags.ts:87`, `flags.ts:90`
 - `ssr` and `prerender` take a boolean literal; any other value or form warns `flag-not-boolean` (`` `export const <name>` must be a literal true or false, found <source>; ignoring it ``) and keeps the default. `flags.ts:126`, `flags.ts:127`
-- `hydrate` takes `true`, `false`, `"visible"` or `"interactive"`; anything else warns and keeps the default. `flags.ts:138`, `flags.ts:139`
-- `readExportedFlag`, `readExportedHydrate` and `readExportedFlags` are exported from `@dropletsjs/droplets/vite` for renderers; `readFlagExports` lists every flag export with its literal, if one, and how it is written, warning about nothing, for the script renderer. `../vite.ts:14`, `flags.ts:202`
-- Env declaration files: `src/env.ts`, then `src/env.js`. `env.ts:7`
-- Env values are every variable Vite's `loadEnv` sees for the mode (`.env` files and `process.env`), with no prefix filter. `env.ts:46`
-- Env declaration is loaded with Vite's `runnerImport`; it and its imports are returned as `dependencies`. `env.ts:50`, `env.ts:64`
-- Env declaration file must export `variables` as an object, else loading throws. `env.ts:57`
-- Env variable names must match `^[A-Za-z_][A-Za-z0-9_]*$`, each with an options object. `../env.ts:59`, `../env.ts:68`
-- `$droplets/env/public` holds `public: true` variables: `static` ones inlined, the rest getters. `env.ts:90`, `env.ts:92`
-- `$droplets/env/public` in the browser reads runtime variables from this server's record on `globalThis[Symbol.for("droplets.servers")]`. `env.ts:99`
-- `$droplets/env/public` and `$droplets/env/private` on the server read runtime variables through `readRuntimeEnv` of `runtime/env-store`. `env.ts:100`, `env.ts:117`
-- `$droplets/env/private` holds the non-public variables and has no browser form. `env.ts:108`, `env.ts:110`
-- `$droplets/env/*` objects are frozen. `env.ts:101`, `env.ts:118`
-- `missingStatic` lists static variables without a value. `env.ts:69`
-- API route files: `+server.ts` and `+server.js` only (`MODULE_EXTENSIONS`); a `+server.mts`, `.mjs`, `.cts` or `.cjs` is no route and warns once, `is not a route; name it +server.ts or +server.js`. `api-routes.ts:16`, `api-routes.ts:86`
-- API routes live under `/api`; `<apiFolder>/+server.ts` answers `/api`. `api-routes.ts:18`, `api-routes.ts:69`
-- API route folder `(group)` adds nothing to the URL. `api-routes.ts:33`
-- API route folder `[name]` is a param, `[...name]` a rest param; names match `[A-Za-z_$][\w$]*`. `api-routes.ts:35`, `api-routes.ts:38`
+- `hydrate` takes `true`, `false`, `"visible"` or `"interactive"`; anything else warns and keeps the default. `flags.ts:136`, `flags.ts:137`
+- `readExportedFlag`, `readExportedHydrate` and `readExportedFlags` are exported from `@dropletsjs/droplets/vite` for renderers; `readFlagExports` lists every flag export with its literal, if one, and how it is written, warning about nothing, for the script renderer. `../vite.ts:14`, `flags.ts:197`
+- Env declaration files: `src/env.ts`, then `src/env.js`. `env.ts:9`
+- Env values are every variable Vite's `loadEnv` sees for the mode (`.env` files and `process.env`), with no prefix filter. `env.ts:48`
+- Env declaration is loaded with Vite's `runnerImport`; it and its imports are returned as `dependencies`. `env.ts:52`, `env.ts:66`
+- Env declaration file must export `variables` as an object, else loading throws. `env.ts:59`
+- Env variable names must match `^[A-Za-z_][A-Za-z0-9_]*$`, each with an options object. `../env.ts:61`, `../env.ts:69`
+- `$droplets/env/public` holds `public: true` variables: `static` ones inlined, the rest getters. `env.ts:93`, `env.ts:95`
+- `$droplets/env/public` in the browser reads runtime variables from this server's record on `globalThis[Symbol.for("droplets.servers")]`. `env.ts:102`
+- `$droplets/env/public` and `$droplets/env/private` on the server read runtime variables through `readRuntimeEnv` of `runtime/env-store`. `env.ts:103`, `env.ts:120`
+- `$droplets/env/private` holds the non-public variables and has no browser form. `env.ts:111`, `env.ts:113`
+- `$droplets/env/*` objects are frozen. `env.ts:104`, `env.ts:121`
+- `missingStatic` lists static variables without a value. `env.ts:71`
+- API route files: `+server.ts` and `+server.js` only (`MODULE_EXTENSIONS`); a `+server.mts`, `.mjs`, `.cts` or `.cjs` is no route and warns once, `is not a route; name it +server.ts or +server.js`. `api-routes.ts:25`, `api-routes.ts:94`
+- API routes live under `/api`; `<apiFolder>/+server.ts` answers `/api`. `api-routes.ts:30`, `api-routes.ts:79`
+- API route folder `(group)` adds nothing to the URL. `api-routes.ts:45`
+- API route folder `[name]` is a param, `[...name]` a rest param; names match `[A-Za-z_$][\w$]*`. `api-routes.ts:47`, `api-routes.ts:50`
 - API route folder with any other bracket (`[[x]]`, matchers) throws `route-segment-unsupported` (`unsupported route segment "<segment>"`). `api-routes.ts:41`
-- API route with a repeated param name throws. `api-routes.ts:57`
-- API route with a segment after `[...rest]` throws. `api-routes.ts:62`
-- API routes of the same shape (`a/[id]` and `a/[slug]`) throw `both answer`. `api-routes.ts:105`
-- API routes are sorted most specific first by `compareRoutes`, then by id. `api-routes.ts:112`
-- API folder that is missing or unreadable yields no routes. `api-routes.ts:78`
-- Logger levels: `error`, `warn`, `info`, `debug`; default `info`. `logger.ts:13`, `logger.ts:20`
-- `DEV_DROPLETS_LOG` is read once, on the first message (not when the module loads), guarded for runtimes without `process`. `logger.ts:33`, `logger.ts:41`
-- `DEV_DROPLETS_LOG` is case-insensitive; an unknown value falls back to `info`. `logger.ts:28`, `logger.ts:29`
-- Logger has no top-level work, so it tree-shakes out of a bundle that never calls it. `logger.ts:32`
-- Logger messages print through `console[level]` with the prefix `[droplets:<source>]`, source `framework` or `drop`. `logger.ts:11`, `logger.ts:47`
-- `setLogLevel` changes the level for the process; `logger` and `setLogLevel` are exported from `@dropletsjs/droplets/vite` for adapters and plugins at build time. `logger.ts:36`, `../vite.ts:16`
-- `logger.ts` is Node-free: it touches `process` only behind `typeof process`. `logger.ts:25`
-- Package root is found by walking up from the compiled module to the nearest `package.json`. `paths.ts:9`, `paths.ts:22`
-- Paths into `dist/`: `runtime/entry-client.js`, `entry-server.js`, `server.js`, `props.js`, `load.js`, `env-store.js`, `request-store.js`, `form.js`, `enhance.js`, `server-records.js`, `client-init.js`. `paths.ts:31`, `paths.ts:56`
-- Paths into `dist/` all name tsdown entries, so their names stay fixed. `../../tsdown.config.ts:12`, `../../tsdown.config.ts:16`
-- `toViteFsPath` turns an absolute path into `/@fs/<path>` with forward slashes. `paths.ts:60`
-- `connect({ file, workerData })` starts `file` in a worker thread that shares `process.env`; `call(method, ...args)` is answered by the thread's named handler, `request(url, init)` as a `Response`; a thread error rejects every call. `app-thread.ts:79`, `app-thread.ts:80`
-- `answer(handlers)` runs in the thread: a call reaches a handler through `Object.hasOwn`, an unknown name or a throw answers the error's message. `app-thread.ts:23`
-- Requests cross the thread as `{ url, method, headers, body }` with a text body (a `URLSearchParams` is its string; another body is dropped); responses as `{ status, headers, body }`. `app-thread.ts:40`, `app-thread.ts:52`
+- API route with a repeated param name throws. `api-routes.ts:67`
+- API route with a segment after `[...rest]` throws. `api-routes.ts:72`
+- API routes of the same shape (`a/[id]` and `a/[slug]`) throw `both answer`. `api-routes.ts:119`
+- API routes are sorted most specific first by `compareRoutes`, then by id. `api-routes.ts:126`
+- API folder that is missing or unreadable yields no routes. `api-routes.ts:88`
+- Logger levels: `error`, `warn`, `info`, `debug`; default `info`. `logger.ts:14`, `logger.ts:23`
+- `DEV_DROPLETS_LOG` is read once, on the first message (not when the module loads), guarded for runtimes without `process`. `logger.ts:35`, `logger.ts:44`
+- `DEV_DROPLETS_LOG` is case-insensitive; an unknown value falls back to `info`. `logger.ts:31`, `logger.ts:32`
+- Logger has no top-level work, so it tree-shakes out of a bundle that never calls it. `logger.ts:36`
+- Logger messages print through `console[level]` with the prefix `[droplets:<source>]`, source `framework` or `drop`. `logger.ts:51`, `logger.ts:49`
+- `setLogLevel` changes the level for the process; `logger` and `setLogLevel` are exported from `@dropletsjs/droplets/vite` for adapters and plugins at build time. `logger.ts:38`, `../vite.ts:16`
+- `logger.ts` is Node-free: it touches `process` only behind `typeof process`. `logger.ts:44`
+- Package root is found by walking up from the compiled module to the nearest `package.json`. `paths.ts:14`, `paths.ts:24`
+- Paths into `dist/`: `runtime/entry-client.js`, `entry-server.js`, `server.js`, `props.js`, `load.js`, `env-store.js`, `request-store.js`, `form.js`, `enhance.js`, `server-records.js`, `client-init.js`. `paths.ts:33`, `paths.ts:61`
+- Paths into `dist/` all name tsdown entries, so their names stay fixed. `../../tsdown.config.ts:12`, `../../tsdown.config.ts:18`
+- `toViteFsPath` turns an absolute path into `/@fs/<path>` with forward slashes. `paths.ts:65`
+- `connect({ file, workerData })` starts `file` in a worker thread that shares `process.env`; `call(method, ...args)` is answered by the thread's named handler, `request(url, init)` as a `Response`; a thread error rejects every call. `app-thread.ts:86`, `app-thread.ts:87`
+- `answer(handlers)` runs in the thread: a call reaches a handler through `Object.hasOwn`, an unknown name or a throw answers the error's message. `app-thread.ts:25`
+- Requests cross the thread as `{ url, method, headers, body }` with a text body (a `URLSearchParams` is its string; another body is dropped); responses as `{ status, headers, body }`. `app-thread.ts:47`, `app-thread.ts:59`
 - `fileExists` is true for files only; a missing or unreadable path is false. `fs.ts:22`, `fs.ts:25`
 - `loadTextFile` returns `null` for a missing file and throws any other read error. `fs.ts:34`, `fs.ts:35`
 - `loadJsonFile` returns `null` for a missing or malformed file. `fs.ts:48`, `fs.ts:53`

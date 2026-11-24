@@ -77,23 +77,23 @@ signed writes back and malformed answers. The real site is tested by
 - `product-filter` is `hydrate = "interactive"`; `product-card` is `hydrate = "visible"`. `src/droplets/product-filter/+droplet.tsx:14`, `src/droplets/product-card/+droplet.svelte:5`
 - `shopping-cart` and `toast-center` are `ssr = false`. `src/droplets/shopping-cart/+droplet.tsx:22`, `src/droplets/toast-center/+droplet.tsx:24`
 - Env variables `WP_INTERNAL_URL`, `WP_PUBLIC_URL`, `WP_SHOP_HOST_SECRET`, `WP_SHOP_SERVICE_SECRET`, `WP_SHOP_DATABASE` are private and read at runtime and at build. `src/env.ts:7`
-- `x-wp-shop-user` is `base64url(JSON claims).base64url(HMAC-SHA256)` keyed with `WP_SHOP_HOST_SECRET`. `src/lib/server/host-identity.ts:8`, `src/lib/server/host-identity.ts:29`
-- `x-wp-shop-user` longer than 1024 bytes is not read. `src/lib/server/host-identity.ts:34`, `src/lib/server/host-identity.ts:123`
-- `x-wp-shop-user` MAC is verified before any of the payload is decoded. `src/lib/server/host-identity.ts:131`
-- `x-wp-shop-user` claims are copied by own key into an object without a prototype; `__proto__` stays data. `src/lib/server/host-identity.ts:147`
+- `x-wp-shop-user` is `base64url(JSON claims).base64url(HMAC-SHA256)` keyed with `WP_SHOP_HOST_SECRET`. `src/lib/server/host-identity.ts:8`, `src/lib/server/host-identity.ts:30`
+- `x-wp-shop-user` longer than 1024 bytes is not read. `src/lib/server/host-identity.ts:35`, `src/lib/server/host-identity.ts:134`
+- `x-wp-shop-user` MAC is verified before any of the payload is decoded. `src/lib/server/host-identity.ts:142`
+- `x-wp-shop-user` claims are copied by own key into an object without a prototype; `__proto__` stays data. `src/lib/server/host-identity.ts:158`
 - `x-wp-shop-user` claims: `sub` a WordPress login, `role` `administrator`, `exp`, `method`, `path`, `aud`; `body` (a SHA-256, hex) on writes back only. `src/lib/server/host-identity.ts:109`, `src/lib/server/host-identity.ts:163`, `src/lib/server/host-identity.ts:56`
-- `x-wp-shop-user` lives at most 60 seconds (plus 5 of clock skew) and binds the request's method, path and query and `aud: "wp-shop"`. `src/lib/server/host-identity.ts:36`, `src/lib/server/host-identity.ts:160`, `src/lib/server/host-identity.ts:161`
-- Secrets shorter than 32 bytes are unusable: nothing verifies or signs with them. `src/lib/server/host-identity.ts:39`, `src/lib/server/host-identity.ts:62`
-- `WP_SHOP_HOST_SECRET` equal to `WP_SHOP_SERVICE_SECRET` refuses both: no admin, no writes back. `src/lib/server/host-identity.ts:79`
+- `x-wp-shop-user` lives at most 60 seconds (plus 5 of clock skew) and binds the request's method, path and query and `aud: "wp-shop"`. `src/lib/server/host-identity.ts:37`, `src/lib/server/host-identity.ts:172`, `src/lib/server/host-identity.ts:173`
+- Secrets shorter than 32 bytes are unusable: nothing verifies or signs with them. `src/lib/server/host-identity.ts:40`, `src/lib/server/host-identity.ts:65`
+- `WP_SHOP_HOST_SECRET` equal to `WP_SHOP_SERVICE_SECRET` refuses both: no admin, no writes back. `src/lib/server/host-identity.ts:82`
 - An `x-wp-shop-user` with no usable host secret warns once and names no admin. `src/lib/server/admin.ts:22`
 - Admin actions answer `fail(401)` without a WordPress admin behind the request. `src/lib/server/admin.ts:31`
 - `product-admin` without an admin renders a link to `/wp-login.php?redirect_to=<page>`, never a redirect. `src/droplets/product-admin/+droplet.server.ts:21`
 - Writes back to WordPress carry `x-wp-shop-service`, signed with `aud: "wordpress"` for the admin and `body`, the SHA-256 of the JSON sent; a body claim and the body received must both be there and match. `src/lib/server/wp.ts:388`, `src/lib/server/wp.ts:397`, `src/lib/server/host-identity.ts:175`
 - `WP_SHOP_HOST_SECRET` or `WP_SHOP_SERVICE_SECRET` with `.env.example`'s `demo-only-` prefix is refused once `NODE_ENV` is `production`, said once with `console.error`: no admin, no writes back. `src/lib/server/site.ts:17`, `src/lib/server/site.ts:19`
-- `handle` sets `locals.admin` and `locals.cartId`, except at build. `src/hooks.server.ts:30`, `src/hooks.server.ts:31`
+- `handle` sets `locals.admin` and `locals.cartId`, except at build. `src/hooks.server.ts:46`, `src/hooks.server.ts:47`
 - `handle` sets `locals.page` and `event.host` from WordPress's `Referer` when its origin is wp-shop's own or, with `DROPLETS_TRUSTED_ORIGINS` set, a trusted one. `src/hooks.server.ts:32`, `src/hooks.server.ts:51`
 - A stale `v` redirects 302 to `locals.page` without `v`; without such a page the product page renders live. `src/droplets/product-page/+droplet.server.ts:51`
-- Responses to an admin, and `/api/cart*` and `/api/auth*`, are `cache-control: private, no-store`. `src/hooks.server.ts:21`, `src/hooks.server.ts:38`
+- Responses to an admin, and `/api/cart*` and `/api/auth*`, are `cache-control: private, no-store`. `src/hooks.server.ts:23`, `src/hooks.server.ts:55`
 - WordPress REST calls go only to paths under `/wp-json/`. `src/lib/server/wp.ts:89`
 - WordPress REST calls time out after 5 seconds. `src/lib/server/wp.ts:96`
 - WordPress REST answers are read up to 2 MB. `src/lib/server/wp.ts:48`, `src/lib/server/wp.ts:115`

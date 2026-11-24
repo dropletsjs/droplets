@@ -116,37 +116,37 @@ Vite).
 
 - `preact()` name is `"preact"`. `src/index.ts:72`
 - `preact()` extensions are `[".tsx", ".jsx"]`. `src/index.ts:73`
-- `preact()` packages are `preact`, `preact-render-to-string` and `@dropletsjs/renderer-preact`: another renderer's droplet that imports one fails the build. `src/index.ts:74`, `../../droplets/src/vite/renderer-graphs.ts:62`
+- `preact()` packages are `preact`, `preact-render-to-string` and `@dropletsjs/renderer-preact`: another renderer's droplet that imports one fails the build. `src/index.ts:74`, `../../droplets/src/vite/renderer-graphs.ts:74`
 - `preact()` sets no `suffixes` and no `clientSetup`. `src/index.ts:71`
-- `preact()` componentTypes is `@dropletsjs/renderer-preact`: `./$types` takes `DropletProps` and `DropletErrorProps` from it. `src/index.ts:75`, `../../droplets/src/vite/sync-types.ts:37`
+- `preact()` componentTypes is `@dropletsjs/renderer-preact`: `./$types` takes `DropletProps` and `DropletErrorProps` from it. `src/index.ts:75`, `../../droplets/src/vite/sync-types.ts:47`
 - `preact()` server, client and clientDev are `dist/server.js`, `dist/client.js`, `dist/client-dev.js` under the package root. `src/index.ts:78`
-- `preact()` has no `readFlags`: core reads the named exports with `readExportedFlags`. `../../droplets/src/core/discover.ts:144`, `test/index.test.ts:31`
+- `preact()` has no `readFlags`: core reads the named exports with `readExportedFlags`. `../../droplets/src/core/discover.ts:155`, `test/index.test.ts:31`
 - `preact()` plugins are a function of core's scope: one `droplets:preact` with `scope.include`; `plugin: false` leaves `plugins` unset. `src/index.ts:77`
 - `DropletProps` has `data` (always the value), `form?` and `children?`. `src/index.ts:48`
 - `DropletErrorProps` has `error` and `children?`. `src/index.ts:56`
-- `droplets:preact` runs `enforce: "pre"`, in every environment and in builds. `src/plugin.ts:88`
-- `droplets:preact` compiles `.tsx` / `.jsx` outside `node_modules` with oxc, `jsx: { runtime: "automatic", importSource: "preact" }`. `src/plugin.ts:77`, `src/plugin.ts:101`
-- `droplets:preact` with `include` compiles only the ids it matches (core's `?droplets-renderer=preact` mark). `src/plugin.ts:102`
-- `droplets:preact` turns on Prefresh under `vite dev` only, outside production and with HMR on. `src/plugin.ts:96`
-- `droplets:preact` compiles with oxc's refresh transform only for the client environment. `src/plugin.ts:103`
-- `droplets:preact` adds `@prefresh/core` and `@prefresh/utils` to `optimizeDeps.include` under `serve`, so Prefresh patches the page's one copy of Preact. `src/plugin.ts:93`
-- `droplets:preact` resolves `@prefresh/core` and `@prefresh/utils` per module, since the pre-bundled URL changes when Vite optimizes again. `src/plugin.ts:110`
-- `droplets:preact` warns and turns Prefresh off when the Prefresh runtime does not resolve: Preact droplets then remount on an edit. `src/plugin.ts:112`
-- `droplets:preact` adds the Prefresh prelude to a module with `$RefreshReg$` or `$RefreshSig$` calls, and the accepting footer only with `$RefreshReg$`. `src/plugin.ts:106`, `src/plugin.ts:119`
-- Prefresh footer logs `prefresh-update-failed` (`Prefresh could not apply the update; the error follows`) when its flush throws. `src/plugin.ts:67`
-- Prefresh prelude is one line, so the source map stays in step. `src/plugin.ts:43`
-- Server `render` returns `renderToString` of the component with the props and the children vnode; never a `head`. `src/server.ts:29`
+- `droplets:preact` runs `enforce: "pre"`, in every environment and in builds. `src/plugin.ts:95`
+- `droplets:preact` compiles `.tsx` / `.jsx` outside `node_modules` with oxc, `jsx: { runtime: "automatic", importSource: "preact" }`. `src/plugin.ts:84`, `src/plugin.ts:108`
+- `droplets:preact` with `include` compiles only the ids it matches (core's `?droplets-renderer=preact` mark). `src/plugin.ts:109`
+- `droplets:preact` turns on Prefresh under `vite dev` only, outside production and with HMR on. `src/plugin.ts:103`
+- `droplets:preact` compiles with oxc's refresh transform only for the client environment. `src/plugin.ts:110`
+- `droplets:preact` adds `@prefresh/core` and `@prefresh/utils` to `optimizeDeps.include` under `serve`, so Prefresh patches the page's one copy of Preact. `src/plugin.ts:100`
+- `droplets:preact` resolves `@prefresh/core` and `@prefresh/utils` per module, since the pre-bundled URL changes when Vite optimizes again. `src/plugin.ts:117`
+- `droplets:preact` warns and turns Prefresh off when the Prefresh runtime does not resolve: Preact droplets then remount on an edit. `src/plugin.ts:119`
+- `droplets:preact` adds the Prefresh prelude to a module with `$RefreshReg$` or `$RefreshSig$` calls, and the accepting footer only with `$RefreshReg$`. `src/plugin.ts:113`, `src/plugin.ts:126`
+- Prefresh footer logs `prefresh-update-failed` (`Prefresh could not apply the update; the error follows`) when its flush throws. `src/plugin.ts:73`
+- Prefresh prelude is one line, so the source map stays in step. `src/plugin.ts:44`
+- Server `render` returns `renderToString` of the component with the props and the children vnode; never a `head`. `src/server.ts:34`
 - Server `render` throws `component-not-renderable` (`the <kind> component is not a Preact component`, for the droplet) for a default export that is not a function. `src/server.ts:22`
 - Server module imports no Node modules: it runs on Node, Bun, Deno and Workers. `src/server.ts:4`
 - Children marker is `<div data-droplet-children style="display: contents">`, rendered by `DropletChildren`. `src/children.ts:35`
-- Children host reaches `DropletChildren` through `ChildrenHostContext`, `null` on the server. `src/children.ts:21`, `src/tree.ts:65`
+- Children host reaches `DropletChildren` through `ChildrenHostContext`, `null` on the server. `src/children.ts:21`, `src/tree.ts:70`
 - `DropletChildren` calls `host.fill(marker)` in a layout effect and `host.empty(marker)` in its cleanup; it depends on the host alone. `src/children.ts:29`
 - Client `mount` renders with Preact's `render` and `hydrate` with Preact's `hydrate`; both are synchronous. `src/client.ts:59`, `src/client.ts:80`
 - Client `mount` with a promise of `data` awaits it, then renders inside `context.rendering`, so `actionUrl()` still knows the droplet. `src/client.ts:62`, `src/client.ts:66`
 - Client `mount` with a rejected `data` renders the error page with what `handle` returned, nothing when it rejects, and rethrows without an error page. `src/client.ts:38`, `src/client.ts:43`, `src/client.ts:46`
 - Client instance is `{ target, component, context }`, only `{ target }` when the error page or nothing shows. `src/client.ts:24`, `src/client.ts:69`
 - Client `unmount` calls `render(null, target)`. `src/client.ts:85`
-- Client tree with an error page wraps the component in `DropletBoundary`, which passes the error through `handle`, then renders the error page with the result and `children`; nothing while it runs or when it rejects. `src/tree.ts:61`, `src/tree.ts:43`
+- Client tree with an error page wraps the component in `DropletBoundary`, which passes the error through `handle`, then renders the error page with the result and `children`; nothing while it runs or when it rejects. `src/tree.ts:66`, `src/tree.ts:48`
 - Client dev `update` awaits a promise of `data`, renders the same tree with new props into the target, and returns `true`. `src/client-dev.ts:15`
 - Client dev `update` returns `false` for an instance without a component, and core remounts. `src/client-dev.ts:14`
 - `./form` exports `useEnhanceDropletForm(formRef, options?)`: it enhances the form in an effect keyed on the ref and reads its options at each submit. `src/form.ts:43`
