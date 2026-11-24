@@ -61,7 +61,7 @@ and each [renderer page](/renderers/).
 export const load: (event: LoadEvent) => unknown;     // the component's data (plain values or promises)
 export const actions: Actions;                         // { default?, [name]: (event: ActionEvent) => data | fail() | redirect() }
 export const handleError: HandleDropletError;          // ({ error }) => { error }
-export const entries: Entries;                         // () => Array<{ props?, host? }>
+export const entries: Entries;                         // () => Array<{ props?, host?, file? }>
 export const transform: Transform | Transform[];       // ({ html, ...event }) => string
 ```
 
@@ -71,8 +71,12 @@ export const transform: Transform | Transform[];       // ({ html, ...event }) =
   name). Names match `^[A-Za-z_][\w-]*$`; `__proto__`, `constructor` and
   `prototype` are never actions.
 - `entries` returns the renders to make at build when `prerender = true`;
-  without it, one render with `{}`. Each event has only `props` (an object)
-  and `host` (an absolute URL); anything else fails the build. An entry's
+  without it, one render with `{}`. Each event has only `props` (an object),
+  `host` (an absolute URL) and `file` (a lowercase kebab-case name, unique
+  among the droplet's entries); anything else fails the build. With
+  `location` and `host` both set in `droplets.config.ts`, `file` also writes
+  the render as `dist/client/assets/prerendered/<id>/<file>.html`
+  ([Static files](/guides/prerendering/#static-files)). An entry's
   `host` passes the bound a request's host page passes, or the build fails:
   the origin of `host` in `droplets.config.ts` when it is set, else an
   origin in `trustedOrigins` when that list is set.
@@ -256,6 +260,7 @@ routes from a host's side.
 | `GET /env.js` | The public variables read at runtime, as a script; reads nothing from the request. `404` without such a variable. | `public, max-age=600`; `DROPLETS_ENV_MAX_AGE` sets the seconds, `0` is `no-store` |
 | `GET /assets/*` | The client build's `assets/` folder: the entry, shared chunks, stylesheets, imported files. Served by the adapter. | `public, max-age=2592000, immutable` |
 | `GET /assets/public/*` | The project's `public/` folder, with an `ETag`; `304` when `If-None-Match` matches. Nothing of `public/` is served at the root. | `publicCacheControl` |
+| `GET /assets/prerendered/<id>/<file>` | An entry's render written as a [static file](/guides/prerendering/#static-files) (`<file>.html`, also served), with an `ETag`; `304` when `If-None-Match` matches. Only with `location` and `host` set. | `fragmentCacheControl`, with `no-transform` |
 | `GET /index.css` | An `@import` of the shared stylesheet (`css.path`), for a page that links it itself; in a build, the file `dist/client/index.css`. `404` when there is none or it is empty. | `no-store` |
 | `GET /droplets/:id/client.js` | The droplet's browser bundle; `404` for an unknown droplet or `hydrate = false`. | `public, max-age=2592000, immutable` |
 | `GET /droplets/:id/style.css` | An `@import` of each of the droplet's stylesheets; `404` when it has none, and always under `vite dev`. | `public, max-age=2592000, immutable` |
@@ -641,11 +646,12 @@ Then:
 | `/index.js`, `/index.css` | `no-store` |
 | `/assets/*` | `public, max-age=2592000, immutable` |
 | `/assets/public/*` | [`publicCacheControl`](/guides/configuration/#options) (`no-cache`; none for `false`) |
+| `/assets/prerendered/*` | [`fragmentCacheControl`](/guides/configuration/#options) with `no-transform`, as the live fragment (`private, no-store, no-transform`; `no-transform` for `false`) |
 | `/droplets/:id/client.js`, `/droplets/:id/style.css` | `public, max-age=2592000, immutable` |
 
 A server built on `createServerApp` sets the table itself on every 2xx or
 304 answer to a path it matches, so an `assetHandler` only serves the file
-(and, for `public/`, an `ETag` and 304). A platform that serves the files
+(and, for `public/` and the prerender files, an `ETag` and 304). A platform that serves the files
 without the server writes the table into its own configuration in
 `afterBuild`, from `fileHeaders`: the Cloudflare adapter writes
 `dist/client/_headers` that way. For a CDN that applies the first block that
