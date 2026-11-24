@@ -55,7 +55,8 @@ const href = id === "404" ? undefined : twinHref(id, import.meta.env.BASE_URL);
     const show = (state: "idle" | "copied" | "failed", message = "") => {
       button.dataset.state = state;
       for (const label of button.querySelectorAll<HTMLElement>("[data-label]")) {
-        label.toggleAttribute("aria-hidden", label.dataset.label !== state);
+        if (label.dataset.label === state) label.removeAttribute("aria-hidden");
+        else label.setAttribute("aria-hidden", "true");
       }
       if (status) status.textContent = message;
     };
