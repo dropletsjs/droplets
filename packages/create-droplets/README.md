@@ -61,7 +61,10 @@ Without a terminal, or with `--yes`, it asks nothing: the folder and
   server load: what `djs add hello-<framework> --target full --with server`
   writes.
 - `AGENTS.md`: the conventions, for coding agents, starting with the rule that
-  a droplet imports only its own framework.
+  a droplet imports only its own framework, with a link to the guide's
+  `llms.txt`. An existing `AGENTS.md` keeps its text and gets them as a
+  `## Droplets` section at the end (once: a second run leaves it as it is);
+  an existing `CLAUDE.md` gets the `@AGENTS.md` line when it lacks one.
 - `.gitignore`, `README.md`, `svelte.config.js` with Svelte (for editor
   tooling), and `wrangler.jsonc` with Cloudflare.
 - `.vscode/extensions.json` with Svelte, Vue or Lit: the editor extensions
@@ -108,14 +111,14 @@ HTML page that embeds it:
 - Flags: an unknown option throws (Node's `parseArgs`, strict). `src/choices.ts:164`
 - Flags: `--install` and `--git` default to true; `--no-install`, `--no-git` and `--no-tailwind` are negations. `src/choices.ts:167`, `src/choices.ts:176`
 - Flags: `-y` is `--yes`, `-h` is `--help`. `src/choices.ts:178`
-- `--help` prints the usage and exits 0. `src/index.ts:191`, `src/index.ts:237`
+- `--help` prints the usage and exits 0. `src/index.ts:199`, `src/index.ts:246`
 - `--frameworks` and `--adapters` are comma lists; an unknown name throws `--<flag> <name>: expected <list>`, an empty one `--<flag>: name at least one of <list>`. `src/choices.ts:153`, `src/choices.ts:156`
 - `--frameworks` and `--adapters` drop repeats and end in catalog and `ADAPTERS` order, whatever order the flag gave. `src/choices.ts:157`, `src/choices.ts:203`
 - `--frameworks` accepts `hono` for `hono-jsx` and refuses `script`. `../droplets/src/add/catalog.ts:131`
 - `--pm` outside `npm`, `pnpm`, `yarn`, `bun`, `deno` throws `--pm <value>: expected …`. `src/choices.ts:193`
 - `--element` that is not a valid custom element name throws `--element <name>: lowercase letters, digits and a hyphen, starting with a letter: my-widgets`. `src/choices.ts:107`, `src/choices.ts:197`
 - Usage text says `--element` defaults to the folder name, or `<folder>-droplets` when it has no hyphen, which is what `suggestElement` does. `src/choices.ts:127`, `src/choices.ts:100`, `test/choices.test.ts:79`
-- Interactive only with a TTY on stdin and stdout and no `--yes`. `src/index.ts:194`
+- Interactive only with a TTY on stdin and stdout and no `--yes`. `src/index.ts:202`
 - Non-interactive without a folder throws `name the folder: npm create droplets@latest <folder> (or run it in a terminal to be asked)`. `src/index.ts:55`
 - Non-interactive without `--frameworks` throws `pick the frameworks: --frameworks <list> (or run it in a terminal to be asked)`. `src/index.ts:87`
 - Non-interactive defaults: adapters `node`, Tailwind, dev tool and Claude off, the detected package manager. `src/index.ts:113`, `src/index.ts:116`, `src/index.ts:126`
@@ -125,38 +128,42 @@ HTML page that embeds it:
 - Package name: the folder's base name lowercased, runs outside `[a-z0-9._-]` as `-`, leading `.`, `_`, `-` and trailing `-` trimmed; empty becomes `droplets`. `src/choices.ts:87`
 - Element suggestion: the package name without leading non-letters; itself when a valid element name, else `<name>-droplets`; nothing left gives `my-droplets`. `src/choices.ts:98`
 - Package manager detection: `npm_config_user_agent`, else the nearest lockfile from the working directory, else npm. `src/index.ts:126`, `../droplets/src/add/install.ts:30`
-- Files: a file that already exists stops the run before anything is written (`these files exist already: …`); each file is written with `wx`. `src/index.ts:157`, `src/index.ts:160`
-- Install runs `<pm> install`, then `<pm run> sync` (Deno skips lifecycle scripts); a failure is a warning naming the command to run. `src/index.ts:208`, `src/index.ts:213`, `src/index.ts:216`
-- Git: skipped with a warning when git is missing or the folder is inside a work tree; else `git init`, `git add -A`, `git commit -m "Initial commit from create-droplets"`. `src/index.ts:173`, `src/index.ts:174`, `src/index.ts:178`
-- Git: a failing git step is a warning `git <step> failed: <first line>`, never a failure. `src/index.ts:181`
-- Exit code is 0 after a run and 1 on an error, printed as `create-droplets: <message>`. `src/index.ts:237`, `src/index.ts:240`
+- Files: a file that already exists stops the run before anything is written (`these files exist already: …`), except `AGENTS.md` and `CLAUDE.md`; each new file is written with `wx`. `src/index.ts:162`, `src/index.ts:166`
+- Files: an existing `AGENTS.md` gets the `## Droplets` section appended (the same guidance, headings one level down), unless it has a `## Droplets` line already. `src/files.ts:397`, `src/agents.ts:45`
+- Files: an existing `CLAUDE.md` (with `--claude`) gets an `@AGENTS.md` line appended, unless it has `@AGENTS.md` or `@./AGENTS.md` on a line already. `src/files.ts:400`
+- Files: the non-interactive run refuses a non-empty folder before any of this, so the appends happen only after the prompt `Write into it anyway?`. `src/index.ts:67`
+- Install runs `<pm> install`, then `<pm run> sync` (Deno skips lifecycle scripts); a failure is a warning naming the command to run. `src/index.ts:217`, `src/index.ts:222`, `src/index.ts:225`
+- Git: skipped with a warning when git is missing or the folder is inside a work tree; else `git init`, `git add -A`, `git commit -m "Initial commit from create-droplets"`. `src/index.ts:181`, `src/index.ts:182`, `src/index.ts:186`
+- Git: a failing git step is a warning `git <step> failed: <first line>`, never a failure. `src/index.ts:189`
+- Exit code is 0 after a run and 1 on an error, printed as `create-droplets: <message>`. `src/index.ts:246`, `src/index.ts:249`
 - Commands per pm: npm `npm run`/`npx djs`, pnpm `pnpm run`/`pnpm exec djs`, yarn `yarn run`/`yarn djs`, bun `bun run`/`bunx djs`, deno `deno task`/`deno run -A npm:@dropletsjs/droplets/djs`. `src/choices.ts:53`
 - Default adapter: `node` when chosen, else the first in `node`, `cloudflare`, `bun`, `deno` order. `src/choices.ts:77`
 - Starter droplet folder: `hello-<framework>`, `hello-hono` for Hono JSX. `src/choices.ts:70`
-- Starter droplets are `djs add`'s files for target `full`, hydrate `always`, with `+droplet.server.ts`. `src/files.ts:370`
-- `package.json` scripts: `dev` `vite`, `build` `vite build`, `preview` `vite preview`, `start` for the default adapter. `src/files.ts:23`
-- `package.json` start commands: `node dist/server.js`, `wrangler dev`, `bun dist/server.js`, `deno serve -A dist/server.js`. `src/files.ts:11`
-- `package.json` other adapters get `build:<a>` (`DROPLETS_ADAPTER=<a> vite build`) and `start:<a>`. `src/files.ts:31`
-- `package.json` `deploy` is `wrangler deploy` when Cloudflare is the default adapter, else `deploy:cloudflare`. `src/files.ts:29`, `src/files.ts:33`
-- `package.json` `sync` and `prepare` are `djs sync`; `typecheck` is `djs sync && tsc -p tsconfig.json`. `src/files.ts:37`
-- `package.json` is `private: true`, `type: module`, dependencies and devDependencies sorted by name. `src/files.ts:47`, `src/files.ts:85`
-- `package.json` dependencies: `@dropletsjs/droplets` and each framework's own packages. `src/files.ts:67`
-- `package.json` devDependencies: devtools, the adapters, the renderers, the frameworks' types, `vite`, `typescript`, `@types/node`, Tailwind when chosen, `wrangler` with Cloudflare. `src/files.ts:73`
-- `vite.config.ts` calls one adapter directly; several pick by `process.env["DROPLETS_ADAPTER"]`, falling back to the default. `src/files.ts:109`
-- `vite.config.ts` always adds `dropletsDevtools()` after `droplets()`. `src/files.ts:126`
-- `vite.config.ts` sets `css: { tailwind: true }` with Tailwind. `src/files.ts:114`
-- `droplets.config.ts` sets `element` and `cors: true`, plus `dev: { injectTool: true }` when chosen. `src/files.ts:144`, `src/files.ts:146`
-- `tsconfig.json` extends `./.droplets/tsconfig.json`, with `types` `node`, `vite/client` and `@dropletsjs/droplets/ambient`. `src/files.ts:172`, `src/files.ts:176`
-- `tsconfig.json` takes `jsx: "react-jsx"` and `jsxImportSource` from the first JSX framework, and then includes `src/**/*.tsx`. `src/files.ts:173`, `src/files.ts:175`
-- `src/app.css` imports `tailwindcss` with Tailwind and makes `:root` `display: block`. `src/files.ts:196`
-- `.gitignore` lists `node_modules/`, `dist/`, `.droplets/`, `.wrangler/`, `.env.local` and `.env.*.local`. `src/files.ts:205`
-- `wrangler.jsonc` (Cloudflare): `main` `dist/worker.js`, `nodejs_compat`, assets `dist/client` bound as `ASSETS`, no `run_worker_first`: static assets answer the build's files. `src/files.ts:226`, `test/files.test.ts:75`
-- `svelte.config.js` (Svelte) sets `compilerOptions: { runes: true }` for editor tooling. `src/files.ts:239`
-- `.vscode/extensions.json` recommends `svelte.svelte-vscode` for Svelte, `Vue.volar` for Vue and `runem.lit-plugin` for Lit, in catalog order. `src/files.ts:245`, `src/files.ts:255`
-- `.vscode/extensions.json` is not written when no chosen framework needs an extension (React, Preact, Solid, Hono JSX, Handlebars). `src/files.ts:256`, `test/files.test.ts:34`
-- `CLAUDE.md` (with `--claude`) is `@AGENTS.md`. `src/files.ts:365`
-- Release age settings: pnpm `minimumReleaseAge: 10080`, npm `min-release-age=7`, Yarn `npmMinimalAgeGate: 10080`, Bun `minimumReleaseAge = 604800`, Deno `P7D`. `src/files.ts:302`, `src/files.ts:314`, `src/files.ts:324`, `src/files.ts:336`, `src/files.ts:344`
-- Release age exemption: `@dropletsjs/*` by pattern for pnpm, npm and Yarn; every `@dropletsjs/*` package by name for Bun and Deno. `src/files.ts:315`, `src/files.ts:337`
-- `AGENTS.md` opens with the one-framework rule and is written for the chosen frameworks, adapters and package manager. `src/agents.ts:35`, `test/agents.test.ts:6`
-- `AGENTS.md` adds the `@jsxImportSource` note only with two or more JSX frameworks. `src/agents.ts:68`
+- Starter droplets are `djs add`'s files for target `full`, hydrate `always`, with `+droplet.server.ts`. `src/files.ts:371`
+- `package.json` scripts: `dev` `vite`, `build` `vite build`, `preview` `vite preview`, `start` for the default adapter. `src/files.ts:24`
+- `package.json` start commands: `node dist/server.js`, `wrangler dev`, `bun dist/server.js`, `deno serve -A dist/server.js`. `src/files.ts:12`
+- `package.json` other adapters get `build:<a>` (`DROPLETS_ADAPTER=<a> vite build`) and `start:<a>`. `src/files.ts:32`
+- `package.json` `deploy` is `wrangler deploy` when Cloudflare is the default adapter, else `deploy:cloudflare`. `src/files.ts:30`, `src/files.ts:34`
+- `package.json` `sync` and `prepare` are `djs sync`; `typecheck` is `djs sync && tsc -p tsconfig.json`. `src/files.ts:38`
+- `package.json` is `private: true`, `type: module`, dependencies and devDependencies sorted by name. `src/files.ts:48`, `src/files.ts:86`
+- `package.json` dependencies: `@dropletsjs/droplets` and each framework's own packages. `src/files.ts:68`
+- `package.json` devDependencies: devtools, the adapters, the renderers, the frameworks' types, `vite`, `typescript`, `@types/node`, Tailwind when chosen, `wrangler` with Cloudflare. `src/files.ts:74`
+- `vite.config.ts` calls one adapter directly; several pick by `process.env["DROPLETS_ADAPTER"]`, falling back to the default. `src/files.ts:110`
+- `vite.config.ts` always adds `dropletsDevtools()` after `droplets()`. `src/files.ts:127`
+- `vite.config.ts` sets `css: { tailwind: true }` with Tailwind. `src/files.ts:115`
+- `droplets.config.ts` sets `element` and `cors: true`, plus `dev: { injectTool: true }` when chosen. `src/files.ts:145`, `src/files.ts:147`
+- `tsconfig.json` extends `./.droplets/tsconfig.json`, with `types` `node`, `vite/client` and `@dropletsjs/droplets/ambient`. `src/files.ts:173`, `src/files.ts:177`
+- `tsconfig.json` takes `jsx: "react-jsx"` and `jsxImportSource` from the first JSX framework, and then includes `src/**/*.tsx`. `src/files.ts:174`, `src/files.ts:176`
+- `src/app.css` imports `tailwindcss` with Tailwind and makes `:root` `display: block`. `src/files.ts:197`
+- `.gitignore` lists `node_modules/`, `dist/`, `.droplets/`, `.wrangler/`, `.env.local` and `.env.*.local`. `src/files.ts:206`
+- `wrangler.jsonc` (Cloudflare): `main` `dist/worker.js`, `nodejs_compat`, assets `dist/client` bound as `ASSETS`, no `run_worker_first`: static assets answer the build's files. `src/files.ts:227`, `test/files.test.ts:75`
+- `svelte.config.js` (Svelte) sets `compilerOptions: { runes: true }` for editor tooling. `src/files.ts:240`
+- `.vscode/extensions.json` recommends `svelte.svelte-vscode` for Svelte, `Vue.volar` for Vue and `runem.lit-plugin` for Lit, in catalog order. `src/files.ts:246`, `src/files.ts:256`
+- `.vscode/extensions.json` is not written when no chosen framework needs an extension (React, Preact, Solid, Hono JSX, Handlebars). `src/files.ts:257`, `test/files.test.ts:34`
+- `CLAUDE.md` (with `--claude`) is `@AGENTS.md`. `src/files.ts:366`
+- Release age settings: pnpm `minimumReleaseAge: 10080`, npm `min-release-age=7`, Yarn `npmMinimalAgeGate: 10080`, Bun `minimumReleaseAge = 604800`, Deno `P7D`. `src/files.ts:303`, `src/files.ts:315`, `src/files.ts:325`, `src/files.ts:337`, `src/files.ts:345`
+- Release age exemption: `@dropletsjs/*` by pattern for pnpm, npm and Yarn; every `@dropletsjs/*` package by name for Bun and Deno. `src/files.ts:316`, `src/files.ts:338`
+- `AGENTS.md` opens with the one-framework rule and is written for the chosen frameworks, adapters and package manager. `src/agents.ts:40`, `test/agents.test.ts:6`
+- `AGENTS.md` links the guide for agents, `https://dropletsjs.dev/llms.txt`. `src/agents.ts:66`
+- `AGENTS.md` adds the `@jsxImportSource` note only with two or more JSX frameworks. `src/agents.ts:84`
 - Build script runs the tests, then `vite build`. `package.json:35`

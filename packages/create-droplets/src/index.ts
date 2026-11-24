@@ -6,8 +6,8 @@
  * scripts) and makes the first git commit.
  */
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { appendFile, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import * as prompts from "@clack/prompts";
 import {
@@ -22,7 +22,7 @@ import {
   type Choices,
   type Flags,
 } from "./choices.ts";
-import { projectFiles } from "./files.ts";
+import { existingFiles, projectFiles } from "./files.ts";
 import { detectPackageManager, FRAMEWORKS, frameworkNamed, PACKAGE_MANAGERS, run, type PackageManager } from "./shared.ts";
 
 type AnswerInput<T> = { value: T };
@@ -149,16 +149,24 @@ async function choose({ flags, interactive }: ChooseInput): Promise<Choices> {
   };
 }
 
-type WriteInput = { root: string; files: Readonly<Record<string, string>> };
+type WriteInput = { root: string; choices: Choices };
 
-/** Writes every file, refusing to replace one that exists. */
-async function write({ root, files }: WriteInput): Promise<void> {
-  const taken = Object.keys(files).filter((file) => existsSync(join(root, file)));
+/**
+ * Writes every file, refusing to replace one that exists; an existing
+ * AGENTS.md or CLAUDE.md is appended to instead. Returns the files appended to.
+ */
+async function write({ root, choices }: WriteInput): Promise<string[]> {
+  const files = projectFiles(choices);
+  const existing = Object.keys(files).filter((file) => existsSync(join(root, file)));
+  const { appends, taken } = existingFiles({ choices, existing, read: ({ file }) => readFileSync(join(root, file), "utf8") });
   if (taken.length > 0) throw new Error(`these files exist already: ${taken.join(", ")}`);
   for (const [file, content] of Object.entries(files)) {
+    if (existing.includes(file)) continue;
     await mkdir(dirname(join(root, file)), { recursive: true });
     await writeFile(join(root, file), content, { flag: "wx" });
   }
+  for (const [file, text] of Object.entries(appends)) await appendFile(join(root, file), text);
+  return Object.keys(appends);
 }
 
 type InitGitInput = { root: string };
@@ -197,8 +205,9 @@ async function main({ argv }: MainInput): Promise<void> {
   const root = resolve(choices.folder);
   const { install, run: runScript } = commands(choices);
 
-  await write({ root, files: projectFiles(choices) });
+  const appended = await write({ root, choices });
   prompts.log.success(`wrote ${relative(process.cwd(), root) || "."}/ (${choices.frameworks.map((f) => f.label).join(", ")})`);
+  if (appended.length > 0) prompts.log.success(`added Droplets' part to the existing ${appended.join(" and ")}`);
 
   let installed = false;
   if (flags.install) {
