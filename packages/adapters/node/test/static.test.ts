@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { FileHeaderRule } from "@dropletsjs/droplets";
 import { createStaticHandler } from "../src/static.ts";
 
 describe("createStaticHandler", () => {
@@ -27,12 +26,13 @@ describe("createStaticHandler", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  it("serves files with a content type and immutable caching", async () => {
+  it("serves files with a content type, and leaves the build files' headers to createServerApp", async () => {
     const js = await app.request("/assets/chunks/a-123.js");
     expect(js.status).toBe(200);
     expect(js.headers.get("content-type")).toBe("application/javascript; charset=utf-8");
-    expect(js.headers.get("cache-control")).toBe("public, max-age=2592000, immutable");
-    expect(js.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(js.headers.get("cache-control")).toBeNull();
+    expect(js.headers.get("x-content-type-options")).toBeNull();
+    expect(js.headers.get("access-control-allow-origin")).toBeNull();
     expect(await js.text()).toBe("export const a = 1;");
 
     const css = await app.request("/assets/style-abc.css");
@@ -71,13 +71,11 @@ describe("createStaticHandler", () => {
     }
   });
 
-  it("revalidates public/ under /assets/public/: no-cache, an ETag, 304 when it matches", async () => {
+  it("answers public/ under /assets/public/ with an ETag, 304 when it matches", async () => {
     const res = await app.request("/assets/public/img/logo.svg");
     expect(res.status).toBe(200);
     expect(await res.text()).toBe("<svg/>");
     expect(res.headers.get("content-type")).toBe("image/svg+xml");
-    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
-    expect(res.headers.get("cache-control")).toBe("no-cache");
     const etag = res.headers.get("etag") ?? expect.unreachable("an etag");
     expect(etag).toMatch(/^"[\w-]+"$/);
 
@@ -88,48 +86,6 @@ describe("createStaticHandler", () => {
     expect(changed.status).toBe(200);
     // Hashed files never revalidate.
     expect((await app.request("/assets/style-abc.css")).headers.get("etag")).toBeNull();
-  });
-
-  it("sends publicCacheControl for public/ only, or none for false, keeping the ETag and 304", async () => {
-    const hour = new Hono();
-    hour.get("/assets/*", createStaticHandler({ clientRoot: root, publicCacheControl: "public, max-age=3600" }));
-    const res = await hour.request("/assets/public/img/logo.svg");
-    expect(res.headers.get("cache-control")).toBe("public, max-age=3600");
-    const etag = res.headers.get("etag") ?? expect.unreachable("an etag");
-    expect((await hour.request("/assets/public/img/logo.svg", { headers: { "if-none-match": etag } })).status).toBe(304);
-    expect((await hour.request("/assets/style-abc.css")).headers.get("cache-control")).toBe("public, max-age=2592000, immutable");
-
-    const none = new Hono();
-    none.get("/assets/*", createStaticHandler({ clientRoot: root, publicCacheControl: false }));
-    const bare = await none.request("/assets/public/img/logo.svg");
-    expect(bare.status).toBe(200);
-    expect(bare.headers.get("cache-control")).toBeNull();
-    expect(bare.headers.get("etag")).toBe(etag);
-    expect((await none.request("/assets/style-abc.css")).headers.get("cache-control")).toBe("public, max-age=2592000, immutable");
-  });
-
-  it("sends the headers of the last rule of its table that matches, and the ETag for public/ alone", async () => {
-    const table: FileHeaderRule[] = [
-      { path: "/assets/*", headers: { "Cache-Control": "one", "X-Kind": "file" } },
-      { path: "/assets/public/*", headers: { "Cache-Control": "two" } },
-      { path: "/assets/public/img/*", headers: { "X-Kind": "img" } },
-    ];
-    const own = new Hono();
-    own.get("/assets/*", createStaticHandler({ clientRoot: root, fileHeaders: table }));
-    const headersOf = async (path: string) => {
-      const res = await own.request(path);
-      return {
-        cache: res.headers.get("cache-control"),
-        kind: res.headers.get("x-kind"),
-        nosniff: res.headers.get("x-content-type-options"),
-      };
-    };
-    expect(await headersOf("/assets/style-abc.css")).toEqual({ cache: "one", kind: "file", nosniff: null });
-    await writeFile(join(root, "assets/public/robots.txt"), "User-agent: *\n");
-    expect(await headersOf("/assets/public/robots.txt")).toEqual({ cache: "two", kind: null, nosniff: null });
-    expect(await headersOf("/assets/public/img/logo.svg")).toEqual({ cache: null, kind: "img", nosniff: null });
-    expect((await own.request("/assets/public/img/logo.svg")).headers.get("etag")).toMatch(/^"[\w-]+"$/);
-    expect((await own.request("/assets/style-abc.css")).headers.get("etag")).toBeNull();
   });
 
   it("404s missing files with a text Not Found that is never cached", async () => {

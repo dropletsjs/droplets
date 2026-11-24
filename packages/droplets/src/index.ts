@@ -82,8 +82,7 @@ export type {
   ServerRenderOutput,
 } from "./renderer.ts";
 export { createServerApp } from "./server/app.ts";
-export { fileHeadersFor, fileHeaderTable } from "./runtime/file-headers.ts";
-export type { FileHeaderConfig, FileHeaderRule } from "./runtime/file-headers.ts";
+export type { FileHeaderRule } from "./runtime/file-headers.ts";
 export { createPrerenderedLoader, PRERENDER_DIR } from "./server/prerendered.ts";
 export { setRuntimeEnv } from "./runtime/env-store.ts";
 export type { AssetLoaders, ServerAppOptions, SsrModule } from "./server/app.ts";

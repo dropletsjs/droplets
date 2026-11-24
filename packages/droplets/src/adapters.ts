@@ -57,9 +57,9 @@ export type AdapterBuildContext = {
   /** The resolved `droplets.config.ts`, as the server bundle has it. */
   config: ResolvedDropletsConfig;
   /**
-   * The headers of the build's files, `fileHeaderTable(config)`: the table
-   * the server applies to what it answers, for an adapter to write into its
-   * platform's own header rules.
+   * The headers of the build's files, from `config`: the table the server
+   * applies to what it answers, for an adapter to write into its platform's
+   * own header rules. A path takes the last rule that matches.
    */
   fileHeaders: FileHeaderRule[];
 };

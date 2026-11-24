@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 import { resolve, sep } from "node:path";
 import { readFile } from "node:fs/promises";
-import { type FileHeaderRule, fileHeadersFor, fileHeaderTable } from "@dropletsjs/droplets";
 import type { Handler } from "hono";
 
 // Text types carry the charset; anything else is `application/octet-stream`.
@@ -66,10 +65,6 @@ const NOT_FOUND_HEADERS = { "cache-control": "no-store" };
 
 export type StaticHandlerOptions = {
   clientRoot: string;
-  /** `Cache-Control` of `/assets/public/*`, `false` for none (`publicCacheControl`). Default: `no-cache`. Read when `fileHeaders` is not given. */
-  publicCacheControl?: string | false;
-  /** The headers of the build's files. Default: `fileHeaderTable({ publicCacheControl })`. */
-  fileHeaders?: readonly FileHeaderRule[];
 };
 
 type ContentTypeOfInput = { path: string };
@@ -82,15 +77,12 @@ function contentTypeOf({ path }: ContentTypeOfInput): string {
 
 /**
  * Serves the shared chunks and assets Vite emits alongside the droplet
- * bundles, and the project's `public/` under `/assets/public/`, with the
- * headers `fileHeaders` gives their path. `public/` keeps its names, so its
- * files also carry an `ETag` and answer 304 when it matches.
+ * bundles, and the project's `public/` under `/assets/public/`, with their
+ * content type; `createServerApp` adds the headers of the build's files.
+ * `public/` keeps its names, so its files also carry an `ETag` and answer
+ * 304 when it matches.
  */
-export function createStaticHandler({
-  clientRoot,
-  publicCacheControl = "no-cache",
-  fileHeaders = fileHeaderTable({ publicCacheControl }),
-}: StaticHandlerOptions): Handler {
+export function createStaticHandler({ clientRoot }: StaticHandlerOptions): Handler {
   const assetsRoot = resolve(clientRoot, "assets");
   const assetsPrefix = assetsRoot + sep;
   const publicPrefix = resolve(assetsRoot, "public") + sep;
@@ -112,9 +104,6 @@ export function createStaticHandler({
       return c.text("Not Found", 404, NOT_FOUND_HEADERS);
     }
     c.header("content-type", contentTypeOf({ path: filePath }));
-    for (const [name, value] of Object.entries(fileHeadersFor({ table: fileHeaders, path: c.req.path }) ?? {})) {
-      c.header(name, value);
-    }
     if (!filePath.startsWith(publicPrefix)) return c.body(new Uint8Array(body));
     const etag = `"${createHash("sha1").update(body).digest("base64url")}"`;
     c.header("etag", etag);
