@@ -128,7 +128,9 @@ fetch its fragment instead.
 
 To show the server's HTML at once and hydrate it after, fetch the fragment
 from the browser and insert it. Insert only an HTML answer: a `2xx`, or a
-`500` or `504`, which carries the droplet's error page; a `400` or `404`
+`500` or `504`, which carries the droplet's error page (a `504` when the
+render ran past the server's [`render.timeout`](/guides/errors/#timeouts));
+a `400` or `404`
 is text that may echo the props. Never follow a redirect (`redirect: "manual"`):
 its target is opaque in the browser and could be a page. Parse the
 fragment through a `<template>`, so the element upgrades when it enters

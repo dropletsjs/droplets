@@ -32,7 +32,7 @@ browser then talks to one origin, and the droplets' cookies are first-party.
 | `Cookie` | your request | the browser's `Cookie` header, as it came | The droplet's `handle` and loads see the visitor's session, cart and login. |
 | `Referer` | your request | the page's own URL, query included: `https://www.example.com/product/mug?v=3` | A `handle` that reads it with [`hostFrom`](/guides/writing-droplets/#host) gets the page as the droplet's `host`. After a form posted without JavaScript, the query carries the form's result ([Post/Redirect/Get](/guides/actions/#without-javascript-postredirectget)). |
 | redirects | your HTTP client | not followed: `redirect: "manual"` | A `3xx` is the droplet's answer (a moved product, a login). Answer the browser with the same status and `Location`. Following it would make your server request a URL someone else chose. |
-| `content-type` | the answer | paste only `text/html`: a `200`, or a `500` or `504` with the droplet's error page | A `504` carries the droplet's error page like a `500`, and is pasted the same way. A `400` or `404` is plain text that may echo the props. Show a note of your own instead. |
+| `content-type` | the answer | paste only `text/html`: a `200`, or a `500` or `504` with the droplet's error page | A `504` is a render that ran past the droplets server's [`render.timeout`](/guides/errors/#timeouts); its error page is pasted like a `500`'s. A `400` or `404` is plain text that may echo the props. Show a note of your own instead. |
 | `Set-Cookie` | the answer | each one passed on with your page, unchanged | A droplet that sets a cookie on a `GET` reaches the browser only through you. Never add a `Domain`: the cookie belongs to your origin. |
 | `Link` | the answer | the fragments' `Link` headers joined with `, ` on your page, or turned into `<link>` tags in its `<head>` | The browser starts the droplets' stylesheets and bundles before it reaches the elements. Optional: without it they start later. |
 
@@ -52,7 +52,7 @@ async function fragment(page, id, props) {
       ...(page.cookie ? { cookie: page.cookie } : {}),
     },
     redirect: "manual",
-    signal: AbortSignal.timeout(10_000),
+    signal: AbortSignal.timeout(10_000), // longer than the server's render.timeout (5 s by default)
   });
   for (const cookie of res.headers.getSetCookie()) page.addHeader("set-cookie", cookie);
   if (res.headers.has("link")) page.addHeader("link", res.headers.get("link"));
@@ -72,8 +72,9 @@ And the page around it:
 
 Fetch several droplets in parallel (`Promise.all`, `asyncio.gather`,
 `curl_multi`, a thread each): the page waits for the slowest one, not for
-their sum. Give the droplets server time to answer: its `500` and `504`
-carry the droplet's error page, which a timeout of yours would cut off.
+their sum. Wait longer than the droplets server does: a render past its
+[`render.timeout`](/guides/errors/#timeouts) (5 s by default) answers `504`
+with the droplet's error page, which a shorter timeout of yours would cut off.
 Every known host that fetches on the server waits 10 s. Send the page itself with `cache-control: private, no-store`: its
 fragments were rendered with the visitor's cookies.
 
