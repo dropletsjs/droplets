@@ -10,8 +10,8 @@
   Checked by: `tests/dev-mixed/test/production.test.ts`.
 - `/assets/*` serves only the client build's `assets/` folder, `public/` under `/assets/public/` with an `ETag` and 304; a missing file or a path outside answers the text `Not Found`, 404, `no-store`, on every adapter.
   Checked by: `node/test/static.test.ts`, `node/test/app.test.ts`, `cloudflare/test/worker.test.ts`.
-- The headers of the build's files (`/index.js`, `/index.css`, `/assets/*`, `/assets/public/*`, `client.js`, `style.css`) are written once, in `fileHeaderTable(config)` (`packages/droplets/src/runtime/file-headers.ts`): an adapter applies or translates the table it gets (`fileHeaders` in `afterBuild`, `createServerApp` at runtime), never a header value of its own (Cloudflare's `_headers` also gives every rule `Access-Control-Allow-Origin: *` and `X-Content-Type-Options: nosniff`, as it always has).
-  Checked by: `node/test/app.test.ts`, `node/test/static.test.ts`, `cloudflare/test/worker.test.ts` (each "the headers of fileHeaderTable(config)" or "of its table"), `cloudflare/test/index.test.ts` ("writes the table it is given").
+- The headers of the build's files (`/index.js`, `/index.css`, `/assets/*`, `/assets/public/*`, `client.js`, `style.css`) are written once, in `fileHeaderTable(config)` (`packages/droplets/src/runtime/file-headers.ts`): an adapter applies or translates the table it gets (`fileHeaders` in `afterBuild`, `createServerApp` at runtime), never a header value of its own. The `cors` middleware never answers for a build file: the table's `Access-Control-Allow-Origin: *` is the only one it gets.
+  Checked by: `node/test/app.test.ts`, `node/test/static.test.ts`, `cloudflare/test/worker.test.ts` (each "the headers of fileHeaderTable(config)" or "of its table"), `cloudflare/test/index.test.ts` ("writes the table it is given"), `node/test/app.test.ts` ("keeps a restricted cors off the build files").
 - A droplet name from the URL reaches a manifest only through `Object.hasOwn`.
   Checked by: `node/test/assets.test.ts`, `cloudflare/test/worker.test.ts`.
 - Bun and Deno run on the Node adapter's `createNodeServerApp`; a serving change goes there.

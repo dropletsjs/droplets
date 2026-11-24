@@ -54,8 +54,9 @@ which is a few lines of script in the same block.
   reach it ([Deployment](/guides/deployment/)), not an address inside your
   network.
 - **CORS.** The page and the droplets server are on different origins, so
-  the browser needs permission to import `/index.js` and the bundles and to
-  post to `_data`. Set `cors` in `droplets.config.ts`, with the site's
+  the browser needs permission to post to `_data` (`/index.js` and the
+  bundles are sent with `Access-Control-Allow-Origin: *` already). Set
+  `cors` in `droplets.config.ts`, with the site's
   origin rather than `true` for anything that is not public (add
   `credentials: true` for cookies, [Cookies across sites](#cookies-across-sites)):
 

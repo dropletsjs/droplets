@@ -116,9 +116,6 @@ function overlaps({ a, b }: OverlapInput): boolean {
 /** What static assets send on their own, whatever `_headers` says: detached before a rule sets it. */
 const PLATFORM_HEADERS = ["Cache-Control"];
 
-// Every file of the build has had these on Cloudflare.
-const CLOUDFLARE_FILE_HEADERS = { "Access-Control-Allow-Origin": "*", "X-Content-Type-Options": "nosniff" };
-
 type RuleLinesInput = { rule: FileHeaderRule; earlier: readonly FileHeaderRule[] };
 
 /**
@@ -154,11 +151,10 @@ type HeadersBlockInput = { table: readonly FileHeaderRule[] };
 
 /** The adapter's rules for `dist/client/_headers`, from the file-header table, in its order. */
 function headersBlock({ table }: HeadersBlockInput): string {
-  const rules = table.map((rule) => ({ path: rule.path, headers: { ...CLOUDFLARE_FILE_HEADERS, ...rule.headers } }));
-  return rules
+  return table
     .map(
       (rule, index) =>
-        `${rule.path}\n${ruleLines({ rule, earlier: rules.slice(0, index) })
+        `${rule.path}\n${ruleLines({ rule, earlier: table.slice(0, index) })
           .map((line) => `  ${line}\n`)
           .join("")}`,
     )

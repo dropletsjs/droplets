@@ -214,8 +214,10 @@ mounts in the browser:
 
 Serve it from another origin (`python3 -m http.server 8080` in its folder)
 and open `http://localhost:8080/`: the droplet loads its bundle and data
-from where `index.js` came from, and the button counts. `cors: true` in
-`droplets.config.ts` is what lets a page on another origin load them.
+from where `index.js` came from, and the button counts. The bundle needs
+no setting: the build's files are sent with `Access-Control-Allow-Origin: *`.
+`cors: true` in `droplets.config.ts` is what lets a page on another origin
+fetch the data.
 
 A page with a server of its own pastes the server-rendered fragment
 instead, so the markup is there before any JavaScript runs:

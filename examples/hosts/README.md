@@ -45,8 +45,9 @@ origin). The
 [Security model](https://dropletsjs.dev/guides/security/) has what a host
 should and should not pass on.
 
-Cross-origin loading needs CORS on the droplets side: set `cors: true` (or an
-origin list) in `droplets.config.ts`; for cookies, an origin list with
+Cross-origin fragments and data need CORS on the droplets side (the build's
+files, `/index.js` included, are sent with `Access-Control-Allow-Origin: *`
+already): set `cors: true` (or an origin list) in `droplets.config.ts`; for cookies, an origin list with
 `credentials: true`, as the shop has for [`static`](./static). The
 [nginx example](./nginx) avoids CORS altogether by proxying the droplets
 routes under the host's own origin.

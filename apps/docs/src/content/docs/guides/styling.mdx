@@ -342,8 +342,10 @@ stylesheet is on the droplet location. Fonts work the same way:
 }
 ```
 
-A font on another origin than the host page needs CORS: set `cors` on the
-droplets server ([CORS](/guides/security/#cors)).
+A font on another origin than the host page needs CORS, and the build's
+files have it: everything under `/assets/` is sent with
+`Access-Control-Allow-Origin: *`, whatever `cors` says
+([CORS](/guides/security/#cors)).
 
 **`public/`** is copied to `dist/client/assets/public/` and served at
 `/assets/public/<file>` by every adapter and by `vite dev`, with

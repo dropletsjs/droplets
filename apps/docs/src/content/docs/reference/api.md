@@ -629,12 +629,17 @@ type FileHeaderRule = {
   `/assets/public/*` has no `Cache-Control`, and an adapter removes its
   platform's default for it.
 
-| Rule | Headers |
+Every rule sends `Access-Control-Allow-Origin: *` and
+`X-Content-Type-Options: nosniff`: the build's files are public, and any page
+may import them as modules, whatever [`cors`](/guides/security/#cors) says.
+Then:
+
+| Rule | `Cache-Control` |
 | --- | --- |
-| `/index.js`, `/index.css` | `Cache-Control: no-store` |
-| `/assets/*` | `X-Content-Type-Options: nosniff`, `Cache-Control: public, max-age=2592000, immutable` |
-| `/assets/public/*` | `X-Content-Type-Options: nosniff`, `Cache-Control` from [`publicCacheControl`](/guides/configuration/#options) (`no-cache`; none for `false`) |
-| `/droplets/:id/client.js`, `/droplets/:id/style.css` | `Cache-Control: public, max-age=2592000, immutable` |
+| `/index.js`, `/index.css` | `no-store` |
+| `/assets/*` | `public, max-age=2592000, immutable` |
+| `/assets/public/*` | [`publicCacheControl`](/guides/configuration/#options) (`no-cache`; none for `false`) |
+| `/droplets/:id/client.js`, `/droplets/:id/style.css` | `public, max-age=2592000, immutable` |
 
 A server built on `createServerApp` sets the table itself on every 2xx or
 304 answer to a path it matches, so an `assetHandler` only serves the file
@@ -762,10 +767,9 @@ framework (`this.actionUrl()` in Lit, `{{action}}` in Handlebars). See each
   `"ASSETS"` by default (type `CloudflareAdapterOptions`). The Worker inlines
   the SSR bundle and the manifest, reads files through the binding, and
   takes the Worker's vars and secrets as the runtime environment. After
-  each build it writes `dist/client/_headers` (`/index.js` `no-store`,
-  `/assets/*`, `client.js` and `style.css` immutable with
-  `Access-Control-Allow-Origin: *`, `/assets/public/*` with
-  `publicCacheControl`), then appends the project root's own `_headers`. A
+  each build it writes `dist/client/_headers` from
+  [the file-header table](#the-file-header-table), then appends the project
+  root's own `_headers`. A
   wrangler config whose `assets.run_worker_first` sends build files through
   the Worker gets a warning. It has no `vite preview`.
 

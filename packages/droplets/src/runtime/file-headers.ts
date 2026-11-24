@@ -18,6 +18,9 @@ export type FileHeaderConfig = Pick<ResolvedDropletsConfig, "publicCacheControl"
 
 const IMMUTABLE = "public, max-age=2592000, immutable";
 
+// Public files, loaded as modules and fonts from any page: CORS for any origin, whatever `cors` says.
+const FILE = { "Access-Control-Allow-Origin": "*", "X-Content-Type-Options": "nosniff" };
+
 /**
  * The headers of every file `vite build` writes for the browser, from the
  * resolved config, as an ordered table: a narrower pattern comes after the
@@ -26,18 +29,15 @@ const IMMUTABLE = "public, max-age=2592000, immutable";
 export function fileHeaderTable(config: FileHeaderConfig): FileHeaderRule[] {
   const { publicCacheControl } = config;
   return [
-    { path: "/index.js", headers: { "Cache-Control": "no-store" } },
-    { path: "/index.css", headers: { "Cache-Control": "no-store" } },
-    { path: "/assets/*", headers: { "X-Content-Type-Options": "nosniff", "Cache-Control": IMMUTABLE } },
+    { path: "/index.js", headers: { ...FILE, "Cache-Control": "no-store" } },
+    { path: "/index.css", headers: { ...FILE, "Cache-Control": "no-store" } },
+    { path: "/assets/*", headers: { ...FILE, "Cache-Control": IMMUTABLE } },
     {
       path: "/assets/public/*",
-      headers: {
-        "X-Content-Type-Options": "nosniff",
-        ...(publicCacheControl === false ? {} : { "Cache-Control": publicCacheControl }),
-      },
+      headers: { ...FILE, ...(publicCacheControl === false ? {} : { "Cache-Control": publicCacheControl }) },
     },
-    { path: "/droplets/:id/client.js", headers: { "Cache-Control": IMMUTABLE } },
-    { path: "/droplets/:id/style.css", headers: { "Cache-Control": IMMUTABLE } },
+    { path: "/droplets/:id/client.js", headers: { ...FILE, "Cache-Control": IMMUTABLE } },
+    { path: "/droplets/:id/style.css", headers: { ...FILE, "Cache-Control": IMMUTABLE } },
   ];
 }
 

@@ -223,20 +223,20 @@ without an `Origin` sets `origin` itself or is refused.
 ## CORS
 
 When the host page and the droplets server are on different origins, the
-browser needs permission to load `/index.js` and `/droplets/<id>/client.js`
-as modules, to `POST` to `/droplets/<id>/_data` with a JSON body, and to
-load fonts. Set `cors` in `droplets.config.ts`: `true`, or an origin list.
-Stylesheets and images need no CORS. On Cloudflare the build's files
-(`/index.js`, `/assets/*`, `client.js`, `style.css`) are answered by the
-static assets with `Access-Control-Allow-Origin: *` from the generated
-`_headers`, whatever `cors` says; `cors` covers what the Worker answers.
-With CORS on, `Access-Control-Expose-Headers` always includes `Link` and
+browser needs permission to read fragments, to `POST` to
+`/droplets/<id>/_data` with a JSON body, to post an enhanced form and to
+call `/api/*`. Set `cors` in `droplets.config.ts`: `true`, or an origin list.
+The build's files need none of it: `/index.js`, `/index.css`, `/assets/*`
+(fonts and `public/` included), `client.js` and `style.css` are public and
+sent with `Access-Control-Allow-Origin: *` on every adapter, whatever
+`cors` says, so any page can import them as modules; `cors` never touches
+them on a built server (under `vite dev` it still answers for them). With CORS on, `Access-Control-Expose-Headers` always includes `Link` and
 `x-droplets-build`, on top of any `exposeHeaders` you pass. A host page's
 server that proxies the droplets routes under its own origin
 ([the paths](/integrate/any-stack/#the-paths-to-proxy)) needs no CORS at all.
 
-`cors: true` sends `Access-Control-Allow-Origin: *` on every route, `/api/*`
-and `_data` included, and warns once under `vite dev`. For anything that is
+`cors: true` sends `Access-Control-Allow-Origin: *` on every route but the
+build's files, `/api/*` and `_data` included, and warns once under `vite dev`. For anything that is
 not public, list the hosts instead (`cors: { origin: [...] }`): with `*`,
 any page can read what an employee's browser can reach on an intranet
 server. The same goes for `server.cors` in `vite dev`, which otherwise lets

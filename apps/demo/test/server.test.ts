@@ -394,11 +394,11 @@ describe("the poll's action", () => {
 describe("CORS", () => {
   it("answers the docs' origins, and only them", async () => {
     for (const origin of [DOCS, "http://localhost:4321", "http://127.0.0.1:4321"]) {
-      const response = await call("/index.js", { headers: { origin } });
+      const response = await call("/droplets/hello", { headers: { origin } });
       expect(response.headers.get("access-control-allow-origin"), origin).toBe(origin);
     }
     for (const origin of ["https://evil.example", "https://dropletsjs.dev.evil.example", "http://localhost:4322", "null"]) {
-      const response = await call("/index.js", { headers: { origin } });
+      const response = await call("/droplets/hello", { headers: { origin } });
       expect(response.headers.get("access-control-allow-origin"), origin).toBeNull();
       const preflight = await call("/droplets/poll/_data", {
         method: "OPTIONS",
@@ -414,6 +414,14 @@ describe("CORS", () => {
       headers: { origin: DOCS, "access-control-request-method": "POST", "access-control-request-headers": "content-type" },
     });
     expect(preflight.headers.get("access-control-max-age")).toBe("86400");
+  });
+
+  it("sends the build's files to any origin, whatever cors says", async () => {
+    for (const origin of [DOCS, "https://evil.example"]) {
+      const response = await call("/index.js", { headers: { origin } });
+      expect(response.headers.get("access-control-allow-origin"), origin).toBe("*");
+      expect(response.headers.get("access-control-allow-credentials"), origin).toBeNull();
+    }
   });
 });
 
@@ -600,7 +608,7 @@ describe("the testimonials droplets", () => {
     expect((await call("/droplets/testimonials-none/client.js")).status).toBe(404);
   });
 
-  it("exports each prerendered page as a public file, byte-equal to the route's answer, with the docs' CORS", async () => {
+  it("exports each prerendered page as a public file, byte-equal to the route's answer, readable from any origin", async () => {
     for (let page = 1; page <= 10; page++) {
       const path = `/assets/public/testimonials/page-${page}.html`;
       const file = await readFile(join(root, `dist/client${path}`), "utf8");
@@ -609,11 +617,9 @@ describe("the testimonials droplets", () => {
       const served = await call(path, { headers: { origin: DOCS } });
       expect(served.status, path).toBe(200);
       expect(served.headers.get("content-type"), path).toMatch(/^text\/html/);
-      expect(served.headers.get("access-control-allow-origin"), path).toBe(DOCS);
+      expect(served.headers.get("access-control-allow-origin"), path).toBe("*");
       expect(await served.text(), path).toBe(file);
     }
-    const elsewhere = await call("/assets/public/testimonials/page-1.html", { headers: { origin: "https://evil.example" } });
-    expect(elsewhere.headers.get("access-control-allow-origin")).toBeNull();
   });
 });
 

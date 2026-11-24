@@ -191,6 +191,56 @@ describe("createNodeServerApp", () => {
     }
   });
 
+  it("sends Access-Control-Allow-Origin: * on every build file without cors, and nothing of CORS elsewhere", async () => {
+    const app = await createNodeServerApp(paths, resolveConfig({ element: "test-droplet" }));
+    const manifest = JSON.parse(await readFile(resolve(outDir, "client/droplets.json"), "utf8"));
+    const origin = { headers: { origin: "https://shop.example" } };
+    for (const path of [
+      "/index.js",
+      "/index.css",
+      `/${manifest.__entryModule}`,
+      "/assets/public/robots.txt",
+      "/droplets/hello/client.js",
+    ]) {
+      const res = await app.request(path, origin);
+      expect(res.status, path).toBe(200);
+      expect(res.headers.get("access-control-allow-origin"), path).toBe("*");
+    }
+    expect((await app.request("/droplets/hello", origin)).headers.get("access-control-allow-origin")).toBeNull();
+  });
+
+  it("keeps a restricted cors off the build files: one *, no credentials, while the routes answer by name", async () => {
+    const config = resolveConfig({ element: "test-droplet", cors: { origin: ["https://shop.example"], credentials: true } });
+    const app = await createNodeServerApp(paths, config);
+    const manifest = JSON.parse(await readFile(resolve(outDir, "client/droplets.json"), "utf8"));
+    const origin = { headers: { origin: "https://shop.example" } };
+    for (const path of [
+      "/index.js",
+      "/index.css",
+      `/${manifest.__entryModule}`,
+      "/assets/public/robots.txt",
+      "/droplets/hello/client.js",
+      "/droplets/static-note/style.css",
+    ]) {
+      const res = await app.request(path, origin);
+      expect(res.status, path).toBe(200);
+      expect(res.headers.get("access-control-allow-origin"), path).toBe("*");
+      expect(res.headers.get("access-control-allow-credentials"), path).toBeNull();
+      expect(res.headers.get("access-control-expose-headers"), path).toBeNull();
+      expect(res.headers.get("vary") ?? "", path).not.toMatch(/origin/i);
+    }
+    for (const path of ["/droplets/hello", "/droplets/hello/_data", "/env.js"]) {
+      const res = await app.request(path, origin);
+      expect(res.headers.get("access-control-allow-origin"), path).toBe("https://shop.example");
+      expect(res.headers.get("access-control-allow-credentials"), path).toBe("true");
+    }
+    expect(
+      (await app.request("/droplets/hello", { headers: { origin: "https://elsewhere.example" } })).headers.get(
+        "access-control-allow-origin",
+      ),
+    ).toBeNull();
+  });
+
   it("reads runtime secrets from process.env", async () => {
     process.env["FIXTURE_SECRET"] = "from-process";
     try {

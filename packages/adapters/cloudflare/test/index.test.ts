@@ -176,6 +176,26 @@ describe("cloudflare: afterBuild", () => {
       }
     });
 
+    it("gives each build file on Cloudflare exactly the headers fileHeaderTable gives it on the server", async () => {
+      for (const publicCacheControl of ["no-cache", "public, max-age=3600", false] as const) {
+        const table = fileHeaderTable(resolveConfig({ publicCacheControl }));
+        await afterBuild({ config: { publicCacheControl } });
+        const text = await headers();
+        for (const path of [
+          "/index.js",
+          "/index.css",
+          "/assets/index.abc.js",
+          "/assets/public/robots.txt",
+          "/droplets/cart/client.js",
+          "/droplets/cart/style.css",
+        ]) {
+          expect([...cloudflareHeaders({ text, path })], `${path} ${publicCacheControl}`).toEqual([
+            ...new Headers(fileHeadersFor({ table, path })),
+          ]);
+        }
+      }
+    });
+
     it("appends the project's own _headers after the adapter's rules", async () => {
       const own = "/assets/public/fonts/*\n  ! Cache-Control\n  Cache-Control: public, max-age=31536000\n";
       await writeFile(join(root, "_headers"), own);

@@ -3,7 +3,7 @@
 ## Rules
 
 - The demo trusts only the docs' origins: `cors.origin` and `trustedOrigins` in `droplets.config.ts` both come from `docsOrigins()` in `src/lib/origins.ts`, exact origins only.
-  Checked by: `test/origins.test.ts`, `test/server.test.ts` ("CORS", "who may post"), `test/worker.test.ts` ("refuses CORS and form posts to other origins"); the build's files are public, sent to any origin.
+  Checked by: `test/origins.test.ts`, `test/server.test.ts` ("CORS", "who may post"), `test/worker.test.ts` ("refuses CORS and form posts to other origins"); the build's files are public, sent to any origin (`test/server.test.ts`, "sends the build's files to any origin, whatever cors says").
 - `wrangler.jsonc` sets no `run_worker_first`: static assets answer `/index.js`, `/index.css`, `/assets/*` and each droplet's `client.js` and `style.css` with the headers of `dist/client/_headers`; renders, `_data`, actions and `/env.js` reach the Worker.
   Checked by: `test/worker.test.ts` ("static assets, with the headers of _headers").
 - Search engines may fetch every answer but index none: the Worker's answers carry `X-Robots-Tag: noindex` from `handle` (`src/hooks.server.ts`), the static assets from the root `_headers`; no `robots.txt` disallows them.
