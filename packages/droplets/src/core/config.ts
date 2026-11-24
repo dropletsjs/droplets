@@ -77,9 +77,9 @@ export type DropletsConfig = {
    * (`"https://shop.example"`, no path). `event.host` is this origin, with
    * the path and query the request reports when it reports this origin, and
    * this origin alone otherwise; it joins `trustedOrigins` for form posts and
-   * redirects. Prerendering renders an entry without its own `host` here.
-   * Without it, `event.host` comes from each request. `vite dev` always
-   * takes it from the request.
+   * redirects. Prerendering renders an entry without its own `host` here,
+   * and one on another origin fails the build. Without it, `event.host`
+   * comes from each request. `vite dev` always takes it from the request.
    */
   host?: string;
   /**
@@ -87,9 +87,9 @@ export type DropletsConfig = {
    * the hosts whose pages post to droplets (`https://shop.example`). `"*"`
    * trusts every origin. See `csrf`. `DROPLETS_TRUSTED_ORIGINS`, a
    * comma-separated list read at runtime, adds to it without a build. When
-   * the list is set, it also bounds `event.host`: a host outside it becomes
-   * this server's origin. A location header naming one of them is trusted
-   * too, when `location` is not set.
+   * the list is set, it also bounds `event.host`, a host outside it becoming
+   * this server's origin, and a prerender entry's `host`, failing the build.
+   * A location header naming one of them is trusted too, without `location`.
    */
   trustedOrigins?: string[];
   /**

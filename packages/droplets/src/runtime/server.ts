@@ -286,9 +286,9 @@ export type TransformInput = Transform | Transform[];
 
 /**
  * One render `entries` asks for: the event its loads run with. `props` are
- * the droplet's props (`{}` without them); `host` is where it renders. Without
- * `host`, `host` of `droplets.config.ts` applies, then a stand-in that keeps
- * the render host-agnostic (see `LoadEvent.host`).
+ * the droplet's props (`{}` without them); `host` is where it renders, within
+ * `host` or `trustedOrigins` of `droplets.config.ts`, else the build fails.
+ * Without it, `host` of the config applies, then a host-agnostic stand-in.
  */
 export type PrerenderEntry = {
   props?: Record<string, unknown>;

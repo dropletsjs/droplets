@@ -112,7 +112,9 @@ runtime on every adapter, adds to it). An origin in the list:
 - **bounds `host`**: with a list, a reported host page on another origin
   (and not this server) becomes the droplet location's origin, and
   [`hostFrom()`](/guides/server/#taking-the-page-from-referer) accepts only
-  these origins or this server.
+  these origins or this server. A prerender entry's `host` outside the list
+  (and not on `location`) fails `vite build`; see
+  [`host` at build](/guides/prerendering/#host-at-build).
 
 `"*"` trusts every origin to post and any location header to name the
 droplet location; it never counts as a redirect target, and it bounds no
@@ -192,7 +194,8 @@ an action may redirect there, as if it were in `trustedOrigins`; a location
 header naming it is not trusted for that.
 
 Prerendering renders every entry without its own `host` for it, and stores
-it for every page of that origin; see
+it for every page of that origin; an entry whose own `host` is on another
+origin fails `vite build`. See
 [`host` at build](/guides/prerendering/#host-at-build).
 
 A form posted without JavaScript from such a render returns to the page the

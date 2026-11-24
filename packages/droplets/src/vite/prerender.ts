@@ -5,6 +5,8 @@ import { connect } from "../core/app-thread.ts";
 import { loadJsonFile, writeTextFile } from "../core/fs.ts";
 import { logger } from "../core/logger.ts";
 import { packageDist } from "../core/paths.ts";
+import { trustedOriginsWith } from "../runtime/security.ts";
+import { withinTrusted } from "../runtime/web-url.ts";
 import type { DropletsManifest } from "../server/manifest.ts";
 import { PRERENDER_DIR, prerenderIndexPath, type PrerenderIndex } from "../server/prerendered.ts";
 import type { PrerenderWorkerData } from "./prerender-worker.ts";
@@ -50,6 +52,56 @@ export function prerenderRoot(state: PluginState): { dir: string; assets?: strin
   return { dir: resolve(state.outDir, "client", assets), assets };
 }
 
+type BuildEntry = { props: Record<string, unknown>; host?: string };
+
+type ShortInput = { text: string; max: number };
+
+function short({ text, max }: ShortInput): string {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+type OriginListInput = { origins: readonly string[] };
+
+function originList({ origins }: OriginListInput): string {
+  const shown = origins.slice(0, 5).join(", ");
+  return origins.length > 5 ? `${shown} and ${origins.length - 5} more` : shown;
+}
+
+type CheckEntryHostsInput = { state: PluginState; droplet: string; entries: readonly BuildEntry[] };
+
+/**
+ * Every entry's `host` within the bound a request's host passes at runtime
+ * (`fixedHost`, `boundedHost` in `runtime/app.ts`): a render for a host the
+ * server never gives this droplet would never be served. With `location`
+ * set, its origin is this server's own; without it the build cannot know
+ * the server's origin, so none counts as its own.
+ */
+function checkEntryHosts({ state, droplet, entries }: CheckEntryHostsInput): void {
+  const { host: fixed, location, trustedOrigins } = state.config;
+  const envOrigins = trustedOriginsWith({ configured: [], raw: process.env["DROPLETS_TRUSTED_ORIGINS"] });
+  const trusted = trustedOriginsWith({ configured: trustedOrigins, raw: process.env["DROPLETS_TRUSTED_ORIGINS"] });
+  const own = location === undefined ? [] : [new URL(location).origin];
+  for (const entry of entries) {
+    if (entry.host === undefined) continue;
+    const host = new URL(entry.host);
+    const where = `${droplet}: the entry ${short({ text: JSON.stringify(entry.props), max: 80 })} names host ${short({ text: entry.host, max: 120 })}`;
+    if (fixed !== undefined) {
+      if (host.origin === new URL(fixed).origin) continue;
+      throw new Error(
+        `droplets: ${where}, outside host in droplets.config.ts (${fixed}); drop the entry's host or change it to that origin`,
+      );
+    }
+    if (withinTrusted({ host, trusted, own })) continue;
+    const sources = [
+      ...(trustedOrigins.length > 0 ? ["trustedOrigins in droplets.config.ts"] : []),
+      ...(envOrigins.length > 0 ? ["DROPLETS_TRUSTED_ORIGINS"] : []),
+    ].join(" and ");
+    throw new Error(
+      `droplets: ${where}, outside ${sources} (${originList({ origins: trusted })}); add the origin there or drop the entry's host`,
+    );
+  }
+}
+
 /**
  * Renders every droplet with `prerender = true` for each event its
  * `entries` lists, and stores HTML and server data in the renders'
@@ -58,7 +110,8 @@ export function prerenderRoot(state: PluginState): { dir: string; assets?: strin
  * a failure without an error page are not stored and render live. Requests
  * go through the built SSR bundle and
  * through `handle`, with `building` true. An entry renders for its `host`,
- * else `host` of the config, else host-agnostic; a render
+ * else `host` of the config, else host-agnostic; an entry's `host` outside
+ * the runtime's bound stops the build first (`checkEntryHosts`); a render
  * that reads more of `host` than it can have stops the build. Returns how
  * many renders it wrote.
  *
@@ -97,7 +150,9 @@ export async function prerender({ state, ssrEntry }: PrerenderInput): Promise<nu
     let count = 0;
     for (const entry of targets) {
       const index: PrerenderIndex = {};
-      for (const event of await app.call<Array<{ props: Record<string, unknown>; host?: string }>>("entries", entry.id)) {
+      const events = await app.call<BuildEntry[]>("entries", entry.id);
+      checkEntryHosts({ state, droplet: entry.id, entries: events });
+      for (const event of events) {
         const host = event.host;
         const props = event.props;
         const response = await app.request(`${PRERENDER_ORIGIN}/droplets/${entry.id}`, {
