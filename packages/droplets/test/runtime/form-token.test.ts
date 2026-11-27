@@ -165,6 +165,29 @@ describe("the no-JavaScript form result", () => {
   });
 });
 
+describe("the reason a result is dropped, under vite dev", () => {
+  it("hands each refusal's reason to devLog, and says nothing for a result it reads", async () => {
+    const reasons: string[] = [];
+    const devLog = { ...createDevLog(), formResultDropped: ({ reason }: { reason: string }) => reasons.push(reason) };
+    const reasonOf = async (value: unknown, now = NOW) => {
+      reasons.length = 0;
+      await readFormResult({ secret: SECRET, scope: SCOPE, value, now, devLog });
+      return reasons.join(",");
+    };
+    const value = await mint();
+    const [payload, mac] = value.split(".") as [string, string];
+    expect(await reasonOf(value)).toBe("");
+    expect(await reasonOf(42)).toBe("malformed");
+    expect(await reasonOf(`${value}${"A".repeat(FORM_RESULT_MAX_LENGTH)}`)).toBe("malformed");
+    expect(await reasonOf(`${payload}.${mac.slice(1)}`)).toBe("malformed");
+    expect(await reasonOf(`${payload}.${mac.slice(0, -2)}AA`)).toBe("signature");
+    expect(await reasonOf(value, NOW + FORM_RESULT_TTL_MS)).toBe("expired");
+    expect(await reasonOf(await mint({ now: NOW + 60 * 60 * 1000 }))).toBe("ahead");
+    expect(await reasonOf(await mint({ status: 302 }))).toBe("invalid");
+    expect(await reasonOf(await mint({ action: "__proto__" }))).toBe("invalid");
+  });
+});
+
 describe("DROPLETS_SECRET", () => {
   it("needs 32 bytes, and says so once under vite dev", () => {
     const warn = vi.spyOn(logger, "report").mockImplementation(() => {});

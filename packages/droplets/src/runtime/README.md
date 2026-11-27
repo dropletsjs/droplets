@@ -240,6 +240,7 @@ Then the route.
 - The back page refuses `<location>/droplets…` URLs. `app.ts:637`
 - `__droplet_return` is at most 2048 characters. `app.ts:746`
 - A carried form result is used only when its action still exists. `app.ts:916`
+- A carried form result that is dropped (malformed, a signature that does not verify, expired, dated ahead, invalid contents, no page, no usable `DROPLETS_SECRET`, an action missing or failing to load) warns `form-result-dropped` with the reason under `vite dev`; production logs nothing; another build's key is never read. `app.ts:1028`, `form-token.server.ts:177`, `dev-log.ts:85`, `../errors/runtime.ts:489`
 
 ### Form tokens (`form-token.server.ts`)
 

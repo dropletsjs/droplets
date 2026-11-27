@@ -79,6 +79,7 @@ const DEV_MARKERS: (string | RegExp)[] = [
   "form-secret-missing",
   "form-secret-short",
   "form-result-too-large",
+  "form-result-dropped",
   "render-timed-out",
   "env-max-age-invalid",
   "trusted-origin-env-invalid",

@@ -228,13 +228,15 @@ server passes it as `"host"` in a render request's body, or as `Referer`
 for a `handle` that reads it with
 [`hostFrom`](/guides/server/#taking-the-page-from-referer).
 
-A result that does not match is dropped without a word: the droplet
-renders as if the URL carried none, without `form`, and nothing is logged,
-under `vite dev` or in production. That covers a result from another build
-(its key names that build, so this one never looks it up), one minted for
-another page or droplet, a bad signature, an expired one (older than five
-minutes) and one for an action the droplet no longer exports. The page
-itself answers as usual; the key stays in its URL.
+A result that does not match is dropped: the droplet renders as if the URL
+carried none, without `form`. That covers one minted for another page or
+droplet, a bad signature, an expired one (older than five minutes) and one
+for an action the droplet no longer exports. Under `vite dev` each drop
+warns with
+[`form-result-dropped`](/errors/form-result-dropped/), naming the reason; a
+production server logs nothing. A result from another build is not even
+looked up (its key names that build), so it is ignored without a warning.
+The page itself answers as usual; the key stays in its URL.
 
 A form in a droplet [prerendered](/guides/prerendering/#host-at-build) for
 the configured `host` returns to the page the render was made for, not the

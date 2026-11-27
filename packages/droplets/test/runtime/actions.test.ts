@@ -844,6 +844,7 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
   });
 
   it("ignores a result that is not genuine, current and this droplet's, and renders as without one", async () => {
+    vi.spyOn(logger, "report").mockImplementation(() => {});
     const loadPrerendered = vi.fn(async () => ({ html: "<p>stored</p>", data: { stored: true } }));
     const { app } = actionsApp({
       actions: { default: sign, leave: sign },
@@ -885,6 +886,132 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
     }
     // Under another droplet's key: not this droplet's.
     expect(await (await renderOn({ app, host: `${PAGE}&__droplet_form_cart_abc123=${good}` })).text()).toContain("<p>stored</p>");
+  });
+
+  describe("a dropped result under vite dev", () => {
+    type DropCase = { value: () => Promise<string>; reason: string; text: string; app?: () => DropletsApp };
+    const minted = (result: Partial<{ action: string; status: number }> = {}, scope = SCOPE, now?: number) =>
+      mint({ result: { action: "default", status: 200, data: { message: "Thanks, Ana" }, ...result }, scope, now });
+    const withHandle = (handle: Handle) => actionsApp({ actions: { default: sign }, overrides: { getHandle: () => handle } }).app;
+    const cases: Record<string, DropCase> = {
+      "not a signed value": { value: async () => "not-a-result", reason: "malformed", text: "is not a signed result" },
+      "a tampered MAC": {
+        value: async () => `${(await minted()).slice(0, -2)}AA`,
+        reason: "signature",
+        text: "its signature does not match this droplet, build and page",
+      },
+      "another page": {
+        value: () => minted({}, { ...SCOPE, page: "http://drops.test/other" }),
+        reason: "signature",
+        text: "sent back to another page",
+      },
+      expired: { value: () => minted({}, SCOPE, Date.now() - 5 * 60 * 1000 - 1), reason: "expired", text: "it expired" },
+      "dated ahead": { value: () => minted({}, SCOPE, Date.now() + 10 * 60 * 1000), reason: "ahead", text: "dated ahead" },
+      "a status no action returns": { value: () => minted({ status: 302 }), reason: "invalid", text: "not a result an action returns" },
+      "an action it does not export": {
+        value: () => minted({ action: "nope" }),
+        reason: "action-missing",
+        text: "the droplet exports no action nope",
+      },
+      "an action that cannot be looked up": {
+        value: () => minted(),
+        reason: "action-unavailable",
+        text: "action default could not be looked up",
+        app: () =>
+          actionsApp({
+            actions: { default: sign },
+            overrides: {
+              findAction: async () => {
+                throw new Error("actions module failed to load");
+              },
+            },
+          }).app,
+      },
+      "a host that is no URL": {
+        value: () => minted(),
+        reason: "no-page",
+        text: "host is not a URL",
+        app: () =>
+          withHandle(({ event, resolve }) => {
+            event.host = undefined as unknown as URL;
+            return resolve(event);
+          }),
+      },
+    };
+
+    it.each(Object.entries(cases))("warns, naming the reason: %s", async (_name, { value, reason, text, app }) => {
+      const report = vi.spyOn(logger, "report").mockImplementation(() => {});
+      const { app: plain, renderDroplet } = actionsApp({ actions: { default: sign } });
+      const res = await renderOn({ app: app?.() ?? plain, host: `${PAGE}&${KEY}=${encodeURIComponent(await value())}` });
+      expect(res.status).toBe(200);
+      if (!app) expect((renderDroplet.mock.calls.at(-1) ?? expect.unreachable("a render call"))[2]).toBeUndefined();
+      const dropped = report.mock.calls.filter(([input]) => input.message.code === "form-result-dropped");
+      expect(dropped).toHaveLength(1);
+      const input = dropped[0]?.[0] ?? expect.unreachable("a report");
+      expect(input).toMatchObject({ droplet: "guestbook", params: { reason } });
+      const message = formatMessage(input);
+      expect(message).toContain(`a form result was dropped (`);
+      expect(message).toContain(text);
+      expect(message).toContain("the droplet rendered without `form`");
+    });
+
+    it("warns when DROPLETS_SECRET is missing, after the secret's own warning", async () => {
+      vi.stubEnv("DROPLETS_SECRET", "");
+      const report = vi.spyOn(logger, "report").mockImplementation(() => {});
+      const { app } = actionsApp({ actions: { default: sign } });
+      await renderOn({ app, host: `${PAGE}&${KEY}=${await minted()}` });
+      expect(report.mock.calls.map(([input]) => input.message.code)).toEqual(["form-secret-missing", "form-result-dropped"]);
+      expect(formatMessage(report.mock.calls[1]?.[0] ?? expect.unreachable("a report"))).toContain(
+        "DROPLETS_SECRET is not set or too short",
+      );
+    });
+
+    it("warns about nothing for a result it uses, another build's key or no result at all", async () => {
+      const report = vi.spyOn(logger, "report").mockImplementation(() => {});
+      const { app } = actionsApp({ actions: { default: sign } });
+      const good = await minted();
+      expect(await (await renderOn({ app, host: `${PAGE}&${KEY}=${good}` })).text()).toContain('{"message":"Thanks, Ana"}');
+      await renderOn({ app, host: `${PAGE}&__droplet_form_guestbook_old999=${good}` });
+      await renderOn({ app, host: PAGE });
+      await renderOn({ app, host: `${PAGE}&${KEY}=${good}`, path: "/droplets/guestbook/_data" });
+      expect(report).not.toHaveBeenCalled();
+    });
+
+    it("warns on _data too", async () => {
+      const report = vi.spyOn(logger, "report").mockImplementation(() => {});
+      const { app } = actionsApp({ actions: { default: sign } });
+      const res = await renderOn({ app, host: `${PAGE}&${KEY}=not-a-result`, path: "/droplets/guestbook/_data" });
+      expect(await res.json()).not.toHaveProperty("form");
+      expect(report.mock.calls.map(([input]) => input.message.code)).toEqual(["form-result-dropped"]);
+    });
+
+    it("logs nothing without a dev log, as in production, for any reason", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      const report = vi.spyOn(logger, "report");
+      for (const [name, { value }] of Object.entries(cases)) {
+        const { app } = actionsApp({ actions: { default: sign }, overrides: { devLog: undefined } });
+        const res = await renderOn({ app, host: `${PAGE}&${KEY}=${encodeURIComponent(await value())}` });
+        expect(res.status, name).toBe(200);
+      }
+      const missing = actionsApp({ actions: { default: sign }, overrides: { devLog: undefined } }).app;
+      await renderOn({ app: missing, host: `${PAGE}&${KEY}=${await minted()}` });
+      const throwing = actionsApp({
+        actions: { default: sign },
+        overrides: {
+          devLog: undefined,
+          findAction: async () => {
+            throw new Error("actions module failed to load");
+          },
+        },
+      }).app;
+      await renderOn({ app: throwing, host: `${PAGE}&${KEY}=${await minted()}` });
+      vi.stubEnv("DROPLETS_SECRET", "");
+      await renderOn({ app: missing, host: `${PAGE}&${KEY}=${await minted()}` });
+      expect(report).not.toHaveBeenCalled();
+      expect(warn).not.toHaveBeenCalled();
+      expect(error).not.toHaveBeenCalled();
+    });
   });
 
   it("takes __proto__ in a result as data, never as a prototype", async () => {

@@ -45,6 +45,22 @@ export type FormResultScope = { droplet: string; build: string; page: string };
 /** A verified result: the action that ran, its status, and its data (`form`). */
 export type FormResult = { action: string; status: number; data?: unknown };
 
+/**
+ * Why a carried result was dropped. `signature` covers every scope at once:
+ * the page is in the MAC, not the payload, so another page, a tampered
+ * value and another secret look the same.
+ */
+export type FormResultDropReason =
+  | "malformed"
+  | "signature"
+  | "expired"
+  | "ahead"
+  | "invalid"
+  | "no-page"
+  | "no-secret"
+  | "action-missing"
+  | "action-unavailable";
+
 type ToBase64UrlInput = { bytes: Uint8Array };
 
 function toBase64Url({ bytes }: ToBase64UrlInput): string {
@@ -141,56 +157,67 @@ export async function mintFormResult({ secret, scope, result, now = Date.now() }
   return { value: await seal({ secret, scope, body: base }), dropped: false };
 }
 
-export type ReadFormResultInput = { secret: string; scope: FormResultScope; value: unknown; now?: number };
+export type ReadFormResultInput = {
+  secret: string;
+  scope: FormResultScope;
+  value: unknown;
+  now?: number;
+  devLog?: DevLog | undefined;
+};
 
 /**
  * The result in `value` when it is genuine: the right shape and length, a
  * MAC that verifies for `scope`, not expired (and not minted further ahead
  * than five minutes), an action name, a status of `200` or `400`–`599`,
- * plain data. `null` for anything else; the caller renders as if there
- * were none. Whether the droplet still exports the action is the caller's
- * check.
+ * plain data. `null` for anything else, with the reason to `devLog`; the
+ * caller renders as if there were none. Whether the droplet still exports
+ * the action is the caller's check.
  */
-export async function readFormResult({ secret, scope, value, now = Date.now() }: ReadFormResultInput): Promise<FormResult | null> {
-  if (typeof value !== "string" || value.length > FORM_RESULT_MAX_LENGTH) return null;
+export async function readFormResult({ secret, scope, value, now = Date.now(), devLog }: ReadFormResultInput): Promise<FormResult | null> {
+  const drop = (reason: FormResultDropReason): null => {
+    devLog?.formResultDropped({ droplet: scope.droplet, reason });
+    return null;
+  };
+  if (typeof value !== "string" || value.length > FORM_RESULT_MAX_LENGTH) return drop("malformed");
   const match = SHAPE.exec(value);
   const payload = match?.[1];
   const encodedMac = match?.[2];
-  if (payload === undefined || encodedMac === undefined) return null;
+  if (payload === undefined || encodedMac === undefined) return drop("malformed");
   const mac = fromBase64Url({ text: encodedMac });
-  if (mac?.length !== 32) return null;
+  if (mac?.length !== 32) return drop("malformed");
   // The MAC first: nothing of the payload is read before it verifies.
   const genuine = await crypto.subtle.verify("HMAC", await hmacKey({ secret }), mac, macInput({ scope, payload }));
-  if (!genuine) return null;
+  if (!genuine) return drop("signature");
 
   const bytes = fromBase64Url({ text: payload });
-  if (!bytes) return null;
+  if (!bytes) return drop("malformed");
   let parsed: unknown;
   try {
     parsed = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
   } catch {
     // Not UTF-8 or not JSON: no result, as for any other bad value.
-    return null;
+    return drop("malformed");
   }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null;
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return drop("malformed");
   const record = parsed as Record<string, unknown>;
   const field = (name: string): unknown => (Object.hasOwn(record, name) ? record[name] : undefined);
 
   const exp = field("exp");
-  if (typeof exp !== "number" || !Number.isInteger(exp)) return null;
-  if (exp <= now || exp > now + FORM_RESULT_TTL_MS + CLOCK_SKEW_MS) return null;
+  if (typeof exp !== "number" || !Number.isInteger(exp)) return drop("invalid");
+  if (exp <= now) return drop("expired");
+  if (exp > now + FORM_RESULT_TTL_MS + CLOCK_SKEW_MS) return drop("ahead");
   const action = field("action");
-  if (typeof action !== "string" || !ACTION_NAME.test(action) || FORBIDDEN_NAMES.has(action)) return null;
+  if (typeof action !== "string" || !ACTION_NAME.test(action) || FORBIDDEN_NAMES.has(action)) return drop("invalid");
   const status = field("status");
-  if (typeof status !== "number" || !Number.isInteger(status)) return null;
-  if (status !== 200 && (status < 400 || status > 599)) return null;
+  if (typeof status !== "number" || !Number.isInteger(status)) return drop("invalid");
+  if (status !== 200 && (status < 400 || status > 599)) return drop("invalid");
 
   const result = Object.create(null) as FormResult;
   result.action = action;
   result.status = status;
   if (Object.hasOwn(record, "data")) {
     const data = plainJson({ value: record["data"], nullPrototype: true });
-    if (data === undefined) return null;
+    if (data === undefined) return drop("invalid");
     result.data = data;
   }
   return result;
