@@ -608,10 +608,10 @@ describe("the testimonials droplets", () => {
     expect((await call("/droplets/testimonials-none/client.js")).status).toBe(404);
   });
 
-  it("exports each prerendered page as a public file, byte-equal to the route's answer, readable from any origin", async () => {
+  it("writes each prerendered page as a file, byte-equal to the route's answer, readable from any origin", async () => {
     for (let page = 1; page <= 10; page++) {
-      const path = `/assets/public/testimonials/page-${page}.html`;
-      const file = await readFile(join(root, `dist/client${path}`), "utf8");
+      const path = `/assets/prerendered/testimonials-prerender-only/page-${page}`;
+      const file = await readFile(join(root, `dist/client${path}.html`), "utf8");
       const render = await call(`/droplets/testimonials-prerender-only?page=${page}`);
       expect(await render.text(), path).toBe(file);
       const served = await call(path, { headers: { origin: DOCS } });
@@ -638,7 +638,7 @@ describe("server-only code", () => {
     for (const file of files) {
       const source = await readFile(join(client, file), "utf8");
       for (const marker of markers) expect(source.includes(marker), `${marker} in ${file}`).toBe(false);
-      // lib/server/testimonials.json: its texts reach the exported pages, never a script or a stylesheet.
+      // lib/server/testimonials.json: its texts reach the prerendered files, never a script or a stylesheet.
       if (!file.endsWith(".html")) expect(source.includes("Csilla V."), `testimonials in ${file}`).toBe(false);
     }
   });

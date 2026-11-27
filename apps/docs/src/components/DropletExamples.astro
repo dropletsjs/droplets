@@ -4,8 +4,9 @@
  * combination (apps/demo/src/droplets/testimonials-*), live from the demo
  * server. A tab fetches its droplet's fragment when it first opens and
  * inserts it through a <template>, so the request shows in the console
- * below; the prerendered tab fetches the exported page-<n>.html files
- * instead (the live route under `astro dev`, where the demo builds none).
+ * below; the prerendered tab fetches the files the demo's build writes,
+ * /assets/prerendered/testimonials-prerender-only/page-<n>, instead (the
+ * live route under `astro dev`, where the demo builds none).
  *
  * At build each fragment is fetched once (live-droplet.ts): a droplet the
  * demo does not render fails the build. The script is bundled to a file:
@@ -54,14 +55,13 @@ const demo = demoPublicUrl();
 const page = new URL(Astro.url.pathname, Astro.url.origin).href;
 for (const example of examples) await fetchFragment(example.id, example.props ?? {}, page);
 
-// The exported files exist only in a build of the demo; its dev server renders the route live.
+// The files exist only in a build of the demo; its dev server renders the route live.
 const pageUrl = import.meta.env.DEV
   ? `${demo}/droplets/testimonials-prerender-only?page=`
-  : `${demo}/assets/public/testimonials/page-`;
-const pageSuffix = import.meta.env.DEV ? "" : ".html";
+  : `${demo}/assets/prerendered/testimonials-prerender-only/page-`;
 ---
 
-<section class="dx droplet-examples not-content" aria-label="Examples: one list, five droplets" data-dx data-demo={demo} data-element={DEMO_ELEMENT} data-page-url={pageUrl} data-page-suffix={pageSuffix}>
+<section class="dx droplet-examples not-content" aria-label="Examples: one list, five droplets" data-dx data-demo={demo} data-element={DEMO_ELEMENT} data-page-url={pageUrl}>
   <script is:inline type="module" src={`${demo}/index.js`}></script>
   <p class="dx-title">Examples</p>
   <div class="dx-box">
@@ -157,7 +157,6 @@ const pageSuffix = import.meta.env.DEV ? "" : ".html";
     const demoOrigin = new URL(demo).origin;
     const element = root.dataset["element"] ?? "";
     const pageUrl = root.dataset["pageUrl"] ?? "";
-    const pageSuffix = root.dataset["pageSuffix"] ?? "";
     const log = root.querySelector<HTMLOListElement>("[data-dx-log]");
     const tabs = [...root.querySelectorAll<HTMLButtonElement>("[data-dx-tab]")];
     const loaded = new Set<string>();
@@ -235,7 +234,7 @@ const pageSuffix = import.meta.env.DEV ? "" : ".html";
       }
     }
 
-    const prerenderPage = (n: number) => `${pageUrl}${n}${pageSuffix}`;
+    const prerenderPage = (n: number) => `${pageUrl}${n}`;
 
     function open(tab: HTMLButtonElement, focus: boolean) {
       for (const other of tabs) {

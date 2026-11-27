@@ -7,8 +7,8 @@
   "description": "The droplets the docs embed live: hello (Svelte), counter (React), poll (Vue), crash (Solid), one counter-<renderer> per renderer for the renderer pages, and five testimonials droplets, one per flag combination, with GET /api/testimonials.",
   "scripts": {
     "dev": "node scripts/dev-secret.mjs && vite",
-    "build": "vite build && node scripts/export-testimonials.mjs",
-    "build:cloudflare": "DROPLETS_ADAPTER=cloudflare vite build && node scripts/export-testimonials.mjs",
+    "build": "vite build",
+    "build:cloudflare": "DROPLETS_ADAPTER=cloudflare vite build",
     "preview:cloudflare": "wrangler dev",
     "deploy:cloudflare": "pnpm run build:cloudflare && wrangler deploy",
     "start": "node --env-file-if-exists=.env.local dist/server.js",

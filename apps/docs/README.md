@@ -98,9 +98,9 @@ phone width the tabs stack above it and only the open one keeps its text.
 A tab fetches its droplet's fragment from the demo when it first opens
 (`GET <DEMO_PUBLIC_URL>/droplets/<id>`) and inserts it through a
 `<template>`; the prerendered tab's pager fetches
-`/assets/public/testimonials/page-<n>.html`, the files the demo's build
-exports (under `astro dev`, the live route: the demo's dev server has no
-such files). At build each fragment is fetched once, so a droplet the demo
+`/assets/prerendered/testimonials-prerender-only/page-<n>`, the files the
+demo's build writes from its prerender entries (under `astro dev`, the live
+route: the demo's dev server has no such files). At build each fragment is fetched once, so a droplet the demo
 does not render fails the build.
 
 The console below it lists what the page asks the demo for: `window.fetch`
@@ -315,12 +315,12 @@ The output directory is `apps/docs/dist`; Node 22 or newer.
 - `LiveDroplet` loads `<DEMO_PUBLIC_URL>/index.js` as a module script. `src/components/LiveDroplet.astro:37`
 - `LiveDroplet` `toggle` fetches a second render at build, hidden until its button is pressed. `src/components/LiveDroplet.astro:33`, `src/components/LiveDroplet.astro:39`
 - `LiveDroplet` on `droplets:stale` replaces the element with a fresh one carrying the same `data-droplet-context`. `src/components/LiveDroplet.astro:71`, `src/components/LiveDroplet.astro:79`
-- `DropletExamples` tabs: `testimonials-client-only`, `-server-client`, `-server-only`, `-prerender-only`, `-none`; each fetched once at build through `fetchFragment`. `src/components/DropletExamples.astro:18`, `src/components/DropletExamples.astro:55`
+- `DropletExamples` tabs: `testimonials-client-only`, `-server-client`, `-server-only`, `-prerender-only`, `-none`; each fetched once at build through `fetchFragment`. `src/components/DropletExamples.astro:19`, `src/components/DropletExamples.astro:56`
 - `DropletExamples` loads `<DEMO_PUBLIC_URL>/index.js` as a module script. `src/components/DropletExamples.astro:65`
-- `DropletExamples` fetches a tab's fragment when it first opens (the first one when the box comes within 300 px of the viewport) and inserts it through a `<template>`. `src/components/DropletExamples.astro:229`, `src/components/DropletExamples.astro:250`, `src/components/DropletExamples.astro:286`
-- `DropletExamples` pager pages: `<DEMO_PUBLIC_URL>/assets/public/testimonials/page-<n>.html`, the live route under `astro dev`. `src/components/DropletExamples.astro:58`
-- `DropletExamples` console: `window.fetch` wrapped for requests to the demo origin, a `PerformanceObserver` for its other resources, 60 lines at most. `src/components/DropletExamples.astro:153`, `src/components/DropletExamples.astro:191`, `src/components/DropletExamples.astro:208`
-- `DropletExamples` stacks the tabs above the render space under 38rem of column. `src/components/DropletExamples.astro:328`, `src/components/DropletExamples.astro:390`
+- `DropletExamples` fetches a tab's fragment when it first opens (the first one when the box comes within 300 px of the viewport) and inserts it through a `<template>`. `src/components/DropletExamples.astro:228`, `src/components/DropletExamples.astro:249`, `src/components/DropletExamples.astro:285`
+- `DropletExamples` pager pages: `<DEMO_PUBLIC_URL>/assets/prerendered/testimonials-prerender-only/page-<n>`, the live route under `astro dev`. `src/components/DropletExamples.astro:59`
+- `DropletExamples` console: `window.fetch` wrapped for requests to the demo origin, a `PerformanceObserver` for its other resources, 60 lines at most. `src/components/DropletExamples.astro:153`, `src/components/DropletExamples.astro:190`, `src/components/DropletExamples.astro:207`
+- `DropletExamples` stacks the tabs above the render space under 38rem of column. `src/components/DropletExamples.astro:327`, `src/components/DropletExamples.astro:389`
 - `RendererDemo` reads every file of `../demo/src/droplets/counter-*/` with `?raw`. `src/components/RendererDemo.astro:24`
 - `RendererDemo` file order: the component, `+droplet.ts`, `+droplet.server.ts`, the rest. `src/components/RendererDemo.astro:39`
 - `RendererDemo` throws when the droplet folder has no files. `src/components/RendererDemo.astro:50`
