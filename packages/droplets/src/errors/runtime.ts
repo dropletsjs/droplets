@@ -5,6 +5,7 @@
  *
  * @module
  */
+import type { FormResultDropReason } from "../runtime/form-token.server.ts";
 import type { AnyMessage, ErrorPages } from "./format.ts";
 
 const BUG = "this is a bug in Droplets: report it at https://github.com/dropletsjs/droplets/issues with the steps that lead here";
@@ -456,6 +457,42 @@ export const FORM_RESULT_TOO_LARGE = {
   fix: "return less from the action: field names and messages",
 } satisfies AnyMessage;
 
+type FormResultDroppedParams = { reason: FormResultDropReason; action?: string | undefined };
+
+function dropReasonOf({ reason, action }: FormResultDroppedParams): string {
+  switch (reason) {
+    case "malformed":
+      return "the value in the page's URL is not a signed result";
+    case "signature":
+      return "its signature does not match this droplet, build and page: changed, sent back to another page, or signed with another DROPLETS_SECRET";
+    case "expired":
+      return "it expired: a result lasts 5 minutes";
+    case "ahead":
+      return "it is dated ahead of this server's clock by more than a minute";
+    case "invalid":
+      return "its contents are not a result an action returns";
+    case "no-page":
+      return "host is not a URL, so the page the result is bound to is unknown";
+    case "no-secret":
+      return "DROPLETS_SECRET is not set or too short";
+    case "action-missing":
+      return `the droplet exports no action ${action}`;
+    case "action-unavailable":
+      return `action ${action} could not be looked up`;
+    default: {
+      const unreachable: never = reason;
+      return unreachable;
+    }
+  }
+}
+
+export const FORM_RESULT_DROPPED = {
+  code: "form-result-dropped",
+  level: "warning",
+  what: (params: FormResultDroppedParams) => `a form result was dropped (${dropReasonOf(params)}); the droplet rendered without \`form\``,
+  fix: "post the form again from the page: a result holds for 5 minutes, on the page, droplet and build it was sent back to, under one DROPLETS_SECRET on every server",
+} satisfies AnyMessage;
+
 export const RENDER_TIMED_OUT = {
   code: "render-timed-out",
   level: "warning",
@@ -629,6 +666,10 @@ export const RUNTIME_PAGES: ErrorPages = {
   },
   "form-result-too-large": {
     when: "Under vite dev, when a form posted without JavaScript gets back an action result over 2 KB as a URL value.",
+    see: "/guides/actions/",
+  },
+  "form-result-dropped": {
+    when: "Under vite dev, when the page a form posted without JavaScript went back to carries a result for the droplet that is not genuine, has expired, or names an action the droplet does not export. The droplet renders without form.",
     see: "/guides/actions/",
   },
   "render-timed-out": {

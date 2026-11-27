@@ -9,7 +9,7 @@ import { readRuntimeEnv } from "./env-store.ts";
 import { applyFileHeaders, type FileHeaderRule, fileHeadersFor } from "./file-headers.ts";
 import { CONTEXT_HEADERS, createEventFetch } from "./event-fetch.ts";
 import { ACTION_NAME, backUrl, formResultKey, isReservedQueryKey, RETURN_KEY, splitFormResults } from "./form.ts";
-import { formSecret, mintFormResult, readFormResult } from "./form-token.server.ts";
+import { type FormResultDropReason, formSecret, mintFormResult, readFormResult } from "./form-token.server.ts";
 import { fixedHost, fixedPrerenderHost, headerLocations, hostFromHeaders, parseHost, withinTrusted } from "./host.ts";
 import type { HostTokenReplacers } from "./host-tokens.ts";
 import { isUnhandled } from "./load.ts";
@@ -1024,21 +1024,26 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     if (options.building || !options.findAction) return null;
     const value = c.get("formResults")?.get(formResultKey(ctx.droplet, build));
     if (value === undefined) return null;
+    const { devLog } = options;
+    const drop = (reason: FormResultDropReason, action?: string): null => {
+      devLog?.formResultDropped({ droplet: ctx.droplet, reason, action });
+      return null;
+    };
     // Bound to the page it was sent back to: `event.host` must be that page.
     const page = ctx.event.host instanceof URL ? pageOf({ url: ctx.event.host }) : undefined;
-    if (page === undefined) return null;
-    const secret = formSecret({ raw: readRuntimeEnv("DROPLETS_SECRET"), devLog: options.devLog });
-    if (!secret) return null;
-    const result = await readFormResult({ secret, scope: { droplet: ctx.droplet, build, page }, value });
+    if (page === undefined) return drop("no-page");
+    const secret = formSecret({ raw: readRuntimeEnv("DROPLETS_SECRET"), devLog });
+    if (!secret) return drop("no-secret");
+    const result = await readFormResult({ secret, scope: { droplet: ctx.droplet, build, page }, value, devLog });
     if (!result) return null;
     let action: Action | "none" | "missing";
     try {
       action = await options.findAction(ctx.droplet, result.action);
     } catch {
       // A result whose action cannot be looked up is no result: the droplet renders without it.
-      return null;
+      return drop("action-unavailable", result.action);
     }
-    return typeof action === "function" ? { form: result.data } : null;
+    return typeof action === "function" ? { form: result.data } : drop("action-missing", result.action);
   }
 
   type CacheForeverInput = { c: AppContext };

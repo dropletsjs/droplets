@@ -12,6 +12,7 @@ import {
   ANY_LOCATION_TRUSTED,
   CORS_ANY_ORIGIN,
   ENV_MAX_AGE_INVALID,
+  FORM_RESULT_DROPPED,
   FORM_RESULT_TOO_LARGE,
   FORM_SECRET_MISSING,
   FORM_SECRET_SHORT,
@@ -20,6 +21,7 @@ import {
   RENDER_TIMED_OUT,
   TRUSTED_ORIGIN_ENV_INVALID,
 } from "../errors/runtime.ts";
+import type { FormResultDropReason } from "./form-token.server.ts";
 
 export type DevLog = {
   /** A location header whose origin is not trusted, once per header. */
@@ -37,6 +39,8 @@ export type DevLog = {
   badEnvMaxAge(input: { value: string; fallback: string }): void;
   /** An action's result that does not fit a URL value. */
   resultTooLarge(input: { droplet: string; action: string }): void;
+  /** A carried no-JavaScript result that the droplet renders without: every time. */
+  formResultDropped(input: { droplet: string; reason: FormResultDropReason; action?: string | undefined }): void;
   /** A fragment or `_data` that answered 504: every time. */
   renderTimeout(input: { droplet: string; timeout: number }): void;
 };
@@ -77,6 +81,9 @@ export function createDevLog(): DevLog {
     },
     resultTooLarge({ droplet, action }) {
       logger.report({ message: FORM_RESULT_TOO_LARGE, params: { action }, droplet });
+    },
+    formResultDropped({ droplet, reason, action }) {
+      logger.report({ message: FORM_RESULT_DROPPED, params: { reason, action }, droplet });
     },
     renderTimeout({ droplet, timeout }) {
       logger.report({ message: RENDER_TIMED_OUT, params: { timeout }, droplet });
