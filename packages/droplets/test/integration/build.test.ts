@@ -137,8 +137,14 @@ describe("vite build with errorFormat human", () => {
     roots.push(root);
     await buildWith(root, "server.js");
     const entry = join(root, "dist/server/entry-server.js");
-    // virtual:droplets-config's errorFormat, inlined where entry-server sets its realm's formatter.
-    expect(await readFile(entry, "utf8")).toContain('setErrorFormatter(formatterOf({ format: "human" }));');
+    // virtual:droplets-config's errorFormat reaches entry-server's formatter, inlined or through its binding,
+    // whichever the bundler emits.
+    const code = await readFile(entry, "utf8");
+    const argument = /setErrorFormatter\(formatterOf\(\{ format: ([^}]+?) \}\)\)/.exec(code)?.[1];
+    const value = /^["'`]/.test(argument ?? "")
+      ? argument
+      : new RegExp(`\\b(?:var|let|const) ${argument} = (["'\`][^"'\`]*["'\`])`).exec(code)?.[1];
+    expect(value?.slice(1, -1)).toBe("human");
     const script = `await import(${JSON.stringify(pathToFileURL(entry).href)}); process.stdout.write(globalThis.probe());`;
     const { stdout } = await promisify(execFile)(process.execPath, ["--input-type=module", "-e", script], { cwd: root });
     expect(stdout).toBe(
