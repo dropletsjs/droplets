@@ -50,8 +50,6 @@ beforeAll(async () => {
     encoding: "utf8",
   });
   if (build.status !== 0) throw new Error(`the Worker build failed:\n${build.stderr}`);
-  const exported = spawnSync(process.execPath, [join(root, "scripts/export-testimonials.mjs"), out], { cwd: root, encoding: "utf8" });
-  if (exported.status !== 0) throw new Error(`exporting the testimonials failed:\n${exported.stderr}`);
   manifest = JSON.parse(await readFile(join(out, "client/droplets.json"), "utf8"));
   await writeFile(join(out, "wrangler.json"), JSON.stringify(await testConfig(), null, 2));
 
@@ -128,20 +126,23 @@ describe("static assets, with the headers of _headers", () => {
     }
   });
 
-  it("answers the exported testimonials pages as files, byte-equal to the Worker's render, to any origin", async () => {
+  it("answers the prerendered testimonials files without .html, byte-equal to the Worker's render, to any origin", async () => {
     for (const page of [1, 7, 10]) {
-      const path = `/assets/public/testimonials/page-${page}.html`;
+      const path = `/assets/prerendered/testimonials-prerender-only/page-${page}`;
       const file = await call(path, { headers: { origin: "https://elsewhere.example" } });
       expect(file.status, path).toBe(200);
       expect(file.headers.get("content-type"), path).toMatch(/^text\/html/);
       expect(file.headers.get("access-control-allow-origin"), path).toBe("*");
-      expect(file.headers.get("cache-control"), path).toBe("no-cache");
+      expect(file.headers.get("cache-control"), path).toBe("private, no-store, no-transform");
       const html = await file.text();
-      expect(html, path).toBe(await readFile(join(out, `client${path}`), "utf8"));
+      expect(html, path).toBe(await readFile(join(out, `client${path}.html`), "utf8"));
       const render = await call(`/droplets/testimonials-prerender-only?page=${page}`);
       expect(render.status, path).toBe(200);
       expect(await render.text(), path).toBe(html);
     }
+    const redirected = await call("/assets/prerendered/testimonials-prerender-only/page-1.html");
+    expect(redirected.status).toBe(307);
+    expect(redirected.headers.get("location")).toBe("/assets/prerendered/testimonials-prerender-only/page-1");
   });
 
   it("tells search engines not to index the build's files, and keeps no robots.txt from fetching them", async () => {
@@ -151,7 +152,7 @@ describe("static assets, with the headers of _headers", () => {
       "/index.css",
       `/${manifest.__entryModule}`,
       "/droplets/hello/client.js",
-      "/assets/public/testimonials/page-1.html",
+      "/assets/prerendered/testimonials-prerender-only/page-1",
     ]) {
       const response = await call(path);
       expect(response.status, path).toBe(200);

@@ -10,8 +10,8 @@
   Checked by: `test/server.test.ts` ("search engines"), `test/worker.test.ts` ("tells search engines not to index the build's files, and keeps no robots.txt from fetching them").
 - `location` and `host` are fixed in `droplets.config.ts` (`https://demo.dropletsjs.dev`, `https://dropletsjs.dev`): the build holds no token and reads no location header; nothing passes a location to the demo.
   Checked by: `test/server.test.ts` ("the droplet location").
-- The prerendered testimonials pages are exported by the demo's own build step (`scripts/export-testimonials.mjs`, in `build` and `build:cloudflare`) as `dist/client/assets/public/testimonials/page-<n>.html`, each byte-equal to its route's answer; `html_handling: "none"` serves them under that name.
-  Checked by: `test/server.test.ts` ("exports each prerendered page"), `test/worker.test.ts` ("answers the exported testimonials pages").
+- The prerendered testimonials pages are prerender entries with a `file` (`page-1` to `page-10`): `vite build` writes them as `dist/client/assets/prerendered/testimonials-prerender-only/page-<n>.html`, each byte-equal to its route's answer, served at `/assets/prerendered/testimonials-prerender-only/page-<n>`; `wrangler.jsonc` keeps the default `html_handling`, so the Worker's static assets serve that extensionless URL.
+  Checked by: `test/server.test.ts` ("writes each prerendered page as a file"), `test/worker.test.ts` ("answers the prerendered testimonials files").
 - `/api/testimonials` reads its query key by key from `URLSearchParams` against a fixed list, checks every integer's range, merges nothing and answers any other query 400 with a message.
   Checked by: `test/server.test.ts` ("GET /api/testimonials").
 - Every live droplet the guide embeds is a real droplet in `src/droplets/`; a docs page embeds only droplets that exist here.
