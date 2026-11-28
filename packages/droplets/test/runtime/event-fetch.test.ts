@@ -52,7 +52,7 @@ type FakeAppInput = { routes?: Record<string, ApiModule>; overrides?: Partial<Dr
 function fakeApp({ routes = {}, overrides = {} }: FakeAppInput = {}) {
   const renderDroplet = vi.fn(async (name: string, event: LoadEvent) => {
     const res = await event.fetch(String(event.props["url"] ?? "/api/whoami"), event.props["init"] as RequestInit | undefined);
-    return { html: `<p>${name}</p>`, serverData: { status: res.status, body: await res.text() } };
+    return { html: `<p>${name}</p>`, hasLoad: false as const, serverData: { status: res.status, body: await res.text() } };
   });
   const options: DropletsAppOptions = {
     devLog: createDevLog(),
@@ -172,9 +172,9 @@ describe("event.fetch: a URL on this server", () => {
     const { app } = fakeApp({
       overrides: {
         renderDroplet: async (name, event) => {
-          if (name === "inner") return { html: big, serverData: null };
+          if (name === "inner") return { html: big, hasLoad: false as const, serverData: null };
           const res = await event.fetch("/droplets/inner", { headers: { "accept-encoding": "gzip" } });
-          return { html: "<p>outer</p>", serverData: { status: res.status, body: await res.text() } };
+          return { html: "<p>outer</p>", hasLoad: false as const, serverData: { status: res.status, body: await res.text() } };
         },
       },
     });
@@ -198,7 +198,7 @@ describe("event.fetch: a URL on this server", () => {
           headers: { authorization: "Basic u" },
         },
       );
-      return { html: "", serverData: { status: res.status, body: await res.text() } };
+      return { html: "", hasLoad: false as const, serverData: { status: res.status, body: await res.text() } };
     };
     const { app } = fakeApp({ overrides: { renderDroplet } });
     const answer = await render({ app, headers: { origin: ORIGIN } });
@@ -232,7 +232,7 @@ describe("event.fetch: a URL on this server", () => {
     };
     const renderDroplet = async (_name: string, event: LoadEvent) => {
       const res = await event.fetch("/api/set");
-      return { html: "", serverData: { status: res.status, body: res.headers.get("set-cookie") ?? "" } };
+      return { html: "", hasLoad: false as const, serverData: { status: res.status, body: res.headers.get("set-cookie") ?? "" } };
     };
     const { app } = fakeApp({ routes: { "/api/set": { GET: setter } }, overrides: { renderDroplet } });
     const answer = await render({ app });
@@ -361,7 +361,7 @@ describe("event.fetch: what being internal does not grant", () => {
     const renderDroplet = async (_name: string, event: LoadEvent) => {
       const body = JSON.stringify({ pad: "x".repeat(100) });
       const res = await event.fetch("/api/whoami", { method: "POST", headers: { "content-type": "application/json" }, body });
-      return { html: "", serverData: { status: res.status, body: await res.text() } };
+      return { html: "", hasLoad: false as const, serverData: { status: res.status, body: await res.text() } };
     };
     const { app } = fakeApp({ overrides: { renderDroplet, limits: { json: 64, form: 64, multipart: 64, props: 8192 } } });
     const answer = fetched(await (await app.request(`${ORIGIN}/droplets/hello`)).text());

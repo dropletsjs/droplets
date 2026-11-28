@@ -668,7 +668,7 @@ describe("<djs-droplet>", () => {
     const fake = fakeModule({ load: vi.fn(async () => ({ title: "Hi", comments: Promise.resolve(["a"]) })) });
     mount(
       '<djs-droplet data-droplet="hello">' +
-        `<script type="application/text" data-droplet-payload="data">${encode({ data: {} })}</script>` +
+        `<script type="application/text" data-droplet-payload="server">${encode({ server: {} })}</script>` +
         "<div data-droplet-entry><p>ssr</p></div></djs-droplet>",
     );
     await tick();
@@ -697,7 +697,26 @@ describe("<djs-droplet>", () => {
     expect(value.comments).toBe(comments);
   });
 
-  it("hydrates from inline data without validating or fetching", async () => {
+  it("hydrates with the data payload as it is: no load, no validation, no fetch", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const fake = fakeModule({ validate: vi.fn() });
+    mount(
+      `<djs-droplet data-droplet="hello">` +
+        `<script type="application/text" data-droplet-payload="context">${encode({ host: "https://host.test/a", props: { page: 2 } })}</script>` +
+        `<script type="application/text" data-droplet-payload="data">${encode({ data: { greeting: "Hello Inline!" }, form: { ok: true } })}</script>` +
+        `<div data-droplet-entry><p>ssr</p></div></djs-droplet>`,
+    );
+    await tick();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(fake.validate).not.toHaveBeenCalled();
+    expect(fake.load).not.toHaveBeenCalled();
+    expect(fake.default).toHaveBeenCalledOnce();
+    expect(fake.default.mock.calls[0]?.[1]).toEqual({ greeting: "Hello Inline!" });
+    expect((fake.default.mock.calls[0]?.[3] as { form?: unknown } | undefined)?.form).toEqual({ ok: true });
+  });
+
+  it("runs load over the server payload, then hydrates: no validation, no fetch", async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
     const fake = fakeModule({ validate: vi.fn() });
@@ -705,12 +724,14 @@ describe("<djs-droplet>", () => {
     mount(
       `<djs-droplet data-droplet="hello">` +
         `<script type="application/text" data-droplet-payload="context">${encode({ host: "https://host.test/a", props: { page: 2 } })}</script>` +
-        `<script type="application/text" data-droplet-payload="data">${encode({ data: { who: "Inline" } })}</script>` +
+        `<script type="application/text" data-droplet-payload="server">${encode({ server: { who: "Inline" }, form: { ok: true } })}</script>` +
         `<div data-droplet-entry><p>ssr</p></div></djs-droplet>`,
     );
     await tick();
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(fake.validate).not.toHaveBeenCalled();
+    expect(fake.load).toHaveBeenCalledOnce();
+    expect((fake.default.mock.calls[0]?.[3] as { form?: unknown } | undefined)?.form).toEqual({ ok: true });
     const event = await dataOf({ fake });
     expect(event?.data).toEqual({ who: "Inline" });
     expect(event?.props).toEqual({ page: 2 });
@@ -736,8 +757,8 @@ describe("<djs-droplet>", () => {
         `<div data-droplet-entry><p>ssr</p></div></djs-droplet>`,
     );
     await tick();
-    const event = await dataOf({ fake });
-    expect(event.data).toEqual({ at: new Date(0), tags: new Map([["a", 1n]]) });
+    expect(fake.load).not.toHaveBeenCalled();
+    expect(fake.default.mock.calls[0]?.[1]).toEqual({ at: new Date(0), tags: new Map([["a", 1n]]) });
     const info = fake.default.mock.calls[0]?.[3] as { form?: { home: unknown } };
     expect(info.form?.home).toEqual(new URL("https://shop.example/"));
   });
@@ -758,7 +779,39 @@ describe("<djs-droplet>", () => {
         `<div data-droplet-entry><p>ssr</p></div></djs-droplet>`,
     );
     await tick();
-    expect((await dataOf({ fake })).data).toEqual({ spot: { decodedPoint: { x: 1, y: 2 } }, at: new Date(0) });
+    expect(fake.default.mock.calls[0]?.[1]).toEqual({ spot: { decodedPoint: { x: 1, y: 2 } }, at: new Date(0) });
+  });
+
+  it("decodes the server payload under server before its load", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const fake = fakeModule();
+    const envelope = { server: { at: "1970-01-01T00:00:00.000Z" }, transported: [[["server", "at"], "Date"]] };
+    mount(
+      `<djs-droplet data-droplet="hello">` +
+        `<script type="application/text" data-droplet-payload="server">${encode(envelope)}</script>` +
+        `<div data-droplet-entry><p>ssr</p></div></djs-droplet>`,
+    );
+    await tick();
+    expect((await dataOf({ fake })).data).toEqual({ at: new Date(0) });
+  });
+
+  it("reads the server payload when the data payload cannot be decoded, and runs load over it", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const fake = fakeModule();
+    const broken = { data: { at: "x" }, transported: [[["data", "at"], "Money"]] };
+    mount(
+      `<djs-droplet data-droplet="hello">` +
+        `<script type="application/text" data-droplet-payload="data">${encode(broken)}</script>` +
+        `<script type="application/text" data-droplet-payload="server">${encode({ server: { who: "Server" } })}</script>` +
+        `<div data-droplet-entry><p>ssr</p></div></djs-droplet>`,
+    );
+    await tick();
+    expect(String(error.mock.calls[0]?.[0])).toContain("the inline data payload");
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(fake.load).toHaveBeenCalledOnce();
+    expect((await dataOf({ fake })).data).toEqual({ who: "Server" });
   });
 
   it.each(["__proto__", "constructor", "toString", "hasOwnProperty"])(
@@ -829,7 +882,8 @@ describe("<djs-droplet>", () => {
     );
     await tick();
     expect(fetchSpy).not.toHaveBeenCalled();
-    expect((await dataOf({ fake })).data).toBeUndefined();
+    expect(fake.load).not.toHaveBeenCalled();
+    expect(await fake.default.mock.calls[0]?.[1]).toBeUndefined();
   });
 });
 
@@ -1905,7 +1959,15 @@ describe("clicks before hydration", () => {
 describe("dev remount", () => {
   const context = { host: "https://host.test/page", props: { page: 1 } };
   /** A fragment as the server answers it: markup, the context inline, the data when it hydrates. */
-  type FragmentInput = { droplet: string; markup: string; data?: unknown; error?: boolean; ssr?: boolean; style?: string };
+  type FragmentInput = {
+    droplet: string;
+    markup: string;
+    data?: unknown;
+    server?: unknown;
+    error?: boolean;
+    ssr?: boolean;
+    style?: string;
+  };
   function fragment(input: FragmentInput): string {
     const { droplet, markup, error, ssr, style } = input;
     return (
@@ -1913,6 +1975,7 @@ describe("dev remount", () => {
       `${ssr === false ? ` data-droplet-context="${encode(context)}"` : ""}${error ? " data-droplet-error" : ""}>` +
       `${ssr === false ? "" : `<script type="application/text" data-droplet-payload="context">${encode(context)}</script>`}` +
       `${"data" in input ? `<script type="application/text" data-droplet-payload="data">${encode(input.data)}</script>` : ""}` +
+      `${"server" in input ? `<script type="application/text" data-droplet-payload="server">${encode(input.server)}</script>` : ""}` +
       `${style ? `<link rel="stylesheet" href="${style}" data-droplet-style>` : ""}` +
       `<div style="display: contents" data-droplet-entry>${markup}</div></djs-droplet>`
     );
@@ -1956,10 +2019,10 @@ describe("dev remount", () => {
     expect(JSON.parse(String(init.body))).toEqual(context);
     expect(fake.unmount).toHaveBeenCalledOnce();
     expect(el.querySelector("h1")?.textContent).toBe("v2");
-    // Hydrated again: the value, as the server rendered with it.
+    // Hydrated again: the value, as the server rendered with it, without a load.
     expect(fake.default).toHaveBeenCalledTimes(2);
-    expect(((await dataOf({ fake, n: 1 })) as unknown as { data: unknown }).data).toEqual({ v: 2 });
-    expect(fake.default.mock.calls[1]?.[1]).not.toBeInstanceOf(Promise);
+    expect(fake.default.mock.calls[1]?.[1]).toEqual({ v: 2 });
+    expect(fake.load).not.toHaveBeenCalled();
     expect(el.querySelectorAll(':scope > [data-droplet-payload="data"]').length).toBe(1);
     expect(filledIn(el)).toBe(container);
   });
@@ -1994,7 +2057,7 @@ describe("dev remount", () => {
   it("mounts in the browser when the new fragment has no markup (ssr turned off)", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => html({ body: fragment({ droplet: "plain", markup: "", data: { data: { v: 2 } }, ssr: false }) })),
+      vi.fn(async () => html({ body: fragment({ droplet: "plain", markup: "", server: { server: { v: 2 } }, ssr: false }) })),
     );
     const fake = markerModule();
     const el = mount(
@@ -2008,7 +2071,26 @@ describe("dev remount", () => {
 
     await el.update({ droplet: "plain" });
     expect(el.querySelector("h1")).toBeNull();
+    // One data payload: the new `server` one in place of the old `data` one.
+    expect(el.querySelectorAll(':scope > [data-droplet-payload="data"]').length).toBe(0);
+    expect(el.querySelectorAll(':scope > [data-droplet-payload="server"]').length).toBe(1);
     expect(fake.default.mock.calls[1]?.[1]).toBeInstanceOf(Promise);
+    expect(((await dataOf({ fake, n: 1 })) as unknown as { data: unknown }).data).toEqual({ v: 2 });
+  });
+
+  it("takes a fragment with the server payload and no markup (ssr = false) for one, and asks for it again", async () => {
+    const fetchSpy = vi.fn(async () =>
+      html({ body: fragment({ droplet: "plain", markup: "", server: { server: { v: 2 } }, ssr: false }) }),
+    );
+    vi.stubGlobal("fetch", fetchSpy);
+    const fake = markerModule();
+    const el = mount(fragment({ droplet: "plain", markup: "", server: { server: { v: 1 } }, ssr: false }));
+    await tick();
+    expect(((await dataOf({ fake })) as unknown as { data: unknown }).data).toEqual({ v: 1 });
+
+    await el.update({ droplet: "plain" });
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    expect((fetchSpy.mock.calls[0] as unknown as [string])[0]).toBe("http://drops.test/droplets/plain");
     expect(((await dataOf({ fake, n: 1 })) as unknown as { data: unknown }).data).toEqual({ v: 2 });
   });
 

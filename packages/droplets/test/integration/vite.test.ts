@@ -182,6 +182,7 @@ describe("vite build", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ host, props }),
       });
+    // `load`'s result, `title` included: the component hydrates with it as it is.
     const dataOf = (html: string) => {
       const match = html.match(/data-droplet-payload="data">([^<]+)</)?.[1];
       return match ? JSON.parse(Buffer.from(match, "base64").toString()) : undefined;
@@ -193,7 +194,7 @@ describe("vite build", () => {
     // The tokens, replaced by this request's host before transform ran.
     expect(stored).toContain('<a href="https://host.test/home">');
     expect(stored).not.toContain("DROPLET_");
-    expect(dataOf(stored)).toEqual({ data: { page: 2, building: true, hooked: true, home: "https://host.test/home" } });
+    expect(dataOf(stored)).toEqual({ data: { page: 2, title: "Page 2", building: true, hooked: true, home: "https://host.test/home" } });
 
     const live = await (await post({ props: { page: 3 } })).text();
     expect(live).toContain("<h1>Page 3</h1>");
@@ -203,14 +204,16 @@ describe("vite build", () => {
     expect(note).toContain("Rendered on the server only.");
     expect(note).not.toContain("data-droplet-payload");
     expect(note).not.toContain("data-droplet-context");
-    expect(dataOf(live)).toEqual({ data: { page: 3, building: false, hooked: true, home: "https://host.test/home" } });
+    expect(dataOf(live)).toEqual({ data: { page: 3, title: "Page 3", building: false, hooked: true, home: "https://host.test/home" } });
 
     // A render made for one host is served to that host (origin and path),
     // and rendered live for any other.
     const forHost = await (await post({ props: { page: 5 }, host: "https://fixed.test/docs?ref=x" })).text();
-    expect(dataOf(forHost)).toEqual({ data: { page: 5, building: true, hooked: true, home: "https://fixed.test/home" } });
+    expect(dataOf(forHost)).toEqual({ data: { page: 5, title: "Page 5", building: true, hooked: true, home: "https://fixed.test/home" } });
     const elsewhere = await (await post({ props: { page: 5 }, host: "https://fixed.test/other" })).text();
-    expect(dataOf(elsewhere)).toEqual({ data: { page: 5, building: false, hooked: true, home: "https://fixed.test/home" } });
+    expect(dataOf(elsewhere)).toEqual({
+      data: { page: 5, title: "Page 5", building: false, hooked: true, home: "https://fixed.test/home" },
+    });
     // Without a body host: Origin, then the location; forwarded headers no trusted list names are not one.
     const fromOrigin = await app.request("http://drops.test/droplets/docs?page=2", { headers: { origin: "https://shop.test" } });
     expect(dataOf(await fromOrigin.text())).toMatchObject({ data: { page: 2, home: "https://shop.test/home" } });

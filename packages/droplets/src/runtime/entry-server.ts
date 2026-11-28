@@ -302,7 +302,8 @@ async function serverFailure({ name, error }: ServerFailureInput): Promise<Serve
 export async function loadDropletData(name: string, event: LoadEvent): Promise<DropletPayload> {
   try {
     const data = await runServerLoad({ name, event });
-    return { data, wire: encodePayload({ value: data, what: "server data", droplet: name }) };
+    const wire = encodePayload({ value: data, what: "server data", droplet: name });
+    return { data, wire, ...((await hasUniversalLoad({ name })) ? {} : { hasLoad: false }) };
   } catch (error) {
     if (isAnswer({ error, event })) throw error;
     return serverFailure({ name, error });
@@ -324,9 +325,17 @@ export async function prerenderKeys(name: string): Promise<string[]> {
   return keys;
 }
 
+type HasUniversalLoadInput = { name: string };
+
+/** Whether `+droplet.ts` exports a `load`: without one, the component gets the server data as it is. */
+async function hasUniversalLoad({ name }: HasUniversalLoadInput): Promise<boolean> {
+  const mod = await findEntry({ name })?.load?.();
+  return typeof mod?.load === "function";
+}
+
 /**
  * Runs the load of `+droplet.ts`, which shapes server data into the
- * component's `data`, settled as the browser settles it before hydrating.
+ * component's `data`, settled.
  */
 type RunUniversalLoadInput = { name: string; event: LoadEvent; serverData: unknown };
 
@@ -372,8 +381,12 @@ export async function findAction(name: string, action: string): Promise<Action |
   return typeof found === "function" ? (found as Action) : "missing";
 }
 
-/** What a render may carry besides the event: an action's result, as the component's `form`. */
-export type RenderOptions = { form?: unknown };
+/**
+ * What a render may carry besides the event: an action's result, as the
+ * component's `form`; `encodeData` when `load`'s result goes into the HTML,
+ * so it is checked against the payload contract then and only then.
+ */
+export type RenderOptions = { form?: unknown; encodeData?: boolean };
 
 /**
  * The full server-side chain: server load, then `+droplet.ts`, then the
@@ -392,7 +405,14 @@ export async function renderDroplet(name: string, event: LoadEvent, options: Ren
     serverData = await runServerLoad({ name, event });
     // Checked on every render, sent or not: a value that renders here never fails only later, through `_data`.
     const serverWire = encodePayload({ value: serverData, what: "server data", droplet: name });
+    const hasLoad = await hasUniversalLoad({ name });
     const data = await runUniversalLoad({ name, event, serverData });
+    // Without a load the component gets the server data: its wire form is the one just checked.
+    const dataWire = !hasLoad
+      ? serverWire
+      : options.encodeData
+        ? encodePayload({ value: data, what: "load result", droplet: name })
+        : undefined;
     const props = options.form === undefined ? { data } : { data, form: options.form };
     const { html, head, renderId } = await renderWith({
       renderer: entry.renderer,
@@ -403,7 +423,17 @@ export async function renderDroplet(name: string, event: LoadEvent, options: Ren
       dropletProps: event.props,
     });
     if (import.meta.env.DEV) logger.debug("rendered droplet", { droplet: name, bodyLength: html.length });
-    return { body: html, html, data, serverData, serverWire, renderId, ...(head === undefined ? {} : { head }) };
+    return {
+      body: html,
+      html,
+      data,
+      serverData,
+      serverWire,
+      ...(dataWire ? { dataWire } : {}),
+      ...(hasLoad ? {} : { hasLoad: false as const }),
+      renderId,
+      ...(head === undefined ? {} : { head }),
+    };
   } catch (error) {
     if (isAnswer({ error, event })) throw error;
     return serverFailure({ name, error });

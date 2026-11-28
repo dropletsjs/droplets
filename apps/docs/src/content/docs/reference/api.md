@@ -67,7 +67,9 @@ export const transform: Transform | Transform[];       // ({ html, ...event }) =
 ```
 
 - `load` runs on the server for every render and `_data` request; its
-  result is inlined into the fragment.
+  result reaches `+droplet.ts`'s `load`, and is inlined into the fragment
+  when the browser runs that `load` (`data-droplet-payload="server"`) or the
+  droplet has none.
 - `actions` take form posts to `/droplets/<id>?/<name>` (`default` without a
   name). Names match `^[A-Za-z_][\w-]*$`; `__proto__`, `constructor` and
   `prototype` are never actions.
@@ -91,6 +93,15 @@ export const props: StandardSchemaV1;                  // zod, valibot, arktypeâ
 export const load: (event: DropletLoadEvent) => unknown;  // { host, props, data } -> the component's data
 export const handleError: HandleDropletError;
 ```
+
+`load` runs on the server after the server load, and its result is inlined
+into the fragment (`data-droplet-payload="data"`, transported values
+included): the browser hydrates the component with it and does not run
+`load` again. The browser runs it on a refresh, a client-only mount and
+when the inline payload cannot be read, and at hydrate as well with
+`render.rerunLoad: true`. Its result follows
+[What data can be](/guides/writing-droplets/#what-data-can-be) whenever it
+goes into the fragment.
 
 The load files are `+droplet.ts` and `+droplet.server.ts`, each looked up
 as `.ts`, then `.js`. A load file spelled `.mts`, `.mjs`, `.cts` or `.cjs` is
@@ -124,7 +135,7 @@ export const transport: Transport; // { [name]: { encode, decode } }
 ```
 
 `encode: (value: unknown) => json | false` runs on the server for every
-object a payload holds (the server data, an action's result), before the
+object a payload holds (the server data, `load`'s result, an action's result), before the
 built-ins; `false` means not this entry's. `decode:
 (json) => value` runs in the browser, found by the name the payload carries
 through a `Map`. An entry named `Date`, `Map`, `Set`, `URL` or `BigInt`, an
@@ -202,7 +213,7 @@ dropped without a warning. A value that fails its check throws a
 | `limits` | `{ json?, form?, multipart?, props? }` | `1 MB`, `1 MB`, `10 MB`, `8 KB` | Largest bodies in bytes: JSON, form-urlencoded and `text/plain`, multipart and any other type (`413`), and the `x-droplet-props` header (`431`). Positive numbers; `Infinity` lifts one. |
 | `fragmentCacheControl` | `string \| false` | `"private, no-store, no-transform"` | The `Cache-Control` of fragments and `_data` when neither the load (`setHeaders`) nor `handle` set one. `false` sends none of it. A non-empty value without line breaks. `no-transform` is added to every fragment and `_data` answer that lacks it. |
 | `publicCacheControl` | `string \| false` | `"no-cache"` | The `Cache-Control` of `/assets/public/*`, on every adapter, with an `ETag` and `304`. `false` sends none. Same check as `fragmentCacheControl`. |
-| `render` | `{ timeout? }` | `{ timeout: 5000 }` | `timeout`: milliseconds a droplet's loads and render may take for a fragment or `_data`, from after `handle`, the props schema and any form action; past it `504`, with `error` `{ status: 504, message: "Gateway Timeout" }`. The load sees it in `event.request.signal`. An integer from `0` to `2147483647`, or `Infinity` (none). Not applied while prerendering. |
+| `render` | `{ timeout?, rerunLoad? }` | `{ timeout: 5000, rerunLoad: false }` | `timeout`: milliseconds a droplet's loads and render may take for a fragment or `_data`, from after `handle`, the props schema and any form action; past it `504`, with `error` `{ status: 504, message: "Gateway Timeout" }`. The load sees it in `event.request.signal`. An integer from `0` to `2147483647`, or `Infinity` (none). Not applied while prerendering. `rerunLoad`: `true` runs `+droplet.ts`'s `load` again in the browser at hydrate, the fragment carrying the server data (`data-droplet-payload="server"`) instead of `load`'s result; a boolean, else the build fails ([Where `load` runs](/guides/configuration/#where-load-runs)). |
 | `health` | `string \| false` | `"/health"` | The path answering `ok`, before `handle`. `false` turns it off. |
 | `index` | `string \| false` | `index.html` in the root, else a placeholder page | What `/` serves in a build and `vite preview`: an HTML file relative to the root, served as written. `false` answers `404`; a path that does not exist fails the build. Under `vite dev`, `/` is the devtools page when they are installed. |
 | `importMap` | `string \| false` | `"/importmap"`, only while the client build has externals | Where the import map is served: `<path>` as a `<script type="importmap">` block, `<path>.js` as a script that inserts it. Set explicitly, it is always routed. `false` turns both off. |
@@ -711,8 +722,10 @@ For renderer packages; it imports vitest.
 renderer passes. It builds a fixture app with the renderer and checks
 server rendering, inline data, the transported values (`Date`, `Map`,
 `Set`, `URL`, `BigInt`, and the fixture's `Money` through `transport` in
-`src/hooks.ts`) reaching the browser's `load`, hydration,
-client-only mounting, the error
+`src/hooks.ts`) reaching the component and the browser's `load`, hydration
+with `load`'s result from the server (the fixture's `load` counts its runs
+in `globalThis.conformanceLoads`: none at hydrate, one on a refresh and on a
+client-only mount), client-only mounting, the error
 page and boundary, children, prerendering, form actions and their URLs,
 native and enhanced submits, Post/Redirect/Get and HMR. The server renders
 in a worker thread of its own, so a server build that shims the DOM or
@@ -953,7 +966,9 @@ lacks one. See
 | `data-droplet-error` | server | The markup is the error page. |
 
 Children: `<script type="application/text" data-droplet-payload="context">`,
-`<script type="application/text" data-droplet-payload="data">`,
+`<script type="application/text" data-droplet-payload="data">` or
+`<script type="application/text" data-droplet-payload="server">` (one of
+the two),
 `<link rel="stylesheet" data-droplet-style>` to the droplet's `style.css`
 (added by the element when the fragment brought none, with
 `<link rel="preload" data-droplet-preload>` for the stylesheets it imports),

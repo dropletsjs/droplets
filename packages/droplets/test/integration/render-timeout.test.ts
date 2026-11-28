@@ -142,13 +142,17 @@ describe("render.timeout in a build", () => {
       assetHandler: () => new Response("Not Found", { status: 404 }),
     };
     const config = resolveConfig(entry.default.userConfig);
-    expect(config.render).toEqual({ timeout: 1000 });
+    expect(config.render).toEqual({ timeout: 1000, rerunLoad: false });
     const app = createServerApp({ ssr, config, assets });
     const late = await app.request("http://drops.test/droplets/slow?ms=3000");
     expect(late.status).toBe(504);
     expect(await late.text()).toContain('<p class="oops">504 Gateway Timeout</p>');
 
-    const patient = createServerApp({ ssr, config: { ...config, render: { timeout: Number.POSITIVE_INFINITY } }, assets });
+    const patient = createServerApp({
+      ssr,
+      config: { ...config, render: { timeout: Number.POSITIVE_INFINITY, rerunLoad: false } },
+      assets,
+    });
     const waited = await patient.request("http://drops.test/droplets/slow?ms=1200");
     expect(waited.status).toBe(200);
     expect(await waited.text()).toContain("<p>waited 1200</p>");

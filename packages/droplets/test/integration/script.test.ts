@@ -79,19 +79,19 @@ async function scripts(dir: string): Promise<string> {
   return out.join("\n");
 }
 
-/** What a fragment's `data-droplet-payload="data"` carries. */
+/** What a fragment's `data-droplet-payload="server"` carries: the server data, for the browser's `load`. */
 const dataOf = (html: string) => {
-  const match = html.match(/data-droplet-payload="data">([^<]+)</)?.[1];
+  const match = html.match(/data-droplet-payload="server">([^<]+)</)?.[1];
   return match ? JSON.parse(Buffer.from(match, "base64").toString()) : undefined;
 };
 
-/** The client-only fragment of a script droplet: the context on the element, the data payload, an empty content root. */
+/** The client-only fragment of a script droplet: the context on the element, the server payload, an empty content root. */
 function expectScriptFragment(html: string) {
   expect(html).toMatch(
-    /^<djs-droplet data-droplet="tracker" data-droplet-build="[^"]+" data-droplet-context="[^"]+"><script type="application\/text" data-droplet-payload="data">[^<]+<\/script><div style="display: contents" data-droplet-entry><\/div><\/djs-droplet>$/,
+    /^<djs-droplet data-droplet="tracker" data-droplet-build="[^"]+" data-droplet-context="[^"]+"><script type="application\/text" data-droplet-payload="server">[^<]+<\/script><div style="display: contents" data-droplet-entry><\/div><\/djs-droplet>$/,
   );
-  // Nothing that runs: the one script is the data payload.
-  expect(html.match(/<script\b[^>]*>/g)).toEqual(['<script type="application/text" data-droplet-payload="data">']);
+  // Nothing that runs: the one script is the server payload.
+  expect(html.match(/<script\b[^>]*>/g)).toEqual(['<script type="application/text" data-droplet-payload="server">']);
   expect(html).not.toContain("SCRIPT_MARKER");
 }
 
@@ -141,7 +141,7 @@ describe("a script droplet in vite build", () => {
     expect(response.status).toBe(200);
     const html = await response.text();
     expectScriptFragment(html);
-    expect(dataOf(html)).toEqual({ data: { views: 7, page: "pricing", checked: true } });
+    expect(dataOf(html)).toEqual({ server: { views: 7, page: "pricing", checked: true } });
     // The component droplet next to it renders as usual.
     expect(await (await app.request("http://drops.test/droplets/card")).text()).toContain("<p>card</p>");
   });
@@ -235,7 +235,7 @@ describe("a script droplet in vite dev", () => {
     const html = await (await api().fetch(new Request("http://localhost/droplets/tracker"))).text();
     expectScriptFragment(html);
     // The server load's data; +droplet.ts runs over it again in the browser.
-    expect(dataOf(html)).toEqual({ data: { views: 7, page: "home", checked: true } });
+    expect(dataOf(html)).toEqual({ server: { views: 7, page: "home", checked: true } });
   });
 
   it("serves its browser entry, which imports the script and the built-in renderer", async () => {

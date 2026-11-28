@@ -145,7 +145,7 @@ describe("cookies: on the response", () => {
 
   function fakeApp(overrides: FakeAppInput = {}) {
     const renderDroplet = vi.fn(async (_name: string, event: LoadEvent) => {
-      return { html: `<p>${event.cookies.get("cart") ?? "none"}</p>`, serverData: {} };
+      return { html: `<p>${event.cookies.get("cart") ?? "none"}</p>`, hasLoad: false as const, serverData: {} };
     });
     const options: DropletsAppOptions = {
       renderDroplet,

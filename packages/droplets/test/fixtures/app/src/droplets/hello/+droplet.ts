@@ -7,7 +7,11 @@ type ServerData = { who: string; when: Date; tags: Map<string, string>; seen: Se
 const kindsOf = (data: ServerData) =>
   [data.tags.get("a"), data.seen.has(1), data.link.hostname, String(data.big + 1n), data.when.toISOString(), data.price.format()].join(" ");
 
+/** Counts its runs where the conformance suite set the list: in the browser. */
+const counted = globalThis as { conformanceLoads?: string[] };
+
 export const load = ({ data }: { data: ServerData }) => {
+  counted.conformanceLoads?.push(data.who);
   if (browser && data.who === "boom") throw new Error("browser boom");
   return { ...data, greeting: `Hello ${data.who}!`, kinds: kindsOf(data) };
 };

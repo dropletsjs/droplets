@@ -12,7 +12,7 @@ import { FORBIDDEN_SEGMENTS, MAX_PAYLOAD_DEPTH, type PathSegment, TRANSPORTED_KE
 export type PayloadDecoder = (json: unknown) => unknown;
 
 /** The envelope keys a transported value may sit under. */
-const PAYLOAD_KEYS: ReadonlySet<string> = new Set(["data", "form"]);
+const PAYLOAD_KEYS: ReadonlySet<string> = new Set(["data", "server", "form"]);
 
 const INTEGER = /^-?(?:0|[1-9]\d*)$/;
 
@@ -111,7 +111,7 @@ export function decodePayload({ envelope, decoders = BUILTIN_DECODERS }: DecodeP
     const decoder = decoders.get(name);
     if (!decoder) return fail(`no transport named ${JSON.stringify(name.slice(0, 100))}`);
     const [first] = path as unknown[];
-    if (typeof first !== "string" || !PAYLOAD_KEYS.has(first)) return fail("a path outside data and form");
+    if (typeof first !== "string" || !PAYLOAD_KEYS.has(first)) return fail("a path outside data, server and form");
     let container: unknown = envelope;
     for (let index = 0; index < path.length - 1; index += 1) {
       const at = step({ container, segment: path[index] });

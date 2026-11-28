@@ -12,6 +12,7 @@ import {
   LOCATION_INVALID,
   PATH_RESERVED,
   RENDER_NOT_OBJECT,
+  RENDER_RERUN_LOAD_NOT_BOOLEAN,
   RENDER_TIMEOUT_NEGATIVE,
   RENDER_TIMEOUT_NOT_NUMBER,
   RENDER_TIMEOUT_NOT_WHOLE,
@@ -159,6 +160,14 @@ export type DropletsConfig = {
      * prerendered by `vite build` have none. Default: `5000`.
      */
     timeout?: number;
+    /**
+     * Whether `+droplet.ts`'s `load` runs again in the browser when a
+     * droplet hydrates. `false`: the server puts `load`'s result in the
+     * HTML and the component hydrates with it. `true`: the server puts its
+     * server load's data in the HTML and the browser runs `load` over it
+     * again before hydrating. Default: `false`.
+     */
+    rerunLoad?: boolean;
   };
   /**
    * How every error and warning of the framework reads: in `vite build`,
@@ -242,7 +251,7 @@ export type ResolvedDropletsConfig = {
   csrf: { checkOrigin: boolean };
   limits: BodyLimits;
   /** `timeout`: `Infinity` sets no deadline. */
-  render: { timeout: number };
+  render: { timeout: number; rerunLoad: boolean };
   errorFormat: ErrorFormat;
   server: { port: number };
 };
@@ -265,7 +274,7 @@ export const DEFAULTS = {
   limits: { json: 1024 * 1024, form: 1024 * 1024, multipart: 10 * 1024 * 1024, props: 8 * 1024 },
   fragmentCacheControl: "private, no-store, no-transform",
   publicCacheControl: "no-cache",
-  render: { timeout: 5000 },
+  render: { timeout: 5000, rerunLoad: false },
 } as const;
 
 // The longest delay a timer takes: Node fires a larger one after 1 ms.
@@ -444,9 +453,21 @@ function resolveRender({ value }: ResolveRenderInput): ResolvedDropletsConfig["r
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw dropletsError({ message: RENDER_NOT_OBJECT, params: { value: shownValue({ value }) } });
   }
-  const timeout = "timeout" in value ? value.timeout : undefined;
-  if (timeout === undefined) return { ...DEFAULTS.render };
-  if (timeout === Number.POSITIVE_INFINITY) return { timeout };
+  const rerunLoad = "rerunLoad" in value ? value.rerunLoad : undefined;
+  if (rerunLoad !== undefined && typeof rerunLoad !== "boolean") {
+    throw dropletsError({ message: RENDER_RERUN_LOAD_NOT_BOOLEAN, params: { value: shownValue({ value: rerunLoad }) } });
+  }
+  return {
+    timeout: resolveTimeout({ timeout: "timeout" in value ? value.timeout : undefined }),
+    rerunLoad: rerunLoad ?? DEFAULTS.render.rerunLoad,
+  };
+}
+
+type ResolveTimeoutInput = { timeout: unknown };
+
+function resolveTimeout({ timeout }: ResolveTimeoutInput): number {
+  if (timeout === undefined) return DEFAULTS.render.timeout;
+  if (timeout === Number.POSITIVE_INFINITY) return timeout;
   const got = shownValue({ value: timeout });
   if (typeof timeout !== "number" || Number.isNaN(timeout)) {
     throw dropletsError({ message: RENDER_TIMEOUT_NOT_NUMBER, params: { value: got } });
@@ -456,7 +477,7 @@ function resolveRender({ value }: ResolveRenderInput): ResolvedDropletsConfig["r
     throw dropletsError({ message: RENDER_TIMEOUT_NOT_WHOLE, params: { value: got } });
   }
   if (timeout > TIMER_MAX_MS) throw dropletsError({ message: RENDER_TIMEOUT_TOO_LONG, params: { value: got } });
-  return { timeout };
+  return timeout;
 }
 
 type ResolveErrorFormatInput = { value: unknown };

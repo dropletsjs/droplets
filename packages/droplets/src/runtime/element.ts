@@ -10,8 +10,14 @@ export type DropletElementProps = {
    * URL the page loaded `/index.js` from.
    */
   droplet: string;
-  /** Base64 server load result, inlined so hydration skips a round trip. */
+  /**
+   * Base64 data envelope, inlined so hydration skips a round trip: under
+   * `dataPayload`, `"data"` (what the component gets, or the error) or
+   * `"server"` (the server load's data, for the browser's `load`).
+   */
   dropletData: string;
+  /** The name `dropletData` goes under. Default `"data"`. */
+  dataPayload?: "data" | "server" | undefined;
   /** Base64 request context, for client-side refetches. */
   dropletContext?: string;
   /** Same payload as `dropletContext`, as an attribute, when no SSR happened. */
@@ -36,7 +42,7 @@ export type DropletElementProps = {
 
 type Html = HtmlEscapedString | Promise<HtmlEscapedString>;
 
-type PayloadScriptInput = { name: "context" | "data"; payload: string };
+type PayloadScriptInput = { name: "context" | "data" | "server"; payload: string };
 
 /** An inline payload, `<script data-droplet-payload="<name>">`: the one marker attribute names what it carries. */
 function payloadScript({ name, payload }: PayloadScriptInput): Html | string {
@@ -62,7 +68,7 @@ export function dropletElement(props: DropletElementProps): Html {
       name: "context",
       payload: props.dropletContext ?? "",
     },
-  )}${payloadScript({ name: "data", payload: props.dropletData })}${
+  )}${payloadScript({ name: props.dataPayload ?? "data", payload: props.dropletData })}${
     props.stylesheet ? html`<link rel="stylesheet" href="${props.stylesheet}" data-droplet-style>` : ""
   }<div style="display: contents" data-droplet-entry>${raw(props.html)}</div></${tag}>`;
 }

@@ -16,7 +16,7 @@ count from its server load and posts each view to `src/api/page-views`.
 
 Each shows `lib/Card.svelte` and `lib/Badge.svelte`, with:
 
-- **loads**: `+droplet.server.ts` (`lib/server/facts.ts`) on the server, `+droplet.ts` on both sides, behind the props schema in `lib/props.ts`;
+- **loads**: `+droplet.server.ts` (`lib/server/facts.ts`) on the server, `+droplet.ts` on the server (in the browser where no server ran it), behind the props schema in `lib/props.ts`;
 - **endpoints**: `src/api/*/+server.ts` (a shared counter, the time, a greeting, what the private variables tell), called through `$droplets/drop` in `lib/api.ts`;
 - **the error page**: `?who=crash` makes the load throw, and `handleError` decides what `+error.svelte` shows;
 - **env**: one variable of each kind in `src/env.ts`, with demo values in `.env`;

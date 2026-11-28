@@ -15,5 +15,5 @@ export type Facts = PrivateFacts & {
   requestId: string;
 };
 
-/** What their components get: the facts, plus the greeting `+droplet.ts` derives on both sides. */
+/** What their components get: the facts, plus the greeting `+droplet.ts` derives on the server. */
 export type Loaded = Facts & { greeting: string };

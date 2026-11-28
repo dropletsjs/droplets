@@ -74,7 +74,7 @@ async function postWatched(path: string) {
   }
 }
 
-const payload = (html: string, name: "data" | "context") => {
+const payload = (html: string, name: "data" | "server" | "context") => {
   const encoded = html.match(new RegExp(`data-droplet-payload="${name}">([^<]+)<`))?.[1];
   return encoded ? JSON.parse(Buffer.from(encoded, "base64").toString("utf8")) : undefined;
 };
@@ -563,7 +563,9 @@ describe("the testimonials droplets", () => {
     const html = await (await call("/droplets/testimonials-client-only")).text();
     expect(html).toContain('<div style="display: contents" data-droplet-entry></div>');
     expect(html).toMatch(/data-droplet-context="[^"]+"/);
-    expect(payload(html, "data")).toEqual({});
+    // Its load runs in the browser, over the server data: none here, and no data payload.
+    expect(payload(html, "server")).toEqual({});
+    expect(payload(html, "data")).toBeUndefined();
     expect((await call("/droplets/testimonials-client-only/client.js")).status).toBe(200);
   });
 

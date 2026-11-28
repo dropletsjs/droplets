@@ -55,6 +55,7 @@ production server never carries it.
 | `csrf.checkOrigin`, `warnImportMap` | `true` | |
 | `limits` | json 1 MB, form 1 MB, multipart 10 MB, props 8 KB | each a positive number; `Infinity` lifts it |
 | `render.timeout` | `5000` ms | an object `render`; an integer from `0` to `2147483647`, or `Infinity` |
+| `render.rerunLoad` | `false` | a boolean |
 | `server.port` | `8000` | `PORT` wins |
 | `dev.server.port` | `5173` | `PORT` never moves it |
 | `dev.strategy` | `"hmr"` | one of `DEV_STRATEGIES` |
@@ -128,6 +129,7 @@ builds and runs them.
 - `limits` values must be numbers greater than 0, else `resolveConfig` throws; `Infinity` passes. `config.ts:397`
 - `render.timeout` defaults to 5000 ms; `render: {}` and a missing `timeout` give the default. `config.ts:268`, `config.ts:442`
 - `render.timeout` takes an integer from 0 to 2147483647 (`TIMER_MAX_MS`, the longest delay a timer takes; Node fires a larger one after 1 ms) or `Infinity`; anything else throws, in this order: `render` not an object, not a number (NaN, null, a string, a boolean), negative (`-Infinity` too), not whole, above the maximum; the message names the range and shows the value (`JSON.stringify` for a string). `config.ts:272`, `config.ts:442`
+- `render.rerunLoad` defaults to `false`; anything but a boolean throws `render-rerun-load-not-boolean`, checked before the timeout. `config.ts:456`
 - `server.port` defaults to 8000. `config.ts:264`
 - `PORT` counts only as an integer from 0 to 65535 (`portOf`); anything else, and `0` or empty, leaves the config port in place. `config.ts:480`
 - `PORT` wins over `server.port`. `config.ts:540`

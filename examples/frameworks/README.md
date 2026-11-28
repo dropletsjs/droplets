@@ -33,7 +33,7 @@ describes its files.
 ### What every example shows
 
 - **loads**: `+droplet.server.ts` (`src/lib/server/facts.ts`) on the server,
-  `+droplet.ts` on both sides, behind the props schema in `src/lib/props.ts`;
+  `+droplet.ts` on the server (in the browser where no server ran it), behind the props schema in `src/lib/props.ts`;
 - **endpoints**: `src/api/*/+server.ts` (a shared counter, the time, a
   greeting, what the private variables tell), called through
   `$droplets/drop` (`src/lib/api.ts`; Handlebars has no client code to call

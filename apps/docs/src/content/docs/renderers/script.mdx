@@ -58,7 +58,7 @@ npx djs add counter --framework script --with server,css --yes
 | --- | --- |
 | `+droplet.script.ts`, `+droplet.script.js` | The script: its default export runs in the browser. It has no flags. |
 | `+droplet.server.ts` | Optional: the server load, as for any droplet; its result comes inline in the fragment. |
-| `+droplet.ts` | Optional: the props schema, and a load that runs on the server and in the browser. |
+| `+droplet.ts` | Optional: the props schema, and a load that runs in the browser, over the server load's data. |
 
 `.script.ts` and `.script.js` belong to core, and no renderer can claim
 them; the name also keeps `+droplet.ts` the load file. The default export:
@@ -69,7 +69,8 @@ export default function (data: Data, el: HTMLElement): void | (() => void);
 
 - `data` is what the loads returned, as for any droplet: the server load's
   result, inline in the fragment (no second request), then the `+droplet.ts`
-  load's in the browser. In the demo, `{ framework: "plain script", start: 3 }`.
+  load's, run in the browser over it. In the demo, which has no
+  `+droplet.ts`, `{ framework: "plain script", start: 3 }`.
 - `el` is the droplet's content root inside the element, the
   `<div data-droplet-entry>` every droplet has: add anything under it. It is a
   `display: contents` box, so append your own element when the script needs
@@ -160,6 +161,11 @@ markup to interact with.
     <div style="display: contents" data-droplet-entry></div>
   </djs-demo>
   ```
+
+  The payload is `data-droplet-payload="data"`, the server data the script
+  gets as it is, for a droplet without a `+droplet.ts` load; with one it is
+  `data-droplet-payload="server"`, the server data its `load` runs over in
+  the browser ([HTTP contract](/integrate/http-contract/#the-fragment)).
 
 - **In the browser it always runs:** the element imports its bundle and
   calls the default export once per element, each with its own `el`. A

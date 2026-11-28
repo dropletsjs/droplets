@@ -38,6 +38,7 @@ type ActionsAppInput = { actions: Record<string, Action> | null; overrides?: Par
 function actionsApp({ actions, overrides = {} }: ActionsAppInput) {
   const renderDroplet = vi.fn<RenderDroplet>(async (name: string, event: LoadEvent, options) => ({
     html: `<p>${name}:${JSON.stringify(event.props)}:${JSON.stringify(options?.form ?? null)}</p>`,
+    hasLoad: false as const,
     serverData: { count: 1 },
   }));
   const findAction = vi.fn<FindAction>(async (_droplet, name) => {
@@ -388,7 +389,7 @@ describe("form actions: results", () => {
     const { app, renderDroplet } = actionsApp({ actions: { default: () => {} } });
     const res = await app.request(submit({ path: "/droplets/guestbook" }));
     expect(res.status).toBe(200);
-    expect(renderDroplet.mock.calls[0]?.[2]).toBeUndefined();
+    expect(renderDroplet.mock.calls[0]?.[2]?.form).toBeUndefined();
     expect(envelope(await res.text())).toEqual({ data: { count: 1 } });
   });
 });
@@ -508,7 +509,7 @@ describe("form actions: what the action gets", () => {
       overrides: {
         renderDroplet: async (_name, event) => {
           event.setHeaders({ "cache-control": "public, max-age=60" });
-          return { html: "<p>x</p>", serverData: {} };
+          return { html: "<p>x</p>", hasLoad: false as const, serverData: {} };
         },
       },
     });
@@ -520,7 +521,7 @@ describe("form actions: what the action gets", () => {
 
 describe("form actions: a prerendered droplet", () => {
   it("answers an action with a live render and form, never the stored render", async () => {
-    const loadPrerendered = vi.fn(async () => ({ html: "<p>stored</p>", data: { stored: true } }));
+    const loadPrerendered = vi.fn(async () => ({ html: "<p>stored</p>", hasLoad: false as const, data: { stored: true } }));
     const { app, renderDroplet } = actionsApp({
       actions: { default: sign },
       overrides: { getDropletMeta: () => ({ exists: true, ssr: true, hydrate: true, prerender: true }), loadPrerendered },
@@ -572,7 +573,7 @@ describe("form actions: a JSON render with form", () => {
     });
 
   it("renders live with the form the page sends back, for a droplet with actions", async () => {
-    const loadPrerendered = vi.fn(async () => ({ html: "<p>stored</p>", data: { stored: true } }));
+    const loadPrerendered = vi.fn(async () => ({ html: "<p>stored</p>", hasLoad: false as const, data: { stored: true } }));
     const { app, renderDroplet } = actionsApp({
       actions: { default: sign },
       overrides: { getDropletMeta: () => ({ exists: true, ssr: true, hydrate: true, prerender: true }), loadPrerendered },
@@ -837,7 +838,7 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
   });
 
   it("renders with the result live, never the stored render, and hides it from the app's code", async () => {
-    const loadPrerendered = vi.fn(async () => ({ html: "<p>stored</p>", data: { stored: true } }));
+    const loadPrerendered = vi.fn(async () => ({ html: "<p>stored</p>", hasLoad: false as const, data: { stored: true } }));
     const seen: string[] = [];
     const handle: Handle = ({ event, resolve }) => {
       seen.push(`handle ${event.host.href}`);
@@ -887,7 +888,7 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
         getHandle: () => handle,
         renderDroplet: async (_name, event, options) => {
           seen.push(event.host.href);
-          return { html: `<p>${JSON.stringify(options?.form ?? null)}</p>`, serverData: {} };
+          return { html: `<p>${JSON.stringify(options?.form ?? null)}</p>`, hasLoad: false as const, serverData: {} };
         },
       },
     });
@@ -901,7 +902,7 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
 
   it("ignores a result that is not genuine, current and this droplet's, and renders as without one", async () => {
     vi.spyOn(logger, "report").mockImplementation(() => {});
-    const loadPrerendered = vi.fn(async () => ({ html: "<p>stored</p>", data: { stored: true } }));
+    const loadPrerendered = vi.fn(async () => ({ html: "<p>stored</p>", hasLoad: false as const, data: { stored: true } }));
     const { app } = actionsApp({
       actions: { default: sign, leave: sign },
       overrides: { getDropletMeta: () => ({ exists: true, ssr: true, hydrate: true, prerender: true }), loadPrerendered },
@@ -1000,7 +1001,7 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
       const { app: plain, renderDroplet } = actionsApp({ actions: { default: sign } });
       const res = await renderOn({ app: app?.() ?? plain, host: `${PAGE}&${KEY}=${encodeURIComponent(await value())}` });
       expect(res.status).toBe(200);
-      if (!app) expect((renderDroplet.mock.calls.at(-1) ?? expect.unreachable("a render call"))[2]).toBeUndefined();
+      if (!app) expect((renderDroplet.mock.calls.at(-1) ?? expect.unreachable("a render call"))[2]?.form).toBeUndefined();
       const dropped = report.mock.calls.filter(([input]) => input.message.code === "form-result-dropped");
       expect(dropped).toHaveLength(1);
       const input = dropped[0]?.[0] ?? expect.unreachable("a report");
@@ -1106,7 +1107,7 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
     // Status and action only: the droplet renders, without form.
     await renderOn({ app, host: location });
     expect(renderDroplet).toHaveBeenCalledTimes(1);
-    expect((renderDroplet.mock.calls[0] ?? expect.unreachable("a render call"))[2]).toBeUndefined();
+    expect((renderDroplet.mock.calls[0] ?? expect.unreachable("a render call"))[2]?.form).toBeUndefined();
   });
 
   it("sends a result holding a transported value back without its data, with a warning: the server decodes nothing", async () => {
@@ -1121,7 +1122,7 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
     expect(body).toMatchObject({ status: 409, action: "default" });
     expect(warn.mock.calls.some((call) => formatMessage(call[0]).includes("form-result-not-plain"))).toBe(true);
     await renderOn({ app, host: location });
-    expect((renderDroplet.mock.calls[0] ?? expect.unreachable("a render call"))[2]).toBeUndefined();
+    expect((renderDroplet.mock.calls[0] ?? expect.unreachable("a render call"))[2]?.form).toBeUndefined();
 
     // A plain result still travels, as it always did; no warning without a dev log.
     warn.mockClear();
@@ -1329,7 +1330,7 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
           getHandle: () => handle,
           renderDroplet: async (_name, event) => {
             seen.push({ props: event.props, host: event.host.href, page: requestInfo()?.page });
-            return { html: "<p></p>", serverData: {} };
+            return { html: "<p></p>", hasLoad: false as const, serverData: {} };
           },
         },
       });
@@ -1355,7 +1356,7 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
         overrides: {
           renderDroplet: async () => {
             pages.push(requestInfo()?.page);
-            return { html: "<p></p>", serverData: {} };
+            return { html: "<p></p>", hasLoad: false as const, serverData: {} };
           },
         },
       });

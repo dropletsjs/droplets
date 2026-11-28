@@ -454,11 +454,21 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
       const mod = await runtime.loadSsrModule();
       const keys = (await mod.prerenderKeys?.(name)) ?? [];
       if (!keys.includes(key)) return null;
-      const result = await (mod.renderDroplet ?? mod.default)?.(name, event);
+      // As the build stores it: `load`'s result in its wire form too, when it goes into the HTML.
+      const meta = await mod.getDropletMeta?.(name);
+      const encodeData = meta?.hydrate !== false && !config.render.rerunLoad;
+      const result = await (mod.renderDroplet ?? mod.default)?.(name, event, encodeData ? { encodeData } : {});
       if (!result) return null;
       if (!result.failed) {
         const wire = result.serverWire ?? encodePayload({ value: result.serverData, what: "server data", droplet: name });
-        return { html: result.html ?? result.body ?? "", data: wire.value, transported: wire.transported };
+        const loaded = result.hasLoad !== false && encodeData ? result.dataWire : undefined;
+        return {
+          html: result.html ?? result.body ?? "",
+          data: wire.value,
+          transported: wire.transported,
+          ...(loaded ? { loadResult: { data: loaded.value, transported: loaded.transported } } : {}),
+          ...(result.hasLoad === false ? { hasLoad: false as const } : {}),
+        };
       }
       const page = await mod.renderError?.(name, result.error, event.props);
       return {

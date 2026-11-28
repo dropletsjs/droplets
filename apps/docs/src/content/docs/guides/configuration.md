@@ -41,7 +41,8 @@ export default config({
   trustedOrigins: ["https://shop.example"],
   csrf: { checkOrigin: true },      // the default
   limits: { multipart: 20 * 1024 * 1024 }, // bytes; the others keep their defaults
-  render: { timeout: 5000 },        // ms for a droplet's loads and render; Infinity: no deadline
+  // ms for a droplet's loads and render (Infinity: no deadline); rerunLoad: see "Where load runs" below.
+  render: { timeout: 5000, rerunLoad: false },
 
   // Fragments and _data: "private, no-store, no-transform" by default; false sends none.
   // no-transform is added to whatever they send.
@@ -81,6 +82,7 @@ export default config({
 | `limits.multipart` | 10 MB | Largest multipart body, and body of any other type (uploads). A body without a `content-length` is held in memory while it is counted, up to the limit, so mind it times your concurrency. |
 | `limits.props` | 8 KB | Largest `x-droplet-props` header; bigger answers `431`. `Infinity` lifts any limit. |
 | `render.timeout` | `5000` | How long, in milliseconds, a droplet's loads and render may take on the server, from when the fragment or `_data` request starts them (after `handle`, the props schema and any form action). Past it the fragment answers `504` with the droplet's error page, `_data` `504` with `{ error }`. The load sees it in `event.request.signal`. An integer from `0` (wait for no promise) to `2147483647`, or `Infinity` (no deadline); anything else fails the build. Prerendering has none. See [Timeouts](/guides/errors/#timeouts). |
+| `render.rerunLoad` | `false` | Whether `+droplet.ts`'s `load` runs again in the browser when a droplet hydrates. `false`: the server puts `load`'s result in the HTML and the component hydrates with it. `true`: the server puts its server data in the HTML and the browser runs `load` over it before hydrating. `true` or `false`; anything else fails the build. See [Where `load` runs](#where-load-runs). |
 | `errorFormat` | `"agent"` | How every error and warning of the framework reads, in `vite build`, `vite dev`, the browser and the production server: `"agent"`, a block of labelled lines, or `"human"`, one line. Every message has a code and a page under [Error codes](/errors/) either way; anything else fails the build. See [Error format](#error-format). |
 | `health` | `"/health"` | Path answering `ok`, before `handle` runs, so an auth hook cannot break it. `false` turns it off. |
 | `index` | `index.html` in the root, else a placeholder | What `/` serves in `vite preview` and production: an HTML file, served as written. A path that does not exist fails `vite build`. `false` answers `404`. In `vite dev`, `/` belongs to the [devtools](/guides/development/#the-devtools-page). |
@@ -218,6 +220,29 @@ no page: `host.pathname` is `/`, and a form posted without JavaScript from
 it returns to `host`'s root page. With `location` alone, `host` and the page
 are still tokens, replaced per request. Only here does an entry's `file`
 write its render as a [static file](/guides/prerendering/#static-files).
+
+### Where `load` runs
+
+`load` in `+droplet.ts` runs on the server, after the server load, and the
+component renders with its result. That result goes into the fragment as
+the [`data` payload](/integrate/http-contract/#the-fragment), with
+[`Date`, `Map`, `Set`, `URL`, `BigInt`](/guides/writing-droplets/#what-data-can-be)
+and your own [`transport`](/guides/writing-droplets/#your-own-types) types carried as
+themselves, and the browser hydrates the component with it as it is:
+`load` does not run again there. It still runs in the browser when the
+server did not run it:
+
+- a refresh, the loads again after an [enhanced form](/guides/actions/)'s
+  answer (through `_data`);
+- a client-only mount (`ssr = false`, `?clientOnly`, `?noSSR`, an element a
+  host wrote itself);
+- the fallback, when the inline payload cannot be read.
+
+`render: { rerunLoad: true }` keeps `load` running at hydrate too: the
+fragment carries the server data (the `server` payload) and the browser
+runs `load` over it before hydrating, so its result never has to fit in the
+HTML (a function, a class without a transport). A droplet without a `load`
+gets the server data either way, in the `data` payload.
 
 ### Error format
 

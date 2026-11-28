@@ -34,10 +34,10 @@ const COMPONENT =
 const LOAD =
   'import droplet from "$droplets/drop";\nexport const load = ({ props }) => ({ page: props.page ?? 0, home: droplet.url("/api/x") });\n';
 
-type ProjectInput = { server: string; config?: string; component?: string };
+type ProjectInput = { server: string; config?: string; component?: string; universal?: string };
 
 /** A project with one prerendered droplet, `page`; `server` is its `+droplet.server.ts`, `config` its `droplets.config.ts`. */
-async function project({ server, config, component = COMPONENT }: ProjectInput): Promise<string> {
+async function project({ server, config, component = COMPONENT, universal }: ProjectInput): Promise<string> {
   const root = await mkdtemp(join(fixtures, ".prerender-files-"));
   roots.push(root);
   const folder = join(root, "src/droplets/page");
@@ -45,6 +45,7 @@ async function project({ server, config, component = COMPONENT }: ProjectInput):
   await writeFile(join(folder, "+droplet.fake.js"), component);
   await writeFile(join(folder, "page.css"), ".page { color: teal; }\n");
   await writeFile(join(folder, "+droplet.server.ts"), server);
+  if (universal) await writeFile(join(folder, "+droplet.ts"), universal);
   if (config) await writeFile(join(root, "droplets.config.ts"), config);
   return root;
 }
@@ -242,6 +243,37 @@ describe("prerender files, with location and host fixed", () => {
     await build({ root });
     expect(await fileText({ root, path: "page/slow.html" })).toContain('<p class="page">1 </p>');
   }, 90_000);
+
+  it("writes the data payload a production server answers with: load's result, or the server data with render.rerunLoad", async () => {
+    const universal = "export const load = ({ data }) => ({ ...data, page: `#${data.page}` });\n";
+    const server = `${LOAD}export const entries = () => [{ props: { page: 4 }, file: "four" }];\n`;
+    const payloadOf = (html: string, name: string) => {
+      const match = html.match(new RegExp(`data-droplet-payload="${name}">([^<]+)<`))?.[1];
+      return match ? JSON.parse(Buffer.from(match, "base64").toString()) : undefined;
+    };
+    const fixed = { location: "https://cdn.test/mfe", host: "https://shop.test" };
+    for (const rerunLoad of [false, true]) {
+      const config = `export default { location: "https://cdn.test/mfe", host: "https://shop.test", render: { rerunLoad: ${rerunLoad} } };\n`;
+      const root = await project({ server, universal, config });
+      await build({ root });
+      const file = await fileText({ root, path: "page/four.html" });
+      expect(file).toContain('<p class="page">#4 https://cdn.test/mfe/api/x</p>');
+      if (rerunLoad) {
+        expect(payloadOf(file, "data")).toBeUndefined();
+        expect(payloadOf(file, "server")).toEqual({ server: { page: 4, home: "https://cdn.test/mfe/api/x" } });
+      } else {
+        expect(payloadOf(file, "server")).toBeUndefined();
+        expect(payloadOf(file, "data")).toEqual({ data: { page: "#4", home: "https://cdn.test/mfe/api/x" } });
+      }
+      const renders = join(root, "dist/server/_prerendered");
+      expect(file).toBe(await serverAnswer({ root, renders, config: { ...fixed, render: { rerunLoad } }, props: { page: 4 } }));
+      // The stored render keeps load's result only when it goes into the HTML.
+      const stored = (await readdir(renders, { recursive: true })).filter((name) => name.endsWith(".json") && !name.endsWith("index.json"));
+      const records = await Promise.all(stored.map(async (name) => JSON.parse(await readFile(join(renders, name), "utf8"))));
+      expect(records.filter((record) => typeof record.html === "string")).toHaveLength(1);
+      expect(records.some((record) => "loadResult" in record)).toBe(!rerunLoad);
+    }
+  }, 120_000);
 
   it("removes the files of the build before: a file no entry names any more is gone", async () => {
     const root = await project({

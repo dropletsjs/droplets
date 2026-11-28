@@ -110,15 +110,14 @@ A [script droplet](#script-droplets) has no flags: it is always client only.
 +droplet.ts          props   (a Standard Schema)    server, and browser when no server rendered
         ↓  validated props
 +droplet.server.ts   load({ request, host, locals, platform, cookies, fetch, setHeaders, droplet, props })   server only
-        ↓  the result is inlined into the fragment
-+droplet.ts          load({ host, props, data })     server and browser
-        ↓  the result is the component's `data`
+        ↓  the server data
++droplet.ts          load({ host, props, data })     server; browser when the server did not run it
+        ↓  the result is the component's `data`, inlined into the fragment
 +droplet.<ext>       data
 ```
 
 The **server load** in `+droplet.server.ts` runs once per request, on the
-server. Its result is inlined into the fragment, so hydration needs no second
-round trip. Read secrets, databases, `locals` and
+server. Read secrets, databases, `locals` and
 [`cookies`](/guides/server/#cookies) here; cookies are read only in a load.
 
 ```ts
@@ -132,10 +131,12 @@ export const load = async ({ props, locals }: LoadEvent) => {
 };
 ```
 
-The **universal load** in `+droplet.ts` runs after it: on the server while
-rendering, and again in the browser before hydrating or mounting. It receives
-`{ host, props, data }`, where `data` is what the server load returned
-(`undefined` without one), and shapes it into the component's `data`.
+The **universal load** in `+droplet.ts` runs after it, on the server while
+rendering. It receives `{ host, props, data }`, where `data` is what the
+server load returned (`undefined` without one), and shapes it into the
+component's `data`. Its result is inlined into the fragment, and the browser
+hydrates the component with it as it is: no second round trip, and `load`
+does not run again there.
 
 ```ts
 // src/droplets/hello/+droplet.ts
@@ -149,8 +150,14 @@ export const load = ({ data }: { data: ServerData }) => ({
 });
 ```
 
-Keep it pure: it has to produce the same result on both sides, or the
-hydrated markup will not match what the server rendered.
+The browser runs `load` itself only when the server did not run it: on a
+refresh (after an [enhanced form](/guides/actions/)'s answer, through
+`_data`), on a client-only mount (`ssr = false`, a `?clientOnly` or `?noSSR`
+fragment, an element a host wrote itself) and when the inline payload cannot
+be read. There it gets the server data from the fragment or from `_data`.
+Keep it pure, so both sides make the same `data` from the same server data.
+[`render.rerunLoad`](/guides/configuration/#where-load-runs) runs it again in
+the browser at hydrate as well.
 
 Both files are optional. With neither, `data` is `undefined` and the
 component simply renders. Both return a plain object, or nothing (what it
@@ -160,14 +167,18 @@ may hold: [What data can be](#what-data-can-be)). A
 
 ### What data can be
 
-What the server load returns travels to the browser inside the fragment
-(and in every `_data` answer), so it has to survive the trip. It can hold:
+What the universal load returns travels to the browser inside the fragment,
+and what the server load returns in every `_data` answer (and inside the
+fragment when the browser runs `load` itself), so both have to survive the
+trip. Without a universal load the component gets the server data, which
+then travels in its place. They can hold:
 
 - plain JSON: plain objects, arrays, strings, finite numbers, booleans and
   `null`;
 - `Date`, `Map`, `Set`, `URL` and `BigInt`, nested anywhere (a `Map` of
-  `Set`s of `URL`s is fine). The browser's `load` gets them back as the
-  same types: `data.when.getFullYear()` works on both sides.
+  `Set`s of `URL`s is fine). The component and the browser's `load` get
+  them back as the same types: `data.when.getFullYear()` works on both
+  sides.
 
 ```ts
 // src/droplets/hello/+droplet.server.ts
@@ -178,11 +189,13 @@ export const load = async () => ({
 });
 ```
 
-Anything else is refused on every render, with the path to the value and
-the reason (`droplets error payload-not-serializable`, "the server data
-cannot travel to the browser: items[0].price is a Money with no
-transport"): the droplet renders its [error page](/guides/errors/), and
-production logs the error with `console.error`. Refused are:
+Anything else is refused, with the path to the value and the reason
+(`droplets error payload-not-serializable`, "the server data cannot travel
+to the browser: items[0].price is a Money with no transport"): the droplet
+renders its [error page](/guides/errors/), and production logs the error
+with `console.error`. The server data is checked on every render, the
+universal load's result whenever it goes into the fragment (not for a
+droplet that never hydrates, nor with `render.rerunLoad`). Refused are:
 
 - a function, a symbol, a promise (await it in the load);
 - an instance of any other class, a subclass of `Map` or `Date` included,
