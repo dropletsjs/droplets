@@ -22,7 +22,7 @@ import { error, json, redirect, type Handle, type LoadEvent, type TransformEvent
 
 const decode = (b64: string) => JSON.parse(Buffer.from(b64, "base64").toString("utf8")) as unknown;
 
-type PayloadInput = { html: string; payload: "data" | "context" };
+type PayloadInput = { html: string; payload: "data" | "server" | "context" };
 
 /** Pulls the inlined payload out of a `<script data-droplet-payload="…">` tag. */
 function payload({ html, payload }: PayloadInput): unknown {
@@ -34,10 +34,12 @@ function fakeApp(overrides: Partial<DropletsAppOptions> = {}) {
   const renderDroplet = vi.fn(async (name: string, event: LoadEvent) => ({
     html: `<p>${name}:${JSON.stringify(event.props)}</p>`,
     head: `<title>${name}</title>`,
+    hasLoad: false as const,
     serverData: { name, props: event.props },
   }));
   const loadDropletData = vi.fn(async (name: string, event: LoadEvent) => ({
     data: { name, props: event.props } as unknown,
+    hasLoad: false as const,
   }));
   const options: DropletsAppOptions = {
     devLog: createDevLog(),
@@ -189,7 +191,7 @@ describe("createDropletsApp: assets", () => {
         const before = requestInfo()?.origin;
         if (before === "https://first.example") await gate;
         seen.push(`${before} ${requestInfo()?.origin}`);
-        return { html: name, serverData: null };
+        return { html: name, hasLoad: false as const, serverData: null };
       },
     });
     const first = app.request("/droplets/hello", { headers: { "x-droplet-location": "https://first.example" } });
@@ -977,7 +979,7 @@ describe("createDropletsApp: file URLs of the server bundle", () => {
     fakeApp({
       tokenNonce: "b1ld",
       trustedOrigins: ["https://shop.test"],
-      renderDroplet: async () => ({ html: `<img src="${logo}">`, serverData: { logo } }),
+      renderDroplet: async () => ({ html: `<img src="${logo}">`, hasLoad: false as const, serverData: { logo } }),
       loadDropletData: async () => ({ data: { logo } }),
       ...overrides,
     });
@@ -1370,7 +1372,7 @@ describe("createDropletsApp: fragment styles and preloads", () => {
 
     const prerendered = withEntry({
       getDropletMeta: () => ({ exists: true, ssr: true, hydrate: true, prerender: true }),
-      loadPrerendered: async () => ({ html: "<p>built</p>", data: {} }),
+      loadPrerendered: async () => ({ html: "<p>built</p>", hasLoad: false as const, data: {} }),
     });
     const built = await prerendered.app.request("http://drops.test/droplets/hello");
     const html = await built.text();
@@ -1405,7 +1407,7 @@ describe("createDropletsApp: Cache-Control of fragments and _data", () => {
       fragmentCacheControl: "public, max-age=60",
       renderDroplet: async (name) => {
         if (name === "broken") throw new Error("boom");
-        return { html: name, serverData: null };
+        return { html: name, hasLoad: false as const, serverData: null };
       },
     });
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -1447,7 +1449,7 @@ describe("createDropletsApp: no-transform and gzip on fragments and _data", () =
   const BIG = `<p>${"droplet ".repeat(400)}</p>`;
   const bigApp = (overrides: Partial<DropletsAppOptions> = {}) =>
     fakeApp({
-      renderDroplet: async () => ({ html: BIG, serverData: null }),
+      renderDroplet: async () => ({ html: BIG, hasLoad: false as const, serverData: null }),
       loadDropletData: async () => ({ data: { text: BIG } }),
       ...overrides,
     }).app;
@@ -1566,7 +1568,7 @@ describe("createDropletsApp: setHeaders in a droplet's load", () => {
 
   it("sets the fragment's and _data's headers; its Cache-Control replaces the default", async () => {
     const { app } = fakeApp({
-      renderDroplet: async (_name, event) => ({ html: "<p>x</p>", serverData: publicLoad(event) }),
+      renderDroplet: async (_name, event) => ({ html: "<p>x</p>", hasLoad: false as const, serverData: publicLoad(event) }),
       loadDropletData: async (_name, event) => ({ data: publicLoad(event) }),
     });
     for (const path of ["/droplets/hello", "/droplets/hello/_data?who=Ana"]) {
@@ -1643,6 +1645,7 @@ describe("createDropletsApp: setHeaders in a droplet's load", () => {
       getDropletMeta: () => ({ exists: true, ssr: true, hydrate: true, prerender: true }),
       loadPrerendered: () => ({
         html: "<p>stored</p>",
+        hasLoad: false as const,
         data: { stored: true },
         headers: { "cache-control": "public, max-age=600", "set-cookie": "a=1", "x-bad": "a\r\nb" },
       }),
@@ -1659,7 +1662,7 @@ describe("createDropletsApp: setHeaders in a droplet's load", () => {
   it("hands the build what the load set, to store with the render", async () => {
     const { app } = fakeApp({
       building: true,
-      renderDroplet: async (_name, event) => ({ html: "<p>x</p>", serverData: publicLoad(event) }),
+      renderDroplet: async (_name, event) => ({ html: "<p>x</p>", hasLoad: false as const, serverData: publicLoad(event) }),
     });
     const res = await app.request("http://droplets.build/droplets/hello", {
       method: "POST",
@@ -1771,7 +1774,7 @@ describe("createDropletsApp: the query as it came", () => {
       renderDroplet: async (name: string, event: LoadEvent) => {
         request = event.request;
         seen.push(`load ${JSON.stringify(event.props)}`);
-        return { html: name, serverData: null };
+        return { html: name, hasLoad: false as const, serverData: null };
       },
     });
     const res = await app.fetch(raw);
@@ -1874,7 +1877,7 @@ describe("createDropletsApp: props schema", () => {
 describe("createDropletsApp: inline data", () => {
   it("inlines an envelope even when there is no server data", async () => {
     const { app } = fakeApp({
-      renderDroplet: async () => ({ html: "<p>x</p>", serverData: undefined }),
+      renderDroplet: async () => ({ html: "<p>x</p>", hasLoad: false as const, serverData: undefined }),
     });
     const html = await (await app.request("/droplets/hello")).text();
     // Present, so the client knows not to ask _data.
@@ -1896,19 +1899,24 @@ describe("createDropletsApp: the payload contract", () => {
 
   it("inlines transported values in their JSON form, listed under transported, in the fragment and _data", async () => {
     const { app } = fakeApp({
-      renderDroplet: async () => ({ html: "<p>x</p>", serverData: typed }),
+      renderDroplet: async () => ({ html: "<p>x</p>", hasLoad: false as const, serverData: typed }),
       loadDropletData: async () => ({ data: typed }),
     });
     expect(payload({ html: await (await app.request("/droplets/hello")).text(), payload: "data" })).toEqual(wire);
     expect(await (await app.request("/droplets/hello/_data")).json()).toEqual(wire);
-    // `ssr = false`: the load alone, inline all the same.
-    expect(payload({ html: await (await app.request("/droplets/spa")).text(), payload: "data" })).toEqual(wire);
+    // `ssr = false`: the server load alone, inline all the same, under `server` for the browser's load.
+    const html = await (await app.request("/droplets/spa")).text();
+    expect(payload({ html, payload: "data" })).toBeUndefined();
+    expect(payload({ html, payload: "server" })).toEqual({
+      server: wire.data,
+      transported: wire.transported.map(([path, name]) => [["server", ...(path as unknown[]).slice(1)], name]),
+    });
   });
 
   it("sends the SSR bundle's encoded server data as it is", async () => {
     const encoded = { value: { a: "1970-01-01T00:00:00.000Z" }, transported: [[["a"], "Date"]] as Array<[string[], string]> };
     const { app } = fakeApp({
-      renderDroplet: async () => ({ html: "<p>x</p>", serverData: { a: new Date(0) }, serverWire: encoded }),
+      renderDroplet: async () => ({ html: "<p>x</p>", hasLoad: false as const, serverData: { a: new Date(0) }, serverWire: encoded }),
       loadDropletData: async () => ({ data: { a: new Date(0) }, wire: encoded }),
     });
     const expected = { data: { a: "1970-01-01T00:00:00.000Z" }, transported: [[["data", "a"], "Date"]] };
@@ -1924,7 +1932,9 @@ describe("createDropletsApp: the payload contract", () => {
   });
 
   it("keeps a plain payload byte for byte as plain JSON", async () => {
-    const { app } = fakeApp({ renderDroplet: async () => ({ html: "<p>x</p>", serverData: { n: 1, list: ["a"] } }) });
+    const { app } = fakeApp({
+      renderDroplet: async () => ({ html: "<p>x</p>", hasLoad: false as const, serverData: { n: 1, list: ["a"] } }),
+    });
     const html = await (await app.request("/droplets/hello")).text();
     const match = html.match(/data-droplet-payload="data">([^<]*)</)?.[1] ?? "";
     expect(Buffer.from(match, "base64").toString("utf8")).toBe('{"data":{"n":1,"list":["a"]}}');
@@ -1934,6 +1944,7 @@ describe("createDropletsApp: the payload contract", () => {
     const tokens = replacers.hostTokens({ nonce: "0123456789abcdef" });
     const loadPrerendered = vi.fn(async () => ({
       html: "<p>docs</p>",
+      hasLoad: false as const,
       data: { [tokens.location]: "1970-01-01T00:00:00.000Z" },
       transported: [[[tokens.location], "Date"]] as Array<[string[], string]>,
       nonce: "0123456789abcdef",
@@ -1956,7 +1967,7 @@ describe("createDropletsApp: prerendered droplets", () => {
         : { exists: true, ssr: true };
   const loadPrerendered = vi.fn(async (_name: string, key: string) =>
     key === '{"page":1}'
-      ? { html: "<p>page one</p>", data: { page: 1 } }
+      ? { html: "<p>page one</p>", hasLoad: false as const, data: { page: 1 } }
       : key === '{"page":99}'
         ? { html: "<p>unavailable</p>", failed: true as const, error: { message: "Unavailable" } }
         : null,
@@ -2047,10 +2058,11 @@ describe("createDropletsApp: prerendered droplets", () => {
   it("serves the render made for this host first, else the host-agnostic one with its tokens replaced", async () => {
     const stored = vi.fn(async (_name: string, key: string) =>
       key === '{"page":1} https://fixed.test/docs'
-        ? { html: "<p>fixed</p>", data: { page: 1 } }
+        ? { html: "<p>fixed</p>", hasLoad: false as const, data: { page: 1 } }
         : key === '{"page":1}'
           ? {
               html: '<a href="__$DROPLET_HOST$__/x?to=__%24DROPLET_PATH%24__">__$DROPLET_PATH$__</a>',
+              hasLoad: false as const,
               data: { home: "__$DROPLET_HOST$__/home", path: "__$DROPLET_PATH$__" },
             }
           : null,
@@ -2075,6 +2087,7 @@ describe("createDropletsApp: prerendered droplets", () => {
   it("replaces only its build's tokens: the same text without the nonce is content, left alone", async () => {
     const stored = vi.fn(async () => ({
       html: "<p>__$DROPLET_HOST_n0nce$__ and __$DROPLET_HOST$__</p>",
+      hasLoad: false as const,
       data: { home: "__$DROPLET_HOST_n0nce$__/home", text: "__$DROPLET_PATH$__" },
       nonce: "n0nce",
     }));
@@ -2095,6 +2108,7 @@ describe("createDropletsApp: prerendered droplets", () => {
   it("replaces the location token with where this request reaches the server, never an untrusted x-droplet-location", async () => {
     const stored = vi.fn(async () => ({
       html: '<form action="http://droplets.invalid/__$DROPLET_LOCATION_n0nce$__/droplets/docs?/add"></form>',
+      hasLoad: false as const,
       data: { api: "http://droplets.invalid/__$DROPLET_LOCATION_n0nce$__/api" },
       nonce: "n0nce",
     }));
@@ -2167,13 +2181,17 @@ describe("createDropletsApp: building", () => {
       key: '{"a":1,"b":2}',
       html: '<p>hello:{"b":2,"a":1}</p>',
       data: { name: "hello", props: { b: 2, a: 1 } },
+      hasLoad: false,
       // Host-agnostic: the nonce of its tokens, for the build to store with it.
       nonce: expect.stringMatching(/^[0-9a-f]{16}$/),
     });
   });
 
   it("stores the server data in its wire form, with its table", async () => {
-    const { app } = fakeApp({ building: true, renderDroplet: async () => ({ html: "x", serverData: { at: new Date(0) } }) });
+    const { app } = fakeApp({
+      building: true,
+      renderDroplet: async () => ({ html: "x", hasLoad: false as const, serverData: { at: new Date(0) } }),
+    });
     const res = await app.request("http://droplets.build/droplets/hello", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -2189,7 +2207,7 @@ describe("createDropletsApp: building", () => {
       building: true,
       renderDroplet: async () => {
         seen = requestInfo()?.origin;
-        return { html: "x", serverData: null };
+        return { html: "x", hasLoad: false as const, serverData: null };
       },
     });
     const res = await app.request("http://droplets.build/droplets/hello", {
@@ -2220,7 +2238,11 @@ describe("createDropletsApp: building", () => {
   it("renders for the body's host, keyed by props and that host", async () => {
     const { app } = fakeApp({
       building: true,
-      renderDroplet: async (_name, event) => ({ html: event.host.searchParams.get("q") ?? "", serverData: event.host.href }),
+      renderDroplet: async (_name, event) => ({
+        html: event.host.searchParams.get("q") ?? "",
+        hasLoad: false as const,
+        serverData: event.host.href,
+      }),
     });
     const res = await app.request("http://droplets.build/droplets/hello", {
       method: "POST",
@@ -2231,6 +2253,7 @@ describe("createDropletsApp: building", () => {
       key: '{"a":1} https://shop.test/docs',
       html: "x",
       data: "https://shop.test/docs?q=x",
+      hasLoad: false,
       // Its location is a token even with a host known.
       nonce: expect.stringMatching(/^[0-9a-f]{16}$/),
     });
@@ -2241,6 +2264,7 @@ describe("createDropletsApp: building", () => {
       building: true,
       renderDroplet: async (_name, { host }) => ({
         html: `<a href="${host.origin}/x">${host.pathname}</a>`,
+        hasLoad: false as const,
         serverData: { href: host.href, string: `${host}`, json: JSON.parse(JSON.stringify({ host })) },
       }),
     });
@@ -2253,6 +2277,7 @@ describe("createDropletsApp: building", () => {
       key: "{}",
       html: `<a href="${host}/x">${path}</a>`,
       data: { href: `${host}${path}`, string: `${host}${path}`, json: { host: `${host}${path}` } },
+      hasLoad: false,
       nonce: body.nonce,
     });
     // Another build, other tokens.
@@ -2695,7 +2720,9 @@ describe("createDropletsApp: a fixed host", () => {
   it("serves the render stored for the fixed host, its page token replaced by the request's page", async () => {
     const PATH = "__$DROPLET_PATH_n1$__";
     const loadPrerendered = vi.fn(async (_name: string, key: string) =>
-      key === `{"page":1} ${HOST}` ? { html: `<a href="${HOST}${PATH}">here</a>`, data: { path: PATH }, nonce: "n1" } : null,
+      key === `{"page":1} ${HOST}`
+        ? { html: `<a href="${HOST}${PATH}">here</a>`, hasLoad: false as const, data: { path: PATH }, nonce: "n1" }
+        : null,
     );
     const { app, renderDroplet } = fakeApp({
       host: HOST,
@@ -2725,7 +2752,7 @@ describe("createDropletsApp: without token replacers", () => {
       location: "https://cdn.test",
       host: "https://shop.test",
       getDropletMeta: () => ({ exists: true, ssr: true, prerender: true }),
-      loadPrerendered: async () => ({ html: `<p>${LITERAL}</p>`, data: { text: LITERAL }, nonce: "n1" }),
+      loadPrerendered: async () => ({ html: `<p>${LITERAL}</p>`, hasLoad: false as const, data: { text: LITERAL }, nonce: "n1" }),
     });
     for (const path of ["/droplets/docs", "/droplets/docs/_data"]) {
       const text = await (
@@ -2739,7 +2766,7 @@ describe("createDropletsApp: without token replacers", () => {
     const { app } = fakeApp({
       tokens: undefined,
       tokenNonce: "n1",
-      renderDroplet: async () => ({ html: `<p>${LITERAL}</p>`, serverData: null }),
+      renderDroplet: async () => ({ html: `<p>${LITERAL}</p>`, hasLoad: false as const, serverData: null }),
     });
     expect(await (await app.request("http://drops.test/droplets/hello")).text()).toContain(`<p>${LITERAL}</p>`);
   });
@@ -2827,7 +2854,7 @@ describe("createDropletsApp: render.timeout", () => {
       renderError,
       renderDroplet: async () => {
         await sleep(200);
-        return { html: "<p>late</p>", serverData: null };
+        return { html: "<p>late</p>", hasLoad: false as const, serverData: null };
       },
     });
     const res = await app.request("http://drops.test/droplets/hello");
@@ -2904,7 +2931,7 @@ describe("createDropletsApp: render.timeout", () => {
       renderDroplet: async (_name, event) => {
         seen = { request: event.request, isOpen: !event.request.signal.aborted, body: await event.request.json() };
         await sleep(200);
-        return { html: "late", serverData: null };
+        return { html: "late", hasLoad: false as const, serverData: null };
       },
     });
     const res = await app.request("http://drops.test/droplets/hello?x=1", {
@@ -2929,7 +2956,7 @@ describe("createDropletsApp: render.timeout", () => {
 
     const settled = fakeApp({
       render: { timeout: 0 },
-      renderDroplet: async () => ({ html: "<p>ok</p>", serverData: await settle({ a: Promise.resolve(1) }) }),
+      renderDroplet: async () => ({ html: "<p>ok</p>", hasLoad: false as const, serverData: await settle({ a: Promise.resolve(1) }) }),
     });
     expect((await settled.app.request("/droplets/hello")).status).toBe(200);
 
@@ -2937,7 +2964,7 @@ describe("createDropletsApp: render.timeout", () => {
       render: { timeout: 0 },
       renderDroplet: async () => {
         await sleep(5);
-        return { html: "<p>ok</p>", serverData: null };
+        return { html: "<p>ok</p>", hasLoad: false as const, serverData: null };
       },
     });
     expect((await waits.app.request("/droplets/hello")).status).toBe(504);
@@ -2949,7 +2976,7 @@ describe("createDropletsApp: render.timeout", () => {
       renderDroplet: async (_name, event) => {
         await sleep(60);
         event.setHeaders({ "cache-control": "public, max-age=60", "x-late": "1" });
-        return { html: "late", serverData: null };
+        return { html: "late", hasLoad: false as const, serverData: null };
       },
     });
     const res = await app.request("/droplets/hello");
@@ -2999,7 +3026,7 @@ describe("createDropletsApp: render.timeout", () => {
         },
       renderDroplet: async (name, event) => {
         reads.push(["load", await event.request.json()]);
-        return { html: `<p>${name}</p>`, serverData: null };
+        return { html: `<p>${name}</p>`, hasLoad: false as const, serverData: null };
       },
       transformDroplet: async (_name, event) => {
         reads.push(["transform", await event.request.clone().json()]);
@@ -3033,7 +3060,7 @@ describe("createDropletsApp: render.timeout", () => {
         },
       renderDroplet: async (name, event) => {
         loaded = event.request;
-        return { html: name, serverData: null };
+        return { html: name, hasLoad: false as const, serverData: null };
       },
     });
     expect((await app.request("/droplets/hello")).status).toBe(200);
@@ -3047,7 +3074,7 @@ describe("createDropletsApp: render.timeout", () => {
       building: true,
       renderDroplet: async () => {
         await sleep(60);
-        return { html: "<p>built</p>", serverData: null };
+        return { html: "<p>built</p>", hasLoad: false as const, serverData: null };
       },
     });
     const res = await app.request("http://droplets.build/droplets/hello", {
@@ -3080,7 +3107,11 @@ describe("createDropletsApp: render.timeout", () => {
     const { app } = fakeApp({
       render,
       findAction: readingAction,
-      renderDroplet: async (_name, event) => ({ html: `<p>${String(event.request.body === null)}</p>`, serverData: null }),
+      renderDroplet: async (_name, event) => ({
+        html: `<p>${String(event.request.body === null)}</p>`,
+        hasLoad: false as const,
+        serverData: null,
+      }),
     });
     const res = await app.request(actionPost());
     expect(res.status).toBe(200);
@@ -3477,5 +3508,143 @@ describe("createDropletsApp: the route table", () => {
       sources.set(file, source);
       for (const name of tests) expect(source, `${route}: ${file}`).toContain(`"${name}"`);
     }
+  });
+});
+
+describe("createDropletsApp: the data and the server payload", () => {
+  /** A droplet with a load in `+droplet.ts`, rendered as the SSR bundle renders it. */
+  function withLoad(overrides: Partial<DropletsAppOptions> = {}) {
+    const renderDroplet = vi.fn(async (_name: string, event: LoadEvent, options?: { form?: unknown; encodeData?: boolean }) => {
+      const data = { greeting: `Hello ${String(event.props["who"])}!`, at: new Date(0) };
+      const wire = {
+        value: { greeting: data.greeting, at: "1970-01-01T00:00:00.000Z" },
+        transported: [[["at"], "Date"]] as Array<[string[], string]>,
+      };
+      return { html: "<p>card</p>", data, serverData: { who: event.props["who"] }, ...(options?.encodeData ? { dataWire: wire } : {}) };
+    });
+    const { app } = fakeApp({
+      renderDroplet,
+      loadDropletData: async (_name: string, event: LoadEvent) => ({ data: { who: event.props["who"] } as unknown }),
+      ...overrides,
+    });
+    return { app, renderDroplet };
+  }
+  const prerendered = (name: string) => ({ exists: true, ssr: name !== "spa-docs", hydrate: true as const, prerender: true });
+  const stored = {
+    html: "<p>stored</p>",
+    data: { who: "Build" },
+    loadResult: {
+      data: { greeting: "Hello Build!", at: "1970-01-01T00:00:00.000Z" },
+      transported: [[["at"], "Date"]] as Array<[string[], string]>,
+    },
+  };
+  const DATA = { data: { greeting: "Hello Ana!", at: "1970-01-01T00:00:00.000Z" }, transported: [[["data", "at"], "Date"]] };
+  const SERVER = { server: { who: "Ana" } };
+
+  /** The data payloads of a fragment, by name; never more than one. */
+  async function payloads(res: Response): Promise<{ data?: unknown; server?: unknown }> {
+    const html = await res.text();
+    expect(html.match(/data-droplet-payload="(data|server)"/g)?.length ?? 0, "data payloads").toBeLessThanOrEqual(1);
+    const found: { data?: unknown; server?: unknown } = {};
+    for (const name of ["data", "server"] as const) {
+      const value = payload({ html, payload: name });
+      if (value !== undefined) found[name] = value;
+    }
+    return found;
+  }
+
+  it("puts load's result in the data payload after a live render, and asks the render for it", async () => {
+    const { app, renderDroplet } = withLoad();
+    expect(await payloads(await app.request("/droplets/hello?who=Ana"))).toEqual({ data: DATA });
+    expect(renderDroplet.mock.calls[0]?.[2]).toEqual({ encodeData: true });
+  });
+
+  it("puts the server data in the server payload with render.rerunLoad, and never asks for load's result", async () => {
+    const { app, renderDroplet } = withLoad({ render: { timeout: 5000, rerunLoad: true } });
+    expect(await payloads(await app.request("/droplets/hello?who=Ana"))).toEqual({ server: SERVER });
+    expect(renderDroplet.mock.calls[0]?.[2]).toEqual({});
+  });
+
+  it("puts the server data in the server payload where the server ran no load: ssr = false and ?noSSR", async () => {
+    const { app } = withLoad();
+    expect(await payloads(await app.request("/droplets/spa?who=Ana"))).toEqual({ server: SERVER });
+    expect(await payloads(await app.request("/droplets/hello?who=Ana&noSSR"))).toEqual({ server: SERVER });
+  });
+
+  it("puts the error in the data payload, with render.rerunLoad too", async () => {
+    for (const render of [undefined, { timeout: 5000, rerunLoad: true }]) {
+      const { app } = withLoad({
+        render,
+        renderDroplet: async () => ({ failed: true as const, error: { message: "Sorry" } }),
+        renderError: async () => ({ html: "<p>sorry</p>" }),
+      });
+      expect(await payloads(await app.request("/droplets/hello"))).toEqual({ data: { error: { message: "Sorry" } } });
+    }
+  });
+
+  it("writes no data payload for hydrate = false or clientOnly", async () => {
+    const { app } = withLoad();
+    expect(await payloads(await app.request("/droplets/static?who=Ana"))).toEqual({});
+    expect(await payloads(await app.request("/droplets/hello?who=Ana&clientOnly"))).toEqual({});
+  });
+
+  it("serves a stored render's load result in the data payload, and its server data with rerunLoad or ?noSSR", async () => {
+    const { app } = withLoad({ getDropletMeta: prerendered, loadPrerendered: async () => stored });
+    expect(await payloads(await app.request("/droplets/docs"))).toEqual({
+      data: { data: stored.loadResult.data, transported: [[["data", "at"], "Date"]] },
+    });
+    expect(await payloads(await app.request("/droplets/docs?noSSR"))).toEqual({ server: { server: { who: "Build" } } });
+    const rerun = withLoad({
+      getDropletMeta: prerendered,
+      loadPrerendered: async () => stored,
+      render: { timeout: 5000, rerunLoad: true },
+    });
+    expect(await payloads(await rerun.app.request("/droplets/docs"))).toEqual({ server: { server: { who: "Build" } } });
+    // A render the build stored without load's result (a build with rerunLoad): the server payload.
+    const { loadResult: _loadResult, ...without } = stored;
+    const older = withLoad({ getDropletMeta: prerendered, loadPrerendered: async () => without });
+    expect(await payloads(await older.app.request("/droplets/docs"))).toEqual({ server: { server: { who: "Build" } } });
+  });
+
+  it("keeps the data payload of a droplet without a load as it always was, whatever rerunLoad and ssr say", async () => {
+    for (const render of [undefined, { timeout: 5000, rerunLoad: true }]) {
+      const { app } = fakeApp({ render });
+      const data = { data: { name: "hello", props: { who: "Ana" } } };
+      expect(await payloads(await app.request("/droplets/hello?who=Ana"))).toEqual({ data });
+      expect(await payloads(await app.request("/droplets/hello?who=Ana&noSSR"))).toEqual({ data });
+      expect(await payloads(await app.request("/droplets/spa?who=Ana"))).toEqual({
+        data: { data: { name: "spa", props: { who: "Ana" } } },
+      });
+    }
+  });
+
+  it("hands the build both wire forms of a render, and load's result only when it goes into the HTML", async () => {
+    const build = async (overrides: Partial<DropletsAppOptions>) =>
+      (await (
+        await withLoad({ building: true, ...overrides }).app.request("http://droplets.build/droplets/hello", { method: "POST" })
+      ).json()) as Record<string, unknown>;
+    expect(await build({})).toMatchObject({
+      data: {},
+      loadResult: { data: { greeting: "Hello undefined!", at: "1970-01-01T00:00:00.000Z" }, transported: [[["at"], "Date"]] },
+    });
+    expect(await build({ render: { timeout: 5000, rerunLoad: true } })).not.toHaveProperty("loadResult");
+    expect(await build({ getDropletMeta: () => ({ exists: true, ssr: true, hydrate: false }) })).not.toHaveProperty("loadResult");
+  });
+
+  it("swaps a stored render's tokens over load's result and its table too", async () => {
+    const tokens = replacers.hostTokens({ nonce: "0123456789abcdef" });
+    const { app } = withLoad({
+      getDropletMeta: prerendered,
+      loadPrerendered: async () => ({
+        html: "<p>docs</p>",
+        data: {},
+        loadResult: { data: { [tokens.location]: "1970-01-01T00:00:00.000Z" }, transported: [[[tokens.location], "Date"]] },
+        nonce: "0123456789abcdef",
+      }),
+    });
+    const res = await app.request("/droplets/docs", { headers: { "x-droplet-location": "http://localhost/mfe" } });
+    expect(await payloads(res)).toEqual({
+      data: { data: { "http://localhost/mfe": "1970-01-01T00:00:00.000Z" }, transported: [[["data", "http://localhost/mfe"], "Date"]] },
+    });
   });
 });

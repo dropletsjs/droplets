@@ -186,6 +186,7 @@ type SetStateInput = { element: DjsDropletElement; state: DevElementState };
 type FollowServerLoadInput = { droplet: string; payload: DropletUpdatePayload };
 type FollowHydrateInput = { droplet: string; hydrate: HydrateMode };
 type ArrivalInput = { element: DjsDropletElement; droplet: string };
+type HasInlineDataInput = { element: DjsDropletElement };
 type ReadUpdateInput = { value: unknown };
 type HotUpdateInput = { element: DevDropletElement; droplet: string; payload: DropletUpdatePayload };
 type SubscribeInput = { element: DjsDropletElement; droplet: string };
@@ -324,6 +325,14 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
     else env.hydration.set(droplet, hydrate);
   }
 
+  /** Whether the element carries a data payload: `data` or `server`. */
+  function hasInlineData({ element }: HasInlineDataInput): boolean {
+    return (
+      element._readInline({ selector: '[data-droplet-payload="data"]' }).found ||
+      element._readInline({ selector: '[data-droplet-payload="server"]' }).found
+    );
+  }
+
   /**
    * How the element reached the page. A server fragment carries its context
    * (`[data-droplet-payload="context"]` or `data-droplet-context`), or, for
@@ -338,8 +347,7 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
       element.dataset["dropletContext"] !== undefined ||
       (element.dataset["dropletBuild"] !== undefined && markup > 0);
     if (!fromServer) return "client";
-    const clientOnly =
-      env.hydration.has(droplet) && markup === 0 && !element._readInline({ selector: '[data-droplet-payload="data"]' }).found;
+    const clientOnly = env.hydration.has(droplet) && markup === 0 && !hasInlineData({ element });
     return clientOnly ? "client" : "fragment";
   }
 
@@ -582,7 +590,7 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
       after: element._modeOf({ flag: after.hydrate, hasMarkup }),
       life,
     });
-    if (action === "hydrate" && !element._readInline({ selector: '[data-droplet-payload="data"]' }).found) {
+    if (action === "hydrate" && !hasInlineData({ element })) {
       // Markup that was never to hydrate came without its data: the server
       // renders it again with the data inline, and that hydrates.
       return element.update(payload);

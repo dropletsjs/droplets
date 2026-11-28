@@ -201,3 +201,61 @@ describe("entry-server: entries", () => {
     }
   });
 });
+
+describe("entry-server: load's result in its wire form", () => {
+  const renderer = { render: () => "<p>x</p>" };
+  const event = () =>
+    ({ request: new Request("http://drops.test/droplets/card"), props: {}, host: new URL("https://shop.test/") }) as LoadEvent;
+  type CardInput = { load?: (event: { data: unknown }) => unknown };
+  const card = ({ load }: CardInput) => ({
+    component: async () => ({}),
+    renderer,
+    error: async () => ({}),
+    serverLoad: async () => ({ load: () => ({ who: "Ana", at: new Date(0) }) }),
+    load: async () => (load ? { load } : { props: {} }),
+  });
+
+  it("encodes load's result when the render is asked for it, its transported values listed", async () => {
+    const { renderDroplet } = await entryServer({ droplets: { card: card({ load: ({ data }) => ({ data, seen: new Set([1]) }) }) } });
+    const result = await renderDroplet("card", event(), { encodeData: true });
+    expect(result?.failed).toBeUndefined();
+    expect(result?.hasLoad).toBeUndefined();
+    expect(result?.dataWire).toEqual({
+      value: { data: { who: "Ana", at: "1970-01-01T00:00:00.000Z" }, seen: [1] },
+      transported: [
+        [["data", "at"], "Date"],
+        [["seen"], "Set"],
+      ],
+    });
+  });
+
+  it("leaves load's result unchecked when it is not asked for: a function in it still renders", async () => {
+    const { renderDroplet } = await entryServer({ droplets: { card: card({ load: ({ data }) => ({ data, format: () => "x" }) }) } });
+    const result = await renderDroplet("card", event());
+    expect(result?.failed).toBeUndefined();
+    expect(result?.html).toBe("<p>x</p>");
+    expect(result?.dataWire).toBeUndefined();
+  });
+
+  it("answers a load result the payload contract refuses with the error page, naming the path", async () => {
+    vi.stubEnv("DEV", true);
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { renderDroplet } = await entryServer({ droplets: { card: card({ load: ({ data }) => ({ data, format: () => "x" }) }) } });
+    const result = await renderDroplet("card", event(), { encodeData: true });
+    expect(result?.failed).toBe(true);
+    expect(String((result?.error as { message?: string } | undefined)?.message)).toContain("load result");
+    expect(String((result?.error as { message?: string } | undefined)?.message)).toContain("format");
+    expect(logged).toHaveBeenCalled();
+    logged.mockRestore();
+  });
+
+  it("gives the server data's wire form as load's without a load, and says so", async () => {
+    const { renderDroplet, loadDropletData } = await entryServer({ droplets: { card: card({}) } });
+    const result = await renderDroplet("card", event());
+    expect(result?.hasLoad).toBe(false);
+    expect(result?.dataWire).toBe(result?.serverWire);
+    expect(await loadDropletData("card", event())).toMatchObject({ hasLoad: false });
+    const { loadDropletData: withLoad } = await entryServer({ droplets: { card: card({ load: ({ data }) => data }) } });
+    expect(await withLoad("card", event())).not.toHaveProperty("hasLoad");
+  });
+});

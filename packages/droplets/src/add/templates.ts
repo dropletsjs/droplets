@@ -19,7 +19,7 @@ export type DropletFile = "server" | "universal" | "error" | "css";
 
 export const DROPLET_FILES: readonly { value: DropletFile; label: string; hint: string }[] = [
   { value: "server", label: "+droplet.server.ts", hint: "a server load: secrets, databases, locals" },
-  { value: "universal", label: "+droplet.ts", hint: "a props schema and a load that runs on both sides" },
+  { value: "universal", label: "+droplet.ts", hint: "a props schema and a load the component hydrates with" },
   { value: "error", label: "+error", hint: "the error page, in the same framework" },
   { value: "css", label: "styles", hint: "a stylesheet scoped to the droplet" },
 ];
@@ -115,8 +115,9 @@ function universalModule(context: Context): string {
   const lines: string[] = ['import type { DropletLoadEvent } from "./$types";', ""];
   lines.push(
     "/**",
-    " * Runs on the server before rendering and in the browser before hydrating",
-    " * or mounting. `export const props = <schema>` (zod, valibot, …) checks the",
+    " * Runs on the server before rendering: the browser hydrates with its result.",
+    " * It runs in the browser only where no server did (a client-only mount, a",
+    " * refresh). `export const props = <schema>` (zod, valibot, …) checks the",
     " * caller's props before any load.",
     " */",
   );

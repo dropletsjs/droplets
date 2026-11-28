@@ -74,7 +74,7 @@ describe("resolveConfig", () => {
       publicCacheControl: "no-cache",
       csrf: { checkOrigin: true },
       limits: DEFAULTS.limits,
-      render: { timeout: 5000 },
+      render: { timeout: 5000, rerunLoad: false },
       errorFormat: "agent",
       server: { port: DEFAULTS.serverPort },
     });
@@ -148,9 +148,30 @@ describe("resolveConfig", () => {
 
   it("takes render.timeout from 0 to the longest timer, or Infinity; render: {} is the default", () => {
     for (const timeout of [0, 2147483647, Number.POSITIVE_INFINITY]) {
-      expect(resolveConfig({ render: { timeout } }).render, String(timeout)).toEqual({ timeout });
+      expect(resolveConfig({ render: { timeout } }).render, String(timeout)).toEqual({ timeout, rerunLoad: false });
     }
-    expect(resolveConfig({ render: {} }).render).toEqual({ timeout: 5000 });
+    expect(resolveConfig({ render: {} }).render).toEqual({ timeout: 5000, rerunLoad: false });
+  });
+
+  it("takes render.rerunLoad as true or false, false by default, apart from timeout", () => {
+    expect(resolveConfig({ render: { rerunLoad: true } }).render).toEqual({ timeout: 5000, rerunLoad: true });
+    expect(resolveConfig({ render: { timeout: 0, rerunLoad: false } }).render).toEqual({ timeout: 0, rerunLoad: false });
+  });
+
+  it("refuses a render.rerunLoad that is not a boolean, with its own code", () => {
+    const cases: Array<[unknown, string]> = [
+      ["true", '"true"'],
+      [1, "1"],
+      [null, "null"],
+    ];
+    for (const [rerunLoad, shown] of cases) {
+      expect(() => resolveConfig({ render: { rerunLoad: rerunLoad as never } }), shown).toThrow(
+        expect.objectContaining({
+          code: "render-rerun-load-not-boolean",
+          message: expect.stringContaining(`  what: render.rerunLoad must be true or false, got ${shown}\n`),
+        }),
+      );
+    }
   });
 
   it("refuses any other render or render.timeout, naming the range", () => {

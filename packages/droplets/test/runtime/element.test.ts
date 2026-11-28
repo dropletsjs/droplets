@@ -22,6 +22,12 @@ describe("dropletElement", () => {
     expect(out).toContain('<script type="application/text" data-droplet-payload="data">ZGF0YQ==</script>');
   });
 
+  it("names the data payload server when asked, and writes one data payload only", async () => {
+    const out = String(await dropletElement({ ...base, dropletData: "ZGF0YQ==", dataPayload: "server" }));
+    expect(out).toContain('<script type="application/text" data-droplet-payload="server">ZGF0YQ==</script>');
+    expect(out).not.toContain('data-droplet-payload="data"');
+  });
+
   it("stamps the build and marks error pages", async () => {
     const out = String(await dropletElement({ ...base, build: "abc123", error: true }));
     expect(out.startsWith('<djs-droplet data-droplet="hello" data-droplet-build="abc123" data-droplet-error>')).toBe(true);

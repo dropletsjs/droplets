@@ -40,7 +40,9 @@ The demo's `hello` is a Svelte droplet whose server load greets `who`.
 <LiveDroplet id="hello" props={{ who: "docs reader" }} caption="This is a live droplet served by apps/demo: rendered on its server, hydrated here." />
 
 `vite build` turns the folders into one droplets server. An optional
-`+droplet.ts` holds a props schema and a load that runs on both sides.
+`+droplet.ts` holds a props schema and a load that shapes the server data on
+the server; the browser hydrates with its result and runs it only when no
+server did.
 
 Every droplet is server-rendered (unless it opts out), carries its own data
 inline, and is bundled on its own: the browser fetches
@@ -97,8 +99,8 @@ on any page that embeds a droplet.
 
 ## Where it comes from
 
-Droplets grew out of [SvelteKit](https://svelte.dev/docs/kit) and keeps the patterns that work there: `+` files, `load` on the server and
-on both sides, form actions with `fail()` and `redirect()`,
+Droplets grew out of [SvelteKit](https://svelte.dev/docs/kit) and keeps the patterns that work there: `+` files, a server `load` and a
+universal one, form actions with `fail()` and `redirect()`,
 `hooks.server.ts` and `hooks.client.ts`, `$droplets/env/*`, prerendering
 with `entries`. They are reshaped for islands of server-rendered HTML that
 live inside someone else's page, served by any stack and written in any of

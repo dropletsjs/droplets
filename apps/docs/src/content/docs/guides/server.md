@@ -151,10 +151,12 @@ included, gives `null`. `handle` may still set any `URL` it likes;
 
 ### In the browser
 
-The universal load's `host` is the page itself (`window.location`, without
-its `#hash`), read when the droplet mounts. It does not follow a
-single-page app's navigation afterwards. A universal load that renders from
-`host.pathname` hydrates cleanly only when the server got the same path.
+Where the universal load runs in the browser (a refresh, a client-only
+mount, [`render.rerunLoad`](/guides/configuration/#where-load-runs)), its
+`host` is the page itself (`window.location`, without its `#hash`), read
+when the droplet mounts. It does not follow a single-page app's navigation
+afterwards. A droplet hydrates with the result the server's load made from
+the `host` the server got.
 
 While prerendering, see [`host` at build](/guides/prerendering/#host-at-build).
 

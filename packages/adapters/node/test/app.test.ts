@@ -64,7 +64,7 @@ describe("createNodeServerApp", () => {
     const docsData = docs.match(/data-droplet-payload="data">([^<]+)</)?.[1];
     // Stored without a host: the token, replaced by this request's host.
     expect(docsData && decode({ base64: docsData })).toEqual({
-      data: { page: 2, building: true, hooked: true, home: "http://drops.test/home" },
+      data: { page: 2, title: "Page 2", building: true, hooked: true, home: "http://drops.test/home" },
     });
     // ...server-only: never in the public client build, never served.
     expect(existsSync(resolve(outDir, "server/_prerendered/docs/index.json"))).toBe(true);

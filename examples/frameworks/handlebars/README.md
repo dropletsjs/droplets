@@ -12,7 +12,7 @@ One droplets server, every droplet in Handlebars, rendered in the custom element
 
 Each shows the `card` partial (`partials/card.hbs`) and `lib/card-data.ts`, with:
 
-- **loads**: `+droplet.server.ts` (`lib/server/facts.ts`) on the server, `+droplet.ts` on both sides, behind the props schema in `lib/props.ts`;
+- **loads**: `+droplet.server.ts` (`lib/server/facts.ts`) on the server, `+droplet.ts` on the server (in the browser where no server ran it), behind the props schema in `lib/props.ts`;
 - **endpoints**: `src/api/*/+server.ts` (a shared counter, the time, a greeting, what the private variables tell), which the other examples call from the browser and a host can call too;
 - **the error page**: `?who=crash` makes the load throw, and `handleError` decides what `+error.hbs` shows;
 - **env**: one variable of each kind in `src/env.ts`, with demo values in `.env`;

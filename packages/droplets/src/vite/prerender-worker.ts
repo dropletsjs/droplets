@@ -35,10 +35,12 @@ export type PrerenderWorkerData = {
   styles: Record<string, string[]>;
   /** `fragmentCacheControl` of the config, as the server answers with it. */
   fragmentCacheControl: string | false;
+  /** `render.rerunLoad` of the config: which data payload a render puts in its HTML. */
+  rerunLoad: boolean;
   errorFormat: ErrorFormat;
 };
 
-const { ssrEntry, element, buildHash, location, host, env, renders, styles, fragmentCacheControl, errorFormat } =
+const { ssrEntry, element, buildHash, location, host, env, renders, styles, fragmentCacheControl, rerunLoad, errorFormat } =
   workerData as PrerenderWorkerData;
 
 (globalThis as { [BUILDING]?: boolean })[BUILDING] = true;
@@ -66,6 +68,7 @@ const app = createDropletsApp({
   ...(ssr.tokens === undefined ? {} : { tokens: ssr.tokens }),
   ...(ssr.encodePayload ? { encodePayload: ssr.encodePayload } : {}),
   building: true,
+  render: { timeout: Number.POSITIVE_INFINITY, rerunLoad },
   location,
   // An entry without `host` renders for this one: the app knows it.
   host,
@@ -101,7 +104,7 @@ function servingApp(): DropletsApp {
     location,
     host,
     fragmentCacheControl,
-    render: { timeout: Number.POSITIVE_INFINITY },
+    render: { timeout: Number.POSITIVE_INFINITY, rerunLoad },
   });
   return serving;
 }

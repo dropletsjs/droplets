@@ -4,8 +4,9 @@ import type { DropletLoadEvent } from "./$types";
 export { props } from "../../lib/props.ts";
 
 /**
- * Runs on both sides, after the server load: on the server before
- * rendering, in the browser before hydrating or mounting. Shapes server
- * data for the component without a second request: the greeting the card shows.
+ * Runs after the server load, on the server before rendering: the browser
+ * hydrates with its result, without a second request. It runs in the browser
+ * only where no server did (a client-only mount, a refresh). Shapes server
+ * data for the component: the greeting the card shows.
  */
 export const load = ({ data }: DropletLoadEvent) => ({ ...data, greeting: `Hello ${data.who}!` });

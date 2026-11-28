@@ -70,7 +70,9 @@
  *   +droplet.ts                 load({ data }) → { ...data, greeting: `Hello ${data.who}!`, kinds }, with
  *                                 kinds = [data.tags.get("a"), data.seen.has(1), data.link.hostname,
  *                                 String(data.big + 1n), data.when.toISOString(), data.price.format()].join(" ")
- *                                 (read through their methods, so it fails unless they arrive as themselves)
+ *                                 (read through their methods, so it fails unless they arrive as themselves);
+ *                                 first pushes data.who to globalThis.conformanceLoads when that is an array
+ *                                 (the suite sets it in the browser, to count the runs there)
  *                               handleError({ error }) → { error: { message: `[hello] ${error.message}` } }
  *   +error.<ext>                Renders:
  *                                 <p data-testid="error">{error.message}</p>
@@ -171,9 +173,9 @@ export type ConformanceOptions = {
   outDir?: string;
 };
 
-type PayloadInput = { html: string; payload: "data" | "context" };
+type PayloadInput = { html: string; payload: "data" | "server" | "context" };
 
-/** The inline payload of a fragment (`data-droplet-payload="data"` or `"context"`), decoded; `undefined` when absent. */
+/** The inline payload of a fragment (`data-droplet-payload="data"`, `"server"` or `"context"`), decoded; `undefined` when absent. */
 function payload({ html, payload }: PayloadInput): unknown {
   const match = html.match(new RegExp(`data-droplet-payload="${payload}">([^<]+)<`))?.[1];
   return match ? JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(match), (c) => c.charCodeAt(0)))) : undefined;
@@ -382,9 +384,11 @@ export function rendererConformance({
         expect(bare({ html: posted })).toContain("Hello Posted!");
       });
 
-      it("inlines the server data and the context for the browser", async () => {
+      it("inlines load's result and the context for the browser", async () => {
         const html = await (await get({ path: "/droplets/hello?who=Ana" })).text();
-        expect(payload({ html, payload: "data" })).toMatchObject({ data: { who: "Ana" } });
+        // What the component hydrates with: load's result, the one data payload.
+        expect(payload({ html, payload: "data" })).toMatchObject({ data: { who: "Ana", greeting: "Hello Ana!", kinds: KINDS } });
+        expect(payload({ html, payload: "server" })).toBeUndefined();
         expect(payload({ html, payload: "context" })).toEqual({ host: `${origin}/`, props: { who: "Ana" } });
         // `_data` answers the server load alone.
         const data = await post({ path: "/droplets/hello/_data", body: { props: { who: "Ana" } } });
@@ -810,7 +814,10 @@ export function rendererConformance({
     });
 
     describe("in the browser", () => {
-      type Element = HTMLElement & { update(payload: { droplet: string }): Promise<void> };
+      type Element = HTMLElement & {
+        update(payload: { droplet: string }): Promise<void>;
+        updateForm(input: { form: unknown }): Promise<void>;
+      };
       let fetches: string[] = [];
       /** Every request, as the browser sent it. */
       let requests: { url: string; method: string; type: string; accept: string }[] = [];
@@ -1224,7 +1231,7 @@ export function rendererConformance({
         });
       });
 
-      it("hands the browser's load the Date, Map, Set, URL, BigInt and Money the server sent, hydrated and through _data", async () => {
+      it("hands the component the Date, Map, Set, URL, BigInt and Money of load's result, hydrated, and the browser's load those of _data", async () => {
         const el = mount({ html: await withChildren({ path: "/droplets/hello?who=Ana", kid: "kid-kinds" }) });
         if (interactive) await clickUntilLive({ el });
         else await settle();
@@ -1234,6 +1241,31 @@ export function rendererConformance({
         const mounted = mount({ html: `<${element} data-droplet="hello" data-droplet-props='{"who":"Ana"}'></${element}>` });
         await until({ check: () => expect(find({ root: mounted, selector: "[data-testid=kinds]" })?.textContent).toBe(KINDS) });
         expect(find({ root: mounted, selector: "[data-testid=error]" })).toBeNull();
+      });
+
+      it("hydrates with load's result from the server, never running load in the browser; a refresh and a client-only mount run it", async () => {
+        const runs: string[] = [];
+        const counter = globalThis as { conformanceLoads?: string[] };
+        counter.conformanceLoads = runs;
+        try {
+          const el = mount({ html: await withChildren({ path: "/droplets/hello?who=Lea", kid: "kid-loads" }) });
+          if (interactive) await clickUntilLive({ el });
+          else await settle();
+          expect(find({ root: el, selector: "[data-testid=greeting]" })?.textContent).toBe("Hello Lea!");
+          expect(find({ root: el, selector: "[data-testid=kinds]" })?.textContent).toBe(KINDS);
+          expect(runs, "load ran in the browser at hydrate").toEqual([]);
+          // An enhanced form's refresh: the loads again, through `_data`.
+          await el.updateForm({ form: undefined });
+          await until({
+            check: () => expect(runs, "the fixture's +droplet.ts load pushes no data.who to globalThis.conformanceLoads").toEqual(["Lea"]),
+          });
+          await until({ check: () => expect(find({ root: el, selector: "[data-testid=greeting]" })?.textContent).toBe("Hello Lea!") });
+          const mounted = mount({ html: `<${element} data-droplet="hello" data-droplet-props='{"who":"Max"}'></${element}>` });
+          await until({ check: () => expect(runs).toEqual(["Lea", "Max"]) });
+          await until({ check: () => expect(find({ root: mounted, selector: "[data-testid=greeting]" })?.textContent).toBe("Hello Max!") });
+        } finally {
+          delete counter.conformanceLoads;
+        }
       });
 
       it("shows the error page for a load that fails in the browser", async () => {

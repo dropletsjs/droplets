@@ -131,7 +131,7 @@ describe("worker", () => {
     expect(docs).toContain("<h1>Page 2</h1>");
     const data = docs.match(/data-droplet-payload="data">([^<]+)</)?.[1];
     expect(data && JSON.parse(Buffer.from(data, "base64").toString("utf8"))).toEqual({
-      data: { page: 2, building: true, hooked: true, home: "http://drops.test/home" },
+      data: { page: 2, title: "Page 2", building: true, hooked: true, home: "http://drops.test/home" },
     });
     const source = await readFile(resolve(outDir, "worker.js"), "utf8");
     expect(source).not.toContain("<h1>Page 2</h1>");

@@ -18,6 +18,7 @@ type FakeAppInput = Partial<DropletsAppOptions>;
 function fakeApp(overrides: FakeAppInput = {}) {
   const renderDroplet = vi.fn(async (name: string, event: LoadEvent) => ({
     html: `<p>${name}:${JSON.stringify(event.props)}</p>`,
+    hasLoad: false as const,
     serverData: { props: event.props },
   }));
   const handled = vi.fn();

@@ -40,6 +40,13 @@ describe("decodePayload", () => {
     expect((decodePayload({ envelope })["form"] as { at: unknown }).at).toEqual(new Date(0));
   });
 
+  it("decodes the server payload's data under server", () => {
+    const server = encodePayload({ value: { tags: new Set(["a"]) }, what: "server data" });
+    const envelope = JSON.parse(JSON.stringify(wireEnvelope({ parts: { server } })));
+    expect(envelope.transported).toEqual([[["server", "tags"], "Set"]]);
+    expect((decodePayload({ envelope })["server"] as { tags: unknown }).tags).toEqual(new Set(["a"]));
+  });
+
   it("refuses a table it cannot apply, whole", () => {
     const base = () => ({ data: { at: "1970-01-01T00:00:00.000Z", list: ["x"], nested: { deep: "y" } } }) as Record<string, unknown>;
     const tables: Array<[unknown, RegExp]> = [
@@ -51,8 +58,8 @@ describe("decodePayload", () => {
       [[[["data", "at"], "Money"]], /no transport named "Money"/],
       [[[["data", "at"], "toString"]], /no transport named "toString"/],
       [[[["data", "at"], "__proto__"]], /no transport named "__proto__"/],
-      [[[["error"], "Date"]], /outside data and form/],
-      [[[["transported"], "Set"]], /outside data and form/],
+      [[[["error"], "Date"]], /outside data, server and form/],
+      [[[["transported"], "Set"]], /outside data, server and form/],
       [[[["data", "__proto__"], "Date"]], /key the payload does not have/],
       [[[["data", "constructor"], "Date"]], /key the payload does not have/],
       [[[["data", "missing"], "Date"]], /key the payload does not have/],

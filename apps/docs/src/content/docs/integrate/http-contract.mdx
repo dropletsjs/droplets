@@ -83,7 +83,8 @@ default tag name):
 | `data-droplet-error` | Present when the markup is the error page. |
 | `data-droplet-context` | The context as an attribute, when there is no inline `data-droplet-payload="context"`: a fragment without server markup (`ssr = false`, `?noSSR`, `?clientOnly`). Absent for droplets that never hydrate. |
 | `data-droplet-payload="context"` | Base64 JSON `{ host, props }`, after the props schema: where it renders, and its props. Sent back when the browser needs `_data`. Present whenever the fragment has server markup, a prerendered render of an `ssr = false` droplet included; absent for droplets that never hydrate. |
-| `data-droplet-payload="data"` | Base64 JSON envelope, `{ "data": … }` or `{ "error": … }`, with `"transported"` when the data holds [transported values](#transported-values). Its presence tells the browser the server load ran. Absent for droplets that never hydrate and for `clientOnly`. |
+| `data-droplet-payload="data"` | Base64 JSON envelope, `{ "data": … }` or `{ "error": … }`, with `"transported"` when the data holds [transported values](#transported-values). `data` is what the component gets: the result of `+droplet.ts`'s `load` on the server, or the server load's data for a droplet without one. The browser hydrates with it as it is and runs no `load`. Absent for droplets that never hydrate and for `clientOnly`; the error is always here. |
+| `data-droplet-payload="server"` | Base64 JSON envelope, `{ "server": … }`, with `"transported"` as above: the server load's data, when the server did not run `+droplet.ts`'s `load` (`ssr = false`, `?noSSR`, a stored render under `rerunLoad`) or [`render.rerunLoad`](/guides/configuration/#where-load-runs) is `true`. The browser runs `load` over it before the component renders. A fragment carries one of the two data payloads, never both. |
 | `link[data-droplet-style]` | The droplet's `style.css`, inside the element, ahead of its markup, so the markup never shows unstyled and nothing goes into the host's `<head>`. Absent when the droplet has no styles. |
 | `[data-droplet-entry]` | The server-rendered markup. The browser hydrates it in place. |
 
@@ -93,14 +94,18 @@ renders again with the props and page of its action URL.
 
 A host adds its own content as one `<div data-droplet-slot>` before the closing
 tag; see [Host children](/guides/in-the-browser/#host-children). Hand-written
-`data-droplet-payload="data"` must use the envelope.
+`data-droplet-payload="data"` and `"server"` must use the envelope. Mind what
+`data` means: the component gets it as it is, without `load`. A host that
+writes server data by hand for `load` to shape writes it as
+`data-droplet-payload="server"`, `{ "server": … }`; under `"data"` it skips
+`load`, as `load`'s result.
 
 ### Transported values
 
 The fragment's data envelope, the `_data` answer and an action's JSON answer
 are plain JSON. A `Date`, `Map`, `Set`, `URL` or `BigInt` in the server
-load's data or an action's result travels in its JSON form, and the
-envelope lists where each one is under `"transported"`:
+load's data, `load`'s result or an action's result travels in its JSON form,
+and the envelope lists where each one is under `"transported"`:
 
 | Value | JSON form | Name |
 | --- | --- | --- |
@@ -123,7 +128,8 @@ envelope lists where each one is under `"transported"`:
 ```
 
 - Each entry is `[path, name]`: the path is a list of keys and array
-  indices from the envelope's root, starting at `"data"` or `"form"`.
+  indices from the envelope's root, starting at `"data"`, `"server"` or
+  `"form"`.
 - Inner values come first, so a reader that turns each entry back in order
   meets a `Set` inside a `Map` before the `Map`.
 - `"transported"` is absent when there is nothing to list: an envelope of
@@ -199,7 +205,8 @@ come with the JavaScript.
 ## `_data`
 
 `GET` or `POST /droplets/:id/_data` runs the props schema and the server load,
-and answers `{ "data": … }`, or `{ "error": … }` with a `500` when the load
+and answers `{ "data": … }` (the server load's data, which the browser runs
+`+droplet.ts`'s `load` over), or `{ "error": … }` with a `500` when the load
 failed (a `504` past `render.timeout`). When `host` carries a no-JavaScript action's result for the droplet,
 it is `{ "data": …, "form": … }` ([Post/Redirect/Get](#postredirectget)), with `"transported"` when either holds [transported values](#transported-values). `error()` and `redirect()` answer as they would for the fragment, the redirect's bound included (`400` `{ "message": … }` for a target off this site); the element fetches `_data` with `redirect: "manual"`, so a redirect reaches it as an opaque answer it logs and renders nothing for.
 Every answer carries `x-droplets-build`, as every fragment answer does,

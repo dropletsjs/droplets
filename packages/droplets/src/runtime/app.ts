@@ -69,6 +69,10 @@ export type RenderResult = {
   serverData?: unknown;
   /** `serverData` in its wire form, checked against the payload contract. */
   serverWire?: Encoded;
+  /** `data` in its wire form, when the render was asked for it (`encodeData`) or the droplet has no load. */
+  dataWire?: Encoded;
+  /** `+droplet.ts` exports no `load`: `data` is the server data. */
+  hasLoad?: false;
   /** The id core gave this render; the browser receives it to hydrate with. */
   renderId?: string;
   /** A load failed: `error` is for the error page, as it leaves the server. */
@@ -77,7 +81,7 @@ export type RenderResult = {
 };
 
 /** What the server load produced: `{ data }`, or the error for the error page. */
-export type DropletPayload = { data: unknown; wire?: Encoded; failed?: undefined } | { failed: true; error: unknown };
+export type DropletPayload = { data: unknown; wire?: Encoded; hasLoad?: false; failed?: undefined } | { failed: true; error: unknown };
 
 export type DropletMeta = {
   exists: boolean;
@@ -89,8 +93,15 @@ export type DropletMeta = {
 
 type MaybePromise<T> = T | Promise<T>;
 
-/** A render may carry an action's result: the component's `form`. */
-export type RenderDroplet = (name: string, event: LoadEvent, options?: { form?: unknown }) => MaybePromise<RenderResult | null>;
+/**
+ * A render may carry an action's result, the component's `form`, and be
+ * asked for `load`'s result in its wire form (`encodeData`).
+ */
+export type RenderDroplet = (
+  name: string,
+  event: LoadEvent,
+  options?: { form?: unknown; encodeData?: boolean },
+) => MaybePromise<RenderResult | null>;
 export type LoadDropletData = (name: string, event: LoadEvent) => MaybePromise<DropletPayload>;
 export type LoadClientModule = (name: string) => MaybePromise<string | null>;
 export type GetDropletMeta = (name: string) => MaybePromise<DropletMeta>;
@@ -114,6 +125,10 @@ export type PrerenderedDroplet = {
   data?: unknown;
   /** Where the transported values of `data` are, relative to it. */
   transported?: TransportedEntry[];
+  /** `load`'s result in its wire form, when the build put it in the HTML; `data` is its own table's root. */
+  loadResult?: { data?: unknown; transported?: TransportedEntry[] };
+  /** `+droplet.ts` exports no `load`: the component gets `data` as it is. */
+  hasLoad?: false;
   /** The id of the build-time render, for hydration. */
   renderId?: string;
   failed?: true;
@@ -234,8 +249,8 @@ export type DropletsAppOptions = {
   csrf?: { checkOrigin: boolean } | undefined;
   /** See `DropletsConfig.limits`. */
   limits?: BodyLimits | undefined;
-  /** See `DropletsConfig.render`. Default `{ timeout: 5000 }`. Ignored while building. */
-  render?: { timeout: number } | undefined;
+  /** See `DropletsConfig.render`. Default `{ timeout: 5000, rerunLoad: false }`; `timeout` is ignored while building. */
+  render?: { timeout: number; rerunLoad?: boolean | undefined } | undefined;
   /**
    * Internal: the SSR bundle's payload encoder, the author's transports
    * first. Default: the built-in transports alone.
@@ -973,12 +988,31 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
   const cacheControl = options.fragmentCacheControl === undefined ? DEFAULTS.fragmentCacheControl : options.fragmentCacheControl;
   const renderTimeout = options.building ? Number.POSITIVE_INFINITY : (options.render?.timeout ?? DEFAULTS.render.timeout);
   const encode = options.encodePayload ?? encodeBuiltins;
+  const rerunLoad = options.render?.rerunLoad ?? DEFAULTS.render.rerunLoad;
 
   type WireOfInput = { ctx: DropletContext; payload: { data: unknown; wire?: Encoded | undefined } };
 
   /** The server data in its wire form: as the SSR bundle encoded it, else encoded here. */
   async function wireOf({ ctx, payload }: WireOfInput): Promise<Encoded> {
     return payload.wire ?? (await encode({ value: payload.data, what: "server data", droplet: ctx.droplet }));
+  }
+
+  type WritesDataInput = { ctx: DropletContext };
+
+  /**
+   * Whether `load`'s result goes into the HTML for the component to hydrate
+   * with: the droplet hydrates, and `render.rerunLoad` does not run its load
+   * again in the browser.
+   */
+  function writesData({ ctx }: WritesDataInput): boolean {
+    return ctx.meta.hydrate !== false && !rerunLoad;
+  }
+
+  type DataWireOfInput = { ctx: DropletContext; result: RenderResult };
+
+  /** `load`'s result in its wire form: as the SSR bundle encoded it, else encoded here. */
+  async function dataWireOf({ ctx, result }: DataWireOfInput): Promise<Encoded> {
+    return result.dataWire ?? (await encode({ value: result.data, what: "load result", droplet: ctx.droplet }));
   }
 
   type FormWireInput = { ctx: DropletContext; form: unknown };
@@ -1438,9 +1472,13 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     const values = { host, location: ctx.dropletLocation };
     const html = tokens.replaceHostTokens({ html: found.html, values, tokens: stored });
     if (found.failed) return { ...found, html, error: tokens.replaceHostTokensInData({ data: found.error, values, tokens: stored }) };
-    // The tree and its table together: a key the tokens are in is in both.
-    const wire = tokens.replaceHostTokensInData({ data: { data: found.data, transported: found.transported }, values, tokens: stored });
-    return { ...found, html, data: wire.data, transported: wire.transported };
+    // The trees and their tables together: a key the tokens are in is in both.
+    const wire = tokens.replaceHostTokensInData({
+      data: { data: found.data, transported: found.transported, loadResult: found.loadResult },
+      values,
+      tokens: stored,
+    });
+    return { ...found, html, data: wire.data, transported: wire.transported, loadResult: wire.loadResult };
   }
 
   /**
@@ -1508,7 +1546,15 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
   /** A build-time render's payload: its server data stored in its wire form. */
   function storedPayload({ found }: StoredPayloadInput): DropletPayload {
     if (found.failed) return { failed: true, error: found.error };
-    return { data: found.data, wire: { value: found.data, transported: found.transported ?? [] } };
+    const wire = { value: found.data, transported: found.transported ?? [] };
+    return { data: found.data, wire, ...(found.hasLoad === false ? { hasLoad: false as const } : {}) };
+  }
+
+  type StoredDataInput = { found: PrerenderedDroplet };
+
+  /** A build-time render's `load` result in its wire form, when the build kept it. */
+  function storedData({ found }: StoredDataInput): Encoded | undefined {
+    return found.loadResult ? { value: found.loadResult.data, transported: found.loadResult.transported ?? [] } : undefined;
   }
 
   /** What the error page and `_data` get past `render.timeout`: `error(504)`'s status and message. */
@@ -1617,6 +1663,9 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
     let html = "";
     let renderId: string | undefined;
     let payload: DropletPayload = { data: undefined };
+    /** `load`'s result, when it goes into the HTML: the `data` payload instead of the `server` one. */
+    let dataWire: Encoded | undefined;
+    let payloadName: "data" | "server" = "data";
     let assets: FragmentAssets;
     let contextData: string;
     // What the load set, or what a build-time render kept.
@@ -1631,7 +1680,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
         const probe = c.get("hostProbe");
         let result: RenderResult | null;
         try {
-          result = await options.renderDroplet(ctx.droplet, ctx.event);
+          result = await options.renderDroplet(ctx.droplet, ctx.event, writesData({ ctx }) ? { encodeData: true } : {});
         } catch (error) {
           const violation = probe?.violation ?? c.get("prerenderViolation");
           if (isHostUrlPropsErrorInPrerender(error) || isCookiesInPrerenderError(error) || violation) {
@@ -1658,12 +1707,17 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
         // What the load set travels with the render, to be served with it.
         const headers = [...ctx.headers].length > 0 ? { headers: Object.fromEntries(ctx.headers) } : {};
         const wire = await wireOf({ ctx, payload: { data: result.serverData, wire: result.serverWire } });
+        const loaded = result.hasLoad !== false && writesData({ ctx }) ? await dataWireOf({ ctx, result }) : undefined;
         return c.json({
           key,
           html: result.html ?? result.body ?? "",
           renderId: result.renderId,
           data: wire.value,
           ...(wire.transported.length > 0 ? { transported: wire.transported } : {}),
+          ...(loaded
+            ? { loadResult: { data: loaded.value, ...(loaded.transported.length > 0 ? { transported: loaded.transported } : {}) } }
+            : {}),
+          ...(result.hasLoad === false ? { hasLoad: false } : {}),
           ...nonce,
           ...headers,
         });
@@ -1689,15 +1743,20 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
         if (found) {
           answerHeaders = storedHeaders({ value: found.headers });
           payload = storedPayload({ found });
+          if (!found.failed && found.hasLoad !== false && !ctx.noSSR && !rerunLoad) dataWire = storedData({ found });
           html = ctx.noSSR ? "" : found.html;
           renderId = found.renderId;
           rendered = true;
         } else if (ctx.meta.ssr && !ctx.noSSR) {
           const form = action?.form;
+          const encodeData = writesData({ ctx });
           const outcome = await withinDeadline({
             ctx,
             work: (event) =>
-              form === undefined ? options.renderDroplet(ctx.droplet, event) : options.renderDroplet(ctx.droplet, event, { form }),
+              options.renderDroplet(ctx.droplet, event, {
+                ...(form === undefined ? {} : { form }),
+                ...(encodeData ? { encodeData } : {}),
+              }),
           });
           const result = outcome.timedOut ? { failed: true as const, error: timeoutError() } : outcome.value;
           isTimedOut = outcome.timedOut;
@@ -1705,7 +1764,12 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
           if (result.failed) {
             payload = { failed: true, error: result.error };
           } else {
-            payload = { data: result.serverData, ...(result.serverWire ? { wire: result.serverWire } : {}) };
+            payload = {
+              data: result.serverData,
+              ...(result.serverWire ? { wire: result.serverWire } : {}),
+              ...(result.hasLoad === false ? { hasLoad: false as const } : {}),
+            };
+            if (encodeData && result.hasLoad !== false) dataWire = await dataWireOf({ ctx, result });
             html = result.html ?? result.body ?? "";
             renderId = result.renderId;
             rendered = true;
@@ -1733,13 +1797,23 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
       contextData = serializeBase64({ data: ctx.wire });
       // Always an envelope, even around `undefined`: its presence tells the
       // client the server ran and `_data` is not needed. Client-only fragments
-      // carry none, nor do components that never run in the browser. The
-      // action's result goes with the data, so hydration sees the `form` the
-      // server rendered with.
+      // carry none, nor do components that never run in the browser. One data
+      // payload only: `data`, what the component gets (`load`'s result, or the
+      // server data without a load), else `server`, the server data for the
+      // browser's `load`. The action's result goes with it, so hydration sees
+      // the `form` the server rendered with.
       if (ctx.meta.hydrate !== false && !ctx.clientOnly) {
-        envelope = payload.failed
-          ? { error: payload.error ?? null }
-          : wireEnvelope({ parts: { data: await wireOf({ ctx, payload }), form: await formWire({ ctx, form: action?.form }) } });
+        if (payload.failed) {
+          envelope = { error: payload.error ?? null };
+        } else {
+          const form = await formWire({ ctx, form: action?.form });
+          if (dataWire || payload.hasLoad === false) {
+            envelope = wireEnvelope({ parts: { data: dataWire ?? (await wireOf({ ctx, payload })), form } });
+          } else {
+            envelope = wireEnvelope({ parts: { server: await wireOf({ ctx, payload }), form } });
+            payloadName = "server";
+          }
+        }
       }
     } catch (error) {
       // `error()`, `redirect()`, props the schema refused, and failures the
@@ -1769,6 +1843,7 @@ export function createDropletsApp(options: DropletsAppOptions): DropletsApp {
         // Only server markup has an id to hydrate with.
         renderId: html ? renderId : undefined,
         dropletData: envelope ? serializeBase64({ data: liveData({ ctx, data: envelope }) }) : "",
+        dataPayload: payloadName,
         dropletContext: inlineContext,
         // Without an inline script the client reads the context off the attribute.
         contextAttr: inlineContext ? undefined : context || undefined,

@@ -92,6 +92,13 @@ export const RENDER_NOT_OBJECT = {
   fix: "write render as an object, or leave it out for the defaults",
 } satisfies AnyMessage;
 
+export const RENDER_RERUN_LOAD_NOT_BOOLEAN = {
+  code: "render-rerun-load-not-boolean",
+  level: "error",
+  what: ({ value }: { value: string }) => `render.rerunLoad must be true or false, got ${value}`,
+  fix: "write true to run +droplet.ts's load again in the browser at hydrate, false (the default) to hydrate with the result the server sent",
+} satisfies AnyMessage;
+
 export const RENDER_TIMEOUT_NOT_NUMBER = {
   code: "render-timeout-not-number",
   level: "error",
@@ -424,6 +431,10 @@ export const CONFIG_PAGES: ErrorPages = {
   "render-not-object": {
     when: "droplets.config.ts sets render to something other than an object.",
     see: "/guides/errors/#timeouts",
+  },
+  "render-rerun-load-not-boolean": {
+    when: "render.rerunLoad in droplets.config.ts is not a boolean.",
+    see: "/guides/configuration/#where-load-runs",
   },
   "render-timeout-not-number": {
     when: "render.timeout in droplets.config.ts is not a number (a string, NaN, null, a boolean).",

@@ -73,7 +73,7 @@ function build(narrow: boolean): Scene {
   d.rectUnder(browserMark, 8, browserTop, inner, browserBottom - browserTop + 14, "host", 8);
   const legendTop = browserBottom + 26;
   d.rect(8, legendTop, 22, 14, "drop", 3);
-  const end = d.para(38, legendTop - 1, d.w - 46, "in both bundles: rendered on the server, run again in the browser", "small");
+  const end = d.para(38, legendTop - 1, d.w - 46, "in both bundles: run on the server, and in the browser too", "small");
   return d.scene(end + 6);
 }
 ---

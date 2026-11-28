@@ -14,7 +14,7 @@ one adds a fourth, `guestbook`, for forms in a shadow root:
 
 Each of the first three extends `lib/Card.lit.ts`, a `DropletElement`, with:
 
-- **loads**: `+droplet.server.ts` (`lib/server/facts.ts`) on the server, `+droplet.ts` on both sides, behind the props schema in `lib/props.ts`;
+- **loads**: `+droplet.server.ts` (`lib/server/facts.ts`) on the server, `+droplet.ts` on the server (in the browser where no server ran it), behind the props schema in `lib/props.ts`;
 - **endpoints**: `src/api/*/+server.ts` (a shared counter, the time, a greeting, what the private variables tell), called through `$droplets/drop` in `lib/api.ts`;
 - **the error page**: `?who=crash` makes the load throw, and `handleError` decides what `+error.lit.ts` shows;
 - **env**: one variable of each kind in `src/env.ts`, with demo values in `.env`;

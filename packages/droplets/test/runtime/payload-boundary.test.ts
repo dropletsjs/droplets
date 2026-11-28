@@ -44,7 +44,7 @@ function boundaryApp(seen: Seen, overrides: Partial<DropletsAppOptions> = {}) {
   const renderDroplet: RenderDroplet = async (_name, event, options) => {
     seen.props = event.props;
     seen.form = options?.form;
-    return { html: "<p>x</p>", serverData: { ok: true } };
+    return { html: "<p>x</p>", hasLoad: false as const, serverData: { ok: true } };
   };
   const echo: Action = async ({ request }) => Object.fromEntries((await request.formData()).entries());
   return createDropletsApp({

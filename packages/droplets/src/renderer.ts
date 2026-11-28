@@ -25,8 +25,8 @@
  *   `handleError`, `entries`, `transform`), then `+droplet.ts` (`props`
  *   schema, `load`, `handleError`), then asks the renderer's
  *   {@link RendererServerModule.render} for HTML. The result is wrapped in
- *   the custom element with the inline payloads (`data-droplet-payload="data"`,
- *   `data-droplet-payload="context"`) and served as the fragment at `/droplets/<id>`.
+ *   the custom element with the inline payloads (`data-droplet-payload="data"`
+ *   or `"server"`, and `"context"`) and served as the fragment at `/droplets/<id>`.
  * - Builds one browser bundle per droplet (`/droplets/<id>/client.js`),
  *   generated from a template that imports the component, the
  *   `+droplet.ts` module and the renderer's {@link RendererClientModule}.

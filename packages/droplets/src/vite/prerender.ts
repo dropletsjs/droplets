@@ -32,6 +32,10 @@ type BuildRender = {
   /** The server data in its wire form, and where its transported values are. */
   data?: unknown;
   transported?: TransportedEntry[];
+  /** `load`'s result in its wire form, when it goes into the HTML. */
+  loadResult?: { data?: unknown; transported?: TransportedEntry[] };
+  /** `+droplet.ts` exports no `load`. */
+  hasLoad?: false;
   failed?: true;
   error?: unknown;
   /** The nonce of the host tokens in a host-agnostic render. */
@@ -186,6 +190,7 @@ export async function prerender({ state, ssrEntry }: PrerenderInput): Promise<Pr
     renders: root.dir,
     styles: Object.fromEntries(Object.entries(manifest.droplets ?? {}).map(([id, entry]) => [id, entry.css ?? []])),
     fragmentCacheControl: state.config.fragmentCacheControl,
+    rerunLoad: state.config.render.rerunLoad,
     errorFormat: state.config.errorFormat,
   };
   const app = connect({ file: resolve(packageDist, "vite/prerender-worker.js"), workerData });
@@ -249,6 +254,8 @@ export async function prerender({ state, ssrEntry }: PrerenderInput): Promise<Pr
               ...headers,
               data: render.data,
               ...(render.transported ? { transported: render.transported } : {}),
+              ...(render.loadResult ? { loadResult: render.loadResult } : {}),
+              ...(render.hasLoad === false ? { hasLoad: false } : {}),
             };
         await writeTextFile({ path: resolve(root.dir, file), contents: JSON.stringify(stored) });
         index[render.key] = file;

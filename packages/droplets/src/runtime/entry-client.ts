@@ -209,7 +209,7 @@ export { decodeBase64Json };
  * element is removed at connect.
  */
 const ALLOWED_CHILDREN =
-  '[data-droplet-entry],[data-droplet-payload="context"],[data-droplet-payload="data"],[data-droplet-slot],link[data-droplet-style],link[data-droplet-preload]';
+  '[data-droplet-entry],[data-droplet-payload="context"],[data-droplet-payload="data"],[data-droplet-payload="server"],[data-droplet-slot],link[data-droplet-style],link[data-droplet-preload]';
 /** The droplet's `style.css`, linked inside the element. */
 const STYLE_LINK = "link[data-droplet-style]";
 /** What can hold focus in a droplet's markup, to put focus back after a form action renders it again. */
@@ -338,6 +338,8 @@ function nodeAtPath({ root, path }: NodeAtPathInput): Element | null {
 }
 
 type InlinePayload<T> = { found: boolean; data: T | undefined };
+/** Which inline data payload was read: `data` goes to the component as it is, `server` through `load` first. */
+type InlineData = InlinePayload<unknown> & { source?: "data" | "server" };
 type ReadInlineInput = { selector: string };
 export type FormForServerInput = { form: unknown };
 type WithCacheBustInput = { url: string; token?: string | undefined };
@@ -523,16 +525,21 @@ export class DjsDropletElement extends HTMLElement {
   }
 
   /**
-   * The inline data payload, its transported values decoded. One that
-   * cannot be decoded is logged and taken as absent: `_data` is asked instead.
+   * The inline data payload, its transported values decoded: `data` (what
+   * the component gets, or the server's error), else `server` (the server
+   * load's data, for `load`). One that cannot be decoded is logged and the
+   * next is read; with neither, `_data` is asked instead.
    */
-  _readData(): InlinePayload<unknown> {
-    const inline = this._readInline<unknown>({ selector: '[data-droplet-payload="data"]' });
-    if (!inline.found || !isObject(inline.data)) return inline;
-    const result = decoded({ envelope: inline.data });
-    if ("envelope" in result) return { found: true, data: result.envelope };
-    const params = { source: "the inline data payload", reason: result.reason };
-    console.error(formatMessage({ message: PAYLOAD_UNDECODABLE, params, droplet: this.dataset["droplet"] }));
+  _readData(): InlineData {
+    for (const source of ["data", "server"] as const) {
+      const inline = this._readInline<unknown>({ selector: `[data-droplet-payload="${source}"]` });
+      if (!inline.found) continue;
+      if (!isObject(inline.data)) return { ...inline, source };
+      const result = decoded({ envelope: inline.data });
+      if ("envelope" in result) return { found: true, data: result.envelope, source };
+      const params = { source: `the inline ${source} payload`, reason: result.reason };
+      console.error(formatMessage({ message: PAYLOAD_UNDECODABLE, params, droplet: this.dataset["droplet"] }));
+    }
     return { found: false, data: undefined };
   }
 
@@ -973,11 +980,11 @@ export class DjsDropletElement extends HTMLElement {
     try {
       const context = this._context;
       let props = context.props;
-      const inline = refresh ? { found: false, data: undefined } : this._readData();
+      const inline: InlineData = refresh ? { found: false, data: undefined } : this._readData();
       const inlinePayload = (): Payload =>
         isObject(inline.data) && "error" in inline.data
           ? { failed: true, error: inline.data["error"] }
-          : { data: isObject(inline.data) ? inline.data["data"] : undefined };
+          : { data: isObject(inline.data) ? inline.data[inline.source ?? "data"] : undefined };
       // After a form action the server rendered with `form`: so does the browser.
       let form: { form?: unknown } = action
         ? { form: action.value }
@@ -1001,10 +1008,12 @@ export class DjsDropletElement extends HTMLElement {
       // In the browser the page itself, read once when the droplet mounted;
       // a no-JavaScript action's result in its query is the framework's.
       const host = withoutFormResults(this._host ?? new URL(pageUrl()));
+      // The `data` payload is `load`'s result already: the server ran it.
+      const runsLoad = inline.source !== "data";
       const load = (payload: Payload): unknown => {
         // Already through the server's handleError: continues with this one.
         if (payload.failed) throw payload.error;
-        return mod.load ? mod.load({ host, props, data: payload.data }) : payload.data;
+        return mod.load && runsLoad ? mod.load({ host, props, data: payload.data }) : payload.data;
       };
 
       if (inline.found && !reset && contentRoot.childNodes.length > 0) {
@@ -1553,7 +1562,12 @@ export class DjsDropletElement extends HTMLElement {
     // Preloads this element added for a stylesheet it linked itself: the
     // answer brings its own link, or the element links one again after.
     for (const preload of this.querySelectorAll(":scope > link[data-droplet-preload]")) preload.remove();
-    for (const selector of ['[data-droplet-payload="context"]', '[data-droplet-payload="data"]', STYLE_LINK]) {
+    for (const selector of [
+      '[data-droplet-payload="context"]',
+      '[data-droplet-payload="data"]',
+      '[data-droplet-payload="server"]',
+      STYLE_LINK,
+    ]) {
       this.querySelector(`:scope > ${selector}`)?.remove();
       const node = fresh.querySelector(`:scope > ${selector}`);
       if (node) this.insertBefore(node, contentRoot);
