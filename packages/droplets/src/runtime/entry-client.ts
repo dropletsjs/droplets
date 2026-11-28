@@ -8,6 +8,7 @@ import {
   dropletsStylesById,
   elementName,
   errorFormatter,
+  transport,
 } from "virtual:droplets";
 import { serverCredentials, serverKey, serverLocation, serverRecord } from "./server-records.ts";
 import { reportStale } from "./stale.ts";
@@ -109,7 +110,7 @@ type WireContext = { host: string; props: Record<string, unknown> };
 export type Payload = { data: unknown; form?: unknown; failed?: undefined } | { failed: true; error: unknown };
 
 import type { DropletChildrenHost, HydrateMode } from "../renderer.ts";
-export type { DropletHooksPayload, DropletUpdatePayload } from "./dev-element.ts";
+export type { DropletHooksPayload, DropletTransportPayload, DropletUpdatePayload } from "./dev-element.ts";
 
 /**
  * What the element hands a component for its `children`: the renderer
@@ -170,12 +171,18 @@ class NothingToRender extends Error {
 /** The server answered from another build; already reported, not a droplet error. A class: the element branches on it. */
 class StaleBuildError extends NothingToRender {}
 
+/** By name: the entries of `transport` in `src/hooks.ts`, then the built-ins, which win a shared name. */
+const decoders: ReadonlyMap<string, PayloadDecoder> = new Map([
+  ...readTransport(transport).entries.map(({ name, decode }) => [name, decode] as const),
+  ...BUILTIN_DECODERS,
+]);
+
 type DecodedInput = { envelope: Record<string, unknown> };
 
 /** An envelope with its transported values decoded, or why it cannot be. */
 function decoded({ envelope }: DecodedInput): { envelope: Record<string, unknown> } | { reason: string } {
   try {
-    return { envelope: decodePayload({ envelope }) };
+    return { envelope: decodePayload({ envelope, decoders }) };
   } catch (error) {
     return { reason: error instanceof Error ? error.message : String(error) };
   }
@@ -187,7 +194,8 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 import { decodeBase64Json } from "./base64.ts";
 import { settle } from "./load.ts";
-import { decodePayload } from "./payload-decode.ts";
+import { BUILTIN_DECODERS, decodePayload, type PayloadDecoder } from "./payload-decode.ts";
+import { readTransport } from "./transport.ts";
 import { plainJson } from "./plain-json.ts";
 import { propsKey } from "./props.ts";
 import { enhanceSubmit, ownAction } from "./enhance.ts";
@@ -530,12 +538,12 @@ export class DjsDropletElement extends HTMLElement {
 
   /**
    * An answer's envelope (`{ data, form?, transported? }`) with its
-   * transported values decoded (`Date`, `Map`, `Set`, `URL`, `BigInt`): a
-   * copy, the table taken off. Throws when it cannot be decoded. What an
+   * transported values decoded (`Date`, `Map`, `Set`, `URL`, `BigInt` and
+   * `transport` of `src/hooks.ts`): a copy, the table taken off. Throws when it cannot be decoded. What an
    * enhanced form reads an action's answer through.
    */
   decodePayload(envelope: Record<string, unknown>): Record<string, unknown> {
-    return decodePayload({ envelope: structuredClone(envelope) });
+    return decodePayload({ envelope: structuredClone(envelope), decoders });
   }
 
   /**

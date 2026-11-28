@@ -1,11 +1,12 @@
 import { resolve } from "node:path";
 import type { Plugin } from "vite";
 import type { DropletEntry } from "../core/discover.ts";
-import { DROPLET_IMPORTS_OTHER_FRAMEWORK, LOAD_FILE_IMPORTS_CSS } from "../errors/build.ts";
+import { DROPLET_IMPORTS_OTHER_FRAMEWORK, HOOKS_IMPORTS_FRAMEWORK, LOAD_FILE_IMPORTS_CSS } from "../errors/build.ts";
 import { type DropletsError, dropletsError } from "../errors/format.ts";
 import { RENDERER_QUERY, type DropletRenderer } from "../renderer.ts";
 import { isScriptDroplet, userRenderers } from "../script/index.ts";
-import type { PluginState } from "./state.ts";
+import { hooksChain } from "./server-only.ts";
+import { type PluginState, UNIVERSAL_HOOKS_FILES } from "./state.ts";
 
 /**
  * Several UI engines in one project. Each droplet is written for one
@@ -21,6 +22,8 @@ import type { PluginState } from "./state.ts";
  *   build, and the dev server shows the error. Neutral code is shared. A
  *   script droplet (`+droplet.script.ts`) is not checked: it may import
  *   anything.
+ * - `src/hooks.ts` serves every droplet: it, and what it imports, reach no
+ *   renderer's modules at all.
  * - Styles belong to the component. CSS reached from a load module
  *   (`+droplet.ts`, `+droplet.server.ts`), directly or through what it
  *   imports, fails the same way. `?url`, `?raw` and `?inline` imports are
@@ -175,6 +178,19 @@ function crossImportError({ root, renderer, chain, owners }: CrossImportErrorInp
   return dropletsError({ message: DROPLET_IMPORTS_OTHER_FRAMEWORK, params: { renderer, owners: owners.join("/"), path } });
 }
 
+/** `src/hooks.ts` and `src/hooks.js`, absolute. */
+function universalHooks(state: PluginState): string[] {
+  return UNIVERSAL_HOOKS_FILES.map((file) => resolve(state.root, file).replaceAll("\\", "/"));
+}
+
+type HooksImportErrorInput = { root: string; chain: readonly string[]; owners: readonly string[] };
+
+function hooksImportError({ root, chain, owners }: HooksImportErrorInput): DropletsError {
+  const [first = ""] = chain;
+  const params = { file: short({ root, id: first }), owners: owners.join("/"), path: chainText({ root, chain }) };
+  return dropletsError({ message: HOOKS_IMPORTS_FRAMEWORK, params });
+}
+
 /** Absolute load module paths (`+droplet.ts`, `+droplet.server.ts`) to their droplet folder. */
 function loadModules(state: PluginState): Map<string, string> {
   const map = new Map<string, string>();
@@ -238,8 +254,15 @@ export type CheckDropletGraphsInput = {
 export function checkDropletGraphs({ state, moduleIds, getModule }: CheckDropletGraphsInput): void {
   const components = componentRenderers(state);
   const loads = loadModules(state);
+  const hooks = universalHooks(state);
   const { root } = state;
   for (const id of moduleIds) {
+    if (hooks.includes(clean({ id }))) {
+      const isOwned = (current: string) => ownersOf({ id: current, renderers: checked(state) }).length > 0;
+      const chain = findInGraph({ start: id, getModule, isTarget: isOwned });
+      const last = chain?.at(-1);
+      if (chain && last !== undefined) throw hooksImportError({ root, chain, owners: ownersOf({ id: last, renderers: checked(state) }) });
+    }
     const renderer = components.get(clean({ id }));
     if (renderer) {
       const isForeign = (current: string) => {
@@ -346,6 +369,11 @@ export function rendererGraphsPlugin(state: PluginState): Plugin {
             const environment = this.environment;
             const graph = environment && "moduleGraph" in environment ? environment.moduleGraph : undefined;
             const module = graph?.getModuleById(importer) as DevModule | undefined;
+            const fromHooks = hooksChain({ hooks: universalHooks(state), parents: state.hooksImporters, importer });
+            if (fromHooks) {
+              const target = packageOf({ specifier: source }) ? source : resolved.id;
+              this.error(hooksImportError({ root: state.root, chain: [...fromHooks, target], owners }));
+            }
             const renderers = reachingRenderers({ components: componentRenderers(state), start: module, id: importer });
             for (const renderer of renderers) {
               if (!owners.includes(renderer)) {

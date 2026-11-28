@@ -28,7 +28,16 @@ import { tailwindActive } from "./css.ts";
 import { mayImportServerOnly, serverOnlyImportError } from "./server-only.ts";
 import { componentSpecifier } from "./renderer-graphs.ts";
 import { locationScript, publicEnvScript, serverKey } from "../runtime/server-records.ts";
-import { bundleLocation, CLIENT_HOOKS_FILES, isFixed, HOOKS_FILES, IMPORTMAP_FILES, rendererNamed, type PluginState } from "./state.ts";
+import {
+  bundleLocation,
+  CLIENT_HOOKS_FILES,
+  isFixed,
+  HOOKS_FILES,
+  IMPORTMAP_FILES,
+  rendererNamed,
+  type PluginState,
+  UNIVERSAL_HOOKS_FILES,
+} from "./state.ts";
 
 /** Registry of droplets. Resolves to different code per environment. */
 export const VIRTUAL_DROPLETS = "virtual:droplets";
@@ -118,6 +127,8 @@ export type ServerCodeExtras = {
   hooksFile?: string | null;
   /** Root-relative `src/importmap.server.ts`, or `null`. */
   importMapFile?: string | null;
+  /** Root-relative `src/hooks.ts` (its `transport`), or `null`. */
+  universalHooksFile?: string | null;
   /** The configured renderers; every entry's renderer must be among them. */
   renderers?: DropletRenderer[];
   /** Public variables read at runtime, which `/index.js` hands to the page. */
@@ -166,6 +177,16 @@ function rendererImports({ entries, renderers, pick }: RendererImportsInput): { 
   };
 }
 
+type TransportExportInput = { universalHooksFile: string | null };
+
+/**
+ * `transport` of `src/hooks.ts`, or `undefined`. Read through `Reflect.get`:
+ * the file may not export it, and a static read of a missing export warns.
+ */
+function transportExport({ universalHooksFile }: TransportExportInput): string {
+  return universalHooksFile ? 'export const transport = Reflect.get(universalHooks, "transport");' : "export const transport = undefined;";
+}
+
 export type BuildServerCodeInput = ServerCodeExtras & {
   entries: readonly DropletEntry[];
   globRoot: string;
@@ -186,6 +207,7 @@ export function buildServerCode({
   apiGlobRoot = "/src/api",
   hooksFile,
   importMapFile,
+  universalHooksFile = null,
   renderers: configured = [],
   publicEnvNames = [],
   tokenNonce,
@@ -209,6 +231,9 @@ export function buildServerCode({
   }
   if (importMapFile) {
     imports.push(`import * as importMapModule from ${JSON.stringify(importMapFile)};`);
+  }
+  if (universalHooksFile) {
+    imports.push(`import * as universalHooks from ${JSON.stringify(universalHooksFile)};`);
   }
 
   if (isDev) {
@@ -267,6 +292,7 @@ export function buildServerCode({
     "];",
     hooksFile ? "export { hooks };" : "export const hooks = {};",
     importMapFile ? "export { importMapModule };" : "export const importMapModule = {};",
+    transportExport({ universalHooksFile }),
     `export const publicEnvNames = ${JSON.stringify(publicEnvNames)};`,
     tokenNonce === undefined ? "export const tokenNonce = undefined;" : `export const tokenNonce = ${JSON.stringify(tokenNonce)};`,
     "",
@@ -469,6 +495,8 @@ export type BuildClientCodeInput = {
   /** `vite build`: the stylesheets come from the build, not the dev server. */
   isBuilding?: boolean;
   clientHooksFile?: string | null;
+  /** `src/hooks.ts` (root-relative): its `transport` decodes what the server sends, for the element and enhanced forms alike. */
+  universalHooksFile?: string | null;
   /** The runtime's requests carry cookies cross-origin (`credentials: "include"`); see `corsCredentials()`. */
   hasCredentials?: boolean;
   /** `errorFormat`: the registry re-exports that formatter alone, so the bundle holds no other. */
@@ -482,6 +510,7 @@ export function buildClientCode({
   elementName = "djs-droplet",
   isBuilding = false,
   clientHooksFile = null,
+  universalHooksFile = null,
   hasCredentials = false,
   errorFormat = "agent",
   errorsModule = errorsModulePath,
@@ -519,6 +548,8 @@ export function buildClientCode({
     "export const dropletsScriptById = {",
     ...scripts,
     "};",
+    ...(universalHooksFile ? [`import * as universalHooks from ${JSON.stringify(universalHooksFile)};`] : []),
+    transportExport({ universalHooksFile }),
     // Stylesheets per droplet, relative to the server: filled in once the
     // build is written. In dev, component styles come with the JavaScript.
     isBuilding
@@ -812,6 +843,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
             elementName: state.config.element,
             isBuilding: command === "build",
             clientHooksFile: await findFile(CLIENT_HOOKS_FILES),
+            universalHooksFile: await findFile(UNIVERSAL_HOOKS_FILES),
             errorFormat: state.config.errorFormat,
             hasCredentials: corsCredentials({ cors: state.config.cors }),
           });
@@ -823,6 +855,7 @@ export function virtualModulesPlugin(state: PluginState): Plugin {
           apiGlobRoot: state.apiGlobRoot,
           hooksFile: await findFile(HOOKS_FILES),
           importMapFile: await findFile(IMPORTMAP_FILES),
+          universalHooksFile: await findFile(UNIVERSAL_HOOKS_FILES),
           renderers: state.renderers,
           publicEnvNames: dynamicPublicNames(state.env),
           tokenNonce: isFixed({ state, isBuilding: command === "build" }) ? undefined : state.tokenNonce,

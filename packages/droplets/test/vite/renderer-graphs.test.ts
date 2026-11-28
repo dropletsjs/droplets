@@ -162,6 +162,29 @@ describe("checkDropletGraphs", () => {
     );
   });
 
+  it("accepts a framework-agnostic src/hooks.ts, shared with the droplets", () => {
+    const edges = {
+      "/app/src/hooks.ts": ["/app/src/lib/money.ts"],
+      "/app/src/lib/money.ts": [],
+      "/app/src/droplets/s/+droplet.svelte": ["/app/src/lib/money.ts"],
+    };
+    expect(() => checkDropletGraphs({ state, moduleIds: Object.keys(edges), getModule: graph(edges) })).not.toThrow();
+  });
+
+  it("fails on any framework src/hooks.ts reaches, its own droplets' too, naming the chain", () => {
+    const edges = {
+      "/app/src/hooks.ts": ["/app/src/lib/money.ts"],
+      "/app/src/lib/money.ts": ["/app/node_modules/svelte/index.js"],
+    };
+    expect(() => checkDropletGraphs({ state, moduleIds: Object.keys(edges), getModule: graph(edges) })).toThrow(
+      "droplets error hooks-imports-framework\n  what: src/hooks.ts imports svelte code: src/hooks.ts -> src/lib/money.ts -> svelte/index.js\n",
+    );
+    const js = { "/app/src/hooks.js": ["/app/src/lib/Price.tsx"] };
+    expect(() => checkDropletGraphs({ state, moduleIds: Object.keys(js), getModule: graph(js) })).toThrow(
+      "src/hooks.js imports react/solid code: src/hooks.js -> src/lib/Price.tsx",
+    );
+  });
+
   it("leaves a script droplet alone, and owns nothing for it", () => {
     const scripted = createInitialState();
     scripted.root = "/app";

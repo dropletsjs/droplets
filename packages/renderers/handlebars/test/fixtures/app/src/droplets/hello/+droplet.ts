@@ -1,8 +1,10 @@
-type ServerData = { who: string; when: Date; tags: Map<string, string>; seen: Set<number>; link: URL; big: bigint };
+import type { Money } from "../../hooks.ts";
+
+type ServerData = { who: string; when: Date; tags: Map<string, string>; seen: Set<number>; link: URL; big: bigint; price: Money };
 
 /** What the transported values say, read through their own methods: text any engine renders. */
 const kindsOf = (data: ServerData) =>
-  [data.tags.get("a"), data.seen.has(1), data.link.hostname, String(data.big + 1n), data.when.toISOString()].join(" ");
+  [data.tags.get("a"), data.seen.has(1), data.link.hostname, String(data.big + 1n), data.when.toISOString(), data.price.format()].join(" ");
 
 export const load = ({ data }: { data: ServerData }) => ({ ...data, greeting: `Hello ${data.who}!`, kinds: kindsOf(data) });
 

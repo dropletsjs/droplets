@@ -117,7 +117,7 @@ Vite); `client-setup` is a client entry.
 
 - `react()` name is `"react"`. `src/index.ts:76`
 - `react()` extensions are `[".tsx", ".jsx"]`. `src/index.ts:77`
-- `react()` packages are `react`, `react-dom` and `@dropletsjs/renderer-react`: another renderer's droplet that imports one fails the build. `src/index.ts:78`, `../../droplets/src/vite/renderer-graphs.ts:74`
+- `react()` packages are `react`, `react-dom` and `@dropletsjs/renderer-react`: another renderer's droplet that imports one fails the build. `src/index.ts:78`, `../../droplets/src/vite/renderer-graphs.ts:77`
 - `react()` sets no `suffixes`. `src/index.ts:75`
 - `react()` componentTypes is `@dropletsjs/renderer-react`: `./$types` takes `DropletProps` and `DropletErrorProps` from it. `src/index.ts:79`, `../../droplets/src/vite/sync-types.ts:47`
 - `react()` server, client, clientDev and clientSetup are `dist/server.js`, `dist/client.js`, `dist/client-dev.js`, `dist/client-setup.js` under the package root. `src/index.ts:96`, `src/index.ts:100`

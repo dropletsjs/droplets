@@ -742,6 +742,46 @@ describe("<djs-droplet>", () => {
     expect(info.form?.home).toEqual(new URL("https://shop.example/"));
   });
 
+  it("decodes a type of transport in src/hooks.ts, and a built-in's name with the built-in", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const fake = fakeModule();
+    const envelope = {
+      data: { spot: { x: 1, y: 2 }, at: "1970-01-01T00:00:00.000Z" },
+      transported: [
+        [["data", "spot"], "Point"],
+        [["data", "at"], "Date"],
+      ],
+    };
+    mount(
+      `<djs-droplet data-droplet="hello">` +
+        `<script type="application/text" data-droplet-payload="data">${encode(envelope)}</script>` +
+        `<div data-droplet-entry><p>ssr</p></div></djs-droplet>`,
+    );
+    await tick();
+    expect((await dataOf({ fake })).data).toEqual({ spot: { decodedPoint: { x: 1, y: 2 } }, at: new Date(0) });
+  });
+
+  it.each(["__proto__", "constructor", "toString", "hasOwnProperty"])(
+    "reaches no function for the name %s: the payload is unreadable",
+    async (name) => {
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      const fetchSpy = vi.fn(async () => json({ body: { data: { spot: "kept" } } }));
+      vi.stubGlobal("fetch", fetchSpy);
+      const fake = fakeModule();
+      const envelope = { data: { spot: { x: 1 } }, transported: [[["data", "spot"], name]] };
+      mount(
+        `<djs-droplet data-droplet="hello">` +
+          `<script type="application/text" data-droplet-payload="context">${encode({ host: "https://host.test/a", props: {} })}</script>` +
+          `<script type="application/text" data-droplet-payload="data">${encode(envelope)}</script>` +
+          `<div data-droplet-entry><p>ssr</p></div></djs-droplet>`,
+      );
+      await tick();
+      expect(String(error.mock.calls[0]?.[0])).toContain(`no transport named ${JSON.stringify(name)}`);
+      expect((await dataOf({ fake })).data).toEqual({ spot: "kept" });
+      expect(Object.prototype).not.toHaveProperty("x");
+    },
+  );
+
   it("asks _data when the inline payload cannot be decoded, and decodes its answer", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const fetchSpy = vi.fn(async () =>

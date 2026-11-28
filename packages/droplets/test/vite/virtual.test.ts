@@ -142,6 +142,15 @@ describe("buildServerCode", () => {
     expect(code).not.toContain("errorComponent");
   });
 
+  it("imports src/hooks.ts and exports its transport only when there is one", () => {
+    const code = buildServerCode({ entries: [], globRoot: "/src/droplets", universalHooksFile: "/src/hooks.js" });
+    expect(code).toContain('import * as universalHooks from "/src/hooks.js";');
+    expect(code).toContain('export const transport = Reflect.get(universalHooks, "transport");');
+    const plain = buildServerCode({ entries: [], globRoot: "/src/droplets" });
+    expect(plain).not.toContain("universalHooks");
+    expect(plain).toContain("export const transport = undefined;");
+  });
+
   it("imports each droplet's own error page, rendered by the droplet's renderer", () => {
     const code = buildServerCode({
       entries: [
@@ -264,7 +273,7 @@ describe("buildClientCode", () => {
     expect(human).not.toContain("formatAgent");
   });
 
-  it("is the same module as ever without src/hooks.client.ts", () => {
+  it("is the same module as ever without src/hooks.client.ts, and transport undefined without src/hooks.ts", () => {
     const built = [
       "const droplets = {};",
       "export default droplets;",
@@ -284,6 +293,7 @@ describe("buildClientCode", () => {
       "};",
       "export const dropletsScriptById = {",
       "};",
+      "export const transport = undefined;",
       'export const dropletsStylesById = JSON.parse("__DROPLETS_STYLES__");',
       "",
     ].join("\n");
@@ -318,6 +328,15 @@ describe("buildClientCode", () => {
         "",
       ].join("\n"),
     );
+  });
+
+  it("imports src/hooks.ts and exports its transport, only when there is one", () => {
+    const code = buildClientCode({ entries: [], buildHash: "h", universalHooksFile: "/src/hooks.ts" });
+    expect(code).toContain('import * as universalHooks from "/src/hooks.ts";');
+    expect(code).toContain('export const transport = Reflect.get(universalHooks, "transport");');
+    const plain = buildClientCode({ entries: [], buildHash: "h" });
+    expect(plain).not.toContain("universalHooks");
+    expect(plain).toContain("export const transport = undefined;");
   });
 
   it("has no registry of its own for error pages, which hydrate with their droplet", () => {

@@ -1,4 +1,5 @@
 import { error, type HandleDropletError, type LoadEvent } from "$droplets/server";
+import { Money } from "../../hooks.ts";
 
 export const load = ({ props }: LoadEvent) => {
   if (props["who"] === "nobody") error(404, "Nobody is here");
@@ -11,6 +12,8 @@ export const load = ({ props }: LoadEvent) => {
     seen: new Set([1]),
     link: new URL("https://shop.example/x"),
     big: 41n,
+    // A type of the app's own, carried by transport in src/hooks.ts.
+    price: new Money(1250, "EUR"),
   };
 };
 

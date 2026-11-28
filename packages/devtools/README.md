@@ -142,8 +142,8 @@ droplets with their flags, which the tool reads from each server.
 - Dev tool shows at most 3 notifications; the oldest goes first. `src/tool/panel.ts:21`, `src/tool/panel.ts:135`
 - Dev tool notification without a reload button leaves after 10 s; one with it is an `alertdialog`. `src/tool/panel.ts:23`, `src/tool/panel.ts:112`
 - Dev tool notification with the same `key` replaces the earlier one. `src/tool/panel.ts:105`
-- `index.js` imports the dev tool when `?injectTool` is set to anything but `false`, else when `dev.injectTool` is on. `../droplets/src/runtime/dev-element.ts:789`
-- `index.js` warns `dev-tool-missing` (`injectTool: the dev tool comes with @dropletsjs/devtools, which is not in the Vite config`) when the tool is asked for without this plugin. `../droplets/src/runtime/dev-element.ts:693`
+- `index.js` imports the dev tool when `?injectTool` is set to anything but `false`, else when `dev.injectTool` is on. `../droplets/src/runtime/dev-element.ts:811`
+- `index.js` warns `dev-tool-missing` (`injectTool: the dev tool comes with @dropletsjs/devtools, which is not in the Vite config`) when the tool is asked for without this plugin. `../droplets/src/runtime/dev-element.ts:697`
 - The package exports `.` and `./package.json`. `package.json:21`
 - Peer dependencies: `@dropletsjs/droplets` and `vite ^8.0.0`; `hono` is a dependency. `package.json:43`, `package.json:56`
 - Build script runs tsdown, then the tests. `package.json:36`

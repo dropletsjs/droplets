@@ -37,6 +37,21 @@ export const DROPLET_IMPORTS_OTHER_FRAMEWORK = {
   fix: "a droplet uses its own framework's modules and neutral code only: move the shared part into plain TypeScript, or render it from a droplet of that framework",
 } satisfies AnyMessage;
 
+export const HOOKS_IMPORTS_FRAMEWORK = {
+  code: "hooks-imports-framework",
+  level: "error",
+  what: ({ file, owners, path }: { file: string; owners: string; path: string }) => `${file} imports ${owners} code: ${path}`,
+  fix: "src/hooks.ts serves every droplet, whatever its framework: keep it, and what it imports, plain TypeScript",
+} satisfies AnyMessage;
+
+export const HOOKS_IMPORTS_NODE_BUILTIN = {
+  code: "hooks-imports-node-builtin",
+  level: "error",
+  what: ({ file, id, path }: { file: string; id: string; path: string }) =>
+    `${file} runs in the browser too and cannot reach the Node built-in ${id}: ${path}`,
+  fix: "keep src/hooks.ts and what it imports on web APIs: encode and decode are pure, and server work belongs in +droplet.server.ts",
+} satisfies AnyMessage;
+
 export const LOAD_FILE_IMPORTS_CSS = {
   code: "load-file-imports-css",
   level: "error",
@@ -336,6 +351,14 @@ export const BUILD_PAGES: ErrorPages = {
     when: "vite build or vite dev, when a droplet's graph reaches another configured renderer's files or packages. The message names the chain.",
     see: "/renderers/",
   },
+  "hooks-imports-framework": {
+    when: "vite build or vite dev, when src/hooks.ts reaches a configured renderer's files or packages. The message names the chain.",
+    see: "/guides/writing-droplets/#your-own-types",
+  },
+  "hooks-imports-node-builtin": {
+    when: "vite build or vite dev, when src/hooks.ts, or a project file it imports, imports a Node built-in (node:fs, path, …). The message names the chain.",
+    see: "/guides/writing-droplets/#your-own-types",
+  },
   "load-file-imports-css": {
     when: "vite build or vite dev, when +droplet.ts or +droplet.server.ts imports a stylesheet, directly or through other modules.",
     see: "/guides/styling/#how-styles-reach-the-page",
@@ -434,7 +457,7 @@ export const BUILD_PAGES: ErrorPages = {
     when: "vite build, if a file is asked for a render the build did not store; a bug in Droplets.",
   },
   "module-file-misnamed": {
-    when: "vite build or vite dev, when src/hooks.server or src/importmap.server has an extension the framework does not look up (.mts, .mjs, .cts, .cjs).",
+    when: "vite build or vite dev, when src/hooks, src/hooks.server or src/importmap.server has an extension the framework does not look up (.mts, .mjs, .cts, .cjs).",
     see: "/guides/server/",
   },
   "index-file-missing": {

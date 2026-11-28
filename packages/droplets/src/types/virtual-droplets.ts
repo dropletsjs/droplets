@@ -40,6 +40,8 @@ export const api: ApiRoute[] = [];
 export const hooks: Record<string, unknown> = {};
 /** Server build: the exports of `src/importmap.server.ts`, or `{}`. */
 export const importMapModule: Record<string, unknown> = {};
+/** Both builds: `transport` of `src/hooks.ts` as the file exports it, `undefined` without the file. */
+export const transport: unknown = undefined;
 /** Server build: public variables read at runtime (`public: true`, not `static`). */
 export const publicEnvNames: string[] = [];
 /** Server build: the nonce of the location tokens the bundle writes. */

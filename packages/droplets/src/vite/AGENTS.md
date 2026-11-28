@@ -10,6 +10,8 @@
   Checked by: `test/vite/renderer-graphs.test.ts`.
 - Styles belong to the component: a stylesheet reached from `+droplet.ts` or `+droplet.server.ts` fails the build and the dev import.
   Checked by: `test/vite/renderer-graphs.test.ts`, `test/integration/load-css.test.ts`.
+- `src/hooks.ts` is in the browser bundle and in every server bundle: a server file, `$droplets/server`, `$droplets/env/private`, a Node built-in or any renderer's module it reaches fails the build and the dev import, naming the chain; under `vite dev` the chain comes from `state.hooksImporters`, recorded as imports resolve.
+  Checked by: `test/integration/hooks-transport.test.ts`, `test/vite/renderer-graphs.test.ts`.
 - The server-file, cross-framework and load-CSS checks run in both `vite build` (`buildEnd`) and `vite dev` (`resolveId`), so what builds also serves.
   Checked by: `test/integration/server-only.test.ts`, `test/integration/load-css.test.ts`.
 - Under `vite dev` a droplet whose file fails to import fails alone: the server registry imports each droplet's modules on demand (`import()` behind a thunk, evaluated outside the request), so its fragment alone answers 500 while the other droplets, their `client.js` and `/index.js` keep answering, and the next request after the fix tries again; a build keeps static imports.

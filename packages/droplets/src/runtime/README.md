@@ -49,6 +49,7 @@ Public pieces: `$droplets/server` (`./server`, `server.ts`) and `./enhance`
 | `cookies.ts` | `event.cookies`: parse, serialize, defaults, read-only and prerender jars. |
 | `form.ts`, `form-token.server.ts`, `enhance.ts` | Form actions: action URLs, reserved query keys, the signed no-JavaScript result, `enhanceDropletForm`. |
 | `payload-wire.ts`, `payload-encode.server.ts`, `payload-decode.ts` | The payload contract: plain JSON plus transported values; the wire names, the server's check and encoder, the browser's decoder. |
+| `transport.ts` | `transport` of `src/hooks.ts`: the `Transport` type and the entries both sides keep. |
 | `element.ts` | The fragment markup the server writes. |
 | `entry-server.ts`, `load.ts`, `props.ts`, `load-headers.ts` | The server bundle's registry, `load`, props validation, `setHeaders`. |
 | `server.ts` | `$droplets/server`: `error`, `redirect`, `fail`, `json`, `text`, `sequence`, the event types. |
@@ -155,7 +156,7 @@ Then the route.
 - The JSON body is read only for POST whose parsed media type `isJsonType` takes (`application/json` or `+json`, the reading `limitFor` uses; `text/xml; a=application/json` is not one); malformed JSON gives no props. `app.ts:379`, `security.ts:135`
 - Reserved query keys are `__cb`, `c`, `t`, `noSSR`, `clientOnly`, `__droplet_return`, every key starting with `/` and every key starting with `__droplet_form_`. `form.ts:28`
 - `clientOnly` and `noSSR` in the query count by presence. `app.ts:796`
-- Props validation errors (`PropsError`) answer 400 with `Invalid props: …`. `entry-server.ts:165`
+- Props validation errors (`PropsError`) answer 400 with `Invalid props: …`. `entry-server.ts:179`
 - `propsKey` sorts keys, so props differing only in key order share a prerender entry. `props.ts:92`
 
 ### Fragments: `GET|POST /droplets/:id`
@@ -164,9 +165,9 @@ Then the route.
 - A method other than GET and POST (HEAD is Hono's GET without a body, OPTIONS is `cors()`'s) on a known droplet answers 405 with `allow: GET, POST`, text on the fragment and `{ "message": "Method Not Allowed" }` on `_data`, before any body is read (`renderMethods`). `app.ts:418`, `app.ts:1531`
 - A path no route matches answers 404 through one `app.notFound`: `{ "message": "Not Found" }` under `_data` and `/api` (`wantsJson`), text elsewhere; a trailing slash (`/droplets/x/`) is such a path, and its body is never read (`RENDER_ROUTE`). `app.ts:960`, `app.ts:404`, `security.ts:92`
 - A droplet name in the URL is decoded; a malformed escape names no droplet. `app.ts:890`
-- The droplet registry is a `Map`, so `__proto__` names no droplet. `entry-server.ts:79`
-- `getEntries` takes events with `props`, `host` and `file` only; `file` is lowercase kebab-case (`isKebabName` of `web-url.ts`) and unique among the droplet's entries, `undefined` counting as absent; every error it throws names the droplet (`droplet: <id>`). It runs at build and, through `prerenderKeys`, on every `vite dev` request to a `prerender` droplet. `entry-server.ts:175`, `entry-server.ts:212`, `entry-server.ts:196`, `web-url.ts:59`, `../../test/runtime/entry-server.test.ts:140`
-- A registry entry's `component` and `error` are thunks, like `load` and `serverLoad`: `renderDroplet` and `renderError` await them before anything else, so a component that fails to import is answered as an error of its own, never through the error page. `entry-server.ts:66`, `entry-server.ts:372`, `entry-server.ts:405`
+- The droplet registry is a `Map`, so `__proto__` names no droplet. `entry-server.ts:93`
+- `getEntries` takes events with `props`, `host` and `file` only; `file` is lowercase kebab-case (`isKebabName` of `web-url.ts`) and unique among the droplet's entries, `undefined` counting as absent; every error it throws names the droplet (`droplet: <id>`). It runs at build and, through `prerenderKeys`, on every `vite dev` request to a `prerender` droplet. `entry-server.ts:189`, `entry-server.ts:226`, `entry-server.ts:210`, `web-url.ts:59`, `../../test/runtime/entry-server.test.ts:140`
+- A registry entry's `component` and `error` are thunks, like `load` and `serverLoad`: `renderDroplet` and `renderError` await them before anything else, so a component that fails to import is answered as an error of its own, never through the error page. `entry-server.ts:69`, `entry-server.ts:386`, `entry-server.ts:419`
 - A POST with a form body runs an action, `text/plain` answers 415, and a `?/name` key with a non-form body answers 400. `app.ts:1965`
 - A prerendered fragment is looked up by host key (origin and path), then, with `host`, by the origin-only key, then by props key. `app.ts:1428`, `app.ts:1281`, `app.ts:1282`
 - `prerenderKey` is `<propsKey> <origin><path>`, `<propsKey> <origin>` for a render for `host` of the config, or `<propsKey>` for a host-agnostic one. `props.ts:105`
@@ -181,7 +182,7 @@ Then the route.
 - The deadline covers only the live call: `renderDroplet` (server load, `+droplet.ts` load, the component) or, without server markup, the server load; it starts after `handle`, the props schema, a form action, the carried form result and the prerendered lookup, and covers neither `transform` nor the error page. `app.ts:1480`
 - With a deadline, the loads' event gets a copy of `event.request` with `AbortSignal.any([request.signal, deadline])`; an unread body goes to the copy as a clone (`request.clone()`), so the original stays readable, an already read one (after a form action) is left out. `handle`, the action and `transform` keep the original. `app.ts:1485`, `render-timeout.ts:45`
 - The deadline aborts with a `TimeoutError` `DOMException` that carries `Symbol.for("droplets.render-timeout")`; only that brand ends the race, so a client that went away or an author's own `AbortSignal.timeout` stays the load's own failure (500). The timer is cleared at the answer. `render-timeout.ts:10`, `render-timeout.ts:27`
-- A result or a failure that comes after the deadline is dropped, and always has a handler; `entry-server.ts` rethrows whatever a load throws once the request's signal carries the brand, with no `console.error` and no `handleError` of `+droplet.server.ts`. `app.ts:1486`, `entry-server.ts:140`
+- A result or a failure that comes after the deadline is dropped, and always has a handler; `entry-server.ts` rethrows whatever a load throws once the request's signal carries the brand, with no `console.error` and no `handleError` of `+droplet.server.ts`. `app.ts:1486`, `entry-server.ts:154`
 - `render.timeout` `Infinity` sets no timer and no request copy; `building` has no deadline whatever the option says. `app.ts:1481`
 - A timeout warns through `devLog.renderTimeout` every time (`vite dev`); a production server logs nothing for it. `dev-log.ts:95`
 - A response carrying a form result gets `cache-control: private, no-store`. `app.ts:1762`
@@ -207,7 +208,7 @@ Then the route.
 - `/index.js` answers 404 without `loadEntryClient` or code, and is `no-store`. `app.ts:1153`, `app.ts:1158`
 - `/index.js` answers what `loadEntryClient` returns, with nothing added. `app.ts:1159`
 - `/env.js` answers 404 without `publicEnv` or when it has no names (no `public: true` variable without `static`). `app.ts:1168`, `app.ts:1171`
-- `/env.js` is `publicEnvScript` of `publicEnv()` under `<element>:<build>`, read through `readRuntimeEnv`, nothing taken from the request. `app.ts:1339`, `entry-server.ts:433`
+- `/env.js` is `publicEnvScript` of `publicEnv()` under `<element>:<build>`, read through `readRuntimeEnv`, nothing taken from the request. `app.ts:1339`, `entry-server.ts:447`
 - `/env.js` cache-control is `public, max-age=600`; `DROPLETS_ENV_MAX_AGE` sets the seconds, `0` gives `no-store`. `app.ts:388`, `app.ts:428`, `app.ts:1173`
 - `DROPLETS_ENV_MAX_AGE` is parsed once per raw value (a `Map`); anything but a non-negative integer of seconds keeps 600, with a warning once per value under `vite dev` only. `app.ts:431`, `app.ts:446`, `dev-log.ts:82`
 - `/index.css` answers 404 when there is no global CSS or it is empty. `app.ts:1184`
@@ -227,7 +228,7 @@ Then the route.
 - A droplet without `actions` answers 405 with `allow: GET`. `app.ts:1834`
 - An unknown action answers 404 `No action named "<name>"`, the name cut to 100 characters, when the name matches `ACTION_NAME`; any other name answers 404 `No such action` without echoing it. `app.ts:1837`
 - Action names match `^[A-Za-z_][\w-]*$`. `form.ts:143`
-- An action is found only through `ACTION_NAME`, a deny list (`__proto__`, `constructor`, `prototype`) and `Object.hasOwn`. `entry-server.ts:354`
+- An action is found only through `ACTION_NAME`, a deny list (`__proto__`, `constructor`, `prototype`) and `Object.hasOwn`. `entry-server.ts:368`
 - An action answers JSON when `accept` prefers it over HTML (`prefersJson`): `application/json` or `application/*` with a weight at least `text/html`'s, never through `*/*` alone. `app.ts:1841`, `accept.ts:48`
 - A JSON action answer is the outcome with the failure's status, else 200, plus `transported` when its data holds a transported value. `app.ts:1910`
 - An action redirect, native or JSON, goes only to this server or a trusted origin (`redirectTarget`, the same check in both modes and the same as a load's or `handle`'s), else 400 `Bad Request: the action redirects off this site` (as `{ message }` in JSON) and a `console.error` (`offSiteRedirect`). `app.ts:653`, `app.ts:1895`
@@ -247,11 +248,14 @@ Then the route.
 ### The payload contract (`payload-*.ts`)
 
 - What goes to the browser as data (the server load's data, an action's result as `form` or as the JSON answer) is plain JSON plus `Date`, `Map`, `Set`, `URL` and `BigInt`, nested; built-ins match by exact prototype, so a subclass is refused. `payload-encode.server.ts:50`
-- The server load's data is encoded on every render, `hydrate = false` included, and in `_data`'s load, inside the render's `try`: a refused value fails the render (`+error`, `console.error` in production). `entry-server.ts:380`, `entry-server.ts:291`
+- The server load's data is encoded on every render, `hydrate = false` included, and in `_data`'s load, inside the render's `try`: a refused value fails the render (`+error`, `console.error` in production). `entry-server.ts:394`, `entry-server.ts:305`
 - The encoder refuses, naming the path: a cycle (over ancestors only; a shared reference is copied), a function, a symbol, a class with no transport, a promise, `undefined` or a hole in an array, a non-finite number, an invalid `Date`, an own `toJSON`, nesting past 64. An `undefined` property and an own `__proto__` key are left out; `-0` becomes `0`. `payload-encode.server.ts:102`
 - An envelope lists transported values as `transported: [[path, name], …]`, paths from the envelope root, inner values first, absent when empty. `payload-encode.server.ts:195`
 - Only the browser decodes: `payload-decode.ts` is imported by `entry-client.ts` alone, and the server never reads anything a request carries as transported. `payload-decode.ts:101`
 - The decoder walks own keys of plain objects and in-range indices of arrays, refuses `__proto__`, `constructor` and `prototype`, starts at `data` or `form`, finds names in a `Map` and assigns with `defineProperty`; any failure makes the whole payload unreadable. `payload-decode.ts:69`, `payload-decode.ts:15`, `payload-wire.ts:29`
+- `transport` of `src/hooks.ts`: both sides keep the same entries (`readTransport`); an entry named like a built-in, one that is not a plain object with own `encode` and `decode` functions, or all of a `transport` that is not a plain object is ignored. `transport.ts:62`, `transport.ts:69`, `transport.ts:64`
+- The SSR bundle's encoder tries the kept entries' `encode` before the built-ins, every render and `_data` alike, and warns about each ignored entry under `vite dev` only (`transport-ignored`). `entry-server.ts:82`, `entry-server.ts:89`
+- The element decodes with one `Map` built at module level: the kept entries' `decode`, then the built-ins, which win a shared name; an enhanced form decodes through the element, so both read the table of `/index.js`. `entry-client.ts:175`
 
 ### Form tokens (`form-token.server.ts`)
 
@@ -303,7 +307,7 @@ Then the route.
 - At build, an entry without `host` under `host` of the config renders for a real URL of that origin, `pathname` and `href` the path token; it is stored under the origin-only key. `app.ts:1019`, `host.ts:175`, `app.ts:1438`
 - Host tokens are replaced HTML-escaped in markup and JSON-escaped in data. `host-tokens.ts:137`
 - `tokenNonce` also replaces tokens in live renders. `app.ts:971`, `app.ts:1306`
-- `app.ts` imports `host-tokens.ts` for its types only: the replacers come in as the internal `tokens` option, from the SSR bundle (`virtual:droplets-config`), the prerender or `vite dev`. `app.ts:14`, `app.ts:861`, `../server/app.ts:127`, `entry-server.ts:429`
+- `app.ts` imports `host-tokens.ts` for its types only: the replacers come in as the internal `tokens` option, from the SSR bundle (`virtual:droplets-config`), the prerender or `vite dev`. `app.ts:14`, `app.ts:861`, `../server/app.ts:127`, `entry-server.ts:443`
 - Without `tokens`, a stored render is served as stored, a live one as rendered, and a build stores renders without a nonce. `app.ts:1285`, `app.ts:1305`, `app.ts:1435`
 
 ### Fragment markup (`element.ts`)
@@ -320,43 +324,43 @@ Then the route.
 - `serverKey` is `<element>:<build>`, shared by `/index.js`, `$droplets/drop` and `$droplets/form`. `server-records.ts:29`
 - `serverLocation` is the record's origin, else the build root `__DROPLETS_BUILD_ROOT__` from `import.meta.url`. `server-records.ts:69`
 - `serverCredentials` is the record's `credentials` (`"include"`), else `"same-origin"`, the browser's default. `server-records.ts:44`
-- The element's module writes `credentials: "include"` into its server's record when the client build's `corsCredentials` is true, before any element runs. `entry-client.ts:37`
+- The element's module writes `credentials: "include"` into its server's record when the client build's `corsCredentials` is true, before any element runs. `entry-client.ts:38`
 - The runtime env falls back to `process.env` where `process` exists. `env-store.ts:26`
 - Request info uses `AsyncLocalStorage` through `process.getBuiltinModule`, never a Node import. `request-store.ts:46`
-- A production server logs errors only, with `console.error`: the registry entry formatted in the configured `errorFormat` (`formatMessage`), then the error as it is. `app.ts:706`, `app.ts:810`, `app.ts:818`, `app.ts:857`, `app.ts:1883`, `entry-server.ts:264`
-- Runtime warnings reach the logger only through `devLog` (`vite dev`, the build's prerender) or behind `import.meta.env.DEV` (`entry-server.ts`), so a production bundle holds neither. `app.ts:209`, `entry-server.ts:147`, `entry-server.ts:391`
+- A production server logs errors only, with `console.error`: the registry entry formatted in the configured `errorFormat` (`formatMessage`), then the error as it is. `app.ts:706`, `app.ts:810`, `app.ts:818`, `app.ts:857`, `app.ts:1883`, `entry-server.ts:278`
+- Runtime warnings reach the logger only through `devLog` (`vite dev`, the build's prerender) or behind `import.meta.env.DEV` (`entry-server.ts`), so a production bundle holds neither. `app.ts:209`, `entry-server.ts:161`, `entry-server.ts:405`
 - `DEV_DROPLETS_LOG` sets the level of the dev and build log; a production server ignores it. `../core/logger.ts:44`
 
 ### The element (`entry-client.ts`)
 
-- The element reads props from the inline context script, then `data-droplet-context`, then `data-droplet-props` (plain JSON); a payload that does not parse is logged and the next one is read. `entry-client.ts:549`
-- An inline data payload whose `transported` table cannot be applied is logged (`payload-undecodable`) and taken as absent, so `_data` is asked; an undecodable `_data` answer renders nothing. `entry-client.ts:521`, `entry-client.ts:886`
-- `updateForm` on a droplet that is not hydrated sends `form` with its fragment request only when it is plain JSON; under `vite dev` it warns `form-result-not-plain` otherwise. `entry-client.ts:1423`, `dev-element.ts:354`
-- `updateForm({ form, action })` on a droplet that is not hydrated asks for its fragment again with the props and page of `action`, the URL of the action that answered, as a form posted without JavaScript has them: the query's keys minus the reserved ones and `__proto__`, the first of a repeated key, as strings, in a null-prototype object; the page from `__droplet_return`, the browser's own URL (query kept) when it is that page. `entry-client.ts:1518`
-- An `action` that is not this droplet's own (`ownAction`: another origin or path, credentials, no URL) gives no props; the element's own context is used, as without an `action`. `entry-client.ts:1526`
+- The element reads props from the inline context script, then `data-droplet-context`, then `data-droplet-props` (plain JSON); a payload that does not parse is logged and the next one is read. `entry-client.ts:557`
+- An inline data payload whose `transported` table cannot be applied is logged (`payload-undecodable`) and taken as absent, so `_data` is asked; an undecodable `_data` answer renders nothing. `entry-client.ts:529`, `entry-client.ts:894`
+- `updateForm` on a droplet that is not hydrated sends `form` with its fragment request only when it is plain JSON; under `vite dev` it warns `form-result-not-plain` otherwise. `entry-client.ts:1431`, `dev-element.ts:358`
+- `updateForm({ form, action })` on a droplet that is not hydrated asks for its fragment again with the props and page of `action`, the URL of the action that answered, as a form posted without JavaScript has them: the query's keys minus the reserved ones and `__proto__`, the first of a repeated key, as strings, in a null-prototype object; the page from `__droplet_return`, the browser's own URL (query kept) when it is that page. `entry-client.ts:1526`
+- An `action` that is not this droplet's own (`ownAction`: another origin or path, credentials, no URL) gives no props; the element's own context is used, as without an `action`. `entry-client.ts:1534`
 - `enhanceDropletForm` hands `updateForm` the action URL it posted to. `enhance.ts:421`
-- The element's server location is `serverLocation` for its element and build. `entry-client.ts:450`
-- `_data` is fetched with POST to `<location>/droplets/<id>/_data?__cb=<now>`, a JSON body and `redirect: "manual"`. `entry-client.ts:869`
-- The element shows the error page for `{ error }` from `_data` on a 500 or a 504 (`render.timeout`); any other answer without `data` renders nothing (`NothingToRender`). `entry-client.ts:891`
-- `_data` and a fragment rendered again after a post are fetched with `serverCredentials` for the element's server. `entry-client.ts:874`, `entry-client.ts:1485`
-- `data-droplet-hydrate` takes `""`, `true`, `false`, `visible` and `interactive`, case-sensitive. `entry-client.ts:1260`
-- `data-droplet-hydrate="false"` never stops a script droplet. `entry-client.ts:1263`
-- `interactive` without server markup hydrates at once. `entry-client.ts:1271`
-- `visible` uses a 200px root margin, 1000px without markup. `entry-client.ts:230`
-- `interactive` waits for `pointerdown`, `focusin`, `keydown` or `click`. `entry-client.ts:233`
-- Clicks before hydrate are captured, and dropped instead of replayed after 1500 ms of waiting or once 10 s old. `entry-client.ts:819`
-- A held click records its node's child-index path from the content root; when hydration replaced the node, it replays on the element at that path if it has the same tag, else it is dropped. `entry-client.ts:274`, `entry-client.ts:796`
-- A second click within 400 ms of the first counts as a retry, not a new click. `entry-client.ts:748`
-- A build mismatch keeps the server HTML and dispatches `droplets:stale` (bubbles, composed) through `reportStale` of `stale.ts`, the same dispatch an enhanced form uses. `entry-client.ts:851`, `stale.ts:33`
-- An answer to `_data` or to a fragment request from another build (`x-droplets-build`) is reported as stale before its status or body is read, so a 404 from a newer build is never taken for a missing droplet; the fragment stays as it is. `entry-client.ts:876`, `entry-client.ts:1487`
-- An unknown droplet keeps its markup and does nothing. `entry-client.ts:1322`
-- Host children go into `[data-droplet-slot]` or replace `[data-droplet-children]`, moved with `moveBefore` when available. `entry-client.ts:221`
-- With several markers, the container lives in the first connected one in document order, at connect among the server's and after `fill` among the reported ones, whichever was reported first; `empty` moves it to the next, else parks it. `entry-client.ts:631`
-- `data-droplet-enhance` on a form opts it into `enhanceDropletForm`. `entry-client.ts:1435`
-- Re-rendering a fragment needs a `text/html` answer. `entry-client.ts:1492`
-- `connectedMoveCallback` keeps the instance when the element is moved. `entry-client.ts:848`
-- `disconnectedCallback` tears down in a microtask, so a re-insert keeps the instance. `entry-client.ts:1564`
-- Dev code reaches the element only through `if (import.meta.env.DEV) installDevElement(...)`. `entry-client.ts:1583`
+- The element's server location is `serverLocation` for its element and build. `entry-client.ts:458`
+- `_data` is fetched with POST to `<location>/droplets/<id>/_data?__cb=<now>`, a JSON body and `redirect: "manual"`. `entry-client.ts:877`
+- The element shows the error page for `{ error }` from `_data` on a 500 or a 504 (`render.timeout`); any other answer without `data` renders nothing (`NothingToRender`). `entry-client.ts:899`
+- `_data` and a fragment rendered again after a post are fetched with `serverCredentials` for the element's server. `entry-client.ts:882`, `entry-client.ts:1493`
+- `data-droplet-hydrate` takes `""`, `true`, `false`, `visible` and `interactive`, case-sensitive. `entry-client.ts:1268`
+- `data-droplet-hydrate="false"` never stops a script droplet. `entry-client.ts:1271`
+- `interactive` without server markup hydrates at once. `entry-client.ts:1279`
+- `visible` uses a 200px root margin, 1000px without markup. `entry-client.ts:238`
+- `interactive` waits for `pointerdown`, `focusin`, `keydown` or `click`. `entry-client.ts:241`
+- Clicks before hydrate are captured, and dropped instead of replayed after 1500 ms of waiting or once 10 s old. `entry-client.ts:827`
+- A held click records its node's child-index path from the content root; when hydration replaced the node, it replays on the element at that path if it has the same tag, else it is dropped. `entry-client.ts:282`, `entry-client.ts:804`
+- A second click within 400 ms of the first counts as a retry, not a new click. `entry-client.ts:756`
+- A build mismatch keeps the server HTML and dispatches `droplets:stale` (bubbles, composed) through `reportStale` of `stale.ts`, the same dispatch an enhanced form uses. `entry-client.ts:859`, `stale.ts:33`
+- An answer to `_data` or to a fragment request from another build (`x-droplets-build`) is reported as stale before its status or body is read, so a 404 from a newer build is never taken for a missing droplet; the fragment stays as it is. `entry-client.ts:884`, `entry-client.ts:1495`
+- An unknown droplet keeps its markup and does nothing. `entry-client.ts:1330`
+- Host children go into `[data-droplet-slot]` or replace `[data-droplet-children]`, moved with `moveBefore` when available. `entry-client.ts:229`
+- With several markers, the container lives in the first connected one in document order, at connect among the server's and after `fill` among the reported ones, whichever was reported first; `empty` moves it to the next, else parks it. `entry-client.ts:639`
+- `data-droplet-enhance` on a form opts it into `enhanceDropletForm`. `entry-client.ts:1443`
+- Re-rendering a fragment needs a `text/html` answer. `entry-client.ts:1500`
+- `connectedMoveCallback` keeps the instance when the element is moved. `entry-client.ts:856`
+- `disconnectedCallback` tears down in a microtask, so a re-insert keeps the instance. `entry-client.ts:1572`
+- Dev code reaches the element only through `if (import.meta.env.DEV) installDevElement(...)`. `entry-client.ts:1591`
 
 ### `enhanceDropletForm` (`enhance.ts`)
 
@@ -368,7 +372,7 @@ Then the route.
 - `enhanceDropletForm` reads the answer through `Object.hasOwn`. `enhance.ts:238`
 - `enhanceDropletForm` decodes an answer's `transported` table through the element's `decodePayload`; `droplets:action` keeps the wire tree, `updateForm` and `onResult` get the decoded data, and an undecodable answer is logged (`payload-undecodable`) and applies nothing. `enhance.ts:399`, `enhance.ts:406`
 - `enhanceDropletForm` reads `x-droplets-build` before the answer's body, as the element does; an answer from another build dispatches `droplets:stale` on the droplet's element (`reportStale`, `stale.ts`) and applies nothing: no `updateForm`, no `onResult`, no `droplets:action`. `enhance.ts:373`
-- `actionTarget()` gives the loader's build with the droplet and the location, so an enhanced form can tell an answer from another build. `entry-client.ts:1366`
+- `actionTarget()` gives the loader's build with the droplet and the location, so an enhanced form can tell an answer from another build. `entry-client.ts:1374`
 - `enhanceDropletForm` follows only an absolute http(s) redirect location without credentials, as the server answers one; a relative, protocol-relative (`//…`, `/\…`) or `javascript:` one is logged and not followed. `enhance.ts:260`, `enhance.ts:422`
 
 ### `hooks.client`
@@ -377,10 +381,10 @@ Then the route.
 
 ### Dev
 
-- Dev strategies come from `?strategy=`, then `sessionStorage` `droplets:strategy:<origin>`, then the config. `dev-element.ts:258`
-- Dev follows `droplets:update`, `vite:beforeUpdate`, `droplets:hooks-client` and `droplets:hot-fallback`. `dev-element.ts:724`
+- Dev strategies come from `?strategy=`, then `sessionStorage` `droplets:strategy:<origin>`, then the config. `dev-element.ts:262`
+- Dev follows `droplets:update`, `vite:beforeUpdate`, `droplets:hooks-client`, `droplets:hooks` (an edit to `src/hooks.ts`: a notice under `hmr`, a console line under `manual`, a reload otherwise) and `droplets:hot-fallback`. `dev-element.ts:730`
 - Dev toasts show at most 3, and a toast without a reload button closes after 10 s. `dev-notify.ts:94`
-- The dev tool is injected per `?injectTool=` (anything but `false` injects), else per the config. `dev-element.ts:802`
-- A second `/index.js` of one server from another build warns once in dev, naming the element and both builds (`serverBuilds`); in production it adopts the elements silently and the first build's code runs them. `dev-element.ts:199`, `entry-client.ts:1607`
-- The dev remount tells a server fragment by its context, or by `data-droplet-build` with server markup; anything else mounts in the browser. `dev-element.ts:330`
+- The dev tool is injected per `?injectTool=` (anything but `false` injects), else per the config. `dev-element.ts:824`
+- A second `/index.js` of one server from another build warns once in dev, naming the element and both builds (`serverBuilds`); in production it adopts the elements silently and the first build's code runs them. `dev-element.ts:203`, `entry-client.ts:1615`
+- The dev remount tells a server fragment by its context, or by `data-droplet-build` with server markup; anything else mounts in the browser. `dev-element.ts:334`
 - A dev toast carries `data-droplet-key`; a notification with the same key replaces the one shown. `dev-notify.ts:48`

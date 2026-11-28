@@ -179,9 +179,9 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - `cloudflare()` build target is `es2022`. `src/index.ts:307`
 - `assetsBinding` defaults to `ASSETS`. `src/index.ts:288`
 - `assetsBinding` is baked into `dist/worker.js` as `__DROPLETS_ASSETS_BINDING__` through the output intro. `src/index.ts:311`, `src/worker.ts:17`
-- `cloudflare()` has no `preview`: `vite preview` warns and serves nothing. `src/index.ts:287`, `../../droplets/src/vite/plugin.ts:581`
+- `cloudflare()` has no `preview`: `vite preview` warns and serves nothing. `src/index.ts:287`, `../../droplets/src/vite/plugin.ts:621`
 - `.assetsignore` is written to `dist/client/` after every build with `/droplets.json` and `/.vite/`. `src/index.ts:25`, `src/index.ts:318`, `test/index.test.ts:42`
-- `afterBuild` receives the file-header table from the plugin as `fileHeaders` (`fileHeaderTable(config)`, internal to `@dropletsjs/droplets`): `publicCacheControl` comes from `droplets.config.ts`. `src/index.ts:316`, `../../droplets/src/vite/plugin.ts:574`, `../../droplets/src/runtime/file-headers.ts:30`
+- `afterBuild` receives the file-header table from the plugin as `fileHeaders` (`fileHeaderTable(config)`, internal to `@dropletsjs/droplets`): `publicCacheControl` comes from `droplets.config.ts`. `src/index.ts:316`, `../../droplets/src/vite/plugin.ts:614`, `../../droplets/src/runtime/file-headers.ts:30`
 - `_headers` is written to `dist/client/` after every build: the adapter's rules, then the project root's `_headers` after a blank line. `src/index.ts:320`, `src/index.ts:321`, `test/index.test.ts:46`, `test/index.test.ts:250`
 - `_headers` has one rule per row of the table, in its order, the pattern written as it is (Cloudflare reads `:name` and `*` alike): `/index.js` and `/index.css` (`no-store`), `/assets/*`, `/assets/public/*`, `/assets/prerendered/*`, `/droplets/:id/client.js`, `/droplets/:id/style.css`. `src/index.ts:171`, `../../droplets/src/runtime/file-headers.ts:30`, `test/index.test.ts:169`
 - `_headers` gives a path the headers of the table's last rule that matches it, as the server does: a rule writes only what differs from the last earlier rule that covers it, detaches (`! Name`) a header it replaces or leaves out, and detaches what an earlier rule that overlaps it only in part may have set. `src/index.ts:145`, `src/index.ts:107`, `src/index.ts:122`, `test/index.test.ts:179`
@@ -212,7 +212,7 @@ tsdown entry: `cloudflare()` finds `dist/worker.js` by path.
 - `run_worker_first` warning names the file, the value and up to five matched paths, and links `https://dropletsjs.dev/guides/deployment/#run_worker_first`. `src/index.ts:359`
 - Config in the Worker is `resolveConfig(userConfig)` with no environment: `PORT` is never read. `src/worker.ts:120`
 - `droplets.config.ts` that exports a function is called in `dist/worker.js` with the build's `{ command, mode, isSsrBuild, isPreview }` and awaited on the first request, never at the top level: a Worker module has no top-level `await`. `src/worker.ts:26`, `src/worker.ts:119`, `test/worker.test.ts:472`
-- Manifest is inlined into the Worker through `virtual:droplets-manifest`, the build's `droplets.json`. `src/worker.ts:2`, `../../droplets/src/vite/virtual.ts:62`
+- Manifest is inlined into the Worker through `virtual:droplets-manifest`, the build's `droplets.json`. `src/worker.ts:2`, `../../droplets/src/vite/virtual.ts:71`
 - Assets binding missing from `env`: the request throws `cloudflare-assets-binding-missing` (`the Worker has no "<name>" binding`). `src/worker.ts:126`, `test/worker.test.ts:358`
 - App is created once per assets binding object and kept in a `WeakMap`, as the promise of its creation. `src/worker.ts:33`, `src/worker.ts:131`
 - Bindings are the runtime env: every request calls `setRuntimeEnv(env)` before it is answered. `src/worker.ts:140`

@@ -88,11 +88,15 @@ export type DropletUpdatePayload = {
 /** Sent when the page itself is out of date: `src/hooks.client.ts` changed, and its `init` runs once per page. */
 export type DropletHooksPayload = { reason: "hooks.client"; timestamp: number };
 
+/** Sent when `src/hooks.ts`, or a file it imports, changed: `/index.js` read its `transport` once, as the page loaded. */
+export type DropletTransportPayload = { reason: "hooks"; timestamp: number };
+
 declare module "vite/types/customEvent.d.ts" {
   // biome-ignore lint/style/useConsistentTypeDefinitions: an augmentation of Vite's map; `type` cannot merge.
   interface CustomEventMap {
     "droplets:update": DropletUpdatePayload;
     "droplets:hooks-client": DropletHooksPayload;
+    "droplets:hooks": DropletTransportPayload;
   }
 }
 
@@ -720,6 +724,8 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
    *   follow `droplets:update` as that strategy says.
    * - `src/hooks.client.ts` changed: under `hmr` a notice with "Reload
    *   page", under `manual` a console line; `remount` and `reload` reload.
+   * - `src/hooks.ts` or a file it imports changed: the same, since this
+   *   page decodes with the `transport` it loaded.
    */
   function followHotUpdates({ hot }: FollowHotUpdatesInput): void {
     /** Timestamps of edits to droplets that Vite's updates for are not this page's to run. */
@@ -762,6 +768,22 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
           key: `${own} hooks.client`,
           message: "src/hooks.client.ts changed",
           detail: "Its init runs once per page, before any droplet starts: reload the page to run it again.",
+          reload: true,
+        },
+        reload: reloadPage,
+      });
+    });
+
+    hot.on("droplets:hooks", (raw) => {
+      if (!isObject(raw) || raw["reason"] !== "hooks") return;
+      const strategy = activeStrategy();
+      if (strategy === "manual") return console.info("droplets: src/hooks.ts changed; reload the page to decode with its new transport");
+      if (strategy !== "hmr") return reloadPage();
+      notify({
+        notification: {
+          key: `${own} hooks`,
+          message: "src/hooks.ts changed",
+          detail: "This page decodes with the transport it loaded: reload the page to use the new one.",
           reload: true,
         },
         reload: reloadPage,

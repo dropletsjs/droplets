@@ -168,7 +168,8 @@ in `src/hooks.server.ts` never runs for `/index.js`, `/index.css`, `/env.js` and
 ### Also in the box
 
 - `src/hooks.server.ts`: `handle` and `handleError`; `src/hooks.client.ts`:
-  `init()`, before any droplet.
+  `init()`, before any droplet; `src/hooks.ts`: `transport`, your own types
+  sent to the browser as themselves.
 - `src/api/**/+server.ts`: endpoints under `/api/`.
 - `src/env.ts`: typed environment variables (`defineEnvVars` from
   `@dropletsjs/droplets/env`), read from `$droplets/env/public` and
@@ -281,11 +282,11 @@ renderer under `testing/`.
 - Portability forbids in NEUTRAL files: `node:` imports, `Buffer`, `process.argv/cwd/exit`, an unguarded `process.env`, `__dirname`. `test/portability.test.ts:16`
 - Entry `.` exports `config`, `isValidElementName`, `resolveConfig`, and the types `LogLevel`, `LogSource` and `DevStrategy`; `DEV_STRATEGIES` stays internal. `src/index.ts:1`, `src/index.ts:2`, `src/index.ts:5`
 - Entry `.` exports `DropletsApp`, the type of the Hono app `createServerApp` returns. `src/index.ts:10`
-- Entry `.` exports `createServerApp`, `createPrerenderedLoader`, `PRERENDER_DIR`, `setRuntimeEnv`, `FALLBACK_MANIFEST` for adapters. `src/index.ts:84`, `src/index.ts:86`, `src/index.ts:87`, `src/index.ts:46`
-- Entry `.` exports the renderer helpers `defineRenderer`, `importsPackage`, `parseHydrateMode`, `RENDERER_QUERY`, `rendererScopeFilter`, `validateRenderers`, `withFlagDefaults`. `src/index.ts:57`
-- Entry `.` exports `ActionFailure`, `CookiesInPrerenderError`, `HostUrlPropsErrorInPrerender`, `DropletRenderError`. `src/index.ts:45`, `src/index.ts:11`
+- Entry `.` exports `createServerApp`, `createPrerenderedLoader`, `PRERENDER_DIR`, `setRuntimeEnv`, `FALLBACK_MANIFEST` for adapters. `src/index.ts:85`, `src/index.ts:87`, `src/index.ts:88`, `src/index.ts:47`
+- Entry `.` exports the renderer helpers `defineRenderer`, `importsPackage`, `parseHydrateMode`, `RENDERER_QUERY`, `rendererScopeFilter`, `validateRenderers`, `withFlagDefaults`. `src/index.ts:58`
+- Entry `.` exports `ActionFailure`, `CookiesInPrerenderError`, `HostUrlPropsErrorInPrerender`, `DropletRenderError`. `src/index.ts:46`, `src/index.ts:11`
 - Entry `./vite` exports `droplets()`, `readExportedFlag`, `readExportedFlags`, `readExportedHydrate`, and `logger`, `setLogLevel` for adapters and plugins at build time. `src/vite.ts:1`, `src/vite.ts:14`, `src/vite.ts:16`
-- `droplets()` takes `DropletsPluginOptions` (default `{}`) and returns Vite plugins. `src/vite/plugin.ts:233`
+- `droplets()` takes `DropletsPluginOptions` (default `{}`) and returns Vite plugins. `src/vite/plugin.ts:250`
 - Entry `./env`: `defineEnvVars` validates and returns the declaration unchanged. `src/env.ts:76`
 - Env variable names match `^[A-Za-z_][A-Za-z0-9_]*$`, and each needs an options object; otherwise `validateEnvDeclaration` throws. `src/env.ts:61`, `src/env.ts:64`
 - Env `Register` is an `interface` so the user merges `variables` into it. `src/env.ts:42`
@@ -293,13 +294,13 @@ renderer under `testing/`.
 - `scopeStylesPlugin({ element, include })` nests every selector under `element`; `include` picks the files, all by default. `src/css/scope.ts:4`, `src/css/scope.ts:135`
 - `scopeSelector`: `html`, `body`, `:root`, `:host` (and Svelte's `:global(body)`) become the element itself. `src/css/scope.ts:14`, `src/css/scope.ts:69`
 - Entry `./testing` exports `rendererConformance` and `fakeRenderer`; it imports vitest, so it is for tests only. `src/testing/index.ts:7`
-- `rendererConformance` defaults: `element` `test-droplet`, `interactive` true, `css` true, `adopts` true, `outDir` `<root>/dist-conformance`. `src/testing/conformance.ts:268`
-- `rendererConformance` `enhance`: `"wrapper"` (default) or `"attribute"` for template engines. `src/testing/conformance.ts:159`
+- `rendererConformance` defaults: `element` `test-droplet`, `interactive` true, `css` true, `adopts` true, `outDir` `<root>/dist-conformance`. `src/testing/conformance.ts:272`
+- `rendererConformance` `enhance`: `"wrapper"` (default) or `"attribute"` for template engines. `src/testing/conformance.ts:163`
 - `rendererConformance` runs on `fakeRenderer()` and `test/fixtures/app` in this package. `test/conformance.test.ts:7`
 - `rendererConformance` serves the fixture from a worker thread (`testing/conformance-server.js`, started by `startServer`), which shares the environment, so `vi.stubEnv` reaches it; a second app there renders as the build's prerender pass does (`building`). `src/testing/server-thread.ts:41`, `src/testing/conformance-server.ts:52`
 - `rendererConformance` DOM checks look where a page shows things: `find`/`findAll` of `composed.ts` go into every shadow root, attached or declarative (`<template shadowrootmode>`), and through a `<slot>` to the light children it places; a selector matches one element, never a path across trees. `src/testing/composed.ts:73`, `src/testing/composed.ts:86`
-- `rendererConformance` HTML checks ignore comments (`bare`), and read the server markup inert, parsed in a `<template>` (`parse`). `src/testing/conformance.ts:187`, `src/testing/composed.ts:99`
-- `rendererConformance` takes the host's children as out of sight when their container is hidden under the element, or sits in a marker a shadow-DOM component leaves unslotted. `src/testing/conformance.ts:919`
+- `rendererConformance` HTML checks ignore comments (`bare`), and read the server markup inert, parsed in a `<template>` (`parse`). `src/testing/conformance.ts:191`, `src/testing/composed.ts:99`
+- `rendererConformance` takes the host's children as out of sight when their container is hidden under the element, or sits in a marker a shadow-DOM component leaves unslotted. `src/testing/conformance.ts:938`
 - `fakeRenderer()` is named `fake` and handles `.fake.js`. `src/testing/fake-renderer/index.ts:31`
 - `createServerApp` throws when the SSR bundle exports neither `renderDroplet` nor a default. `src/server/app.ts:92`
 - `cors` allowing every origin warns once under `vite dev` (`devLog`); `createServerApp` warns about nothing. `src/runtime/app.ts:865`, `src/runtime/dev-log.ts:68`
@@ -307,7 +308,7 @@ renderer under `testing/`.
 - `createServerApp` passes `fileHeaderTable(config)` to the app, which sets the matching rule's headers on every 2xx or 304 answer to a build file: `/index.js`, `/index.css`, `/assets/*` (`public/` and `prerendered/` included), `/droplets/<id>/client.js` and `style.css`. `src/server/app.ts:125`, `src/runtime/app.ts:1250`
 - `fileHeaderTable(config)` is an ordered list of `{ path, headers }`: a `:name` segment matches one non-empty segment, a final `*` a non-empty rest; a narrower pattern comes after the wider one it refines, and a path takes the last rule that matches, all its headers and no other header the table names. `src/runtime/file-headers.ts:12`, `src/runtime/file-headers.ts:30`, `src/runtime/file-headers.ts:53`, `src/runtime/file-headers.ts:69`, `src/runtime/file-headers.ts:80`
 - `fileHeaderTable(config)` reads `publicCacheControl` and `fragmentCacheControl`; `/index.js` and `/index.css` are `no-store`, `/assets/*`, `client.js` and `style.css` `public, max-age=2592000, immutable`, `/assets/prerendered/*` `fragmentCacheControl` with `no-transform` (`withNoTransform`, as the live fragment); every rule carries `Access-Control-Allow-Origin: *` and `X-Content-Type-Options: nosniff`. `src/runtime/file-headers.ts:18`, `src/runtime/file-headers.ts:23`, `src/runtime/file-headers.ts:30`, `src/runtime/file-headers.ts:43`
-- `fileHeaderTable` and `fileHeadersFor` are internal; an adapter gets the table as `fileHeaders` in `afterBuild`, and `createServerApp` applies it. Only the `FileHeaderRule` type is exported from `@dropletsjs/droplets`, as the type of that field. `src/index.ts:85`, `src/adapters.ts:64`, `src/vite/plugin.ts:574`
+- `fileHeaderTable` and `fileHeadersFor` are internal; an adapter gets the table as `fileHeaders` in `afterBuild`, and `createServerApp` applies it. Only the `FileHeaderRule` type is exported from `@dropletsjs/droplets`, as the type of that field. `src/index.ts:86`, `src/adapters.ts:64`, `src/vite/plugin.ts:614`
 - `AssetLoaders`: every loader returns `null` for something that does not exist. `src/server/app.ts:49`
 - `FALLBACK_MANIFEST` is the manifest a runtime answers with before the build is found: no droplets, `__entryClient` `index.js`. `src/server/manifest.ts:45`
 - `PRERENDER_DIR` is `_prerendered`: `dist/server/_prerendered/` with a separate SSR bundle, else `dist/client/_prerendered/<random>/` named only in the manifest. `src/server/prerendered.ts:18`, `src/server/prerendered.ts:3`
@@ -342,9 +343,9 @@ renderer under `testing/`.
 - Under `vite dev`, a gzipped fragment that gets `data-droplet-context` is decoded first and answered plain. `src/vite/dev.ts:60`
 - Droplet file URLs (the stylesheet, `client.js`, the `Link` preloads) are built on the request's droplet location. `src/runtime/app.ts:1565`
 - `style.css` imports each stylesheet as `../../<file>`, relative to itself. `src/runtime/app.ts:342`
-- Dev element code enters production code through one gate: `if (import.meta.env.DEV) installDevElement(...)`. `src/runtime/entry-client.ts:1529`
-- Client module dev hooks (`update`, the HMR fallback) are emitted only under `vite dev` or a non-production build. `src/vite/virtual.ts:776`
-- Build hash is random per plugin instance, so per build environment; the entry module is named `assets/index.[hash].js`, not after it. `src/vite/state.ts:83`, `src/vite/build.ts:38`
+- Dev element code enters production code through one gate: `if (import.meta.env.DEV) installDevElement(...)`. `src/runtime/entry-client.ts:1537`
+- Client module dev hooks (`update`, the HMR fallback) are emitted only under `vite dev` or a non-production build. `src/vite/virtual.ts:807`
+- Build hash is random per plugin instance, so per build environment; the entry module is named `assets/index.[hash].js`, not after it. `src/vite/state.ts:85`, `src/vite/build.ts:38`
 - Dev serves no droplet stylesheets: a `hydrate = false` droplet renders without its component styles in dev. `src/vite/dev.ts:401`
 - Flags are read from the droplet's component only; flags `+error.*` declares warn in dev and are ignored. `src/core/discover.ts:182`, `src/core/discover.ts:214`
 - Flag not a literal: warns and is ignored. `src/core/flags.ts:128`
