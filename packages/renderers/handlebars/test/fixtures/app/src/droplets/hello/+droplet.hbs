@@ -4,6 +4,7 @@ export hydrate = true
 --}}
 <section>
   {{> greeting}}
+  <p data-testid="kinds">{{data.kinds}}</p>
   <p data-testid="shout">{{upper data.who}}</p>
   <button data-testid="count">0</button>
   <div data-testid="children">{{{children}}}</div>

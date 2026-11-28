@@ -10,10 +10,12 @@
   Checked by: `../../../../tests/dev-mixed/test/production.test.ts` (`DEV_MARKERS`), `../../test/runtime/app.test.ts` ("what a production server logs").
 - Dev modules (`dev-*.ts`) have no top-level side effects, so they tree-shake.
   Checked by: `../../../../tests/dev-mixed/test/production.test.ts`, `../../../../tests/packages/test/packed.test.ts`.
-- `*.server.ts` modules (`form-token.server.ts`) are imported only by server code and never reach a client bundle.
+- `*.server.ts` modules (`form-token.server.ts`, `payload-encode.server.ts`) are imported only by server code and never reach a client bundle.
   Checked by: `graphCheck()` in `../../tsdown.config.ts`, `../../../../tests/packages/test/packed.test.ts`.
 - Input endpoints read plain data only: `FormData` or `JSON.parse`, no revivers.
   Checked by: `../../test/runtime/actions.test.ts`, `../../test/runtime/app.test.ts`.
+- What a droplet sends the browser passes the payload contract on every render (`payload-encode.server.ts`, server only, on the `graphCheck` server list): plain JSON plus the transported values, each listed under `transported`, inner values first; a payload without one is the plain JSON it always was. Only the browser decodes (`payload-decode.ts`, imported by `entry-client.ts` alone), walking own keys and in-range indices, names through a `Map`; the server never decodes what a request carries, and a form result going back to it (the signed no-JavaScript result, the `form` of a re-render after an enhanced form) is plain JSON or left out.
+  Checked by: `../../test/runtime/payload-encode.test.ts`, `../../test/runtime/payload-decode.test.ts`, `../../test/runtime/payload-boundary.test.ts`, `../../test/runtime/actions.test.ts` ("sends a result holding a transported value back without its data").
 - A name from the client reaches code only through a `Map` or `Object.hasOwn` (droplets, actions, `/api` methods, form tokens, enhance answers).
   Checked by: `../../test/runtime/actions.test.ts` (`__proto__`, `constructor`), `../../test/runtime/enhance.test.ts`, `../../test/runtime/cookies.test.ts`.
 - The route, the droplet and the action are resolved before the body is read.

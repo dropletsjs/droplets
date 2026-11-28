@@ -4,14 +4,15 @@ import type { DropletProps } from "@dropletsjs/renderer-hono-jsx";
 export const ssr = true;
 export const hydrate = true;
 
-export default function Hello({ data, children }: DropletProps<{ greeting: string }>) {
+export default function Hello({ data, children }: DropletProps<{ greeting: string; kinds: string }>) {
   const [clicks, setClicks] = useState(0);
   // The value on the server and when hydrating, a promise when mounted from
   // scratch: `use` suspends on it, and a rejection reaches the error boundary.
-  const { greeting } = data instanceof Promise ? use(data) : data;
+  const { greeting, kinds } = data instanceof Promise ? use(data) : data;
   return (
     <section>
       <h1 data-testid="greeting">{greeting}</h1>
+      <p data-testid="kinds">{kinds}</p>
       <button data-testid="count" onClick={() => setClicks((n) => n + 1)}>
         {clicks}
       </button>

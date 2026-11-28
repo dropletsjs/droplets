@@ -13,7 +13,8 @@
  *   and the client module's fallback for an edit no framework HMR took.
  * - The dev tool (`dev.injectTool`, `index.js?injectTool=true`) and what it
  *   lists of the elements.
- * - Warnings about what a host wrote: loose children, an unknown `data-droplet-hydrate`.
+ * - Warnings about what a host wrote: loose children, an unknown `data-droplet-hydrate`;
+ *   and about an action's result too typed to go back to the server.
  *
  * Nothing runs at the top level: the module only exports.
  */
@@ -34,6 +35,7 @@ import type { DevElementInfo, DevElementState, DevToolSource, DropletsDevTools }
 import type {
   DjsDropletElement,
   DropletClientModule,
+  FormForServerInput,
   ImportModuleInput,
   ModeOfInput,
   Payload,
@@ -56,6 +58,7 @@ import {
   LOOSE_CHILD_REMOVED,
   REMOUNT_FAILED,
 } from "../errors/browser.ts";
+import { FORM_RESULT_NOT_PLAIN } from "../errors/runtime.ts";
 
 /**
  * Sent by the Vite plugin over Vite's own HMR channel in dev, once per edit
@@ -345,6 +348,16 @@ export function installDevElement(DropletElement: typeof DjsDropletElement, env:
     start: proto._start,
     importModule: proto._importModule,
     updateForm: proto.updateForm,
+    formForServer: proto._formForServer,
+  };
+
+  proto._formForServer = function (this: DjsDropletElement, input: FormForServerInput): { action?: { form: unknown } } {
+    const sent = original.formForServer.call(this, input);
+    if (input.form !== undefined && !sent.action) {
+      const way = "the server's render of a droplet that does not hydrate";
+      console.warn(formatMessage({ message: FORM_RESULT_NOT_PLAIN, params: { way }, droplet: this.dataset["droplet"] }));
+    }
+    return sent;
   };
 
   proto.connectedCallback = async function (this: DjsDropletElement): Promise<boolean> {

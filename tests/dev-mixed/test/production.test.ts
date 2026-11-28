@@ -57,6 +57,7 @@ const DEV_MARKERS: (string | RegExp)[] = [
   "loose-child-removed",
   "hydrate-attribute-invalid",
   "hydrate-false-on-script-droplet",
+  "form-result-not-plain",
   "hmr-event-failed",
   "remount-failed",
   "dev-tool-missing",

@@ -83,7 +83,7 @@ default tag name):
 | `data-droplet-error` | Present when the markup is the error page. |
 | `data-droplet-context` | The context as an attribute, when there is no inline `data-droplet-payload="context"`: a fragment without server markup (`ssr = false`, `?noSSR`, `?clientOnly`). Absent for droplets that never hydrate. |
 | `data-droplet-payload="context"` | Base64 JSON `{ host, props }`, after the props schema: where it renders, and its props. Sent back when the browser needs `_data`. Present whenever the fragment has server markup, a prerendered render of an `ssr = false` droplet included; absent for droplets that never hydrate. |
-| `data-droplet-payload="data"` | Base64 JSON envelope, `{ "data": … }` or `{ "error": … }`. Its presence tells the browser the server load ran. Absent for droplets that never hydrate and for `clientOnly`. |
+| `data-droplet-payload="data"` | Base64 JSON envelope, `{ "data": … }` or `{ "error": … }`, with `"transported"` when the data holds [transported values](#transported-values). Its presence tells the browser the server load ran. Absent for droplets that never hydrate and for `clientOnly`. |
 | `link[data-droplet-style]` | The droplet's `style.css`, inside the element, ahead of its markup, so the markup never shows unstyled and nothing goes into the host's `<head>`. Absent when the droplet has no styles. |
 | `[data-droplet-entry]` | The server-rendered markup. The browser hydrates it in place. |
 
@@ -94,6 +94,52 @@ renders again with the props and page of its action URL.
 A host adds its own content as one `<div data-droplet-slot>` before the closing
 tag; see [Host children](/guides/in-the-browser/#host-children). Hand-written
 `data-droplet-payload="data"` must use the envelope.
+
+### Transported values
+
+The fragment's data envelope, the `_data` answer and an action's JSON answer
+are plain JSON. A `Date`, `Map`, `Set`, `URL` or `BigInt` in the server
+load's data or an action's result travels in its JSON form, and the
+envelope lists where each one is under `"transported"`:
+
+| Value | JSON form | Name |
+| --- | --- | --- |
+| `Date` | its ISO string | `Date` |
+| `Map` | an array of `[key, value]` pairs | `Map` |
+| `Set` | an array of its values | `Set` |
+| `URL` | its `href` | `URL` |
+| `BigInt` | its decimal string | `BigInt` |
+
+```json
+{
+  "data": { "when": "2026-01-02T03:04:05.000Z", "tags": [["a", ["x", "y"]]] },
+  "transported": [
+    [["data", "when"], "Date"],
+    [["data", "tags", 0, 1], "Set"],
+    [["data", "tags"], "Map"]
+  ]
+}
+```
+
+- Each entry is `[path, name]`: the path is a list of keys and array
+  indices from the envelope's root, starting at `"data"` or `"form"`.
+- Inner values come first, so a reader that turns each entry back in order
+  meets a `Set` inside a `Map` before the `Map`.
+- `"transported"` is absent when there is nothing to list: an envelope of
+  plain JSON is exactly what it was before, and hand-written envelopes
+  without it stay valid.
+- A tool that reads `_data` or an action's answer and does not need the
+  types can ignore `"transported"`: the values are there, as strings and
+  arrays.
+- Only the browser turns them back, and only over a payload from its own
+  server: a name it does not know, or a path that leaves the payload's own
+  keys and indices, makes the whole payload unreadable (the element then
+  asks `_data`, as for a payload that does not parse). The server reads
+  nothing in a request as transported: a body, query or form shaped like
+  this envelope reaches the load or action as the plain data it is.
+
+What else data can hold, and what is refused, is in
+[What data can be](/guides/writing-droplets/#what-data-can-be).
 
 Once `/index.js` has run on the page, every element takes care of itself; see
 [In the browser](/guides/in-the-browser/). The markup never says where to load
@@ -154,7 +200,7 @@ come with the JavaScript.
 `GET` or `POST /droplets/:id/_data` runs the props schema and the server load,
 and answers `{ "data": … }`, or `{ "error": … }` with a `500` when the load
 failed (a `504` past `render.timeout`). When `host` carries a no-JavaScript action's result for the droplet,
-it is `{ "data": …, "form": … }` ([Post/Redirect/Get](#postredirectget)). `error()` and `redirect()` answer as they would for the fragment, the redirect's bound included (`400` `{ "message": … }` for a target off this site); the element fetches `_data` with `redirect: "manual"`, so a redirect reaches it as an opaque answer it logs and renders nothing for.
+it is `{ "data": …, "form": … }` ([Post/Redirect/Get](#postredirectget)), with `"transported"` when either holds [transported values](#transported-values). `error()` and `redirect()` answer as they would for the fragment, the redirect's bound included (`400` `{ "message": … }` for a target off this site); the element fetches `_data` with `redirect: "manual"`, so a redirect reaches it as an opaque answer it logs and renders nothing for.
 Every answer carries `x-droplets-build`, as every fragment answer does,
 `404` and `405` included. Other methods answer `405`.
 
@@ -372,7 +418,7 @@ answered:
 | `redirect(status, location)` | `200` `{ "type": "redirect", "status": …, "location": "…" }`, `location` absolute | `303`, `location` | `303`, `location` |
 | `redirect()` to an origin that is not the server's own, its location's, a `trustedOrigins` entry or [`host`](/guides/configuration/#a-fixed-host)'s | `400` `{ "message": … }` | `400`, plain text | `400`, plain text |
 | `error(status)` | `status`, `{ "message": … }` | `status`, the message | `status`, the message |
-| data that is not plain JSON | `500` | `500` | `500` |
+| data a [payload can't hold](/guides/writing-droplets/#what-data-can-be) (a function, a class instance with no transport, a cycle, `NaN`) | `500` | `500` | `500` |
 
 Action URLs (`actionUrl()` of `$droplets/form`, `{{action}}` in Handlebars)
 are `<location>/droplets/<id>?/<name>&<props>&__droplet_return=<page>`, the
@@ -422,7 +468,9 @@ the browser anywhere. The result is
 `base64url(HMAC-SHA256)` over a version tag, the droplet, the build, the
 page's origin and path, and that JSON, keyed with `DROPLETS_SECRET`. It is valid for five minutes and at most
 2 KB; past that, `data` is dropped (status and action stay), with a warning
-under `vite dev`.
+under `vite dev`. A result that holds a [transported value](#transported-values)
+is minted without `data` the same way, with a warning under `vite dev`: the
+result goes back to the server, which reads it as plain JSON only.
 
 The page loads again. Any render of that droplet whose `host` carries a
 genuine result for it (the fragment, `GET` or `POST`, and `_data`) renders

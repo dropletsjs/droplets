@@ -13,6 +13,7 @@ import {
   CORS_ANY_ORIGIN,
   ENV_MAX_AGE_INVALID,
   FORM_RESULT_DROPPED,
+  FORM_RESULT_NOT_PLAIN,
   FORM_RESULT_TOO_LARGE,
   FORM_SECRET_MISSING,
   FORM_SECRET_SHORT,
@@ -41,6 +42,8 @@ export type DevLog = {
   resultTooLarge(input: { droplet: string; action: string }): void;
   /** A carried no-JavaScript result that the droplet renders without: every time. */
   formResultDropped(input: { droplet: string; reason: FormResultDropReason; action?: string | undefined }): void;
+  /** An action's result with transported values, sent back to its page without them. */
+  resultNotPlain(input: { droplet: string; action: string }): void;
   /** A fragment or `_data` that answered 504: every time. */
   renderTimeout(input: { droplet: string; timeout: number }): void;
 };
@@ -84,6 +87,10 @@ export function createDevLog(): DevLog {
     },
     formResultDropped({ droplet, reason, action }) {
       logger.report({ message: FORM_RESULT_DROPPED, params: { reason, action }, droplet });
+    },
+    resultNotPlain({ droplet, action }) {
+      const way = `the signed result a form posted without JavaScript takes back to its page (action ${action})`;
+      logger.report({ message: FORM_RESULT_NOT_PLAIN, params: { way }, droplet });
     },
     renderTimeout({ droplet, timeout }) {
       logger.report({ message: RENDER_TIMED_OUT, params: { timeout }, droplet });

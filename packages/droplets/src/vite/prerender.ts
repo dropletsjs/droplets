@@ -22,13 +22,16 @@ import type { DropletsManifest } from "../server/manifest.ts";
 import { PRERENDER_DIR, PRERENDERED_FILES_DIR, prerenderIndexPath, type PrerenderIndex } from "../server/prerendered.ts";
 import type { PrerenderWorkerData } from "./prerender-worker.ts";
 import type { PluginState } from "./state.ts";
+import type { TransportedEntry } from "../runtime/payload-wire.ts";
 
 /** What the fragment answers while building. */
 type BuildRender = {
   key: string;
   html: string;
   renderId?: string;
+  /** The server data in its wire form, and where its transported values are. */
   data?: unknown;
+  transported?: TransportedEntry[];
   failed?: true;
   error?: unknown;
   /** The nonce of the host tokens in a host-agnostic render. */
@@ -239,7 +242,14 @@ export async function prerender({ state, ssrEntry }: PrerenderInput): Promise<Pr
         const headers = render.headers ? { headers: render.headers } : {};
         const stored = render.failed
           ? { html: render.html, ...id, ...nonce, failed: true, error: render.error }
-          : { html: render.html, ...id, ...nonce, ...headers, data: render.data };
+          : {
+              html: render.html,
+              ...id,
+              ...nonce,
+              ...headers,
+              data: render.data,
+              ...(render.transported ? { transported: render.transported } : {}),
+            };
         await writeTextFile({ path: resolve(root.dir, file), contents: JSON.stringify(stored) });
         index[render.key] = file;
         count += 1;

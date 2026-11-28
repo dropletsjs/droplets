@@ -17,6 +17,8 @@ import type { HandleServerError, ImportMapHandler, TransformEvent } from "../run
 import type { ResolvedDropletsConfig } from "../core/config.ts";
 import { fileHeaderTable } from "../runtime/file-headers.ts";
 import type { HostTokenReplacers } from "../runtime/host-tokens.ts";
+import type { EncodePayloadInput } from "../runtime/payload-encode.server.ts";
+import type { Encoded } from "../runtime/payload-wire.ts";
 
 /** What the built SSR bundle exports. */
 export type SsrModule = {
@@ -37,6 +39,8 @@ export type SsrModule = {
   findAction?: FindAction;
   /** The nonce of the location tokens the bundle writes (see `DropletsAppOptions.tokenNonce`). */
   tokenNonce?: string | undefined;
+  /** Internal: the bundle's payload encoder (see `DropletsAppOptions.encodePayload`). */
+  encodePayload?: (input: EncodePayloadInput) => Encoded;
   /** Internal: the bundle's token replacers, none when the build fixes `location` and `host` (see `DropletsAppOptions.tokens`). */
   tokens?: HostTokenReplacers | undefined;
 };
@@ -121,6 +125,7 @@ export function createServerApp({ ssr, assets, config }: ServerAppOptions): Drop
     buildHash: assets.buildHash,
     ...(ssr.tokenNonce === undefined ? {} : { tokenNonce: ssr.tokenNonce }),
     ...(ssr.tokens === undefined ? {} : { tokens: ssr.tokens }),
+    ...(ssr.encodePayload ? { encodePayload: ssr.encodePayload } : {}),
     cors: config.cors,
     fileHeaders: fileHeaderTable(config),
     trustedOrigins: config.trustedOrigins,

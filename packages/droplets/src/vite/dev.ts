@@ -10,7 +10,6 @@ import { CORE_SUFFIXES } from "../renderer.ts";
 import {
   createDropletsApp,
   type DropletsApp,
-  isActionDataError,
   type GetDropletMeta,
   type LoadClientModule,
   type LoadDropletData,
@@ -30,6 +29,7 @@ import { externalsList, type PluginState } from "./state.ts";
 import { syncTypes } from "./sync-types.ts";
 import { clientEntryId, RESOLVED_VIRTUAL_DROPLETS } from "./virtual.ts";
 import { replacers } from "../runtime/host-tokens.ts";
+import { encodePayload, isPayloadContractError } from "../runtime/payload-encode.server.ts";
 import { isKebabName } from "../runtime/web-url.ts";
 
 /**
@@ -40,7 +40,7 @@ import { isKebabName } from "../runtime/web-url.ts";
 export type DevHandleErrorInput = { handleError: HandleServerError | undefined };
 
 export function devHandleError({ handleError }: DevHandleErrorInput): HandleServerError {
-  return (input) => (isActionDataError(input.error) ? { message: input.error.message } : handleError?.(input));
+  return (input) => (isPayloadContractError(input.error) ? { message: input.error.message } : handleError?.(input));
 }
 
 type DevContext = { host: string; props: Record<string, unknown> };
@@ -456,7 +456,10 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
       if (!keys.includes(key)) return null;
       const result = await (mod.renderDroplet ?? mod.default)?.(name, event);
       if (!result) return null;
-      if (!result.failed) return { html: result.html ?? result.body ?? "", data: result.serverData };
+      if (!result.failed) {
+        const wire = result.serverWire ?? encodePayload({ value: result.serverData, what: "server data", droplet: name });
+        return { html: result.html ?? result.body ?? "", data: wire.value, transported: wire.transported };
+      }
       const page = await mod.renderError?.(name, result.error, event.props);
       return {
         html: page ? `${page.head ?? ""}${page.html ?? page.body ?? ""}` : "",
@@ -481,6 +484,11 @@ export function createDevApp({ server, state, runtime }: DevAppOptions): Droplet
     tokenNonce: state.tokenNonce,
     // `vite dev` computes `location` and `host` per request, set or not.
     tokens: replacers,
+    // Per request, as everything of the SSR module here: its transports follow an edit.
+    encodePayload: async (input) => {
+      const mod = await runtime.loadSsrModule();
+      return mod.encodePayload ? mod.encodePayload(input) : encodePayload(input);
+    },
     cors: config.cors,
     trustedOrigins: config.trustedOrigins,
     fragmentCacheControl: config.fragmentCacheControl,

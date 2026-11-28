@@ -459,14 +459,16 @@ describe("vite dev", () => {
     expect(html).toContain("Hello Dev!");
     expect(html).not.toContain("data-droplet-location");
     const data = html.match(/data-droplet-payload="data">([^<]+)</)?.[1];
-    expect(data && JSON.parse(Buffer.from(data, "base64").toString())).toEqual({
+    expect(data && JSON.parse(Buffer.from(data, "base64").toString())).toMatchObject({
       data: {
         who: "Dev",
         hooked: true,
         // In dev, runtime variables come from .env, like Vite's own.
         secret: "from-dotenv",
         flag: "inlined-at-build",
+        when: "2026-01-02T03:04:05.000Z",
       },
+      transported: expect.arrayContaining([[["data", "when"], "Date"]]),
     });
     expect(html).toContain('<p data-testid="site">Fixture</p>');
     expect(html).toContain('<p data-testid="dep">shared-dep</p>');

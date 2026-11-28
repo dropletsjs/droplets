@@ -50,6 +50,13 @@ export const BUILD_MISMATCH = {
   fix: "reload the page, so it loads the server's current /index.js",
 } satisfies AnyMessage;
 
+export const PAYLOAD_UNDECODABLE = {
+  code: "payload-undecodable",
+  level: "error",
+  what: ({ source, reason }: { source: string; reason: string }) => `${source} cannot be read: ${reason}`,
+  fix: "serve the fragment and the answers exactly as the droplets server wrote them, to a page that loads the same build's /index.js; a host must not change the payload or its transported list",
+} satisfies AnyMessage;
+
 export const DATA_ANSWER_UNUSABLE = {
   code: "data-answer-unusable",
   level: "error",
@@ -247,6 +254,10 @@ export const BROWSER_PAGES: ErrorPages = {
   },
   "build-mismatch": {
     when: "In the browser, when the droplets server answers _data from another build than the page's /index.js, after a deploy. The page is told once; the error is never logged.",
+  },
+  "payload-undecodable": {
+    when: "In the browser, when a droplet's inline data payload, its _data answer or an enhanced form's action answer lists a transported value (Date, Map, Set, URL, BigInt) this page cannot decode: the inline payload is skipped for _data, the others render nothing.",
+    see: "/integrate/http-contract/",
   },
   "data-answer-unusable": {
     when: "In the browser, when a droplet's _data request answers neither its payload nor an error page's (500 or 504 with { error }): a 404, a redirect, a proxy's page.",

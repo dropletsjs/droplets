@@ -19,7 +19,7 @@
 import { serverCredentials, serverKey } from "./server-records.ts";
 import { reportStale } from "./stale.ts";
 import { formatMessage } from "../errors/format.ts";
-import { ACTION_ANSWER_NOT_RESULT, ACTION_REDIRECT_UNANSWERABLE, ACTION_REQUEST_FAILED } from "../errors/browser.ts";
+import { ACTION_ANSWER_NOT_RESULT, ACTION_REDIRECT_UNANSWERABLE, ACTION_REQUEST_FAILED, PAYLOAD_UNDECODABLE } from "../errors/browser.ts";
 
 /** The encodings an action takes; a `text/plain` form is left to the browser (the server answers `415`). */
 const ENCTYPES = new Set(["application/x-www-form-urlencoded", "multipart/form-data"]);
@@ -83,7 +83,11 @@ export type DropletActionDetail = {
   action: string;
   type: "success" | "failure" | "redirect";
   status: number;
-  /** What the action returned or `fail()`ed with, as plain JSON (a copy); `undefined` for a redirect. */
+  /**
+   * What the action returned or `fail()`ed with, as it travelled: plain
+   * JSON (a copy), a `Date` or another transported value in its JSON form;
+   * `undefined` for a redirect.
+   */
   data: unknown;
 };
 
@@ -106,6 +110,11 @@ export type DropletFormHost = Element & {
    * with the props and page of `action`, the URL of the action that answered.
    */
   updateForm(input: { form: unknown; action?: string | undefined }): Promise<void>;
+  /**
+   * An answer's envelope with its transported values (`Date`, `Map`, `Set`,
+   * `URL`, `BigInt`) decoded, as a copy; throws when it cannot be decoded.
+   */
+  decodePayload(envelope: Record<string, unknown>): Record<string, unknown>;
 };
 
 /** A submit as the browser would send it: the submitter's `form*` attributes over the form's. */
@@ -206,7 +215,7 @@ const RESULT_TYPES = new Set(["success", "failure", "redirect"]);
 
 /** An action's answer, as `enhanceDropletForm` applies it. */
 export type ActionAnswer =
-  | { type: "success" | "failure"; status: number; data: unknown }
+  | { type: "success" | "failure"; status: number; data: unknown; transported?: unknown }
   | { type: "redirect"; status: number; location: string };
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -236,7 +245,9 @@ export function actionAnswer(body: string): ActionAnswer | null {
     const location = Object.hasOwn(value, "location") ? value["location"] : undefined;
     return typeof location === "string" ? { type, status, location } : null;
   }
-  return { type: type as "success" | "failure", status, data: Object.hasOwn(value, "data") ? value["data"] : undefined };
+  const data = Object.hasOwn(value, "data") ? value["data"] : undefined;
+  if (!Object.hasOwn(value, "transported")) return { type: type as "success" | "failure", status, data };
+  return { type: type as "success" | "failure", status, data, transported: value["transported"] };
 }
 
 /**
@@ -380,6 +391,23 @@ async function send({ host, droplet, build, action, body, options }: SendInput):
   if (!answer) return;
 
   const settled = answer;
+  // The answer's transported values, decoded by the element: `/index.js`
+  // holds the transports, this module may be bundled apart from it.
+  let data: unknown;
+  if (settled.type !== "redirect") {
+    try {
+      data =
+        settled.transported === undefined
+          ? settled.data
+          : host.decodePayload({ data: settled.data, transported: settled.transported })["data"];
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.error(
+        formatMessage({ message: PAYLOAD_UNDECODABLE, params: { source: `the answer of action ${action.name}`, reason }, droplet }),
+      );
+      return;
+    }
+  }
   const detail: DropletActionDetail = {
     droplet,
     action: action.name,
@@ -390,7 +418,7 @@ async function send({ host, droplet, build, action, body, options }: SendInput):
   globalThis.dispatchEvent(new CustomEvent(ACTION_EVENT, { detail }));
 
   const update = async (): Promise<void> => {
-    if (settled.type !== "redirect") return host.updateForm({ form: settled.data, action: action.url });
+    if (settled.type !== "redirect") return host.updateForm({ form: data, action: action.url });
     const location = redirectTarget(settled.location);
     if (location) globalThis.location.assign(location);
     else console.error(formatMessage({ message: ACTION_REDIRECT_UNANSWERABLE, params: { action: action.name }, droplet }));
@@ -400,7 +428,7 @@ async function send({ host, droplet, build, action, body, options }: SendInput):
   await onResult(
     settled.type === "redirect"
       ? { type: "redirect", status: settled.status, data: undefined, location: settled.location, update }
-      : { type: settled.type, status: settled.status, data: settled.data, update },
+      : { type: settled.type, status: settled.status, data, update },
   );
 }
 

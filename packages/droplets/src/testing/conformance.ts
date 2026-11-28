@@ -53,14 +53,20 @@
  * src/droplets/hello/
  *   +droplet.<ext>              ssr and hydrate (the defaults). Renders:
  *                                 <h1 data-testid="greeting">{data.greeting}</h1>
+ *                                 <p data-testid="kinds">{data.kinds}</p>
  *                                 <button data-testid="count">{clicks}</button>  — starts at 0,
  *                                   +1 per click (only with `interactive`, the default)
  *                                 <div data-testid="children">{children}</div>
  *   +droplet.server.ts          load({ props }): who = props.who ?? "world";
  *                                 "nobody" → error(404, "Nobody is here");
- *                                 "crash" → throw; returns { who }
+ *                                 "crash" → throw; returns { who, when, tags, seen, link, big }:
+ *                                 when = new Date("2026-01-02T03:04:05.000Z"), tags = new Map([["a", "alpha"]]),
+ *                                 seen = new Set([1]), link = new URL("https://shop.example/x"), big = 41n
  *                               handleError → { error: { message: "Sorry, ref 42" } }
- *   +droplet.ts                 load({ data }) → { ...data, greeting: `Hello ${data.who}!` }
+ *   +droplet.ts                 load({ data }) → { ...data, greeting: `Hello ${data.who}!`, kinds }, with
+ *                                 kinds = [data.tags.get("a"), data.seen.has(1), data.link.hostname,
+ *                                 String(data.big + 1n), data.when.toISOString()].join(" ")
+ *                                 (read through their methods, so it fails unless they arrive as themselves)
  *                               handleError({ error }) → { error: { message: `[hello] ${error.message}` } }
  *   +error.<ext>                Renders:
  *                                 <p data-testid="error">{error.message}</p>
@@ -207,6 +213,9 @@ async function until({ check, timeout = 5000 }: UntilInput): Promise<void> {
 function tick(): Promise<unknown> {
   return new Promise((r) => setTimeout(r, 20));
 }
+
+/** What `hello`'s `+droplet.ts` makes of the transported values: what each engine renders as `kinds`. */
+const KINDS = "alpha true shop.example 42 2026-01-02T03:04:05.000Z";
 
 /** The children marker as the engines print it: `data-droplet-children` may get `=""`, the style may be normalized. */
 const MARKER = /<div data-droplet-children(?:="")? style="display:\s*contents;?"><\/div>/;
@@ -376,6 +385,28 @@ export function rendererConformance({
         // `_data` answers the server load alone.
         const data = await post({ path: "/droplets/hello/_data", body: { props: { who: "Ana" } } });
         expect(await data.json()).toMatchObject({ data: { who: "Ana" } });
+      });
+
+      it("carries Date, Map, Set, URL and BigInt to the browser in their JSON form, listed under transported", async () => {
+        const html = await (await get({ path: "/droplets/hello?who=Ana" })).text();
+        expect(bare({ html })).toMatch(new RegExp(`data-testid="kinds"[^>]*>${KINDS.replaceAll(".", "\\.")}<`));
+        const wire = {
+          when: "2026-01-02T03:04:05.000Z",
+          tags: [["a", "alpha"]],
+          seen: [1],
+          link: "https://shop.example/x",
+          big: "41",
+        };
+        const transported = [
+          [["data", "when"], "Date"],
+          [["data", "tags"], "Map"],
+          [["data", "seen"], "Set"],
+          [["data", "link"], "URL"],
+          [["data", "big"], "BigInt"],
+        ];
+        expect(payload({ html, payload: "data" })).toMatchObject({ data: wire, transported });
+        const data = await post({ path: "/droplets/hello/_data", body: { props: { who: "Ana" } } });
+        expect(await data.json()).toMatchObject({ data: wire, transported });
       });
 
       it("renders the error page for a load that fails, through both handleError", async () => {
@@ -1172,6 +1203,18 @@ export function rendererConformance({
             assign.mockRestore();
           }
         });
+      });
+
+      it("hands the browser's load the Date, Map, Set, URL and BigInt the server sent, hydrated and through _data", async () => {
+        const el = mount({ html: await withChildren({ path: "/droplets/hello?who=Ana", kid: "kid-kinds" }) });
+        if (interactive) await clickUntilLive({ el });
+        else await settle();
+        expect(find({ root: el, selector: "[data-testid=kinds]" })?.textContent).toBe(KINDS);
+        expect(find({ root: el, selector: "[data-testid=error]" })).toBeNull();
+
+        const mounted = mount({ html: `<${element} data-droplet="hello" data-droplet-props='{"who":"Ana"}'></${element}>` });
+        await until({ check: () => expect(find({ root: mounted, selector: "[data-testid=kinds]" })?.textContent).toBe(KINDS) });
+        expect(find({ root: mounted, selector: "[data-testid=error]" })).toBeNull();
       });
 
       it("shows the error page for a load that fails in the browser", async () => {
