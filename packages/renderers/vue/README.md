@@ -114,7 +114,7 @@ import only `vue` and `@dropletsjs/droplets/enhance`.
 
 - `vue()` name is `"vue"`. `src/index.ts:85`
 - `vue()` extensions are `[".vue"]`: it claims `+droplet.vue` and `+error.vue`. `src/index.ts:86`
-- `vue()` packages are `vue` and `@dropletsjs/renderer-vue`: another renderer's droplet that imports either fails the build. `src/index.ts:88`, `../../droplets/src/vite/renderer-graphs.ts:74`
+- `vue()` packages are `vue` and `@dropletsjs/renderer-vue`: another renderer's droplet that imports either fails the build. `src/index.ts:88`, `../../droplets/src/vite/renderer-graphs.ts:77`
 - `vue()` sets no `suffixes` and no `clientSetup`. `src/index.ts:84`
 - `vue()` componentTypes is `@dropletsjs/renderer-vue`: `./$types` takes `DropletProps` and `DropletErrorProps` from it. `src/index.ts:89`, `../../droplets/src/vite/sync-types.ts:47`
 - `vue()` server, client and clientDev are `dist/server.js`, `dist/client.js`, `dist/client-dev.js` under the package root. `src/index.ts:91`

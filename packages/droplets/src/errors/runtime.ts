@@ -184,7 +184,7 @@ export const PAYLOAD_NOT_SERIALIZABLE = {
   level: "error",
   what: ({ what, path, reason }: { what: string; path: string; reason: string }) =>
     `the ${what} cannot travel to the browser: ${path} is ${reason}`,
-  fix: "send plain JSON (object literals, arrays, strings, finite numbers, booleans, null) and Date, Map, Set, URL or BigInt values; await promises in the load, and turn class instances into object literals",
+  fix: "send plain JSON (object literals, arrays, strings, finite numbers, booleans, null) and Date, Map, Set, URL or BigInt values; await promises in the load, and give a class of your own an entry in transport of src/hooks.ts or turn its instances into object literals",
 } satisfies AnyMessage;
 
 export const ACTION_FAILED = {
@@ -501,6 +501,18 @@ export const FORM_RESULT_NOT_PLAIN = {
   fix: "return plain JSON from an action whose result goes back to the server (a date as an ISO string, say); a hydrated droplet's enhanced form gets every type",
 } satisfies AnyMessage;
 
+export const TRANSPORT_IGNORED = {
+  code: "transport-ignored",
+  level: "warning",
+  what: ({ name, reason }: { name: string | null; reason: "not-object" | "builtin-name" | "not-functions" }) => {
+    if (reason === "not-object") return "transport of src/hooks.ts is not a plain object: no type of its travels";
+    if (reason === "builtin-name")
+      return `transport entry ${JSON.stringify(name)} of src/hooks.ts is ignored: ${name} is a built-in, which wins`;
+    return `transport entry ${JSON.stringify(name)} of src/hooks.ts is ignored: it is not an object with encode and decode functions`;
+  },
+  fix: "export transport as an object literal of { encode, decode } entries, each named for its type; Date, Map, Set, URL and BigInt travel already",
+} satisfies AnyMessage;
+
 export const RENDER_TIMED_OUT = {
   code: "render-timed-out",
   level: "warning",
@@ -683,6 +695,10 @@ export const RUNTIME_PAGES: ErrorPages = {
   "form-result-not-plain": {
     when: "Under vite dev, when an action's result holds a Date, Map, Set, URL or BigInt and has to go back to the server: in the signed result of a form posted without JavaScript, or in the render of a droplet that does not hydrate after an enhanced form.",
     see: "/guides/actions/",
+  },
+  "transport-ignored": {
+    when: "Under vite dev, when transport of src/hooks.ts is not a plain object, or one of its entries is named like a built-in (Date, Map, Set, URL, BigInt) or is not an object with encode and decode functions: that entry, or all of transport, is ignored on both sides.",
+    see: "/guides/writing-droplets/#your-own-types",
   },
   "render-timed-out": {
     when: "Under vite dev, every time a fragment or _data request answers 504 because its loads and render passed render.timeout.",

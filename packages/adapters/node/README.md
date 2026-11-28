@@ -139,10 +139,10 @@ by path.
 - `node()` separateSsrBundle is true: the SSR bundle is its own file, `dist/server/entry-server.js`. `src/index.ts:28`, `../../droplets/src/vite/build.ts:184`
 - `node()` noExternal bundles `@hono/node-server` and `@dropletsjs/adapter-node` into `dist/server.js`. `src/index.ts:29`
 - Server bundle always bundles `hono`, `case-anything`, `@dropletsjs/droplets` and `@dropletsjs/renderer-*`; `dist/server.js` imports only `node:*`. `../../droplets/src/vite/build.ts:63`, `test/index.test.ts:50`
-- `vite preview` calls `node().preview`, which serves `dist/client` and `dist/server/entry-server.js` through `createNodeServerApp`. `src/index.ts:30`, `../../droplets/src/vite/plugin.ts:588`
+- `vite preview` calls `node().preview`, which serves `dist/client` and `dist/server/entry-server.js` through `createNodeServerApp`. `src/index.ts:30`, `../../droplets/src/vite/plugin.ts:628`
 - `dist/server.js` resolves `client/` and `server/entry-server.js` relative to its own file, not the working directory. `src/entry.ts:11`
 - `droplets.config.ts` is bundled into `dist/server.js` through `virtual:droplets-config`; it is not read at runtime. `src/entry.ts:4`, `test/index.test.ts:52`
-- `droplets.config.ts` that exports a function is called in `dist/server.js` with the build's `{ command, mode, isSsrBuild, isPreview }`, a literal in the bundle, and awaited before `resolveConfig`; functions inside the config it returns are kept. `src/entry.ts:19`, `../../droplets/src/vite/virtual.ts:730`, `test/index.test.ts:115`
+- `droplets.config.ts` that exports a function is called in `dist/server.js` with the build's `{ command, mode, isSsrBuild, isPreview }`, a literal in the bundle, and awaited before `resolveConfig`; functions inside the config it returns are kept. `src/entry.ts:19`, `../../droplets/src/vite/virtual.ts:761`, `test/index.test.ts:115`
 - `PORT` is read once at startup and overrides `server.port` from the config. `src/entry.ts:19`, `../../droplets/src/core/config.ts:436`
 - `PORT` is converted with `Number()`; empty, `0` or not a number falls back to `server.port`, then 8000. `../../droplets/src/core/config.ts:404`
 - `server.port` defaults to 8000. `../../droplets/src/core/config.ts:238`

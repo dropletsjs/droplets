@@ -14,6 +14,14 @@ export const hooks: Record<string, unknown> = {};
 export const importMapModule: Record<string, unknown> = {};
 export const publicEnvNames: string[] = [];
 export const tokenNonce = "";
+/**
+ * `transport` of a `src/hooks.ts`: `Point` of its own, which decodes to a
+ * marked copy, and a `Date` entry that is ignored, the built-in winning.
+ */
+export const transport = {
+  Point: { encode: () => false, decode: (json: unknown) => ({ decodedPoint: json }) },
+  Date: { encode: () => false, decode: () => "the author's Date" },
+};
 const droplets: Record<string, unknown> = {};
 export default droplets;
 export const dropletsStylesById: Record<string, string[]> = {

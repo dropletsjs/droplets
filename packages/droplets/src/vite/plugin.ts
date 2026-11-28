@@ -49,7 +49,7 @@ import { userRenderers, withScriptRenderer } from "../script/index.ts";
 import { isServerOnlyFile, serverOnlyPlugin } from "./server-only.ts";
 import type { DropletEntry } from "../core/discover.ts";
 import type { RenderContract } from "../runtime/dev-contract.ts";
-import type { DropletHooksPayload, DropletUpdatePayload } from "../runtime/dev-element.ts";
+import type { DropletHooksPayload, DropletTransportPayload, DropletUpdatePayload } from "../runtime/dev-element.ts";
 import { createCssConfig, resolveCss, tailwindPlugins, type DropletsCssOptions } from "./css.ts";
 import { externalizePlugin } from "./externalize.ts";
 import { createExternalMatcher, namedExternals, readClientExternal } from "./client-external.ts";
@@ -63,6 +63,7 @@ import {
   HOOKS_FILES,
   rendererExtensions,
   type PluginState,
+  UNIVERSAL_HOOKS_FILES,
   warnMisnamedModules,
 } from "./state.ts";
 import { clientEntryId, virtualModulesPlugin } from "./virtual.ts";
@@ -193,6 +194,22 @@ function stylesheetsOf({ modules }: StylesheetsOfInput): EnvironmentModuleNode[]
     }
   }
   return [...found];
+}
+
+type ReachedFromInput = { modules: readonly EnvironmentModuleNode[]; files: readonly string[] };
+
+/** Whether one of `files` imports one of `modules`, through any chain. */
+function reachedFrom({ modules, files }: ReachedFromInput): boolean {
+  const seen = new Set<EnvironmentModuleNode>();
+  const queue = [...modules];
+  while (queue.length > 0) {
+    const mod = queue.shift();
+    if (mod === undefined || seen.has(mod)) continue;
+    seen.add(mod);
+    if (mod.file && files.includes(mod.file)) return true;
+    queue.push(...mod.importers);
+  }
+  return false;
 }
 
 /** What one edit touched, for the hooks of every environment. */
@@ -467,6 +484,20 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
         invalidateRegistry({ server });
       }
 
+      // Both registries import src/hooks.ts. The SSR module takes an edit
+      // the Vite way, so the next request encodes with the new transport;
+      // the page decodes with the one it loaded, so it hears of it as of a
+      // hooks.client edit, and reloads by `dev.strategy`.
+      const universalHooks = UNIVERSAL_HOOKS_FILES.map((hooks) => resolve(state.root, hooks));
+      if (universalHooks.includes(file)) {
+        if (structural) invalidateRegistry({ server });
+        if (this.environment.name !== "client") return;
+        for (const mod of modules) this.environment.moduleGraph.invalidateModule(mod, new Set(), timestamp, true);
+        const changed: DropletTransportPayload = { reason: "hooks", timestamp };
+        server.hot.send("droplets:hooks", changed);
+        return [];
+      }
+
       // `init` ran once, before the droplets started: only a new page runs
       // it again. Whether this one reloads is `dev.strategy`'s call, in the
       // page: never the host's page behind its back under `hmr`.
@@ -488,6 +519,15 @@ export function droplets(options: DropletsPluginOptions = {}): PluginOption[] {
         for (const key of plans.keys()) {
           if (key < timestamp - 10_000) plans.delete(key);
         }
+      }
+      // A file src/hooks.ts imports, a droplet's or not: the page reloads
+      // by `dev.strategy` for the new transport, so no module update runs
+      // before it; stylesheets still replace themselves.
+      if (this.environment.name === "client" && reachedFrom({ modules, files: universalHooks })) {
+        for (const mod of modules) this.environment.moduleGraph.invalidateModule(mod, new Set(), timestamp, true);
+        const changed: DropletTransportPayload = { reason: "hooks", timestamp };
+        server.hot.send("droplets:hooks", changed);
+        return stylesheetsOf({ modules });
       }
       if (this.environment.name !== "client" || plan.changes.size === 0) return;
 

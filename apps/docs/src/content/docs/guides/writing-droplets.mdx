@@ -185,7 +185,8 @@ transport"): the droplet renders its [error page](/guides/errors/), and
 production logs the error with `console.error`. Refused are:
 
 - a function, a symbol, a promise (await it in the load);
-- an instance of any other class, a subclass of `Map` or `Date` included;
+- an instance of any other class, a subclass of `Map` or `Date` included,
+  unless [a transport of your own](#your-own-types) carries it;
 - a cycle (a value that holds itself; the same object in two places is
   fine, it travels as two copies);
 - `undefined` or a hole in an array, `NaN`, `Infinity`, an invalid `Date`;
@@ -196,6 +197,70 @@ would, and `-0` arrives as `0`. An action's result follows the same rules
 ([What an action returns](/guides/actions/#what-an-action-returns)). How
 these values travel is in the
 [HTTP contract](/integrate/http-contract/#transported-values).
+
+### Your own types
+
+A class of your app reaches the browser as itself through `transport` in
+`src/hooks.ts` (or `.js`): one entry per type, by name, with `encode` and
+`decode`.
+
+```ts
+// src/hooks.ts
+import type { Transport } from "@dropletsjs/droplets";
+import { Money } from "./lib/money.ts";
+
+export const transport: Transport = {
+  Money: {
+    encode: (value) => value instanceof Money && { cents: value.cents, currency: value.currency },
+    decode: (json: { cents: number; currency: string }) => new Money(json.cents, json.currency),
+  },
+};
+```
+
+```ts
+// src/droplets/price/+droplet.server.ts
+import { Money } from "../../lib/money.ts";
+
+export const load = async () => ({ price: new Money(1250, "EUR") });
+```
+
+The browser's `load` and the component get a `Money` back, so
+`data.price.format()` works on both sides; an action's result travels the
+same way.
+
+- On the server, `encode` gets every object the payload holds, before the
+  built-ins look at it: it returns the value's JSON form, or `false` when
+  the value is not its own. Since your entries come first,
+  `class Tally extends Map` with an entry of its own travels as a `Tally`.
+  The JSON form may hold built-in values (a `Date`), which travel as well.
+- In the browser, `decode` gets that JSON form back and returns the value.
+  Type `json` as `encode` returns it.
+- An entry named like a built-in (`Date`, `Map`, `Set`, `URL`, `BigInt`) is
+  ignored and the built-in wins. So is an entry that is not an object with
+  `encode` and `decode` functions, and all of `transport` when it is not a
+  plain object. `vite dev` warns about each one
+  (`droplets warning transport-ignored`).
+- A name the browser receives reaches a `decode` only when your `transport`
+  has an entry of that name. Any other name makes the payload unreadable
+  (`droplets error payload-undecodable`).
+
+`src/hooks.ts` runs on the server and in the browser: the SSR bundle
+encodes with it, and `/index.js` decodes with it, for every droplet. Keep
+it, and what it imports, framework-agnostic plain TypeScript on web APIs,
+and keep `encode` and `decode` pure: no state, no I/O. The build and the
+dev server refuse, naming the import chain:
+
+- server code reached from it: a `*.server.*` file, a `+server.*` route, a
+  file under a `server/` folder, `$droplets/server`, `$droplets/env/private`
+  ([Where code runs](#where-code-runs));
+- a Node built-in its files import (`node:fs`, `path`):
+  `hooks-imports-node-builtin`;
+- a renderer's files or packages (a `.svelte` file, `react`):
+  `hooks-imports-framework`.
+
+Under `vite dev`, the next request encodes with an edit to `src/hooks.ts`
+right away; the page reloads to decode with it, as
+[`dev.strategy`](/guides/development/#what-hmr-does) says.
 
 ### When a load stops
 

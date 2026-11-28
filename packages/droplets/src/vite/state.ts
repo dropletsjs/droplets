@@ -78,6 +78,8 @@ export type PluginState = {
   namedExternals: string[];
   /** The dev tool's browser module, as a URL Vite serves; set by `dropletsDevtools()`. */
   devToolUrl: string | null;
+  /** Under `vite dev`: each project file `src/hooks.ts` reaches, to the file that imports it (see `hooksChain`). */
+  hooksImporters: Map<string, string>;
 };
 
 export function createBuildHash(): string {
@@ -126,6 +128,7 @@ export function createInitialState(): PluginState {
     seenExternals: new Set(),
     namedExternals: [],
     devToolUrl: null,
+    hooksImporters: new Map(),
   };
 }
 
@@ -164,6 +167,11 @@ export function applyConfig({ state, root, config }: ApplyConfigInput): void {
 /** `src/hooks.server.ts`, then `.js`; where `handle` lives. */
 export const HOOKS_FILES = MODULE_EXTENSIONS.map((extension) => `src/hooks.server${extension}`);
 /**
+ * `src/hooks.ts`, then `.js`; where `transport` lives, imported by the
+ * server registry and by `/index.js`.
+ */
+export const UNIVERSAL_HOOKS_FILES = MODULE_EXTENSIONS.map((extension) => `src/hooks${extension}`);
+/**
  * `src/hooks.client.ts`, or another JavaScript or TypeScript extension;
  * where `init` lives, run by `/index.js` before any droplet starts.
  */
@@ -179,9 +187,10 @@ const misnamedWarned = new Set<string>();
 
 export type WarnMisnamedModulesInput = { root: string };
 
-/** Warns once about a `hooks.server` or `importmap.server` file core does not load, naming the names it does. */
+/** Warns once about a `hooks`, `hooks.server` or `importmap.server` file core does not load, naming the names it does. */
 export async function warnMisnamedModules({ root }: WarnMisnamedModulesInput): Promise<void> {
   for (const [name, files] of [
+    ["src/hooks", UNIVERSAL_HOOKS_FILES],
     ["src/hooks.server", HOOKS_FILES],
     ["src/importmap.server", IMPORTMAP_FILES],
   ] as const) {

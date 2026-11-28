@@ -1,9 +1,10 @@
+import { isBuiltin } from "node:module";
 import { relative, resolve } from "node:path";
 import type { Plugin, ResolvedConfig } from "vite";
 import { packageRoot } from "../core/paths.ts";
-import { IMPORT_CHAIN_EMPTY, SERVER_CODE_IN_CLIENT, SERVER_MODULE_IMPORT } from "../errors/build.ts";
+import { HOOKS_IMPORTS_NODE_BUILTIN, IMPORT_CHAIN_EMPTY, SERVER_CODE_IN_CLIENT, SERVER_MODULE_IMPORT } from "../errors/build.ts";
 import { type DropletsError, dropletsError } from "../errors/format.ts";
-import type { PluginState } from "./state.ts";
+import { type PluginState, UNIVERSAL_HOOKS_FILES } from "./state.ts";
 
 /**
  * Server files never reach a browser bundle. A project file whose name has
@@ -17,6 +18,10 @@ import type { PluginState } from "./state.ts";
  * build too, inlined or emitted, and the dev server answers 403 when the
  * browser asks for one. Dependencies and the framework's own files are not
  * checked.
+ *
+ * `src/hooks.ts` runs in the browser as well: a Node built-in its project
+ * files import (`node:fs`, `path`) fails the build and the dev import the
+ * same way, naming the chain.
  */
 
 const SERVER_NAME = /(?:\.|^\+)server\.[^/]+$/i;
@@ -149,7 +154,68 @@ export function findServerFile({ root, moduleIds, getModule }: FindServerFileInp
   return [serverFile];
 }
 
+type HooksBuiltinErrorInput = { root: string; chain: readonly string[]; id: string };
+
+function hooksBuiltinError({ root, chain, id }: HooksBuiltinErrorInput): DropletsError {
+  const files = chain.map((each) => short({ root, id: each }));
+  const [file = ""] = files;
+  return dropletsError({ message: HOOKS_IMPORTS_NODE_BUILTIN, params: { file, id, path: [...files, id].join(" -> ") } });
+}
+
+type FindHooksBuiltinInput = {
+  hooks: readonly string[];
+  moduleIds: Iterable<string>;
+  builtins: ReadonlyMap<string, string>;
+  getModule: (id: string) => GraphModule | null;
+};
+
+/** The chain from `src/hooks.ts` to a module that imports a Node built-in, and that built-in; `null` when there is none. */
+function findHooksBuiltin({ hooks, moduleIds, builtins, getModule }: FindHooksBuiltinInput): { chain: string[]; id: string } | null {
+  const start = [...moduleIds].find((id) => hooks.includes(clean({ id })));
+  if (start === undefined || builtins.size === 0) return null;
+  const parent = new Map<string, string | null>([[start, null]]);
+  const queue = [start];
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (current === undefined) break;
+    const builtin = builtins.get(current);
+    if (builtin !== undefined) {
+      const chain: string[] = [];
+      for (let at: string | null = current; at; at = parent.get(at) ?? null) chain.unshift(at);
+      return { chain, id: builtin };
+    }
+    const info = getModule(current);
+    if (!info) continue;
+    for (const next of [...info.importedIds, ...info.dynamicallyImportedIds]) {
+      if (parent.has(next)) continue;
+      parent.set(next, current);
+      queue.push(next);
+    }
+  }
+  return null;
+}
+
 type DevModule = { id: string | null; importers: Set<DevModule> };
+
+/**
+ * The chain from `src/hooks.ts` down to `importer` under `vite dev`, through
+ * `parents` (`PluginState.hooksImporters`); `null` when the file does not
+ * reach it.
+ */
+export type HooksChainInput = { hooks: readonly string[]; parents: ReadonlyMap<string, string>; importer: string };
+
+export function hooksChain({ hooks, parents, importer }: HooksChainInput): string[] | null {
+  const chain = [importer];
+  const seen = new Set<string>();
+  for (let at = clean({ id: importer }); !hooks.includes(at); ) {
+    const parent = parents.get(at);
+    if (parent === undefined || seen.has(parent)) return null;
+    seen.add(parent);
+    chain.unshift(parent);
+    at = parent;
+  }
+  return chain;
+}
 
 /** A chain of importers from a client module up to the module that has none. */
 type ImporterChainInput = { start: DevModule | undefined; importer: string };
@@ -213,6 +279,30 @@ function requestedFile({ root, url }: RequestedFileInput): string | null {
 export function serverOnlyPlugin(state: PluginState): Plugin {
   let command: "serve" | "build" = "serve";
   const reachedAsFiles = new Set<string>();
+  /** Project files of the client build that import a Node built-in, with the first one. */
+  const builtinImports = new Map<string, string>();
+  const hooks = () => UNIVERSAL_HOOKS_FILES.map((file) => resolve(state.root, file).replaceAll("\\", "/"));
+
+  type NoteHooksImportInput = {
+    source: string;
+    importer: string;
+    resolve: (id: string) => Promise<{ id: string; external?: boolean | "absolute" | "relative" } | null>;
+  };
+
+  /**
+   * Under `vite dev`, the project files `src/hooks.ts` reaches, each with its
+   * importer, recorded as the imports resolve: Vite may transform a module
+   * before its importer's edge reaches the module graph.
+   */
+  async function noteHooksImport({ source, importer, resolve: resolveSource }: NoteHooksImportInput): Promise<void> {
+    const from = clean({ id: importer });
+    if (!hooks().includes(from) && !state.hooksImporters.has(from)) return;
+    if (source.startsWith("\0") || isBuiltin(source)) return;
+    const resolved = await resolveSource(source);
+    if (!resolved || resolved.external || !projectPath({ root: state.root, id: resolved.id })) return;
+    const to = clean({ id: resolved.id });
+    if (to !== from && !hooks().includes(to) && !state.hooksImporters.has(to)) state.hooksImporters.set(to, from);
+  }
   return {
     name: "droplets:server-only",
     enforce: "pre",
@@ -238,12 +328,26 @@ export function serverOnlyPlugin(state: PluginState): Plugin {
       order: "pre",
       async handler(source, importer, options) {
         if (!importer || importer.startsWith("\0")) return null;
+        if (command === "serve")
+          await noteHooksImport({ source, importer, resolve: (id) => this.resolve(id, importer, { ...options, skipSelf: true }) });
         // Ahead of Vite's resolver, which would find the package before the virtual plugin sees the id.
         if (
           source === PACKAGE_SERVER &&
           (this.environment.config.consumer === "client" || !mayImportServerOnly({ root: state.root, importer }))
         ) {
           this.error(serverOnlyImportError({ id: source, importer }));
+        }
+        if (this.environment.config.consumer === "client" && isBuiltin(source) && projectPath({ root: state.root, id: importer })) {
+          // A package of that name (`events`, `buffer`) is the browser's own copy, not the built-in.
+          const target = source.startsWith("node:") ? null : await this.resolve(source, importer, { ...options, skipSelf: true });
+          if (!target || target.external || target.id.includes("__vite-browser-external")) {
+            if (command === "build") {
+              if (!builtinImports.has(importer)) builtinImports.set(importer, source);
+            } else {
+              const chain = hooksChain({ hooks: hooks(), parents: state.hooksImporters, importer });
+              if (chain) this.error(hooksBuiltinError({ root: state.root, chain, id: source }));
+            }
+          }
         }
         if (command !== "serve" || this.environment.config.consumer !== "client" || source.startsWith("\0")) return null;
         const resolved = await this.resolve(source, importer, { ...options, skipSelf: true });
@@ -257,12 +361,21 @@ export function serverOnlyPlugin(state: PluginState): Plugin {
       },
     },
 
+    watchChange(id) {
+      // An edited file's imports resolve again as it is transformed.
+      const changed = clean({ id });
+      for (const [child, parent] of state.hooksImporters) if (parent === changed) state.hooksImporters.delete(child);
+    },
+
     buildEnd(error) {
       if (error || command !== "build" || this.environment.config.consumer !== "client") return;
       const [asFile] = reachedAsFiles;
       if (asFile !== undefined) this.error(serverOnlyError({ root: state.root, chain: [asFile], asFile: true }));
       const chain = findServerFile({ root: state.root, moduleIds: this.getModuleIds(), getModule: (id) => this.getModuleInfo(id) });
       if (chain) this.error(serverOnlyError({ root: state.root, chain }));
+      const getModule = (id: string) => this.getModuleInfo(id);
+      const builtin = findHooksBuiltin({ hooks: hooks(), moduleIds: this.getModuleIds(), builtins: builtinImports, getModule });
+      if (builtin) this.error(hooksBuiltinError({ root: state.root, ...builtin }));
     },
 
     generateBundle(_options, bundle) {

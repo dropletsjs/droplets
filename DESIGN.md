@@ -25,8 +25,19 @@ What ships is described by the guides at https://dropletsjs.dev; where the two d
   result goes back to it (the signed no-JS token, the POSTed `form` of a
   droplet that does not hydrate) stay plain JSON, and a result holding a
   transported value is left out of them, with a dev warning.
-- Author transports (`src/hooks.ts`) and the data/server payload split come
-  in later steps of 1.0.3.
+- Author transports (built 2026-11-27): `transport` in `src/hooks.ts` (or
+  `.js`), `{ Name: { encode, decode } }`, `encode` returning `false` for a
+  value not its own. The file is imported by the server registry and by
+  `/index.js`, so the element and enhanced forms decode with one table.
+  Author encoders run before the built-ins (a subclass of `Map` with its
+  own entry travels by that name); an entry named like a built-in, one
+  that is not two functions, or a `transport` that is not a plain object
+  is ignored on both sides, with a dev warning (`transport-ignored`). The
+  file stays framework-agnostic and reaches no server code and no Node
+  built-in, refused at build and in dev with the chain. Under `vite dev` the
+  server encodes the next request with an edit; the page reloads by
+  `dev.strategy` (`droplets:hooks`).
+- The data/server payload split comes in a later step of 1.0.3.
 
 ## The droplet location: `x-droplet-location` and the forwarded headers (built 2026-11-11)
 

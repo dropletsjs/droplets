@@ -1,4 +1,4 @@
-import droplets, { api, hooks, importMapModule, publicEnvNames, tokenNonce } from "virtual:droplets";
+import droplets, { api, hooks, importMapModule, publicEnvNames, tokenNonce, transport } from "virtual:droplets";
 import { errorFormat } from "virtual:droplets-config";
 import { dropletsError, formatMessage, formatterOf, setErrorFormatter } from "../errors/format.ts";
 import {
@@ -15,6 +15,7 @@ import {
   RENDERER_MISSING,
   RENDERER_OUTPUT_INVALID,
   TRANSFORM_RESULT_NOT_STRING,
+  TRANSPORT_IGNORED,
 } from "../errors/runtime.ts";
 import { readRuntimeEnv } from "./env-store.ts";
 import { logger } from "../core/logger.ts";
@@ -24,10 +25,12 @@ import { checkLoadResult, DropletRenderError, runHandleError, settle, toWireErro
 import { ACTION_NAME, actionUrlFor } from "./form.ts";
 import { parseHost } from "./host.ts";
 import { PropsError, prerenderKey, propsKey, validateProps } from "./props.ts";
-import { encodePayload } from "./payload-encode.server.ts";
+import { type EncodePayloadInput, encodePayload as encodeWithBuiltins } from "./payload-encode.server.ts";
+import type { Encoded } from "./payload-wire.ts";
 import { isRenderTimeout } from "./render-timeout.ts";
 import { requestInfo, withRequestInfo } from "./request-store.ts";
 import { matchRoute, type ApiMatch, type ApiRoute } from "./routes.ts";
+import { readTransport } from "./transport.ts";
 import { isKebabName } from "./web-url.ts";
 import {
   HttpError,
@@ -75,6 +78,17 @@ type DropletRegistryEntry = {
   /** The error page module, in the droplet's framework; it follows the droplet's flags. */
   error?: () => Promise<ComponentModule>;
 };
+
+const authored = readTransport(transport);
+if (import.meta.env.DEV) {
+  for (const { name, reason } of authored.ignored) logger.report({ message: TRANSPORT_IGNORED, params: { name, reason } });
+}
+const transports = authored.entries.map(({ name, encode }) => ({ name, encode }));
+
+/** The payload encoder with the transports of `src/hooks.ts`, tried before the built-ins. */
+function encodePayload(input: EncodePayloadInput): Encoded {
+  return encodeWithBuiltins({ ...input, transports });
+}
 
 /** By droplet id: a name from a URL only ever finds a droplet (`__proto__` finds nothing). */
 const registry = new Map(Object.entries(droplets as Record<string, DropletRegistryEntry>));

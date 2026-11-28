@@ -13,6 +13,7 @@ export type { DropletErrorProps, DropletProps } from "./runtime/load.ts";
 export type { DropletScript } from "./script/client.ts";
 export type { InferSchemaOutput } from "./runtime/props.ts";
 export type { ClientInit } from "./runtime/client-init.ts";
+export type { Transport } from "./runtime/transport.ts";
 export type {
   Action,
   ActionEvent,

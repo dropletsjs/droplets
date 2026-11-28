@@ -18,6 +18,7 @@ looking a name up.
 | `src/droplets/<id>/+error.<ext>` | the error page, in the droplet's framework | server and browser |
 | `src/api/**/+server.ts` (or `.js`) | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `HEAD`, `fallback` | server |
 | `src/hooks.server.ts` (or `.js`) | `handle`, `handleError` | server |
+| `src/hooks.ts` (or `.js`) | `transport` ([`Transport`](#dropletsjsdroplets)) | server and browser |
 | `src/hooks.client.ts` (or `.mts`, `.js`, `.mjs`) | `init` ([`ClientInit`](#dropletsjsdroplets)) | browser |
 | `src/importmap.server.ts` (or `.js`) | `importmap` | server |
 | `src/env.ts` (or `.js`) | `variables`, from `defineEnvVars` | build |
@@ -31,9 +32,9 @@ kebab-case (`^[a-z0-9]+(-[a-z0-9]+)*$`, `product-card`); any other folder that
 holds a component is ignored, and `vite dev` and `vite build` list those
 folders in one warning. Only the immediate subfolders are scanned. A folder
 with two components, or a component suffix no configured renderer claims,
-fails the build. The server modules found by name (`+droplet.ts`,
-`+droplet.server.ts`, `+server.ts`, `hooks.server.ts`, `importmap.server.ts`)
-are looked up as `.ts` then `.js`; one spelled `.mts`, `.mjs`, `.cts` or `.cjs`
+fails the build. The modules found by name (`+droplet.ts`,
+`+droplet.server.ts`, `+server.ts`, `hooks.ts`, `hooks.server.ts`,
+`importmap.server.ts`) are looked up as `.ts` then `.js`; one spelled `.mts`, `.mjs`, `.cts` or `.cjs`
 is not loaded, and `vite dev` and `vite build` warn once naming the file and
 the name to use.
 
@@ -115,6 +116,23 @@ export const handleError: HandleServerError; // ({ error, event, status, message
 `/env.js` and `/assets/*`. `handleError` chooses the message an unexpected
 error answers with; without it the message is `Internal Server Error`. See
 [Server](/guides/server/) and [Errors](/guides/errors/).
+
+### `src/hooks.ts`
+
+```ts
+export const transport: Transport; // { [name]: { encode, decode } }
+```
+
+`encode: (value: unknown) => json | false` runs on the server for every
+object a payload holds (the server data, an action's result), before the
+built-ins; `false` means not this entry's. `decode:
+(json) => value` runs in the browser, found by the name the payload carries
+through a `Map`. An entry named `Date`, `Map`, `Set`, `URL` or `BigInt`, an
+entry that is not an object with the two functions, or a `transport` that is
+not a plain object is ignored (`transport-ignored` under `vite dev`). The
+file is in the server bundle and in `/index.js`: it imports no server code,
+no Node built-in and no renderer, refused at build and in dev. See
+[Your own types](/guides/writing-droplets/#your-own-types).
 
 ### `src/hooks.client.ts`
 
@@ -534,6 +552,7 @@ Types:
 | `DropletScript<Data>` | A script droplet's default export: `(data: Data, el: HTMLElement) => void \| (() => void)`. |
 | `InferSchemaOutput<Schema>` | A Standard Schema's output type: how `./$types` types `Props`. |
 | `ClientInit` | `init` in `src/hooks.client.ts`. |
+| `Transport` | `transport` in `src/hooks.ts`: `Record<string, { encode: (value: unknown) => unknown; decode: (json: never) => unknown }>`. |
 | The event, hook, cookie, action, prerender and import map types | As [`./server`](#dropletsjsdropletsserver) exports them. |
 | `DropletStaleDetail`, `DropletRenderInfo`, `DropletChildrenHost` | `detail` of `droplets:stale`; what the element knows about a render; the children callbacks. |
 | `DropletUpdatePayload`, `DevNotification`, `RenderContract`, `DevToolSource`, `DevElementInfo`, `DevElementState`, `DropletsDevTools` | The `vite dev` HMR payload and the dev tool's contract. |
@@ -691,7 +710,8 @@ For renderer packages; it imports vitest.
 `rendererConformance(options: ConformanceOptions)` is the suite every
 renderer passes. It builds a fixture app with the renderer and checks
 server rendering, inline data, the transported values (`Date`, `Map`,
-`Set`, `URL`, `BigInt`) reaching the browser's `load`, hydration,
+`Set`, `URL`, `BigInt`, and the fixture's `Money` through `transport` in
+`src/hooks.ts`) reaching the browser's `load`, hydration,
 client-only mounting, the error
 page and boundary, children, prerendering, form actions and their URLs,
 native and enhanced submits, Post/Redirect/Get and HMR. The server renders

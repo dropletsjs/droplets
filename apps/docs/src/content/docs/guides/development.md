@@ -159,7 +159,11 @@ hydrate true → false*:
 | `prerender`, either way | A notice. Prerendering happens in `vite build`, so check it with `vite preview`. |
 
 An edit to `src/hooks.client.ts` gets a notice with **Reload page** as well:
-`init()` runs once per page, before any droplet.
+`init()` runs once per page, before any droplet. So does an edit to
+`src/hooks.ts` or a file it imports: the server encodes the next request
+with the new `transport`, and the page decodes with the one it loaded until
+it reloads. Under `manual` both are a console line, under `remount` and
+`reload` the page reloads.
 
 Notices show in the [dev tool](#the-dev-tool) when it is on the page.
 Otherwise they show as a small toast in the corner of the page, in its own
@@ -194,7 +198,7 @@ it. It needs `dropletsDevtools()` in the Vite config; without it,
 - The **strategy** can be switched per server for the tab's session. Under
   `manual`, a changed droplet is marked, and **Remount** or **Reload page**
   load it again.
-- **Notices** of `hmr` (a new render contract, a `hooks.client.ts` edit)
+- **Notices** of `hmr` (a new render contract, a `hooks.client.ts` or `hooks.ts` edit)
   show at the bottom left of the page, under the panel's styles.
 
 ## Workspace development

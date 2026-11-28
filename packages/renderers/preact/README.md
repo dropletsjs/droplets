@@ -116,7 +116,7 @@ Vite).
 
 - `preact()` name is `"preact"`. `src/index.ts:72`
 - `preact()` extensions are `[".tsx", ".jsx"]`. `src/index.ts:73`
-- `preact()` packages are `preact`, `preact-render-to-string` and `@dropletsjs/renderer-preact`: another renderer's droplet that imports one fails the build. `src/index.ts:74`, `../../droplets/src/vite/renderer-graphs.ts:74`
+- `preact()` packages are `preact`, `preact-render-to-string` and `@dropletsjs/renderer-preact`: another renderer's droplet that imports one fails the build. `src/index.ts:74`, `../../droplets/src/vite/renderer-graphs.ts:77`
 - `preact()` sets no `suffixes` and no `clientSetup`. `src/index.ts:71`
 - `preact()` componentTypes is `@dropletsjs/renderer-preact`: `./$types` takes `DropletProps` and `DropletErrorProps` from it. `src/index.ts:75`, `../../droplets/src/vite/sync-types.ts:47`
 - `preact()` server, client and clientDev are `dist/server.js`, `dist/client.js`, `dist/client-dev.js` under the package root. `src/index.ts:78`

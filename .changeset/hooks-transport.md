@@ -1,0 +1,11 @@
+---
+"@dropletsjs/droplets": patch
+---
+
+Your own types now reach the browser as themselves: export `transport` from a new `src/hooks.ts` (or `.js`), one `{ encode, decode }` entry per type, and an instance in the server load's data or in an action's result travels by that name next to the built-ins. On the server `encode` gets every object the payload holds, before the built-ins, and returns its JSON form or `false` when the value is not its own, so `class Tally extends Map` with an entry of its own travels as a `Tally`; in the browser `decode` turns the JSON form back, found by name through a `Map`. The new `Transport` type, exported from `@dropletsjs/droplets`, types it. See "Your own types" in Writing droplets.
+
+An entry named like a built-in (`Date`, `Map`, `Set`, `URL`, `BigInt`) is ignored and the built-in wins; so is an entry that is not an object with `encode` and `decode` functions, and all of `transport` when it is not a plain object. `vite dev` warns about each one with the new warning `transport-ignored`.
+
+`src/hooks.ts` runs on the server and in the browser: the server registry and `/index.js` both import it, so the element and enhanced forms decode with one table. It must stay framework-agnostic and reach no server code: a `*.server.*` file, a `+server.*` route, a file under a `server/` folder, `$droplets/server` or `$droplets/env/private` reached from it fails `vite build` and the `vite dev` import as for any browser code, a Node built-in it reaches fails with the new error `hooks-imports-node-builtin`, and a renderer's files or packages with the new error `hooks-imports-framework`, each naming the import chain. A `src/hooks.mts`, `.mjs`, `.cts` or `.cjs` is not loaded, with the `module-file-misnamed` warning. Under `vite dev` the next request encodes with an edit to `src/hooks.ts` (or a file it imports), and the page hears of it as of a `src/hooks.client.ts` edit: a notice with "Reload page" under `hmr`, a console line under `manual`, a reload under `remount` and `reload`.
+
+`rendererConformance()` now requires a `Money` transport in `src/hooks.ts` and a `price = new Money(1250, "EUR")` in `hello`'s server data, which its `+droplet.ts` adds to `kinds` as `price.format()`; a renderer's own suite fails until its fixture adds it (the layout is in `conformance.ts`).

@@ -50,6 +50,9 @@
  * src/app.css                   optional; the shared stylesheet by the plugin's `css.path` default
  * src/hooks.client.ts           export function init(): pushes "defined" or "not defined"
  *                                 (customElements.get("test-droplet")) to globalThis.conformanceInit
+ * src/hooks.ts                  export class Money { cents; currency; format() → `${(cents / 100).toFixed(2)} ${currency}` }
+ *                               export const transport = { Money: { encode: (v) => v instanceof Money &&
+ *                                 { cents, currency }, decode: (json) => new Money(json.cents, json.currency) } }
  * src/droplets/hello/
  *   +droplet.<ext>              ssr and hydrate (the defaults). Renders:
  *                                 <h1 data-testid="greeting">{data.greeting}</h1>
@@ -59,13 +62,14 @@
  *                                 <div data-testid="children">{children}</div>
  *   +droplet.server.ts          load({ props }): who = props.who ?? "world";
  *                                 "nobody" → error(404, "Nobody is here");
- *                                 "crash" → throw; returns { who, when, tags, seen, link, big }:
+ *                                 "crash" → throw; returns { who, when, tags, seen, link, big, price }:
  *                                 when = new Date("2026-01-02T03:04:05.000Z"), tags = new Map([["a", "alpha"]]),
- *                                 seen = new Set([1]), link = new URL("https://shop.example/x"), big = 41n
+ *                                 seen = new Set([1]), link = new URL("https://shop.example/x"), big = 41n,
+ *                                 price = new Money(1250, "EUR")
  *                               handleError → { error: { message: "Sorry, ref 42" } }
  *   +droplet.ts                 load({ data }) → { ...data, greeting: `Hello ${data.who}!`, kinds }, with
  *                                 kinds = [data.tags.get("a"), data.seen.has(1), data.link.hostname,
- *                                 String(data.big + 1n), data.when.toISOString()].join(" ")
+ *                                 String(data.big + 1n), data.when.toISOString(), data.price.format()].join(" ")
  *                                 (read through their methods, so it fails unless they arrive as themselves)
  *                               handleError({ error }) → { error: { message: `[hello] ${error.message}` } }
  *   +error.<ext>                Renders:
@@ -215,7 +219,7 @@ function tick(): Promise<unknown> {
 }
 
 /** What `hello`'s `+droplet.ts` makes of the transported values: what each engine renders as `kinds`. */
-const KINDS = "alpha true shop.example 42 2026-01-02T03:04:05.000Z";
+const KINDS = "alpha true shop.example 42 2026-01-02T03:04:05.000Z 12.50 EUR";
 
 /** The children marker as the engines print it: `data-droplet-children` may get `=""`, the style may be normalized. */
 const MARKER = /<div data-droplet-children(?:="")? style="display:\s*contents;?"><\/div>/;
@@ -396,6 +400,7 @@ export function rendererConformance({
           seen: [1],
           link: "https://shop.example/x",
           big: "41",
+          price: { cents: 1250, currency: "EUR" },
         };
         const transported = [
           [["data", "when"], "Date"],
@@ -403,10 +408,24 @@ export function rendererConformance({
           [["data", "seen"], "Set"],
           [["data", "link"], "URL"],
           [["data", "big"], "BigInt"],
+          [["data", "price"], "Money"],
         ];
         expect(payload({ html, payload: "data" })).toMatchObject({ data: wire, transported });
         const data = await post({ path: "/droplets/hello/_data", body: { props: { who: "Ana" } } });
         expect(await data.json()).toMatchObject({ data: wire, transported });
+      });
+
+      it("carries the Money of src/hooks.ts through its transport, its JSON form listed under its name", async () => {
+        const html = await (await get({ path: "/droplets/hello?who=Ana" })).text();
+        const inline = payload({ html, payload: "data" }) as { data?: { price?: unknown }; transported?: unknown[] };
+        expect(inline.data?.price, 'the fixture\'s +droplet.server.ts returns no price = new Money(1250, "EUR")').toEqual({
+          cents: 1250,
+          currency: "EUR",
+        });
+        expect(inline.transported, "the fixture has no transport with a Money entry in src/hooks.ts").toContainEqual([
+          ["data", "price"],
+          "Money",
+        ]);
       });
 
       it("renders the error page for a load that fails, through both handleError", async () => {
@@ -1205,7 +1224,7 @@ export function rendererConformance({
         });
       });
 
-      it("hands the browser's load the Date, Map, Set, URL and BigInt the server sent, hydrated and through _data", async () => {
+      it("hands the browser's load the Date, Map, Set, URL, BigInt and Money the server sent, hydrated and through _data", async () => {
         const el = mount({ html: await withChildren({ path: "/droplets/hello?who=Ana", kid: "kid-kinds" }) });
         if (interactive) await clickUntilLive({ el });
         else await settle();

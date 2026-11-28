@@ -121,8 +121,8 @@ mode and without it, on a copy of the fixture in `test/fixtures/.app-sync`.
 
 - `svelte()` name is `"svelte"`. `src/index.ts:116`
 - `svelte()` extensions are `[".svelte"]`: it claims `+droplet.svelte` and `+error.svelte`. `src/index.ts:117`
-- `svelte()` packages are `svelte` and `@dropletsjs/renderer-svelte`: another renderer's droplet that imports either fails the build. `src/index.ts:119`, `../../droplets/src/vite/renderer-graphs.ts:74`
-- `svelte()` suffixes are `.svelte.ts` and `.svelte.js` (rune modules): another renderer's droplet that imports one fails the build. `src/index.ts:122`, `../../droplets/src/vite/renderer-graphs.ts:73`
+- `svelte()` packages are `svelte` and `@dropletsjs/renderer-svelte`: another renderer's droplet that imports either fails the build. `src/index.ts:119`, `../../droplets/src/vite/renderer-graphs.ts:77`
+- `svelte()` suffixes are `.svelte.ts` and `.svelte.js` (rune modules): another renderer's droplet that imports one fails the build. `src/index.ts:122`, `../../droplets/src/vite/renderer-graphs.ts:76`
 - `svelte()` componentTypes is `@dropletsjs/renderer-svelte`: `./$types` takes `DropletProps` and `DropletErrorProps` from it. `src/index.ts:120`, `../../droplets/src/vite/sync-types.ts:47`
 - `svelte()` server, client and clientDev are `dist/server.js`, `dist/client.js`, `dist/client-dev.js` under the package root. `src/index.ts:124`
 - `svelte()` sets no `clientSetup`. `src/index.ts:115`
