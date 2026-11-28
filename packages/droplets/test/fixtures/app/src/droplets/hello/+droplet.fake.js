@@ -8,6 +8,7 @@ export const hydrate = true;
 
 export default ({ data, children }) =>
   `<section class="p-4"><h1 data-testid="greeting">${data.greeting}</h1>` +
+  `<p data-testid="kinds">${data.kinds}</p>` +
   `<p data-testid="site">${env.PUBLIC_FIXTURE_NAME}</p>` +
   `<p data-testid="dep">${kebabCase("Shared Dep")}</p>` +
   `<button data-testid="count">0</button>` +

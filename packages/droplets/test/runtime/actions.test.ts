@@ -255,26 +255,82 @@ describe("form actions: results", () => {
     expect(res.status).toBe(500);
   });
 
-  it("refuses data that is not plain JSON: the reason in dev, a generic message in production", async () => {
+  it("refuses data outside the payload contract: the path and the reason in dev, a generic message in production", async () => {
+    const cycle: Record<string, unknown> = {};
+    cycle["self"] = cycle;
+    const holey: number[] = [];
+    holey[1] = 2;
     const actions = {
-      date: () => ({ at: new Date(0) }),
       klass: () => fail(400, new (class Thing {})()),
-      big: () => ({ n: 10n }),
       nan: () => ({ n: Number.NaN }),
       fn: () => ({ f: () => 1 }),
+      promise: () => ({ later: Promise.resolve(1) }),
+      hole: () => ({ list: holey }),
+      cycle: () => cycle,
+      money: () => ({ total: new (class Money extends Map {})() }),
     };
     const dev = actionsApp({ actions, overrides: { getHandleError: () => devHandleError({ handleError: undefined }) } });
     const prod = actionsApp({ actions });
     for (const name of Object.keys(actions)) {
       const inDev = await dev.app.request(submit({ path: `/droplets/guestbook?/${name}` }));
       expect(inDev.status, name).toBe(500);
-      expect(await inDev.text(), name).toContain("not plain JSON");
+      const text = await inDev.text();
+      expect(text, name).toContain("payload-not-serializable");
+      expect(text, name).toContain("the action result cannot travel to the browser");
       const inProd = await prod.app.request(
         submit({ path: `/droplets/guestbook?/${name}`, body: "", headers: { accept: "application/json" } }),
       );
       expect(inProd.status, name).toBe(500);
-      expect(JSON.stringify(await inProd.json()), name).not.toContain("plain JSON");
+      expect(JSON.stringify(await inProd.json()), name).not.toContain("cannot travel");
     }
+    const hole = await dev.app.request(submit({ path: "/droplets/guestbook?/hole" }));
+    expect(await hole.text()).toContain("list[0] is a hole in a sparse array");
+    const money = await dev.app.request(submit({ path: "/droplets/guestbook?/money" }));
+    expect(await money.text()).toContain("total is a Money with no transport");
+  });
+
+  it("answers a Date, Map, Set, URL or BigInt in its JSON form, listed under transported", async () => {
+    const { app } = actionsApp({
+      actions: {
+        default: () => ({ at: new Date(0), tags: new Map([["a", new Set([1n])]]), home: new URL("https://shop.example/") }),
+        refused: () => fail(422, { when: new Date(0) }),
+        plain: () => ({ message: "ok", skipped: undefined }),
+      },
+    });
+    const json = { accept: "application/json" };
+    const ok = await app.request(submit({ path: "/droplets/guestbook", headers: json }));
+    expect(await ok.json()).toEqual({
+      type: "success",
+      status: 200,
+      data: { at: "1970-01-01T00:00:00.000Z", tags: [["a", ["1"]]], home: "https://shop.example/" },
+      transported: [
+        [["data", "at"], "Date"],
+        [["data", "tags", 0, 1, 0], "BigInt"],
+        [["data", "tags", 0, 1], "Set"],
+        [["data", "tags"], "Map"],
+        [["data", "home"], "URL"],
+      ],
+    });
+    const refused = await app.request(submit({ path: "/droplets/guestbook?/refused", headers: json }));
+    expect(await refused.json()).toEqual({
+      type: "failure",
+      status: 422,
+      data: { when: "1970-01-01T00:00:00.000Z" },
+      transported: [[["data", "when"], "Date"]],
+    });
+    // Nothing transported: the answer is plain JSON, as it always was.
+    const plain = await app.request(submit({ path: "/droplets/guestbook?/plain", headers: json }));
+    expect(await plain.text()).toBe('{"type":"success","status":200,"data":{"message":"ok"}}');
+  });
+
+  it("renders a typed result without DROPLETS_SECRET with the form in the envelope, its table rooted there", async () => {
+    const { app } = actionsApp({ actions: { default: () => ({ at: new Date(0) }) } });
+    const res = await app.request(submit({ path: "/droplets/guestbook", headers: { accept: "text/html" } }));
+    expect(envelope(await res.text())).toEqual({
+      data: { count: 1 },
+      form: { at: "1970-01-01T00:00:00.000Z" },
+      transported: [[["form", "at"], "Date"]],
+    });
   });
 
   it("answers JSON to a request that accepts it", async () => {
@@ -1051,6 +1107,27 @@ describe("form actions: Post/Redirect/Get without JavaScript", () => {
     await renderOn({ app, host: location });
     expect(renderDroplet).toHaveBeenCalledTimes(1);
     expect((renderDroplet.mock.calls[0] ?? expect.unreachable("a render call"))[2]).toBeUndefined();
+  });
+
+  it("sends a result holding a transported value back without its data, with a warning: the server decodes nothing", async () => {
+    const warn = vi.spyOn(logger, "report").mockImplementation(() => {});
+    const { app, renderDroplet } = actionsApp({ actions: { default: () => fail(409, { at: new Date(0) }) } });
+    const res = await app.request(submit({ path: "/droplets/guestbook", body: "", headers: native }));
+    expect(res.status).toBe(303);
+    const location = res.headers.get("location") ?? expect.unreachable("a location header");
+    const token = tokenOf(location) ?? expect.unreachable("a form token");
+    const body = JSON.parse(Buffer.from(token.split(".")[0] ?? "", "base64url").toString("utf8")) as Record<string, unknown>;
+    expect(body).not.toHaveProperty("data");
+    expect(body).toMatchObject({ status: 409, action: "default" });
+    expect(warn.mock.calls.some((call) => formatMessage(call[0]).includes("form-result-not-plain"))).toBe(true);
+    await renderOn({ app, host: location });
+    expect((renderDroplet.mock.calls[0] ?? expect.unreachable("a render call"))[2]).toBeUndefined();
+
+    // A plain result still travels, as it always did; no warning without a dev log.
+    warn.mockClear();
+    const quiet = actionsApp({ actions: { default: () => ({ at: new Date(0) }) }, overrides: { devLog: undefined } }).app;
+    expect((await quiet.request(submit({ path: "/droplets/guestbook", body: "", headers: native }))).status).toBe(303);
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it("sets the action's cookies and headers on the redirect", async () => {

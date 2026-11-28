@@ -179,12 +179,12 @@ export const ACTIONS_NOT_OBJECT = {
   fix: "export const actions = { default, add, … }",
 } satisfies AnyMessage;
 
-export const ACTION_DATA_NOT_JSON = {
-  code: "action-data-not-json",
+export const PAYLOAD_NOT_SERIALIZABLE = {
+  code: "payload-not-serializable",
   level: "error",
-  what: ({ action, verb }: { action: string; verb: string }) =>
-    `action ${action} ${verb} data that is not plain JSON (object literals, arrays, strings, finite numbers, booleans, null)`,
-  fix: "return plain data from the action: turn dates into strings and class instances into object literals",
+  what: ({ what, path, reason }: { what: string; path: string; reason: string }) =>
+    `the ${what} cannot travel to the browser: ${path} is ${reason}`,
+  fix: "send plain JSON (object literals, arrays, strings, finite numbers, booleans, null) and Date, Map, Set, URL or BigInt values; await promises in the load, and turn class instances into object literals",
 } satisfies AnyMessage;
 
 export const ACTION_FAILED = {
@@ -493,6 +493,14 @@ export const FORM_RESULT_DROPPED = {
   fix: "post the form again from the page: a result holds for 5 minutes, on the page, droplet and build it was sent back to, under one DROPLETS_SECRET on every server",
 } satisfies AnyMessage;
 
+export const FORM_RESULT_NOT_PLAIN = {
+  code: "form-result-not-plain",
+  level: "warning",
+  what: ({ way }: { way: string }) =>
+    `an action's result holds a Date, Map, Set, URL or BigInt, which ${way} cannot carry (plain JSON only): it went without the result`,
+  fix: "return plain JSON from an action whose result goes back to the server (a date as an ISO string, say); a hydrated droplet's enhanced form gets every type",
+} satisfies AnyMessage;
+
 export const RENDER_TIMED_OUT = {
   code: "render-timed-out",
   level: "warning",
@@ -562,12 +570,12 @@ export const RUNTIME_PAGES: ErrorPages = {
     when: "On the server, when a form posts to a droplet whose +droplet.server.ts exports actions that is not a plain object.",
     see: "/guides/actions/",
   },
-  "action-data-not-json": {
-    when: "On the server, when a form action returns or fails with data that is not plain JSON: the request answers 500.",
-    see: "/guides/actions/",
+  "payload-not-serializable": {
+    when: "On the server and in vite build, when a droplet's server data or a form action's result holds a value that cannot travel to the browser: the droplet renders its +error page, and an action answers 500.",
+    see: "/guides/writing-droplets/#what-data-can-be",
   },
   "action-failed": {
-    when: "On the server, when a form action returned data that cannot travel as plain JSON; the error logged after it says which.",
+    when: "On the server, when a form action returned data that cannot travel to the browser; the error logged after it says which.",
     see: "/guides/actions/",
   },
   "action-name-invalid": {
@@ -670,6 +678,10 @@ export const RUNTIME_PAGES: ErrorPages = {
   },
   "form-result-dropped": {
     when: "Under vite dev, when the page a form posted without JavaScript went back to carries a result for the droplet that is not genuine, has expired, or names an action the droplet does not export. The droplet renders without form.",
+    see: "/guides/actions/",
+  },
+  "form-result-not-plain": {
+    when: "Under vite dev, when an action's result holds a Date, Map, Set, URL or BigInt and has to go back to the server: in the signed result of a form posted without JavaScript, or in the render of a droplet that does not hydrate after an enhanced form.",
     see: "/guides/actions/",
   },
   "render-timed-out": {

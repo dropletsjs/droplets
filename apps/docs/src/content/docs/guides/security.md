@@ -447,9 +447,16 @@ actions and `+server.ts` handlers should too:
   from a body or `x-droplet-props`, and go through the
   [props schema](/guides/writing-droplets/#a-props-schema) before any load.
   An action reads its own body and checks each field's type; nothing of the
-  body is merged into props or anything else. An action returns plain JSON
-  (object literals, arrays, strings, finite numbers, booleans, `null`): a
-  `Date`, a class instance or a function answers `500`. A signed form
+  body is merged into props or anything else. An action returns, and a load
+  sends the browser, plain JSON plus `Date`, `Map`, `Set`, `URL` and
+  `BigInt` ([What data can be](/guides/writing-droplets/#what-data-can-be)):
+  a class instance or a function answers `500`. Those types are turned back
+  only in the browser, over a payload from its own server; the server never
+  reads anything a request carries as one of them (a body or form shaped
+  like a [transported payload](/integrate/http-contract/#transported-values)
+  stays plain data), and a result that goes back to it (signed in the URL,
+  or with the fragment request of a droplet that does not hydrate) is plain
+  JSON or left out. A signed form
   result is parsed with plain `JSON.parse` and copied into objects without
   prototypes, `__proto__` dropped; props and `form` from a JSON body or
   `x-droplet-props` are copied the same way, as ordinary objects without an

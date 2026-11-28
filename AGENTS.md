@@ -72,8 +72,8 @@ Each rule states what holds, then what checks it. A rule that one folder alone c
 ### Endpoints (actions, props, the context round-trip, form tokens, `/api`)
 
 10. **An endpoint takes input the same way everywhere**, in the packages, in `apps/demo` and in the examples:
-    - plain data in and out: `FormData` or `JSON.parse`, plain JSON back; no devalue, superjson, Flight or revivers.
-      Checked by: `packages/droplets/test/runtime/actions.test.ts`, `apps/demo/test/server.test.ts` ("plain data only").
+    - plain data in and out: `FormData` or `JSON.parse`, plain JSON back; no devalue, superjson, Flight or revivers. The one carve-out is the payload a droplet sends the browser (its data, `_data`, an action's answer): plain JSON whose `transported` list names the values a transport encoded (`Date`, `Map`, `Set`, `URL`, `BigInt`), decoded only in the browser (`runtime/payload-decode.ts`, imported by the element alone); the server never decodes anything a request carries.
+      Checked by: `packages/droplets/test/runtime/actions.test.ts`, `apps/demo/test/server.test.ts` ("plain data only"), `packages/droplets/test/runtime/payload-boundary.test.ts` (shaped input stays plain data; no server module imports the decoder).
     - the server chooses the code: a name from the client reaches a function only through `Object.hasOwn` on a plain object, a `Map` or a method allow-list.
       Checked by: `actions.test.ts` (`__proto__`, `constructor`), `test/runtime/enhance.test.ts`, `packages/adapters/node/test/assets.test.ts`.
     - the route, the droplet and the action are resolved before any body is read.

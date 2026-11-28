@@ -1882,6 +1882,71 @@ describe("createDropletsApp: inline data", () => {
   });
 });
 
+describe("createDropletsApp: the payload contract", () => {
+  const typed = { at: new Date(0), tags: new Map([["a", 1n]]), home: new URL("https://shop.example/") };
+  const wire = {
+    data: { at: "1970-01-01T00:00:00.000Z", tags: [["a", "1"]], home: "https://shop.example/" },
+    transported: [
+      [["data", "at"], "Date"],
+      [["data", "tags", 0, 1], "BigInt"],
+      [["data", "tags"], "Map"],
+      [["data", "home"], "URL"],
+    ],
+  };
+
+  it("inlines transported values in their JSON form, listed under transported, in the fragment and _data", async () => {
+    const { app } = fakeApp({
+      renderDroplet: async () => ({ html: "<p>x</p>", serverData: typed }),
+      loadDropletData: async () => ({ data: typed }),
+    });
+    expect(payload({ html: await (await app.request("/droplets/hello")).text(), payload: "data" })).toEqual(wire);
+    expect(await (await app.request("/droplets/hello/_data")).json()).toEqual(wire);
+    // `ssr = false`: the load alone, inline all the same.
+    expect(payload({ html: await (await app.request("/droplets/spa")).text(), payload: "data" })).toEqual(wire);
+  });
+
+  it("sends the SSR bundle's encoded server data as it is", async () => {
+    const encoded = { value: { a: "1970-01-01T00:00:00.000Z" }, transported: [[["a"], "Date"]] as Array<[string[], string]> };
+    const { app } = fakeApp({
+      renderDroplet: async () => ({ html: "<p>x</p>", serverData: { a: new Date(0) }, serverWire: encoded }),
+      loadDropletData: async () => ({ data: { a: new Date(0) }, wire: encoded }),
+    });
+    const expected = { data: { a: "1970-01-01T00:00:00.000Z" }, transported: [[["data", "a"], "Date"]] };
+    expect(payload({ html: await (await app.request("/droplets/hello")).text(), payload: "data" })).toEqual(expected);
+    expect(await (await app.request("/droplets/hello/_data")).json()).toEqual(expected);
+  });
+
+  it("encodes through encodePayload when it is given", async () => {
+    const encodePayload = vi.fn(() => ({ value: "encoded", transported: [] }));
+    const { app } = fakeApp({ encodePayload });
+    expect(payload({ html: await (await app.request("/droplets/hello")).text(), payload: "data" })).toEqual({ data: "encoded" });
+    expect(encodePayload).toHaveBeenCalledWith(expect.objectContaining({ what: "server data", droplet: "hello" }));
+  });
+
+  it("keeps a plain payload byte for byte as plain JSON", async () => {
+    const { app } = fakeApp({ renderDroplet: async () => ({ html: "<p>x</p>", serverData: { n: 1, list: ["a"] } }) });
+    const html = await (await app.request("/droplets/hello")).text();
+    const match = html.match(/data-droplet-payload="data">([^<]*)</)?.[1] ?? "";
+    expect(Buffer.from(match, "base64").toString("utf8")).toBe('{"data":{"n":1,"list":["a"]}}');
+  });
+
+  it("swaps a stored render's tokens over its tree and its table together", async () => {
+    const tokens = replacers.hostTokens({ nonce: "0123456789abcdef" });
+    const loadPrerendered = vi.fn(async () => ({
+      html: "<p>docs</p>",
+      data: { [tokens.location]: "1970-01-01T00:00:00.000Z" },
+      transported: [[[tokens.location], "Date"]] as Array<[string[], string]>,
+      nonce: "0123456789abcdef",
+    }));
+    const { app } = fakeApp({ getDropletMeta: () => ({ exists: true, ssr: true, prerender: true }), loadPrerendered });
+    const res = await app.request("/droplets/docs", { headers: { "x-droplet-location": "http://localhost/mfe" } });
+    expect(payload({ html: await res.text(), payload: "data" })).toEqual({
+      data: { "http://localhost/mfe": "1970-01-01T00:00:00.000Z" },
+      transported: [[["data", "http://localhost/mfe"], "Date"]],
+    });
+  });
+});
+
 describe("createDropletsApp: prerendered droplets", () => {
   const meta: DropletsAppOptions["getDropletMeta"] = (name) =>
     name === "docs"
@@ -2105,6 +2170,16 @@ describe("createDropletsApp: building", () => {
       // Host-agnostic: the nonce of its tokens, for the build to store with it.
       nonce: expect.stringMatching(/^[0-9a-f]{16}$/),
     });
+  });
+
+  it("stores the server data in its wire form, with its table", async () => {
+    const { app } = fakeApp({ building: true, renderDroplet: async () => ({ html: "x", serverData: { at: new Date(0) } }) });
+    const res = await app.request("http://droplets.build/droplets/hello", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ props: {} }),
+    });
+    expect(await res.json()).toMatchObject({ data: { at: "1970-01-01T00:00:00.000Z" }, transported: [[["at"], "Date"]] });
   });
 
   it("renders on a location token of the build: where it is served from is known per request", async () => {

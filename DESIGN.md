@@ -5,6 +5,29 @@
 How to read this: each section is one design decision, recorded as it was taken, with its reasons and how much of it is built.
 What ships is described by the guides at https://dropletsjs.dev; where the two differ, the guides are right.
 
+## The payload contract: plain JSON plus transported values (built 2026-11-27)
+
+- What a droplet sends the browser (the server load's data, an action's
+  result as `form` or as the JSON answer) is plain JSON plus `Date`, `Map`,
+  `Set`, `URL` and `BigInt`, nested. It is checked on every render, so a
+  value that renders at SSR never fails only later through `_data`.
+- Wire form: each value in its JSON form in place (ISO string, `[k, v]`
+  pairs, array, `href`, decimal string), and a side table next to
+  `data`/`form`, `transported: [[path, name], …]`, inner values first,
+  absent when empty: a plain payload is byte for byte what it was.
+- A value outside the contract (a cycle, a function, a class with no
+  transport, a promise, `undefined` in an array, `NaN`) is a render error
+  naming its path (`payload-not-serializable`): `+error` for a load, `500`
+  for an action. This replaces the action's own plain-JSON check.
+- Only the browser decodes, over a payload its own server sent: names reach
+  a decoder through a `Map`, paths only through own keys and in-range
+  indices. The server decodes nothing a request carries; the two ways a
+  result goes back to it (the signed no-JS token, the POSTed `form` of a
+  droplet that does not hydrate) stay plain JSON, and a result holding a
+  transported value is left out of them, with a dev warning.
+- Author transports (`src/hooks.ts`) and the data/server payload split come
+  in later steps of 1.0.3.
+
 ## The droplet location: `x-droplet-location` and the forwarded headers (built 2026-11-11)
 
 - The request header that names the droplets server's public location is
@@ -504,9 +527,9 @@ must satisfy each rule below, and test it:
      answers with the failure's status, a JSON redirect with `200` (the
      client follows `location` itself).
    - `fail()` may be thrown as well as returned, as `redirect()`.
-   - `ActionDataError`: data that is not plain JSON (a `Date`, a class
-     instance, a function, `NaN`, a `bigint`, deeper than 64) answers `500`,
-     the reason in dev only.
+   - Data outside the payload contract (a class instance, a function,
+     `NaN`, a cycle, deeper than 64) answers `500`, the reason in dev only;
+     see "The payload contract" above.
    - More than one `?/name` answers `400`; an `actions` that is not a plain
      object answers `500` (a bug in the droplet, not the request).
    - A relative `redirect()` resolves against `host`; for a plain form

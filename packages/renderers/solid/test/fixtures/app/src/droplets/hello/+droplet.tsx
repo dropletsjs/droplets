@@ -4,7 +4,7 @@ import type { DropletProps } from "@dropletsjs/renderer-solid";
 export const ssr = true;
 export const hydrate = true;
 
-type Data = { greeting: string };
+type Data = { greeting: string; kinds: string };
 
 export default function Hello(props: DropletProps<Data>) {
   const [clicks, setClicks] = createSignal(0);
@@ -21,6 +21,7 @@ export default function Hello(props: DropletProps<Data>) {
   return (
     <section>
       <h1 data-testid="greeting">{value()?.greeting}</h1>
+      <p data-testid="kinds">{value()?.kinds}</p>
       <button data-testid="count" onClick={() => setClicks(clicks() + 1)}>
         {clicks()}
       </button>

@@ -4,13 +4,14 @@ import type { DropletProps } from "@dropletsjs/renderer-preact";
 export const ssr = true;
 export const hydrate = true;
 
-export default function Hello({ data, children }: DropletProps<{ greeting: string }>) {
+export default function Hello({ data, children }: DropletProps<{ greeting: string; kinds: string }>) {
   const [clicks, setClicks] = useState(0);
   // Always the value: when the element mounts it fresh, the renderer awaits
   // the data first, and a rejection shows the error page instead.
   return (
     <section>
       <h1 data-testid="greeting">{data.greeting}</h1>
+      <p data-testid="kinds">{data.kinds}</p>
       <button data-testid="count" onClick={() => setClicks((n) => n + 1)}>
         {clicks}
       </button>

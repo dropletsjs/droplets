@@ -24,6 +24,7 @@ import {
   FRAGMENT_REFETCH_FAILED,
   HANDLE_ERROR_THREW_IN_BROWSER,
   INLINE_PAYLOAD_UNREADABLE,
+  PAYLOAD_UNDECODABLE,
   PROPS_ATTRIBUTE_NOT_OBJECT,
   PROPS_ATTRIBUTE_UNREADABLE,
   PROPS_REFUSED_IN_BROWSER,
@@ -169,12 +170,25 @@ class NothingToRender extends Error {
 /** The server answered from another build; already reported, not a droplet error. A class: the element branches on it. */
 class StaleBuildError extends NothingToRender {}
 
+type DecodedInput = { envelope: Record<string, unknown> };
+
+/** An envelope with its transported values decoded, or why it cannot be. */
+function decoded({ envelope }: DecodedInput): { envelope: Record<string, unknown> } | { reason: string } {
+  try {
+    return { envelope: decodePayload({ envelope }) };
+  } catch (error) {
+    return { reason: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 import { decodeBase64Json } from "./base64.ts";
 import { settle } from "./load.ts";
+import { decodePayload } from "./payload-decode.ts";
+import { plainJson } from "./plain-json.ts";
 import { propsKey } from "./props.ts";
 import { enhanceSubmit, ownAction } from "./enhance.ts";
 import { FORM_RESULT_PREFIX, isReservedQueryKey, RETURN_KEY, splitFormResults, withoutFormResults } from "./form.ts";
@@ -317,6 +331,7 @@ function nodeAtPath({ root, path }: NodeAtPathInput): Element | null {
 
 type InlinePayload<T> = { found: boolean; data: T | undefined };
 type ReadInlineInput = { selector: string };
+export type FormForServerInput = { form: unknown };
 type WithCacheBustInput = { url: string; token?: string | undefined };
 type EnsureDropletStyleInput = { droplet: string; contentRoot: HTMLElement };
 type ContentRootInput = { contentRoot: HTMLElement };
@@ -497,6 +512,30 @@ export class DjsDropletElement extends HTMLElement {
       console.error(formatMessage({ message: INLINE_PAYLOAD_UNREADABLE, params: { selector }, droplet: this.dataset["droplet"] }), error);
       return { found: true, data: undefined };
     }
+  }
+
+  /**
+   * The inline data payload, its transported values decoded. One that
+   * cannot be decoded is logged and taken as absent: `_data` is asked instead.
+   */
+  _readData(): InlinePayload<unknown> {
+    const inline = this._readInline<unknown>({ selector: '[data-droplet-payload="data"]' });
+    if (!inline.found || !isObject(inline.data)) return inline;
+    const result = decoded({ envelope: inline.data });
+    if ("envelope" in result) return { found: true, data: result.envelope };
+    const params = { source: "the inline data payload", reason: result.reason };
+    console.error(formatMessage({ message: PAYLOAD_UNDECODABLE, params, droplet: this.dataset["droplet"] }));
+    return { found: false, data: undefined };
+  }
+
+  /**
+   * An answer's envelope (`{ data, form?, transported? }`) with its
+   * transported values decoded (`Date`, `Map`, `Set`, `URL`, `BigInt`): a
+   * copy, the table taken off. Throws when it cannot be decoded. What an
+   * enhanced form reads an action's answer through.
+   */
+  decodePayload(envelope: Record<string, unknown>): Record<string, unknown> {
+    return decodePayload({ envelope: structuredClone(envelope) });
   }
 
   /**
@@ -841,7 +880,13 @@ export class DjsDropletElement extends HTMLElement {
     }
     const payload: unknown = await response.json().catch(() => undefined);
     if (response.ok && isObject(payload)) {
-      return Object.hasOwn(payload, "form") ? { data: payload["data"], form: payload["form"] } : { data: payload["data"] };
+      const result = decoded({ envelope: payload });
+      if ("reason" in result) {
+        const params = { source: "the _data answer", reason: result.reason };
+        throw new NothingToRender(dropletsError({ message: PAYLOAD_UNDECODABLE, params, droplet }));
+      }
+      const answer = result.envelope;
+      return Object.hasOwn(answer, "form") ? { data: answer["data"], form: answer["form"] } : { data: answer["data"] };
     }
     if ((response.status === 500 || response.status === 504) && isObject(payload) && "error" in payload) {
       return { failed: true, error: payload["error"] };
@@ -920,7 +965,7 @@ export class DjsDropletElement extends HTMLElement {
     try {
       const context = this._context;
       let props = context.props;
-      const inline = refresh ? { found: false, data: undefined } : this._readInline<unknown>({ selector: '[data-droplet-payload="data"]' });
+      const inline = refresh ? { found: false, data: undefined } : this._readData();
       const inlinePayload = (): Payload =>
         isObject(inline.data) && "error" in inline.data
           ? { failed: true, error: inline.data["error"] }
@@ -1118,7 +1163,7 @@ export class DjsDropletElement extends HTMLElement {
    * droplet's `+error.*`: hydrate or mount it from the inline error.
    */
   async #renderServerError({ droplet, contentRoot, run, cacheBust }: StartInput): Promise<boolean> {
-    const inline = this._readInline<unknown>({ selector: '[data-droplet-payload="data"]' });
+    const inline = this._readData();
     if (!inline.found || !isObject(inline.data) || !("error" in inline.data)) return false;
     const mod = await this._importModule({ droplet, cacheBust });
     if (!mod || run !== this._run) return false;
@@ -1362,12 +1407,21 @@ export class DjsDropletElement extends HTMLElement {
       // action's result and the props and page the action URL carries,
       // as for a form posted without JavaScript.
       const context = this.#actionContext({ droplet, action }) ?? this._context;
-      const fresh = await this._fetchFragment({ droplet, context, action: { form } });
+      const fresh = await this._fetchFragment({ droplet, context, ...this._formForServer({ form }) });
       if (run !== this._run || !fresh) return;
       await this._swap({ droplet, contentRoot, fresh, run, cacheBust: false });
       if (run !== this._run) return;
     }
     this.#restoreFocus({ contentRoot, spot });
+  }
+
+  /**
+   * An action's result to send back for the server to render with: plain
+   * JSON only, since the server decodes nothing a request carries. One
+   * holding a transported value goes without it.
+   */
+  _formForServer({ form }: FormForServerInput): { action?: { form: unknown } } {
+    return form !== undefined && plainJson({ value: form }) !== undefined ? { action: { form } } : {};
   }
 
   /**

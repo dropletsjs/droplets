@@ -314,10 +314,11 @@ name are resolved before the body is read; the action reads it.
 | A native post, with `DROPLETS_SECRET` | `303` back to the page (`__droplet_return` or the `Referer`, on this server, `host` or a trusted origin; else `400`), the result signed in `__droplet_form_<droplet>_<build>` |
 | A native post, without `DROPLETS_SECRET` | The fragment, rendered with `form` |
 | `redirect()` from the action | `303` (native) or the JSON redirect, only to this server, `host` or a listed trusted origin (`"*"` never counts); else `400` in both modes |
-| Data that is not plain JSON | `500` |
+| Data a payload can't hold ([What data can be](/guides/writing-droplets/#what-data-can-be)) | `500`; the logged error names the path to the value |
 
 A signed result lives 5 minutes and is bound to the droplet, the build and
-the page. Its data travels only up to 2 KB. See [Actions](/guides/actions/).
+the page. Its data travels only up to 2 KB, and only as plain JSON: a
+result holding a `Date`, `Map`, `Set`, `URL` or `BigInt` goes without it. See [Actions](/guides/actions/).
 
 ## Environment variables
 
@@ -503,7 +504,7 @@ with the steps it is made of, for the renderers' form wrappers.
 | `actionAnswer(body)`, `ActionAnswer` | An action's JSON answer, checked with own keys only; `null` for anything else. |
 | `redirectTarget(location)` | `location` when it is an absolute `http(s)` URL without credentials; else `null`. |
 | `plainCopy(data)` | A copy through JSON, for the `droplets:action` detail. |
-| `ACTION_EVENT`, `DropletFormHost` | `"droplets:action"`, and the element's `actionTarget()` and `updateForm()`. |
+| `ACTION_EVENT`, `DropletFormHost` | `"droplets:action"`, and the element's `actionTarget()`, `updateForm()` and `decodePayload()`. |
 
 ## `@dropletsjs/droplets`
 
@@ -689,7 +690,9 @@ For renderer packages; it imports vitest.
 
 `rendererConformance(options: ConformanceOptions)` is the suite every
 renderer passes. It builds a fixture app with the renderer and checks
-server rendering, inline data, hydration, client-only mounting, the error
+server rendering, inline data, the transported values (`Date`, `Map`,
+`Set`, `URL`, `BigInt`) reaching the browser's `load`, hydration,
+client-only mounting, the error
 page and boundary, children, prerendering, form actions and their URLs,
 native and enhanced submits, Post/Redirect/Get and HMR. The server renders
 in a worker thread of its own, so a server build that shims the DOM or
@@ -941,12 +944,13 @@ marker. Nothing goes into `<head>`.
 | Event | When |
 | --- | --- |
 | `droplets:stale` | The droplet comes from another build than the loaded `index.js`; it keeps its server HTML and does not hydrate. Bubbles to `window`; `detail` is `{ element, droplet, loaded, served }`. |
-| `droplets:action` | An enhanced form's action answered. On `window`; `detail` is `{ droplet, action, type, status, data }`. |
+| `droplets:action` | An enhanced form's action answered. On `window`; `detail` is `{ droplet, action, type, status, data }`, `data` as the answer's JSON has it (a `Date` as its ISO string, a `Map` as pairs). |
 
 | Method | What it does |
 | --- | --- |
 | `actionTarget()` | `{ droplet, location, build }`: where this droplet's actions are, and the build of the loaded `index.js`; `null` while it renders no known droplet of this build. |
 | `updateForm({ form, action })` | Renders the droplet again with `form`, its loads run again; a droplet that does not hydrate gets its fragment rendered by the server with `form`, and the props and page of `action`, the URL of the droplet's own action that answered (any other URL, or none: the element's own context). What an enhanced form calls. |
+| `decodePayload(envelope)` | A copy of an envelope parsed from this droplets server's JSON (`{ data, form?, transported? }`) with its [transported values](/integrate/http-contract/#transported-values) turned back into `Date`, `Map`, `Set`, `URL` and `BigInt`. Throws when the table cannot be applied. What an enhanced form calls on an action's answer. |
 
 A form with `data-droplet-enhance` in a droplet's own markup is enhanced
 by the element, for any renderer.

@@ -47,11 +47,12 @@ describe("createNodeServerApp", () => {
     expect(html.startsWith('<test-droplet data-droplet="hello"')).toBe(true);
     const data = html.match(/data-droplet-payload="data">([^<]+)</)?.[1];
     // Runtime secrets come from process.env in production; .env is a build input.
-    expect(data && (decode({ base64: data }) as { data: unknown }).data).toEqual({
+    expect(data && (decode({ base64: data }) as { data: unknown }).data).toMatchObject({
       who: "Node",
       hooked: true,
       secret: null,
       flag: "inlined-at-build",
+      big: "41",
     });
     // The full page exists only under `vite dev`.
     expect((await app.request("/hello")).status).toBe(404);

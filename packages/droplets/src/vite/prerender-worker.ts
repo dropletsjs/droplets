@@ -64,6 +64,7 @@ const app = createDropletsApp({
   // The renders' tokens are the bundle's own: one nonce for both.
   ...(ssr.tokenNonce === undefined ? {} : { tokenNonce: ssr.tokenNonce }),
   ...(ssr.tokens === undefined ? {} : { tokens: ssr.tokens }),
+  ...(ssr.encodePayload ? { encodePayload: ssr.encodePayload } : {}),
   building: true,
   location,
   // An entry without `host` renders for this one: the app knows it.
@@ -96,6 +97,7 @@ function servingApp(): DropletsApp {
     buildHash,
     ...(ssr.tokenNonce === undefined ? {} : { tokenNonce: ssr.tokenNonce }),
     ...(ssr.tokens === undefined ? {} : { tokens: ssr.tokens }),
+    ...(ssr.encodePayload ? { encodePayload: ssr.encodePayload } : {}),
     location,
     host,
     fragmentCacheControl,

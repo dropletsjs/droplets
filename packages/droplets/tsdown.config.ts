@@ -56,6 +56,7 @@ export default defineConfig({
       server: [
         "runtime/app",
         "runtime/entry-server",
+        "runtime/payload-encode.server",
         "runtime/server",
         "runtime/env-store",
         "runtime/request-store",

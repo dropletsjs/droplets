@@ -634,6 +634,16 @@ describe("<djs-droplet>", () => {
       expect(Object.prototype).not.toHaveProperty("x");
     });
 
+    it("sends a result holding a transported value without it, with a warning: the server decodes nothing", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { el, body } = setup();
+      await tick();
+      await el.updateForm({ form: { at: new Date(0) }, action: ACTION });
+      expect(body()).not.toHaveProperty("form");
+      expect(el.querySelector("p")?.textContent).toBe("v2");
+      expect(warn.mock.calls.some((call) => String(call[0]).includes("form-result-not-plain"))).toBe(true);
+    });
+
     it("takes no props from an action URL of another server or another droplet", async () => {
       for (const action of [
         "https://evil.test/droplets/clock?id=9",
@@ -705,6 +715,67 @@ describe("<djs-droplet>", () => {
     expect(event?.data).toEqual({ who: "Inline" });
     expect(event?.props).toEqual({ page: 2 });
     expect(event?.host.href).toBe(globalThis.location.href);
+  });
+
+  it("hydrates from inline data with its transported values decoded", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const fake = fakeModule();
+    const envelope = {
+      data: { at: "1970-01-01T00:00:00.000Z", tags: [["a", "1"]] },
+      form: { home: "https://shop.example/" },
+      transported: [
+        [["data", "at"], "Date"],
+        [["data", "tags", 0, 1], "BigInt"],
+        [["data", "tags"], "Map"],
+        [["form", "home"], "URL"],
+      ],
+    };
+    mount(
+      `<djs-droplet data-droplet="hello">` +
+        `<script type="application/text" data-droplet-payload="data">${encode(envelope)}</script>` +
+        `<div data-droplet-entry><p>ssr</p></div></djs-droplet>`,
+    );
+    await tick();
+    const event = await dataOf({ fake });
+    expect(event.data).toEqual({ at: new Date(0), tags: new Map([["a", 1n]]) });
+    const info = fake.default.mock.calls[0]?.[3] as { form?: { home: unknown } };
+    expect(info.form?.home).toEqual(new URL("https://shop.example/"));
+  });
+
+  it("asks _data when the inline payload cannot be decoded, and decodes its answer", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetchSpy = vi.fn(async () =>
+      json({ body: { data: { at: "1970-01-01T00:00:00.000Z" }, transported: [[["data", "at"], "Date"]] } }),
+    );
+    vi.stubGlobal("fetch", fetchSpy);
+    const fake = fakeModule();
+    const broken = { data: { at: "x" }, transported: [[["data", "at"], "Money"]] };
+    mount(
+      `<djs-droplet data-droplet="hello">` +
+        `<script type="application/text" data-droplet-payload="context">${encode({ host: "https://host.test/a", props: {} })}</script>` +
+        `<script type="application/text" data-droplet-payload="data">${encode(broken)}</script>` +
+        `<div data-droplet-entry><p>ssr</p></div></djs-droplet>`,
+    );
+    await tick();
+    expect(error.mock.calls.some((call) => String(call[0]).includes("payload-undecodable"))).toBe(true);
+    expect(String(error.mock.calls[0]?.[0])).toContain('no transport named "Money"');
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    expect((await dataOf({ fake })).data).toEqual({ at: new Date(0) });
+  });
+
+  it("renders nothing for a _data answer that cannot be decoded", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => json({ body: { data: { at: "x" }, transported: [[["data", "__proto__"], "Date"]] } })),
+    );
+    const fake = fakeModule();
+    mount('<djs-droplet data-droplet="hello" data-droplet-props=\'{"who":"Ana"}\'></djs-droplet>');
+    await tick();
+    await tick();
+    expect(fake.load).not.toHaveBeenCalled();
+    expect(error.mock.calls.some((call) => String(call[0]).includes("payload-undecodable"))).toBe(true);
+    expect(({} as Record<string, unknown>)["polluted"]).toBeUndefined();
   });
 
   it("treats an inline envelope without data as present: no _data", async () => {

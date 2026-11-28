@@ -58,7 +58,7 @@ the form; nothing of the body is merged into anything.
 
 ## What an action returns
 
-- **A plain JSON object, or nothing**: success, status `200`.
+- **An object, or nothing**: success, status `200`.
 - **`fail(status, data?)`**: a failure with a `400`–`599` status (any other
   throws), and data for the form to show.
 - **`redirect()`**, thrown or returned: a `303` to where it points. The
@@ -77,9 +77,19 @@ render. That render is always live, also for a prerendered droplet.
 - A result carries what the action returns and nothing else. The submitted
   fields are never added to it: a form that should show a field again
   returns it.
-- The returned data must be plain JSON (object literals, arrays, strings,
-  finite numbers, booleans, `null`): a `Date`, a class instance or a
-  function answers `500`.
+- The returned data follows the rules of a load's data
+  ([What data can be](/guides/writing-droplets/#what-data-can-be)): plain
+  JSON plus `Date`, `Map`, `Set`, `URL` and `BigInt`, which `form` gets
+  back as the same types. Anything else (a function, a class instance, a
+  cycle, `NaN`) answers `500`; the error, logged on the server (and shown
+  under `vite dev`), names the path to the value.
+- A result goes back to the server in two cases: signed in the page's URL
+  after a post [without JavaScript](#without-javascript-postredirectget),
+  and with the fragment request of a droplet that does not hydrate. There
+  it stays plain JSON: a result holding a `Date`, `Map`, `Set`, `URL` or
+  `BigInt` is left out (the droplet renders without `form`), with a
+  warning under `vite dev`. Return strings and numbers from an action
+  whose result must survive those trips.
 - `setHeaders` is shared with the load that follows: a header both set
   throws, as two loads would.
 - In `./$types`, `Actions` types the object, `DropletActions` maps each
@@ -361,7 +371,8 @@ Then:
   `form`), swapped in. Its props and page come from the form's action URL,
   as for a form posted without JavaScript: the props `actionUrl()` wrote in
   its query (strings, numbers and booleans, read back as strings) and the
-  page in `__droplet_return`. Either way focus goes back to the control in
+  page in `__droplet_return`. The result goes with it only when it is plain
+  JSON ([What an action returns](#what-an-action-returns)). Either way focus goes back to the control in
   the same place;
 - **redirect**: the page goes there (`location.assign`), to the absolute
   `http:` or `https:` URL the server answers, already checked against its

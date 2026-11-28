@@ -24,6 +24,7 @@ import { checkLoadResult, DropletRenderError, runHandleError, settle, toWireErro
 import { ACTION_NAME, actionUrlFor } from "./form.ts";
 import { parseHost } from "./host.ts";
 import { PropsError, prerenderKey, propsKey, validateProps } from "./props.ts";
+import { encodePayload } from "./payload-encode.server.ts";
 import { isRenderTimeout } from "./render-timeout.ts";
 import { requestInfo, withRequestInfo } from "./request-store.ts";
 import { matchRoute, type ApiMatch, type ApiRoute } from "./routes.ts";
@@ -286,7 +287,8 @@ async function serverFailure({ name, error }: ServerFailureInput): Promise<Serve
  */
 export async function loadDropletData(name: string, event: LoadEvent): Promise<DropletPayload> {
   try {
-    return { data: await runServerLoad({ name, event }) };
+    const data = await runServerLoad({ name, event });
+    return { data, wire: encodePayload({ value: data, what: "server data", droplet: name }) };
   } catch (error) {
     if (isAnswer({ error, event })) throw error;
     return serverFailure({ name, error });
@@ -374,6 +376,8 @@ export async function renderDroplet(name: string, event: LoadEvent, options: Ren
   let serverData: unknown;
   try {
     serverData = await runServerLoad({ name, event });
+    // Checked on every render, sent or not: a value that renders here never fails only later, through `_data`.
+    const serverWire = encodePayload({ value: serverData, what: "server data", droplet: name });
     const data = await runUniversalLoad({ name, event, serverData });
     const props = options.form === undefined ? { data } : { data, form: options.form };
     const { html, head, renderId } = await renderWith({
@@ -385,7 +389,7 @@ export async function renderDroplet(name: string, event: LoadEvent, options: Ren
       dropletProps: event.props,
     });
     if (import.meta.env.DEV) logger.debug("rendered droplet", { droplet: name, bodyLength: html.length });
-    return { body: html, html, data, serverData, renderId, ...(head === undefined ? {} : { head }) };
+    return { body: html, html, data, serverData, serverWire, renderId, ...(head === undefined ? {} : { head }) };
   } catch (error) {
     if (isAnswer({ error, event })) throw error;
     return serverFailure({ name, error });
@@ -420,6 +424,8 @@ export async function renderError(name: string, error: unknown, props: Record<st
 }
 
 export { tokenNonce };
+/** The payload encoder of this bundle, for the app (`DropletsAppOptions.encodePayload`). */
+export { encodePayload };
 export { tokens } from "virtual:droplets-config";
 
 /** The public variables read at runtime, with their values now: `/index.js` hands them to the page. */

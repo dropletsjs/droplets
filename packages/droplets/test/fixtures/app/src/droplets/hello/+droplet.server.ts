@@ -9,6 +9,12 @@ export const load = async ({ props, locals, fetch }: LoadEvent) => {
   const fetched = props["who"] === "fetched" ? await (await fetch("/api/whoami?from=hello")).json() : undefined;
   return {
     who: typeof props["who"] === "string" ? props["who"] : "world",
+    // The built-in transports: they reach the browser's load as themselves.
+    when: new Date("2026-01-02T03:04:05.000Z"),
+    tags: new Map([["a", "alpha"]]),
+    seen: new Set([1]),
+    link: new URL("https://shop.example/x"),
+    big: 41n,
     hooked: locals["hooked"] === true,
     secret: env.FIXTURE_SECRET ?? null,
     flag: env.FIXTURE_STATIC,

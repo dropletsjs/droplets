@@ -153,9 +153,49 @@ Keep it pure: it has to produce the same result on both sides, or the
 hydrated markup will not match what the server rendered.
 
 Both files are optional. With neither, `data` is `undefined` and the
-component simply renders. Both return a plain object, or nothing. A
+component simply renders. Both return a plain object, or nothing (what it
+may hold: [What data can be](#what-data-can-be)). A
 `Response` (from `json()`, say) is refused: responses belong in
 [`+server.ts`](/guides/server/#api-routes).
+
+### What data can be
+
+What the server load returns travels to the browser inside the fragment
+(and in every `_data` answer), so it has to survive the trip. It can hold:
+
+- plain JSON: plain objects, arrays, strings, finite numbers, booleans and
+  `null`;
+- `Date`, `Map`, `Set`, `URL` and `BigInt`, nested anywhere (a `Map` of
+  `Set`s of `URL`s is fine). The browser's `load` gets them back as the
+  same types: `data.when.getFullYear()` works on both sides.
+
+```ts
+// src/droplets/hello/+droplet.server.ts
+export const load = async () => ({
+  when: new Date("2026-01-02T03:04:05.000Z"),
+  tags: new Map([["a", "alpha"]]),
+  total: 41n,
+});
+```
+
+Anything else is refused on every render, with the path to the value and
+the reason (`droplets error payload-not-serializable`, "the server data
+cannot travel to the browser: items[0].price is a Money with no
+transport"): the droplet renders its [error page](/guides/errors/), and
+production logs the error with `console.error`. Refused are:
+
+- a function, a symbol, a promise (await it in the load);
+- an instance of any other class, a subclass of `Map` or `Date` included;
+- a cycle (a value that holds itself; the same object in two places is
+  fine, it travels as two copies);
+- `undefined` or a hole in an array, `NaN`, `Infinity`, an invalid `Date`;
+- an object with its own `toJSON` method, nesting deeper than 64 levels.
+
+An object property that is `undefined` is left out, as `JSON.stringify`
+would, and `-0` arrives as `0`. An action's result follows the same rules
+([What an action returns](/guides/actions/#what-an-action-returns)). How
+these values travel is in the
+[HTTP contract](/integrate/http-contract/#transported-values).
 
 ### When a load stops
 

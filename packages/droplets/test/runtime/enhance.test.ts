@@ -8,6 +8,7 @@ import {
   redirectTarget,
   submission,
 } from "../../src/runtime/enhance.ts";
+import { decodePayload } from "../../src/runtime/payload-decode.ts";
 import { serverKey, serverRecord } from "../../src/runtime/server-records.ts";
 
 const LOCATION = "https://drops.test/mfe";
@@ -24,6 +25,9 @@ class Host extends HTMLElement {
   async updateForm({ form, action }: { form: unknown; action?: string | undefined }) {
     this.forms.push(form);
     this.actions.push(action);
+  }
+  decodePayload(envelope: Record<string, unknown>) {
+    return decodePayload({ envelope: structuredClone(envelope) });
   }
 }
 customElements.define("enhance-host", Host);
@@ -84,6 +88,12 @@ describe("actionAnswer and redirectTarget", () => {
   it("takes a result by its shape, own keys only, and nothing else", () => {
     expect(actionAnswer('{"type":"success","status":200,"data":{"a":1}}')).toEqual({ type: "success", status: 200, data: { a: 1 } });
     expect(actionAnswer('{"type":"redirect","status":303,"location":"/bye"}')).toEqual({ type: "redirect", status: 303, location: "/bye" });
+    expect(actionAnswer('{"type":"success","status":200,"data":{"a":"x"},"transported":[[["data","a"],"Date"]]}')).toEqual({
+      type: "success",
+      status: 200,
+      data: { a: "x" },
+      transported: [[["data", "a"], "Date"]],
+    });
     for (const body of [
       "",
       "nope",
@@ -354,6 +364,36 @@ describe("enhanceDropletForm", () => {
     form("sign").requestSubmit();
     await flush();
     expect(native).toEqual(["sign"]);
+  });
+
+  it("decodes the answer's transported values for the element and onResult; the page's event keeps the wire form", async () => {
+    const host = mount(`<form data-testid="sign" method="post" action="${OWN}"></form>`);
+    answer = () =>
+      Response.json({ type: "failure", status: 422, data: { at: "1970-01-01T00:00:00.000Z" }, transported: [[["data", "at"], "Date"]] });
+    const seen: unknown[] = [];
+    enhanceDropletForm(form("sign"), {
+      onResult: async ({ data, update }) => {
+        seen.push(data);
+        await update();
+      },
+    });
+    form("sign").requestSubmit();
+    await flush();
+    expect(seen).toEqual([{ at: new Date(0) }]);
+    expect(host.forms).toEqual([{ at: new Date(0) }]);
+    expect(events[0]?.data).toEqual({ at: "1970-01-01T00:00:00.000Z" });
+  });
+
+  it("applies nothing for an answer it cannot decode", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const host = mount(`<form data-testid="sign" method="post" action="${OWN}"></form>`);
+    answer = () => Response.json({ type: "success", status: 200, data: { at: "x" }, transported: [[["data", "at"], "Money"]] });
+    enhanceDropletForm(form("sign"));
+    form("sign").requestSubmit();
+    await flush();
+    expect(host.forms).toEqual([]);
+    expect(events).toEqual([]);
+    expect(error.mock.calls.some((call) => String(call[0]).includes("payload-undecodable"))).toBe(true);
   });
 
   it("applies nothing for an answer that is no result, and gives the page a copy of the data", async () => {
