@@ -1,5 +1,15 @@
 # @dropletsjs/renderer-svelte
 
+## 1.0.3
+
+### Patch Changes
+
+- Updated dependencies [0827d50]
+- Updated dependencies [91b0bab]
+- Updated dependencies [e0d0da3]
+- Updated dependencies [7d0ecf5]
+  - @dropletsjs/droplets@1.0.3
+
 ## 1.0.2
 
 ### Patch Changes
